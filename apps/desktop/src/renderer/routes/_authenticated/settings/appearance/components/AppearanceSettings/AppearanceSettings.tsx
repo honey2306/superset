@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	isItemVisible,
 	SETTING_ITEM_ID,
 	type SettingItemId,
 } from "../../../utils/settings-search";
 import { FontSettingSection } from "./components/FontSettingSection";
+import { LanguageSection } from "./components/LanguageSection";
 import { MarkdownStyleSection } from "./components/MarkdownStyleSection";
 import { ThemeSection } from "./components/ThemeSection";
 
@@ -29,6 +31,7 @@ interface AppearanceSettingsProps {
 }
 
 export function AppearanceSettings({ visibleItems }: AppearanceSettingsProps) {
+	const { t } = useTranslation();
 	const showTheme = isItemVisible(
 		SETTING_ITEM_ID.APPEARANCE_THEME,
 		visibleItems,
@@ -54,13 +57,14 @@ export function AppearanceSettings({ visibleItems }: AppearanceSettingsProps) {
 	return (
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Appearance</h2>
+				<h2 className="text-xl font-semibold">{t("settings.appearance")}</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Customize how Superset looks on your device
+					{t("appearance.description")}
 				</p>
 			</div>
 
 			<SectionList>
+				<LanguageSection key="language" />
 				{showThemeSection && <ThemeSection key="theme" />}
 				{showMarkdown && <MarkdownStyleSection key="markdown" />}
 				{showEditorFont && (

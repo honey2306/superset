@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { getHostServiceUnavailableMessage } from "renderer/lib/host-service-unavailable";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { BranchPrefixControl } from "../../../components/BranchPrefixControl";
@@ -34,6 +35,7 @@ interface V2GitSettingsProps {
  * user has 2+ devices in this org.
  */
 export function V2GitSettings({ hostId }: V2GitSettingsProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const hostService = useLocalHostService();
 	const { machineId } = hostService;
@@ -48,7 +50,7 @@ export function V2GitSettings({ hostId }: V2GitSettingsProps) {
 		if (localHostId) {
 			options.push({
 				id: localHostId,
-				name: currentDeviceName ?? "This device",
+				name: currentDeviceName ?? t("git.thisDevice"),
 				isLocal: true,
 				isOnline: true,
 			});
@@ -64,13 +66,13 @@ export function V2GitSettings({ hostId }: V2GitSettingsProps) {
 		if (targetHostId && !options.some((o) => o.id === targetHostId)) {
 			options.push({
 				id: targetHostId,
-				name: targetHostId === machineId ? "This device" : targetHostId,
+				name: targetHostId === machineId ? t("git.thisDevice") : targetHostId,
 				isLocal: targetHostId === machineId,
 				isOnline: targetHostId === machineId,
 			});
 		}
 		return options;
-	}, [currentDeviceName, localHostId, machineId, otherHosts, targetHostId]);
+	}, [currentDeviceName, localHostId, machineId, otherHosts, t, targetHostId]);
 
 	const selectedHost = useMemo(
 		() => hostOptions.find((o) => o.id === targetHostId) ?? null,
@@ -80,8 +82,8 @@ export function V2GitSettings({ hostId }: V2GitSettingsProps) {
 	const isRemoteTarget = Boolean(selectedHost && !selectedHost.isLocal);
 	const isHostOnline = selectedHost?.isOnline ?? true;
 	const selectedHostName = selectedHost?.isLocal
-		? "this device"
-		: (selectedHost?.name ?? "this device");
+		? t("git.thisDevice")
+		: (selectedHost?.name ?? t("git.thisDevice"));
 
 	const worktreeQuery = useV2WorktreeLocationSettings(targetHostUrl, {
 		enabled: isHostOnline,
@@ -161,10 +163,11 @@ export function V2GitSettings({ hostId }: V2GitSettingsProps) {
 		<div className="p-6 max-w-4xl w-full mx-auto select-text">
 			<header className="mb-8 flex items-center justify-between gap-4">
 				<div className="min-w-0">
-					<h2 className="text-xl font-semibold">Git &amp; worktrees</h2>
+					<h2 className="text-xl font-semibold">
+						{t("settings.gitWorktrees")}
+					</h2>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Branch behavior for new workspaces on this device. Projects can
-						override the prefix individually.
+						{t("git.description")}
 					</p>
 				</div>
 				{hasMultipleHosts && targetHostId ? (
@@ -184,10 +187,10 @@ export function V2GitSettings({ hostId }: V2GitSettingsProps) {
 
 			<section>
 				<SettingsRow
-					label="Branch prefix"
+					label={t("git.branchPrefix")}
 					hint={
 						<>
-							Group new branches under a folder.{" "}
+							{t("git.branchPrefixHint")}{" "}
 							<code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
 								{previewPrefix ? `${previewPrefix}/branch-name` : "branch-name"}
 							</code>
@@ -207,8 +210,8 @@ export function V2GitSettings({ hostId }: V2GitSettingsProps) {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					label="Worktree location"
-					hint={`Base directory for new worktrees on ${selectedHostName}.`}
+					label={t("git.worktreeLocation")}
+					hint={t("git.worktreeLocationHint", { host: selectedHostName })}
 				>
 					<V2WorktreeLocationPicker
 						currentPath={worktreeQuery.data?.worktreeBaseDir ?? null}
@@ -224,7 +227,7 @@ export function V2GitSettings({ hostId }: V2GitSettingsProps) {
 							worktreeQuery.isLoading ||
 							setWorktreeBaseDir.isPending
 						}
-						browseTitle="Select default worktree location"
+						browseTitle={t("git.selectWorktreeLocation")}
 						onSelect={(path) => setWorktreeBaseDir.mutate(path)}
 						onReset={() => setWorktreeBaseDir.mutate(null)}
 					/>

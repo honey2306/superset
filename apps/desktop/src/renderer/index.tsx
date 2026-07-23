@@ -15,6 +15,7 @@ import {
 import { persistentHistory } from "./lib/persistent-hash-history";
 import { posthog } from "./lib/posthog";
 import { electronQueryClient } from "./providers/ElectronTRPCProvider";
+import { I18nProvider } from "./providers/I18nProvider";
 import { NotFound } from "./routes/not-found";
 import { routeTree } from "./routeTree.gen";
 
@@ -77,7 +78,9 @@ if (!rootElement) {
 		<BootErrorBoundary
 			onError={(error) => reportBootError("Render failed", error)}
 		>
-			<RouterProvider router={router} />
+			<I18nProvider>
+				<RouterProvider router={router} />
+			</I18nProvider>
 		</BootErrorBoundary>,
 	);
 	markBootMounted();

@@ -9,6 +9,7 @@ import {
 } from "@superset/ui/select";
 import { Switch } from "@superset/ui/switch";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	isItemVisible,
 	SETTING_ITEM_ID,
@@ -20,6 +21,7 @@ interface BehaviorSettingsProps {
 }
 
 export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
+	const { t } = useTranslation();
 	const showConfirmQuit = isItemVisible(
 		SETTING_ITEM_ID.BEHAVIOR_CONFIRM_QUIT,
 		visibleItems,
@@ -128,9 +130,9 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 	return (
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
-				<h2 className="text-xl font-semibold">General</h2>
+				<h2 className="text-xl font-semibold">{t("settings.general")}</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Configure general app preferences
+					{t("behavior.description")}
 				</p>
 			</div>
 
@@ -139,10 +141,10 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 					<div className="flex items-center justify-between">
 						<div className="space-y-0.5">
 							<Label htmlFor="confirm-on-quit" className="text-sm font-medium">
-								Confirm before quitting
+								{t("behavior.confirmBeforeQuitting")}
 							</Label>
 							<p className="text-xs text-muted-foreground">
-								Show a confirmation dialog when quitting the app
+								{t("behavior.confirmBeforeQuittingHint")}
 							</p>
 						</div>
 						<Switch
@@ -157,9 +159,11 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 				{showFileOpenMode && (
 					<div className="flex items-center justify-between">
 						<div className="space-y-0.5">
-							<Label className="text-sm font-medium">File open mode</Label>
+							<Label className="text-sm font-medium">
+								{t("behavior.fileOpenMode")}
+							</Label>
 							<p className="text-xs text-muted-foreground">
-								Choose how files open when no preview pane exists
+								{t("behavior.fileOpenModeHint")}
 							</p>
 						</div>
 						<Select
@@ -173,8 +177,10 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="split-pane">Split pane</SelectItem>
-								<SelectItem value="new-tab">New tab</SelectItem>
+								<SelectItem value="split-pane">
+									{t("behavior.splitPane")}
+								</SelectItem>
+								<SelectItem value="new-tab">{t("behavior.newTab")}</SelectItem>
 							</SelectContent>
 						</Select>
 					</div>
@@ -184,10 +190,10 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 					<div className="flex items-center justify-between">
 						<div className="space-y-0.5">
 							<Label htmlFor="resource-monitor" className="text-sm font-medium">
-								Resource monitor
+								{t("behavior.resourceMonitor")}
 							</Label>
 							<p className="text-xs text-muted-foreground">
-								Show CPU and memory usage in the top bar
+								{t("behavior.resourceMonitorHint")}
 							</p>
 						</div>
 						<Switch
@@ -210,11 +216,10 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 								htmlFor="open-links-in-app"
 								className="text-sm font-medium"
 							>
-								Open links in the in-app browser
+								{t("behavior.openLinksInApp")}
 							</Label>
 							<p className="text-xs text-muted-foreground">
-								Open links from chat and terminal in the in-app browser instead
-								of your default browser
+								{t("behavior.openLinksInAppHint")}
 							</p>
 						</div>
 						<Switch

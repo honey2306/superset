@@ -7,6 +7,7 @@ import {
 	HiXMark,
 } from "react-icons/hi2";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useSetSettingsSearchQuery,
 	useSettingsOriginRoute,
@@ -16,6 +17,7 @@ import { getVisibleMatchCountBySection } from "../../utils/settings-search";
 import { GeneralSettings } from "./GeneralSettings";
 
 export function SettingsSidebar() {
+	const { t } = useTranslation();
 	const searchQuery = useSettingsSearchQuery();
 	const setSearchQuery = useSetSettingsSearchQuery();
 	const originRoute = useSettingsOriginRoute();
@@ -33,18 +35,20 @@ export function SettingsSidebar() {
 				className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
 			>
 				<HiArrowLeft className="h-4 w-4" />
-				<span>Back</span>
+				<span>{t("navigation.back")}</span>
 			</Link>
 
 			{/* Settings title */}
-			<h1 className="text-lg font-semibold px-3 mb-4">Settings</h1>
+			<h1 className="text-lg font-semibold px-3 mb-4">
+				{t("navigation.settings")}
+			</h1>
 
 			{/* Search input */}
 			<div className="relative px-3 mb-4">
 				<HiMagnifyingGlass className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
 				<input
 					type="text"
-					placeholder="Search settings..."
+					placeholder={t("settings.search")}
 					value={searchQuery}
 					onChange={(e) => setSearchQuery(e.target.value)}
 					className="w-full h-8 pl-8 pr-8 text-sm bg-accent/50 rounded-md border-0 outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
@@ -72,7 +76,7 @@ export function SettingsSidebar() {
 					className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground transition-colors"
 				>
 					<HiArrowTopRightOnSquare className="h-4 w-4" />
-					<span>Documentation</span>
+					<span>{t("navigation.documentation")}</span>
 				</a>
 			</div>
 		</div>
