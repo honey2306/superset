@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
 import {
 	type SettingsListGroup,
@@ -24,6 +25,7 @@ interface ProjectsSettingsSidebarProps {
 export function ProjectsSettingsSidebar({
 	selectedProjectId,
 }: ProjectsSettingsSidebarProps) {
+	const { t } = useTranslation();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 	const { data: groups = [] } =
 		electronTrpc.workspaces.getAllGrouped.useQuery();
@@ -64,14 +66,14 @@ export function ProjectsSettingsSidebar({
 
 	return (
 		<SettingsListSidebar
-			searchPlaceholder="Filter projects..."
-			searchAriaLabel="Filter projects"
+			searchPlaceholder={t("projects.filter")}
+			searchAriaLabel={t("projects.filterAria")}
 			hideFilterWhenEmpty
 			groups={listGroups}
 			filterRow={(row, q) => row.name.toLowerCase().includes(q.toLowerCase())}
 			getRowKey={(row) => `${row.kind}:${row.id}`}
-			emptyLabel="No projects yet."
-			noMatchLabel={(q) => `No projects match "${q}".`}
+			emptyLabel={t("projects.none")}
+			noMatchLabel={(q) => t("projects.noMatch", { query: q })}
 			renderRow={(row) => (
 				<Link
 					to="/settings/projects/$projectId"

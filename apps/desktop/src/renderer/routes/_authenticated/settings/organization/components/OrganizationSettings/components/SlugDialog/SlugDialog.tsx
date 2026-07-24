@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { z } from "zod";
 
 const slugSchema = z.object({
@@ -53,6 +54,7 @@ export function SlugDialog({
 	currentSlug,
 	onSuccess,
 }: SlugDialogProps) {
+	const { t } = useTranslation();
 	const [isCheckingSlug, setIsCheckingSlug] = useState(false);
 	const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
 
@@ -111,23 +113,31 @@ export function SlugDialog({
 			onSuccess?.();
 			onOpenChange(false);
 			setSlugAvailable(null);
-			toast.success("Organization URL updated!");
+			toast.success(t("organization.urlUpdated"));
 		} catch (error) {
 			const message =
-				error instanceof Error ? error.message : "Failed to update URL";
+				error instanceof Error
+					? error.message
+					: t("organization.urlUpdateFailed");
 			toast.error(message);
 		}
 	}
 
 	function getSlugStatusDisplay(): { text: string; className: string } | null {
 		if (isCheckingSlug) {
-			return { text: "Checking...", className: "text-muted-foreground" };
+			return {
+				text: t("organization.checking"),
+				className: "text-muted-foreground",
+			};
 		}
 		if (slugAvailable === true) {
-			return { text: "Available", className: "text-green-600" };
+			return { text: t("organization.available"), className: "text-green-600" };
 		}
 		if (slugAvailable === false) {
-			return { text: "Taken", className: "text-destructive" };
+			return {
+				text: t("organization.slugTaken"),
+				className: "text-destructive",
+			};
 		}
 		return null;
 	}
@@ -138,10 +148,9 @@ export function SlugDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Change organization slug</DialogTitle>
+					<DialogTitle>{t("organization.changeSlug")}</DialogTitle>
 					<DialogDescription>
-						This will change your organization's public URL. Make sure to update
-						any bookmarks or shared links.
+						{t("organization.changeSlugDescription")}
 					</DialogDescription>
 				</DialogHeader>
 				<Form {...slugForm}>
@@ -154,7 +163,7 @@ export function SlugDialog({
 							name="slug"
 							render={({ field }) => (
 								<>
-									<FormLabel>Organization slug</FormLabel>
+									<FormLabel>{t("organization.organizationSlug")}</FormLabel>
 									<FormControl>
 										<div className="relative">
 											<Input {...field} placeholder="acme-inc" />
@@ -181,7 +190,7 @@ export function SlugDialog({
 									setSlugAvailable(null);
 								}}
 							>
-								Cancel
+								{t("common.cancel")}
 							</Button>
 							<Button
 								type="submit"
@@ -191,7 +200,7 @@ export function SlugDialog({
 									slugValue === currentSlug
 								}
 							>
-								Save
+								{t("common.save")}
 							</Button>
 						</DialogFooter>
 					</form>

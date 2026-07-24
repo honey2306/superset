@@ -8,6 +8,7 @@ import {
 	EnterEnabledAlertDialogContent,
 } from "@superset/ui/alert-dialog";
 import { Button } from "@superset/ui/button";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface DiscardConfirmDialogProps {
 	open: boolean;
@@ -25,9 +26,10 @@ export function DiscardConfirmDialog({
 	title,
 	description,
 	onConfirm,
-	confirmLabel = "Discard",
+	confirmLabel,
 	confirmDisabled = false,
 }: DiscardConfirmDialogProps) {
+	const { t } = useTranslation();
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<EnterEnabledAlertDialogContent className="max-w-[340px] gap-0 p-0">
@@ -42,7 +44,7 @@ export function DiscardConfirmDialog({
 						className="h-7 px-3 text-xs"
 						onClick={() => onOpenChange(false)}
 					>
-						Cancel
+						{t("v1Changes.dialog.cancel")}
 					</Button>
 					<AlertDialogAction
 						variant="destructive"
@@ -51,7 +53,7 @@ export function DiscardConfirmDialog({
 						disabled={confirmDisabled}
 						onClick={onConfirm}
 					>
-						{confirmLabel}
+						{confirmLabel ?? t("v1Changes.dialog.discard")}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</EnterEnabledAlertDialogContent>

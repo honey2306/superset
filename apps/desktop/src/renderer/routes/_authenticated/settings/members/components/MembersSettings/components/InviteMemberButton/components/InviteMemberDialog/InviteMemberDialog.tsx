@@ -1,8 +1,4 @@
-import {
-	canInvite,
-	ORGANIZATION_ROLES,
-	type OrganizationRole,
-} from "@superset/shared/auth";
+import { canInvite, type OrganizationRole } from "@superset/shared/auth";
 import { Button } from "@superset/ui/button";
 import {
 	Dialog,
@@ -24,6 +20,7 @@ import {
 import { toast } from "@superset/ui/sonner";
 import { useState } from "react";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface InviteMemberDialogProps {
 	open: boolean;
@@ -42,13 +39,16 @@ export function InviteMemberDialog({
 	invitableRoles,
 	currentUserRole,
 }: InviteMemberDialogProps) {
+	const { t } = useTranslation();
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<OrganizationRole>("member");
 	const [isInviting, setIsInviting] = useState(false);
 
 	const handleInvite = async () => {
 		if (!canInvite(currentUserRole, role)) {
-			toast.error(`Cannot invite users as ${ORGANIZATION_ROLES[role].name}`);
+			toast.error(
+				t("members.cannotInviteRole", { role: t(`organization.role.${role}`) }),
+			);
 			return;
 		}
 
@@ -60,13 +60,13 @@ export function InviteMemberDialog({
 				role,
 			});
 
-			toast.success(`Invitation sent to ${email}`);
+			toast.success(t("members.invitationSent", { email }));
 			setEmail("");
 			setRole("member");
 			onOpenChange(false);
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : "Failed to send invitation",
+				error instanceof Error ? error.message : t("members.invitationFailed"),
 			);
 		} finally {
 			setIsInviting(false);
@@ -77,15 +77,15 @@ export function InviteMemberDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Invite Member</DialogTitle>
+					<DialogTitle>{t("members.invite")}</DialogTitle>
 					<DialogDescription>
-						Send an invitation to join {organizationName}. Expires in 48 hours.
+						{t("members.inviteDescription", { organization: organizationName })}
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-4 py-4">
 					<div className="space-y-2">
-						<Label htmlFor="email">Email</Label>
+						<Label htmlFor="email">{t("common.email")}</Label>
 						<Input
 							id="email"
 							type="email"
@@ -102,7 +102,7 @@ export function InviteMemberDialog({
 					</div>
 
 					<div className="space-y-2">
-						<Label htmlFor="role">Role</Label>
+						<Label htmlFor="role">{t("organization.role")}</Label>
 						<Select
 							value={role}
 							onValueChange={(val) => setRole(val as OrganizationRole)}
@@ -113,7 +113,7 @@ export function InviteMemberDialog({
 							<SelectContent>
 								{invitableRoles.map((r) => (
 									<SelectItem key={r} value={r}>
-										{ORGANIZATION_ROLES[r].name}
+										{t(`organization.role.${r}`)}
 									</SelectItem>
 								))}
 							</SelectContent>
@@ -130,7 +130,7 @@ export function InviteMemberDialog({
 						Cancel
 					</Button>
 					<Button onClick={handleInvite} disabled={isInviting || !email}>
-						{isInviting ? "Sending..." : "Send Invitation"}
+						{isInviting ? t("members.sending") : t("members.sendInvitation")}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

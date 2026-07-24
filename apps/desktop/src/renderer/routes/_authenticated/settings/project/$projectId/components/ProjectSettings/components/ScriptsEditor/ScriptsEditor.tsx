@@ -9,6 +9,7 @@ import {
 } from "react-icons/hi2";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { invalidateProjectScriptQueries } from "renderer/lib/project-scripts";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { EXTERNAL_LINKS } from "shared/constants";
 
 interface ScriptsEditorProps {
@@ -52,6 +53,7 @@ function ScriptTextarea({
 	onChange,
 	onBlur,
 }: ScriptTextareaProps) {
+	const { t } = useTranslation();
 	const [isDragOver, setIsDragOver] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,7 +116,7 @@ function ScriptTextarea({
 			{/* biome-ignore lint/a11y/useSemanticElements: Drop zone wrapper for drag-and-drop functionality */}
 			<div
 				role="region"
-				aria-label="Script editor with file drop support"
+				aria-label={t("project.scriptEditorAria")}
 				className={cn(
 					"relative rounded-lg border transition-colors",
 					isDragOver
@@ -137,7 +139,7 @@ function ScriptTextarea({
 					<div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-lg pointer-events-none">
 						<div className="flex items-center gap-2 text-primary text-sm font-medium">
 							<HiDocumentArrowUp className="h-5 w-5" />
-							Drop to import
+							{t("project.dropToImport")}
 						</div>
 					</div>
 				)}
@@ -150,7 +152,7 @@ function ScriptTextarea({
 				className="gap-1.5 text-muted-foreground"
 			>
 				<HiDocumentArrowUp className="h-3.5 w-3.5" />
-				Import file
+				{t("project.importFile")}
 			</Button>
 			<input
 				ref={fileInputRef}
@@ -166,6 +168,7 @@ function ScriptTextarea({
 type SaveStatus = "idle" | "saving" | "saved";
 
 export function ScriptsEditor({ projectId, className }: ScriptsEditorProps) {
+	const { t } = useTranslation();
 	const utils = electronTrpc.useUtils();
 
 	const { data: configData, isLoading } =
@@ -348,17 +351,19 @@ export function ScriptsEditor({ projectId, className }: ScriptsEditorProps) {
 		<div className={cn("space-y-3", className)}>
 			<div className="flex items-center justify-between gap-2">
 				<div className="flex items-center gap-2">
-					<h3 className="text-base font-semibold text-foreground">Scripts</h3>
+					<h3 className="text-base font-semibold text-foreground">
+						{t("project.scripts")}
+					</h3>
 					{saveStatus === "saving" && (
 						<span className="text-xs text-muted-foreground flex items-center gap-1">
 							<span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-							Saving…
+							{t("common.saving")}
 						</span>
 					)}
 					{saveStatus === "saved" && (
 						<span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
 							<HiCheckCircle className="h-3.5 w-3.5" />
-							Saved
+							{t("project.saved")}
 						</span>
 					)}
 				</div>
@@ -368,7 +373,7 @@ export function ScriptsEditor({ projectId, className }: ScriptsEditorProps) {
 						target="_blank"
 						rel="noopener noreferrer"
 					>
-						Docs
+						{t("project.docs")}
 						<HiArrowTopRightOnSquare className="h-3.5 w-3.5" />
 					</a>
 				</Button>
@@ -376,13 +381,15 @@ export function ScriptsEditor({ projectId, className }: ScriptsEditorProps) {
 
 			<Tabs defaultValue="setup">
 				<TabsList>
-					<TabsTrigger value="setup">Setup</TabsTrigger>
-					<TabsTrigger value="teardown">Teardown</TabsTrigger>
-					<TabsTrigger value="run">Run</TabsTrigger>
+					<TabsTrigger value="setup">{t("project.setupScript")}</TabsTrigger>
+					<TabsTrigger value="teardown">
+						{t("project.teardownScript")}
+					</TabsTrigger>
+					<TabsTrigger value="run">{t("project.runScript")}</TabsTrigger>
 				</TabsList>
 				<TabsContent value="setup">
 					<ScriptTextarea
-						description="Runs when a new workspace is created."
+						description={t("project.setupScriptDescription")}
 						placeholder="e.g. bun install && bun run dev"
 						value={setupContent}
 						onChange={handleSetupChange}
@@ -391,7 +398,7 @@ export function ScriptsEditor({ projectId, className }: ScriptsEditorProps) {
 				</TabsContent>
 				<TabsContent value="teardown">
 					<ScriptTextarea
-						description="Runs when a workspace is deleted."
+						description={t("project.teardownScriptDescription")}
 						placeholder="e.g. docker compose down"
 						value={teardownContent}
 						onChange={handleTeardownChange}
@@ -400,7 +407,7 @@ export function ScriptsEditor({ projectId, className }: ScriptsEditorProps) {
 				</TabsContent>
 				<TabsContent value="run">
 					<ScriptTextarea
-						description="Command to start your dev server, triggered via keyboard shortcut."
+						description={t("project.runScriptDescription")}
 						placeholder="e.g. bun run dev"
 						value={runContent}
 						onChange={handleRunChange}

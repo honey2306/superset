@@ -1,6 +1,7 @@
 import { Button } from "@superset/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { VscListFlat, VscListTree } from "react-icons/vsc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ChangesViewMode } from "../../types";
 
 interface ViewModeToggleProps {
@@ -12,6 +13,7 @@ export function ViewModeToggle({
 	viewMode,
 	onViewModeChange,
 }: ViewModeToggleProps) {
+	const { t } = useTranslation();
 	const handleToggle = () => {
 		onViewModeChange(viewMode === "grouped" ? "tree" : "grouped");
 	};
@@ -26,8 +28,8 @@ export function ViewModeToggle({
 					className="size-6 p-0"
 					aria-label={
 						viewMode === "grouped"
-							? "Switch to tree view"
-							: "Switch to grouped view"
+							? t("v1Changes.viewMode.switchToTree")
+							: t("v1Changes.viewMode.switchToGrouped")
 					}
 				>
 					{viewMode === "grouped" ? (
@@ -39,8 +41,8 @@ export function ViewModeToggle({
 			</TooltipTrigger>
 			<TooltipContent side="top" showArrow={false}>
 				{viewMode === "grouped"
-					? "Switch to tree view"
-					: "Switch to grouped view"}
+					? t("v1Changes.viewMode.switchToTree")
+					: t("v1Changes.viewMode.switchToGrouped")}
 			</TooltipContent>
 		</Tooltip>
 	);

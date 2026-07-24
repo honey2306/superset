@@ -27,6 +27,7 @@ import {
 	type PierreGitStatusEntry,
 	stripTrailingSlash,
 } from "renderer/lib/pierreTree";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DiscardConfirmDialog } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/DiscardConfirmDialog";
 import { PierreRowContextMenu } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/WorkspaceSidebar/components/PierreRowContextMenu";
 import {
@@ -104,6 +105,7 @@ export const ChangesTreeView = memo(function ChangesTreeView({
 	onOpenFile,
 	onOpenInEditor,
 }: ChangesTreeViewProps) {
+	const { t } = useTranslation();
 	const paths = useMemo(() => files.map((f) => f.path), [files]);
 	const fileByPath = useMemo(() => {
 		const map = new Map<string, ChangesetFile>();
@@ -261,7 +263,9 @@ export const ChangesTreeView = memo(function ChangesTreeView({
 			void utils.git.getDiff.invalidate({ workspaceId });
 		},
 		onError: (err) => {
-			toast.error("Couldn't discard changes", { description: err.message });
+			toast.error(t("v2Workspace.changes.discardChangesFailed"), {
+				description: err.message,
+			});
 		},
 	});
 
@@ -315,8 +319,7 @@ export const ChangesTreeView = memo(function ChangesTreeView({
 				<TooltipTrigger asChild>
 					<button
 						type="button"
-						aria-label="Discard changes"
-						className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-destructive"
+						aria-label={t("v2Workspace.changes.discardChanges")}
 						onClick={(e) => {
 							e.stopPropagation();
 							setDiscardTarget(file);
@@ -325,7 +328,9 @@ export const ChangesTreeView = memo(function ChangesTreeView({
 						<Undo2 className="size-3.5" />
 					</button>
 				</TooltipTrigger>
-				<TooltipContent side="top">Discard changes</TooltipContent>
+				<TooltipContent side="top">
+					{t("v2Workspace.changes.discardChanges")}
+				</TooltipContent>
 			</Tooltip>
 		);
 	};
@@ -362,15 +367,19 @@ export const ChangesTreeView = memo(function ChangesTreeView({
 					onOpenChange={(open) => !open && setDiscardTarget(null)}
 					title={
 						discardIsDelete
-							? `Delete "${discardBasename}"?`
-							: `Discard changes to "${discardBasename}"?`
+							? t("v2Workspace.changes.deleteFile", { name: discardBasename })
+							: t("v2Workspace.changes.discardFile", { name: discardBasename })
 					}
 					description={
 						discardIsDelete
-							? "This will permanently delete this file. This action cannot be undone."
-							: "This will revert all changes to this file. This action cannot be undone."
+							? t("v2Workspace.changes.deleteDesc")
+							: t("v2Workspace.changes.discardDesc")
 					}
-					confirmLabel={discardIsDelete ? "Delete" : "Discard"}
+					confirmLabel={
+						discardIsDelete
+							? t("v2Workspace.changes.deleteAction")
+							: t("v2Workspace.changes.discardAction")
+					}
 					onConfirm={() => {
 						const target = discardTarget;
 						setDiscardTarget(null);

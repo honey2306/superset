@@ -7,6 +7,7 @@ import {
 	AlertDialogTitle,
 } from "@superset/ui/alert-dialog";
 import { Button } from "@superset/ui/button";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { DirectoryEntry } from "shared/file-tree-types";
 
 interface DeleteConfirmDialogProps {
@@ -24,13 +25,16 @@ export function DeleteConfirmDialog({
 	onConfirm,
 	isDeleting = false,
 }: DeleteConfirmDialogProps) {
+	const { t } = useTranslation();
+
 	if (!entry) return null;
 
-	const itemType = entry.isDirectory ? "folder" : "file";
-	const title = `Delete ${itemType} "${entry.name}"?`;
+	const title = entry.isDirectory
+		? t("files.deleteFolderTitle", { name: entry.name })
+		: t("files.deleteFileTitle", { name: entry.name });
 	const description = entry.isDirectory
-		? "This folder and all its contents will be moved to the trash. This action can be undone from the system trash."
-		: "This file will be moved to the trash. This action can be undone from the system trash.";
+		? t("files.deleteFolderDescription")
+		: t("files.deleteFileDescription");
 
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -47,7 +51,7 @@ export function DeleteConfirmDialog({
 						onClick={() => onOpenChange(false)}
 						disabled={isDeleting}
 					>
-						Cancel
+						{t("common.cancel")}
 					</Button>
 					<Button
 						variant="destructive"
@@ -56,7 +60,7 @@ export function DeleteConfirmDialog({
 						onClick={onConfirm}
 						disabled={isDeleting}
 					>
-						{isDeleting ? "Deleting..." : "Delete"}
+						{isDeleting ? t("common.deleting") : t("common.delete")}
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

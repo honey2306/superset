@@ -24,6 +24,7 @@ import {
 	terminalRuntimeRegistry,
 } from "renderer/lib/terminal/terminal-runtime-registry";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOpenInExternalEditor } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useOpenInExternalEditor";
 import type {
 	PaneViewerData,
@@ -59,6 +60,7 @@ export function TerminalPane({
 	onOpenFile,
 	onRevealPath,
 }: TerminalPaneProps) {
+	const { t } = useTranslation();
 	const filePolicy = useTerminalFilePolicy();
 	const urlPolicy = useTerminalUrlPolicy();
 	const {
@@ -466,7 +468,7 @@ export function TerminalPane({
 				)}
 			/>
 			<LinkHoverHint
-				hoverLabel={resolveHoverLabel(hoveredLink, filePolicy, urlPolicy)}
+				hoverLabel={resolveHoverLabel(hoveredLink, filePolicy, urlPolicy, t)}
 				hoverPosition={hoveredLink}
 				clickHint={hint}
 			/>
@@ -482,6 +484,7 @@ function resolveHoverLabel(
 	hovered: HoveredLink | null,
 	filePolicy: ReturnType<typeof useTerminalFilePolicy>,
 	urlPolicy: ReturnType<typeof useTerminalUrlPolicy>,
+	t: ReturnType<typeof useTranslation>["t"],
 ): string | null {
 	if (!hovered) return null;
 	const event = {
@@ -491,11 +494,11 @@ function resolveHoverLabel(
 	};
 	if (hovered.info.kind === "url") {
 		const action = urlPolicy.getAction(event);
-		return action ? actionLabel(action, "url") : null;
+		return action ? actionLabel(action, "url", t) : null;
 	}
 	if (hovered.info.isDirectory) {
-		return folderIntentLabel(folderIntentFor(event));
+		return folderIntentLabel(folderIntentFor(event), t);
 	}
 	const action = filePolicy.getAction(event);
-	return action ? actionLabel(action, "file") : null;
+	return action ? actionLabel(action, "file", t) : null;
 }

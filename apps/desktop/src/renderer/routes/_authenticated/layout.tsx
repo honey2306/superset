@@ -23,6 +23,7 @@ import { dragDropManager } from "renderer/lib/dnd";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import { showWorkspaceAutoNameWarningToast } from "renderer/lib/workspaces/showWorkspaceAutoNameWarningToast";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { InitGitDialog } from "renderer/react-query/projects/InitGitDialog";
 import { DaemonAutoUpdateFailureDialog } from "renderer/routes/_authenticated/components/DaemonAutoUpdateFailureDialog";
 import { DashboardNewWorkspaceModal } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal";
@@ -61,6 +62,7 @@ const onboardingRedirect = <Navigate to="/onboarding" replace />;
 const SESSION_PENDING_TIMEOUT_MS = 15_000;
 
 function AuthenticatedLayout() {
+	const { t } = useTranslation();
 	const {
 		data: session,
 		isPending,
@@ -238,13 +240,13 @@ function AuthenticatedLayout() {
 			<div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-background">
 				<HiOutlineWifi className="size-12 text-muted-foreground" />
 				<div className="text-center">
-					<h2 className="text-lg font-medium">You're offline</h2>
+					<h2 className="text-lg font-medium">{t("offline.title")}</h2>
 					<p className="text-sm text-muted-foreground">
-						Connect to the internet to continue
+						{t("offline.description")}
 					</p>
 				</div>
 				<Button variant="outline" size="sm" onClick={() => refetch()}>
-					Retry
+					{t("offline.retry")}
 				</Button>
 			</div>
 		);

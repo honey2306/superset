@@ -19,6 +19,7 @@ import {
 	LuPencil,
 	LuTrash2,
 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { DirectoryEntry } from "shared/file-tree-types";
 import { useFileDrag, usePathActions } from "../../../ChangesView/hooks";
 import { FileIcon } from "../../utils";
@@ -52,6 +53,7 @@ export function FileTreeItem({
 	onRename,
 	onDelete,
 }: FileTreeItemProps) {
+	const { t } = useTranslation();
 	const isFolder = entry.isDirectory;
 	const isExpanded = item.isExpanded();
 	const level = item.getItemMeta().level;
@@ -155,47 +157,47 @@ export function FileTreeItem({
 			<ContextMenuContent className="w-48">
 				<ContextMenuItem onClick={() => onNewFile(parentPath)}>
 					<LuFile className="mr-2 size-4" />
-					New File
+					{t("files.newFile")}
 				</ContextMenuItem>
 				<ContextMenuItem onClick={() => onNewFolder(parentPath)}>
 					<LuFolder className="mr-2 size-4" />
-					New Folder
+					{t("files.newFolder")}
 				</ContextMenuItem>
 
 				<ContextMenuSeparator />
 
 				<ContextMenuItem onClick={copyPath}>
 					<LuClipboard className="mr-2 size-4" />
-					Copy Path
+					{t("files.copyPath")}
 				</ContextMenuItem>
 				<ContextMenuItem onClick={copyRelativePath}>
 					<LuCopy className="mr-2 size-4" />
-					Copy Relative Path
+					{t("files.copyRelativePath")}
 				</ContextMenuItem>
 
 				<ContextMenuSeparator />
 
 				<ContextMenuItem onClick={revealInFinder}>
 					<LuFolderOpen className="mr-2 size-4" />
-					Reveal in Finder
+					{t("files.revealInFinder")}
 				</ContextMenuItem>
 				<ContextMenuItem onClick={openInEditor}>
 					<LuExternalLink className="mr-2 size-4" />
-					Open in Editor
+					{t("files.openInEditor")}
 				</ContextMenuItem>
 
 				<ContextMenuSeparator />
 
 				<ContextMenuItem onClick={() => onRename(entry)}>
 					<LuPencil className="mr-2 size-4" />
-					Rename
+					{t("files.rename")}
 				</ContextMenuItem>
 				<ContextMenuItem
 					onClick={() => onDelete(entry)}
 					className="text-destructive focus:text-destructive"
 				>
 					<LuTrash2 className="mr-2 size-4" />
-					Delete
+					{t("files.delete")}
 				</ContextMenuItem>
 			</ContextMenuContent>
 		</ContextMenu>

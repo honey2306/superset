@@ -14,6 +14,7 @@ import {
 	useMemo,
 } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
@@ -34,6 +35,7 @@ export function CommandContextProvider({ children }: { children: ReactNode }) {
 		hostServiceStatus,
 		machineId,
 	} = useLocalHostService();
+	const { t } = useTranslation();
 
 	const navigateTo = useCallback(
 		(path: string) => {
@@ -95,6 +97,7 @@ export function CommandContextProvider({ children }: { children: ReactNode }) {
 			localMachineId: machineId ?? null,
 			notificationSoundsMuted,
 			navigate: navigateTo,
+			t,
 		}),
 		[
 			location.pathname,
@@ -107,6 +110,7 @@ export function CommandContextProvider({ children }: { children: ReactNode }) {
 			machineId,
 			notificationSoundsMuted,
 			navigateTo,
+			t,
 		],
 	);
 

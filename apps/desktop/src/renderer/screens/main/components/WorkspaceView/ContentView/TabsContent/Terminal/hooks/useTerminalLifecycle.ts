@@ -13,6 +13,7 @@ import {
 } from "renderer/lib/terminal/session-readiness";
 import { installTerminalKeyEventHandler } from "renderer/lib/terminal/terminal-key-event-handler";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { killTerminalForPane } from "renderer/stores/tabs/utils/terminal-cleanup";
 import { isTerminalAttachCanceledMessage } from "../attach-cancel";
@@ -202,6 +203,7 @@ export function useTerminalLifecycle({
 	unregisterPasteCallbackRef,
 	defaultRestartCommandRef,
 }: UseTerminalLifecycleOptions): UseTerminalLifecycleReturn {
+	const { t } = useTranslation();
 	const [xtermInstance, setXtermInstance] = useState<XTerm | null>(null);
 	const restartTerminalRef = useRef<
 		(options?: { command?: string; forceRestart?: boolean }) => Promise<void>
@@ -254,6 +256,7 @@ export function useTerminalLifecycle({
 			onFileLinkClick: (event, link) =>
 				handleFileLinkClickRef.current(event, link),
 			onUrlClickRef: handleUrlClickRef,
+			t,
 		});
 
 		const { xterm, fitAddon, searchAddon } = cached;
@@ -720,6 +723,7 @@ export function useTerminalLifecycle({
 							isStreamReadyRef,
 							setExitStatus,
 							restartCommand: workspaceRunRestartCommand,
+							t,
 						});
 						return;
 					}

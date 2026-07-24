@@ -8,6 +8,7 @@ import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { HiOutlinePaperAirplane, HiOutlinePlus } from "react-icons/hi2";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface OrgUser {
 	id: string;
@@ -29,6 +30,7 @@ export function AddMemberButton({
 	currentMemberUserIds,
 	orgUsers,
 }: AddMemberButtonProps) {
+	const { t } = useTranslation();
 	const [isOpen, setIsOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [pendingUserId, setPendingUserId] = useState<string | null>(null);
@@ -88,8 +90,8 @@ export function AddMemberButton({
 				error instanceof Error
 					? error.message
 					: isCurrentlyMember
-						? "Failed to remove member"
-						: "Failed to add member",
+						? t("teams.removeMemberFailed")
+						: t("teams.addMemberFailed"),
 			);
 		} finally {
 			setPendingUserId(null);
@@ -101,7 +103,7 @@ export function AddMemberButton({
 			<PopoverTrigger asChild>
 				<Button size="sm">
 					<HiOutlinePlus className="h-4 w-4 mr-1" />
-					Add member
+					{t("teams.addMember")}
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-72 p-0">
@@ -109,7 +111,7 @@ export function AddMemberButton({
 					<Input
 						value={query}
 						onChange={(event) => setQuery(event.target.value)}
-						placeholder="Add team member..."
+						placeholder={t("teams.searchMembers")}
 						className="h-8"
 						autoFocus
 					/>
@@ -117,7 +119,7 @@ export function AddMemberButton({
 				<div className="max-h-64 overflow-auto p-1">
 					{sortedUsers.length === 0 ? (
 						<div className="text-center py-6 text-xs text-muted-foreground">
-							No matching org members.
+							{t("teams.noMatchingMembers")}
 						</div>
 					) : (
 						sortedUsers.map((user) => {
@@ -152,7 +154,7 @@ export function AddMemberButton({
 						className="flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
 					>
 						<HiOutlinePaperAirplane className="h-4 w-4" />
-						Invite people...
+						{t("teams.invitePeople")}
 					</Link>
 				</div>
 			</PopoverContent>

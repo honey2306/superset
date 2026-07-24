@@ -5,6 +5,7 @@ import type {
 	McpOverviewPayload,
 	ModelOption,
 } from "renderer/components/Chat/ChatInterface/types";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	findModelByQuery,
 	normalizeModelQueryFromActionArgument,
@@ -52,6 +53,7 @@ export function useSlashCommandExecutor({
 	const workspaceTrpcUtils = workspaceTrpc.useUtils();
 	const { mutateAsync: resolveSlashCommandMutateAsync } =
 		workspaceTrpc.chat.resolveSlashCommand.useMutation();
+	const { t } = useTranslation();
 
 	const resolveSlashCommandInput = useCallback(
 		async (inputText: string): Promise<ResolveSlashCommandResult> => {
@@ -72,8 +74,8 @@ export function useSlashCommandExecutor({
 						await onResetSession();
 						toast.success(
 							commandName === "clear"
-								? "Context cleared in a new chat session"
-								: "Started a new chat session",
+								? t("chat.slash.contextCleared")
+								: t("chat.slash.newSessionStarted"),
 						);
 						onTrackEvent?.("chat_slash_command_used", {
 							command_name: commandName,
@@ -83,10 +85,10 @@ export function useSlashCommandExecutor({
 					}
 					case "stop":
 						if (canAbort) {
-							toast.success("Stopped current response");
+							toast.success(t("chat.slash.stoppedResponse"));
 							onStopActiveResponse();
 						} else {
-							toast.warning("No active response to stop");
+							toast.warning(t("chat.slash.noActiveResponse"));
 						}
 						onTrackEvent?.("chat_slash_command_used", {
 							command_name: commandName,
@@ -103,7 +105,9 @@ export function useSlashCommandExecutor({
 
 						const matchedModel = findModelByQuery(availableModels, modelQuery);
 						if (!matchedModel) {
-							const modelError = `Model not found: ${modelQuery}`;
+							const modelError = t("chat.slash.modelNotFound", {
+								query: modelQuery,
+							});
 							onSetErrorMessage(modelError);
 							toast.error(modelError);
 							return { handled: true, nextText: "" };
@@ -111,7 +115,9 @@ export function useSlashCommandExecutor({
 
 						onSelectModel(matchedModel);
 						onClearError();
-						toast.success(`Model set to ${matchedModel.name}`);
+						toast.success(
+							t("chat.slash.modelSet", { name: matchedModel.name }),
+						);
 						onTrackEvent?.("chat_model_changed", {
 							model_id: matchedModel.id,
 							model_name: matchedModel.name,
@@ -142,7 +148,7 @@ export function useSlashCommandExecutor({
 								"[chat] Failed to load MCP overview from settings",
 								error,
 							);
-							const overviewError = "Failed to load MCP settings";
+							const overviewError = t("chat.slash.mcpLoadFailed");
 							onSetErrorMessage(overviewError);
 							toast.error(overviewError);
 						}
@@ -163,12 +169,15 @@ export function useSlashCommandExecutor({
 						if (!resolved.handled) {
 							return { handled: false, nextText: text };
 						}
-						const promptResolution = resolveSlashPromptResult({
-							handled: resolved.handled,
-							prompt: resolved.prompt,
-							commandName: resolved.commandName,
-							invokedAs: resolved.invokedAs,
-						});
+						const promptResolution = resolveSlashPromptResult(
+							{
+								handled: resolved.handled,
+								prompt: resolved.prompt,
+								commandName: resolved.commandName,
+								invokedAs: resolved.invokedAs,
+							},
+							t,
+						);
 						if (promptResolution.errorMessage) {
 							onSetErrorMessage(promptResolution.errorMessage);
 							toast.error(promptResolution.errorMessage);
@@ -193,7 +202,7 @@ export function useSlashCommandExecutor({
 					"[chat] Failed to resolve slash command, sending raw input",
 					error,
 				);
-				toast.warning("Slash command resolution failed; sending as plain text");
+				toast.warning(t("chat.slash.resolutionFailed"));
 				return { handled: false, nextText: text };
 			}
 		},
@@ -212,6 +221,7 @@ export function useSlashCommandExecutor({
 			onStopActiveResponse,
 			resolveSlashCommandMutateAsync,
 			sessionId,
+			t,
 			workspaceId,
 			workspaceTrpcUtils.chat.getMcpOverview,
 		],

@@ -16,6 +16,7 @@ import {
 	LuX,
 } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type {
 	BrowserPaneData,
 	ChatPaneData,
@@ -31,6 +32,7 @@ export function useDefaultContextMenuActions({
 	paneRegistry: PaneRegistry<PaneViewerData>;
 	launcher: TerminalLauncher;
 }): ContextMenuActionConfig<PaneViewerData>[] {
+	const { t } = useTranslation();
 	const splitDownShortcut = useHotkeyDisplay("SPLIT_DOWN").text;
 	const splitRightShortcut = useHotkeyDisplay("SPLIT_RIGHT").text;
 	const splitWithChatShortcut = useHotkeyDisplay("SPLIT_WITH_CHAT").text;
@@ -44,7 +46,7 @@ export function useDefaultContextMenuActions({
 		() => [
 			{
 				key: "split-horizontal",
-				label: "Split Horizontally",
+				label: t("v2Workspace.context.splitHorizontal"),
 				icon: <LuRows2 />,
 				shortcut:
 					splitDownShortcut !== "Unassigned" ? splitDownShortcut : undefined,
@@ -58,7 +60,7 @@ export function useDefaultContextMenuActions({
 			},
 			{
 				key: "split-vertical",
-				label: "Split Vertically",
+				label: t("v2Workspace.context.splitVertical"),
 				icon: <LuColumns2 />,
 				shortcut:
 					splitRightShortcut !== "Unassigned" ? splitRightShortcut : undefined,
@@ -72,7 +74,7 @@ export function useDefaultContextMenuActions({
 			},
 			{
 				key: "split-with-chat",
-				label: "Split with New Chat",
+				label: t("v2Workspace.context.splitWithChat"),
 				icon: <LuMessageSquare />,
 				shortcut:
 					splitWithChatShortcut !== "Unassigned"
@@ -87,7 +89,7 @@ export function useDefaultContextMenuActions({
 			},
 			{
 				key: "split-with-browser",
-				label: "Split with New Browser",
+				label: t("v2Workspace.context.splitWithBrowser"),
 				icon: <LuGlobe />,
 				shortcut:
 					splitWithBrowserShortcut !== "Unassigned"
@@ -104,7 +106,7 @@ export function useDefaultContextMenuActions({
 			},
 			{
 				key: "equalize-splits",
-				label: "Equalize Pane Splits",
+				label: t("v2Workspace.context.equalize"),
 				icon: <LuEqual />,
 				shortcut:
 					equalizePaneSplitsShortcut !== "Unassigned"
@@ -117,11 +119,11 @@ export function useDefaultContextMenuActions({
 			{ key: "sep-move", type: "separator" },
 			{
 				key: "move-to-tab",
-				label: "Move to Tab",
+				label: t("v2Workspace.context.moveToTab"),
 				icon: <LuMoveRight />,
 				children: (ctx: RendererContext<PaneViewerData>) => {
 					const tabs = ctx.store.getState().tabs;
-					const otherTabs = tabs.filter((t) => t.id !== ctx.tab.id);
+					const otherTabs = tabs.filter((tab) => tab.id !== ctx.tab.id);
 					const items: ContextMenuActionConfig<PaneViewerData>[] =
 						otherTabs.map((tab) => ({
 							key: `move-to-${tab.id}`,
@@ -137,7 +139,7 @@ export function useDefaultContextMenuActions({
 					}
 					items.push({
 						key: "move-to-new-tab",
-						label: "New Tab",
+						label: t("v2Workspace.context.newTab"),
 						icon: <LuPlus />,
 						onSelect: () => {
 							ctx.store.getState().movePaneToNewTab({ paneId: ctx.pane.id });
@@ -149,7 +151,7 @@ export function useDefaultContextMenuActions({
 			{ key: "sep-close", type: "separator" },
 			{
 				key: "close-pane",
-				label: "Close Pane",
+				label: t("v2Workspace.context.closePane"),
 				icon: <LuX />,
 				variant: "destructive",
 				shortcut:
@@ -158,6 +160,7 @@ export function useDefaultContextMenuActions({
 			},
 		],
 		[
+			t,
 			splitDownShortcut,
 			splitRightShortcut,
 			splitWithChatShortcut,

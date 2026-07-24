@@ -6,6 +6,7 @@ import { getToolName } from "ai";
 import { FileIcon, FolderIcon, GlobeIcon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { posthog } from "renderer/lib/posthog";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useChangesStore } from "renderer/stores/changes";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import type { ChangeCategory } from "shared/changes-types";
@@ -78,6 +79,7 @@ export function ToolCallBlock({
 	isInterrupted,
 	onAnswer,
 }: ToolCallBlockProps) {
+	const { t } = useTranslation();
 	const args = getArgs(part);
 	const result = getResult(part);
 	const state = toWsToolState(part);
@@ -462,7 +464,7 @@ export function ToolCallBlock({
 		return (
 			<GenericToolCall
 				part={part}
-				toolName="Web Search"
+				toolName={t("chat.tool.webSearch")}
 				subtitle={query || undefined}
 				icon={GlobeIcon}
 			/>
@@ -581,7 +583,7 @@ export function ToolCallBlock({
 		return (
 			<StartAgentSessionToolCall
 				part={part}
-				toolName="Start agent session with prompt"
+				toolName={t("chat.tool.startAgentSessionWithPrompt")}
 			/>
 		);
 	}
@@ -603,7 +605,7 @@ export function ToolCallBlock({
 		return (
 			<SupersetToolCall
 				part={part}
-				toolName="Create directory"
+				toolName={t("chat.tool.createDirectory")}
 				icon={FolderIcon}
 			/>
 		);
@@ -611,7 +613,11 @@ export function ToolCallBlock({
 
 	if (toolName === "mastra_workspace_delete") {
 		return (
-			<SupersetToolCall part={part} toolName="Delete path" icon={FileIcon} />
+			<SupersetToolCall
+				part={part}
+				toolName={t("chat.tool.deletePath")}
+				icon={FileIcon}
+			/>
 		);
 	}
 
@@ -635,11 +641,18 @@ export function ToolCallBlock({
 	}
 
 	if (toolName === "task_check") {
-		return <SupersetToolCall part={part} toolName="Update task status" />;
+		return (
+			<SupersetToolCall
+				part={part}
+				toolName={t("chat.tool.updateTaskStatus")}
+			/>
+		);
 	}
 
 	if (toolName === "submit_plan") {
-		return <SupersetToolCall part={part} toolName="Submit plan" />;
+		return (
+			<SupersetToolCall part={part} toolName={t("chat.tool.submitPlan")} />
+		);
 	}
 
 	if (toolName === "subagent") {

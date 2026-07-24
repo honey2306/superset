@@ -9,6 +9,10 @@ import {
 import type { inferRouterOutputs } from "@trpc/server";
 import { Check, ChevronDown, ListFilter } from "lucide-react";
 import { useState } from "react";
+import {
+	type MessageKey,
+	useTranslation,
+} from "renderer/providers/I18nProvider";
 import type { ChangesFilter } from "../../useChangesTab";
 import { CommitRow } from "./components/CommitRow";
 import { RangeModal } from "./components/RangeModal";
@@ -16,9 +20,14 @@ import { RangeModal } from "./components/RangeModal";
 type Commit =
 	inferRouterOutputs<AppRouter>["git"]["listCommits"]["commits"][number];
 
-function getFilterLabel(filter: ChangesFilter, commits: Commit[]): string {
-	if (filter.kind === "all") return "All changes";
-	if (filter.kind === "uncommitted") return "Uncommitted";
+function getFilterLabel(
+	filter: ChangesFilter,
+	commits: Commit[],
+	t: (key: MessageKey, params?: Record<string, number | string>) => string,
+): string {
+	if (filter.kind === "all") return t("v2Workspace.commits.allChanges");
+	if (filter.kind === "uncommitted")
+		return t("v2Workspace.commits.uncommittedShort");
 	if (filter.kind === "range") {
 		const from = commits.find((c) => c.hash === filter.fromHash);
 		const to = commits.find((c) => c.hash === filter.toHash);
@@ -42,6 +51,7 @@ export function CommitFilterDropdown({
 	uncommittedCount,
 }: CommitFilterDropdownProps) {
 	const [rangeModalOpen, setRangeModalOpen] = useState(false);
+	const { t } = useTranslation();
 
 	return (
 		<>
@@ -51,14 +61,16 @@ export function CommitFilterDropdown({
 						type="button"
 						className="flex min-w-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
 					>
-						<span className="truncate">{getFilterLabel(filter, commits)}</span>
+						<span className="truncate">
+							{getFilterLabel(filter, commits, t)}
+						</span>
 						<ChevronDown className="size-3 shrink-0" />
 					</button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start" className="w-72">
 					<DropdownMenuItem onSelect={() => onFilterChange({ kind: "all" })}>
 						<div className="flex flex-1 items-center justify-between">
-							<span>All changes</span>
+							<span>{t("v2Workspace.commits.allChanges")}</span>
 							{filter.kind === "all" && <Check className="size-3.5" />}
 						</div>
 					</DropdownMenuItem>
@@ -68,10 +80,12 @@ export function CommitFilterDropdown({
 					>
 						<div className="flex flex-1 items-center justify-between">
 							<div>
-								<div>Uncommitted changes</div>
+								<div>{t("v2Workspace.commits.uncommittedFull")}</div>
 								{uncommittedCount != null && (
 									<div className="text-[10px] text-muted-foreground">
-										{uncommittedCount} files changed
+										{t("v2Workspace.commits.filesChanged", {
+											count: uncommittedCount,
+										})}
 									</div>
 								)}
 							</div>
@@ -84,7 +98,7 @@ export function CommitFilterDropdown({
 							<div className="flex flex-1 items-center justify-between">
 								<div className="flex items-center gap-2">
 									<ListFilter className="size-3.5 text-muted-foreground" />
-									<span>Select range...</span>
+									<span>{t("v2Workspace.commits.selectRange")}</span>
 								</div>
 								{filter.kind === "range" && <Check className="size-3.5" />}
 							</div>

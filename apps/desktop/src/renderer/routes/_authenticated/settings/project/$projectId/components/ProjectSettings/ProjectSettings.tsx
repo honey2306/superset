@@ -32,6 +32,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { LuImagePlus, LuTrash2 } from "react-icons/lu";
 import { ColorSelector } from "renderer/components/ColorSelector";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useImportAllWorktrees,
 	useOpenExternalWorktree,
@@ -41,7 +42,7 @@ import {
 	useDefaultWorktreePath,
 	WorktreeLocationPicker,
 } from "../../../../components/WorktreeLocationPicker";
-import { BRANCH_PREFIX_MODE_LABELS_WITH_DEFAULT } from "../../../../utils/branch-prefix";
+import { BRANCH_PREFIX_MODE_LABEL_KEYS_WITH_DEFAULT } from "../../../../utils/branch-prefix";
 import type { SettingItemId } from "../../../../utils/settings-search";
 import {
 	isItemVisible,
@@ -88,6 +89,7 @@ export function ProjectSettings({
 	projectId,
 	visibleItems,
 }: ProjectSettingsProps) {
+	const { t } = useTranslation();
 	const utils = electronTrpc.useUtils();
 	const { data: project } = electronTrpc.projects.get.useQuery({
 		id: projectId,
@@ -128,7 +130,7 @@ export function ProjectSettings({
 	const setProjectIcon = electronTrpc.projects.setProjectIcon.useMutation({
 		onError: (err) => {
 			console.error("[project-settings/setProjectIcon] Failed:", err);
-			toast.error(err.message || "Failed to update project icon");
+			toast.error(err.message || t("project.failedUpdateIcon"));
 		},
 		onSettled: () => {
 			utils.projects.get.invalidate({ id: projectId });
@@ -226,12 +228,10 @@ export function ProjectSettings({
 	const handleImportAll = async () => {
 		try {
 			const result = await importAllWorktrees.mutateAsync({ projectId });
-			toast.success(
-				`Imported ${result.imported} workspace${result.imported === 1 ? "" : "s"}`,
-			);
+			toast.success(t("project.importedCount", { count: result.imported }));
 		} catch (err) {
 			toast.error(
-				err instanceof Error ? err.message : "Failed to import worktrees",
+				err instanceof Error ? err.message : t("project.failedImportWorktrees"),
 			);
 		}
 	};
@@ -243,10 +243,12 @@ export function ProjectSettings({
 				worktreePath: path,
 			}),
 			{
-				loading: "Importing worktree...",
-				success: `Imported ${branch}`,
+				loading: t("project.importing"),
+				success: t("project.importedBranch", { branch }),
 				error: (err) =>
-					err instanceof Error ? err.message : "Failed to import worktree",
+					err instanceof Error
+						? err.message
+						: t("project.failedImportWorktree"),
 			},
 		);
 	};
@@ -301,12 +303,12 @@ export function ProjectSettings({
 
 			<div className="space-y-8">
 				<SettingsSection
-					title="Branch Prefix"
-					description={
-						previewPrefix
-							? `Preview: ${previewPrefix}/branch-name`
-							: "Preview: branch-name"
-					}
+					title={t("project.branchPrefix")}
+					description={t("project.preview", {
+						value: previewPrefix
+							? `${previewPrefix}/branch-name`
+							: "branch-name",
+					})}
 				>
 					<div className="flex items-center justify-end">
 						<div className="flex items-center gap-2">
@@ -320,20 +322,24 @@ export function ProjectSettings({
 								</SelectTrigger>
 								<SelectContent>
 									{(
-										Object.entries(BRANCH_PREFIX_MODE_LABELS_WITH_DEFAULT) as [
+										Object.entries(
+											BRANCH_PREFIX_MODE_LABEL_KEYS_WITH_DEFAULT,
+										) as [
 											BranchPrefixMode | "default",
-											string,
+											(typeof BRANCH_PREFIX_MODE_LABEL_KEYS_WITH_DEFAULT)[
+												| BranchPrefixMode
+												| "default"],
 										][]
-									).map(([value, label]) => (
+									).map(([value, labelKey]) => (
 										<SelectItem key={value} value={value}>
-											{label}
+											{t(labelKey)}
 										</SelectItem>
 									))}
 								</SelectContent>
 							</Select>
 							{currentMode === "custom" && (
 								<Input
-									placeholder="Prefix"
+									placeholder={t("project.prefixPlaceholder")}
 									value={customPrefixInput}
 									onChange={(e) => setCustomPrefixInput(e.target.value)}
 									onBlur={handleCustomPrefixBlur}
@@ -346,8 +352,8 @@ export function ProjectSettings({
 				</SettingsSection>
 
 				<SettingsSection
-					title="Base Branch"
-					description="Default base for new workspaces. Override per-workspace at creation."
+					title={t("project.baseBranch")}
+					description={t("project.baseBranchDescription")}
 				>
 					<div className="flex items-center justify-end gap-4">
 						<Select
@@ -357,18 +363,22 @@ export function ProjectSettings({
 						>
 							<SelectTrigger className="w-[260px]">
 								{isBranchDataLoading ? (
-									<span className="text-muted-foreground">Loading...</span>
+									<span className="text-muted-foreground">
+										{t("project.loading")}
+									</span>
 								) : (
 									<SelectValue />
 								)}
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value={REPO_DEFAULT_BASE_BRANCH}>
-									Use repository default ({repoDefaultBranch})
+									{t("project.useRepositoryDefault", {
+										branch: repoDefaultBranch,
+									})}
 								</SelectItem>
 								{workspaceBaseBranchMissing && project.workspaceBaseBranch && (
 									<SelectItem value={project.workspaceBaseBranch}>
-										{project.workspaceBaseBranch} (missing)
+										{project.workspaceBaseBranch} ({t("project.missing")})
 									</SelectItem>
 								)}
 								{(branchData?.branches ?? []).map((branch) => (
@@ -381,17 +391,21 @@ export function ProjectSettings({
 					</div>
 					{workspaceBaseBranchMissing && (
 						<p className="text-xs text-destructive">
-							Branch "{project.workspaceBaseBranch}" no longer exists. New
-							workspaces will fall back to "{repoDefaultBranch}".
+							{t("project.missingBranch", {
+								branch: project.workspaceBaseBranch ?? "",
+								fallback: repoDefaultBranch,
+							})}
 						</p>
 					)}
 				</SettingsSection>
 
-				<SettingsSection title="Worktrees">
+				<SettingsSection title={t("project.worktrees")}>
 					<WorktreeLocationPicker
 						currentPath={project.worktreeBaseDir}
-						defaultPathLabel={`Using global default: ${globalPath}`}
-						dialogTitle="Select worktree location for this project"
+						defaultPathLabel={t("project.usingGlobalDefault", {
+							path: globalPath,
+						})}
+						dialogTitle={t("project.selectWorktreeLocation")}
 						defaultBrowsePath={project.worktreeBaseDir ?? globalWorktreeBaseDir}
 						disabled={updateProject.isPending}
 						onSelect={(path) =>
@@ -417,12 +431,12 @@ export function ProjectSettings({
 							<div className="flex items-center justify-between">
 								<div className="space-y-0.5">
 									<Label className="text-sm font-medium">
-										Import Worktrees
+										{t("project.importWorktrees")}
 									</Label>
 									<p className="text-xs text-muted-foreground">
-										{importableExternalWorktrees.length} external worktree
-										{importableExternalWorktrees.length === 1 ? "" : "s"} found
-										on disk.
+										{t("project.externalWorktreesFound", {
+											count: importableExternalWorktrees.length,
+										})}
 									</p>
 								</div>
 								<div className="flex items-center gap-2">
@@ -439,7 +453,9 @@ export function ProjectSettings({
 										</SelectTrigger>
 										<SelectContent>
 											<SelectItem value="__all__">
-												All worktrees ({importableExternalWorktrees.length})
+												{t("project.allWorktrees", {
+													count: importableExternalWorktrees.length,
+												})}
 											</SelectItem>
 											{importableExternalWorktrees.map((wt) => (
 												<SelectItem key={wt.path} value={wt.path}>
@@ -464,8 +480,8 @@ export function ProjectSettings({
 											}}
 										>
 											{openExternalWorktree.isPending
-												? "Importing..."
-												: "Import"}
+												? t("project.importing")
+												: t("project.import")}
 										</Button>
 									) : (
 										<AlertDialog>
@@ -476,31 +492,27 @@ export function ProjectSettings({
 													disabled={importAllWorktrees.isPending}
 												>
 													{importAllWorktrees.isPending
-														? "Importing..."
-														: "Import all"}
+														? t("project.importing")
+														: t("project.importAll")}
 												</Button>
 											</AlertDialogTrigger>
 											<AlertDialogContent>
 												<AlertDialogHeader>
 													<AlertDialogTitle>
-														Import all worktrees
+														{t("project.importAllTitle")}
 													</AlertDialogTitle>
 													<AlertDialogDescription>
-														This will import{" "}
-														{importableExternalWorktrees.length} external
-														worktree
-														{importableExternalWorktrees.length === 1
-															? ""
-															: "s"}{" "}
-														into Superset as workspaces. Each worktree on disk
-														will be tracked and appear in your sidebar. No files
-														will be modified.
+														{t("project.importAllDescription", {
+															count: importableExternalWorktrees.length,
+														})}
 													</AlertDialogDescription>
 												</AlertDialogHeader>
 												<AlertDialogFooter>
-													<AlertDialogCancel>Cancel</AlertDialogCancel>
+													<AlertDialogCancel>
+														{t("common.cancel")}
+													</AlertDialogCancel>
 													<AlertDialogAction onClick={handleImportAll}>
-														Import all
+														{t("project.importAll")}
 													</AlertDialogAction>
 												</AlertDialogFooter>
 											</AlertDialogContent>
@@ -515,7 +527,7 @@ export function ProjectSettings({
 					<ScriptsEditor projectId={project.id} />
 				)}
 
-				<SettingsSection title="Appearance">
+				<SettingsSection title={t("project.appearance")}>
 					<div className="flex items-center justify-between gap-4">
 						<ColorSelector
 							selectedColor={project.color}
@@ -531,7 +543,7 @@ export function ProjectSettings({
 								{project.iconUrl && (
 									<img
 										src={project.iconUrl}
-										alt="Project icon"
+										alt={t("project.iconAlt")}
 										className="size-8 rounded object-cover border"
 									/>
 								)}
@@ -552,7 +564,9 @@ export function ProjectSettings({
 									)}
 								>
 									<LuImagePlus className="size-4" />
-									{project.iconUrl ? "Replace icon" : "Upload icon"}
+									{project.iconUrl
+										? t("project.replaceIcon")
+										: t("project.uploadIcon")}
 								</button>
 								{project.iconUrl && (
 									<button
@@ -565,13 +579,13 @@ export function ProjectSettings({
 										)}
 									>
 										<LuTrash2 className="size-4" />
-										Remove
+										{t("common.remove")}
 									</button>
 								)}
 							</div>
 							<div className="flex items-center gap-2">
 								<Label className="text-sm text-muted-foreground">
-									Hide image
+									{t("project.hideImage")}
 								</Label>
 								<Switch
 									checked={project.hideImage ?? false}

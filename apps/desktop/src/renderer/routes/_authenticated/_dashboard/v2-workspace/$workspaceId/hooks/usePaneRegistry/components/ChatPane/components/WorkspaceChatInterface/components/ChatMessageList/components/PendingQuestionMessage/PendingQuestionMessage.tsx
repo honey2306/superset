@@ -6,6 +6,7 @@ import {
 import { Button } from "@superset/ui/button";
 import { Input } from "@superset/ui/input";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/ChatPane/hooks/useWorkspaceChatDisplay";
 
 type PendingQuestion = UseChatDisplayReturn["pendingQuestion"];
@@ -26,6 +27,7 @@ export function PendingQuestionMessage({
 	isSubmitting,
 	onRespond,
 }: PendingQuestionMessageProps) {
+	const { t } = useTranslation();
 	const [freeText, setFreeText] = useState("");
 	const [optimisticAnswer, setOptimisticAnswer] = useState<string | null>(null);
 	const [selectedOptionLabel, setSelectedOptionLabel] = useState<string | null>(
@@ -65,7 +67,7 @@ export function PendingQuestionMessage({
 
 	const questionId = question.questionId?.trim() ?? "";
 	const questionText =
-		question.question?.trim() || "The agent asked a question.";
+		question.question?.trim() || t("chat.question.agentAsked");
 	const answerText = freeText.trim();
 	const canRespond = questionId.length > 0;
 	const hasOptimisticAnswer = optimisticAnswer !== null;
@@ -130,13 +132,13 @@ export function PendingQuestionMessage({
 					{hasOptimisticAnswer ? (
 						<div className="rounded-md border bg-muted/20 p-3">
 							<div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-								Submitted answer
+								{t("chat.question.submittedAnswer")}
 							</div>
 							<div className="mt-1 text-sm text-foreground">
 								{optimisticAnswer}
 							</div>
 							<div className="mt-1 text-xs text-muted-foreground">
-								Waiting for agent confirmation...
+								{t("chat.question.waitingConfirmation")}
 							</div>
 						</div>
 					) : options.length > 0 ? (
@@ -179,14 +181,16 @@ export function PendingQuestionMessage({
 								ref={inputRef}
 								value={freeText}
 								onChange={(event) => setFreeText(event.target.value)}
-								placeholder="Type your answer..."
+								placeholder={t("chat.question.typeAnswerPlaceholder")}
 								disabled={controlsDisabled}
 							/>
 							<Button
 								type="submit"
 								disabled={controlsDisabled || answerText.length === 0}
 							>
-								{isSubmitting || hasOptimisticAnswer ? "Sending..." : "Submit"}
+								{isSubmitting || hasOptimisticAnswer
+									? t("chat.question.sending")
+									: t("chat.question.submit")}
 							</Button>
 						</form>
 					)}

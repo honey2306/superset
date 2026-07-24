@@ -10,6 +10,7 @@ import { toast } from "@superset/ui/sonner";
 import { Clipboard, Copy, FolderOpen } from "lucide-react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface PathActionsMenuItemsProps {
 	absolutePath: string;
@@ -23,12 +24,18 @@ export function PathActionsMenuItems({
 	menuType = "context",
 }: PathActionsMenuItemsProps) {
 	const { copyToClipboard } = useCopyToClipboard();
+	const { t } = useTranslation();
 
 	const handleCopy = (path: string, successMessage: string) => {
 		toast.promise(copyToClipboard(path), {
 			success: successMessage,
 			error: (err: unknown) =>
-				`Failed to copy path: ${err instanceof Error ? err.message : "Unknown error"}`,
+				t("v2Workspace.pathActions.copyFailed", {
+					error:
+						err instanceof Error
+							? err.message
+							: t("v2Workspace.pathActions.unknownError"),
+				}),
 		});
 	};
 
@@ -37,7 +44,12 @@ export function PathActionsMenuItems({
 			await electronTrpcClient.external.openInFinder.mutate(absolutePath);
 		} catch (error) {
 			toast.error(
-				`Failed to reveal in Finder: ${error instanceof Error ? error.message : "Unknown error"}`,
+				t("v2Workspace.pathActions.revealFailed", {
+					error:
+						error instanceof Error
+							? error.message
+							: t("v2Workspace.pathActions.unknownError"),
+				}),
 			);
 		}
 	};
@@ -47,21 +59,28 @@ export function PathActionsMenuItems({
 			<>
 				<DropdownMenuItem onSelect={handleRevealInFinder}>
 					<FolderOpen />
-					Reveal in Finder
+					{t("v2Workspace.pathActions.revealInFinder")}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
-					onSelect={() => handleCopy(absolutePath, "Path copied")}
+					onSelect={() =>
+						handleCopy(absolutePath, t("v2Workspace.pathActions.pathCopied"))
+					}
 				>
 					<Clipboard />
-					Copy Path
+					{t("v2Workspace.pathActions.copyPath")}
 				</DropdownMenuItem>
 				{relativePath && (
 					<DropdownMenuItem
-						onSelect={() => handleCopy(relativePath, "Relative path copied")}
+						onSelect={() =>
+							handleCopy(
+								relativePath,
+								t("v2Workspace.pathActions.relativePathCopied"),
+							)
+						}
 					>
 						<Copy />
-						Copy Relative Path
+						{t("v2Workspace.pathActions.copyRelativePath")}
 					</DropdownMenuItem>
 				)}
 			</>
@@ -72,19 +91,28 @@ export function PathActionsMenuItems({
 		<>
 			<ContextMenuItem onSelect={handleRevealInFinder}>
 				<FolderOpen />
-				Reveal in Finder
+				{t("v2Workspace.pathActions.revealInFinder")}
 			</ContextMenuItem>
 			<ContextMenuSeparator />
-			<ContextMenuItem onSelect={() => handleCopy(absolutePath, "Path copied")}>
+			<ContextMenuItem
+				onSelect={() =>
+					handleCopy(absolutePath, t("v2Workspace.pathActions.pathCopied"))
+				}
+			>
 				<Clipboard />
-				Copy Path
+				{t("v2Workspace.pathActions.copyPath")}
 			</ContextMenuItem>
 			{relativePath && (
 				<ContextMenuItem
-					onSelect={() => handleCopy(relativePath, "Relative path copied")}
+					onSelect={() =>
+						handleCopy(
+							relativePath,
+							t("v2Workspace.pathActions.relativePathCopied"),
+						)
+					}
 				>
 					<Copy />
-					Copy Relative Path
+					{t("v2Workspace.pathActions.copyRelativePath")}
 				</ContextMenuItem>
 			)}
 		</>

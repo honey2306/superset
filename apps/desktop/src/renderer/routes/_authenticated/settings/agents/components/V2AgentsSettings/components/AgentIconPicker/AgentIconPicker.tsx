@@ -11,6 +11,7 @@ import { Check, ChevronDown, ImagePlus } from "lucide-react";
 import { useState } from "react";
 import { isDataImageUri } from "renderer/assets/app-icons/preset-icons";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { AgentIcon } from "../AgentIcon";
 import { AGENT_ICON_OPTIONS } from "./agent-icon-options";
 import { resizeImageDataUrl } from "./resize-image";
@@ -30,6 +31,7 @@ export function AgentIconPicker({
 	onChange,
 	disabled,
 }: AgentIconPickerProps) {
+	const { t } = useTranslation();
 	const selectImageMutation = electronTrpc.window.selectImageFile.useMutation();
 	// Covers the whole flow (native dialog → mutate → resize), not just the
 	// mutation, so re-entrant clicks can't fire overlapping selections.
@@ -46,15 +48,15 @@ export function AgentIconPicker({
 			const resized = await resizeImageDataUrl(result.dataUrl);
 			onChange(resized);
 		} catch {
-			toast.error("Failed to load image");
+			toast.error(t("agents.failedLoadImage"));
 		} finally {
 			setIsProcessing(false);
 		}
 	};
 
 	const triggerLabel = uploaded
-		? "Custom image"
-		: (selected?.label ?? "No icon");
+		? t("agents.customImage")
+		: (selected?.label ?? t("agents.noIcon"));
 
 	return (
 		<DropdownMenu>
@@ -82,13 +84,13 @@ export function AgentIconPicker({
 					}}
 				>
 					<ImagePlus className="size-4 shrink-0 text-muted-foreground" />
-					<span className="flex-1">Upload image…</span>
+					<span className="flex-1">{t("agents.uploadImage")}</span>
 					{uploaded ? <Check className="size-3.5 shrink-0" /> : null}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem className="gap-2" onSelect={() => onChange(null)}>
 					<AgentIcon iconId={null} presetId="custom" className="size-4" />
-					<span className="flex-1">No icon</span>
+					<span className="flex-1">{t("agents.noIcon")}</span>
 					{value === null ? <Check className="size-3.5 shrink-0" /> : null}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />

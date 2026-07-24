@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 
 interface RenameBranchDialogProps {
@@ -31,6 +32,7 @@ export function RenameBranchDialog({
 	onOpenChange,
 	onAfterRename,
 }: RenameBranchDialogProps) {
+	const { t } = useTranslation();
 	const [value, setValue] = useState(currentBranchName);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const electronUtils = electronTrpc.useUtils();
@@ -48,8 +50,8 @@ export function RenameBranchDialog({
 	const handleSubmit = async () => {
 		if (isInvalid || isSubmitting) return;
 		if (!activeHostUrl) {
-			showHostServiceUnavailableToast(hostService, {
-				action: "rename the branch",
+			showHostServiceUnavailableToast(hostService, t, {
+				action: t("workspace.renameBranchAction"),
 			});
 			return;
 		}
@@ -62,10 +64,10 @@ export function RenameBranchDialog({
 		});
 
 		toast.promise(renamePromise, {
-			loading: `Renaming branch to ${trimmed}...`,
-			success: `Branch renamed to ${trimmed}`,
+			loading: t("workspace.renamingBranch", { name: trimmed }),
+			success: t("workspace.branchRenamed", { name: trimmed }),
 			error: (err) =>
-				err instanceof Error ? err.message : "Failed to rename branch",
+				err instanceof Error ? err.message : t("workspace.renameBranchFailed"),
 		});
 
 		setIsSubmitting(true);
@@ -89,10 +91,9 @@ export function RenameBranchDialog({
 		<Dialog open={open} onOpenChange={onOpenChange} modal>
 			<DialogContent className="max-w-[420px]">
 				<DialogHeader>
-					<DialogTitle>Rename branch</DialogTitle>
+					<DialogTitle>{t("workspace.renameBranch")}</DialogTitle>
 					<DialogDescription>
-						Rename the local branch. Branches that have been pushed to remote
-						cannot be renamed.
+						{t("workspace.renameBranchDescription")}
 					</DialogDescription>
 				</DialogHeader>
 				<form
@@ -104,7 +105,7 @@ export function RenameBranchDialog({
 				>
 					<div className="space-y-1.5">
 						<Label htmlFor="rename-branch-input" className="text-xs">
-							Branch name
+							{t("workspace.branchName")}
 						</Label>
 						<Input
 							id="rename-branch-input"
@@ -131,10 +132,10 @@ export function RenameBranchDialog({
 							onClick={() => onOpenChange(false)}
 							disabled={isSubmitting}
 						>
-							Cancel
+							{t("common.cancel")}
 						</Button>
 						<Button type="submit" disabled={isInvalid || isSubmitting}>
-							Rename
+							{t("workspace.rename")}
 						</Button>
 					</DialogFooter>
 				</form>

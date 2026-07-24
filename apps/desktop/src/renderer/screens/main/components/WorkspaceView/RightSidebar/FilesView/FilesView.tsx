@@ -15,6 +15,7 @@ import { useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuFile, LuFolder } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import {
@@ -141,6 +142,7 @@ async function restoreExpandedDirectories(
 }
 
 export function FilesView() {
+	const { t } = useTranslation();
 	const { workspaceId } = useParams({ strict: false });
 	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
 		{ id: workspaceId ?? "" },
@@ -546,7 +548,7 @@ export function FilesView() {
 	if (!worktreePath) {
 		return (
 			<div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
-				No workspace selected
+				{t("files.noWorkspaceSelected")}
 			</div>
 		);
 	}
@@ -605,8 +607,8 @@ export function FilesView() {
 								) : (
 									<div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
 										{isSearchFetching
-											? "Searching files..."
-											: "No matching files"}
+											? t("files.searchingFiles")
+											: t("files.noMatchingFiles")}
 									</div>
 								)
 							) : (
@@ -663,11 +665,11 @@ export function FilesView() {
 					<ContextMenuContent className="w-48">
 						<ContextMenuItem onClick={() => handleNewFile(worktreePath)}>
 							<LuFile className="mr-2 size-4" />
-							New File
+							{t("files.newFile")}
 						</ContextMenuItem>
 						<ContextMenuItem onClick={() => handleNewFolder(worktreePath)}>
 							<LuFolder className="mr-2 size-4" />
-							New Folder
+							{t("files.newFolder")}
 						</ContextMenuItem>
 					</ContextMenuContent>
 				</ContextMenu>

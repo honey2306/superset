@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { LuFolderPlus, LuLoader, LuX } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOpenProject } from "renderer/react-query/projects";
 
 interface SidebarDropZoneProps {
@@ -11,6 +12,7 @@ interface SidebarDropZoneProps {
 }
 
 export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const [isDragOver, setIsDragOver] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -85,12 +87,12 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 			try {
 				filePath = window.webUtils.getPathForFile(firstFile);
 			} catch {
-				setError("Could not get path from dropped item");
+				setError(t("workspace.droppedPathFailed"));
 				return;
 			}
 
 			if (!filePath) {
-				setError("Could not get path from dropped item");
+				setError(t("workspace.droppedPathFailed"));
 				return;
 			}
 
@@ -103,10 +105,12 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 					});
 				}
 			} catch (err) {
-				setError(err instanceof Error ? err.message : "Failed to open project");
+				setError(
+					err instanceof Error ? err.message : t("workspace.openFailed"),
+				);
 			}
 		},
-		[openFromPath, isPending, navigate],
+		[openFromPath, isPending, navigate, t],
 	);
 
 	return (
@@ -140,10 +144,10 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 							</div>
 							<div className="text-center">
 								<p className="text-sm font-medium text-primary">
-									Drop to add project
+									{t("workspace.dropToAddProject")}
 								</p>
 								<p className="text-xs text-muted-foreground mt-1">
-									Release to open folder
+									{t("workspace.releaseToOpenFolder")}
 								</p>
 							</div>
 						</motion.div>
@@ -161,7 +165,7 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 						<div className="flex flex-col items-center gap-3">
 							<LuLoader className="h-5 w-5 text-muted-foreground animate-spin" />
 							<span className="text-sm text-muted-foreground">
-								Adding project...
+								{t("workspace.addingProject")}
 							</span>
 						</div>
 					</motion.div>
@@ -180,7 +184,7 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 							type="button"
 							onClick={() => setError(null)}
 							className="shrink-0 rounded p-0.5 hover:bg-destructive/20 transition-colors"
-							aria-label="Dismiss error"
+							aria-label={t("workspace.dismissError")}
 						>
 							<LuX className="h-3.5 w-3.5" />
 						</button>

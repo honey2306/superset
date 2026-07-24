@@ -1,5 +1,6 @@
 import type { MutableRefObject } from "react";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import type { MessageKey } from "renderer/providers/I18nProvider/messages";
 import {
 	getPaneWorkspaceRun,
 	isPaneWorkspaceRunLaunchPending,
@@ -21,6 +22,7 @@ interface RecoverWorkspaceRunPaneOptions {
 	isStreamReadyRef: MutableRefObject<boolean>;
 	setExitStatus: (status: "killed" | "exited" | null) => void;
 	restartCommand?: string;
+	t: (key: MessageKey, values?: Record<string, number | string>) => string;
 }
 
 export {
@@ -66,6 +68,7 @@ export async function recoverWorkspaceRunPane({
 	isStreamReadyRef,
 	setExitStatus,
 	restartCommand,
+	t,
 }: RecoverWorkspaceRunPaneOptions): Promise<boolean> {
 	if (!workspaceRun || isNewWorkspaceRun) {
 		return false;
@@ -79,9 +82,11 @@ export async function recoverWorkspaceRunPane({
 		isStreamReadyRef.current = true;
 		setExitStatus(wasStoppedByUser ? "killed" : "exited");
 		xterm.writeln(
-			wasStoppedByUser ? "\r\n[Session killed]" : "\r\n[Process exited]",
+			wasStoppedByUser
+				? `\r\n${t("terminal.streamSessionKilled")}`
+				: `\r\n${t("terminal.processExited")}`,
 		);
-		xterm.writeln("[Press any key to restart]");
+		xterm.writeln(t("terminal.pressAnyKeyToRestart"));
 		done();
 		return true;
 	};

@@ -11,6 +11,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import { modifierLabel, useSidebarFilePolicy } from "renderer/lib/clickPolicy";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PathActions } from "../PathActions";
 
 interface FileMenuItemsProps {
@@ -32,6 +33,7 @@ export function FileMenuItems({
 	onRename,
 	onDelete,
 }: FileMenuItemsProps) {
+	const { t } = useTranslation();
 	const { tierForAction } = useSidebarFilePolicy();
 	const newTabTier = tierForAction("newTab");
 	const externalTier = tierForAction("external");
@@ -39,23 +41,23 @@ export function FileMenuItems({
 		<>
 			<DropdownMenuItem onSelect={onOpen}>
 				<FileText />
-				Open
+				{t("v2Workspace.fileMenu.open")}
 			</DropdownMenuItem>
 			<DropdownMenuItem onSelect={onOpenInNewTab}>
 				<SquarePlus />
-				Open in New Tab
+				{t("v2Workspace.fileMenu.openInNewTab")}
 				{newTabTier && (
 					<DropdownMenuShortcut>
-						{modifierLabel(newTabTier)}
+						{modifierLabel(newTabTier, t)}
 					</DropdownMenuShortcut>
 				)}
 			</DropdownMenuItem>
 			<DropdownMenuItem onSelect={onOpenInEditor}>
 				<ExternalLink />
-				Open in Editor
+				{t("v2Workspace.fileMenu.openInEditor")}
 				{externalTier && (
 					<DropdownMenuShortcut>
-						{modifierLabel(externalTier)}
+						{modifierLabel(externalTier, t)}
 					</DropdownMenuShortcut>
 				)}
 			</DropdownMenuItem>
@@ -64,11 +66,11 @@ export function FileMenuItems({
 			<DropdownMenuSeparator />
 			<DropdownMenuItem onSelect={() => setTimeout(onRename, 0)}>
 				<Pencil />
-				Rename...
+				{t("v2Workspace.fileMenu.rename")}
 			</DropdownMenuItem>
 			<DropdownMenuItem variant="destructive" onSelect={onDelete}>
 				<Trash2 />
-				Delete
+				{t("v2Workspace.fileMenu.delete")}
 			</DropdownMenuItem>
 		</>
 	);

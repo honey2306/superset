@@ -1,3 +1,5 @@
+import type { MessageKey } from "renderer/providers/I18nProvider";
+
 export interface PRActionStateInput {
 	hasRepo: boolean;
 	hasExistingPR: boolean;
@@ -9,7 +11,7 @@ export interface PRActionStateInput {
 
 export interface PRActionState {
 	canCreatePR: boolean;
-	createPRBlockedReason: string | null;
+	createPRBlockedReason: MessageKey | null;
 }
 
 export function getPRActionState({
@@ -27,31 +29,28 @@ export function getPRActionState({
 	if (!hasRepo) {
 		return {
 			canCreatePR: false,
-			createPRBlockedReason: "GitHub is not available for this workspace.",
+			createPRBlockedReason: "v1Changes.prAction.githubNotAvailable",
 		};
 	}
 
 	if (isDefaultBranch) {
 		return {
 			canCreatePR: false,
-			createPRBlockedReason:
-				"Cannot create a pull request from the default branch.",
+			createPRBlockedReason: "v1Changes.prAction.cannotFromDefault",
 		};
 	}
 
 	if (!hasUpstream) {
 		return {
 			canCreatePR: false,
-			createPRBlockedReason:
-				"Publish this branch before creating a pull request.",
+			createPRBlockedReason: "v1Changes.prAction.publishBranch",
 		};
 	}
 
 	if (pushCount > 0 || pullCount > 0) {
 		return {
 			canCreatePR: false,
-			createPRBlockedReason:
-				"Sync this branch with its upstream before creating a pull request.",
+			createPRBlockedReason: "v1Changes.prAction.syncWithUpstream",
 		};
 	}
 

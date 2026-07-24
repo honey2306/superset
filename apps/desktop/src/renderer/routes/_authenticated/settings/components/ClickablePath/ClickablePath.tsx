@@ -10,6 +10,7 @@ import { useState } from "react";
 import { LuExternalLink } from "react-icons/lu";
 import { OpenInExternalDropdownItems } from "renderer/components/OpenInExternalDropdown";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useThemeStore } from "renderer/stores/theme";
 
 interface ClickablePathProps {
@@ -23,6 +24,7 @@ export function ClickablePath({
 	className,
 	truncate,
 }: ClickablePathProps) {
+	const { t } = useTranslation();
 	const activeTheme = useThemeStore((state) => state.activeTheme);
 	const [isOpen, setIsOpen] = useState(false);
 	const utils = electronTrpc.useUtils();
@@ -35,12 +37,14 @@ export function ClickablePath({
 		onSuccess: () => {
 			utils.settings.getDefaultEditor.invalidate();
 		},
-		onError: (error) => toast.error(`Failed to open: ${error.message}`),
+		onError: (error) =>
+			toast.error(t("path.openFailed", { error: error.message })),
 	});
 
 	const copyPath = electronTrpc.external.copyPath.useMutation({
-		onSuccess: () => toast.success("Path copied to clipboard"),
-		onError: (error) => toast.error(`Failed to copy path: ${error.message}`),
+		onSuccess: () => toast.success(t("path.copied")),
+		onError: (error) =>
+			toast.error(t("path.copyFailed", { error: error.message })),
 	});
 
 	const isDark = activeTheme?.type === "dark";
@@ -84,7 +88,7 @@ export function ClickablePath({
 					renderAppTrailing={(appId) =>
 						appId === defaultApp ? (
 							<span className="ml-auto text-xs text-muted-foreground">
-								Default
+								{t("path.default")}
 							</span>
 						) : null
 					}

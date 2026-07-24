@@ -1,43 +1,74 @@
-import type { LinkAction, Surface } from "./types";
+import type { LinkAction, Surface, Translator } from "./types";
 
-const FILE_LABELS: Record<LinkAction, string> = {
-	pane: "Open in tab",
-	newTab: "Open in new tab",
-	external: "Open in editor",
-};
+function fileLabel(action: LinkAction, t: Translator): string {
+	switch (action) {
+		case "pane":
+			return t("clickPolicy.openInTab");
+		case "newTab":
+			return t("clickPolicy.openInNewTab");
+		case "external":
+			return t("clickPolicy.openInEditor");
+	}
+}
 
-const URL_LABELS: Record<LinkAction, string> = {
-	pane: "Open in in-app browser",
-	newTab: "Open in new browser tab",
-	external: "Open in default browser",
-};
+function urlLabel(action: LinkAction, t: Translator): string {
+	switch (action) {
+		case "pane":
+			return t("clickPolicy.openInInAppBrowser");
+		case "newTab":
+			return t("clickPolicy.openInNewBrowserTab");
+		case "external":
+			return t("clickPolicy.openInDefaultBrowser");
+	}
+}
 
-export function actionLabel(action: LinkAction, surface: Surface): string {
-	return surface === "file" ? FILE_LABELS[action] : URL_LABELS[action];
+export function actionLabel(
+	action: LinkAction,
+	surface: Surface,
+	t: Translator,
+): string {
+	return surface === "file" ? fileLabel(action, t) : urlLabel(action, t);
 }
 
 export function actionLabelOrNone(
 	action: LinkAction | null,
 	surface: Surface,
+	t: Translator,
 ): string {
-	return action === null ? "Do nothing" : actionLabel(action, surface);
+	return action === null
+		? t("clickPolicy.doNothing")
+		: actionLabel(action, surface, t);
 }
 
 /** Short verb form used inside the per-row hint tooltip. */
-const SHORT_FILE_LABELS: Record<LinkAction, string> = {
-	pane: "open",
-	newTab: "new tab",
-	external: "editor",
-};
+function shortFileLabel(action: LinkAction, t: Translator): string {
+	switch (action) {
+		case "pane":
+			return t("clickPolicy.short.open");
+		case "newTab":
+			return t("clickPolicy.short.newTab");
+		case "external":
+			return t("clickPolicy.short.editor");
+	}
+}
 
-const SHORT_URL_LABELS: Record<LinkAction, string> = {
-	pane: "in-app browser",
-	newTab: "new tab",
-	external: "default browser",
-};
+function shortUrlLabel(action: LinkAction, t: Translator): string {
+	switch (action) {
+		case "pane":
+			return t("clickPolicy.short.inAppBrowser");
+		case "newTab":
+			return t("clickPolicy.short.newTab");
+		case "external":
+			return t("clickPolicy.short.defaultBrowser");
+	}
+}
 
-export function shortActionLabel(action: LinkAction, surface: Surface): string {
+export function shortActionLabel(
+	action: LinkAction,
+	surface: Surface,
+	t: Translator,
+): string {
 	return surface === "file"
-		? SHORT_FILE_LABELS[action]
-		: SHORT_URL_LABELS[action];
+		? shortFileLabel(action, t)
+		: shortUrlLabel(action, t);
 }

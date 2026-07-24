@@ -31,6 +31,7 @@ import {
 import { RiPushpinFill, RiPushpinLine } from "react-icons/ri";
 import { GATED_FEATURES, usePaywall } from "renderer/components/Paywall";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DashboardSidebarDeleteDialog } from "renderer/routes/_authenticated/_dashboard/components/DashboardSidebar/components/DashboardSidebarDeleteDialog";
 import { navigateToV2Workspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { V2WorkspacePrHoverCardContent } from "renderer/routes/_authenticated/_dashboard/v2-workspaces/components/V2WorkspacePrHoverCardContent";
@@ -57,6 +58,7 @@ export function V2WorkspaceRow({
 	workspace,
 	isCurrentRoute,
 }: V2WorkspaceRowProps) {
+	const { t, locale } = useTranslation();
 	const navigate = useNavigate();
 	const { gateFeature } = usePaywall();
 	const {
@@ -140,11 +142,22 @@ export function V2WorkspaceRow({
 	}, [removeWorkspaceFromSidebar, workspace.id]);
 
 	const creatorLabel = workspace.isCreatedByCurrentUser
-		? "you"
-		: (workspace.createdByName ?? "unknown");
+		? t("common.you")
+		: (workspace.createdByName ?? t("common.unknown"));
+
+	const compactTimeLabels = {
+		now: t("time.compactNow"),
+		minutesAgo: (count: number) => t("time.compactMinutesAgo", { count }),
+		hoursAgo: (count: number) => t("time.compactHoursAgo", { count }),
+		daysAgo: (count: number) => t("time.compactDaysAgo", { count }),
+		weeksAgo: (count: number) => t("time.compactWeeksAgo", { count }),
+		monthsAgo: (count: number) => t("time.compactMonthsAgo", { count }),
+		yearsAgo: (count: number) => t("time.compactYearsAgo", { count }),
+	};
 
 	const timeLabel = getRelativeTime(workspace.createdAt.getTime(), {
 		format: "compact",
+		labels: compactTimeLabels,
 	});
 
 	const handleRowKeyDown = useCallback(
@@ -211,7 +224,7 @@ export function V2WorkspaceRow({
 												}}
 												aria-disabled={isCurrentRoute}
 												aria-pressed
-												aria-label="Unpin from sidebar"
+												aria-label={t("workspace.unpin")}
 												className={cn(
 													"size-7 text-foreground hover:bg-transparent hover:text-muted-foreground dark:hover:bg-transparent",
 													isCurrentRoute && "cursor-not-allowed opacity-50",
@@ -222,8 +235,8 @@ export function V2WorkspaceRow({
 										</TooltipTrigger>
 										<TooltipContent side="right">
 											{isCurrentRoute
-												? "Can't unpin the current workspace"
-												: "Unpin from sidebar"}
+												? t("workspace.cannotUnpinCurrent")
+												: t("workspace.unpin")}
 										</TooltipContent>
 									</Tooltip>
 								) : (
@@ -237,13 +250,15 @@ export function V2WorkspaceRow({
 													addToSidebar();
 												}}
 												aria-pressed={false}
-												aria-label="Pin to sidebar"
+												aria-label={t("workspace.pin")}
 												className="size-7 text-muted-foreground hover:bg-transparent hover:text-foreground dark:hover:bg-transparent"
 											>
 												<RiPushpinLine className="size-4" />
 											</Button>
 										</TooltipTrigger>
-										<TooltipContent side="right">Pin to sidebar</TooltipContent>
+										<TooltipContent side="right">
+											{t("workspace.pin")}
+										</TooltipContent>
 									</Tooltip>
 								)}
 							</div>
@@ -256,10 +271,12 @@ export function V2WorkspaceRow({
 										<TooltipTrigger asChild>
 											<CgLaptop
 												className="size-3.5 shrink-0 text-muted-foreground"
-												aria-label="Main workspace"
+												aria-label={t("workspace.main")}
 											/>
 										</TooltipTrigger>
-										<TooltipContent side="top">Main workspace</TooltipContent>
+										<TooltipContent side="top">
+											{t("workspace.main")}
+										</TooltipContent>
 									</Tooltip>
 								) : null}
 								<span
@@ -281,7 +298,9 @@ export function V2WorkspaceRow({
 							{treatAsOffline ? (
 								<Tooltip delayDuration={300}>
 									<TooltipTrigger asChild>{hostCell}</TooltipTrigger>
-									<TooltipContent side="top">Host is offline</TooltipContent>
+									<TooltipContent side="top">
+										{t("workspace.hostOffline")}
+									</TooltipContent>
 								</Tooltip>
 							) : (
 								hostCell
@@ -302,7 +321,10 @@ export function V2WorkspaceRow({
 
 						<TableCell
 							className="hidden truncate py-1.5 text-xs tabular-nums text-muted-foreground xl:table-cell"
-							title={`Created ${workspace.createdAt.toLocaleString()} by ${creatorLabel}`}
+							title={t("workspace.createdBy", {
+								date: workspace.createdAt.toLocaleString(locale),
+								creator: creatorLabel,
+							})}
 						>
 							{timeLabel} · {creatorLabel}
 						</TableCell>
@@ -316,7 +338,7 @@ export function V2WorkspaceRow({
 										size="icon"
 										variant="ghost"
 										onClick={handleDeleteClick}
-										aria-label="Delete workspace"
+										aria-label={t("workspace.delete")}
 										className="size-7 text-muted-foreground opacity-0 transition-opacity hover:bg-transparent hover:text-destructive focus-visible:opacity-100 group-hover/row:opacity-100 dark:hover:bg-transparent"
 									>
 										<LuTrash2 className="size-3.5" />

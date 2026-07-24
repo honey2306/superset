@@ -16,6 +16,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	IssueIcon,
 	type IssueState,
@@ -48,6 +49,7 @@ export function GitHubIssueLinkCommand({
 	projectId,
 	hostId,
 }: GitHubIssueLinkCommandProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [showClosed, setShowClosed] = useState(false);
@@ -91,8 +93,8 @@ export function GitHubIssueLinkCommand({
 		}
 		if (lastToastedError.current === msg) return;
 		lastToastedError.current = msg;
-		toast.error(`Couldn't load issues: ${msg}`);
-	}, [error]);
+		toast.error(t("workspace.loadIssuesFailed", { message: msg }));
+	}, [error, t]);
 
 	const searchResults = data?.issues ?? [];
 	const repoMismatch =
@@ -136,7 +138,7 @@ export function GitHubIssueLinkCommand({
 			>
 				<Command shouldFilter={false}>
 					<CommandInput
-						placeholder="Search issues..."
+						placeholder={t("workspace.searchIssues")}
 						value={searchQuery}
 						onValueChange={setSearchQuery}
 					/>
@@ -150,7 +152,7 @@ export function GitHubIssueLinkCommand({
 							htmlFor={showClosedId}
 							className="cursor-pointer select-none text-xs text-muted-foreground"
 						>
-							Show closed
+							{t("workspace.showClosed")}
 						</label>
 					</div>
 					<CommandList className="max-h-[420px]">
@@ -158,26 +160,22 @@ export function GitHubIssueLinkCommand({
 							<CommandEmpty>
 								{isLoading ? (
 									debouncedTrimmed ? (
-										"Searching..."
+										t("workspace.searching")
 									) : (
-										"Loading..."
+										t("workspace.loadingIssues")
 									)
 								) : error instanceof Error ? (
 									<span className="select-text cursor-text text-destructive">
 										{error.message}
 									</span>
 								) : repoMismatch ? (
-									`Issue URL must match ${repoMismatch}.`
-								) : debouncedTrimmed ? (
-									showClosed ? (
-										"No issues found."
-									) : (
-										"No open issues found."
-									)
+									t("workspace.issueRepoMismatch", {
+										repository: repoMismatch,
+									})
 								) : showClosed ? (
-									"No issues found."
+									t("workspace.noIssues")
 								) : (
-									"No open issues found."
+									t("workspace.noOpenIssues")
 								)}
 							</CommandEmpty>
 						)}
@@ -185,10 +183,12 @@ export function GitHubIssueLinkCommand({
 							<CommandGroup
 								heading={
 									debouncedTrimmed
-										? `${searchResults.length} result${searchResults.length === 1 ? "" : "s"}`
+										? t("workspace.resultCount", {
+												count: searchResults.length,
+											})
 										: showClosed
-											? "Recent issues"
-											: "Open issues"
+											? t("workspace.recentIssues")
+											: t("workspace.openIssues")
 								}
 							>
 								{searchResults.map((issue) => {
@@ -213,7 +213,11 @@ export function GitHubIssueLinkCommand({
 														#{issue.issueNumber}
 													</span>
 													<span aria-hidden>·</span>
-													<span className="capitalize">{state}</span>
+													<span className="capitalize">
+														{state === "closed"
+															? t("workspace.issueStateClosed")
+															: t("workspace.issueStateOpen")}
+													</span>
 												</span>
 											</div>
 											<span className="ml-2 hidden shrink-0 self-center text-[11px] text-muted-foreground group-data-[selected=true]:inline">

@@ -6,8 +6,10 @@ import { useCallback } from "react";
 import type { MosaicBranch } from "react-mosaic-component";
 import { createChatServiceIpcClient } from "renderer/components/Chat/utils/chat-service-client";
 import { electronQueryClient } from "renderer/providers/ElectronTRPCProvider";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import type { SplitPaneOptions, Tab } from "renderer/stores/tabs/types";
+import { NEW_CHAT_PANE_NAME } from "renderer/stores/tabs/utils";
 import { TabContentContextMenu } from "../../TabContentContextMenu";
 import { BasePaneWindow, PaneToolbarActions } from "../components";
 import { ChatPaneInterface } from "./ChatPaneInterface";
@@ -64,7 +66,10 @@ export function ChatPane({
 }: ChatPaneProps) {
 	const isFocused = useTabsStore((s) => s.focusedPaneIds[tabId] === paneId);
 	const equalizePaneSplits = useTabsStore((s) => s.equalizePaneSplits);
-	const paneName = useTabsStore((s) => s.panes[paneId]?.name ?? "New Chat");
+	const { t } = useTranslation();
+	const paneName = useTabsStore(
+		(s) => s.panes[paneId]?.name ?? t("chat.pane.newChat"),
+	);
 	const setTabAutoTitle = useTabsStore((s) => s.setTabAutoTitle);
 	const setPaneAutoTitle = useTabsStore((s) => s.setPaneAutoTitle);
 	const {
@@ -104,12 +109,16 @@ export function ChatPane({
 			const paneName = pane?.name?.trim() ?? "";
 			const tabName = tab?.name?.trim() ?? "";
 			const hasCustomTabTitle = Boolean(tab?.userTitle?.trim());
+			const newChatTitle = t("chat.pane.newChat");
 			const shouldSetPaneTitle =
-				paneName.length === 0 || paneName === "New Chat";
+				paneName.length === 0 ||
+				paneName === NEW_CHAT_PANE_NAME ||
+				paneName === newChatTitle;
 			const shouldSetTabTitle =
 				!hasCustomTabTitle &&
 				(tabName.length === 0 ||
-					tabName === "New Chat" ||
+					tabName === NEW_CHAT_PANE_NAME ||
+					tabName === newChatTitle ||
 					(tabPaneCount === 1 && pane?.type === "chat"));
 
 			if (shouldSetPaneTitle) {
@@ -119,7 +128,7 @@ export function ChatPane({
 				setTabAutoTitle(tabId, fallbackTitle);
 			}
 		},
-		[paneId, setPaneAutoTitle, setTabAutoTitle, tabId],
+		[paneId, setPaneAutoTitle, setTabAutoTitle, tabId, t],
 	);
 
 	return (
@@ -176,7 +185,7 @@ export function ChatPane({
 						availableTabs={availableTabs}
 						onMoveToTab={onMoveToTab}
 						onMoveToNewTab={onMoveToNewTab}
-						closeLabel="Close Chat"
+						closeLabel={t("chat.pane.closeChat")}
 					>
 						<div className="h-full w-full">
 							<ChatPaneInterface

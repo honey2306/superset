@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent } from "@superset/ui/collapsible";
 import { toast } from "@superset/ui/sonner";
 import { useMemo, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { AgentCardProps, AgentEditableField } from "./agent-card.types";
 import {
 	buildAgentFieldPatch,
@@ -26,6 +27,7 @@ export function AgentCard({
 	showCommands,
 	showTaskPrompts,
 }: AgentCardProps) {
+	const { t } = useTranslation();
 	const utils = electronTrpc.useUtils();
 	const isCustomTerminalAgent =
 		preset.source === "user" && preset.kind === "terminal";
@@ -161,7 +163,7 @@ export function AgentCard({
 			toast.error(
 				error instanceof Error
 					? error.message
-					: "Failed to update agent settings",
+					: t("agents.failedUpdateSettings"),
 			);
 		}
 	};
@@ -200,12 +202,12 @@ export function AgentCard({
 			resetFieldInputs();
 			setShowPreview(false);
 			setValidationMessage(null);
-			toast.success(`${preset.label} reset to defaults`);
+			toast.success(t("agents.resetSuccess", { name: preset.label }));
 		} catch (error) {
 			toast.error(
 				error instanceof Error
 					? error.message
-					: "Failed to reset agent settings",
+					: t("agents.failedResetSettings"),
 			);
 		}
 	};

@@ -16,6 +16,7 @@ import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { useRenderStressInstrumentation } from "renderer/lib/performance/stress-instrumentation";
 import { markTerminalForBackground } from "renderer/lib/terminal/terminal-background-intents";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { TerminalLauncher } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useV2TerminalLauncher";
 import type {
 	PaneViewerData,
@@ -55,8 +56,11 @@ interface TerminalPaneLocation {
 
 const EMPTY_TERMINAL_PANE_LOCATIONS = new Map<string, TerminalPaneLocation[]>();
 
-function formatCreatedAt(createdAt: number | undefined): string {
-	if (!createdAt) return "Creating";
+function formatCreatedAt(
+	createdAt: number | undefined,
+	creatingLabel: string,
+): string {
+	if (!createdAt) return creatingLabel;
 
 	return getRelativeTime(createdAt, { format: "compact" });
 }
@@ -88,6 +92,7 @@ export function TerminalSessionDropdown({
 	launcher,
 	workspaceId,
 }: TerminalSessionDropdownProps) {
+	const { t } = useTranslation();
 	const [isOpen, setIsOpen] = useState(false);
 	const [isCreatingTerminal, setIsCreatingTerminal] = useState(false);
 	const collections = useCollections();
@@ -237,9 +242,9 @@ export function TerminalSessionDropdown({
 
 	const handleRemoveTerminal = (session: VisibleTerminalSession) => {
 		toast.promise(removeTerminalSession(session), {
-			loading: "Removing terminal...",
-			success: "Terminal removed",
-			error: "Failed to remove terminal",
+			loading: t("v2Workspace.terminal.removing"),
+			success: t("v2Workspace.terminal.removed"),
+			error: t("v2Workspace.terminal.removeFailed"),
 		});
 	};
 
@@ -267,8 +272,11 @@ export function TerminalSessionDropdown({
 			void utils.terminal.listSessions.invalidate({ workspaceId });
 			setIsOpen(false);
 		} catch (error) {
-			toast.error("Failed to create terminal", {
-				description: error instanceof Error ? error.message : "Unknown error",
+			toast.error(t("v2Workspace.terminal.createFailed"), {
+				description:
+					error instanceof Error
+						? error.message
+						: t("v2Workspace.terminal.unknownError"),
 			});
 		} finally {
 			setIsCreatingTerminal(false);
@@ -281,6 +289,7 @@ export function TerminalSessionDropdown({
 	const triggerTitle = getTerminalDisplayTitle({
 		titleOverride,
 		runtimeTitle: hostTitle,
+		defaultTitle: t("v2Workspace.paneRegistry.titleTerminal"),
 	});
 
 	return (
@@ -288,7 +297,7 @@ export function TerminalSessionDropdown({
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
-					aria-label="Terminal sessions"
+					aria-label={t("v2Workspace.terminal.sessionsAria")}
 					title={triggerTitle}
 					className="flex min-w-32 max-w-96 items-center gap-1.5 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 					onMouseDown={(event) => event.stopPropagation()}
@@ -304,7 +313,9 @@ export function TerminalSessionDropdown({
 										? "size-1.5 shrink-0 rounded-full bg-amber-500"
 										: "size-1.5 shrink-0 rounded-full bg-red-500"
 							}
-							title={`Workspace run: ${workspaceRunState}`}
+							title={t("v2Workspace.terminal.workspaceRun", {
+								state: workspaceRunState,
+							})}
 						/>
 					)}
 					<span className="min-w-0 flex-1 truncate text-left">
@@ -317,11 +328,13 @@ export function TerminalSessionDropdown({
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-96">
 				<DropdownMenuLabel className="flex items-center gap-2 text-xs">
-					<span className="min-w-0 flex-1 truncate">Terminal Sessions</span>
+					<span className="min-w-0 flex-1 truncate">
+						{t("v2Workspace.terminal.sessions")}
+					</span>
 					<button
 						type="button"
-						aria-label="New terminal"
-						title="New terminal"
+						aria-label={t("v2Workspace.terminal.newTerminal")}
+						title={t("v2Workspace.terminal.newTerminal")}
 						disabled={isCreatingTerminal}
 						className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 						onClick={(event) => {
@@ -345,21 +358,25 @@ export function TerminalSessionDropdown({
 							const location = renderTerminalPaneLocations.get(
 								session.terminalId,
 							)?.[0];
-							const createdAtLabel = formatCreatedAt(session.createdAt);
+							const createdAtLabel = formatCreatedAt(
+								session.createdAt,
+								t("v2Workspace.terminal.creating"),
+							);
 							const status = isCurrent
-								? "Current"
+								? t("v2Workspace.terminal.current")
 								: workspaceRunTerminals[session.terminalId]
-									? "Run"
+									? t("v2Workspace.terminal.run")
 									: session.pending
-										? "Starting"
+										? t("v2Workspace.terminal.starting")
 										: session.attached
-											? "Attached"
-											: "Detached";
+											? t("v2Workspace.terminal.attached")
+											: t("v2Workspace.terminal.detached");
 							const title = isCurrent
 								? triggerTitle
 								: getTerminalDisplayTitle({
 										titleOverride: location?.titleOverride,
 										sessionTitle: session.title,
+										defaultTitle: t("v2Workspace.paneRegistry.titleTerminal"),
 									});
 
 							return (
@@ -384,7 +401,9 @@ export function TerminalSessionDropdown({
 									</span>
 									<button
 										type="button"
-										aria-label={`Remove terminal ${session.createdAt ? createdAtLabel : "session"}`}
+										aria-label={t("v2Workspace.terminal.removeAria", {
+											label: session.createdAt ? createdAtLabel : "session",
+										})}
 										disabled={killTerminalSession.isPending}
 										className="shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-30 group-hover:opacity-100"
 										onClick={(event) => {
@@ -400,7 +419,7 @@ export function TerminalSessionDropdown({
 						})
 					) : (
 						<div className="px-2 py-1.5 text-xs text-muted-foreground">
-							No live sessions
+							{t("v2Workspace.terminal.noLiveSessions")}
 						</div>
 					)}
 				</div>

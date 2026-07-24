@@ -13,6 +13,7 @@ import { HiCheck, HiChevronUpDown } from "react-icons/hi2";
 import { LuFolderOpen } from "react-icons/lu";
 import { PLATFORM } from "renderer/hotkeys";
 import { formatRelativeTime } from "renderer/lib/formatRelativeTime";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { BranchFilter, BranchRow } from "../../../hooks/useBranchContext";
 import { FormPickerTrigger } from "../FormPickerTrigger";
 import {
@@ -61,6 +62,15 @@ export function CompareBaseBranchPicker({
 	onSelectCompareBaseBranch,
 	onOpenWorkspace,
 }: CompareBaseBranchPickerProps) {
+	const { t } = useTranslation();
+	const relativeTimeLabels = {
+		now: t("time.now"),
+		second: t("time.secondShort"),
+		minute: t("time.minuteShort"),
+		hour: t("time.hourShort"),
+		day: t("time.dayShort"),
+		month: t("time.monthShort"),
+	};
 	const [open, setOpen] = useState(false);
 	// Mirror cmdk's selected row so Mod+Enter can resolve it without DOM lookup.
 	const [selectedValue, setSelectedValue] = useState("");
@@ -92,7 +102,9 @@ export function CompareBaseBranchPicker({
 
 	if (isBranchesError) {
 		return (
-			<span className="text-xs text-destructive">Failed to load branches</span>
+			<span className="text-xs text-destructive">
+				{t("workspace.failedLoadBranches")}
+			</span>
 		);
 	}
 
@@ -118,7 +130,7 @@ export function CompareBaseBranchPicker({
 						</span>
 					) : (
 						<span className="truncate text-muted-foreground/80">
-							Select base branch…
+							{t("workspace.selectBaseBranch")}
 						</span>
 					)}
 					<HiChevronUpDown className="size-3 shrink-0" />
@@ -149,7 +161,7 @@ export function CompareBaseBranchPicker({
 					}}
 				>
 					<CommandInput
-						placeholder="Search branches..."
+						placeholder={t("workspace.searchBranches")}
 						value={branchSearch}
 						onValueChange={onBranchSearchChange}
 					/>
@@ -160,16 +172,16 @@ export function CompareBaseBranchPicker({
 					>
 						<TabsList className="grid w-full grid-cols-2 h-7 bg-transparent">
 							<TabsTrigger value="all" className="text-[11px]">
-								All
+								{t("workspace.allBranches")}
 							</TabsTrigger>
 							<TabsTrigger value="worktree" className="text-[11px]">
-								Worktree
+								{t("workspace.worktreeFilter")}
 							</TabsTrigger>
 						</TabsList>
 					</Tabs>
 					<CommandList className="max-h-[420px]">
 						{!isBranchesLoading && branches.length === 0 && (
-							<CommandEmpty>No branches found</CommandEmpty>
+							<CommandEmpty>{t("workspace.noBranches")}</CommandEmpty>
 						)}
 						{branches.map((branch) => {
 							const isRemoteOnly = branch.isRemote && !branch.isLocal;
@@ -203,25 +215,30 @@ export function CompareBaseBranchPicker({
 										<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
 											{branch.lastCommitDate > 0 && (
 												<span>
-													{formatRelativeTime(branch.lastCommitDate * 1000)}
+													{formatRelativeTime(
+														branch.lastCommitDate * 1000,
+														relativeTimeLabels,
+													)}
 												</span>
 											)}
 											{branch.name === defaultBranch && (
 												<>
 													<span aria-hidden>·</span>
-													<span>default</span>
+													<span>{t("workspace.defaultBranch")}</span>
 												</>
 											)}
 											{isRemoteOnly && (
 												<>
 													<span aria-hidden>·</span>
-													<span>remote</span>
+													<span>{t("workspace.remoteBranch")}</span>
 												</>
 											)}
 											{isWorktree && (
 												<>
 													<span aria-hidden>·</span>
-													<span className="text-primary/80">worktree</span>
+													<span className="text-primary/80">
+														{t("workspace.worktreeFilter")}
+													</span>
 												</>
 											)}
 										</span>
@@ -236,7 +253,7 @@ export function CompareBaseBranchPicker({
 												setOpen(false);
 											}}
 										>
-											Open workspace
+											{t("workspace.openWorkspace")}
 											<span className="ml-1.5 text-[10px] opacity-70">
 												{MOD_KEY}↵
 											</span>
@@ -253,7 +270,7 @@ export function CompareBaseBranchPicker({
 								ref={sentinelRef}
 								className="py-2 text-center text-[11px] text-muted-foreground/60"
 							>
-								{isFetchingNextPage ? "Loading more..." : ""}
+								{isFetchingNextPage ? t("workspace.loadingMore") : ""}
 							</div>
 						)}
 					</CommandList>

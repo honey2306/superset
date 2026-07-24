@@ -7,6 +7,7 @@ import { Button } from "@superset/ui/button";
 import { useState } from "react";
 import { HiOutlinePlus } from "react-icons/hi2";
 import { GATED_FEATURES, usePaywall } from "renderer/components/Paywall";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { InviteMemberDialog } from "./components/InviteMemberDialog";
 
 interface InviteMemberButtonProps {
@@ -21,6 +22,7 @@ export function InviteMemberButton({
 	organizationName,
 }: InviteMemberButtonProps) {
 	const [open, setOpen] = useState(false);
+	const { t } = useTranslation();
 	const { gateFeature } = usePaywall();
 
 	const invitableRoles = getInvitableRoles(currentUserRole);
@@ -33,12 +35,15 @@ export function InviteMemberButton({
 	const handleClick = () => {
 		gateFeature(GATED_FEATURES.INVITE_MEMBERS, () => {
 			alert({
-				title: "This will affect your billing",
-				description:
-					"Adding members will increase your subscription cost, prorated to your billing cycle.",
+				title: t("members.billingWarningTitle"),
+				description: t("members.billingWarningDescription"),
 				actions: [
-					{ label: "Cancel", variant: "outline", onClick: () => {} },
-					{ label: "Continue", onClick: () => setOpen(true) },
+					{
+						label: t("common.cancel"),
+						variant: "outline",
+						onClick: () => {},
+					},
+					{ label: t("common.continue"), onClick: () => setOpen(true) },
 				],
 			});
 		});
@@ -48,7 +53,7 @@ export function InviteMemberButton({
 		<>
 			<Button size="sm" onClick={handleClick} className="gap-1.5">
 				<HiOutlinePlus className="h-3.5 w-3.5" />
-				Invite member
+				{t("members.invite")}
 			</Button>
 
 			<InviteMemberDialog

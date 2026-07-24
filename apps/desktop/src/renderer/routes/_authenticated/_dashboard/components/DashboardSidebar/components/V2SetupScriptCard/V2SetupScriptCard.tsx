@@ -2,6 +2,7 @@ import { SidebarCard } from "@superset/ui/sidebar-card";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useNewWorkspaceDraftStore } from "renderer/stores/new-workspace-draft";
 import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
 import { useV2SetupCardDismissalsStore } from "renderer/stores/v2-setup-card-dismissals";
@@ -20,6 +21,7 @@ export function V2SetupScriptCard({
 	projectName,
 	isCollapsed,
 }: V2SetupScriptCardProps) {
+	const { t } = useTranslation();
 	const openNewWorkspaceModal = useOpenNewWorkspaceModal();
 	const isDismissed = useV2SetupCardDismissalsStore((s) =>
 		s.isDismissed(projectId),
@@ -58,10 +60,12 @@ export function V2SetupScriptCard({
 				className="px-3 pb-2"
 			>
 				<SidebarCard
-					badge="Setup"
-					title="Setup scripts"
-					description={`Automate workspace setup for ${projectName}`}
-					actionLabel="Configure"
+					badge={t("workspace.setupBadge")}
+					title={t("workspace.setupScripts")}
+					description={t("workspace.automateSetupFor", {
+						project: projectName,
+					})}
+					actionLabel={t("workspace.configure")}
 					onAction={handleConfigure}
 					onDismiss={() => dismiss(projectId)}
 				/>

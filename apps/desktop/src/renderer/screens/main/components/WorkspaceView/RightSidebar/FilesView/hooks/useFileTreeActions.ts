@@ -1,6 +1,7 @@
 import { toast } from "@superset/ui/sonner";
 import { useCallback } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	getBaseName,
 	getParentPath,
@@ -20,6 +21,7 @@ export function useFileTreeActions({
 	worktreePath,
 	onRefresh,
 }: UseFileTreeActionsProps) {
+	const { t } = useTranslation();
 	const writeFileMutation = electronTrpc.filesystem.writeFile.useMutation();
 	const createDirectoryMutation =
 		electronTrpc.filesystem.createDirectory.useMutation();
@@ -35,9 +37,7 @@ export function useFileTreeActions({
 
 			const fileTarget = resolveNewFileTarget(parentAbsolutePath, name);
 			if (!fileTarget) {
-				toast.error(
-					"Failed to create file: nested paths cannot contain . or ..",
-				);
+				toast.error(t("files.toast.failedCreateFileNested"));
 				return;
 			}
 
@@ -62,21 +62,27 @@ export function useFileTreeActions({
 				.then((result) => {
 					if (!result.ok) {
 						if (result.reason === "exists") {
-							toast.error(`Failed to create file: ${name} already exists`);
+							toast.error(t("files.toast.failedCreateFileExists", { name }));
 							return;
 						}
-						toast.error(`Failed to create file: ${result.reason}`);
+						toast.error(
+							t("files.toast.failedCreateFileReason", {
+								reason: result.reason,
+							}),
+						);
 						return;
 					}
 
-					toast.success(`Created ${name}`);
+					toast.success(t("files.toast.created", { name }));
 					void onRefresh(parentAbsolutePath);
 				})
 				.catch((error: Error) => {
-					toast.error(`Failed to create file: ${error.message}`);
+					toast.error(
+						t("files.toast.failedCreateFileError", { message: error.message }),
+					);
 				});
 		},
-		[createDirectoryMutation, onRefresh, workspaceId, writeFileMutation],
+		[createDirectoryMutation, onRefresh, t, workspaceId, writeFileMutation],
 	);
 
 	const createDirectory = useCallback(
@@ -90,9 +96,7 @@ export function useFileTreeActions({
 				name,
 			);
 			if (!directoryTarget) {
-				toast.error(
-					"Failed to create folder: nested paths cannot contain . or ..",
-				);
+				toast.error(t("files.toast.failedCreateFolderNested"));
 				return;
 			}
 			void createDirectoryMutation
@@ -102,14 +106,18 @@ export function useFileTreeActions({
 					recursive: true,
 				})
 				.then(() => {
-					toast.success(`Created ${name}`);
+					toast.success(t("files.toast.created", { name }));
 					void onRefresh(parentAbsolutePath);
 				})
 				.catch((error: Error) => {
-					toast.error(`Failed to create folder: ${error.message}`);
+					toast.error(
+						t("files.toast.failedCreateFolderError", {
+							message: error.message,
+						}),
+					);
 				});
 		},
-		[createDirectoryMutation, onRefresh, workspaceId],
+		[createDirectoryMutation, onRefresh, t, workspaceId],
 	);
 
 	const rename = useCallback(
@@ -129,14 +137,16 @@ export function useFileTreeActions({
 					destinationAbsolutePath,
 				})
 				.then(() => {
-					toast.success(`Renamed to ${newName}`);
+					toast.success(t("files.toast.renamedTo", { name: newName }));
 					void onRefresh(getParentPath(absolutePath) || worktreePath || "");
 				})
 				.catch((error: Error) => {
-					toast.error(`Failed to rename: ${error.message}`);
+					toast.error(
+						t("files.toast.failedRenameError", { message: error.message }),
+					);
 				});
 		},
-		[movePathMutation, onRefresh, workspaceId, worktreePath],
+		[movePathMutation, onRefresh, t, workspaceId, worktreePath],
 	);
 
 	const deleteItems = useCallback(
@@ -163,23 +173,25 @@ export function useFileTreeActions({
 					toast.success(
 						deletedCount === 1
 							? permanent
-								? "Deleted"
-								: "Moved to trash"
+								? t("files.toast.deleted")
+								: t("files.toast.movedToTrash")
 							: permanent
-								? `Deleted ${deletedCount} items`
-								: `Moved ${deletedCount} items to trash`,
+								? t("files.toast.deletedItems", { count: deletedCount })
+								: t("files.toast.movedItemsToTrash", { count: deletedCount }),
 					);
 				}
 
 				if (errorCount > 0) {
-					toast.error(`Failed to delete ${errorCount} items`);
+					toast.error(
+						t("files.toast.failedDeleteItems", { count: errorCount }),
+					);
 				}
 
 				const parentPath = getParentPath(absolutePaths[0]);
 				void onRefresh(parentPath || worktreePath || "");
 			});
 		},
-		[deletePathMutation, onRefresh, workspaceId, worktreePath],
+		[deletePathMutation, onRefresh, t, workspaceId, worktreePath],
 	);
 
 	const moveItems = useCallback(
@@ -207,18 +219,20 @@ export function useFileTreeActions({
 
 				if (movedCount > 0) {
 					toast.success(
-						movedCount === 1 ? "Moved item" : `Moved ${movedCount} items`,
+						movedCount === 1
+							? t("files.toast.movedItem")
+							: t("files.toast.movedItems", { count: movedCount }),
 					);
 				}
 
 				if (errorCount > 0) {
-					toast.error(`Failed to move ${errorCount} items`);
+					toast.error(t("files.toast.failedMoveItems", { count: errorCount }));
 				}
 
 				void onRefresh(destinationAbsolutePath);
 			});
 		},
-		[movePathMutation, onRefresh, workspaceId],
+		[movePathMutation, onRefresh, t, workspaceId],
 	);
 
 	const copyItems = useCallback(
@@ -246,18 +260,20 @@ export function useFileTreeActions({
 
 				if (copiedCount > 0) {
 					toast.success(
-						copiedCount === 1 ? "Copied item" : `Copied ${copiedCount} items`,
+						copiedCount === 1
+							? t("files.toast.copiedItem")
+							: t("files.toast.copiedItems", { count: copiedCount }),
 					);
 				}
 
 				if (errorCount > 0) {
-					toast.error(`Failed to copy ${errorCount} items`);
+					toast.error(t("files.toast.failedCopyItems", { count: errorCount }));
 				}
 
 				void onRefresh(destinationAbsolutePath);
 			});
 		},
-		[copyPathMutation, onRefresh, workspaceId],
+		[copyPathMutation, onRefresh, t, workspaceId],
 	);
 
 	return {

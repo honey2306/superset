@@ -1,6 +1,7 @@
 import { cn } from "@superset/ui/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { LuX } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { navigateToV2Workspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { getStatusTooltip } from "renderer/screens/main/components/StatusIndicator";
 import { STROKE_WIDTH } from "renderer/screens/main/components/WorkspaceSidebar/constants";
@@ -28,6 +29,7 @@ export function DashboardSidebarAgentHoverRow({
 	workspaceId,
 	agent,
 }: DashboardSidebarAgentHoverRowProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { isPending, killAgent } = useDashboardSidebarAgentKill(workspaceId);
 
@@ -41,7 +43,9 @@ export function DashboardSidebarAgentHoverRow({
 	};
 
 	const statusLabel =
-		agent.status === "idle" ? "Idle" : getStatusTooltip(agent.status);
+		agent.status === "idle"
+			? t("workspace.idle")
+			: getStatusTooltip(agent.status);
 
 	return (
 		<div className="group/row flex items-center gap-1.5 rounded-sm px-2 py-1 hover:bg-muted">
@@ -71,7 +75,7 @@ export function DashboardSidebarAgentHoverRow({
 						void killAgent(agent.terminalId);
 					}}
 					disabled={isPending}
-					aria-label={`Stop ${agent.label}`}
+					aria-label={t("workspace.stopAgent", { agent: agent.label })}
 					className="invisible flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-focus-within/row:visible group-hover/row:visible"
 				>
 					<LuX className="size-3" strokeWidth={STROKE_WIDTH} />

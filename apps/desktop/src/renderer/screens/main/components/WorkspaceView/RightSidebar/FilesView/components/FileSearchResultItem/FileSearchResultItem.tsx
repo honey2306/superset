@@ -16,6 +16,7 @@ import {
 	LuPencil,
 	LuTrash2,
 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { DirectoryEntry } from "shared/file-tree-types";
 import { useFileDrag, usePathActions } from "../../../ChangesView/hooks";
 import { SEARCH_RESULT_ROW_HEIGHT } from "../../constants";
@@ -35,11 +36,11 @@ interface FileSearchResultItemProps {
 
 const PATH_LABEL_MAX_CHARS = 48;
 
-function getFolderLabel(relativePath: string): string {
+function getFolderLabel(relativePath: string, rootLabel: string): string {
 	const normalized = relativePath.replace(/\\/g, "/");
 	const lastSlash = normalized.lastIndexOf("/");
 	if (lastSlash <= 0) {
-		return "root";
+		return rootLabel;
 	}
 	return normalized.slice(0, lastSlash);
 }
@@ -63,7 +64,8 @@ export function FileSearchResultItem({
 	onRename,
 	onDelete,
 }: FileSearchResultItemProps) {
-	const folderLabel = getFolderLabel(entry.relativePath);
+	const { t } = useTranslation();
+	const folderLabel = getFolderLabel(entry.relativePath, t("files.rootLabel"));
 	const folderLabelDisplay = truncatePathStart(
 		folderLabel,
 		PATH_LABEL_MAX_CHARS,
@@ -148,47 +150,47 @@ export function FileSearchResultItem({
 			<ContextMenuContent className="w-48">
 				<ContextMenuItem onClick={() => onNewFile(parentPath)}>
 					<LuFile className="mr-2 size-4" />
-					New File
+					{t("files.newFile")}
 				</ContextMenuItem>
 				<ContextMenuItem onClick={() => onNewFolder(parentPath)}>
 					<LuFolder className="mr-2 size-4" />
-					New Folder
+					{t("files.newFolder")}
 				</ContextMenuItem>
 
 				<ContextMenuSeparator />
 
 				<ContextMenuItem onClick={copyPath}>
 					<LuClipboard className="mr-2 size-4" />
-					Copy Path
+					{t("files.copyPath")}
 				</ContextMenuItem>
 				<ContextMenuItem onClick={copyRelativePath}>
 					<LuCopy className="mr-2 size-4" />
-					Copy Relative Path
+					{t("files.copyRelativePath")}
 				</ContextMenuItem>
 
 				<ContextMenuSeparator />
 
 				<ContextMenuItem onClick={revealInFinder}>
 					<LuFolderOpen className="mr-2 size-4" />
-					Reveal in Finder
+					{t("files.revealInFinder")}
 				</ContextMenuItem>
 				<ContextMenuItem onClick={openInEditor}>
 					<LuExternalLink className="mr-2 size-4" />
-					Open in Editor
+					{t("files.openInEditor")}
 				</ContextMenuItem>
 
 				<ContextMenuSeparator />
 
 				<ContextMenuItem onClick={() => onRename(entry)}>
 					<LuPencil className="mr-2 size-4" />
-					Rename
+					{t("files.rename")}
 				</ContextMenuItem>
 				<ContextMenuItem
 					onClick={() => onDelete(entry)}
 					className="text-destructive focus:text-destructive"
 				>
 					<LuTrash2 className="mr-2 size-4" />
-					Delete
+					{t("files.delete")}
 				</ContextMenuItem>
 			</ContextMenuContent>
 		</ContextMenu>

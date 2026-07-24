@@ -8,6 +8,7 @@ import {
 } from "@superset/ui/select";
 import { TableCell, TableRow } from "@superset/ui/table";
 import { HiOutlineTrash } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export interface MemberRowData {
 	usersHostsId: string;
@@ -30,6 +31,7 @@ export function MemberRow({
 	onSetRole,
 	onRemove,
 }: MemberRowProps) {
+	const { t } = useTranslation();
 	return (
 		<TableRow>
 			<TableCell className="font-medium">{member.name}</TableCell>
@@ -46,12 +48,14 @@ export function MemberRow({
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="owner">Owner</SelectItem>
-							<SelectItem value="member">Member</SelectItem>
+							<SelectItem value="owner">{t("hosts.owner")}</SelectItem>
+							<SelectItem value="member">{t("hosts.member")}</SelectItem>
 						</SelectContent>
 					</Select>
 				) : (
-					<span className="text-sm capitalize">{member.role}</span>
+					<span className="text-sm">
+						{member.role === "owner" ? t("hosts.owner") : t("hosts.member")}
+					</span>
 				)}
 			</TableCell>
 			{isOwner && (
@@ -60,7 +64,7 @@ export function MemberRow({
 						variant="ghost"
 						size="sm"
 						onClick={() => onRemove(member)}
-						aria-label={`Remove ${member.name}`}
+						aria-label={t("hosts.removeMember", { name: member.name })}
 					>
 						<HiOutlineTrash className="h-4 w-4" />
 					</Button>

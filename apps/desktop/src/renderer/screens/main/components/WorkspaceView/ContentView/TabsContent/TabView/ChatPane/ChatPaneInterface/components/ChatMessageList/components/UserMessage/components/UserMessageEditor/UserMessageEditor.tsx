@@ -1,6 +1,7 @@
 import { Button } from "@superset/ui/button";
 import { Loader2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { UserMessageActionPayload } from "../../../../ChatMessageList.types";
 import { AttachmentChip } from "../../../AttachmentChip";
 import type { UserMessageDraft } from "../../utils/getUserMessageDraft/getUserMessageDraft";
@@ -20,6 +21,7 @@ export function UserMessageEditor({
 }: UserMessageEditorProps) {
 	const [text, setText] = useState(initialDraft.text);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const { t } = useTranslation();
 	const files = initialDraft.files;
 
 	useEffect(() => {
@@ -80,7 +82,7 @@ export function UserMessageEditor({
 					event.preventDefault();
 					handleSubmit();
 				}}
-				placeholder="Edit message..."
+				placeholder={t("chat.userMessage.editPlaceholder")}
 				className="h-9 w-full rounded-xl border border-transparent bg-muted/45 px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-border focus:bg-background/70"
 			/>
 			<div className="flex justify-end gap-1">
@@ -92,7 +94,7 @@ export function UserMessageEditor({
 					onClick={onCancel}
 					disabled={isSubmitting}
 				>
-					Cancel
+					{t("chat.userMessage.cancel")}
 				</Button>
 				<Button
 					type="button"
@@ -105,10 +107,10 @@ export function UserMessageEditor({
 					{isSubmitting ? (
 						<>
 							<Loader2Icon className="size-4 animate-spin" />
-							Sending
+							{t("chat.userMessage.sending")}
 						</>
 					) : (
-						"Send"
+						t("chat.userMessage.send")
 					)}
 				</Button>
 			</div>

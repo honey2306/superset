@@ -8,6 +8,7 @@ import {
 	EnterEnabledAlertDialogContent,
 } from "@superset/ui/alert-dialog";
 import { Button } from "@superset/ui/button";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface CloseProjectDialogProps {
 	projectName: string;
@@ -24,22 +25,23 @@ export function CloseProjectDialog({
 	onOpenChange,
 	onConfirm,
 }: CloseProjectDialogProps) {
+	const { t } = useTranslation();
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<EnterEnabledAlertDialogContent className="max-w-[340px] gap-0 p-0">
 				<AlertDialogHeader className="px-4 pt-4 pb-2">
 					<AlertDialogTitle className="font-medium">
-						Close project "{projectName}"?
+						{t("workspace.closeProjectQuestion", { name: projectName })}
 					</AlertDialogTitle>
 					<AlertDialogDescription asChild>
 						<div className="text-muted-foreground space-y-1.5">
 							<span className="block">
-								This will close {workspaceCount} workspace
-								{workspaceCount !== 1 ? "s" : ""} and kill all active terminals
-								in this project.
+								{t("workspace.closeProjectWorkspaceCount", {
+									count: workspaceCount,
+								})}
 							</span>
 							<span className="block">
-								Your files and git history will remain on disk.
+								{t("workspace.closeProjectFilesRemain")}
 							</span>
 						</div>
 					</AlertDialogDescription>
@@ -52,7 +54,7 @@ export function CloseProjectDialog({
 						className="h-7 px-3 text-xs"
 						onClick={() => onOpenChange(false)}
 					>
-						Cancel
+						{t("common.cancel")}
 					</Button>
 					<AlertDialogAction
 						variant="destructive"
@@ -60,7 +62,7 @@ export function CloseProjectDialog({
 						className="h-7 px-3 text-xs"
 						onClick={onConfirm}
 					>
-						Close Project
+						{t("workspace.closeProject")}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</EnterEnabledAlertDialogContent>

@@ -3,7 +3,8 @@ import { cn } from "@superset/ui/utils";
 import type { Terminal } from "@xterm/xterm";
 import { useCallback, useEffect, useState } from "react";
 import { HiArrowDown } from "react-icons/hi2";
-import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useBinding, useHotkeyDisplay } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { scrollToBottom } from "../utils";
 
 interface ScrollToBottomButtonProps {
@@ -11,9 +12,11 @@ interface ScrollToBottomButtonProps {
 }
 
 export function ScrollToBottomButton({ terminal }: ScrollToBottomButtonProps) {
+	const { t } = useTranslation();
 	const [isVisible, setIsVisible] = useState(false);
+	const binding = useBinding("SCROLL_TO_BOTTOM");
 	const shortcutText = useHotkeyDisplay("SCROLL_TO_BOTTOM").text;
-	const showShortcut = shortcutText !== "Unassigned";
+	const showShortcut = binding !== null;
 
 	const checkScrollPosition = useCallback(() => {
 		if (!terminal) return;
@@ -62,7 +65,8 @@ export function ScrollToBottomButton({ terminal }: ScrollToBottomButtonProps) {
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="left">
-					Scroll to bottom{showShortcut && ` (${shortcutText})`}
+					{t("v2Workspace.paneRegistry.scrollToBottom")}
+					{showShortcut && ` (${shortcutText})`}
 				</TooltipContent>
 			</Tooltip>
 		</div>

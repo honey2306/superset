@@ -9,9 +9,9 @@ describe("getPushActionCopy", () => {
 				pushCount: 0,
 			}),
 		).toEqual({
-			label: "Publish Branch",
-			menuLabel: "Publish Branch",
-			tooltip: "Publish branch to remote",
+			labelKey: "v1Changes.push.publishBranch",
+			menuLabelKey: "v1Changes.push.publishBranch",
+			tooltipKey: "v1Changes.push.publishBranchTooltip",
 		});
 	});
 
@@ -22,9 +22,10 @@ describe("getPushActionCopy", () => {
 				pushCount: 2,
 			}),
 		).toEqual({
-			label: "Push",
-			menuLabel: "Push",
-			tooltip: "Push 2 commits",
+			labelKey: "v1Changes.push.push",
+			menuLabelKey: "v1Changes.push.push",
+			tooltipKey: "v1Changes.push.pushCommits",
+			tooltipValues: { count: 2 },
 		});
 	});
 
@@ -39,9 +40,13 @@ describe("getPushActionCopy", () => {
 				},
 			}),
 		).toEqual({
-			label: "Push to PR",
-			menuLabel: "Push to PR",
-			tooltip: "Push 1 commit to Kitenite:feature/pr-branch",
+			labelKey: "v1Changes.push.toPR",
+			menuLabelKey: "v1Changes.push.toPR",
+			tooltipKey: "v1Changes.push.pushCommitsTooltip",
+			tooltipValues: {
+				count: 1,
+				target: "Kitenite:feature/pr-branch",
+			},
 		});
 	});
 });

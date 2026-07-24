@@ -4,6 +4,7 @@ import { Switch } from "@superset/ui/switch";
 import { useState } from "react";
 import { GATED_FEATURES, usePaywall } from "renderer/components/Paywall";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { ExposeViaRelayConfirmDialog } from "renderer/routes/_authenticated/components/ExposeViaRelayConfirmDialog";
 import {
 	isItemVisible,
@@ -16,6 +17,7 @@ interface SecuritySettingsProps {
 }
 
 export function SecuritySettings({ visibleItems }: SecuritySettingsProps) {
+	const { t } = useTranslation();
 	const showRelayToggle = isItemVisible(
 		SETTING_ITEM_ID.SECURITY_EXPOSE_HOST_SERVICE_VIA_RELAY,
 		visibleItems,
@@ -52,12 +54,12 @@ export function SecuritySettings({ visibleItems }: SecuritySettingsProps) {
 
 	const runToggle = (enabled: boolean) => {
 		toast.promise(setExpose.mutateAsync({ enabled }), {
-			loading: "Restarting host services…",
+			loading: t("security.restartingServices"),
 			success: ({ restartedOrgCount }) =>
 				restartedOrgCount > 0
-					? `Restarted ${restartedOrgCount} host service${restartedOrgCount === 1 ? "" : "s"}`
-					: "Setting saved",
-			error: (err: Error) => err.message ?? "Failed to update setting",
+					? t("security.servicesRestarted", { count: restartedOrgCount })
+					: t("security.settingSaved"),
+			error: (err: Error) => err.message ?? t("security.settingUpdateFailed"),
 		});
 	};
 
@@ -77,9 +79,9 @@ export function SecuritySettings({ visibleItems }: SecuritySettingsProps) {
 	return (
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Security</h2>
+				<h2 className="text-xl font-semibold">{t("settings.security")}</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Control how your local machine is reachable from remote workspaces
+					{t("security.description")}
 				</p>
 			</div>
 
@@ -90,12 +92,10 @@ export function SecuritySettings({ visibleItems }: SecuritySettingsProps) {
 							htmlFor="expose-host-service-via-relay"
 							className="text-sm font-medium"
 						>
-							Allow remote workspaces to access this device via relay
+							{t("security.relayAccess")}
 						</Label>
 						<p className="text-xs text-muted-foreground">
-							When off, your local tools and files cannot be reached from any
-							remote workspace through the Superset relay. This does not affect
-							your ability to connect out to remote sandboxes from this device.
+							{t("security.relayAccessDescription")}
 						</p>
 					</div>
 					<Switch

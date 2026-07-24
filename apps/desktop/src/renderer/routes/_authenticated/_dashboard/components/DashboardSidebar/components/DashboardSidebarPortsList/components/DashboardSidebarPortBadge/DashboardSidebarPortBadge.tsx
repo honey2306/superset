@@ -15,6 +15,7 @@ import {
 	LuSquareTerminal,
 	LuX,
 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { STROKE_WIDTH } from "renderer/screens/main/components/WorkspaceSidebar/constants";
 import { usePortOpenActions } from "../../../../hooks/usePortOpenActions";
 import { useDashboardSidebarPortKill } from "../../hooks/useDashboardSidebarPortKill";
@@ -27,6 +28,7 @@ interface DashboardSidebarPortBadgeProps {
 export function DashboardSidebarPortBadge({
 	port,
 }: DashboardSidebarPortBadgeProps) {
+	const { t } = useTranslation();
 	const { isPending, killPort } = useDashboardSidebarPortKill();
 	const {
 		canOpenInBrowser,
@@ -38,7 +40,9 @@ export function DashboardSidebarPortBadge({
 		openPrimary,
 	} = usePortOpenActions(port);
 	const hostLabel =
-		port.hostType === "local-device" ? "Local device" : "Remote host";
+		port.hostType === "local-device"
+			? t("ports.localDevice")
+			: t("ports.remoteHost");
 
 	const handleClose = () => {
 		if (isPending) return;
@@ -91,8 +95,8 @@ export function DashboardSidebarPortBadge({
 						)}
 						<div className="text-[10px] text-background/60">
 							{canOpenInBrowser
-								? "Click to open in browser"
-								: "Click to open workspace"}
+								? t("ports.openBrowser")
+								: t("ports.openWorkspace")}
 						</div>
 					</div>
 				</TooltipContent>

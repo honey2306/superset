@@ -2,6 +2,7 @@ import { SidebarCard } from "@superset/ui/sidebar-card";
 import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface SetupScriptCardProps {
 	isCollapsed?: boolean;
@@ -14,6 +15,7 @@ export function SetupScriptCard({
 	projectId,
 	projectName,
 }: SetupScriptCardProps) {
+	const { t } = useTranslation();
 	const { data: shouldShow } = electronTrpc.config.shouldShowSetupCard.useQuery(
 		{ projectId: projectId ?? "" },
 		{ enabled: !!projectId, refetchOnWindowFocus: true },
@@ -48,10 +50,12 @@ export function SetupScriptCard({
 				className="px-3 pb-2"
 			>
 				<SidebarCard
-					badge="Setup"
-					title="Setup scripts"
-					description={`Automate workspace setup for ${projectName}`}
-					actionLabel="Configure"
+					badge={t("workspace.setupBadge")}
+					title={t("workspace.setupScripts")}
+					description={t("workspace.automateSetupFor", {
+						project: projectName,
+					})}
+					actionLabel={t("workspace.configure")}
 					onAction={() =>
 						navigate({
 							to: "/settings/projects/$projectId",

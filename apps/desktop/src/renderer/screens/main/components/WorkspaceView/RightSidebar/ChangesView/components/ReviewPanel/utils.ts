@@ -1,5 +1,6 @@
 import type { GitHubStatus, PullRequestComment } from "@superset/local-db";
 import { LuCheck, LuLoaderCircle, LuMinus, LuX } from "react-icons/lu";
+import type { MessageKey } from "renderer/providers/I18nProvider";
 
 export type PullRequestCheck = NonNullable<
 	GitHubStatus["pr"]
@@ -9,17 +10,19 @@ export const ALL_COMMENTS_COPY_ACTION_KEY = "comments:all";
 
 export const reviewDecisionConfig = {
 	approved: {
-		label: "Approved",
+		labelKey: "v1Changes.reviewState.approved" as const satisfies MessageKey,
 		className:
 			"border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
 	},
 	changes_requested: {
-		label: "Changes requested",
+		labelKey:
+			"v1Changes.reviewState.changesRequested" as const satisfies MessageKey,
 		className:
 			"border border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300",
 	},
 	pending: {
-		label: "Review pending",
+		labelKey:
+			"v1Changes.reviewState.reviewPending" as const satisfies MessageKey,
 		className:
 			"border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 	},
@@ -29,27 +32,27 @@ export const checkIconConfig = {
 	success: {
 		icon: LuCheck,
 		className: "text-emerald-600 dark:text-emerald-400",
-		label: "Passed",
+		labelKey: "v1Changes.checkState.passed" as const satisfies MessageKey,
 	},
 	failure: {
 		icon: LuX,
 		className: "text-red-600 dark:text-red-400",
-		label: "Failed",
+		labelKey: "v1Changes.checkState.failed" as const satisfies MessageKey,
 	},
 	pending: {
 		icon: LuLoaderCircle,
 		className: "text-amber-600 dark:text-amber-400",
-		label: "Pending",
+		labelKey: "v1Changes.checkState.pending" as const satisfies MessageKey,
 	},
 	skipped: {
 		icon: LuMinus,
 		className: "text-muted-foreground",
-		label: "Skipped",
+		labelKey: "v1Changes.checkState.skipped" as const satisfies MessageKey,
 	},
 	cancelled: {
 		icon: LuMinus,
 		className: "text-muted-foreground",
-		label: "Cancelled",
+		labelKey: "v1Changes.checkState.cancelled" as const satisfies MessageKey,
 	},
 } as const;
 
@@ -60,16 +63,16 @@ export const checkSummaryIconConfig = {
 	none: {
 		icon: LuMinus,
 		className: "text-muted-foreground",
-		label: "No checks",
+		labelKey: "v1Changes.checkSummary.noChecks" as const satisfies MessageKey,
 	},
 } as const;
 
-export const prStateLabel = {
-	open: "Open",
-	draft: "Draft",
-	merged: "Merged",
-	closed: "Closed",
-} as const;
+export const prStateLabelKey = {
+	open: "v1Changes.prState.open",
+	draft: "v1Changes.prState.draft",
+	merged: "v1Changes.prState.merged",
+	closed: "v1Changes.prState.closed",
+} as const satisfies Record<string, MessageKey>;
 
 export function resolveCheckDestinationUrl(
 	check: PullRequestCheck,
@@ -90,7 +93,10 @@ export function resolveCheckDestinationUrl(
 	return undefined;
 }
 
-export function getCommentPreviewText(body: string): string {
+export function getCommentPreviewText(
+	body: string,
+	t: (key: MessageKey) => string,
+): string {
 	return (
 		body
 			.replace(/<!--[\s\S]*?-->/g, "\n")
@@ -98,7 +104,7 @@ export function getCommentPreviewText(body: string): string {
 			.map((line) => line.trim())
 			.find(Boolean)
 			?.replace(/^[-*+>]\s*/, "")
-			?.replace(/\s+/g, " ") ?? "No preview available"
+			?.replace(/\s+/g, " ") ?? t("v1Changes.commentPreview.noPreview")
 	);
 }
 
@@ -141,35 +147,36 @@ function getCommentClipboardLocation(
 	return comment.kind === "conversation" ? "Conversation" : null;
 }
 
-export function getCommentKindText(comment: PullRequestComment): string {
-	return comment.kind === "review" ? "Review" : "Comment";
+export function getCommentKindText(comment: PullRequestComment): MessageKey {
+	return comment.kind === "review"
+		? "v1Changes.commentKind.review"
+		: "v1Changes.commentKind.comment";
 }
 
 export function buildCommentClipboardText(
 	comment: PullRequestComment,
+	t: (key: MessageKey) => string,
 	includeMetadata = false,
 ): string {
-	const body = comment.body.trim() || "No comment body";
+	const body = comment.body.trim() || t("v1Changes.commentBody.empty");
 
 	if (!includeMetadata) {
 		return body;
 	}
 
 	const location = getCommentClipboardLocation(comment);
-	const metadata = [
-		comment.authorLogin,
-		getCommentKindText(comment),
-		location,
-	].filter(Boolean);
+	const kindText = comment.kind === "review" ? "Review" : "Comment";
+	const metadata = [comment.authorLogin, kindText, location].filter(Boolean);
 
-	return [metadata.join(" • "), body].filter(Boolean).join("\n");
+	return [metadata.join(" • "), body].filter(Boolean).join("\n\n");
 }
 
 export function buildAllCommentsClipboardText(
 	comments: PullRequestComment[],
+	t: (key: MessageKey) => string,
 ): string {
 	return comments
-		.map((comment) => buildCommentClipboardText(comment, true))
+		.map((comment) => buildCommentClipboardText(comment, t, true))
 		.join("\n\n---\n\n");
 }
 

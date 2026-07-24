@@ -17,6 +17,7 @@ import {
 	LuX,
 } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { Tab } from "renderer/stores/tabs/types";
 
 export interface PaneContextMenuActions {
@@ -41,6 +42,7 @@ export function PaneContextMenuItems({
 	actions,
 	closeLabel,
 }: PaneContextMenuItemsProps) {
+	const { t } = useTranslation();
 	const splitDownShortcut = useHotkeyDisplay("SPLIT_DOWN").text;
 	const splitRightShortcut = useHotkeyDisplay("SPLIT_RIGHT").text;
 	const splitWithChatShortcut = useHotkeyDisplay("SPLIT_WITH_CHAT").text;
@@ -60,32 +62,32 @@ export function PaneContextMenuItems({
 		<>
 			<ContextMenuItem onSelect={actions.onSplitHorizontal}>
 				<LuRows2 className="size-4" />
-				Split Horizontally
+				{t("v2Workspace.context.splitHorizontal")}
 				{renderShortcut(splitDownShortcut)}
 			</ContextMenuItem>
 			<ContextMenuItem onSelect={actions.onSplitVertical}>
 				<LuColumns2 className="size-4" />
-				Split Vertically
+				{t("v2Workspace.context.splitVertical")}
 				{renderShortcut(splitRightShortcut)}
 			</ContextMenuItem>
 			{actions.onSplitWithNewChat && (
 				<ContextMenuItem onSelect={actions.onSplitWithNewChat}>
 					<LuMessageSquare className="size-4" />
-					Split with New Chat
+					{t("v2Workspace.context.splitWithChat")}
 					{renderShortcut(splitWithChatShortcut)}
 				</ContextMenuItem>
 			)}
 			{actions.onSplitWithNewBrowser && (
 				<ContextMenuItem onSelect={actions.onSplitWithNewBrowser}>
 					<LuGlobe className="size-4" />
-					Split with New Browser
+					{t("v2Workspace.context.splitWithBrowser")}
 					{renderShortcut(splitWithBrowserShortcut)}
 				</ContextMenuItem>
 			)}
 			{actions.onEqualizePaneSplits && (
 				<ContextMenuItem onSelect={actions.onEqualizePaneSplits}>
 					<LuEqual className="size-4" />
-					Equalize Pane Splits
+					{t("v2Workspace.context.equalize")}
 					{renderShortcut(equalizePaneSplitsShortcut)}
 				</ContextMenuItem>
 			)}
@@ -93,7 +95,7 @@ export function PaneContextMenuItems({
 			<ContextMenuSub>
 				<ContextMenuSubTrigger className="gap-2">
 					<LuMoveRight className="size-4" />
-					Move to Tab
+					{t("v2Workspace.context.moveToTab")}
 				</ContextMenuSubTrigger>
 				<ContextMenuSubContent>
 					{targetTabs.map((tab) => (
@@ -107,7 +109,7 @@ export function PaneContextMenuItems({
 					{targetTabs.length > 0 && <ContextMenuSeparator />}
 					<ContextMenuItem onSelect={actions.onMoveToNewTab}>
 						<LuPlus className="size-4" />
-						New Tab
+						{t("v2Workspace.context.newTab")}
 					</ContextMenuItem>
 				</ContextMenuSubContent>
 			</ContextMenuSub>

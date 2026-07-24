@@ -9,6 +9,7 @@ import {
 	LuRefreshCw,
 	LuX,
 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { SEARCH_DEBOUNCE_MS } from "../../constants";
 
 interface FileTreeToolbarProps {
@@ -30,6 +31,7 @@ export function FileTreeToolbar({
 	onRefresh,
 	isRefreshing = false,
 }: FileTreeToolbarProps) {
+	const { t } = useTranslation();
 	const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
 	const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -80,7 +82,7 @@ export function FileTreeToolbar({
 			<div className="relative">
 				<Input
 					type="text"
-					placeholder="Search files..."
+					placeholder={t("files.search")}
 					value={localSearchTerm}
 					onChange={handleSearchChange}
 					className="h-7 text-xs pr-7"
@@ -108,7 +110,7 @@ export function FileTreeToolbar({
 							<LuFilePlus className="size-3.5" />
 						</Button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">New File</TooltipContent>
+					<TooltipContent side="bottom">{t("files.newFile")}</TooltipContent>
 				</Tooltip>
 
 				<Tooltip>
@@ -122,7 +124,7 @@ export function FileTreeToolbar({
 							<LuFolderPlus className="size-3.5" />
 						</Button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">New Folder</TooltipContent>
+					<TooltipContent side="bottom">{t("files.newFolder")}</TooltipContent>
 				</Tooltip>
 
 				<div className="flex-1" />
@@ -138,7 +140,9 @@ export function FileTreeToolbar({
 							<LuChevronsDownUp className="size-3.5" />
 						</Button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Collapse All</TooltipContent>
+					<TooltipContent side="bottom">
+						{t("files.collapseAll")}
+					</TooltipContent>
 				</Tooltip>
 
 				<Tooltip>
@@ -155,7 +159,7 @@ export function FileTreeToolbar({
 							/>
 						</Button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Refresh</TooltipContent>
+					<TooltipContent side="bottom">{t("files.refresh")}</TooltipContent>
 				</Tooltip>
 			</div>
 		</div>

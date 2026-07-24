@@ -6,8 +6,10 @@ import {
 } from "react-icons/lu";
 import { useV2UserPreferences } from "renderer/hooks/useV2UserPreferences";
 import { HotkeyLabel } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export function RightSidebarToggle() {
+	const { t } = useTranslation();
 	const { preferences, setRightSidebarOpen } = useV2UserPreferences();
 	const isOpen = preferences.rightSidebarOpen;
 
@@ -34,6 +36,7 @@ export function RightSidebarToggle() {
 				<button
 					type="button"
 					onClick={toggle}
+					aria-label={t("dashboard.toggleSidebar")}
 					className="no-drag group flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
 				>
 					<span className="group-hover:hidden">{getToggleIcon(false)}</span>
@@ -43,7 +46,7 @@ export function RightSidebarToggle() {
 				</button>
 			</TooltipTrigger>
 			<TooltipContent side="left">
-				<HotkeyLabel label="Toggle sidebar" id="TOGGLE_SIDEBAR" />
+				<HotkeyLabel label={t("dashboard.toggleSidebar")} id="TOGGLE_SIDEBAR" />
 			</TooltipContent>
 		</Tooltip>
 	);

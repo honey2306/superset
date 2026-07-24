@@ -5,6 +5,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@superset/ui/dialog";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { GhAuthTerminal } from "./GhAuthTerminal";
 
 interface GhAuthDialogProps {
@@ -19,15 +20,14 @@ export function GhAuthDialog({
 	onOpenChange,
 	onExit,
 }: GhAuthDialogProps) {
+	const { t } = useTranslation();
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-[752px] gap-4">
 				<DialogHeader>
-					<DialogTitle>Sign in to GitHub CLI</DialogTitle>
+					<DialogTitle>{t("onboarding.githubSignInTitle")}</DialogTitle>
 					<DialogDescription>
-						Follow the prompts below. Press Enter to open your browser,
-						authorize the device code, and this window will update once you're
-						signed in.
+						{t("onboarding.githubSignInDescription")}
 					</DialogDescription>
 				</DialogHeader>
 				<div className="h-[240px] w-full overflow-hidden rounded-md bg-[#151110] p-2">

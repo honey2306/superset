@@ -7,6 +7,7 @@ import {
 import { toast } from "@superset/ui/sonner";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useDeferredValue, useMemo } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	StatusIcon,
 	type StatusType,
@@ -41,6 +42,7 @@ interface LinkTaskFrameProps {
 }
 
 export function LinkTaskFrame({ workspaceId }: LinkTaskFrameProps) {
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const query = useCommandPaletteQuery();
 	const deferredQuery = useDeferredValue(query);
@@ -133,7 +135,7 @@ export function LinkTaskFrame({ workspaceId }: LinkTaskFrameProps) {
 
 	return (
 		<CommandList className="max-h-[400px]">
-			<CommandEmpty>No tasks found.</CommandEmpty>
+			<CommandEmpty>{t("commandPalette.noTasks")}</CommandEmpty>
 			{filtered.length > 0 && (
 				<CommandGroup heading={deferredQuery ? "Results" : "Tasks"}>
 					{filtered.map((task) => {

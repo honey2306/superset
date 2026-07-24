@@ -1,4 +1,5 @@
 import { toast } from "@superset/ui/sonner";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { TemplateGalleryModal } from "renderer/routes/_authenticated/components/TemplateGalleryModal";
 import {
 	useAddRepositoryModalActive,
@@ -9,6 +10,7 @@ import { GitInitConfirmDialog } from "./components/GitInitConfirmDialog";
 import { NewProjectModal } from "./components/NewProjectModal";
 
 export function AddRepositoryModals() {
+	const { t } = useTranslation();
 	const active = useAddRepositoryModalActive();
 	const close = useCloseAddRepositoryModal();
 	const resolveNewProject = useResolveNewProjectModal();
@@ -21,10 +23,12 @@ export function AddRepositoryModals() {
 					if (!open) close();
 				}}
 				onSuccess={(result) => {
-					toast.success("Project created.");
+					toast.success(t("project.created"));
 					resolveNewProject({ projectId: result.projectId });
 				}}
-				onError={(message) => toast.error(`Create failed: ${message}`)}
+				onError={(message) =>
+					toast.error(t("project.createFailedWithMessage", { message }))
+				}
 			/>
 			<TemplateGalleryModal
 				open={active.kind === "template-gallery"}
@@ -32,10 +36,12 @@ export function AddRepositoryModals() {
 					if (!open) close();
 				}}
 				onCreated={(result) => {
-					toast.success("Project created.");
+					toast.success(t("project.created"));
 					resolveNewProject({ projectId: result.projectId });
 				}}
-				onError={(message) => toast.error(`Create failed: ${message}`)}
+				onError={(message) =>
+					toast.error(t("project.createFailedWithMessage", { message }))
+				}
 			/>
 			<GitInitConfirmDialog />
 		</>

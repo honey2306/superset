@@ -1,5 +1,7 @@
 import { cn } from "@superset/ui/utils";
 import { formatDistanceToNow } from "date-fns";
+import { enUS } from "date-fns/locale/en-US";
+import { zhCN } from "date-fns/locale/zh-CN";
 import {
 	LuArrowUpRight,
 	LuCircleCheck,
@@ -7,6 +9,7 @@ import {
 	LuCircleX,
 	LuGitBranch,
 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PRIcon, type PRState } from "renderer/screens/main/components/PRIcon";
 import type { ChecksRollup } from "../../../../utils/computeChecksStatus";
 import type { PullRequest } from "../../../../utils/getPRFlowState";
@@ -24,19 +27,23 @@ interface PRDetailCardProps {
  * reasonable PR title on two lines.
  */
 export function PRDetailCard({ pr, checks, linkState }: PRDetailCardProps) {
+	const { t, locale } = useTranslation();
 	const stateLabel = pr.isDraft
-		? "Draft"
+		? t("v2Workspace.pr.stateDraft")
 		: pr.state === "merged"
-			? "Merged"
+			? t("v2Workspace.pr.stateMerged")
 			: pr.state === "closed"
-				? "Closed"
+				? t("v2Workspace.pr.stateClosed")
 				: pr.state === "queued"
-					? "Queued"
-					: "Open";
+					? t("v2Workspace.pr.stateQueued")
+					: t("v2Workspace.pr.stateOpen");
 	const statePillClass = stateLabelToPillClass(linkState);
 
 	const updatedRelative = pr.updatedAt
-		? formatDistanceToNow(new Date(pr.updatedAt), { addSuffix: true })
+		? formatDistanceToNow(new Date(pr.updatedAt), {
+				addSuffix: true,
+				locale: locale === "zh-CN" ? zhCN : enUS,
+			})
 		: null;
 
 	return (
@@ -80,7 +87,7 @@ export function PRDetailCard({ pr, checks, linkState }: PRDetailCardProps) {
 
 			{updatedRelative && (
 				<div className="border-t border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
-					Updated {updatedRelative}
+					{t("v2Workspace.pr.updatedAgo", { relative: updatedRelative })}
 				</div>
 			)}
 
@@ -90,7 +97,7 @@ export function PRDetailCard({ pr, checks, linkState }: PRDetailCardProps) {
 				rel="noopener noreferrer"
 				className="group flex items-center justify-between border-t border-border/60 px-3 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 			>
-				<span>View on GitHub</span>
+				<span>{t("v2Workspace.pr.viewOnGitHub")}</span>
 				<LuArrowUpRight
 					aria-hidden="true"
 					className="size-3.5 text-muted-foreground/70 transition-transform group-hover:translate-x-px group-hover:-translate-y-px"
@@ -101,8 +108,9 @@ export function PRDetailCard({ pr, checks, linkState }: PRDetailCardProps) {
 }
 
 function ChecksLine({ checks }: { checks: ChecksRollup }) {
+	const { t } = useTranslation();
 	if (checks.overall === "none") {
-		return <DetailLine icon={null} muted text="No checks reported" />;
+		return <DetailLine icon={null} muted text={t("v2Workspace.pr.noChecks")} />;
 	}
 	const total = checks.relevantCount;
 	if (checks.overall === "success") {
@@ -114,7 +122,11 @@ function ChecksLine({ checks }: { checks: ChecksRollup }) {
 						className="size-3.5 shrink-0 text-emerald-500"
 					/>
 				}
-				text={`All ${total} ${total === 1 ? "check" : "checks"} passed`}
+				text={
+					total === 1
+						? t("v2Workspace.pr.oneCheckPassed")
+						: t("v2Workspace.pr.allChecksPassed", { total })
+				}
 			/>
 		);
 	}
@@ -128,7 +140,11 @@ function ChecksLine({ checks }: { checks: ChecksRollup }) {
 						className="size-3.5 shrink-0 text-rose-500"
 					/>
 				}
-				text={`${failing} of ${total} ${total === 1 ? "check" : "checks"} failing`}
+				text={
+					total === 1
+						? t("v2Workspace.pr.oneCheckFailing", { failing })
+						: t("v2Workspace.pr.checksFailing", { failing, total })
+				}
 				accent="failure"
 			/>
 		);
@@ -142,7 +158,11 @@ function ChecksLine({ checks }: { checks: ChecksRollup }) {
 					className="size-3.5 shrink-0 text-amber-500"
 				/>
 			}
-			text={`${pending} of ${total} ${total === 1 ? "check" : "checks"} running`}
+			text={
+				total === 1
+					? t("v2Workspace.pr.oneCheckRunning", { pending })
+					: t("v2Workspace.pr.checksRunning", { pending, total })
+			}
 			accent="pending"
 		/>
 	);

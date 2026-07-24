@@ -17,6 +17,7 @@ import { useRecentProjects } from "renderer/hooks/host-projects/useRecentProject
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { useV2AgentChoices } from "renderer/hooks/useV2AgentChoices";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
 import { hideAll as hideAllTippy } from "tippy.js";
@@ -49,6 +50,7 @@ export function CreateAutomationDialog({
 	onCreated,
 	initialTemplate,
 }: CreateAutomationDialogProps) {
+	const { t } = useTranslation();
 	const [view, setView] = useState<"compose" | "gallery">("compose");
 	const [name, setName] = useState("");
 	const [prompt, setPrompt] = useState("");
@@ -148,8 +150,9 @@ export function CreateAutomationDialog({
 
 	const createMutation = useMutation({
 		mutationFn: () => {
-			if (!selectedAgent) throw new Error("No agent selected");
-			if (!selectedProjectId) throw new Error("No project selected");
+			if (!selectedAgent) throw new Error(t("automations.noAgentSelected"));
+			if (!selectedProjectId)
+				throw new Error(t("automations.noProjectSelected"));
 			return apiTrpcClient.automation.create.mutate({
 				name,
 				prompt,
@@ -163,7 +166,7 @@ export function CreateAutomationDialog({
 			});
 		},
 		onSuccess: (result) => {
-			toast.success(`Automation "${result.name}" created`);
+			toast.success(t("automations.created", { name: result.name }));
 			onCreated({ id: result.id, name: result.name });
 		},
 		onError: (error) => {
@@ -174,10 +177,10 @@ export function CreateAutomationDialog({
 	const humanReadableCreateError = (() => {
 		if (!createMutation.isError) return null;
 		const error = createMutation.error;
-		if (!(error instanceof Error)) return "Failed to create automation";
+		if (!(error instanceof Error)) return t("automations.createFailed");
 		// Raw Postgres errors are multi-line SQL dumps — keep the first line only.
 		const firstLine = error.message.split("\n")[0]?.trim();
-		if (!firstLine) return "Failed to create automation";
+		if (!firstLine) return t("automations.createFailed");
 		return firstLine.length > 160 ? `${firstLine.slice(0, 160)}…` : firstLine;
 	})();
 
@@ -224,11 +227,13 @@ export function CreateAutomationDialog({
 						<>
 							<DialogHeader className="flex-row items-center gap-2 p-4 pb-0 space-y-0">
 								<div className="flex-1">
-									<DialogTitle className="sr-only">New automation</DialogTitle>
+									<DialogTitle className="sr-only">
+										{t("automations.new")}
+									</DialogTitle>
 									<EmojiTextInput
 										value={name}
 										onChange={setName}
-										placeholder="Automation title"
+										placeholder={t("automations.titlePlaceholder")}
 										className="text-base font-medium"
 									/>
 								</div>
@@ -237,10 +242,14 @@ export function CreateAutomationDialog({
 									size="sm"
 									onClick={() => setView("gallery")}
 								>
-									Use template
+									{t("automations.useTemplate")}
 								</Button>
 								<DialogClose asChild>
-									<Button variant="ghost" size="icon-sm" aria-label="Close">
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										aria-label={t("automations.close")}
+									>
 										<LuX className="size-4" />
 									</Button>
 								</DialogClose>
@@ -250,7 +259,7 @@ export function CreateAutomationDialog({
 								<MarkdownEditor
 									content={prompt}
 									onChange={setPrompt}
-									placeholder="Add prompt e.g. look for crashes in $sentry"
+									placeholder={t("automations.promptPlaceholder")}
 									className="flex-1 flex flex-col min-h-0"
 									editorClassName="flex-1 min-h-[200px]"
 									searchFiles={searchFiles}
@@ -307,13 +316,15 @@ export function CreateAutomationDialog({
 
 								<div className="flex items-center gap-2">
 									<DialogClose asChild>
-										<Button variant="ghost">Cancel</Button>
+										<Button variant="ghost">{t("common.cancel")}</Button>
 									</DialogClose>
 									<Button
 										disabled={!canSubmit}
 										onClick={() => createMutation.mutate()}
 									>
-										{createMutation.isPending ? "Creating…" : "Create"}
+										{createMutation.isPending
+											? t("automations.creating")
+											: t("automations.create")}
 									</Button>
 								</div>
 							</DialogFooter>
@@ -321,7 +332,7 @@ export function CreateAutomationDialog({
 					) : (
 						<>
 							<DialogTitle className="sr-only">
-								Automation templates
+								{t("automations.templatesTitle")}
 							</DialogTitle>
 							<TemplateGalleryPanel
 								onBack={() => setView("compose")}

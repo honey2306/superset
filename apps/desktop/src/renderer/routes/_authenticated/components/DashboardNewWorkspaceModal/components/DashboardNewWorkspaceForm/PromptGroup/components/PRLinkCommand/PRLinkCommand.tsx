@@ -16,6 +16,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	PRIcon,
 	type PRState,
@@ -48,6 +49,7 @@ export function PRLinkCommand({
 	projectId,
 	hostId,
 }: PRLinkCommandProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [showClosed, setShowClosed] = useState(false);
@@ -93,8 +95,8 @@ export function PRLinkCommand({
 		}
 		if (lastToastedError.current === msg) return;
 		lastToastedError.current = msg;
-		toast.error(`Couldn't load pull requests: ${msg}`);
-	}, [error]);
+		toast.error(t("workspace.loadPullRequestsFailed", { message: msg }));
+	}, [error, t]);
 
 	const pullRequests = data?.pullRequests ?? [];
 	const repoMismatch =
@@ -138,7 +140,7 @@ export function PRLinkCommand({
 			>
 				<Command shouldFilter={false}>
 					<CommandInput
-						placeholder="Search pull requests..."
+						placeholder={t("workspace.searchPullRequests")}
 						value={searchQuery}
 						onValueChange={setSearchQuery}
 					/>
@@ -152,7 +154,7 @@ export function PRLinkCommand({
 							htmlFor={showClosedId}
 							className="cursor-pointer select-none text-xs text-muted-foreground"
 						>
-							Show closed
+							{t("workspace.showClosed")}
 						</label>
 					</div>
 					<CommandList className="max-h-[420px]">
@@ -160,26 +162,22 @@ export function PRLinkCommand({
 							<CommandEmpty>
 								{isLoading ? (
 									debouncedTrimmed ? (
-										"Searching..."
+										t("workspace.searching")
 									) : (
-										"Loading..."
+										t("workspace.loadingPullRequests")
 									)
 								) : error instanceof Error ? (
 									<span className="select-text cursor-text text-destructive">
 										{error.message}
 									</span>
 								) : repoMismatch ? (
-									`PR URL must match ${repoMismatch}.`
-								) : debouncedTrimmed ? (
-									showClosed ? (
-										"No pull requests found."
-									) : (
-										"No open pull requests found."
-									)
+									t("workspace.prRepoMismatch", {
+										repository: repoMismatch,
+									})
 								) : showClosed ? (
-									"No pull requests found."
+									t("workspace.noPullRequests")
 								) : (
-									"No open pull requests."
+									t("workspace.noOpenPullRequests")
 								)}
 							</CommandEmpty>
 						)}
@@ -187,14 +185,24 @@ export function PRLinkCommand({
 							<CommandGroup
 								heading={
 									debouncedTrimmed
-										? `${pullRequests.length} result${pullRequests.length === 1 ? "" : "s"}`
+										? t("workspace.resultCount", {
+												count: pullRequests.length,
+											})
 										: showClosed
-											? "Recent PRs"
-											: "Open PRs"
+											? t("workspace.recentPullRequests")
+											: t("workspace.openPullRequests")
 								}
 							>
 								{pullRequests.map((pr) => {
 									const state = normalizeState(pr.state, pr.isDraft) as PRState;
+									const stateLabel =
+										state === "draft"
+											? t("workspace.prStateDraft")
+											: state === "merged"
+												? t("workspace.prStateMerged")
+												: state === "closed"
+													? t("workspace.prStateClosed")
+													: t("workspace.prStateOpen");
 									return (
 										<CommandItem
 											key={pr.prNumber}
@@ -213,7 +221,7 @@ export function PRLinkCommand({
 												<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
 													<span className="font-mono">#{pr.prNumber}</span>
 													<span aria-hidden>·</span>
-													<span className="capitalize">{state}</span>
+													<span className="capitalize">{stateLabel}</span>
 												</span>
 											</div>
 											<span className="ml-2 hidden shrink-0 self-center text-[11px] text-muted-foreground group-data-[selected=true]:inline">

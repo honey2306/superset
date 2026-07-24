@@ -3,6 +3,7 @@ import { toast } from "@superset/ui/sonner";
 import { useCallback } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface UsePathActionsProps {
 	absolutePath: string | null;
@@ -22,17 +23,18 @@ export function usePathActions({
 	defaultApp,
 	projectId,
 }: UsePathActionsProps) {
+	const { t } = useTranslation();
 	const openInFinderMutation = electronTrpc.external.openInFinder.useMutation();
 	const openInAppMutation = electronTrpc.external.openInApp.useMutation({
 		onError: (error) =>
-			toast.error("Failed to open in app", {
+			toast.error(t("v1Changes.pathActions.openInAppFailed"), {
 				description: error.message,
 			}),
 	});
 	const openFileInEditorMutation =
 		electronTrpc.external.openFileInEditor.useMutation({
 			onError: (error) =>
-				toast.error("Failed to open in editor", {
+				toast.error(t("v1Changes.pathActions.openInEditorFailed"), {
 					description: error.message,
 				}),
 		});
@@ -69,16 +71,15 @@ export function usePathActions({
 		} else {
 			// Avoid opening with an incorrect fallback before upstream default app query resolves.
 			if (defaultApp === undefined) {
-				toast.error("Editor preference is still loading", {
-					description: "Try again in a moment.",
+				toast.error(t("v1Changes.pathActions.editorPrefLoading"), {
+					description: t("v1Changes.pathActions.editorPrefLoadingDesc"),
 				});
 				return;
 			}
 
 			if (!defaultApp) {
-				toast.error("No default editor configured", {
-					description:
-						"Open a file in an editor first to set a project default editor.",
+				toast.error(t("v1Changes.pathActions.noDefaultEditor"), {
+					description: t("v1Changes.pathActions.noDefaultEditorDesc"),
 				});
 				return;
 			}
@@ -96,6 +97,7 @@ export function usePathActions({
 		defaultApp,
 		openInAppMutation,
 		openFileInEditorMutation,
+		t,
 	]);
 
 	return {

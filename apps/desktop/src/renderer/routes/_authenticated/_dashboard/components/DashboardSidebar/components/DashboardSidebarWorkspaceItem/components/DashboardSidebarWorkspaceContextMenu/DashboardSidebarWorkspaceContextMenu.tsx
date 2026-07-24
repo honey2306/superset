@@ -27,6 +27,7 @@ import {
 	LuX,
 } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useDashboardSidebarHover } from "../../../../providers/DashboardSidebarHoverProvider";
 import { useDashboardSidebarWorkspacePorts } from "../../../../providers/DashboardSidebarPortsProvider";
@@ -75,6 +76,7 @@ export function DashboardSidebarWorkspaceContextMenu({
 	onClearStatus,
 	children,
 }: DashboardSidebarWorkspaceContextMenuProps) {
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const { setContextMenuOpen } = useDashboardSidebarHover();
 	const portGroup = useDashboardSidebarWorkspacePorts(workspaceId);
@@ -111,7 +113,7 @@ export function DashboardSidebarWorkspaceContextMenu({
 				{onRename && (
 					<ContextMenuItem onSelect={onRename}>
 						<LuPencil className="size-4 mr-2" />
-						Rename
+						{t("workspace.renameAction")}
 					</ContextMenuItem>
 				)}
 				{isLocalWorkspace && (
@@ -119,37 +121,37 @@ export function DashboardSidebarWorkspaceContextMenu({
 						{onRename && <ContextMenuSeparator />}
 						<ContextMenuItem onSelect={onOpenInFinder}>
 							<LuFolderOpen className="size-4 mr-2" />
-							Open in Finder
+							{t("workspace.openFinder")}
 						</ContextMenuItem>
 						<ContextMenuItem onSelect={onCopyPath}>
 							<LuCopy className="size-4 mr-2" />
-							Copy Path
+							{t("workspace.copyPath")}
 						</ContextMenuItem>
 					</>
 				)}
 				{!isLocalWorkspace && onRename && <ContextMenuSeparator />}
 				<ContextMenuItem onSelect={onCopyBranchName}>
 					<LuGitBranch className="size-4 mr-2" />
-					Copy Branch Name
+					{t("workspace.copyBranch")}
 				</ContextMenuItem>
 				<ContextMenuSeparator />
 				<ContextMenuItem onSelect={onToggleUnread}>
 					{isUnread ? (
 						<>
 							<LuEye className="size-4 mr-2" />
-							Mark as Read
+							{t("workspace.markRead")}
 						</>
 					) : (
 						<>
 							<LuEyeOff className="size-4 mr-2" />
-							Mark as Unread
+							{t("workspace.markUnread")}
 						</>
 					)}
 				</ContextMenuItem>
 				{hasStatus && (
 					<ContextMenuItem onSelect={onClearStatus}>
 						<LuBellOff className="size-4 mr-2" />
-						Clear Status
+						{t("workspace.clearStatus")}
 					</ContextMenuItem>
 				)}
 				{!isPinned && (
@@ -157,14 +159,14 @@ export function DashboardSidebarWorkspaceContextMenu({
 						<ContextMenuSeparator />
 						<ContextMenuItem onSelect={onCreateSection}>
 							<LuFolderPlus className="size-4 mr-2" />
-							New group from workspace
+							{t("workspace.newGroupFromWorkspace")}
 						</ContextMenuItem>
 						{(sections.length > 0 || isInSection) && <ContextMenuSeparator />}
 						{sections.length > 0 && (
 							<ContextMenuSub>
 								<ContextMenuSubTrigger>
 									<LuArrowRightLeft className="size-4 mr-2" />
-									Move to group
+									{t("workspace.moveSection")}
 								</ContextMenuSubTrigger>
 								<ContextMenuSubContent>
 									{sections.map((section) => (
@@ -187,7 +189,7 @@ export function DashboardSidebarWorkspaceContextMenu({
 						{isInSection && (
 							<ContextMenuItem onSelect={() => onMoveToSection(null)}>
 								<LuArrowUp className="size-4 mr-2" />
-								Ungroup
+								{t("workspace.ungroup")}
 							</ContextMenuItem>
 						)}
 					</>
@@ -200,7 +202,7 @@ export function DashboardSidebarWorkspaceContextMenu({
 						variant="destructive"
 					>
 						<LuRadioTower className="size-4 mr-2" />
-						Close all ports
+						{t("ports.closeAll")}
 					</ContextMenuItem>
 				)}
 				<ContextMenuItem
@@ -208,7 +210,7 @@ export function DashboardSidebarWorkspaceContextMenu({
 					className="text-destructive focus:text-destructive"
 				>
 					<LuX className="size-4 mr-2 text-destructive" />
-					Remove from Sidebar
+					{t("workspace.removeSidebar")}
 				</ContextMenuItem>
 				{onDelete ? (
 					<ContextMenuItem
@@ -216,7 +218,7 @@ export function DashboardSidebarWorkspaceContextMenu({
 						className="text-destructive focus:text-destructive"
 					>
 						<LuTrash2 className="size-4 mr-2 text-destructive" />
-						Delete
+						{t("common.delete")}
 						{showDeleteShortcut && (
 							<ContextMenuShortcut>{deleteHotkeyText}</ContextMenuShortcut>
 						)}

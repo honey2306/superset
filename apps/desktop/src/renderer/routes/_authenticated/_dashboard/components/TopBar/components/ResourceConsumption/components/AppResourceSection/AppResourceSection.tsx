@@ -1,4 +1,5 @@
 import { cn } from "@superset/ui/lib/utils";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { AppMetrics, UsageValues } from "../../types";
 import { formatCpu, formatMemory } from "../../utils/formatters";
 import { getUsageSeverity } from "../../utils/resourceSeverity";
@@ -41,6 +42,7 @@ export function AppResourceSection({
 	app,
 	totalUsage,
 }: AppResourceSectionProps) {
+	const { t } = useTranslation();
 	const appSeverity = getUsageSeverity(app, totalUsage);
 	const mainSeverity = getUsageSeverity(app.main, app);
 	const rendererSeverity = getUsageSeverity(app.renderer, app);
@@ -52,7 +54,7 @@ export function AppResourceSection({
 			<div className="flex items-center justify-between px-3.5 py-1.5">
 				<div className="flex items-center gap-1.5 min-w-0 mr-2">
 					<span className="text-[12px] font-medium text-foreground truncate min-w-0">
-						Superset App
+						{t("dashboard.supersetApp")}
 					</span>
 					<UsageSeverityBadge severity={appSeverity} />
 				</div>
@@ -63,20 +65,20 @@ export function AppResourceSection({
 			</div>
 
 			<SubRow
-				label="Main"
+				label={t("dashboard.mainProcess")}
 				cpu={app.main.cpu}
 				memory={app.main.memory}
 				severity={mainSeverity}
 			/>
 			<SubRow
-				label="Renderer"
+				label={t("dashboard.rendererProcess")}
 				cpu={app.renderer.cpu}
 				memory={app.renderer.memory}
 				severity={rendererSeverity}
 			/>
 			{showOther && (
 				<SubRow
-					label="Other"
+					label={t("dashboard.otherProcesses")}
 					cpu={app.other.cpu}
 					memory={app.other.memory}
 					severity={otherSeverity}

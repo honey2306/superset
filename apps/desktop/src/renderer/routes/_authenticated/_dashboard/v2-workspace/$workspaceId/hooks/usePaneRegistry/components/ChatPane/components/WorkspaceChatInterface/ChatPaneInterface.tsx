@@ -21,6 +21,7 @@ import {
 	isDesktopChatDevMode,
 } from "renderer/lib/dev-chat";
 import { posthog } from "renderer/lib/posthog";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useChatPreferencesStore } from "renderer/stores/chat-preferences";
 import {
 	type UseChatDisplayReturn,
@@ -147,7 +148,7 @@ function toErrorMessage(error: unknown): string | null {
 	if (!error) return null;
 	if (typeof error === "string") return error;
 	if (error instanceof Error) return error.message;
-	return "Unknown chat error";
+	return null;
 }
 
 const AUTO_LAUNCH_MAX_RETRIES = 3;
@@ -199,6 +200,7 @@ export function ChatPaneInterface({
 	onResetSession,
 	onUserMessageSubmitted,
 }: ChatPaneInterfaceProps) {
+	const { t } = useTranslation();
 	const { models: availableModels, defaultModel } = useAvailableModels();
 	const selectedModelId = useChatPreferencesStore(
 		(state) => state.selectedModelId,
@@ -400,7 +402,7 @@ export function ChatPaneInterface({
 		} catch (error) {
 			setInterruptedMessage(null);
 			setRuntimeErrorMessage(
-				toErrorMessage(error) ?? "Failed to stop response",
+				toErrorMessage(error) ?? t("chat.pane.failedToStopResponse"),
 			);
 			return;
 		}
@@ -417,6 +419,7 @@ export function ChatPaneInterface({
 		clearRuntimeError,
 		commands,
 		setRuntimeErrorMessage,
+		t,
 	]);
 
 	const { resolveSlashCommandInput } = useSlashCommandExecutor({
@@ -537,6 +540,7 @@ export function ChatPaneInterface({
 						mediaType: file.mediaType,
 						filename: file.filename,
 					})),
+					t,
 				);
 				preparedFiles = uploadedFiles.map((file) => ({
 					data: file.url,
@@ -598,7 +602,7 @@ export function ChatPaneInterface({
 					onUserMessageSubmitted?.(content);
 				}
 			} catch (error) {
-				const sendErrorMessage = toSendFailureMessage(error);
+				const sendErrorMessage = toSendFailureMessage(error, t);
 				setSubmitStatus(undefined);
 				setRuntimeErrorMessage(sendErrorMessage);
 				if (error instanceof Error) throw error;
@@ -627,6 +631,7 @@ export function ChatPaneInterface({
 			sendMessageToSession,
 			setRuntimeErrorMessage,
 			onUserMessageSubmitted,
+			t,
 			thinkingLevel,
 		],
 	);
@@ -719,7 +724,7 @@ export function ChatPaneInterface({
 			} catch (error) {
 				autoLaunchInFlightRef.current = null;
 
-				const sendErrorMessage = toSendFailureMessage(error);
+				const sendErrorMessage = toSendFailureMessage(error, t);
 				setSubmitStatus(undefined);
 				setRuntimeErrorMessage(sendErrorMessage);
 				console.debug("[chat] auto launch send failed", error);
@@ -753,6 +758,7 @@ export function ChatPaneInterface({
 		sessionId,
 		setRuntimeErrorMessage,
 		onUserMessageSubmitted,
+		t,
 		thinkingLevel,
 		onConsumeLaunchConfig,
 	]);
@@ -771,7 +777,7 @@ export function ChatPaneInterface({
 			options?: { trigger?: "edit" | "resend" },
 		) => {
 			if (!sessionId) {
-				throw new Error("Chat session is still starting. Please retry.");
+				throw new Error(t("chat.session.stillStarting"));
 			}
 
 			setInterruptedMessage(null);
@@ -822,7 +828,7 @@ export function ChatPaneInterface({
 				});
 			} catch (error) {
 				setPendingUserTurn(null);
-				const sendErrorMessage = toSendFailureMessage(error);
+				const sendErrorMessage = toSendFailureMessage(error, t);
 				setSubmitStatus(undefined);
 				setRuntimeErrorMessage(sendErrorMessage);
 				if (error instanceof Error) throw error;
@@ -838,6 +844,7 @@ export function ChatPaneInterface({
 			restartFromMessageMutation,
 			sessionId,
 			setRuntimeErrorMessage,
+			t,
 			thinkingLevel,
 			workspaceId,
 		],
@@ -916,7 +923,8 @@ export function ChatPaneInterface({
 		[bumpFooterScroll, clearRuntimeError, commands],
 	);
 
-	const errorMessage = runtimeError ?? toErrorMessage(error);
+	const errorMessage =
+		runtimeError ?? toErrorMessage(error) ?? t("chat.pane.unknownError");
 
 	return (
 		<PromptInputProvider initialInput={initialLaunchConfig?.draftInput}>

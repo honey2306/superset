@@ -13,6 +13,7 @@ import type React from "react";
 import type { RefObject } from "react";
 import { useId, useMemo, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	IssueIcon,
 	type IssueState,
@@ -46,6 +47,7 @@ export function GitHubIssueLinkCommand({
 	projectId,
 	anchorRef,
 }: GitHubIssueLinkCommandProps) {
+	const { t } = useTranslation();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [showClosed, setShowClosed] = useState(false);
 	const showClosedId = useId();
@@ -121,7 +123,7 @@ export function GitHubIssueLinkCommand({
 			>
 				<Command shouldFilter={false}>
 					<CommandInput
-						placeholder="Search issues..."
+						placeholder={t("workspace.searchIssues")}
 						value={searchQuery}
 						onValueChange={setSearchQuery}
 					/>
@@ -135,27 +137,27 @@ export function GitHubIssueLinkCommand({
 							htmlFor={showClosedId}
 							className="cursor-pointer select-none text-xs text-muted-foreground"
 						>
-							Show closed
+							{t("workspace.showClosed")}
 						</label>
 					</div>
 					<CommandList className="max-h-[280px]">
 						{searchResults.length === 0 && (
 							<CommandEmpty>
 								{isLoading
-									? "Loading issues..."
+									? t("workspace.loadingIssues")
 									: showClosed
-										? "No issues found."
-										: "No open issues found."}
+										? t("workspace.noIssues")
+										: t("workspace.noOpenIssues")}
 							</CommandEmpty>
 						)}
 						{searchResults.length > 0 && (
 							<CommandGroup
 								heading={
 									searchQuery
-										? "Results"
+										? t("workspace.results")
 										: showClosed
-											? "Recent issues"
-											: "Open issues"
+											? t("workspace.recentIssues")
+											: t("workspace.openIssues")
 								}
 							>
 								{searchResults.map((issue) => (
@@ -176,7 +178,7 @@ export function GitHubIssueLinkCommand({
 											{issue.title}
 										</span>
 										<span className="shrink-0 hidden text-xs text-muted-foreground group-data-[selected=true]:inline">
-											Link ↵
+											{t("workspace.linkAction")} ↵
 										</span>
 									</CommandItem>
 								))}

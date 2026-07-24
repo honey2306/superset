@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { HiExclamationTriangle } from "react-icons/hi2";
 import { LuGitBranch, LuLoader } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useDeleteWorkspace } from "renderer/react-query/workspaces";
 import { deleteWithToast } from "renderer/routes/_authenticated/components/TeardownLogsDialog";
 import {
@@ -49,6 +50,7 @@ export function WorkspaceInitializingView({
 	workspaceName,
 	isInterrupted = false,
 }: WorkspaceInitializingViewProps) {
+	const { t } = useTranslation();
 	const progress = useWorkspaceInitProgress(workspaceId);
 	const hasFailed = useHasWorkspaceFailed(workspaceId);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -118,7 +120,7 @@ export function WorkspaceInitializingView({
 						{/* Title and description */}
 						<div className="space-y-2">
 							<h2 className="text-lg font-medium text-foreground">
-								Setup incomplete
+								{t("workspace.setupIncomplete")}
 							</h2>
 							<p
 								className="line-clamp-3 max-w-full break-words text-sm text-muted-foreground [overflow-wrap:anywhere]"
@@ -127,7 +129,7 @@ export function WorkspaceInitializingView({
 								{workspaceName}
 							</p>
 							<p className="text-xs text-muted-foreground/80 mt-2">
-								Workspace setup didn't finish. You can retry or remove it.
+								{t("workspace.setupIncompleteDescription")}
 							</p>
 						</div>
 
@@ -139,7 +141,9 @@ export function WorkspaceInitializingView({
 								onClick={() => setShowDeleteConfirm(true)}
 								disabled={deleteWorkspace.isPending}
 							>
-								{deleteWorkspace.isPending ? "Deleting..." : "Delete Workspace"}
+								{deleteWorkspace.isPending
+									? t("workspace.deleting")
+									: t("workspace.deleteAction")}
 							</Button>
 							<Button
 								size="sm"
@@ -149,10 +153,10 @@ export function WorkspaceInitializingView({
 								{retryMutation.isPending ? (
 									<>
 										<LuLoader className="mr-2 size-4 animate-spin" />
-										Retrying...
+										{t("workspace.retrying")}
 									</>
 								) : (
-									"Retry Setup"
+									t("workspace.retrySetup")
 								)}
 							</Button>
 						</div>
@@ -167,12 +171,11 @@ export function WorkspaceInitializingView({
 					<AlertDialogContent className="max-w-[340px] gap-0 p-0">
 						<AlertDialogHeader className="px-4 pt-4 pb-2">
 							<AlertDialogTitle className="font-medium">
-								Delete workspace "{workspaceName}"?
+								{t("workspace.deleteNamedQuestion", { name: workspaceName })}
 							</AlertDialogTitle>
 							<AlertDialogDescription asChild>
 								<div className="text-muted-foreground">
-									This workspace was not fully set up. Deleting will clean up
-									any partial files that were created.
+									{t("workspace.deleteIncompleteDescription")}
 								</div>
 							</AlertDialogDescription>
 						</AlertDialogHeader>
@@ -183,7 +186,7 @@ export function WorkspaceInitializingView({
 								className="h-7 px-3 text-xs"
 								onClick={() => setShowDeleteConfirm(false)}
 							>
-								Cancel
+								{t("common.cancel")}
 							</Button>
 							<Button
 								variant="destructive"
@@ -191,7 +194,7 @@ export function WorkspaceInitializingView({
 								className="h-7 px-3 text-xs"
 								onClick={handleDelete}
 							>
-								Delete
+								{t("common.delete")}
 							</Button>
 						</AlertDialogFooter>
 					</AlertDialogContent>
@@ -214,7 +217,7 @@ export function WorkspaceInitializingView({
 						{/* Title and description */}
 						<div className="space-y-2">
 							<h2 className="text-lg font-medium text-foreground">
-								Workspace setup failed
+								{t("workspace.setupFailed")}
 							</h2>
 							<p
 								className="line-clamp-3 max-w-full break-words text-sm text-muted-foreground [overflow-wrap:anywhere]"
@@ -237,7 +240,9 @@ export function WorkspaceInitializingView({
 								onClick={() => setShowDeleteConfirm(true)}
 								disabled={deleteWorkspace.isPending}
 							>
-								{deleteWorkspace.isPending ? "Deleting..." : "Delete Workspace"}
+								{deleteWorkspace.isPending
+									? t("workspace.deleting")
+									: t("workspace.deleteAction")}
 							</Button>
 							<Button
 								size="sm"
@@ -247,10 +252,10 @@ export function WorkspaceInitializingView({
 								{retryMutation.isPending ? (
 									<>
 										<LuLoader className="mr-2 size-4 animate-spin" />
-										Retrying...
+										{t("workspace.retrying")}
 									</>
 								) : (
-									"Retry"
+									t("workspace.retry")
 								)}
 							</Button>
 							{canRetryWithDeduplicatedBranch && (
@@ -260,8 +265,8 @@ export function WorkspaceInitializingView({
 									disabled={retryMutation.isPending}
 								>
 									{retryMutation.isPending
-										? "Retrying..."
-										: "Retry With Deduplicated Branch"}
+										? t("workspace.retrying")
+										: t("workspace.retryDeduplicatedBranch")}
 								</Button>
 							)}
 						</div>
@@ -276,12 +281,11 @@ export function WorkspaceInitializingView({
 					<AlertDialogContent className="max-w-[340px] gap-0 p-0">
 						<AlertDialogHeader className="px-4 pt-4 pb-2">
 							<AlertDialogTitle className="font-medium">
-								Delete workspace "{workspaceName}"?
+								{t("workspace.deleteNamedQuestion", { name: workspaceName })}
 							</AlertDialogTitle>
 							<AlertDialogDescription asChild>
 								<div className="text-muted-foreground">
-									This workspace failed to initialize. Deleting will clean up
-									any partial files that were created.
+									{t("workspace.deleteFailedDescription")}
 								</div>
 							</AlertDialogDescription>
 						</AlertDialogHeader>
@@ -292,7 +296,7 @@ export function WorkspaceInitializingView({
 								className="h-7 px-3 text-xs"
 								onClick={() => setShowDeleteConfirm(false)}
 							>
-								Cancel
+								{t("common.cancel")}
 							</Button>
 							<Button
 								variant="destructive"
@@ -300,7 +304,7 @@ export function WorkspaceInitializingView({
 								className="h-7 px-3 text-xs"
 								onClick={handleDelete}
 							>
-								Delete
+								{t("common.delete")}
 							</Button>
 						</AlertDialogFooter>
 					</AlertDialogContent>
@@ -321,7 +325,7 @@ export function WorkspaceInitializingView({
 
 				<div className="space-y-1">
 					<h2 className="text-lg font-medium text-foreground">
-						Setting up workspace
+						{t("workspace.settingUpWorkspace")}
 					</h2>
 					<p className="text-sm text-muted-foreground">{workspaceName}</p>
 				</div>
@@ -329,7 +333,7 @@ export function WorkspaceInitializingView({
 				<StepProgress currentStep={currentStep} />
 
 				<p className="text-xs text-muted-foreground/60">
-					Takes 10s to a few minutes depending on the size of your repo
+					{t("workspace.setupDurationHint")}
 				</p>
 			</div>
 		</div>

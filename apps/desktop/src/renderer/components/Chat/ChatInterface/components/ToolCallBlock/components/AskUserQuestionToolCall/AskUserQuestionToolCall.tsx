@@ -7,6 +7,7 @@ import {
 	XIcon,
 } from "lucide-react";
 import { useMemo } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { ToolStatusBadge } from "../ToolStatusBadge";
 
@@ -157,6 +158,7 @@ export function AskUserQuestionToolCall({
 	nestedResultObject,
 	isInterrupted,
 }: AskUserQuestionToolCallProps) {
+	const { t } = useTranslation();
 	const questions = useMemo(
 		() =>
 			Array.isArray(args.questions)
@@ -244,14 +246,17 @@ export function AskUserQuestionToolCall({
 			icon={MessageCircleQuestionIcon}
 			isPending={false}
 			isError={false}
-			title="Question"
+			title={t("chat.tool.question")}
 			description={
 				isPending ? (
-					<ToolStatusBadge icon={ClockIcon} label="Awaiting Response" />
+					<ToolStatusBadge
+						icon={ClockIcon}
+						label={t("chat.tool.awaitingResponse")}
+					/>
 				) : isAnswered ? (
-					<ToolStatusBadge icon={CheckIcon} label="Answered" />
+					<ToolStatusBadge icon={CheckIcon} label={t("chat.tool.answered")} />
 				) : isCancelled || isCancelledByError || isCancelledByStop ? (
-					<ToolStatusBadge icon={XIcon} label="Cancelled" />
+					<ToolStatusBadge icon={XIcon} label={t("chat.tool.cancelled")} />
 				) : undefined
 			}
 		>
@@ -270,7 +275,7 @@ export function AskUserQuestionToolCall({
 								</div>
 								<div className="flex items-center gap-1 text-sm text-destructive">
 									<CircleXIcon className="h-3 w-3 shrink-0" />
-									Aborted by the user
+									{t("chat.tool.abortedByUser")}
 								</div>
 							</div>
 						))

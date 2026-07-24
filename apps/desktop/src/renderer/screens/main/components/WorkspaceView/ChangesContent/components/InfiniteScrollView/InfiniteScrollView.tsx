@@ -1,5 +1,6 @@
 import { Button } from "@superset/ui/button";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useChangesStore } from "renderer/stores/changes";
 import { SidebarMode, useSidebarStore } from "renderer/stores/sidebar-state";
 import type { GitChangesStatus } from "shared/changes-types";
@@ -23,6 +24,7 @@ export function InfiniteScrollView({
 	worktreePath,
 	baseBranch,
 }: InfiniteScrollViewProps) {
+	const { t } = useTranslation();
 	const { containerRef, viewedCount } = useScrollContext();
 	const {
 		viewMode: diffViewMode,
@@ -164,14 +166,14 @@ export function InfiniteScrollView({
 	if (!hasChanges) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
-				<div>No changes detected</div>
+				<div>{t("v1Changes.noChangesDetected")}</div>
 				{isExpandedView ? (
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={() => setSidebarMode(SidebarMode.Tabs)}
 					>
-						Close expanded view
+						{t("v1Changes.closeExpandedView")}
 					</Button>
 				) : null}
 			</div>

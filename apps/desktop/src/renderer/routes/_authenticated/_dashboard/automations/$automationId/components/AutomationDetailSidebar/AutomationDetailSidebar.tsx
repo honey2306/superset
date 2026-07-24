@@ -7,6 +7,7 @@ import { cn } from "@superset/ui/utils";
 import { useMutation } from "@tanstack/react-query";
 import { useRecentProjects } from "renderer/hooks/host-projects/useRecentProjects";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
 import { AgentPicker } from "../../../components/AgentPicker";
@@ -29,6 +30,7 @@ export function AutomationDetailSidebar({
 	automation,
 	recentRuns,
 }: AutomationDetailSidebarProps) {
+	const { t } = useTranslation();
 	const recentProjects = useRecentProjects();
 	const { localHostId } = useWorkspaceHostOptions();
 	const selectedProject = recentProjects.find(
@@ -55,9 +57,9 @@ export function AutomationDetailSidebar({
 	return (
 		<aside className="flex w-[360px] shrink-0 flex-col overflow-hidden border-l border-border">
 			<div className="flex shrink-0 flex-col gap-6 px-5 pt-5 pb-2">
-				<Section title="Status">
+				<Section title={t("automations.status")}>
 					<Row
-						label="Status"
+						label={t("automations.status")}
 						value={
 							<span className="inline-flex items-center gap-2">
 								<span
@@ -68,12 +70,14 @@ export function AutomationDetailSidebar({
 											: "border border-muted-foreground/60",
 									)}
 								/>
-								{automation.enabled ? "Active" : "Paused"}
+								{automation.enabled
+									? t("automations.active")
+									: t("automations.paused")}
 							</span>
 						}
 					/>
 					<Row
-						label="Next run"
+						label={t("automations.nextRun")}
 						value={
 							automation.enabled && automation.nextRunAt
 								? formatDateTimeInTimezone(
@@ -84,7 +88,7 @@ export function AutomationDetailSidebar({
 						}
 					/>
 					<Row
-						label="Last ran"
+						label={t("automations.lastRan")}
 						value={
 							lastRunAt
 								? formatDateTimeInTimezone(lastRunAt, automation.timezone)
@@ -93,9 +97,9 @@ export function AutomationDetailSidebar({
 					/>
 				</Section>
 
-				<Section title="Details">
+				<Section title={t("automations.details")}>
 					<Row
-						label="Device"
+						label={t("automations.device")}
 						value={
 							<DevicePicker
 								className="-mr-4"
@@ -108,7 +112,7 @@ export function AutomationDetailSidebar({
 						}
 					/>
 					<Row
-						label="Project"
+						label={t("automations.project")}
 						value={
 							<ProjectPicker
 								className="-mr-4"
@@ -121,7 +125,7 @@ export function AutomationDetailSidebar({
 						}
 					/>
 					<Row
-						label="Workspace"
+						label={t("automations.workspace")}
 						value={
 							<WorkspacePicker
 								className="-mr-4"
@@ -146,7 +150,7 @@ export function AutomationDetailSidebar({
 						}
 					/>
 					<Row
-						label="Repeats"
+						label={t("automations.repeats")}
 						value={
 							<SchedulePicker
 								className="-mr-4"
@@ -156,7 +160,7 @@ export function AutomationDetailSidebar({
 						}
 					/>
 					<Row
-						label="Agent"
+						label={t("automations.agent")}
 						value={
 							<AgentPicker
 								className="-mr-4"
@@ -179,7 +183,7 @@ export function AutomationDetailSidebar({
 						}
 					/>
 					<Row
-						label="Timezone"
+						label={t("automations.timezone")}
 						value={
 							<TimezonePicker
 								className="-mr-4"
@@ -193,7 +197,7 @@ export function AutomationDetailSidebar({
 			</div>
 
 			<div className="mt-6 flex min-h-0 flex-1 flex-col gap-2 pl-5 pr-3 pb-5">
-				<SectionTitle>Previous runs</SectionTitle>
+				<SectionTitle>{t("automations.previousRuns")}</SectionTitle>
 				<div className="min-h-0 flex-1 overflow-y-auto">
 					<PreviousRunsList runs={recentRuns} />
 				</div>

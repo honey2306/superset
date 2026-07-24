@@ -26,6 +26,7 @@ import {
 import { joinArgs, parseArgs } from "renderer/lib/argv";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { getHostServiceUnavailableMessage } from "renderer/lib/host-service-unavailable";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import {
 	AgentDetailHeader,
@@ -47,6 +48,7 @@ export function AgentDetail({
 	onChanged,
 	onDeleted,
 }: AgentDetailProps) {
+	const { t } = useTranslation();
 	const hostService = useLocalHostService();
 	const { activeHostUrl } = hostService;
 	const isCustom = config.presetId === "custom";
@@ -91,8 +93,8 @@ export function AgentDetail({
 		) => {
 			if (!activeHostUrl) {
 				throw new Error(
-					getHostServiceUnavailableMessage(hostService, {
-						action: "save the agent",
+					getHostServiceUnavailableMessage(hostService, t, {
+						action: t("agents.saveAgentAction"),
 					}),
 				);
 			}
@@ -102,15 +104,15 @@ export function AgentDetail({
 		},
 		onSuccess: (updated) => onChanged(updated),
 		onError: (err) =>
-			toast.error(err instanceof Error ? err.message : "Failed to save"),
+			toast.error(err instanceof Error ? err.message : t("agents.failedSave")),
 	});
 
 	const removeMutation = useMutation({
 		mutationFn: () => {
 			if (!activeHostUrl) {
 				throw new Error(
-					getHostServiceUnavailableMessage(hostService, {
-						action: "remove the agent",
+					getHostServiceUnavailableMessage(hostService, t, {
+						action: t("agents.removeAgentAction"),
 					}),
 				);
 			}
@@ -120,15 +122,17 @@ export function AgentDetail({
 		},
 		onSuccess: () => onDeleted(),
 		onError: (err) =>
-			toast.error(err instanceof Error ? err.message : "Failed to remove"),
+			toast.error(
+				err instanceof Error ? err.message : t("agents.failedRemove"),
+			),
 	});
 
 	const restoreDefaultMutation = useMutation({
 		mutationFn: () => {
 			if (!activeHostUrl) {
 				throw new Error(
-					getHostServiceUnavailableMessage(hostService, {
-						action: "restore the agent defaults",
+					getHostServiceUnavailableMessage(hostService, t, {
+						action: t("agents.restoreAgentDefaultsAction"),
 					}),
 				);
 			}
@@ -138,11 +142,11 @@ export function AgentDetail({
 		},
 		onSuccess: (updated) => {
 			onChanged(updated);
-			toast.success(`${updated.label} restored to defaults`);
+			toast.success(t("agents.restored", { name: updated.label }));
 		},
 		onError: (err) =>
 			toast.error(
-				err instanceof Error ? err.message : "Failed to restore defaults",
+				err instanceof Error ? err.message : t("agents.failedRestore"),
 			),
 	});
 
@@ -156,7 +160,7 @@ export function AgentDetail({
 		const patch = parseAgentCommandText(commandText);
 		const { command } = patch;
 		if (command.length === 0) {
-			toast.error("Command cannot be empty");
+			toast.error(t("agents.commandRequired"));
 			setCommandText(getAgentCommandText(config));
 			return;
 		}
@@ -193,7 +197,7 @@ export function AgentDetail({
 			/>
 
 			<div className="space-y-6">
-				<Section title="Label">
+				<Section title={t("agents.label")}>
 					<Input
 						id={`label-${config.id}`}
 						value={label}
@@ -203,7 +207,7 @@ export function AgentDetail({
 				</Section>
 
 				{isCustom ? (
-					<Section title="Icon">
+					<Section title={t("agents.icon")}>
 						<AgentIconPicker
 							value={config.iconId}
 							onChange={(iconId) => updateMutation.mutate({ iconId })}
@@ -228,10 +232,11 @@ export function AgentDetail({
 					<div className="pt-2 border-t border-border">
 						<div className="flex items-center justify-between gap-8">
 							<div className="min-w-0 flex-1">
-								<div className="text-sm font-medium">Restore default</div>
+								<div className="text-sm font-medium">
+									{t("agents.restoreDefault")}
+								</div>
 								<p className="text-sm text-muted-foreground mt-0.5">
-									Replace this agent's launch settings with the current bundled
-									configuration.
+									{t("agents.restoreDefaultDescription")}
 								</p>
 							</div>
 							<AlertDialog>
@@ -243,26 +248,24 @@ export function AgentDetail({
 										className="shrink-0 gap-1.5"
 									>
 										<RotateCcw className="size-3.5" />
-										Restore
+										{t("agents.restore")}
 									</Button>
 								</AlertDialogTrigger>
 								<AlertDialogContent>
 									<AlertDialogHeader>
 										<AlertDialogTitle>
-											Restore {config.label} to defaults?
+											{t("agents.restoreDialogTitle", { name: config.label })}
 										</AlertDialogTitle>
 										<AlertDialogDescription>
-											This replaces its label, command, arguments, prompt
-											settings, environment variables, and icon with the current
-											bundled configuration.
+											{t("agents.restoreDialogDescription")}
 										</AlertDialogDescription>
 									</AlertDialogHeader>
 									<AlertDialogFooter>
-										<AlertDialogCancel>Cancel</AlertDialogCancel>
+										<AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
 										<AlertDialogAction
 											onClick={() => restoreDefaultMutation.mutate()}
 										>
-											Restore defaults
+											{t("agents.restoreDefaults")}
 										</AlertDialogAction>
 									</AlertDialogFooter>
 								</AlertDialogContent>
@@ -276,9 +279,9 @@ export function AgentDetail({
 				>
 					<div className="flex items-center justify-between gap-8">
 						<div className="min-w-0 flex-1">
-							<div className="text-sm font-medium">Delete agent</div>
+							<div className="text-sm font-medium">{t("agents.delete")}</div>
 							<p className="text-sm text-muted-foreground mt-0.5">
-								Removes this agent from this device only.
+								{t("agents.deleteDescription")}
 							</p>
 						</div>
 						<Button
@@ -289,7 +292,7 @@ export function AgentDetail({
 							className="shrink-0 gap-1.5"
 						>
 							<Trash2 className="size-3.5" />
-							Delete
+							{t("common.delete")}
 						</Button>
 					</div>
 				</div>

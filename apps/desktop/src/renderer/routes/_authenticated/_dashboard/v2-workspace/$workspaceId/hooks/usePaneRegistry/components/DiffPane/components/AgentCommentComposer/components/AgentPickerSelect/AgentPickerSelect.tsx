@@ -13,6 +13,7 @@ import { cn } from "@superset/ui/utils";
 import { LuPlus } from "react-icons/lu";
 import { usePresetIcon } from "renderer/assets/app-icons/preset-icons";
 import type { TerminalAgentBinding } from "renderer/hooks/host-service/useTerminalAgentBindings";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { EXISTING_PREFIX, NEW_PREFIX } from "../../hooks/useDiffCommentTarget";
 
 interface AgentPickerSelectProps {
@@ -28,6 +29,7 @@ export function AgentPickerSelect({
 	sessions,
 	configs,
 }: AgentPickerSelectProps) {
+	const { t } = useTranslation();
 	return (
 		<Select value={value ?? undefined} onValueChange={onValueChange}>
 			<SelectTrigger
@@ -37,13 +39,13 @@ export function AgentPickerSelect({
 					"hover:bg-accent/50",
 				)}
 			>
-				<SelectValue placeholder="Choose agent" />
+				<SelectValue placeholder={t("v2Diff.chooseAgent")} />
 			</SelectTrigger>
 			<SelectContent align="start" className="min-w-60">
 				{sessions.length > 0 ? (
 					<SelectGroup>
 						<SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-							Active sessions
+							{t("v2Diff.activeSessions")}
 						</SelectLabel>
 						{sessions.map((session) => (
 							<SelectItem
@@ -60,7 +62,7 @@ export function AgentPickerSelect({
 				{configs.length > 0 ? (
 					<SelectGroup>
 						<SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-							Start new session
+							{t("v2Diff.startNewSession")}
 						</SelectLabel>
 						{configs.map((config) => (
 							<SelectItem

@@ -8,6 +8,7 @@ import {
 } from "@superset/ui/dialog";
 import { InputGroup, InputGroupInput } from "@superset/ui/input-group";
 import { Label } from "@superset/ui/label";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface OpenAIApiKeyDialogProps {
 	open: boolean;
@@ -32,27 +33,28 @@ export function OpenAIApiKeyDialog({
 	onSubmit,
 	onClear,
 }: OpenAIApiKeyDialogProps) {
+	const { t } = useTranslation();
 	const errorId = "openai-api-key-error";
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-[calc(100vw-2rem)] overflow-hidden sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>Connect OpenAI</DialogTitle>
+					<DialogTitle>{t("apiKeyDialog.connectOpenAI")}</DialogTitle>
 					<DialogDescription>
-						Paste your OpenAI API key to enable GPT, o3, and Codex models in
-						chat.
+						{t("apiKeyDialog.pasteOpenAIKey")}
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-4">
 					<div className="rounded-lg border border-border/70 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
-						API key mode is best if you already manage OpenAI access with a
-						standard `sk-...` key.
+						{t("apiKeyDialog.modeHintOpenAI")}
 					</div>
 
 					<div className="space-y-2">
-						<Label htmlFor="openai-api-key">API key</Label>
+						<Label htmlFor="openai-api-key">
+							{t("apiKeyDialog.apiKeyLabel")}
+						</Label>
 						<InputGroup className="h-11 border-border/70 bg-muted/10">
 							<InputGroupInput
 								id="openai-api-key"
@@ -73,7 +75,7 @@ export function OpenAIApiKeyDialog({
 							/>
 						</InputGroup>
 						<p className="text-muted-foreground text-xs">
-							Use the same key you would pass as `OPENAI_API_KEY`.
+							{t("apiKeyDialog.useSameKeyOpenAI")}
 						</p>
 					</div>
 
@@ -89,7 +91,7 @@ export function OpenAIApiKeyDialog({
 							onClick={onSubmit}
 							disabled={isPending || apiKey.trim().length === 0}
 						>
-							{isPending ? "Saving..." : "Save key"}
+							{isPending ? t("common.saving") : t("apiKeyDialog.saveKey")}
 						</Button>
 						<div className="flex items-center justify-between gap-2">
 							<Button
@@ -98,7 +100,7 @@ export function OpenAIApiKeyDialog({
 								onClick={() => onOpenChange(false)}
 								disabled={isPending}
 							>
-								Back
+								{t("apiKeyDialog.back")}
 							</Button>
 							{canClearApiKey ? (
 								<Button
@@ -107,7 +109,7 @@ export function OpenAIApiKeyDialog({
 									onClick={onClear}
 									disabled={isPending}
 								>
-									Clear key
+									{t("apiKeyDialog.clearKey")}
 								</Button>
 							) : null}
 						</div>

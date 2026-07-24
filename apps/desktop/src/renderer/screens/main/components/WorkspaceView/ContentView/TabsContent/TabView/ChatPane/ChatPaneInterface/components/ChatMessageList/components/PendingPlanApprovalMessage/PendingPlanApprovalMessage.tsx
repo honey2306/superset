@@ -8,6 +8,7 @@ import { Button } from "@superset/ui/button";
 import { Switch } from "@superset/ui/switch";
 import { Textarea } from "@superset/ui/textarea";
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 type PendingPlanApproval = UseChatDisplayReturn["pendingPlanApproval"];
 
@@ -27,6 +28,7 @@ export function PendingPlanApprovalMessage({
 	inline = false,
 	onRespond,
 }: PendingPlanApprovalMessageProps) {
+	const { t } = useTranslation();
 	const [feedback, setFeedback] = useState("");
 	const [selectedAction, setSelectedAction] = useState<
 		"approved" | "rejected" | null
@@ -52,9 +54,8 @@ export function PendingPlanApprovalMessage({
 
 	const planId = planApproval.planId?.trim() ?? "";
 	if (resolvedPlanId && resolvedPlanId === planId) return null;
-	const title = planApproval.title?.trim() || "Implementation plan";
-	const planBody =
-		planApproval.plan?.trim() || "No plan details were provided.";
+	const title = planApproval.title?.trim() || t("chat.plan.implementationPlan");
+	const planBody = planApproval.plan?.trim() || t("chat.plan.noPlanDetails");
 	const canRespond = planId.length > 0;
 	const getLatestFeedback = (): string => {
 		const textareaValue = feedbackTextareaRef.current?.value;
@@ -95,7 +96,7 @@ export function PendingPlanApprovalMessage({
 						onCheckedChange={setRenderMarkdown}
 						disabled={isSubmitting}
 					/>
-					Render markdown
+					{t("chat.plan.renderMarkdown")}
 				</label>
 			</div>
 			<div className="rounded-md border bg-muted/20 p-3">
@@ -121,18 +122,18 @@ export function PendingPlanApprovalMessage({
 			</div>
 			<div className="space-y-2">
 				<div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-					Feedback (optional)
+					{t("chat.plan.feedbackOptional")}
 				</div>
 				<Textarea
 					ref={feedbackTextareaRef}
 					value={feedback}
 					onChange={(event) => setFeedback(event.target.value)}
-					placeholder="Add feedback for revisions..."
+					placeholder={t("chat.plan.addFeedbackPlaceholder")}
 					disabled={isSubmitting || !canRespond}
 					rows={4}
 				/>
 				<div className="text-xs text-muted-foreground">
-					Feedback is included with your response.
+					{t("chat.plan.feedbackIncluded")}
 				</div>
 			</div>
 			<div className="flex flex-wrap items-center justify-end gap-2">
@@ -149,7 +150,7 @@ export function PendingPlanApprovalMessage({
 						void handleRespond("rejected");
 					}}
 				>
-					Request changes
+					{t("chat.plan.requestChanges")}
 				</Button>
 				<Button
 					type="button"
@@ -163,7 +164,7 @@ export function PendingPlanApprovalMessage({
 						void handleRespond("approved");
 					}}
 				>
-					Approve plan
+					{t("chat.plan.approvePlan")}
 				</Button>
 			</div>
 		</div>

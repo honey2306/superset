@@ -1,6 +1,7 @@
 import type { ResolvedAgentConfig } from "@superset/shared/agent-settings";
 import { Button } from "@superset/ui/button";
 import { MarkdownRenderer } from "renderer/components/MarkdownRenderer";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface AgentCardPreviewProps {
 	preset: ResolvedAgentConfig;
@@ -19,17 +20,18 @@ export function AgentCardPreview({
 	previewTaskCommand,
 	onToggle,
 }: AgentCardPreviewProps) {
+	const { t } = useTranslation();
 	return (
 		<>
 			<div className="flex items-center justify-between rounded-lg border bg-muted/20 px-4 py-3">
 				<div>
-					<p className="text-sm font-medium">Preview</p>
+					<p className="text-sm font-medium">{t("agents.preview")}</p>
 					<p className="text-xs text-muted-foreground">
-						Check the rendered prompt and launch output before saving
+						{t("agents.previewDescription")}
 					</p>
 				</div>
 				<Button type="button" variant="outline" size="sm" onClick={onToggle}>
-					{showPreview ? "Hide Preview" : "Show Preview"}
+					{showPreview ? t("agents.hidePreview") : t("agents.showPreview")}
 				</Button>
 			</div>
 
@@ -37,7 +39,7 @@ export function AgentCardPreview({
 				<div className="space-y-3 rounded-lg border bg-muted/30 p-4">
 					<div className="space-y-1">
 						<p className="text-xs font-medium text-muted-foreground">
-							Rendered Task Prompt
+							{t("agents.renderedTaskPrompt")}
 						</p>
 						<MarkdownRenderer
 							content={previewPrompt}
@@ -47,7 +49,7 @@ export function AgentCardPreview({
 					{preset.kind === "terminal" && (
 						<div className="space-y-1">
 							<p className="text-xs font-medium text-muted-foreground">
-								No-Prompt Launch
+								{t("agents.noPromptLaunch")}
 							</p>
 							<pre className="whitespace-pre-wrap rounded-md bg-background p-3 text-xs">
 								{previewNoPromptCommand}
@@ -56,7 +58,9 @@ export function AgentCardPreview({
 					)}
 					<div className="space-y-1">
 						<p className="text-xs font-medium text-muted-foreground">
-							{preset.kind === "terminal" ? "Task Launch" : "Chat Launch"}
+							{preset.kind === "terminal"
+								? t("agents.taskLaunch")
+								: t("agents.chatLaunch")}
 						</p>
 						<pre className="whitespace-pre-wrap rounded-md bg-background p-3 text-xs">
 							{previewTaskCommand}

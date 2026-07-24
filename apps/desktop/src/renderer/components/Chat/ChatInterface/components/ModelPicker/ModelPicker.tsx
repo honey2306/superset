@@ -13,6 +13,7 @@ import { claudeIcon } from "@superset/ui/icons/preset-icons";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronDownIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PILL_BUTTON_CLASS } from "../../styles";
 import type { ModelOption } from "../../types";
 import { ModelProviderGroup } from "./components/ModelProviderGroup";
@@ -37,6 +38,7 @@ export function ModelPicker({
 	open,
 	onOpenChange,
 }: ModelPickerProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const groupedModels = useMemo(() => groupModelsByProvider(models), [models]);
 	const selectedLogo = selectedModel
@@ -68,14 +70,16 @@ export function ModelPicker({
 					) : selectedLogo ? (
 						<ModelSelectorLogo provider={selectedLogo} />
 					) : null}
-					<span>{selectedModel?.name ?? "Model"}</span>
+					<span>{selectedModel?.name ?? t("modelPicker.fallback")}</span>
 					<ChevronDownIcon className="size-2.5 opacity-50" />
 				</PromptInputButton>
 			</ModelSelectorTrigger>
-			<ModelSelectorContent title="Select Model">
-				<ModelSelectorInput placeholder="Search models..." />
+			<ModelSelectorContent title={t("modelPicker.selectModel")}>
+				<ModelSelectorInput placeholder={t("modelPicker.searchModels")} />
 				<ModelSelectorList>
-					<ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+					<ModelSelectorEmpty>
+						{t("modelPicker.noModelsFound")}
+					</ModelSelectorEmpty>
 					{groupedModels.map(([provider, providerModels]) => (
 						<ModelProviderGroup
 							key={provider}

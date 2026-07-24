@@ -8,6 +8,7 @@ import {
 } from "@superset/ui/ai-elements/conversation";
 import { useEffect, useMemo, useRef } from "react";
 import { HiMiniChatBubbleLeftRight } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type {
 	ChatMessage,
 	ChatMessageListProps,
@@ -75,6 +76,7 @@ export function ChatMessageList({
 	footerScrollTrigger = 0,
 }: ChatMessageListProps) {
 	const messageListRef = useRef<HTMLDivElement>(null);
+	const { t } = useTranslation();
 	const chatSearch = useChatMessageSearch({
 		containerRef: messageListRef,
 		isFocused,
@@ -179,8 +181,8 @@ export function ChatMessageList({
 						<ConversationLoadingState />
 					) : shouldShowEmptyState ? (
 						<ConversationEmptyState
-							title="Start a conversation"
-							description="Ask anything to get started"
+							title={t("chat.startConversation")}
+							description={t("chat.askAnything")}
 							icon={<HiMiniChatBubbleLeftRight className="size-8" />}
 						/>
 					) : (

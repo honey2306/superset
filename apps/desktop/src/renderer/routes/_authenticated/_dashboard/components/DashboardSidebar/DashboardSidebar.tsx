@@ -28,6 +28,7 @@ import { HiOutlineCog6Tooth } from "react-icons/hi2";
 import { HiringBanner } from "renderer/components/HiringBanner";
 import { UpdatesPill } from "renderer/components/UpdatesPill";
 import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { OrganizationDropdown } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/OrganizationDropdown";
 import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
@@ -102,6 +103,7 @@ const SortableProjectWrapper = memo(function SortableProjectWrapper({
 export function DashboardSidebar({
 	isCollapsed = false,
 }: DashboardSidebarProps) {
+	const { t } = useTranslation();
 	const { groups, refreshWorkspacePullRequest, toggleProjectCollapsed } =
 		useDashboardSidebarData();
 	const { reorderProjects } = useDashboardSidebarState();
@@ -279,7 +281,7 @@ export function DashboardSidebar({
 									<TooltipTrigger asChild>
 										<button
 											type="button"
-											aria-label="Settings"
+											aria-label={t("navigation.settings")}
 											onClick={() => navigate({ to: "/settings/account" })}
 											className={cn(
 												"flex size-8 shrink-0 items-center justify-center rounded-md transition-colors",
@@ -293,8 +295,8 @@ export function DashboardSidebar({
 									</TooltipTrigger>
 									<TooltipContent side={isCollapsed ? "right" : "top"}>
 										{settingsHotkey !== "Unassigned"
-											? `Settings (${settingsHotkey})`
-											: "Settings"}
+											? `${t("navigation.settings")} (${settingsHotkey})`
+											: t("navigation.settings")}
 									</TooltipContent>
 								</Tooltip>
 							</div>

@@ -14,6 +14,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { HiCheck, HiChevronUpDown, HiMiniPlus } from "react-icons/hi2";
 import { LuFolderInput, LuTriangleAlert } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
 import { useOpenNewProjectModal } from "renderer/stores/add-repository-modal";
@@ -31,18 +32,21 @@ export function ProjectPickerPill({
 	projects,
 	onSelectProject,
 }: ProjectPickerPillProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const openNewProject = useOpenNewProjectModal();
 	const navigate = useNavigate();
 	const folderImport = useFolderFirstImport({
 		onError: (message) => {
-			toast.error(`Import failed: ${message}`);
+			toast.error(t("workspace.importFailedWithMessage", { message }));
 		},
 		onMultipleProjects: ({ candidates }) => {
-			toast.error("Import failed", {
-				description: `Multiple projects use this repository (${candidates.length}). Choose the project in settings to set it up on this device.`,
+			toast.error(t("dashboard.importFailed"), {
+				description: t("dashboard.multipleProjects", {
+					count: candidates.length,
+				}),
 				action: {
-					label: "Open Projects",
+					label: t("dashboard.openProjects"),
 					onClick: () => navigate({ to: "/settings/projects" }),
 				},
 			});
@@ -59,7 +63,7 @@ export function ProjectPickerPill({
 		setOpen(false);
 		const result = await folderImport.start();
 		if (result) {
-			toast.success("Project imported and selected.");
+			toast.success(t("workspace.projectImported"));
 			onSelectProject(result.projectId);
 		}
 	};
@@ -76,7 +80,7 @@ export function ProjectPickerPill({
 						/>
 					)}
 					<span className="truncate">
-						{selectedProject?.name ?? "Select project"}
+						{selectedProject?.name ?? t("workspace.selectProject")}
 					</span>
 					<HiChevronUpDown className="size-3 shrink-0" />
 				</FormPickerTrigger>
@@ -87,9 +91,9 @@ export function ProjectPickerPill({
 				onWheel={(event) => event.stopPropagation()}
 			>
 				<Command>
-					<CommandInput placeholder="Search projects..." />
+					<CommandInput placeholder={t("workspace.searchProjects")} />
 					<CommandList className="max-h-[min(280px,var(--radix-popover-content-available-height))]">
-						<CommandEmpty>No projects found.</CommandEmpty>
+						<CommandEmpty>{t("workspace.noProjects")}</CommandEmpty>
 						<CommandGroup>
 							{projects.map((project) => (
 								<CommandItem
@@ -110,7 +114,9 @@ export function ProjectPickerPill({
 											<TooltipTrigger asChild>
 												<LuTriangleAlert className="size-3.5 shrink-0 text-amber-500" />
 											</TooltipTrigger>
-											<TooltipContent>Not set up on this host</TooltipContent>
+											<TooltipContent>
+												{t("workspace.notSetUpOnHost")}
+											</TooltipContent>
 										</Tooltip>
 									)}
 									{project.id === selectedProject?.id && (
@@ -124,11 +130,11 @@ export function ProjectPickerPill({
 					<CommandGroup forceMount>
 						<CommandItem forceMount onSelect={handleCreateNewProject}>
 							<HiMiniPlus className="size-4" />
-							Clone from URL
+							{t("workspace.cloneFromUrl")}
 						</CommandItem>
 						<CommandItem forceMount onSelect={handleImportProject}>
 							<LuFolderInput className="size-4" />
-							Open from folder
+							{t("dashboard.openFromFolder")}
 						</CommandItem>
 					</CommandGroup>
 				</Command>

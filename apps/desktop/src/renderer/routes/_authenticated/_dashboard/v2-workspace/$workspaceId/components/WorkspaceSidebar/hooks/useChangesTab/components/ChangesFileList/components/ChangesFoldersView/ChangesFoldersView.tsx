@@ -1,5 +1,6 @@
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	type ChangesetFile,
 	getChangesetFileKey,
@@ -9,7 +10,7 @@ import { FileRow } from "../FileRow";
 import { FolderHeader } from "./components/FolderHeader";
 
 const ROOT_FOLDER_KEY = "";
-const ROOT_FOLDER_LABEL = "Root Path";
+const ROOT_FOLDER_LABEL_KEY = "v2Workspace.changes.rootPath";
 // FolderHeader and FileRow are single-line rows (`py-1`, `text-xs`); the
 // virtualizer re-measures each one, so this is only the pre-measure estimate.
 const ESTIMATED_ROW_HEIGHT = 26;
@@ -68,6 +69,7 @@ export const ChangesFoldersView = memo(function ChangesFoldersView({
 	onOpenFile,
 	onOpenInEditor,
 }: ChangesFoldersViewProps) {
+	const { t } = useTranslation();
 	const groups = useMemo(() => groupFilesByFolder(files), [files]);
 	const [closedFolders, setClosedFolders] = useState<Set<string>>(new Set());
 
@@ -157,7 +159,7 @@ export const ChangesFoldersView = memo(function ChangesFoldersView({
 								<FolderHeader
 									label={
 										row.group.folderPath === ROOT_FOLDER_KEY
-											? ROOT_FOLDER_LABEL
+											? t(ROOT_FOLDER_LABEL_KEY)
 											: row.group.folderPath
 									}
 									fileCount={row.group.files.length}

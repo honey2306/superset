@@ -6,6 +6,7 @@ import { ToolCallRow } from "@superset/ui/ai-elements/tool-call-row";
 import { BotIcon } from "lucide-react";
 import { useMemo } from "react";
 import { SubagentInnerToolCall } from "renderer/components/Chat/components/SubagentInnerToolCall";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { parseSubagentToolResult } from "./utils/parseSubagentToolResult";
 
@@ -32,14 +33,15 @@ export function SubagentToolCall({
 	workspaceCwd,
 	onOpenFileInPane,
 }: SubagentToolCallProps) {
+	const { t } = useTranslation();
 	const isPending =
 		part.state !== "output-available" && part.state !== "output-error";
 	const isError =
 		part.state === "output-error" ||
 		result.isError === true ||
 		(asString(result.error) ?? "").length > 0;
-	const task = asString(args.task) ?? "Running subagent task...";
-	const agentType = asString(args.agentType) ?? "subagent";
+	const task = asString(args.task) ?? t("chat.subagentTool.runningSubagent");
+	const agentType = asString(args.agentType) ?? t("chat.subagentTool.fallback");
 	const parsed = useMemo(() => parseSubagentToolResult(result), [result]);
 
 	const hasDetails =
@@ -48,7 +50,7 @@ export function SubagentToolCall({
 	// Title: "Agent" (foreground) — agentType goes in description (muted)
 	const titleNode = (
 		<span className="shrink-0 font-medium text-xs">
-			<span className="text-foreground">Agent</span>{" "}
+			<span className="text-foreground">{t("chat.tool.agent")}</span>{" "}
 			<span className="text-muted-foreground">{agentType}</span>
 		</span>
 	);

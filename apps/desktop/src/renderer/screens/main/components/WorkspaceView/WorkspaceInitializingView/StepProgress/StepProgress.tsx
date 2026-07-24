@@ -1,5 +1,7 @@
 import { cn } from "@superset/ui/utils";
 import { useEffect, useState } from "react";
+import type { MessageKey } from "renderer/providers/I18nProvider";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	getStepIndex,
 	INIT_STEP_MESSAGES,
@@ -24,6 +26,7 @@ interface StepProgressProps {
 }
 
 export function StepProgress({ currentStep }: StepProgressProps) {
+	const { t } = useTranslation();
 	const targetIdx = getStepIndex(currentStep);
 	const [renderIdx, setRenderIdx] = useState(targetIdx);
 	const [holdDoneIdx, setHoldDoneIdx] = useState<number | null>(null);
@@ -85,7 +88,7 @@ export function StepProgress({ currentStep }: StepProgressProps) {
 								<StepIcon state={state} />
 							</span>
 							<span className="step-progress__title">
-								{stripEllipsis(INIT_STEP_MESSAGES[step])}
+								{stripEllipsis(t(INIT_STEP_MESSAGES[step] as MessageKey))}
 								{state === "progress" ? <Ellipsis /> : null}
 							</span>
 						</div>

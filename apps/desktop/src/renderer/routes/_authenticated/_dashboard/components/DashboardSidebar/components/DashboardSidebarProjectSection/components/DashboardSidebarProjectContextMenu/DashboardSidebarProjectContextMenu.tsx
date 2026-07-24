@@ -12,6 +12,7 @@ import {
 	LuSettings,
 	LuX,
 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface DashboardSidebarProjectContextMenuProps {
 	onCreateSection: () => void;
@@ -30,26 +31,27 @@ export function DashboardSidebarProjectContextMenu({
 	onRename,
 	children,
 }: DashboardSidebarProjectContextMenuProps) {
+	const { t } = useTranslation();
 	return (
 		<ContextMenu>
 			<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
 			<ContextMenuContent onCloseAutoFocus={(event) => event.preventDefault()}>
 				<ContextMenuItem onSelect={onRename}>
 					<LuPencil className="size-4 mr-2" />
-					Rename
+					{t("workspace.renameAction")}
 				</ContextMenuItem>
 				<ContextMenuSeparator />
 				<ContextMenuItem onSelect={onOpenInFinder}>
 					<LuFolderOpen className="size-4 mr-2" />
-					Open in Finder
+					{t("workspace.openFinder")}
 				</ContextMenuItem>
 				<ContextMenuItem onSelect={onOpenSettings}>
 					<LuSettings className="size-4 mr-2" />
-					Project Settings
+					{t("workspace.projectSettings")}
 				</ContextMenuItem>
 				<ContextMenuItem onSelect={onCreateSection}>
 					<LuFolderPlus className="size-4 mr-2" />
-					New group
+					{t("workspace.newGroup")}
 				</ContextMenuItem>
 				<ContextMenuSeparator />
 				<ContextMenuItem
@@ -57,7 +59,7 @@ export function DashboardSidebarProjectContextMenu({
 					className="text-destructive focus:text-destructive"
 				>
 					<LuX className="size-4 mr-2 text-destructive" />
-					Remove from Sidebar
+					{t("workspace.removeSidebar")}
 				</ContextMenuItem>
 			</ContextMenuContent>
 		</ContextMenu>

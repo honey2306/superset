@@ -16,6 +16,7 @@ import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useCreateV1Project,
 	useFinalizeProjectSetup,
@@ -45,6 +46,7 @@ export function NewProjectModal({
 	onSuccess,
 	onError,
 }: NewProjectModalProps) {
+	const { t } = useTranslation();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 	const hostService = useLocalHostService();
 	const { activeHostUrl } = hostService;
@@ -85,7 +87,7 @@ export function NewProjectModal({
 	const handleBrowse = async () => {
 		try {
 			const result = await selectDirectory.mutateAsync({
-				title: "Select project location",
+				title: t("project.selectLocation"),
 				defaultPath: parentDir || undefined,
 			});
 			if (!result.canceled && result.path) {
@@ -100,11 +102,11 @@ export function NewProjectModal({
 		const trimmedUrl = url.trim();
 		const trimmedParent = parentDir.trim();
 		if (!trimmedUrl) {
-			toast.error("Please enter a repository URL");
+			toast.error(t("project.repositoryUrlRequired"));
 			return;
 		}
 		if (!trimmedParent) {
-			toast.error("Please select a project location");
+			toast.error(t("project.locationRequired"));
 			return;
 		}
 
@@ -122,14 +124,14 @@ export function NewProjectModal({
 				return;
 			}
 			if (!activeHostUrl) {
-				showHostServiceUnavailableToast(hostService, {
-					action: "clone the repository",
+				showHostServiceUnavailableToast(hostService, t, {
+					action: t("project.cloneRepositoryAction"),
 				});
 				return;
 			}
 			const trimmedName = name.trim() || deriveProjectNameFromUrl(trimmedUrl);
 			if (!trimmedName) {
-				toast.error("Please enter a project name");
+				toast.error(t("project.nameRequired"));
 				return;
 			}
 			const client = getHostServiceClientByUrl(activeHostUrl);
@@ -149,9 +151,9 @@ export function NewProjectModal({
 			const isLeakedSql = raw.startsWith("Failed query:");
 			if (isLeakedSql) console.error("[NewProjectModal] create failed", err);
 			const message = isLeakedSql
-				? "Could not create project. Please try a different name or check the logs."
+				? t("project.couldNotCreateDescription")
 				: raw;
-			toast.error("Could not create project", { description: message });
+			toast.error(t("project.couldNotCreate"), { description: message });
 			onError?.(message);
 		} finally {
 			setWorking(false);
@@ -162,22 +164,22 @@ export function NewProjectModal({
 		<Dialog open={open} onOpenChange={handleOpenChange} modal>
 			<DialogContent className="max-w-[420px]">
 				<DialogHeader>
-					<DialogTitle>Clone a repository</DialogTitle>
+					<DialogTitle>{t("project.cloneTitle")}</DialogTitle>
 					<DialogDescription className="sr-only">
-						Create a new project by cloning a repository or local path.
+						{t("project.cloneDescription")}
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="flex flex-col gap-4">
 					<div className="flex flex-col gap-1.5">
 						<Label htmlFor="clone-url" className="text-xs">
-							Repository URL or path
+							{t("project.repositoryUrlOrPath")}
 						</Label>
 						<Input
 							id="clone-url"
 							value={url}
 							onChange={(e) => setUrl(e.target.value)}
-							placeholder="https://github.com/owner/repo.git or /path/to/repo"
+							placeholder={t("project.repositoryUrlPlaceholder")}
 							disabled={working}
 							onKeyDown={(e) => {
 								if (e.key === "Enter" && !working) {
@@ -191,7 +193,7 @@ export function NewProjectModal({
 					{isV2CloudEnabled && (
 						<div className="flex flex-col gap-1.5">
 							<Label htmlFor="project-name" className="text-xs">
-								Project name
+								{t("project.projectName")}
 							</Label>
 							<Input
 								id="project-name"
@@ -200,7 +202,7 @@ export function NewProjectModal({
 									setName(e.target.value);
 									setNameTouched(true);
 								}}
-								placeholder="my-project"
+								placeholder={t("project.projectNamePlaceholder")}
 								disabled={working}
 							/>
 						</div>
@@ -208,7 +210,7 @@ export function NewProjectModal({
 
 					<div className="flex flex-col gap-1.5">
 						<Label htmlFor="project-path" className="text-xs">
-							Location
+							{t("project.location")}
 						</Label>
 						<div className="flex gap-1.5">
 							<Input
@@ -225,7 +227,7 @@ export function NewProjectModal({
 								onClick={handleBrowse}
 								disabled={working || selectDirectory.isPending}
 								className="shrink-0"
-								aria-label="Browse for directory"
+								aria-label={t("project.browseDirectory")}
 							>
 								<LuFolderOpen className="size-4" />
 							</Button>
@@ -240,16 +242,16 @@ export function NewProjectModal({
 						onClick={() => handleOpenChange(false)}
 						disabled={working}
 					>
-						Cancel
+						{t("common.cancel")}
 					</Button>
 					<Button onClick={() => void createFromClone()} disabled={working}>
 						{working ? (
 							<>
 								<LuLoaderCircle className="size-4 animate-spin" />
-								Cloning…
+								{t("project.cloning")}
 							</>
 						) : (
-							"Clone"
+							t("project.clone")
 						)}
 					</Button>
 				</DialogFooter>

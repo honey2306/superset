@@ -5,6 +5,7 @@ import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { useOnlineStatus } from "renderer/hooks/useOnlineStatus";
 import { useZoomFactor } from "renderer/hooks/useZoomFactor";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceSidebarStore } from "renderer/stores/workspace-sidebar-state";
 import { NavigationControls } from "../NavigationControls";
 import { SidebarToggle } from "../SidebarToggle";
@@ -16,6 +17,7 @@ import { V2WorkspaceTitle } from "./components/V2WorkspaceTitle";
 import { WindowControls } from "./components/WindowControls";
 
 export function TopBar() {
+	const { t } = useTranslation();
 	const matchRoute = useMatchRoute();
 	const { data: platform } = electronTrpc.window.getPlatform.useQuery();
 	const { workspaceId } = useParams({ strict: false });
@@ -77,7 +79,7 @@ export function TopBar() {
 				{!isOnline && (
 					<div className="no-drag flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
 						<HiOutlineWifi className="size-3.5" />
-						<span>Offline</span>
+						<span>{t("workspace.offlineLabel")}</span>
 					</div>
 				)}
 				{!isV2WorkspaceRoute && workspace?.worktreePath ? (

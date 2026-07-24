@@ -8,6 +8,7 @@ import { useSignOut } from "renderer/hooks/useSignOut";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import {
 	getImageExtensionFromMimeType,
@@ -25,6 +26,7 @@ interface AccountSettingsProps {
 }
 
 export function AccountSettings({ visibleItems }: AccountSettingsProps) {
+	const { t } = useTranslation();
 	const showProfile = isItemVisible(
 		SETTING_ITEM_ID.ACCOUNT_PROFILE,
 		visibleItems,
@@ -75,9 +77,9 @@ export function AccountSettings({ visibleItems }: AccountSettingsProps) {
 			});
 
 			setAvatarPreview(uploadResult.url);
-			toast.success("Avatar updated!");
+			toast.success(t("account.avatarUpdated"));
 		} catch {
-			toast.error("Failed to update avatar");
+			toast.error(t("account.avatarUpdateFailed"));
 		}
 	}
 
@@ -91,9 +93,9 @@ export function AccountSettings({ visibleItems }: AccountSettingsProps) {
 
 		try {
 			await apiTrpcClient.user.updateProfile.mutate({ name: nameValue });
-			toast.success("Name updated!");
+			toast.success(t("account.nameUpdated"));
 		} catch {
-			toast.error("Failed to update name");
+			toast.error(t("account.nameUpdateFailed"));
 			setNameValue(user.name ?? "");
 		}
 	}
@@ -101,9 +103,9 @@ export function AccountSettings({ visibleItems }: AccountSettingsProps) {
 	return (
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Account</h2>
+				<h2 className="text-xl font-semibold">{t("settings.account")}</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Manage your account settings
+					{t("account.description")}
 				</p>
 			</div>
 
@@ -113,13 +115,16 @@ export function AccountSettings({ visibleItems }: AccountSettingsProps) {
 						<ProfileSkeleton />
 					) : user ? (
 						<>
-							<SettingRow label="Avatar" hint="Recommended size 256×256.">
+							<SettingRow
+								label={t("account.avatar")}
+								hint={t("account.avatarHint")}
+							>
 								<button
 									type="button"
 									onClick={handleAvatarUpload}
 									disabled={selectImageMutation.isPending}
 									className="rounded-full transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-100"
-									aria-label="Change avatar"
+									aria-label={t("account.changeAvatar")}
 								>
 									<Avatar
 										size="xl"
@@ -129,17 +134,17 @@ export function AccountSettings({ visibleItems }: AccountSettingsProps) {
 								</button>
 							</SettingRow>
 
-							<SettingRow label="Name">
+							<SettingRow label={t("account.name")}>
 								<Input
 									value={nameValue}
 									onChange={(e) => setNameValue(e.target.value)}
 									onBlur={handleNameBlur}
-									placeholder="Your name"
+									placeholder={t("account.yourName")}
 									className="w-80"
 								/>
 							</SettingRow>
 
-							<SettingRow label="Email">
+							<SettingRow label={t("account.email")}>
 								<Input
 									value={user.email}
 									readOnly
@@ -149,24 +154,24 @@ export function AccountSettings({ visibleItems }: AccountSettingsProps) {
 						</>
 					) : (
 						<p className="text-sm text-muted-foreground">
-							Unable to load user info
+							{t("account.loadFailed")}
 						</p>
 					))}
 
 				{showSignOut && (
 					<div className={showProfile ? "pt-5" : undefined}>
 						<SettingRow
-							label="Sign out of this device"
-							hint="You'll need to sign in again to use Superset on this device."
+							label={t("account.signOutDevice")}
+							hint={t("account.signOutHint")}
 						>
 							<Button
 								variant="outline"
 								onClick={async () => {
 									await signOut();
-									toast.success("Signed out");
+									toast.success(t("account.signedOut"));
 								}}
 							>
-								Sign out
+								{t("account.signOut")}
 							</Button>
 						</SettingRow>
 					</div>

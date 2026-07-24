@@ -25,6 +25,7 @@ import {
 	logStressEvent,
 	useRenderStressInstrumentation,
 } from "renderer/lib/performance/stress-instrumentation";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	navigateToWorkspace as navigateToV1Workspace,
 	navigateToV2Workspace,
@@ -44,13 +45,6 @@ import type { SessionMetrics, SortOption, UsageValues } from "./types";
 import { formatCpu, formatMemory, formatPercent } from "./utils/formatters";
 import { normalizeResourceMetricsSnapshot } from "./utils/normalizeSnapshot";
 import { getTrackedHostMemorySeverity } from "./utils/resourceSeverity";
-
-const SORT_LABELS: Record<SortOption, string> = {
-	memory: "Memory",
-	cpu: "CPU",
-	name: "Name",
-	sidebar: "Sidebar order",
-};
 
 function getTotalUsage(
 	cpu: number | undefined,
@@ -109,6 +103,7 @@ export function ResourceConsumption({
 	className,
 }: ResourceConsumptionProps) {
 	const [open, setOpen] = useState(false);
+	const { t } = useTranslation();
 	const { data: enabled } =
 		electronTrpc.settings.getShowResourceMonitor.useQuery();
 
@@ -127,7 +122,7 @@ export function ResourceConsumption({
 						<Button
 							variant="ghost"
 							size="icon-xs"
-							aria-label="Resource consumption"
+							aria-label={t("dashboard.resourceConsumption")}
 							className={cn(
 								"no-drag relative text-muted-foreground hover:text-foreground",
 								className,
@@ -138,7 +133,7 @@ export function ResourceConsumption({
 					</PopoverTrigger>
 				</TooltipTrigger>
 				<TooltipContent side="bottom" sideOffset={6} showArrow={false}>
-					Resources
+					{t("dashboard.resources")}
 				</TooltipContent>
 			</Tooltip>
 
@@ -162,6 +157,13 @@ function ResourceConsumptionContent({
 	onClose,
 }: ResourceConsumptionContentProps) {
 	const [sortOption, setSortOption] = useState<SortOption>("memory");
+	const { t } = useTranslation();
+	const sortLabels: Record<SortOption, string> = {
+		memory: t("dashboard.sortMemory"),
+		cpu: "CPU",
+		name: t("dashboard.sortName"),
+		sidebar: t("dashboard.sortSidebar"),
+	};
 	const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(
 		new Set(),
 	);
@@ -298,10 +300,16 @@ function ResourceConsumptionContent({
 
 	const getPaneName = (session: SessionMetrics): string => {
 		if (isV2) {
-			return session.title ?? `Terminal ${session.sessionId.slice(0, 8)}`;
+			return (
+				session.title ??
+				t("dashboard.terminalFallback", { id: session.sessionId.slice(0, 8) })
+			);
 		}
 		const pane = panes[session.paneId];
-		return pane?.name || `Pane ${session.paneId.slice(0, 6)}`;
+		return (
+			pane?.name ||
+			t("dashboard.paneFallback", { id: session.paneId.slice(0, 6) })
+		);
 	};
 
 	const navigateToWorkspace = (workspaceId: string) => {
@@ -384,7 +392,7 @@ function ResourceConsumptionContent({
 			<div className="px-3.5 pt-3 pb-3 border-b border-border/60">
 				<div className="flex items-center justify-between">
 					<h4 className="text-[13px] font-medium tracking-tight text-foreground">
-						Resources
+						{t("dashboard.resources")}
 					</h4>
 					<div className="flex items-center gap-0.5">
 						<DropdownMenu>
@@ -392,10 +400,10 @@ function ResourceConsumptionContent({
 								<button
 									type="button"
 									className="flex items-center gap-1 h-6 px-1.5 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
-									aria-label="Sort workspaces"
+									aria-label={t("dashboard.sortWorkspaces")}
 								>
 									<HiOutlineBarsArrowDown className="h-3.5 w-3.5" />
-									<span>{SORT_LABELS[sortOption]}</span>
+									<span>{sortLabels[sortOption]}</span>
 								</button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end" className="w-40">
@@ -404,14 +412,14 @@ function ResourceConsumptionContent({
 									onValueChange={(value) => setSortOption(value as SortOption)}
 								>
 									<DropdownMenuRadioItem value="memory">
-										Memory
+										{t("dashboard.sortMemory")}
 									</DropdownMenuRadioItem>
 									<DropdownMenuRadioItem value="cpu">CPU</DropdownMenuRadioItem>
 									<DropdownMenuRadioItem value="name">
-										Name
+										{t("dashboard.sortName")}
 									</DropdownMenuRadioItem>
 									<DropdownMenuRadioItem value="sidebar">
-										Sidebar order
+										{t("dashboard.sortSidebar")}
 									</DropdownMenuRadioItem>
 								</DropdownMenuRadioGroup>
 							</DropdownMenuContent>
@@ -420,7 +428,7 @@ function ResourceConsumptionContent({
 							type="button"
 							onClick={() => refetch()}
 							className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
-							aria-label="Refresh metrics"
+							aria-label={t("dashboard.refreshMetrics")}
 						>
 							<HiOutlineArrowPath
 								className={cn("h-3.5 w-3.5", isFetching && "animate-spin")}
@@ -435,17 +443,17 @@ function ResourceConsumptionContent({
 							<MetricBadge
 								label="CPU"
 								value={formatCpu(normalizedSnapshot.totalCpu)}
-								tooltip="Sum of CPU used by Superset and monitored terminal process trees. Over 100% means multiple CPU cores are busy. Sustained high values usually cause UI sluggishness and higher battery drain."
+								tooltip={t("dashboard.cpuTooltip")}
 							/>
 							<MetricBadge
-								label="Memory"
+								label={t("dashboard.sortMemory")}
 								value={formatMemory(normalizedSnapshot.totalMemory)}
-								tooltip="Resident memory used by Superset and monitored terminal process trees. If this keeps climbing without dropping, a workspace process may be retaining memory. High values increase swap risk and can cause stutter."
+								tooltip={t("dashboard.memoryTooltip")}
 							/>
 							<MetricBadge
-								label="RAM Share"
+								label={t("dashboard.ramShare")}
 								value={formatPercent(trackedMemorySharePercent)}
-								tooltip="Percent of total system RAM used by monitored Superset resources only (not all apps). A high share means Superset is a major contributor to system memory pressure; a low share means pressure is likely elsewhere."
+								tooltip={t("dashboard.ramShareTooltip")}
 							/>
 						</div>
 						<Tooltip delayDuration={150}>
@@ -453,7 +461,7 @@ function ResourceConsumptionContent({
 								<div
 									className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted/60"
 									role="progressbar"
-									aria-label="System RAM share"
+									aria-label={t("dashboard.systemRamShare")}
 									aria-valuenow={Math.round(trackedMemorySharePercent)}
 									aria-valuemin={0}
 									aria-valuemax={100}
@@ -470,8 +478,9 @@ function ResourceConsumptionContent({
 								</div>
 							</TooltipTrigger>
 							<TooltipContent side="bottom" sideOffset={6} showArrow={false}>
-								Superset uses {formatPercent(trackedMemorySharePercent)} of
-								system RAM
+								{t("dashboard.ramUsage", {
+									percent: formatPercent(trackedMemorySharePercent),
+								})}
 							</TooltipContent>
 						</Tooltip>
 					</>
@@ -504,13 +513,13 @@ function ResourceConsumptionContent({
 
 				{normalizedSnapshot && normalizedSnapshot.workspaces.length === 0 && (
 					<div className="px-3.5 py-6 text-center text-[11px] text-muted-foreground">
-						No active terminal sessions
+						{t("dashboard.noActiveTerminals")}
 					</div>
 				)}
 
 				{!normalizedSnapshot && (
 					<div className="px-3.5 py-6 text-center text-[11px] text-muted-foreground">
-						Loading…
+						{t("dashboard.loading")}
 					</div>
 				)}
 			</div>

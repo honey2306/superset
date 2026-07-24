@@ -17,6 +17,7 @@ import {
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import {
 	isItemVisible,
@@ -32,6 +33,7 @@ interface MembersSettingsProps {
 }
 
 export function MembersSettings({ visibleItems }: MembersSettingsProps) {
+	const { locale, t } = useTranslation();
 	const { data: session } = authClient.useSession();
 	const collections = useCollections();
 	const activeOrganizationId = session?.session?.activeOrganizationId;
@@ -87,7 +89,7 @@ export function MembersSettings({ visibleItems }: MembersSettingsProps) {
 
 	const formatDate = (date: Date | string) => {
 		const d = date instanceof Date ? date : new Date(date);
-		return d.toLocaleDateString("en-US", {
+		return d.toLocaleDateString(locale, {
 			month: "short",
 			day: "numeric",
 		});
@@ -97,9 +99,11 @@ export function MembersSettings({ visibleItems }: MembersSettingsProps) {
 		<div className="flex-1 flex flex-col min-h-0">
 			<div className="p-8">
 				<div className="max-w-5xl">
-					<h2 className="text-2xl font-semibold">Members</h2>
+					<h2 className="text-2xl font-semibold">
+						{t("organization.members")}
+					</h2>
 					<p className="text-sm text-muted-foreground mt-1">
-						Invite and manage members, assign roles, and control permissions
+						{t("members.description")}
 					</p>
 				</div>
 			</div>
@@ -118,7 +122,9 @@ export function MembersSettings({ visibleItems }: MembersSettingsProps) {
 					)}
 
 					<div className="max-w-5xl space-y-4">
-						<h3 className="text-lg font-semibold">Team Members</h3>
+						<h3 className="text-lg font-semibold">
+							{t("members.teamMembers")}
+						</h3>
 
 						{showMembersList &&
 							(!isReady && members.length === 0 ? (
@@ -137,17 +143,17 @@ export function MembersSettings({ visibleItems }: MembersSettingsProps) {
 								</div>
 							) : members.length === 0 ? (
 								<div className="text-center py-12 text-muted-foreground border rounded-lg">
-									No members yet
+									{t("members.none")}
 								</div>
 							) : (
 								<div className="border rounded-lg">
 									<Table>
 										<TableHeader>
 											<TableRow>
-												<TableHead>Name</TableHead>
-												<TableHead>Email</TableHead>
-												<TableHead>Role</TableHead>
-												<TableHead>Joined</TableHead>
+												<TableHead>{t("common.name")}</TableHead>
+												<TableHead>{t("common.email")}</TableHead>
+												<TableHead>{t("organization.role")}</TableHead>
+												<TableHead>{t("common.joined")}</TableHead>
 												<TableHead className="w-[50px]" />
 											</TableRow>
 										</TableHeader>
@@ -167,7 +173,7 @@ export function MembersSettings({ visibleItems }: MembersSettingsProps) {
 																/>
 																<div className="flex items-center gap-2">
 																	<span className="font-medium">
-																		{member.name || "Unknown"}
+																		{member.name || t("common.unknown")}
 																	</span>
 																	{isCurrentUserRow && (
 																		<Badge
@@ -192,7 +198,7 @@ export function MembersSettings({ visibleItems }: MembersSettingsProps) {
 																}
 																className="text-xs capitalize"
 															>
-																{member.role}
+																{t(`organization.role.${member.role}`)}
 															</Badge>
 														</TableCell>
 														<TableCell className="text-muted-foreground">

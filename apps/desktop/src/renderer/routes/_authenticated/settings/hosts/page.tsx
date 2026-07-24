@@ -4,6 +4,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
 import { env } from "renderer/env.renderer";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { MOCK_ORG_ID } from "shared/constants";
 
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/_authenticated/settings/hosts/")({
 });
 
 function HostsIndexPage() {
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const { data: session } = authClient.useSession();
 	const navigate = useNavigate();
@@ -55,7 +57,7 @@ function HostsIndexPage() {
 		if (!isReady) return null;
 		return (
 			<div className="flex items-center justify-center h-full p-6 text-sm text-muted-foreground">
-				No hosts yet.
+				{t("hosts.none")}
 			</div>
 		);
 	}

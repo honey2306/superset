@@ -1,6 +1,7 @@
 import { Button } from "@superset/ui/button";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, GitBranch } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import type { FailedWorkspaceCreateRow } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal";
 import { useWorkspaceCreates } from "renderer/stores/workspace-creates";
@@ -14,6 +15,7 @@ export function WorkspaceCreateErrorState({
 }: WorkspaceCreateErrorStateProps) {
 	const navigate = useNavigate();
 	const collections = useCollections();
+	const { t } = useTranslation();
 	const { submit } = useWorkspaceCreates();
 
 	const name = entry.input.name;
@@ -57,10 +59,10 @@ export function WorkspaceCreateErrorState({
 
 				<div className="flex flex-col gap-1.5">
 					<h1 className="text-[15px] font-medium tracking-tight text-foreground">
-						Couldn't create workspace
+						{t("v2Workspace.createError.title")}
 					</h1>
 					<p className="truncate text-[13px] leading-relaxed text-muted-foreground">
-						{name || "Untitled workspace"}
+						{name || t("v2Workspace.createError.untitled")}
 					</p>
 				</div>
 
@@ -85,10 +87,10 @@ export function WorkspaceCreateErrorState({
 
 				<div className="flex items-center gap-2">
 					<Button size="sm" onClick={handleRetry}>
-						Try again
+						{t("v2Workspace.createError.tryAgain")}
 					</Button>
 					<Button size="sm" variant="ghost" onClick={handleDismiss}>
-						Dismiss
+						{t("v2Workspace.createError.dismiss")}
 					</Button>
 				</div>
 			</div>

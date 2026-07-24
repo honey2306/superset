@@ -7,6 +7,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { VscClippy } from "react-icons/vsc";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ChangedFile, CommitInfo } from "shared/changes-types";
 import type { ChangesViewMode } from "../../types";
 import { formatRelativeDate } from "../../utils";
@@ -37,6 +38,7 @@ function CommitHeader({
 	message: string;
 	date: Date;
 }) {
+	const { t } = useTranslation();
 	const { copyToClipboard } = useCopyToClipboard();
 	const handleCopyCommitHash = () => {
 		copyToClipboard(hash);
@@ -53,7 +55,7 @@ function CommitHeader({
 							</span>
 							<span className="text-xs flex-1 truncate">{message}</span>
 							<span className="text-[10px] text-muted-foreground shrink-0">
-								{formatRelativeDate(date)}
+								{formatRelativeDate(date, t)}
 							</span>
 						</div>
 					</ContextMenuTrigger>
@@ -63,7 +65,7 @@ function CommitHeader({
 			<ContextMenuContent className="w-52">
 				<ContextMenuItem onClick={handleCopyCommitHash}>
 					<VscClippy className="mr-2 size-4" />
-					Copy Commit Hash
+					{t("v1Changes.commitItem.copyHash")}
 				</ContextMenuItem>
 			</ContextMenuContent>
 		</ContextMenu>

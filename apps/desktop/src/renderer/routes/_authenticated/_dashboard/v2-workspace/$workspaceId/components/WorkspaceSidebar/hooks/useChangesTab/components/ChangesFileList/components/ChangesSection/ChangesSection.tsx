@@ -10,6 +10,7 @@ import { workspaceTrpc } from "@superset/workspace-client";
 import { ChevronRight, Minus, Plus } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { LuUndo2 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DiscardConfirmDialog } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/DiscardConfirmDialog";
 import {
 	useV2ChangesSectionsStore,
@@ -33,6 +34,7 @@ export function ChangesSection({
 	stagingActions,
 	children,
 }: ChangesSectionProps) {
+	const { t } = useTranslation();
 	const collapsed = useV2ChangesSectionsStore(
 		(state) => state.collapsed[sectionKey] ?? false,
 	);
@@ -54,7 +56,7 @@ export function ChangesSection({
 	const discardAllUnstaged = workspaceTrpc.git.discardAllUnstaged.useMutation({
 		onSuccess: invalidate,
 		onError: (err) => {
-			toast.error("Couldn't discard unstaged changes", {
+			toast.error(t("v2Workspace.changes.discardUnstagedFailed"), {
 				description: err.message,
 			});
 		},
@@ -62,7 +64,7 @@ export function ChangesSection({
 	const discardAllStaged = workspaceTrpc.git.discardAllStaged.useMutation({
 		onSuccess: invalidate,
 		onError: (err) => {
-			toast.error("Couldn't discard staged changes", {
+			toast.error(t("v2Workspace.changes.discardStagedFailed"), {
 				description: err.message,
 			});
 		},
@@ -70,13 +72,17 @@ export function ChangesSection({
 	const stageAll = workspaceTrpc.git.stageAll.useMutation({
 		onSuccess: invalidate,
 		onError: (err) => {
-			toast.error("Couldn't stage changes", { description: err.message });
+			toast.error(t("v2Workspace.changes.stageFailed"), {
+				description: err.message,
+			});
 		},
 	});
 	const unstageAll = workspaceTrpc.git.unstageAll.useMutation({
 		onSuccess: invalidate,
 		onError: (err) => {
-			toast.error("Couldn't unstage changes", { description: err.message });
+			toast.error(t("v2Workspace.changes.unstageFailed"), {
+				description: err.message,
+			});
 		},
 	});
 
@@ -105,18 +111,18 @@ export function ChangesSection({
 	const dialogCopy =
 		stagingActions?.kind === "unstaged"
 			? {
-					title: "Discard all unstaged changes?",
-					description:
-						"This will revert all unstaged modifications and delete untracked files. This cannot be undone.",
+					title: t("v2Workspace.changes.discardAllUnstagedTitle"),
+					description: t("v2Workspace.changes.discardAllUnstagedDesc"),
 				}
 			: {
-					title: "Discard all staged changes?",
-					description:
-						"This will unstage and revert all staged changes. Staged new files will be deleted. This cannot be undone.",
+					title: t("v2Workspace.changes.discardAllStagedTitle"),
+					description: t("v2Workspace.changes.discardAllStagedDesc"),
 				};
 
 	const isUnstaged = stagingActions?.kind === "unstaged";
-	const stagingToggleLabel = isUnstaged ? "Stage all" : "Unstage all";
+	const stagingToggleLabel = isUnstaged
+		? t("v2Workspace.changes.stageAll")
+		: t("v2Workspace.changes.unstageAll");
 	const StagingToggleIcon = isUnstaged ? Plus : Minus;
 
 	return (
@@ -143,7 +149,9 @@ export function ChangesSection({
 							<TooltipTrigger asChild>
 								<button
 									type="button"
-									aria-label={`Discard all ${stagingActions.kind} changes`}
+									aria-label={t("v2Workspace.changes.discardAllAria", {
+										kind: stagingActions.kind,
+									})}
 									onClick={() => setShowConfirm(true)}
 									className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-destructive"
 								>
@@ -151,7 +159,9 @@ export function ChangesSection({
 								</button>
 							</TooltipTrigger>
 							<TooltipContent side="bottom">
-								Discard all {stagingActions.kind}
+								{t("v2Workspace.changes.discardAllTooltip", {
+									kind: stagingActions.kind,
+								})}
 							</TooltipContent>
 						</Tooltip>
 						<Tooltip>

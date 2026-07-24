@@ -2,8 +2,14 @@ import type { ExternalApp } from "@superset/local-db";
 import type { ElementType } from "react";
 import type { HotkeyId } from "renderer/hotkeys/registry";
 import type { HostServiceAvailabilityStatus } from "renderer/lib/host-service-unavailable";
+import type { MessageKey } from "renderer/providers/I18nProvider";
 
 export type SectionId = "workspace" | "actions" | "navigation" | "add-project";
+
+export type CommandTranslateFunction = (
+	key: MessageKey,
+	values?: Record<string, number | string>,
+) => string;
 
 export interface CommandContext {
 	route: {
@@ -25,6 +31,7 @@ export interface CommandContext {
 	localMachineId: string | null;
 	notificationSoundsMuted: boolean;
 	navigate: (path: string) => void;
+	t: CommandTranslateFunction;
 	focusedView?: "editor" | "terminal" | "git" | "issues" | "files" | "chat";
 }
 

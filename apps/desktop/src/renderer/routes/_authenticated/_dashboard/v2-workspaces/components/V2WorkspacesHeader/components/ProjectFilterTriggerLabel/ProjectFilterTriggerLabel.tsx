@@ -1,4 +1,5 @@
 import { LuFolders } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { V2WorkspaceProjectIcon } from "renderer/routes/_authenticated/_dashboard/v2-workspaces/components/V2WorkspaceProjectIcon";
 import { PROJECT_FILTER_ALL } from "renderer/routes/_authenticated/_dashboard/v2-workspaces/stores/v2WorkspacesFilterStore";
 
@@ -13,11 +14,12 @@ export function ProjectFilterTriggerLabel({
 	projectFilter,
 	selectedProject,
 }: ProjectFilterTriggerLabelProps) {
+	const { t } = useTranslation();
 	if (projectFilter === PROJECT_FILTER_ALL) {
 		return (
 			<span className="flex items-center gap-2">
 				<LuFolders className="size-3.5" />
-				<span>All projects</span>
+				<span>{t("workspace.allProjects")}</span>
 			</span>
 		);
 	}
@@ -25,7 +27,9 @@ export function ProjectFilterTriggerLabel({
 		return (
 			<span className="flex items-center gap-2">
 				<LuFolders className="size-3.5" />
-				<span className="text-muted-foreground">Unknown project</span>
+				<span className="text-muted-foreground">
+					{t("workspace.unknownProject")}
+				</span>
 			</span>
 		);
 	}

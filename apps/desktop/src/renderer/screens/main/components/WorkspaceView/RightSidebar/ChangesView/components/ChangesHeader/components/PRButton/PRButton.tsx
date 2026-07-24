@@ -15,6 +15,8 @@ import {
 	VscLoading,
 } from "react-icons/vsc";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import type { MessageKey } from "renderer/providers/I18nProvider";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PRIcon } from "renderer/screens/main/components/PRIcon";
 import { useCreateOrOpenPR } from "renderer/screens/main/hooks";
 
@@ -22,7 +24,7 @@ interface PRButtonProps {
 	pr: GitHubStatus["pr"] | null;
 	isLoading: boolean;
 	canCreatePR: boolean;
-	createPRBlockedReason: string | null;
+	createPRBlockedReason: MessageKey | null;
 	worktreePath: string;
 	onRefresh: () => void;
 }
@@ -35,19 +37,23 @@ export function PRButton({
 	worktreePath,
 	onRefresh,
 }: PRButtonProps) {
+	const { t } = useTranslation();
 	const mergePRMutation = electronTrpc.changes.mergePR.useMutation({
 		onMutate: () => {
-			const toastId = toast.loading("Merging PR...");
+			const toastId = toast.loading(t("v1Changes.pr.mergingToast"));
 			return { toastId };
 		},
 		onSuccess: (_data, _variables, context) => {
-			toast.success("PR merged successfully", { id: context?.toastId });
+			toast.success(t("v1Changes.pr.mergedToast"), { id: context?.toastId });
 			onRefresh();
 		},
 		onError: (error, _variables, context) =>
-			toast.error(`Merge failed: ${error.message}`, {
-				id: context?.toastId,
-			}),
+			toast.error(
+				t("v1Changes.pr.mergeFailedToast", { message: error.message }),
+				{
+					id: context?.toastId,
+				},
+			),
 	});
 
 	const { createOrOpenPR, isPending: isCreateOrOpenPRPending } =
@@ -79,7 +85,9 @@ export function PRButton({
 						</span>
 					</TooltipTrigger>
 					<TooltipContent side="top">
-						{createPRBlockedReason ?? "Create Pull Request unavailable"}
+						{createPRBlockedReason
+							? t(createPRBlockedReason)
+							: t("v1Changes.pr.createPRUnavailable")}
 					</TooltipContent>
 				</Tooltip>
 			);
@@ -101,7 +109,7 @@ export function PRButton({
 						)}
 					</button>
 				</TooltipTrigger>
-				<TooltipContent side="top">Create Pull Request</TooltipContent>
+				<TooltipContent side="top">{t("v1Changes.pr.createPR")}</TooltipContent>
 			</Tooltip>
 		);
 	}
@@ -149,8 +157,8 @@ export function PRButton({
 						disabled={mergePRMutation.isPending}
 						aria-label={
 							mergePRMutation.isPending
-								? "Merging pull request"
-								: "Open merge options"
+								? t("v1Changes.pr.mergingAria")
+								: t("v1Changes.pr.openMergeOptions")
 						}
 					>
 						{mergePRMutation.isPending ? (
@@ -162,7 +170,7 @@ export function PRButton({
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-44">
 					<DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
-						Merge
+						{t("v1Changes.pr.mergeLabel")}
 					</DropdownMenuLabel>
 					<DropdownMenuItem
 						onClick={() => handleMergePR("squash")}
@@ -170,7 +178,7 @@ export function PRButton({
 						disabled={mergePRMutation.isPending}
 					>
 						<VscGitMerge className="size-3.5" />
-						Squash and merge
+						{t("v1Changes.pr.squashAndMerge")}
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						onClick={() => handleMergePR("merge")}
@@ -178,7 +186,7 @@ export function PRButton({
 						disabled={mergePRMutation.isPending}
 					>
 						<VscGitMerge className="size-3.5" />
-						Create merge commit
+						{t("v1Changes.pr.createMergeCommit")}
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						onClick={() => handleMergePR("rebase")}
@@ -186,7 +194,7 @@ export function PRButton({
 						disabled={mergePRMutation.isPending}
 					>
 						<VscGitMerge className="size-3.5" />
-						Rebase and merge
+						{t("v1Changes.pr.rebaseAndMerge")}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

@@ -1,4 +1,5 @@
 import { FileIcon, FileTextIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface AttachmentChipProps {
 	data: string;
@@ -13,8 +14,11 @@ export function AttachmentChip({
 	filename,
 	onClick,
 }: AttachmentChipProps) {
+	const { t } = useTranslation();
 	const isImage = mediaType.startsWith("image/");
-	const label = filename || (isImage ? "Image" : "Attachment");
+	const label =
+		filename ||
+		(isImage ? t("chat.attachment.image") : t("chat.attachment.attachment"));
 
 	const className =
 		"flex h-8 items-center gap-1.5 rounded-md border border-foreground/20 bg-background/50 px-1.5 text-sm font-medium transition-colors hover:bg-background";

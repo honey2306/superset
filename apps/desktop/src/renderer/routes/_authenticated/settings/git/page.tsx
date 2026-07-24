@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useSettingsSearchQuery } from "renderer/stores/settings-state";
 import { getVisibleItemsForSection } from "../utils/settings-search";
 import { GitSettings } from "./components/GitSettings";
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/_authenticated/settings/git/")({
 });
 
 function GitSettingsPage() {
+	const { locale } = useTranslation();
 	const searchQuery = useSettingsSearchQuery();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 	const { hostId } = Route.useSearch();
@@ -24,8 +26,9 @@ function GitSettingsPage() {
 				section: "git",
 				searchQuery,
 				isV2: isV2CloudEnabled,
+				locale,
 			}),
-		[searchQuery, isV2CloudEnabled],
+		[searchQuery, isV2CloudEnabled, locale],
 	);
 
 	if (isV2CloudEnabled) {

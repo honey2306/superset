@@ -10,6 +10,7 @@ import { cn } from "@superset/ui/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { HiChevronRight, HiMiniPlus } from "react-icons/hi2";
 import { LuFolderInput, LuFolderPlus, LuLayoutTemplate } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
 import {
 	useOpenNewProjectModal,
@@ -18,6 +19,7 @@ import {
 import { useSidebarWorkspacesCollapseStore } from "renderer/stores/sidebar-workspaces-collapse";
 
 export function DashboardSidebarWorkspacesHeader() {
+	const { t } = useTranslation();
 	const isCollapsed = useSidebarWorkspacesCollapseStore((s) => s.isCollapsed);
 	const toggleCollapsed = useSidebarWorkspacesCollapseStore((s) => s.toggle);
 	const openNewProject = useOpenNewProjectModal();
@@ -25,13 +27,15 @@ export function DashboardSidebarWorkspacesHeader() {
 	const navigate = useNavigate();
 	const folderImport = useFolderFirstImport({
 		onError: (message) => {
-			toast.error(`Import failed: ${message}`);
+			toast.error(t("dashboard.importFailedWithMessage", { message }));
 		},
 		onMultipleProjects: ({ candidates }) => {
-			toast.error("Import failed", {
-				description: `Multiple projects use this repository (${candidates.length}). Choose the project in settings to set it up on this device.`,
+			toast.error(t("dashboard.importFailed"), {
+				description: t("dashboard.multipleProjects", {
+					count: candidates.length,
+				}),
 				action: {
-					label: "Open Projects",
+					label: t("dashboard.openProjects"),
 					onClick: () => navigate({ to: "/settings/projects" }),
 				},
 			});
@@ -41,7 +45,7 @@ export function DashboardSidebarWorkspacesHeader() {
 	const handleImportFolder = async () => {
 		const result = await folderImport.start();
 		if (result) {
-			toast.success("Project ready — open it from the sidebar.");
+			toast.success(t("dashboard.projectReady"));
 		}
 	};
 
@@ -59,7 +63,9 @@ export function DashboardSidebarWorkspacesHeader() {
 			}}
 			className="group flex min-h-8 w-full shrink-0 items-center gap-1.5 py-1.5 pl-5 pr-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted/50"
 		>
-			<span className="min-w-0 truncate text-left">Projects</span>
+			<span className="min-w-0 truncate text-left">
+				{t("workspace.projects")}
+			</span>
 			<HiChevronRight
 				className={cn(
 					"size-3 shrink-0 text-muted-foreground opacity-0 transition-[opacity,transform] duration-150 group-hover:opacity-100 group-focus-visible:opacity-100",
@@ -73,7 +79,7 @@ export function DashboardSidebarWorkspacesHeader() {
 						<DropdownMenuTrigger asChild>
 							<button
 								type="button"
-								aria-label="Add repository"
+								aria-label={t("workspace.addRepository")}
 								onClick={(event) => event.stopPropagation()}
 								onKeyDown={(event) => event.stopPropagation()}
 								className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
@@ -82,7 +88,9 @@ export function DashboardSidebarWorkspacesHeader() {
 							</button>
 						</DropdownMenuTrigger>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Add repository</TooltipContent>
+					<TooltipContent side="bottom">
+						{t("workspace.addRepository")}
+					</TooltipContent>
 				</Tooltip>
 				<DropdownMenuContent
 					align="end"
@@ -90,15 +98,15 @@ export function DashboardSidebarWorkspacesHeader() {
 				>
 					<DropdownMenuItem onSelect={() => openNewProject()}>
 						<HiMiniPlus className="size-4" />
-						Clone from URL
+						{t("workspace.cloneFromUrl")}
 					</DropdownMenuItem>
 					<DropdownMenuItem onSelect={handleImportFolder}>
 						<LuFolderInput className="size-4" />
-						Open from folder
+						{t("dashboard.openFromFolder")}
 					</DropdownMenuItem>
 					<DropdownMenuItem onSelect={() => openTemplateGallery()}>
 						<LuLayoutTemplate className="size-4" />
-						Start from a template
+						{t("workspace.startFromTemplate")}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

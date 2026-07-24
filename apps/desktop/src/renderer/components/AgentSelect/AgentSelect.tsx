@@ -11,6 +11,7 @@ import {
 	getPresetIcon,
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 const CONFIGURE_AGENTS_VALUE = "__configure_agents__";
 
@@ -52,6 +53,7 @@ export function AgentSelect<T extends string>({
 	noneValue,
 }: AgentSelectProps<T>) {
 	const navigate = useNavigate();
+	const { t } = useTranslation();
 	const isDark = useIsDarkTheme();
 	const selectableIds = new Set<string>(agents.map((agent) => agent.id));
 	const selectedValue =
@@ -97,7 +99,7 @@ export function AgentSelect<T extends string>({
 				})}
 				{showSeparator && <SelectSeparator />}
 				<SelectItem value={CONFIGURE_AGENTS_VALUE}>
-					Configure agents...
+					{t("agents.configure")}
 				</SelectItem>
 			</SelectContent>
 		</Select>

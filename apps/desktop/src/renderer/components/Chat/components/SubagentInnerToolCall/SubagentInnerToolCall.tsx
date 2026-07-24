@@ -17,6 +17,7 @@ import { type ComponentType, useMemo } from "react";
 import { getExecuteCommandViewModel } from "renderer/components/Chat/ChatInterface/components/ToolCallBlock/utils/getExecuteCommandViewModel";
 import { normalizeWorkspaceFilePath } from "renderer/components/Chat/ChatInterface/utils/file-paths";
 import { normalizeToolName } from "renderer/components/Chat/ChatInterface/utils/tool-helpers";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { detectLanguage } from "shared/detect-language";
 import type { BundledLanguage } from "shiki";
 
@@ -32,26 +33,71 @@ interface SubagentInnerToolCallProps {
 }
 
 interface ToolMeta {
-	label: string;
+	labelKey:
+		| "chat.subagentTool.bash"
+		| "chat.subagentTool.write"
+		| "chat.subagentTool.edit"
+		| "chat.subagentTool.read"
+		| "chat.subagentTool.listFiles"
+		| "chat.subagentTool.checkFile"
+		| "chat.subagentTool.search"
+		| "chat.subagentTool.createDirectory"
+		| "chat.subagentTool.delete"
+		| "chat.subagentTool.smartEdit"
+		| "chat.subagentTool.webFetch"
+		| "chat.subagentTool.webSearch";
 	icon: ComponentType<{ className?: string }>;
 }
 
 const TOOL_META: Record<string, ToolMeta> = {
 	mastra_workspace_execute_command: {
-		label: "Bash",
+		labelKey: "chat.subagentTool.bash",
 		icon: TerminalIcon,
 	},
-	mastra_workspace_write_file: { label: "Write", icon: FileIcon },
-	mastra_workspace_edit_file: { label: "Edit", icon: FileTextIcon },
-	mastra_workspace_read_file: { label: "Read", icon: FileIcon },
-	mastra_workspace_list_files: { label: "List Files", icon: FolderIcon },
-	mastra_workspace_file_stat: { label: "Check file", icon: FileSearchIcon },
-	mastra_workspace_search: { label: "Search", icon: SearchIcon },
-	mastra_workspace_mkdir: { label: "Create Directory", icon: FolderIcon },
-	mastra_workspace_delete: { label: "Delete", icon: FileIcon },
-	ast_smart_edit: { label: "Smart Edit", icon: CodeIcon },
-	web_fetch: { label: "Web Fetch", icon: GlobeIcon },
-	web_search: { label: "Web Search", icon: GlobeIcon },
+	mastra_workspace_write_file: {
+		labelKey: "chat.subagentTool.write",
+		icon: FileIcon,
+	},
+	mastra_workspace_edit_file: {
+		labelKey: "chat.subagentTool.edit",
+		icon: FileTextIcon,
+	},
+	mastra_workspace_read_file: {
+		labelKey: "chat.subagentTool.read",
+		icon: FileIcon,
+	},
+	mastra_workspace_list_files: {
+		labelKey: "chat.subagentTool.listFiles",
+		icon: FolderIcon,
+	},
+	mastra_workspace_file_stat: {
+		labelKey: "chat.subagentTool.checkFile",
+		icon: FileSearchIcon,
+	},
+	mastra_workspace_search: {
+		labelKey: "chat.subagentTool.search",
+		icon: SearchIcon,
+	},
+	mastra_workspace_mkdir: {
+		labelKey: "chat.subagentTool.createDirectory",
+		icon: FolderIcon,
+	},
+	mastra_workspace_delete: {
+		labelKey: "chat.subagentTool.delete",
+		icon: FileIcon,
+	},
+	ast_smart_edit: {
+		labelKey: "chat.subagentTool.smartEdit",
+		icon: CodeIcon,
+	},
+	web_fetch: {
+		labelKey: "chat.subagentTool.webFetch",
+		icon: GlobeIcon,
+	},
+	web_search: {
+		labelKey: "chat.subagentTool.webSearch",
+		icon: GlobeIcon,
+	},
 };
 
 function getToolMeta(toolName: string): ToolMeta {
@@ -207,6 +253,7 @@ export function SubagentInnerToolCall({
 	workspaceCwd,
 	onOpenFileInPane,
 }: SubagentInnerToolCallProps) {
+	const { t } = useTranslation();
 	const normalized = normalizeToolName(name);
 	const state = isPending
 		? ("input-available" as const)
@@ -214,7 +261,8 @@ export function SubagentInnerToolCall({
 			? ("output-error" as const)
 			: ("output-available" as const);
 
-	const { label, icon } = getToolMeta(normalized);
+	const { labelKey, icon } = getToolMeta(normalized);
+	const label = t(labelKey);
 	const description = getDescription(normalized, args);
 	const hasResult = result !== null && result.trim().length > 0;
 

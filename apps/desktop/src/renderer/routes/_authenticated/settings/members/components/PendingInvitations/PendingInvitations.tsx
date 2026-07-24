@@ -11,6 +11,7 @@ import {
 } from "@superset/ui/table";
 import { and, eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import {
 	isItemVisible,
@@ -33,6 +34,7 @@ export function PendingInvitations({
 	organizationId,
 	organizationName,
 }: PendingInvitationsProps) {
+	const { locale, t } = useTranslation();
 	const collections = useCollections();
 
 	const shouldShowSection = isItemVisible(
@@ -69,7 +71,7 @@ export function PendingInvitations({
 
 	const formatDate = (date: Date | string) => {
 		const d = date instanceof Date ? date : new Date(date);
-		return d.toLocaleDateString("en-US", {
+		return d.toLocaleDateString(locale, {
 			month: "short",
 			day: "numeric",
 			year: "numeric",
@@ -85,7 +87,9 @@ export function PendingInvitations({
 		return (
 			<div className="space-y-4">
 				<div className="flex items-center justify-between">
-					<h3 className="text-lg font-semibold">Pending Invitations</h3>
+					<h3 className="text-lg font-semibold">
+						{t("members.pendingInvitations")}
+					</h3>
 					{showInvite && (
 						<InviteMemberButton
 							currentUserRole={currentUserRole}
@@ -113,7 +117,9 @@ export function PendingInvitations({
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center justify-between">
-				<h3 className="text-lg font-semibold">Pending Invitations</h3>
+				<h3 className="text-lg font-semibold">
+					{t("members.pendingInvitations")}
+				</h3>
 				{showInvite && (
 					<InviteMemberButton
 						currentUserRole={currentUserRole}
@@ -124,17 +130,17 @@ export function PendingInvitations({
 			</div>
 			{invitations.length === 0 ? (
 				<div className="text-center py-12 text-muted-foreground border rounded-lg">
-					No pending invitations
+					{t("members.noPendingInvitations")}
 				</div>
 			) : (
 				<div className="border rounded-lg">
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead>Email</TableHead>
-								<TableHead>Invited By</TableHead>
-								<TableHead>Role</TableHead>
-								<TableHead>Sent</TableHead>
+								<TableHead>{t("common.email")}</TableHead>
+								<TableHead>{t("members.invitedBy")}</TableHead>
+								<TableHead>{t("organization.role")}</TableHead>
+								<TableHead>{t("members.sent")}</TableHead>
 								<TableHead className="w-[50px]" />
 							</TableRow>
 						</TableHeader>
@@ -145,11 +151,15 @@ export function PendingInvitations({
 										{invitation.email}
 									</TableCell>
 									<TableCell className="text-muted-foreground">
-										{inviter?.name || "Unknown"}
+										{inviter?.name || t("common.unknown")}
 									</TableCell>
 									<TableCell>
 										<Badge variant="outline" className="text-xs capitalize">
-											{invitation.role}
+											{invitation.role === "owner"
+												? t("organization.role.owner")
+												: invitation.role === "admin"
+													? t("organization.role.admin")
+													: t("organization.role.member")}
 										</Badge>
 									</TableCell>
 									<TableCell className="text-muted-foreground">

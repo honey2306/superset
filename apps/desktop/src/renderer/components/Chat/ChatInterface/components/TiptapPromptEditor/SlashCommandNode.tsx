@@ -14,6 +14,7 @@ import {
 	ReactNodeViewRenderer,
 } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 function SlashCommandChip({
 	node,
@@ -22,6 +23,7 @@ function SlashCommandChip({
 	editor,
 	getPos,
 }: NodeViewProps) {
+	const { t } = useTranslation();
 	const name = node.attrs.name as string;
 	const args = (node.attrs.args as string) ?? "";
 	const argumentHint = (node.attrs.argumentHint as string) ?? "";
@@ -283,7 +285,7 @@ function SlashCommandChip({
 							shouldFilter={false}
 						>
 							<CommandList>
-								<CommandEmpty>No match</CommandEmpty>
+								<CommandEmpty>{t("slashCommand.noMatch")}</CommandEmpty>
 								<CommandGroup>
 									{filteredOptions.map((opt) => (
 										<CommandItem

@@ -6,6 +6,7 @@ import {
 } from "@superset/ui/ai-elements/model-selector";
 import { claudeIcon } from "@superset/ui/icons/preset-icons";
 import type { ModelOption } from "renderer/components/Chat/ChatInterface/types";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	ANTHROPIC_LOGO_PROVIDER,
 	OPENAI_LOGO_PROVIDER,
@@ -43,6 +44,7 @@ export function ModelProviderGroup({
 	onSelectModel,
 	onCloseModelSelector,
 }: ModelProviderGroupProps) {
+	const { t } = useTranslation();
 	const groupLogo = providerToLogo(provider);
 	const isAnthropicProvider = groupLogo === ANTHROPIC_LOGO_PROVIDER;
 	const isOpenAIProvider = groupLogo === OPENAI_LOGO_PROVIDER;
@@ -53,7 +55,7 @@ export function ModelProviderGroup({
 			: true;
 	const heading =
 		isAnthropicProvider || isOpenAIProvider
-			? `${provider} ${isConnected ? "• Connected" : "• Not connected"}`
+			? `${provider} ${isConnected ? `• ${t("modelPicker.connected")}` : `• ${t("modelPicker.notConnected")}`}`
 			: provider;
 
 	return (
@@ -84,10 +86,16 @@ export function ModelProviderGroup({
 					(logo === OPENAI_LOGO_PROVIDER && !isOpenAIAuthenticated);
 				const disabledLabel =
 					logo === ANTHROPIC_LOGO_PROVIDER
-						? `${model.provider} (API key or OAuth required)`
+						? t("modelPicker.apiKeyOrOAuthRequired", {
+								provider: model.provider,
+							})
 						: logo === OPENAI_LOGO_PROVIDER
-							? `${model.provider} (API key or OAuth required)`
-							: `${model.provider} (connection required)`;
+							? t("modelPicker.apiKeyOrOAuthRequired", {
+									provider: model.provider,
+								})
+							: t("modelPicker.connectionRequired", {
+									provider: model.provider,
+								});
 
 				return (
 					<ModelSelectorItem

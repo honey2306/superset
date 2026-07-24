@@ -14,6 +14,7 @@ import { HiMiniChatBubbleLeftRight } from "react-icons/hi2";
 import { FileMentionChip } from "renderer/components/Chat/components/FileMentionChip";
 import { LinkedTaskChip } from "renderer/components/Chat/components/LinkedTaskChip";
 import { parseUserMentions } from "renderer/components/Chat/utils/parseUserMentions";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import type { InterruptedMessagePreview } from "../../types";
 import { normalizeWorkspaceFilePath } from "../../utils/file-paths";
@@ -50,6 +51,7 @@ function FileChip({
 	filename: string;
 	mediaType: string;
 }) {
+	const { t } = useTranslation();
 	const icon = mediaType.startsWith("image/") ? (
 		<ImageIcon className="size-3.5" />
 	) : mediaType === "application/pdf" ? (
@@ -61,7 +63,9 @@ function FileChip({
 	return (
 		<div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
 			{icon}
-			<span className="max-w-[150px] truncate">{filename || "Attachment"}</span>
+			<span className="max-w-[150px] truncate">
+				{filename || t("chat.attachment")}
+			</span>
 		</div>
 	);
 }
@@ -76,6 +80,7 @@ export function MessageList({
 	onAnswer,
 }: MessageListProps) {
 	const addFileViewerPane = useTabsStore((s) => s.addFileViewerPane);
+	const { t } = useTranslation();
 	const isThinking =
 		submitStatus === "submitted" || submitStatus === "streaming";
 
@@ -92,8 +97,8 @@ export function MessageList({
 			<ConversationContent className="mx-auto w-full max-w-3xl gap-6 py-6 pl-4 pr-16">
 				{messages.length === 0 && !interruptedMessage ? (
 					<ConversationEmptyState
-						title="Start a conversation"
-						description="Ask anything to get started"
+						title={t("chat.startConversation")}
+						description={t("chat.askAnything")}
 						icon={<HiMiniChatBubbleLeftRight className="size-8" />}
 					/>
 				) : (
@@ -149,7 +154,7 @@ export function MessageList({
 												>
 													<img
 														src={p.url}
-														alt={p.filename || "Attached image"}
+														alt={p.filename || t("chat.attachedImage")}
 														className="max-h-48 rounded-lg object-contain"
 													/>
 												</button>
@@ -230,7 +235,7 @@ export function MessageList({
 								<MessageContent>
 									{showThinking ? (
 										<ShimmerLabel className="text-sm text-muted-foreground">
-											Thinking...
+											{t("chat.thinkingEllipsis")}
 										</ShimmerLabel>
 									) : (
 										<MessagePartsRenderer
@@ -261,9 +266,9 @@ export function MessageList({
 							/>
 							<div className="flex items-center gap-2 text-xs text-muted-foreground">
 								<span className="rounded border border-border bg-muted px-1.5 py-0.5 font-medium uppercase tracking-wide">
-									Interrupted
+									{t("chat.interrupted")}
 								</span>
-								<span>Response stopped</span>
+								<span>{t("chat.responseStopped")}</span>
 							</div>
 						</MessageContent>
 					</Message>
@@ -272,7 +277,7 @@ export function MessageList({
 					<Message from="assistant">
 						<MessageContent>
 							<ShimmerLabel className="text-sm text-muted-foreground">
-								Thinking...
+								{t("chat.thinkingEllipsis")}
 							</ShimmerLabel>
 						</MessageContent>
 					</Message>

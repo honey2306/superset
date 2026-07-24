@@ -1,5 +1,6 @@
 import { GitBranch, Pencil } from "lucide-react";
 import { useRef, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { Branch } from "../../types";
 import { BaseBranchSelector } from "../BaseBranchSelector";
 
@@ -26,6 +27,7 @@ export function ChangesHeader({
 	const [editValue, setEditValue] = useState(currentBranch.name);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const skipBlurRef = useRef(false);
+	const { t } = useTranslation();
 
 	const startEditing = () => {
 		setEditValue(currentBranch.name);
@@ -80,7 +82,9 @@ export function ChangesHeader({
 							<Pencil className="size-3" />
 						</button>
 					)}
-					<span className="shrink-0 text-muted-foreground/60">from</span>
+					<span className="shrink-0 text-muted-foreground/60">
+						{t("v2Workspace.changes.fromBase")}
+					</span>
 					<BaseBranchSelector
 						branches={branches}
 						currentValue={baseBranch ?? defaultBranchName}

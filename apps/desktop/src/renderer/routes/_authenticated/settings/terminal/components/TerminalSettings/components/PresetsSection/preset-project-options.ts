@@ -22,13 +22,26 @@ export function resolveSelectedPresetProjects(
 	});
 }
 
+export interface PresetProjectTargetLabels {
+	allProjects: string;
+	unknownProject: string;
+	projectCount: (count: number) => string;
+}
+
+const DEFAULT_TARGET_LABELS: PresetProjectTargetLabels = {
+	allProjects: "All projects",
+	unknownProject: "Unknown project",
+	projectCount: (count) => `${count} projects`,
+};
+
 export function getPresetProjectTargetLabel(
 	projectIds: readonly string[] | null | undefined,
 	projectOptionsById: ReadonlyMap<string, PresetProjectOption>,
+	labels: PresetProjectTargetLabels = DEFAULT_TARGET_LABELS,
 ): string {
 	const normalizedProjectIds = normalizePresetProjectIds(projectIds);
 	if (normalizedProjectIds === null) {
-		return "All projects";
+		return labels.allProjects;
 	}
 
 	const selectedProjects = resolveSelectedPresetProjects(
@@ -36,8 +49,8 @@ export function getPresetProjectTargetLabel(
 		projectOptionsById,
 	);
 	if (normalizedProjectIds.length === 1) {
-		return selectedProjects[0]?.name ?? "Unknown project";
+		return selectedProjects[0]?.name ?? labels.unknownProject;
 	}
 
-	return `${normalizedProjectIds.length} projects`;
+	return labels.projectCount(normalizedProjectIds.length);
 }

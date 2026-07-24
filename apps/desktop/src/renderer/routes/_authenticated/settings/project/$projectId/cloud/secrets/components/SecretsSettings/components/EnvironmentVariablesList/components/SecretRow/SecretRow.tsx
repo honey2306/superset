@@ -8,7 +8,6 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
-import { format } from "date-fns";
 import { useCallback, useState } from "react";
 import {
 	HiEllipsisHorizontal,
@@ -19,6 +18,7 @@ import {
 } from "react-icons/hi2";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface SecretRowProps {
 	secret: {
@@ -41,13 +41,14 @@ export function SecretRow({
 	onEdit,
 	onDeleted,
 }: SecretRowProps) {
+	const { locale, t } = useTranslation();
 	const [isRevealed, setIsRevealed] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 
 	const [valueHovered, setValueHovered] = useState(false);
 
 	const handleDelete = useCallback(async () => {
-		if (!confirm(`Delete environment variable "${secret.key}"?`)) return;
+		if (!confirm(t("secrets.deleteConfirm", { key: secret.key }))) return;
 		setIsDeleting(true);
 		try {
 			await apiTrpcClient.project.secrets.delete.mutate({
@@ -60,7 +61,7 @@ export function SecretRow({
 		} finally {
 			setIsDeleting(false);
 		}
-	}, [secret.id, secret.key, organizationId, onDeleted]);
+	}, [secret.id, secret.key, organizationId, onDeleted, t]);
 
 	const { copyToClipboard, copied } = useCopyToClipboard(1500);
 	const handleCopy = useCallback(() => {
@@ -90,7 +91,7 @@ export function SecretRow({
 				</span>
 				{secret.sensitive && (
 					<span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
-						Sensitive
+						{t("secrets.sensitive")}
 					</span>
 				)}
 			</div>
@@ -98,7 +99,9 @@ export function SecretRow({
 			<div className="flex items-center gap-1.5 shrink-0">
 				{!secret.sensitive &&
 					(isEmpty ? (
-						<span className="text-sm text-muted-foreground italic">Empty</span>
+						<span className="text-sm text-muted-foreground italic">
+							{t("secrets.empty")}
+						</span>
 					) : (
 						<>
 							<button
@@ -126,7 +129,7 @@ export function SecretRow({
 										</button>
 									</TooltipTrigger>
 									<TooltipContent>
-										{copied ? "Copied!" : "Click to copy"}
+										{copied ? t("common.copied") : t("secrets.clickToCopy")}
 									</TooltipContent>
 								</Tooltip>
 							) : (
@@ -141,7 +144,14 @@ export function SecretRow({
 			</div>
 
 			<div className="flex items-center justify-end gap-2 flex-1 basis-0 text-xs text-muted-foreground">
-				<span>Added {format(new Date(secret.createdAt), "MMM d")}</span>
+				<span>
+					{t("secrets.addedOn", {
+						date: new Intl.DateTimeFormat(locale, {
+							month: "short",
+							day: "numeric",
+						}).format(new Date(secret.createdAt)),
+					})}
+				</span>
 				{secret.createdBy && (
 					<Avatar
 						size="xs"
@@ -159,13 +169,15 @@ export function SecretRow({
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end">
 					{!secret.sensitive && (
-						<DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+						<DropdownMenuItem onClick={onEdit}>
+							{t("secrets.edit")}
+						</DropdownMenuItem>
 					)}
 					<DropdownMenuItem
 						onClick={handleDelete}
 						className="text-destructive focus:text-destructive"
 					>
-						Delete
+						{t("common.delete")}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

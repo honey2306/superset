@@ -15,6 +15,7 @@ import {
 	modifierLabel,
 	useChangesSidebarFilePolicy,
 } from "renderer/lib/clickPolicy";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PathActionsMenuItems } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/WorkspaceSidebar/components/PathActionsMenuItems";
 import {
 	type ChangesetFile,
@@ -56,6 +57,7 @@ export function FileRowContextMenuItems({
 	onOpenInEditor,
 	onRequestDiscard,
 }: FileRowContextMenuItemsProps) {
+	const { t } = useTranslation();
 	const absolutePath = worktreePath
 		? toAbsoluteWorkspacePath(worktreePath, file.path)
 		: undefined;
@@ -74,16 +76,16 @@ export function FileRowContextMenuItems({
 				onSelect={() => onSelectFile?.(file.path, false, changeKey)}
 			>
 				<GitCompare />
-				Open Diff
+				{t("v2Workspace.fileRow.openDiff")}
 			</DropdownMenuItem>
 			<DropdownMenuItem
 				onSelect={() => onSelectFile?.(file.path, true, changeKey)}
 			>
 				<SquarePlus />
-				Open Diff in New Tab
+				{t("v2Workspace.fileRow.openDiffNewTab")}
 				{diffNewTabTier && (
 					<DropdownMenuShortcut>
-						{modifierLabel(diffNewTabTier)}
+						{modifierLabel(diffNewTabTier, t)}
 					</DropdownMenuShortcut>
 				)}
 			</DropdownMenuItem>
@@ -92,9 +94,11 @@ export function FileRowContextMenuItems({
 				disabled={!onOpenFile || !absolutePath}
 			>
 				<FileText />
-				Open File
+				{t("v2Workspace.fileRow.openFile")}
 				{fileTier && (
-					<DropdownMenuShortcut>{modifierLabel(fileTier)}</DropdownMenuShortcut>
+					<DropdownMenuShortcut>
+						{modifierLabel(fileTier, t)}
+					</DropdownMenuShortcut>
 				)}
 			</DropdownMenuItem>
 			<DropdownMenuItem
@@ -102,17 +106,17 @@ export function FileRowContextMenuItems({
 				disabled={!onOpenFile || !absolutePath}
 			>
 				<SquarePlus />
-				Open File in New Tab
+				{t("v2Workspace.fileRow.openFileNewTab")}
 			</DropdownMenuItem>
 			<DropdownMenuItem
 				onSelect={() => onOpenInEditor?.(file.path)}
 				disabled={!onOpenInEditor}
 			>
 				<ExternalLink />
-				Open in Editor
+				{t("v2Workspace.fileRow.openInEditor")}
 				{externalTier && (
 					<DropdownMenuShortcut>
-						{modifierLabel(externalTier)}
+						{modifierLabel(externalTier, t)}
 					</DropdownMenuShortcut>
 				)}
 			</DropdownMenuItem>
@@ -134,7 +138,9 @@ export function FileRowContextMenuItems({
 						onSelect={() => onRequestDiscard(file)}
 					>
 						{isDeleteAction ? <Trash2 /> : <Undo2 />}
-						{isDeleteAction ? "Delete" : "Discard changes"}
+						{isDeleteAction
+							? t("v2Workspace.changes.deleteAction")
+							: t("v2Workspace.changes.discardChanges")}
 					</DropdownMenuItem>
 				</>
 			)}

@@ -2,6 +2,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { LuLoaderCircle, LuX } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { navigateToV2Workspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { STROKE_WIDTH } from "renderer/screens/main/components/WorkspaceSidebar/constants";
 import { DashboardSidebarChipStrip } from "../../../DashboardSidebarChipStrip";
@@ -16,6 +17,7 @@ interface DashboardSidebarPortGroupProps {
 export function DashboardSidebarPortGroup({
 	group,
 }: DashboardSidebarPortGroupProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { isPending, killPorts } = useDashboardSidebarPortKill();
 
@@ -39,7 +41,9 @@ export function DashboardSidebarPortGroup({
 					{group.workspaceName}
 				</button>
 				<span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-[9px] uppercase leading-none text-muted-foreground">
-					{group.hostType === "local-device" ? "Local" : "Remote"}
+					{group.hostType === "local-device"
+						? t("ports.local")
+						: t("ports.remote")}
 				</span>
 				<Tooltip>
 					<TooltipTrigger asChild>
@@ -48,7 +52,7 @@ export function DashboardSidebarPortGroup({
 							onClick={handleCloseAll}
 							disabled={isPending}
 							aria-busy={isPending}
-							aria-label="Close all ports"
+							aria-label={t("ports.closeAll")}
 							className={cn(
 								"ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-primary",
 								"disabled:pointer-events-none disabled:opacity-60",
@@ -65,7 +69,7 @@ export function DashboardSidebarPortGroup({
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="top" sideOffset={4}>
-						<p className="text-xs">Close all ports</p>
+						<p className="text-xs">{t("ports.closeAll")}</p>
 					</TooltipContent>
 				</Tooltip>
 			</div>

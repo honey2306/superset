@@ -28,6 +28,7 @@ import { useEffect, useState } from "react";
 import { HiArrowLeft } from "react-icons/hi2";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { AddMemberButton } from "./components/AddMemberButton";
 
@@ -47,6 +48,7 @@ interface TeamMemberRow {
 type OpenDialog = "delete" | "leaveTeam" | null;
 
 export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
+	const { locale, t } = useTranslation();
 	const { data: session } = authClient.useSession();
 	const navigate = useNavigate();
 	const collections = useCollections();
@@ -124,7 +126,7 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 	}, [team?.id]);
 
 	const formatDate = (date: Date) =>
-		date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+		date.toLocaleDateString(locale, { month: "short", day: "numeric" });
 
 	const trimmedName = nameValue.trim();
 	const trimmedSlug = slugValue.trim();
@@ -143,13 +145,13 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 				data: { name: trimmedName, slug: trimmedSlug },
 			});
 			if (result.error) {
-				toast.error(result.error.message ?? "Failed to save team");
+				toast.error(result.error.message ?? t("team.saveFailed"));
 				return;
 			}
-			toast.success("Saved");
+			toast.success(t("team.saved"));
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : "Failed to save team",
+				error instanceof Error ? error.message : t("team.saveFailed"),
 			);
 		} finally {
 			setIsSubmitting(false);
@@ -165,14 +167,16 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 				organizationId: activeOrganizationId,
 			});
 			if (result.error) {
-				toast.error(result.error.message ?? "Failed to delete team");
+				toast.error(result.error.message ?? t("team.deleteFailed"));
 				return;
 			}
-			toast.success(`Deleted "${team?.name ?? "team"}"`);
+			toast.success(
+				t("team.deleted", { name: team?.name ?? t("settings.teams") }),
+			);
 			navigate({ to: "/settings/teams" });
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : "Failed to delete team",
+				error instanceof Error ? error.message : t("team.deleteFailed"),
 			);
 		} finally {
 			setIsSubmitting(false);
@@ -187,12 +191,12 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 				teamId,
 				userId: currentUserId,
 			});
-			toast.success("Left team");
+			toast.success(t("team.left"));
 			setOpenDialog(null);
 			navigate({ to: "/settings/teams" });
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : "Failed to leave team",
+				error instanceof Error ? error.message : t("team.leaveFailed"),
 			);
 		} finally {
 			setIsSubmitting(false);
@@ -212,9 +216,9 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 						className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4"
 					>
 						<HiArrowLeft className="h-4 w-4" />
-						All teams
+						{t("team.all")}
 					</Link>
-					<h2 className="text-2xl font-semibold">Team settings</h2>
+					<h2 className="text-2xl font-semibold">{t("team.settings")}</h2>
 				</div>
 			</div>
 
@@ -224,7 +228,7 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 						<div className="max-w-5xl">
 							<div className="space-y-4 max-w-md">
 								<div className="space-y-1.5">
-									<Label htmlFor="team-name-edit">Name</Label>
+									<Label htmlFor="team-name-edit">{t("common.name")}</Label>
 									<Input
 										id="team-name-edit"
 										value={nameValue}
@@ -232,14 +236,16 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 									/>
 								</div>
 								<div className="space-y-1.5">
-									<Label htmlFor="team-slug-edit">Slug</Label>
+									<Label htmlFor="team-slug-edit">
+										{t("organization.slugLabel")}
+									</Label>
 									<Input
 										id="team-slug-edit"
 										value={slugValue}
 										onChange={(event) => setSlugValue(event.target.value)}
 									/>
 									<p className="text-xs text-muted-foreground">
-										URL-friendly identifier, unique within your organization.
+										{t("team.slugHint")}
 									</p>
 								</div>
 								<div>
@@ -247,7 +253,7 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 										onClick={handleGeneralSave}
 										disabled={!isDirty || isSubmitting}
 									>
-										{isSubmitting ? "Saving..." : "Save"}
+										{isSubmitting ? t("common.saving") : t("common.save")}
 									</Button>
 								</div>
 							</div>
@@ -256,7 +262,7 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 
 					<div className="max-w-5xl space-y-4">
 						<div className="flex items-center justify-between gap-4">
-							<h3 className="text-lg font-semibold">Team members</h3>
+							<h3 className="text-lg font-semibold">{t("team.members")}</h3>
 							{team && (
 								<AddMemberButton
 									teamId={teamId}
@@ -282,16 +288,16 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 							</div>
 						) : members.length === 0 ? (
 							<div className="text-center py-12 text-muted-foreground border rounded-lg">
-								No members yet
+								{t("team.noMembers")}
 							</div>
 						) : (
 							<div className="border rounded-lg">
 								<Table>
 									<TableHeader>
 										<TableRow>
-											<TableHead>Name</TableHead>
-											<TableHead>Email</TableHead>
-											<TableHead>Joined</TableHead>
+											<TableHead>{t("common.name")}</TableHead>
+											<TableHead>{t("common.email")}</TableHead>
+											<TableHead>{t("common.joined")}</TableHead>
 										</TableRow>
 									</TableHeader>
 									<TableBody>
@@ -308,14 +314,14 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 															/>
 															<div className="flex items-center gap-2">
 																<span className="font-medium">
-																	{member.name || "Unknown"}
+																	{member.name || t("common.unknown")}
 																</span>
 																{isCurrentUser && (
 																	<Badge
 																		variant="secondary"
 																		className="text-xs"
 																	>
-																		You
+																		{t("common.you")}
 																	</Badge>
 																)}
 															</div>
@@ -338,38 +344,36 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 
 					{team && (
 						<div className="max-w-5xl space-y-4">
-							<h3 className="text-lg font-semibold">Danger zone</h3>
+							<h3 className="text-lg font-semibold">{t("team.dangerZone")}</h3>
 							<div className="border rounded-lg divide-y">
 								{currentMember && (
 									<div className="flex items-center justify-between gap-4 p-4">
 										<div className="min-w-0">
-											<p className="text-sm font-medium">Leave team</p>
+											<p className="text-sm font-medium">{t("team.leave")}</p>
 											<p className="text-xs text-muted-foreground mt-0.5">
-												You'll stop being a member of this team. You can be
-												re-added by another team member.
+												{t("team.leaveDescription")}
 											</p>
 										</div>
 										<Button
 											variant="outline"
 											onClick={() => setOpenDialog("leaveTeam")}
 										>
-											Leave team
+											{t("team.leave")}
 										</Button>
 									</div>
 								)}
 								<div className="flex items-center justify-between gap-4 p-4">
 									<div className="min-w-0">
-										<p className="text-sm font-medium">Delete team</p>
+										<p className="text-sm font-medium">{t("team.delete")}</p>
 										<p className="text-xs text-muted-foreground mt-0.5">
-											Permanently remove <strong>{team.name}</strong> and all of
-											its members. This can't be undone.
+											{t("team.deleteDescription", { name: team.name })}
 										</p>
 									</div>
 									<Button
 										variant="destructive"
 										onClick={() => setOpenDialog("delete")}
 									>
-										Delete team
+										{t("team.delete")}
 									</Button>
 								</div>
 							</div>
@@ -384,10 +388,11 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 			>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Delete team</DialogTitle>
+						<DialogTitle>{t("team.delete")}</DialogTitle>
 						<DialogDescription>
-							This will delete <strong>{team?.name}</strong> and remove all of
-							its members. This can't be undone.
+							{t("team.deleteDialogDescription", {
+								name: team?.name ?? t("settings.teams"),
+							})}
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter className="mt-4">
@@ -397,7 +402,7 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 							onClick={() => setOpenDialog(null)}
 							disabled={isSubmitting}
 						>
-							Cancel
+							{t("common.cancel")}
 						</Button>
 						<Button
 							type="button"
@@ -405,7 +410,7 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 							onClick={handleDelete}
 							disabled={isSubmitting}
 						>
-							{isSubmitting ? "Deleting..." : "Delete team"}
+							{isSubmitting ? t("common.deleting") : t("team.delete")}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
@@ -417,11 +422,8 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 			>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Leave team</DialogTitle>
-						<DialogDescription>
-							You'll stop being a member of this team. You can be re-added by
-							another team member.
-						</DialogDescription>
+						<DialogTitle>{t("team.leave")}</DialogTitle>
+						<DialogDescription>{t("team.leaveDescription")}</DialogDescription>
 					</DialogHeader>
 					<DialogFooter className="mt-4">
 						<Button
@@ -430,7 +432,7 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 							onClick={() => setOpenDialog(null)}
 							disabled={isSubmitting}
 						>
-							Cancel
+							{t("common.cancel")}
 						</Button>
 						<Button
 							type="button"
@@ -438,7 +440,7 @@ export function TeamDetailSettings({ teamId }: TeamDetailSettingsProps) {
 							onClick={handleLeaveTeam}
 							disabled={isSubmitting}
 						>
-							{isSubmitting ? "Leaving..." : "Leave team"}
+							{isSubmitting ? t("team.leaving") : t("team.leave")}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

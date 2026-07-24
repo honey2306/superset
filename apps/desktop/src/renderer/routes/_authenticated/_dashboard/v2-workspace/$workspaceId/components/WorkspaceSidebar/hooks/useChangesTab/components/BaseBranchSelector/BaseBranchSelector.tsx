@@ -4,6 +4,7 @@ import { ScrollArea } from "@superset/ui/scroll-area";
 import type { inferRouterOutputs } from "@trpc/server";
 import { Check, ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 type Branch =
 	inferRouterOutputs<AppRouter>["git"]["listBranches"]["branches"][number];
@@ -21,6 +22,7 @@ export function BaseBranchSelector({
 }: BaseBranchSelectorProps) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
+	const { t } = useTranslation();
 
 	const filtered = useMemo(() => {
 		if (!search) return branches;
@@ -45,7 +47,7 @@ export function BaseBranchSelector({
 			>
 				<div className="border-b px-3 py-2">
 					<input
-						placeholder="Search branches..."
+						placeholder={t("v2Workspace.branchSelector.searchPlaceholder")}
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
@@ -72,7 +74,7 @@ export function BaseBranchSelector({
 						))}
 						{filtered.length === 0 && (
 							<div className="px-2 py-3 text-center text-sm text-muted-foreground">
-								No branches found
+								{t("v2Workspace.branchSelector.noBranches")}
 							</div>
 						)}
 					</div>

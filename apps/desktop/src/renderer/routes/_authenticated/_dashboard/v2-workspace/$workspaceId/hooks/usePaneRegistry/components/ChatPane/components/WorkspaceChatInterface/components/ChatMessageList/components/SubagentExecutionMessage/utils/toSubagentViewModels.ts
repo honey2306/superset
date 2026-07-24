@@ -1,4 +1,7 @@
+import type { useTranslation } from "renderer/providers/I18nProvider";
 import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/ChatPane/hooks/useWorkspaceChatDisplay";
+
+type TranslationFunction = ReturnType<typeof useTranslation>["t"];
 
 type ChatActiveSubagents = NonNullable<UseChatDisplayReturn["activeSubagents"]>;
 type ChatActiveSubagent =
@@ -107,6 +110,7 @@ function toToolCalls(value: unknown): SubagentToolCall[] {
 
 export function toSubagentViewModels(
 	entries: SubagentEntries,
+	t: TranslationFunction,
 ): SubagentViewModel[] {
 	return entries.map(([toolCallId, subagent]) => {
 		const record = asRecord(subagent);
@@ -120,8 +124,9 @@ export function toSubagentViewModels(
 
 		return {
 			toolCallId,
-			agentType: asString(record?.agentType) ?? "subagent",
-			task: asString(record?.task) ?? "Working on task...",
+			agentType:
+				asString(record?.agentType) ?? t("chat.subagent.defaultAgentType"),
+			task: asString(record?.task) ?? t("chat.subagent.defaultTask"),
 			modelId: asString(record?.modelId) ?? undefined,
 			status,
 			text,

@@ -6,6 +6,7 @@ import {
 import { BsTerminalPlus } from "react-icons/bs";
 import { TbMessageCirclePlus, TbWorld } from "react-icons/tb";
 import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface AddTabMenuProps {
 	onAddTerminal: () => void;
@@ -22,21 +23,22 @@ export function AddTabMenu({
 	showPresetsBar,
 	onToggleShowPresetsBar,
 }: AddTabMenuProps) {
+	const { t } = useTranslation();
 	return (
 		<>
 			<DropdownMenuItem className="gap-2" onClick={onAddTerminal}>
 				<BsTerminalPlus className="size-4" />
-				<span>Terminal</span>
+				<span>{t("v2Workspace.addTab.terminal")}</span>
 				<HotkeyMenuShortcut hotkeyId="NEW_GROUP" />
 			</DropdownMenuItem>
 			<DropdownMenuItem className="gap-2" onClick={onAddChat}>
 				<TbMessageCirclePlus className="size-4" />
-				<span>Chat</span>
+				<span>{t("v2Workspace.addTab.chat")}</span>
 				<HotkeyMenuShortcut hotkeyId="NEW_CHAT" />
 			</DropdownMenuItem>
 			<DropdownMenuItem className="gap-2" onClick={onAddBrowser}>
 				<TbWorld className="size-4" />
-				<span>Browser</span>
+				<span>{t("v2Workspace.addTab.browser")}</span>
 				<HotkeyMenuShortcut hotkeyId="NEW_BROWSER" />
 			</DropdownMenuItem>
 			<DropdownMenuSeparator />
@@ -45,7 +47,7 @@ export function AddTabMenu({
 				onCheckedChange={(checked) => onToggleShowPresetsBar(checked === true)}
 				onSelect={(event) => event.preventDefault()}
 			>
-				Show Preset Bar
+				{t("v2Workspace.addTab.showPresetsBar")}
 			</DropdownMenuCheckboxItem>
 		</>
 	);

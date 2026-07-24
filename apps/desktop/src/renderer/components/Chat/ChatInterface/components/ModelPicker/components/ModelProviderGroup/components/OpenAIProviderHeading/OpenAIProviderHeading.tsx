@@ -1,6 +1,7 @@
 import { Button } from "@superset/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { KeyRoundIcon, Loader2Icon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface OpenAIProviderHeadingProps {
 	heading: string;
@@ -15,9 +16,10 @@ export function OpenAIProviderHeading({
 	isPending,
 	onOpenAuthModal,
 }: OpenAIProviderHeadingProps) {
+	const { t } = useTranslation();
 	const tooltipLabel = isConnected
-		? "Manage OpenAI in Settings"
-		: "Connect OpenAI in Settings";
+		? t("modelPicker.manageInSettings", { provider: "OpenAI" })
+		: t("modelPicker.connectInSettings", { provider: "OpenAI" });
 
 	return (
 		<div className="text-muted-foreground flex items-center justify-between px-2 py-1.5 text-xs font-medium">

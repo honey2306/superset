@@ -3,12 +3,14 @@ import { useEffect, useMemo } from "react";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export const Route = createFileRoute("/_authenticated/settings/projects/")({
 	component: ProjectsIndexPage,
 });
 
 function ProjectsIndexPage() {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 
@@ -57,7 +59,7 @@ function ProjectsIndexPage() {
 		if (isV2CloudEnabled ? !isReady : groupsLoading) return null;
 		return (
 			<div className="flex items-center justify-center h-full p-6 text-sm text-muted-foreground">
-				No projects yet.
+				{t("projects.none")}
 			</div>
 		);
 	}

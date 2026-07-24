@@ -14,11 +14,13 @@ import { toast } from "@superset/ui/sonner";
 import { motion } from "framer-motion";
 import { GoGitBranch } from "react-icons/go";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useImportAllWorktrees } from "renderer/react-query/workspaces/useImportAllWorktrees";
 
 const MAX_VISIBLE_BRANCHES = 5;
 
 export function ExternalWorktreesBanner({ projectId }: { projectId: string }) {
+	const { t } = useTranslation();
 	const { data: externalWorktrees = [], isLoading } =
 		electronTrpc.workspaces.getExternalWorktrees.useQuery({ projectId });
 	const importableWorktrees = externalWorktrees.filter(
@@ -34,12 +36,10 @@ export function ExternalWorktreesBanner({ projectId }: { projectId: string }) {
 	const handleImportAll = async () => {
 		try {
 			const result = await importAllWorktrees.mutateAsync({ projectId });
-			toast.success(
-				`Imported ${result.imported} workspace${result.imported === 1 ? "" : "s"}`,
-			);
+			toast.success(t("workspace.importedCount", { count: result.imported }));
 		} catch (err) {
 			toast.error(
-				err instanceof Error ? err.message : "Failed to import worktrees",
+				err instanceof Error ? err.message : t("project.failedImportWorktrees"),
 			);
 		}
 	};
@@ -58,8 +58,9 @@ export function ExternalWorktreesBanner({ projectId }: { projectId: string }) {
 			<div className="flex items-start justify-between gap-4">
 				<div className="space-y-2 min-w-0">
 					<p className="text-sm font-medium text-foreground">
-						{importableWorktrees.length} existing worktree
-						{importableWorktrees.length === 1 ? "" : "s"} found
+						{t("workspace.existingWorktreesFound", {
+							count: importableWorktrees.length,
+						})}
 					</p>
 					<div className="flex flex-wrap gap-1.5">
 						{visibleBranches.map((wt) => (
@@ -73,7 +74,7 @@ export function ExternalWorktreesBanner({ projectId }: { projectId: string }) {
 						))}
 						{remainingCount > 0 && (
 							<span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-								+{remainingCount} more
+								{t("workspace.moreCount", { count: remainingCount })}
 							</span>
 						)}
 					</div>
@@ -87,23 +88,24 @@ export function ExternalWorktreesBanner({ projectId }: { projectId: string }) {
 							className="shrink-0"
 							disabled={importAllWorktrees.isPending}
 						>
-							{importAllWorktrees.isPending ? "Importing..." : "Import all"}
+							{importAllWorktrees.isPending
+								? t("project.importing")
+								: t("project.importAll")}
 						</Button>
 					</AlertDialogTrigger>
 					<AlertDialogContent>
 						<AlertDialogHeader>
-							<AlertDialogTitle>Import all worktrees</AlertDialogTitle>
+							<AlertDialogTitle>{t("project.importAllTitle")}</AlertDialogTitle>
 							<AlertDialogDescription>
-								This will import {importableWorktrees.length} existing worktree
-								{importableWorktrees.length === 1 ? "" : "s"} into Superset as
-								workspaces. Each worktree on disk will be tracked and appear in
-								your sidebar. No files will be modified.
+								{t("project.importAllDescription", {
+									count: importableWorktrees.length,
+								})}
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
-							<AlertDialogCancel>Cancel</AlertDialogCancel>
+							<AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
 							<AlertDialogAction onClick={handleImportAll}>
-								Import all
+								{t("project.importAll")}
 							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>

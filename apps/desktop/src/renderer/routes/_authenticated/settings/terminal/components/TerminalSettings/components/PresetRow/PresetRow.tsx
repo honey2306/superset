@@ -10,6 +10,7 @@ import { LuGripVertical } from "react-icons/lu";
 import { useIsDarkTheme } from "renderer/assets/app-icons/preset-icons";
 import { resolvePresetLaunchCommands } from "renderer/lib/agent-launch-command";
 import { resolveV2PresetIcon } from "renderer/lib/preset-icon";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { TerminalPreset } from "renderer/routes/_authenticated/settings/presets/types";
 import {
 	getPresetProjectTargetLabel,
@@ -50,6 +51,7 @@ export function PresetRow({
 	onPersistReorder,
 	onToggleVisibility,
 }: PresetRowProps) {
+	const { t } = useTranslation();
 	const rowRef = useRef<HTMLDivElement>(null);
 	const dragHandleRef = useRef<HTMLButtonElement>(null);
 
@@ -100,9 +102,18 @@ export function PresetRow({
 	const isNewTab = !!preset.applyOnNewTab;
 	const isVisibleInBar = preset.pinnedToBar !== false;
 	const modeValue = normalizeExecutionMode(preset.executionMode);
-	const modeLabel = getPresetModeLabel(modeValue, commands.length);
+	const modeLabel = getPresetModeLabel(modeValue, commands.length, {
+		tabPerCommand: t("terminal.tabPerCommand"),
+		newTab: t("terminal.newTab"),
+		newTabPanes: t("terminal.newTabPanes"),
+		allCurrentTab: t("terminal.allCurrentTab"),
+		currentTab: t("terminal.currentTab"),
+		singleTabPanes: t("terminal.singleTabPanes"),
+		splitPane: t("terminal.splitPane"),
+	});
 	const firstCommand =
-		commands.find((cmd) => cmd.trim().length > 0)?.trim() ?? "Empty command";
+		commands.find((cmd) => cmd.trim().length > 0)?.trim() ??
+		t("terminal.emptyCommand");
 	const commandSummary =
 		commands.length > 1
 			? `${firstCommand}  +${commands.length - 1}`
@@ -110,6 +121,11 @@ export function PresetRow({
 	const appliesToLabel = getPresetProjectTargetLabel(
 		preset.projectIds,
 		projectOptionsById,
+		{
+			allProjects: t("terminal.allProjects"),
+			unknownProject: t("terminal.unknownProject"),
+			projectCount: (count) => t("terminal.projectCount", { count }),
+		},
 	);
 
 	return (
@@ -142,14 +158,14 @@ export function PresetRow({
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2 min-w-0">
 					<span className="text-sm font-medium truncate">
-						{preset.name.trim() || "Untitled preset"}
+						{preset.name.trim() || t("terminal.untitledPreset")}
 					</span>
 					{isWorkspaceCreation && (
 						<Badge
 							variant="secondary"
 							className="text-[10px] h-4 px-1.5 shrink-0"
 						>
-							Workspace
+							{t("terminal.workspaceBadge")}
 						</Badge>
 					)}
 					{isWorkspaceRun && (
@@ -157,7 +173,7 @@ export function PresetRow({
 							variant="secondary"
 							className="text-[10px] h-4 px-1.5 shrink-0"
 						>
-							Run
+							{t("terminal.runBadge")}
 						</Badge>
 					)}
 					{isNewTab && (
@@ -165,7 +181,7 @@ export function PresetRow({
 							variant="secondary"
 							className="text-[10px] h-4 px-1.5 shrink-0"
 						>
-							Tab
+							{t("terminal.tabBadge")}
 						</Badge>
 					)}
 				</div>
@@ -190,8 +206,12 @@ export function PresetRow({
 					e.stopPropagation();
 					onToggleVisibility(preset.id, !isVisibleInBar);
 				}}
-				title={isVisibleInBar ? "Hide from bar" : "Show in bar"}
-				aria-label={isVisibleInBar ? "Hide from bar" : "Show in bar"}
+				title={
+					isVisibleInBar ? t("terminal.hideFromBar") : t("terminal.showInBar")
+				}
+				aria-label={
+					isVisibleInBar ? t("terminal.hideFromBar") : t("terminal.showInBar")
+				}
 				aria-pressed={isVisibleInBar}
 			>
 				{isVisibleInBar ? (
@@ -210,7 +230,7 @@ export function PresetRow({
 					"opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
 					isDragging && "opacity-100",
 				)}
-				aria-label="Drag to reorder"
+				aria-label={t("terminal.dragToReorder")}
 			>
 				<LuGripVertical className="size-4" />
 			</button>

@@ -8,6 +8,7 @@ import { TbMessageCirclePlus, TbWorld } from "react-icons/tb";
 import { getAppOption } from "renderer/components/OpenInExternalDropdown";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { DeleteWorkspaceDialog } from "renderer/screens/main/components/WorkspaceSidebar/WorkspaceListItem/components/DeleteWorkspaceDialog/DeleteWorkspaceDialog";
 import { useTabsStore } from "renderer/stores/tabs/store";
@@ -41,6 +42,7 @@ export function EmptyTabView({
 	const addChatTab = useTabsStore((s) => s.addChatTab);
 	const addBrowserTab = useTabsStore((s) => s.addBrowserTab);
 	const activeTheme = useTheme();
+	const { t } = useTranslation();
 
 	const { data: workspace } = electronTrpc.workspaces.get.useQuery({
 		id: workspaceId,
@@ -71,21 +73,21 @@ export function EmptyTabView({
 	const openInActionLabel = useMemo(() => {
 		const appOption = getAppOption(resolvedExternalApp);
 		const appName = appOption?.displayLabel ?? appOption?.label;
-		return appName ? `Open in ${appName}` : null;
-	}, [resolvedExternalApp]);
+		return appName ? t("workspace.openInApp", { app: appName }) : null;
+	}, [resolvedExternalApp, t]);
 
 	const actions = useMemo<EmptyTabAction[]>(() => {
 		const baseActions: EmptyTabAction[] = [
 			{
 				id: "terminal",
-				label: "Open Terminal",
+				label: t("workspace.openTerminal"),
 				display: newGroupDisplay,
 				icon: BsTerminalPlus,
 				onClick: handleShowTerminal,
 			},
 			{
 				id: "new-agent",
-				label: "Open Chat",
+				label: t("workspace.openChat"),
 				display: newChatDisplay,
 				icon: TbMessageCirclePlus,
 				onClick: handleNewAgent,
@@ -94,7 +96,7 @@ export function EmptyTabView({
 
 		baseActions.push({
 			id: "open-browser",
-			label: "Open Browser",
+			label: t("workspace.openBrowser"),
 			display: newBrowserDisplay,
 			icon: TbWorld,
 			onClick: handleOpenBrowser,
@@ -112,7 +114,7 @@ export function EmptyTabView({
 
 		baseActions.push({
 			id: "search-files",
-			label: "Search Files",
+			label: t("workspace.searchFiles"),
 			display: quickOpenDisplay,
 			icon: LuSearch,
 			onClick: onOpenQuickOpen,
@@ -131,6 +133,7 @@ export function EmptyTabView({
 		onOpenQuickOpen,
 		openInAppDisplay,
 		quickOpenDisplay,
+		t,
 	]);
 
 	return (
@@ -166,7 +169,7 @@ export function EmptyTabView({
 						onClick={handleDeleteClick}
 					>
 						<LuTrash2 className="size-3" />
-						Delete workspace
+						{t("workspace.deleteAction")}
 					</button>
 				)}
 			</div>

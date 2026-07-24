@@ -17,6 +17,7 @@ import {
 } from "react-icons/hi2";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceRunCommand } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/useWorkspaceRunCommand";
 import { useSetSettingsSearchQuery } from "renderer/stores/settings-state";
 
@@ -31,6 +32,7 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 	workspaceId,
 	worktreePath,
 }: WorkspaceRunButtonProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const setSettingsSearchQuery = useSetSettingsSearchQuery();
 	const hotkeyText = useHotkeyDisplay("RUN_WORKSPACE_COMMAND").text;
@@ -92,12 +94,16 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 		void forceStopWorkspaceRun();
 	}, [forceStopWorkspaceRun]);
 
-	const buttonLabel = isRunning ? "Stop" : hasRunCommand ? "Run" : "Set Run";
-	const buttonAriaLabel = isRunning
-		? "Stop workspace run command"
+	const buttonLabel = isRunning
+		? t("dashboard.stopRun")
 		: hasRunCommand
-			? "Run workspace command"
-			: "Configure workspace run command";
+			? t("dashboard.run")
+			: t("dashboard.setRun");
+	const buttonAriaLabel = isRunning
+		? t("dashboard.stopRunAria")
+		: hasRunCommand
+			? t("dashboard.runAria")
+			: t("dashboard.configureRunAria");
 
 	return (
 		<div className="flex items-center no-drag">
@@ -142,6 +148,7 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 					<button
 						type="button"
 						disabled={isPending}
+						aria-label={t("dashboard.runMenuAria")}
 						className={cn(
 							"flex items-center justify-center h-6 w-6 rounded-r border border-border/60 bg-secondary/50 text-muted-foreground",
 							"transition-all duration-150 ease-out",
@@ -167,7 +174,7 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 								className="text-destructive focus:text-destructive"
 							>
 								<HiMiniXMark className="mr-2 size-4 text-destructive" />
-								Force Stop
+								{t("dashboard.forceStop")}
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
 						</>
@@ -175,8 +182,8 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 					<DropdownMenuItem onClick={handleConfigureClick}>
 						<HiMiniCog6Tooth className="mr-2 size-4" />
 						{runDefinition?.source === "terminal-preset"
-							? "Edit Run Preset"
-							: "Configure"}
+							? t("dashboard.editRunPreset")
+							: t("dashboard.configure")}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

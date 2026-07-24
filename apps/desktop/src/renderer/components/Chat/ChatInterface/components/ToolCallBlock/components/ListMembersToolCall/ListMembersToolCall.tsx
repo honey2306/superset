@@ -1,4 +1,5 @@
 import { UsersIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { getResult } from "../../../../utils/tool-helpers";
 import { SupersetToolCall } from "../SupersetToolCall";
@@ -8,6 +9,7 @@ interface ListMembersToolCallProps {
 }
 
 export function ListMembersToolCall({ part }: ListMembersToolCallProps) {
+	const { t } = useTranslation();
 	const result = getResult(part);
 	const resultData =
 		typeof result.result === "object" && result.result !== null
@@ -23,11 +25,13 @@ export function ListMembersToolCall({ part }: ListMembersToolCallProps) {
 	return (
 		<SupersetToolCall
 			part={part}
-			toolName="List members"
+			toolName={t("chat.tool.listMembers")}
 			icon={UsersIcon}
 			details={
 				<div className="space-y-2">
-					<div className="text-muted-foreground">Members: {members.length}</div>
+					<div className="text-muted-foreground">
+						{t("chat.tool.membersCount", { count: members.length })}
+					</div>
 					{members.length > 0 ? (
 						<div className="space-y-1">
 							{members.map((member, index) => {
@@ -38,7 +42,7 @@ export function ListMembersToolCall({ part }: ListMembersToolCallProps) {
 										? member.name
 										: typeof member.email === "string"
 											? member.email
-											: `Member ${index + 1}`;
+											: t("chat.tool.memberN", { index: index + 1 });
 								const email =
 									typeof member.email === "string" ? member.email : null;
 								const role =
@@ -50,7 +54,7 @@ export function ListMembersToolCall({ part }: ListMembersToolCallProps) {
 									>
 										<div className="font-medium text-foreground">{name}</div>
 										<div className="text-muted-foreground">
-											{email ?? "No email"}
+											{email ?? t("chat.tool.noEmail")}
 											{role ? ` • ${role}` : ""}
 										</div>
 									</div>
@@ -58,7 +62,9 @@ export function ListMembersToolCall({ part }: ListMembersToolCallProps) {
 							})}
 						</div>
 					) : (
-						<div className="text-muted-foreground">No members in result.</div>
+						<div className="text-muted-foreground">
+							{t("chat.tool.noMembersInResult")}
+						</div>
 					)}
 				</div>
 			}

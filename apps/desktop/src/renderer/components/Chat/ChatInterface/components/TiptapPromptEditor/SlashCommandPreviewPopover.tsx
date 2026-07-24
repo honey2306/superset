@@ -3,6 +3,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@superset/ui/popover";
 import type { Editor } from "@tiptap/core";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	normalizeSlashPreviewInput,
 	parseSlashInput,
@@ -38,6 +39,7 @@ export function SlashCommandPreviewPopover({
 	editor,
 	isFocused,
 }: SlashCommandPreviewPopoverProps) {
+	const { t } = useTranslation();
 	const { textInput } = usePromptInputController();
 	const inputValue = textInput.value;
 
@@ -146,7 +148,7 @@ export function SlashCommandPreviewPopover({
 				</div>
 				<div className="space-y-1">
 					<div className="text-[11px] uppercase tracking-wide text-muted-foreground/60">
-						Prompt preview
+						{t("slashCommand.promptPreviewLower")}
 					</div>
 					<div className="max-h-24 overflow-y-auto whitespace-pre-wrap rounded border border-border/60 bg-muted/30 px-2 py-1.5 font-mono text-[11px] text-foreground/80">
 						{previewPrompt}

@@ -1,6 +1,7 @@
 import { toast } from "@superset/ui/sonner";
 import type { Terminal as XTerm } from "@xterm/xterm";
 import { useCallback, useRef } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { setPaneWorkspaceRunState } from "renderer/stores/tabs/workspace-run";
 import { DEBUG_TERMINAL } from "../config";
@@ -44,6 +45,7 @@ export function useTerminalStream({
 	updateModesFromData,
 	updateCwdFromData,
 }: UseTerminalStreamOptions): UseTerminalStreamReturn {
+	const { t } = useTranslation();
 	const setPaneStatus = useTabsStore((s) => s.setPaneStatus);
 	const removePane = useTabsStore((s) => s.removePane);
 	const firstStreamDataReceivedRef = useRef(false);
@@ -73,11 +75,11 @@ export function useTerminalStream({
 			}
 
 			if (wasKilledByUser) {
-				xterm.writeln("\r\n\r\n[Session killed]");
+				xterm.writeln(`\r\n\r\n${t("terminal.streamSessionKilled")}`);
 				xterm.writeln(
 					isWorkspaceRunPane
-						? "[Press any key to restart]"
-						: "[Restart to start a new session]",
+						? t("terminal.pressAnyKeyToRestart")
+						: t("terminal.restartToStartNewSession"),
 				);
 			} else if (exitCode === 0 && !isWorkspaceRunPane) {
 				// Clean exit (e.g. typing "exit") — close the pane/tab
@@ -86,10 +88,10 @@ export function useTerminalStream({
 			} else {
 				xterm.writeln(
 					exitCode === 0
-						? "\r\n\r\n[Process exited]"
-						: `\r\n\r\n[Process exited with code ${exitCode}]`,
+						? `\r\n\r\n${t("terminal.processExited")}`
+						: `\r\n\r\n${t("terminal.processExitedWithCode", { code: exitCode })}`,
 				);
-				xterm.writeln("[Press any key to restart]");
+				xterm.writeln(t("terminal.pressAnyKeyToRestart"));
 			}
 
 			// Clear transient pane status on terminal exit
@@ -109,6 +111,7 @@ export function useTerminalStream({
 			setExitStatus,
 			setPaneStatus,
 			removePane,
+			t,
 		],
 	);
 
@@ -123,7 +126,7 @@ export function useTerminalStream({
 				event.code === "WRITE_FAILED" &&
 				event.error?.includes("Session not found")
 			) {
-				setConnectionError("Session lost");
+				setConnectionError(t("terminal.sessionLost"));
 				return;
 			}
 
@@ -131,19 +134,19 @@ export function useTerminalStream({
 				event.code === "WRITE_FAILED" &&
 				event.error?.includes("PTY not spawned")
 			) {
-				xterm.writeln(`\r\n[Terminal] ${message}`);
+				xterm.writeln(`\r\n${t("terminal.terminalPrefix")} ${message}`);
 				return;
 			}
 
-			toast.error("Terminal error", { description: message });
+			toast.error(t("terminal.toastError"), { description: message });
 
 			if (event.code === "WRITE_QUEUE_FULL" || event.code === "WRITE_FAILED") {
-				xterm.writeln(`\r\n[Terminal] ${message}`);
+				xterm.writeln(`\r\n${t("terminal.terminalPrefix")} ${message}`);
 			} else {
 				setConnectionError(message);
 			}
 		},
-		[setConnectionError],
+		[setConnectionError, t],
 	);
 
 	const handleStreamData = useCallback(
@@ -178,7 +181,7 @@ export function useTerminalStream({
 				handleTerminalExit(event.exitCode, xterm, event.reason);
 			} else if (event.type === "disconnect") {
 				setConnectionError(
-					event.reason || "Connection to terminal daemon lost",
+					event.reason || t("terminal.connectionToDaemonLost"),
 				);
 			} else if (event.type === "error") {
 				handleStreamError(event, xterm);
@@ -192,6 +195,7 @@ export function useTerminalStream({
 			handleTerminalExit,
 			handleStreamError,
 			setConnectionError,
+			t,
 		],
 	);
 

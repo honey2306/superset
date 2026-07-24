@@ -1,6 +1,7 @@
 import { toast } from "@superset/ui/sonner";
 import { useMutation } from "@tanstack/react-query";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useV2WorktreeLocationSettings,
 	V2WorktreeLocationPicker,
@@ -27,6 +28,7 @@ export function WorktreeLocationSection({
 	isProjectSetup,
 	onChanged,
 }: WorktreeLocationSectionProps) {
+	const { t } = useTranslation();
 	const hostSettingsQuery = useV2WorktreeLocationSettings(hostUrl, {
 		enabled: isHostOnline,
 	});
@@ -41,8 +43,8 @@ export function WorktreeLocationSection({
 		onSuccess: (_data, path) => {
 			toast.success(
 				path
-					? "Project worktree location updated"
-					: "Project worktree location reset",
+					? t("project.worktreeLocationUpdated")
+					: t("project.worktreeLocationReset"),
 			);
 			onChanged?.();
 		},
@@ -69,8 +71,8 @@ export function WorktreeLocationSection({
 				hostSettingsQuery.isLoading ||
 				setLocation.isPending
 			}
-			browseTitle="Select project worktree location"
-			browseDescription={`Pick the project worktree folder on ${hostName}.`}
+			browseTitle={t("project.selectProjectWorktreeLocation")}
+			browseDescription={t("project.pickWorktreeFolder", { host: hostName })}
 			onSelect={(path) => setLocation.mutate(path)}
 			onReset={() => setLocation.mutate(null)}
 		/>

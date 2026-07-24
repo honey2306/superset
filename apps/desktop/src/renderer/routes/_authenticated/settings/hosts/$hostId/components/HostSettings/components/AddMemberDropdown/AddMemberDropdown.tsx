@@ -6,6 +6,7 @@ import {
 	DropdownMenuTrigger,
 } from "@superset/ui/dropdown-menu";
 import { HiOutlinePlus } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export interface CandidateRow {
 	userId: string;
@@ -22,11 +23,12 @@ export function AddMemberDropdown({
 	candidates,
 	onPick,
 }: AddMemberDropdownProps) {
+	const { t } = useTranslation();
 	if (candidates.length === 0) {
 		return (
 			<Button size="sm" variant="outline" disabled>
 				<HiOutlinePlus className="h-4 w-4 mr-1" />
-				Add member
+				{t("hosts.addMember")}
 			</Button>
 		);
 	}
@@ -36,7 +38,7 @@ export function AddMemberDropdown({
 			<DropdownMenuTrigger asChild>
 				<Button size="sm" variant="outline">
 					<HiOutlinePlus className="h-4 w-4 mr-1" />
-					Add member
+					{t("hosts.addMember")}
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-64">

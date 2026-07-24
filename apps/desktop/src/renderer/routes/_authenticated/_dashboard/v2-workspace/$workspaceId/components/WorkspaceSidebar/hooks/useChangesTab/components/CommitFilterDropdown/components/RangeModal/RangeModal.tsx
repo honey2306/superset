@@ -11,6 +11,7 @@ import {
 import { ScrollArea } from "@superset/ui/scroll-area";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useEffect, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { CommitRow } from "../CommitRow";
 
 type Commit =
@@ -31,6 +32,7 @@ export function RangeModal({
 }: RangeModalProps) {
 	const [fromIdx, setFromIdx] = useState<number | null>(null);
 	const [toIdx, setToIdx] = useState<number | null>(null);
+	const { t } = useTranslation();
 
 	// Reset selection when modal opens/closes
 	useEffect(() => {
@@ -74,9 +76,9 @@ export function RangeModal({
 		<Dialog open={open} onOpenChange={onOpenChange} modal>
 			<DialogContent className="overflow-hidden sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>Select commit range</DialogTitle>
+					<DialogTitle>{t("v2Workspace.range.title")}</DialogTitle>
 					<DialogDescription>
-						Click two commits to define the range.
+						{t("v2Workspace.range.description")}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -104,10 +106,10 @@ export function RangeModal({
 
 				<DialogFooter>
 					<Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-						Cancel
+						{t("v2Workspace.range.cancel")}
 					</Button>
 					<Button size="sm" disabled={!hasRange} onClick={handleApply}>
-						Apply
+						{t("v2Workspace.range.apply")}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

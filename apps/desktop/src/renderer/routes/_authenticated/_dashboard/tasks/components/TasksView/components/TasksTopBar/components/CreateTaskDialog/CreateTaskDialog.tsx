@@ -19,6 +19,7 @@ import { HiChevronRight, HiOutlinePaperClip, HiXMark } from "react-icons/hi2";
 import { MarkdownEditor } from "renderer/components/MarkdownEditor";
 import { PLATFORM } from "renderer/hotkeys";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { compareStatusesForDropdown } from "../../../../utils/sorting";
 import type { TabValue } from "../../TasksTopBar";
@@ -41,6 +42,7 @@ export function CreateTaskDialog({
 	searchQuery,
 	assigneeFilter,
 }: CreateTaskDialogProps) {
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const { data: session } = authClient.useSession();
 	const navigate = useNavigate();
@@ -151,7 +153,7 @@ export function CreateTaskDialog({
 			});
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : "Failed to create task",
+				error instanceof Error ? error.message : t("tasks.createFailed"),
 			);
 			setIsCreating(false);
 		}
@@ -168,10 +170,8 @@ export function CreateTaskDialog({
 				}}
 			>
 				<DialogHeader className="sr-only">
-					<DialogTitle>Create Task</DialogTitle>
-					<DialogDescription>
-						Create a new task from the desktop tasks view.
-					</DialogDescription>
+					<DialogTitle>{t("tasks.createTitle")}</DialogTitle>
+					<DialogDescription>{t("tasks.createDescription")}</DialogDescription>
 				</DialogHeader>
 
 				<div className="flex items-center justify-between border-b px-4 py-2.5">
@@ -180,7 +180,7 @@ export function CreateTaskDialog({
 							{organizationLabel}
 						</div>
 						<HiChevronRight className="size-3.5 text-muted-foreground" />
-						<span className="font-medium">New issue</span>
+						<span className="font-medium">{t("tasks.newIssue")}</span>
 					</div>
 
 					<DialogClose asChild>
@@ -188,7 +188,7 @@ export function CreateTaskDialog({
 							type="button"
 							disabled={isCreating}
 							className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-							aria-label="Close"
+							aria-label={t("tasks.close")}
 						>
 							<HiXMark className="size-4" />
 						</button>
@@ -207,7 +207,7 @@ export function CreateTaskDialog({
 								void handleCreate();
 							}
 						}}
-						placeholder="Task title"
+						placeholder={t("tasks.titlePlaceholder")}
 						className="w-full bg-transparent text-3xl font-semibold tracking-tight outline-none placeholder:text-muted-foreground/60"
 					/>
 
@@ -215,7 +215,7 @@ export function CreateTaskDialog({
 						<MarkdownEditor
 							content={description}
 							onChange={setDescription}
-							placeholder="Add description..."
+							placeholder={t("tasks.descriptionPlaceholder")}
 							editorClassName="min-h-[240px] text-base leading-relaxed"
 							onModEnter={handleCreate}
 						/>
@@ -257,7 +257,7 @@ export function CreateTaskDialog({
 							disabled={!title.trim() || isCreating}
 							className="h-10 rounded-full px-5 text-sm"
 						>
-							{isCreating ? "Creating..." : "Create task"}
+							{isCreating ? t("tasks.creating") : t("tasks.create")}
 							{!isCreating && (
 								<KbdGroup className="ml-1.5 opacity-70">
 									<Kbd className="bg-primary-foreground/15 text-primary-foreground h-4 min-w-4 text-[10px]">

@@ -1,7 +1,8 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { SquarePen } from "lucide-react";
-import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useBinding, useHotkeyDisplay } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	terminalRichInputOpenStore,
 	useTerminalRichInputOpen,
@@ -23,10 +24,13 @@ export function TerminalPaneHeaderExtras({
 	terminalId,
 	terminalInstanceId,
 }: TerminalPaneHeaderExtrasProps) {
+	const { t } = useTranslation();
 	const isOpen = useTerminalRichInputOpen();
+	const binding = useBinding("TOGGLE_TERMINAL_RICH_INPUT");
 	const hotkeyText = useHotkeyDisplay("TOGGLE_TERMINAL_RICH_INPUT").text;
-	const label =
-		hotkeyText === "Unassigned" ? "Rich input" : `Rich input (${hotkeyText})`;
+	const label = binding
+		? t("v2Workspace.terminalPane.richInputWithHotkey", { hotkey: hotkeyText })
+		: t("v2Workspace.terminalPane.richInput");
 
 	return (
 		<div className="flex items-center">

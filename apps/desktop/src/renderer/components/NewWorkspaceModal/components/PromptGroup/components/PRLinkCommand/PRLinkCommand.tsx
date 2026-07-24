@@ -13,6 +13,7 @@ import type { RefObject } from "react";
 import { useId, useMemo, useState } from "react";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	PRIcon,
 	type PRState,
@@ -62,6 +63,7 @@ export function PRLinkCommand({
 	repoName,
 	anchorRef,
 }: PRLinkCommandProps) {
+	const { t } = useTranslation();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [showClosed, setShowClosed] = useState(false);
 	const showClosedId = useId();
@@ -167,7 +169,7 @@ export function PRLinkCommand({
 			>
 				<Command shouldFilter={false}>
 					<CommandInput
-						placeholder="Search pull requests..."
+						placeholder={t("workspace.searchPullRequests")}
 						value={searchQuery}
 						onValueChange={setSearchQuery}
 					/>
@@ -181,7 +183,7 @@ export function PRLinkCommand({
 							htmlFor={showClosedId}
 							className="cursor-pointer select-none text-xs text-muted-foreground"
 						>
-							Show closed
+							{t("workspace.showClosed")}
 						</label>
 					</div>
 					<CommandList className="max-h-[280px]">
@@ -189,25 +191,29 @@ export function PRLinkCommand({
 							<CommandEmpty>
 								{isLoading
 									? debouncedTrimmed
-										? "Searching..."
-										: "Loading pull requests..."
+										? t("workspace.searching")
+										: t("workspace.loadingPullRequests")
 									: isCrossRepositoryUrl
-										? `PR URL must match ${selectedRepositoryLabel}.`
+										? t("workspace.prRepoMismatch", {
+												repository: selectedRepositoryLabel ?? "",
+											})
 										: debouncedTrimmed
-											? "No pull requests found."
+											? t("workspace.noPullRequests")
 											: showClosed
-												? "No pull requests found."
-												: "No open pull requests."}
+												? t("workspace.noPullRequests")
+												: t("workspace.noOpenPullRequests")}
 							</CommandEmpty>
 						)}
 						{pullRequests.length > 0 && (
 							<CommandGroup
 								heading={
 									debouncedTrimmed
-										? `${pullRequests.length} result${pullRequests.length === 1 ? "" : "s"}`
+										? t("workspace.resultCount", {
+												count: pullRequests.length,
+											})
 										: showClosed
-											? "Recent pull requests"
-											: "Open pull requests"
+											? t("workspace.recentPullRequests")
+											: t("workspace.openPullRequests")
 								}
 							>
 								{pullRequests.map((pr) => (
@@ -228,7 +234,7 @@ export function PRLinkCommand({
 											{pr.title}
 										</span>
 										<span className="shrink-0 hidden text-xs text-muted-foreground group-data-[selected=true]:inline">
-											Link ↵
+											{t("workspace.linkAction")} ↵
 										</span>
 									</CommandItem>
 								))}

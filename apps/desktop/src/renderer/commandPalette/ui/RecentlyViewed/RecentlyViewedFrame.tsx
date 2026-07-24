@@ -13,6 +13,7 @@ import { LuCpu, LuGitBranch } from "react-icons/lu";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	type RecentlyViewedEntry,
 	useRecentlyViewed,
@@ -26,6 +27,7 @@ import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/Host
 import { useFrameStackStore } from "../../core/frames";
 
 export function RecentlyViewedFrame() {
+	const { t } = useTranslation();
 	const recentEntries = useRecentlyViewed(20);
 	const currentPath = useLocation({ select: (loc) => loc.pathname });
 	const collections = useCollections();
@@ -120,7 +122,7 @@ export function RecentlyViewedFrame() {
 
 	return (
 		<CommandList>
-			<CommandEmpty>Nothing here yet.</CommandEmpty>
+			<CommandEmpty>{t("commandPalette.nothingYet")}</CommandEmpty>
 			<CommandGroup heading="Recently Viewed">
 				{filteredEntries.map((entry) => {
 					const isCurrent = entry.path === currentPath;

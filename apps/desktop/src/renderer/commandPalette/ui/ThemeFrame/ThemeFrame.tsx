@@ -6,6 +6,7 @@ import {
 	CommandSeparator,
 } from "@superset/ui/command";
 import { ThemeSwatch } from "renderer/components/ThemeSwatch";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	SYSTEM_THEME_ID,
 	useSetTheme,
@@ -29,6 +30,7 @@ function matchesQuery(haystack: string, query: string): boolean {
 }
 
 export function ThemeFrame() {
+	const { t } = useTranslation();
 	const activeThemeId = useThemeId();
 	const setTheme = useSetTheme();
 	const customThemes = useThemeStore((state) => state.customThemes);
@@ -81,7 +83,7 @@ export function ThemeFrame() {
 
 	return (
 		<CommandList>
-			<CommandEmpty>No themes found.</CommandEmpty>
+			<CommandEmpty>{t("commandPalette.noThemes")}</CommandEmpty>
 
 			{showSystem && (
 				<CommandGroup>
@@ -93,7 +95,7 @@ export function ThemeFrame() {
 							<ThemeSwatch theme={systemLightTheme} />
 							<ThemeSwatch theme={systemDarkTheme} />
 						</div>
-						<span>System</span>
+						<span>{t("appearance.system")}</span>
 						{activeThemeId === SYSTEM_THEME_ID ? (
 							<span className="ml-auto text-xs text-muted-foreground">✓</span>
 						) : null}
@@ -104,21 +106,21 @@ export function ThemeFrame() {
 			{showSystem && hasThemeGroup && <CommandSeparator />}
 
 			<ThemeGroup
-				heading="Light"
+				heading={t("commandPalette.light")}
 				themes={visibleLight}
 				activeId={activeThemeId}
 				onSelect={pickTheme}
 			/>
 
 			<ThemeGroup
-				heading="Dark"
+				heading={t("commandPalette.dark")}
 				themes={visibleDark}
 				activeId={activeThemeId}
 				onSelect={pickTheme}
 			/>
 
 			<ThemeGroup
-				heading="Custom"
+				heading={t("commandPalette.custom")}
 				themes={visibleCustom}
 				activeId={activeThemeId}
 				onSelect={pickTheme}

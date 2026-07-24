@@ -22,6 +22,7 @@ import {
 } from "renderer/lib/terminal/parser-idle-gate";
 import { TerminalLinkManager } from "renderer/lib/terminal/terminal-link-manager";
 import { electronTrpcClient as trpcClient } from "renderer/lib/trpc-client";
+import type { MessageKey } from "renderer/providers/I18nProvider/messages";
 import { toXtermTheme } from "renderer/stores/theme/utils";
 import {
 	builtInThemes,
@@ -80,6 +81,7 @@ export interface CreateTerminalOptions {
 	initialTheme?: ITheme | null;
 	onFileLinkClick?: (event: MouseEvent, link: DetectedLink) => void;
 	onUrlClickRef?: { current: ((url: string) => void) | undefined };
+	t?: (key: MessageKey, values?: Record<string, number | string>) => string;
 }
 
 /**
@@ -103,6 +105,7 @@ export function createTerminalInWrapper(options: CreateTerminalOptions = {}): {
 		initialTheme,
 		onFileLinkClick,
 		onUrlClickRef: urlClickRef,
+		t,
 	} = options;
 
 	const theme = initialTheme ?? getDefaultTerminalTheme();
@@ -206,12 +209,16 @@ export function createTerminalInWrapper(options: CreateTerminalOptions = {}): {
 			}
 			trpcClient.external.openUrl.mutate(uri).catch((error) => {
 				console.error("[Terminal] Failed to open URL:", uri, error);
-				toast.error("Failed to open URL", {
-					description:
-						error instanceof Error
-							? error.message
-							: "Could not open URL in browser",
-				});
+				toast.error(
+					t?.("terminal.toastFailedToOpenUrl") ?? "Failed to open URL",
+					{
+						description:
+							error instanceof Error
+								? error.message
+								: (t?.("terminal.toastCouldNotOpenUrl") ??
+									"Could not open URL in browser"),
+					},
+				);
 			});
 		},
 	});

@@ -1,4 +1,5 @@
 import { toast } from "@superset/ui/sonner";
+import type { MessageKey } from "renderer/providers/I18nProvider";
 
 export type HostServiceAvailabilityStatus =
 	| "starting"
@@ -13,7 +14,13 @@ export interface HostServiceUnavailableContext {
 	machineId?: string | null;
 }
 
+type TranslateFunction = (
+	key: MessageKey,
+	values?: Record<string, number | string>,
+) => string;
+
 interface HostServiceUnavailableMessageOptions {
+	/** Pre-translated action verb phrase (e.g. t("workspace.createAction")). */
 	action?: string;
 }
 
@@ -21,57 +28,76 @@ function shortId(id: string): string {
 	return id.length > 8 ? id.slice(0, 8) : id;
 }
 
-function formatOrganization(context: HostServiceUnavailableContext): string {
+function formatOrganization(
+	context: HostServiceUnavailableContext,
+	t: TranslateFunction,
+): string {
 	if (context.activeOrganizationName) {
-		return `"${context.activeOrganizationName}"`;
+		return t("hostService.organizationNamed", {
+			name: context.activeOrganizationName,
+		});
 	}
 	if (context.activeOrganizationId) {
-		return `organization ${shortId(context.activeOrganizationId)}`;
+		return t("hostService.organizationId", {
+			id: shortId(context.activeOrganizationId),
+		});
 	}
-	return "the active organization";
+	return t("hostService.organizationDefault");
 }
 
-function formatDevice(context: HostServiceUnavailableContext): string {
+function formatDevice(
+	context: HostServiceUnavailableContext,
+	t: TranslateFunction,
+): string {
 	return context.machineId
-		? `this device (${shortId(context.machineId)})`
-		: "this device";
+		? t("hostService.deviceWithId", { id: shortId(context.machineId) })
+		: t("hostService.deviceDefault");
 }
 
-function getRecoveryText(status: HostServiceAvailabilityStatus): string {
+function getRecoveryText(
+	status: HostServiceAvailabilityStatus,
+	t: TranslateFunction,
+): string {
 	switch (status) {
 		case "starting":
-			return "Retry in a few seconds.";
+			return t("hostService.recovery.starting");
 		case "stopped":
-			return "Use the Superset tray menu > Host Service > Restart, then retry.";
+			return t("hostService.recovery.stopped");
 		case "running":
-			return "Retry after the connection refreshes.";
+			return t("hostService.recovery.running");
 		case "unknown":
-			return "Retry in a few seconds; if it persists, restart Superset.";
+			return t("hostService.recovery.unknown");
 	}
 }
 
 export function getHostServiceUnavailableMessage(
 	context: HostServiceUnavailableContext,
+	t: TranslateFunction,
 	options: HostServiceUnavailableMessageOptions = {},
 ): string {
-	const prefix = options.action ? `Cannot ${options.action}: ` : "";
-
 	if (!context.activeOrganizationId) {
-		return `${prefix}no active organization is selected. Select an organization or sign in again.`;
+		const message = t("hostService.noOrgSelected");
+		return options.action
+			? t("hostService.cannotAction", { action: options.action, message })
+			: message;
 	}
 
 	const status = context.hostServiceStatus ?? "unknown";
-	const organization = formatOrganization(context);
-	const device = formatDevice(context);
+	const organization = formatOrganization(context, t);
+	const device = formatDevice(context, t);
 
-	return `${prefix}the local host service is unavailable for ${organization} on ${device}. Status: ${status}. ${getRecoveryText(status)}`;
+	const message = `${t("hostService.unavailableFor", { organization, device })} ${t("hostService.status", { status })} ${getRecoveryText(status, t)}`;
+	return options.action
+		? t("hostService.cannotAction", { action: options.action, message })
+		: message;
 }
 
 export function showHostServiceUnavailableToast(
 	context: HostServiceUnavailableContext,
+	t: TranslateFunction,
 	options: HostServiceUnavailableMessageOptions = {},
 ): void {
-	toast.error("Host service unavailable", {
-		description: getHostServiceUnavailableMessage(context, options),
+	toast.error(t("hostService.title"), {
+		description: getHostServiceUnavailableMessage(context, t, options),
 	});
 }

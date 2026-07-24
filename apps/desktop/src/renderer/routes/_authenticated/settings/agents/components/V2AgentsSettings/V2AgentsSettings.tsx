@@ -20,6 +20,7 @@ import {
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { getHostServiceUnavailableMessage } from "renderer/lib/host-service-unavailable";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { useScrollReset } from "renderer/routes/_authenticated/settings/hooks/useScrollReset";
@@ -76,6 +77,7 @@ interface V2AgentsSettingsProps {
 export function V2AgentsSettings({
 	initialAgentId,
 }: V2AgentsSettingsProps = {}) {
+	const { t } = useTranslation();
 	const hostService = useLocalHostService();
 	const { activeHostUrl } = hostService;
 	const queryClient = useQueryClient();
@@ -105,8 +107,8 @@ export function V2AgentsSettings({
 		mutationFn: async (preset: HostAgentPreset) => {
 			if (!activeHostUrl) {
 				throw new Error(
-					getHostServiceUnavailableMessage(hostService, {
-						action: "add an agent",
+					getHostServiceUnavailableMessage(hostService, t, {
+						action: t("agents.addAgentAction"),
 					}),
 				);
 			}
@@ -138,15 +140,15 @@ export function V2AgentsSettings({
 			}
 		},
 		onError: (err) =>
-			toast.error(err instanceof Error ? err.message : "Failed to add agent"),
+			toast.error(err instanceof Error ? err.message : t("agents.failedAdd")),
 	});
 
 	const addCustomMutation = useMutation({
 		mutationFn: async (input: CreateCustomAgentInput) => {
 			if (!activeHostUrl) {
 				throw new Error(
-					getHostServiceUnavailableMessage(hostService, {
-						action: "add an agent",
+					getHostServiceUnavailableMessage(hostService, t, {
+						action: t("agents.addAgentAction"),
 					}),
 				);
 			}
@@ -163,15 +165,15 @@ export function V2AgentsSettings({
 			}
 		},
 		onError: (err) =>
-			toast.error(err instanceof Error ? err.message : "Failed to add agent"),
+			toast.error(err instanceof Error ? err.message : t("agents.failedAdd")),
 	});
 
 	const reorderMutation = useMutation({
 		mutationFn: (ids: string[]) => {
 			if (!activeHostUrl) {
 				throw new Error(
-					getHostServiceUnavailableMessage(hostService, {
-						action: "reorder agents",
+					getHostServiceUnavailableMessage(hostService, t, {
+						action: t("agents.reorderAgentsAction"),
 					}),
 				);
 			}
@@ -200,7 +202,9 @@ export function V2AgentsSettings({
 			if (ctx?.previous) {
 				queryClient.setQueryData(queryKey, ctx.previous);
 			}
-			toast.error(err instanceof Error ? err.message : "Failed to reorder");
+			toast.error(
+				err instanceof Error ? err.message : t("agents.failedReorder"),
+			);
 		},
 		onSettled: () => invalidate(),
 	});
@@ -209,8 +213,8 @@ export function V2AgentsSettings({
 		mutationFn: () => {
 			if (!activeHostUrl) {
 				throw new Error(
-					getHostServiceUnavailableMessage(hostService, {
-						action: "reset agents",
+					getHostServiceUnavailableMessage(hostService, t, {
+						action: t("agents.resetAgentsAction"),
 					}),
 				);
 			}
@@ -225,7 +229,7 @@ export function V2AgentsSettings({
 			invalidate();
 		},
 		onError: (err) =>
-			toast.error(err instanceof Error ? err.message : "Failed to reset"),
+			toast.error(err instanceof Error ? err.message : t("agents.failedReset")),
 	});
 
 	const configs = configsQuery.data ?? [];
@@ -235,7 +239,7 @@ export function V2AgentsSettings({
 	);
 	const hostServiceUnavailableMessage = getHostServiceUnavailableMessage(
 		hostService,
-		{ action: "load agent settings" },
+		t,
 	);
 
 	const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -319,7 +323,7 @@ export function V2AgentsSettings({
 						config={selectedAgent}
 						description={
 							DESCRIPTION_BY_PRESET_ID.get(selectedAgent.presetId) ??
-							"Terminal agent launch configuration"
+							t("agents.launchDescription")
 						}
 						onChanged={(updated) => {
 							updateCachedConfig(updated);
@@ -351,6 +355,7 @@ function SidebarSkeleton() {
 }
 
 function EmptyState() {
+	const { t } = useTranslation();
 	return (
 		<div className="flex h-full items-center justify-center p-6">
 			<div className="text-center">
@@ -358,9 +363,9 @@ function EmptyState() {
 					aria-hidden="true"
 					className="mx-auto size-10 text-muted-foreground/60"
 				/>
-				<h3 className="mt-3 text-sm font-medium">No agents yet</h3>
+				<h3 className="mt-3 text-sm font-medium">{t("agents.empty")}</h3>
 				<p className="mt-1 text-xs text-muted-foreground">
-					Add one from the menu in the sidebar to get started.
+					{t("agents.emptyHint")}
 				</p>
 			</div>
 		</div>

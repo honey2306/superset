@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { HiringBanner } from "renderer/components/HiringBanner";
 import { useWorkspaceShortcuts } from "renderer/hooks/useWorkspaceShortcuts";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { MultiDragPreview } from "./MultiDragPreview";
 import { PortsList } from "./PortsList";
@@ -21,6 +22,7 @@ export function WorkspaceSidebar({
 	activeProjectId,
 	activeProjectName,
 }: WorkspaceSidebarProps) {
+	const { t } = useTranslation();
 	const { groups } = useWorkspaceShortcuts();
 	const clearSelection = useWorkspaceSelectionStore((s) => s.clearSelection);
 
@@ -100,10 +102,8 @@ export function WorkspaceSidebar({
 
 				{groups.length === 0 && !isCollapsed && (
 					<div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
-						<span>No workspaces yet</span>
-						<span className="text-xs mt-1">
-							Add project or drag a Git repo folder here
-						</span>
+						<span>{t("workspace.none")}</span>
+						<span className="text-xs mt-1">{t("workspace.noneHint")}</span>
 					</div>
 				)}
 			</div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { LuChevronDown, LuChevronRight } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { STROKE_WIDTH } from "renderer/screens/main/components/WorkspaceSidebar/constants";
 import type { DashboardSidebarWorkspacePullRequestCheck } from "../../../../../../types";
 import { CheckItemRow } from "./components/CheckItemRow";
@@ -9,6 +10,7 @@ interface ChecksListProps {
 }
 
 export function ChecksList({ checks }: ChecksListProps) {
+	const { t } = useTranslation();
 	const [expanded, setExpanded] = useState(false);
 
 	const relevantChecks = checks.filter(
@@ -29,7 +31,9 @@ export function ChecksList({ checks }: ChecksListProps) {
 				) : (
 					<LuChevronRight className="size-3" strokeWidth={STROKE_WIDTH} />
 				)}
-				<span>{expanded ? "Hide checks" : "Show checks"}</span>
+				<span>
+					{expanded ? t("workspace.hideChecks") : t("workspace.showChecks")}
+				</span>
 			</button>
 
 			{expanded && (

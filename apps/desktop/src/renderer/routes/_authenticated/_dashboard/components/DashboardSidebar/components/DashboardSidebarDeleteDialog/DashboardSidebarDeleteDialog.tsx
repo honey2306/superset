@@ -1,3 +1,4 @@
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DestroyConfirmPane } from "./components/DestroyConfirmPane";
 import { TeardownFailedPane } from "./components/TeardownFailedPane";
 import { useDestroyDialogState } from "./hooks/useDestroyDialogState";
@@ -24,6 +25,7 @@ export function DashboardSidebarDeleteDialog({
 	onOpenChange,
 	onDeleted,
 }: DashboardSidebarDeleteDialogProps) {
+	const { t } = useTranslation();
 	const {
 		deleteBranch,
 		setDeleteBranch,
@@ -54,7 +56,9 @@ export function DashboardSidebarDeleteDialog({
 	}
 
 	const hasWarnings = hasChanges || hasUnpushedCommits;
-	const confirmLabel = hasWarnings ? "Delete anyway" : "Delete";
+	const confirmLabel = hasWarnings
+		? t("workspace.deleteAnyway")
+		: t("common.delete");
 
 	return (
 		<DestroyConfirmPane

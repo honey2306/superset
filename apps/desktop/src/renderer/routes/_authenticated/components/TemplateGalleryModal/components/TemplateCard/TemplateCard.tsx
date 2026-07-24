@@ -1,6 +1,7 @@
 import { cn } from "@superset/ui/utils";
 import { useState } from "react";
 import { LuLoader } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ProjectTemplate } from "../../templates";
 
 interface TemplateCardProps {
@@ -16,6 +17,7 @@ export function TemplateCard({
 	disabled,
 	onSelect,
 }: TemplateCardProps) {
+	const { t } = useTranslation();
 	const [imageFailed, setImageFailed] = useState(false);
 	const available = !!template.repo;
 	const Icon = template.icon;
@@ -60,7 +62,7 @@ export function TemplateCard({
 					{template.name}
 				</span>
 				<span className="line-clamp-2 text-xs text-muted-foreground">
-					{available ? template.description : "Coming soon"}
+					{available ? t(template.description) : t("template.comingSoon")}
 				</span>
 			</div>
 		</button>

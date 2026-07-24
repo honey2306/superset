@@ -6,6 +6,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { uploadFiles } from "../../utils/uploadFiles";
 
 type AttachmentId = string;
@@ -27,6 +28,7 @@ export function useOptimisticUpload({
 	removeAttachment: (id: string) => void;
 	onError?: (message: string) => void;
 }) {
+	const { t } = useTranslation();
 	const [entries, setEntries] = useState<Map<AttachmentId, UploadEntry>>(
 		() => new Map(),
 	);
@@ -75,10 +77,10 @@ export function useOptimisticUpload({
 				return nextEntries;
 			});
 
-			uploadFiles(sessionId, [file])
+			uploadFiles(sessionId, [file], t)
 				.then(([uploaded]) => {
 					if (!uploaded) {
-						throw new Error("Upload failed");
+						throw new Error(t("chat.upload.uploadFailed"));
 					}
 					if (!isCurrentUpload(file.id)) return;
 
@@ -98,7 +100,9 @@ export function useOptimisticUpload({
 
 					inflightRef.current.delete(file.id);
 					const message =
-						error instanceof Error ? error.message : "Upload failed";
+						error instanceof Error
+							? error.message
+							: t("chat.upload.uploadFailed");
 					setEntries((previousEntries) => {
 						const nextEntries = new Map(previousEntries);
 						nextEntries.set(file.id, {
@@ -126,7 +130,7 @@ export function useOptimisticUpload({
 			}
 			return changed ? nextEntries : previousEntries;
 		});
-	}, [attachmentFiles, onError, removeAttachment, sessionId]);
+	}, [attachmentFiles, onError, removeAttachment, sessionId, t]);
 
 	const getUploadedFiles = useCallback((): {
 		ready: boolean;

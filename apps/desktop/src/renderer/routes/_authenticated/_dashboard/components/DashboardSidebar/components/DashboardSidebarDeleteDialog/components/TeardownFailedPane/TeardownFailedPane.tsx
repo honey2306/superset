@@ -9,6 +9,7 @@ import {
 } from "@superset/ui/alert-dialog";
 import { Button } from "@superset/ui/button";
 import { useEffect } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import stripAnsi from "strip-ansi";
 import { shouldConfirmDeleteDialogKey } from "../../utils/shouldConfirmDeleteDialogKey";
 import { formatTeardownReason } from "./formatTeardownReason";
@@ -28,7 +29,9 @@ export function TeardownFailedPane({
 	cause,
 	onForceDelete,
 }: TeardownFailedPaneProps) {
+	const { t } = useTranslation();
 	const reason = formatTeardownReason(cause);
+	const reasonText = t(reason.key, reason.values);
 	// Strip ANSI so raw PTY bytes render readably in the <pre>.
 	const cleanTail = stripAnsi(cause.outputTail ?? "");
 
@@ -49,9 +52,11 @@ export function TeardownFailedPane({
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
 			<AlertDialogContent className="max-w-[500px] gap-0 p-0">
 				<AlertDialogHeader className="px-4 pt-4 pb-2">
-					<AlertDialogTitle className="font-medium">{reason}</AlertDialogTitle>
+					<AlertDialogTitle className="font-medium">
+						{reasonText}
+					</AlertDialogTitle>
 					<AlertDialogDescription>
-						Delete anyway will skip the teardown script entirely.
+						{t("workspace.skipTeardownDescription")}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				{cleanTail && (
@@ -66,7 +71,7 @@ export function TeardownFailedPane({
 						className="h-7 px-3 text-xs"
 						onClick={() => onOpenChange(false)}
 					>
-						Cancel
+						{t("common.cancel")}
 					</Button>
 					<Button
 						variant="destructive"
@@ -74,7 +79,7 @@ export function TeardownFailedPane({
 						className="h-7 px-3 text-xs"
 						onClick={onForceDelete}
 					>
-						Delete anyway
+						{t("workspace.deleteAnyway")}
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

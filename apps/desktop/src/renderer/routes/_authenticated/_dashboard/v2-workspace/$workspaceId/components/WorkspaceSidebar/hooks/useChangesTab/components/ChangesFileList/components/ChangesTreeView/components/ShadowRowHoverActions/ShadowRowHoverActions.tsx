@@ -5,6 +5,7 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
 import { type ReactNode, useCallback, useRef, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface ShadowRowHoverActionsProps {
 	/**
@@ -39,6 +40,7 @@ export function ShadowRowHoverActions({
 	} | null>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const hoverRowRef = useRef<HTMLElement | null>(null);
+	const { t } = useTranslation();
 
 	const handleMouseOver = useCallback(
 		(e: React.MouseEvent<HTMLDivElement>) => {
@@ -112,7 +114,7 @@ export function ShadowRowHoverActions({
 							<DropdownMenuTrigger asChild>
 								<button
 									type="button"
-									aria-label="More actions"
+									aria-label={t("v2Workspace.fileRow.moreActions")}
 									className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
 									onClick={(e) => e.stopPropagation()}
 								>

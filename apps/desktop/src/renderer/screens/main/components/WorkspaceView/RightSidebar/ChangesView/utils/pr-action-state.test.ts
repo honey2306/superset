@@ -41,7 +41,9 @@ describe("getPRActionState", () => {
 		});
 
 		expect(state.canCreatePR).toBe(false);
-		expect(state.createPRBlockedReason).toContain("Publish this branch");
+		expect(state.createPRBlockedReason).toBe(
+			"v1Changes.prAction.publishBranch",
+		);
 	});
 
 	test("blocks create when branch is out of sync", () => {
@@ -55,7 +57,9 @@ describe("getPRActionState", () => {
 		});
 
 		expect(state.canCreatePR).toBe(false);
-		expect(state.createPRBlockedReason).toContain("Sync this branch");
+		expect(state.createPRBlockedReason).toBe(
+			"v1Changes.prAction.syncWithUpstream",
+		);
 	});
 
 	test("blocks create on default branch", () => {
@@ -69,6 +73,8 @@ describe("getPRActionState", () => {
 		});
 
 		expect(state.canCreatePR).toBe(false);
-		expect(state.createPRBlockedReason).toContain("default branch");
+		expect(state.createPRBlockedReason).toBe(
+			"v1Changes.prAction.cannotFromDefault",
+		);
 	});
 });

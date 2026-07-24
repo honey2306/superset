@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@superset/ui/popover";
 import { cn } from "@superset/ui/utils";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { normalizePresetProjectIds } from "shared/preset-project-targeting";
 import {
 	getPresetProjectTargetLabel,
@@ -33,6 +34,7 @@ export function ProjectTargetingField({
 	preferredProjectId,
 	onChange,
 }: ProjectTargetingFieldProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const projectOptionsById = useMemo(
 		() => new Map(projects.map((project) => [project.id, project])),
@@ -48,6 +50,11 @@ export function ProjectTargetingField({
 	const buttonLabel = getPresetProjectTargetLabel(
 		normalizedProjectIds,
 		projectOptionsById,
+		{
+			allProjects: t("terminal.allProjects"),
+			unknownProject: t("terminal.unknownProject"),
+			projectCount: (count) => t("terminal.projectCount", { count }),
+		},
 	);
 
 	const handleScopeChange = (next: Scope) => {
@@ -79,8 +86,8 @@ export function ProjectTargetingField({
 	};
 
 	const segmentedOptions: { value: Scope; label: string }[] = [
-		{ value: "all", label: "All projects" },
-		{ value: "specific", label: "Specific" },
+		{ value: "all", label: t("terminal.allProjects") },
+		{ value: "specific", label: t("terminal.specificProjects") },
 	];
 
 	return (
@@ -122,9 +129,9 @@ export function ProjectTargetingField({
 						</PopoverTrigger>
 						<PopoverContent align="start" className="w-[280px] p-0">
 							<Command>
-								<CommandInput placeholder="Search projects..." />
+								<CommandInput placeholder={t("terminal.searchProjects")} />
 								<CommandList className="max-h-72">
-									<CommandEmpty>No projects found.</CommandEmpty>
+									<CommandEmpty>{t("terminal.noProjectsFound")}</CommandEmpty>
 									<CommandGroup>
 										{projects.map((project) => {
 											const isSelected =
@@ -161,8 +168,9 @@ export function ProjectTargetingField({
 					</Popover>
 					{selectedProjects.length > 0 ? (
 						<p className="text-xs text-muted-foreground">
-							{selectedProjects.length} project
-							{selectedProjects.length === 1 ? "" : "s"} selected.
+							{t("terminal.projectsSelected", {
+								count: selectedProjects.length,
+							})}
 						</p>
 					) : null}
 				</>
@@ -170,7 +178,7 @@ export function ProjectTargetingField({
 
 			{projects.length === 0 ? (
 				<p className="text-xs text-muted-foreground">
-					Import a project to scope presets.
+					{t("terminal.importProjectHint")}
 				</p>
 			) : null}
 		</div>

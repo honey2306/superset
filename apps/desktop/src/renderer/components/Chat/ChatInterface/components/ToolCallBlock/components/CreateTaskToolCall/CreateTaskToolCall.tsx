@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { FilePlusIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { getArgs, getResult } from "../../../../utils/tool-helpers";
 import {
@@ -16,6 +17,7 @@ interface CreateTaskToolCallProps {
 
 export function CreateTaskToolCall({ part }: CreateTaskToolCallProps) {
 	const navigate = useNavigate();
+	const { t } = useTranslation();
 	const args = getArgs(part);
 	const result = getResult(part);
 	const resultData =
@@ -41,14 +43,14 @@ export function CreateTaskToolCall({ part }: CreateTaskToolCallProps) {
 	return (
 		<SupersetToolCall
 			part={part}
-			toolName="Create task"
+			toolName={t("chat.tool.createTask")}
 			icon={FilePlusIcon}
 			details={
 				<div className="space-y-2">
 					{created.length > 0 ? (
 						<div className="space-y-1">
 							<div className="font-medium text-foreground">
-								Created ({created.length})
+								{t("chat.tool.createdCount", { count: created.length })}
 							</div>
 							<div className="space-y-1">
 								{created.map((task) => {
@@ -79,7 +81,7 @@ export function CreateTaskToolCall({ part }: CreateTaskToolCallProps) {
 											? task.title
 											: typeof requested?.title === "string"
 												? requested.title
-												: "Untitled task";
+												: t("chat.tool.untitledTask");
 									const openTaskId = taskId ?? slug;
 									const priority =
 										typeof requested?.priority === "string"
@@ -123,7 +125,7 @@ export function CreateTaskToolCall({ part }: CreateTaskToolCallProps) {
 						</div>
 					) : (
 						<div className="text-muted-foreground">
-							No created tasks in result.
+							{t("chat.tool.noCreatedTasks")}
 						</div>
 					)}
 				</div>

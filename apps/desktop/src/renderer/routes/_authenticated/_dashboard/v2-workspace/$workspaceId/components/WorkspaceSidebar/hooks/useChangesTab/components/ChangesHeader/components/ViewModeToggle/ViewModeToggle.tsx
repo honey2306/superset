@@ -1,6 +1,7 @@
 import { Button } from "@superset/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { Folder, ListTree } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ChangesViewMode } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal/schema";
 
 interface ViewModeToggleProps {
@@ -13,8 +14,12 @@ interface ViewModeToggleProps {
  * directory hierarchy) views. Shows the mode it will switch to.
  */
 export function ViewModeToggle({ viewMode, onChange }: ViewModeToggleProps) {
+	const { t } = useTranslation();
 	const next: ChangesViewMode = viewMode === "folders" ? "tree" : "folders";
-	const label = next === "tree" ? "Tree view" : "Folder view";
+	const label =
+		next === "tree"
+			? t("v2Workspace.changes.treeView")
+			: t("v2Workspace.changes.folderView");
 	const Icon = next === "tree" ? ListTree : Folder;
 	return (
 		<Tooltip>

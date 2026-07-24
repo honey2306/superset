@@ -1,5 +1,6 @@
 import type { RendererContext } from "@superset/panes";
 import { useCallback } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { getV2NotificationSourcesForPane } from "renderer/stores/v2-notifications";
 import { V2NotificationStatusIndicator } from "../../../../../../components/V2NotificationStatusIndicator";
 import type { ChatPaneData, PaneViewerData } from "../../../../../../types";
@@ -12,6 +13,7 @@ interface ChatPaneTitleProps {
 }
 
 export function ChatPaneTitle({ context, workspaceId }: ChatPaneTitleProps) {
+	const { t } = useTranslation();
 	const data = context.pane.data as ChatPaneData;
 	const { sessionId } = data;
 	const { actions } = context;
@@ -39,7 +41,7 @@ export function ChatPaneTitle({ context, workspaceId }: ChatPaneTitleProps) {
 			<SessionSelector
 				currentSessionId={sessionId}
 				sessions={sessionItems}
-				fallbackTitle="New Chat"
+				fallbackTitle={t("chat.pane.newChat")}
 				onSelectSession={handleSelectSession}
 				onNewChat={handleNewChat}
 				onDeleteSession={handleDeleteSession}

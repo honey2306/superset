@@ -1,3 +1,5 @@
+import { useTranslation } from "renderer/providers/I18nProvider";
+
 interface OrganizationLogoProps {
 	logo: string | null | undefined;
 	name: string | undefined;
@@ -9,6 +11,7 @@ export function OrganizationLogo({
 	name,
 	size = "md",
 }: OrganizationLogoProps) {
+	const { t } = useTranslation();
 	const sizeClasses = size === "sm" ? "w-6 h-6" : "w-8 h-8";
 	const textSize = size === "sm" ? "text-xs" : "text-sm";
 
@@ -16,7 +19,7 @@ export function OrganizationLogo({
 		return (
 			<img
 				src={logo}
-				alt="Organization logo"
+				alt={t("organization.logoAlt")}
 				className={`${sizeClasses} rounded object-cover`}
 			/>
 		);

@@ -3,6 +3,7 @@ import { Label } from "@superset/ui/label";
 import { useEffect, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	DEFAULT_TERMINAL_PARKED_RUNTIME_CAP,
 	MAX_TERMINAL_PARKED_RUNTIME_CAP,
@@ -10,6 +11,7 @@ import {
 } from "shared/constants";
 
 export function BackgroundTerminalsSetting() {
+	const { t } = useTranslation();
 	const utils = electronTrpc.useUtils();
 
 	const { data: cap, isLoading } =
@@ -64,13 +66,13 @@ export function BackgroundTerminalsSetting() {
 					htmlFor="terminal-background-limit"
 					className="text-sm font-medium"
 				>
-					Background terminal memory
+					{t("terminal.backgroundMemory")}
 				</Label>
 				<p className="text-xs text-muted-foreground max-w-md leading-relaxed">
-					How many hidden terminals stay fully loaded (
-					{MIN_TERMINAL_PARKED_RUNTIME_CAP}–{MAX_TERMINAL_PARKED_RUNTIME_CAP});
-					older ones keep running but reload their last 1,000 lines when
-					reopened
+					{t("terminal.backgroundMemoryDescription", {
+						min: MIN_TERMINAL_PARKED_RUNTIME_CAP,
+						max: MAX_TERMINAL_PARKED_RUNTIME_CAP,
+					})}
 				</p>
 			</div>
 			<Input

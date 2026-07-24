@@ -6,6 +6,7 @@ import {
 	SelectValue,
 } from "@superset/ui/select";
 import { HiOutlineComputerDesktop, HiOutlineServer } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export interface HostSelectOption {
 	id: string;
@@ -29,6 +30,7 @@ export function HostSelect({
 	align = "end",
 	className,
 }: HostSelectProps) {
+	const { t } = useTranslation();
 	const selected = options.find((option) => option.id === value);
 
 	return (
@@ -40,11 +42,15 @@ export function HostSelect({
 				<SelectValue>
 					<span className="flex items-center gap-1.5">
 						<span className="truncate">
-							{selected?.isLocal ? "This device" : (selected?.name ?? value)}
+							{selected?.isLocal
+								? t("project.thisDevice")
+								: (selected?.name ?? value)}
 						</span>
 						{selected && !selected.isLocal && (
 							<span
-								title={selected.isOnline ? "Online" : "Offline"}
+								title={
+									selected.isOnline ? t("hosts.online") : t("hosts.offline")
+								}
 								className={
 									selected.isOnline
 										? "size-1.5 shrink-0 rounded-full bg-emerald-500"
@@ -65,7 +71,7 @@ export function HostSelect({
 								<HiOutlineServer className="size-4 text-muted-foreground" />
 							)}
 							<span className="truncate">
-								{option.isLocal ? "This device" : option.name}
+								{option.isLocal ? t("project.thisDevice") : option.name}
 							</span>
 							{!option.isLocal && !option.isOnline && (
 								<span className="text-xs text-muted-foreground">offline</span>

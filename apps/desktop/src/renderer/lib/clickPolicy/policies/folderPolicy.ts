@@ -1,4 +1,4 @@
-import type { ModifierEvent } from "../types";
+import type { ModifierEvent, Translator } from "../types";
 
 /**
  * Folder click rules are intentionally hardcoded (not settings-driven):
@@ -19,7 +19,12 @@ export function folderIntentFor(event: ModifierEvent): FolderIntent {
 	return event.shiftKey ? "external" : "reveal";
 }
 
-export function folderIntentLabel(intent: FolderIntent): string | null {
+export function folderIntentLabel(
+	intent: FolderIntent,
+	t: Translator,
+): string | null {
 	if (intent === null) return null;
-	return intent === "external" ? "Open in editor" : "Reveal in sidebar";
+	return intent === "external"
+		? t("clickPolicy.openInEditor")
+		: t("clickPolicy.revealInSidebar");
 }

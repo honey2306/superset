@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { ClipboardListIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { getResult } from "../../../../utils/tool-helpers";
 import { formatTaskDate, toStringArray } from "../../utils/taskToolCallHelpers";
@@ -12,6 +13,7 @@ interface ListTasksToolCallProps {
 
 export function ListTasksToolCall({ part }: ListTasksToolCallProps) {
 	const navigate = useNavigate();
+	const { t } = useTranslation();
 	const result = getResult(part);
 	const resultData =
 		typeof result.result === "object" && result.result !== null
@@ -34,13 +36,13 @@ export function ListTasksToolCall({ part }: ListTasksToolCallProps) {
 	return (
 		<SupersetToolCall
 			part={part}
-			toolName="List tasks"
+			toolName={t("chat.tool.listTasks")}
 			icon={ClipboardListIcon}
 			details={
 				<div className="space-y-2">
 					<div className="text-muted-foreground">
-						Found: {count} task{count === 1 ? "" : "s"}
-						{hasMore ? " (more available)" : ""}
+						{t("chat.tool.foundTasks", { count })}
+						{hasMore ? t("chat.tool.moreAvailable") : ""}
 					</div>
 					{tasks.length > 0 ? (
 						<div className="space-y-1">
@@ -49,7 +51,9 @@ export function ListTasksToolCall({ part }: ListTasksToolCallProps) {
 								const slug = typeof task.slug === "string" ? task.slug : null;
 								const openTaskId = taskId ?? slug;
 								const title =
-									typeof task.title === "string" ? task.title : "Untitled task";
+									typeof task.title === "string"
+										? task.title
+										: t("chat.tool.untitledTask");
 								const status =
 									typeof task.statusName === "string" ? task.statusName : null;
 								const statusType =
@@ -93,9 +97,13 @@ export function ListTasksToolCall({ part }: ListTasksToolCallProps) {
 								const prUrl =
 									typeof task.prUrl === "string" ? task.prUrl : null;
 								const extraDetails = [
-									creator ? { label: "Creator", value: creator } : null,
-									branch ? { label: "Branch", value: branch } : null,
-									prUrl ? { label: "PR", value: prUrl } : null,
+									creator
+										? { label: t("chat.tool.creator"), value: creator }
+										: null,
+									branch
+										? { label: t("chat.tool.branch"), value: branch }
+										: null,
+									prUrl ? { label: t("chat.tool.pr"), value: prUrl } : null,
 								].filter((detail): detail is { label: string; value: string } =>
 									Boolean(detail),
 								);
@@ -132,7 +140,9 @@ export function ListTasksToolCall({ part }: ListTasksToolCallProps) {
 							})}
 						</div>
 					) : (
-						<div className="text-muted-foreground">No tasks in result.</div>
+						<div className="text-muted-foreground">
+							{t("chat.tool.noTasksInResult")}
+						</div>
 					)}
 				</div>
 			}

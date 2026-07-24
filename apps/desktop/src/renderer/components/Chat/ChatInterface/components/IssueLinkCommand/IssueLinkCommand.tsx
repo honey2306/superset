@@ -13,6 +13,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import Fuse from "fuse.js";
 import type { ReactNode } from "react";
 import { useId, useMemo, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	StatusIcon,
 	type StatusType,
@@ -41,6 +42,7 @@ export function IssueLinkCommand({
 	tooltipLabel,
 	onSelect,
 }: IssueLinkCommandProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [showClosed, setShowClosed] = useState(false);
@@ -162,7 +164,7 @@ export function IssueLinkCommand({
 			>
 				<Command shouldFilter={false}>
 					<CommandInput
-						placeholder="Search issues..."
+						placeholder={t("issueLink.searchIssues")}
 						value={searchQuery}
 						onValueChange={setSearchQuery}
 					/>
@@ -176,23 +178,25 @@ export function IssueLinkCommand({
 							htmlFor={showClosedId}
 							className="cursor-pointer select-none text-xs text-muted-foreground"
 						>
-							Show closed
+							{t("issueLink.showClosed")}
 						</label>
 					</div>
 					<CommandList className="max-h-[420px]">
 						{filteredTasks.length === 0 && (
 							<CommandEmpty>
-								{showClosed ? "No issues found." : "No open issues found."}
+								{showClosed
+									? t("issueLink.noIssues")
+									: t("issueLink.noOpenIssues")}
 							</CommandEmpty>
 						)}
 						{filteredTasks.length > 0 && (
 							<CommandGroup
 								heading={
 									searchQuery
-										? "Results"
+										? t("issueLink.results")
 										: showClosed
-											? "Recent issues"
-											: "Open issues"
+											? t("issueLink.recentIssues")
+											: t("issueLink.openIssues")
 								}
 							>
 								{filteredTasks.map((task) => {

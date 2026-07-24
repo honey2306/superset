@@ -10,6 +10,7 @@ import {
 	SearchIcon,
 } from "lucide-react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { detectLanguage } from "shared/detect-language";
 import type { BundledLanguage } from "shiki";
 import {
@@ -45,6 +46,7 @@ export function ReadOnlyToolCall({
 	workspaceCwd,
 	onOpenFileInPane,
 }: ReadOnlyToolCallProps) {
+	const { t } = useTranslation();
 	const args = getArgs(part);
 	const toolName = normalizeToolName(getToolName(part));
 	const output =
@@ -96,20 +98,22 @@ export function ReadOnlyToolCall({
 			})()
 		: null;
 
-	let title = "Read file";
+	let title = t("chat.tool.readFile");
 	let subtitle = String(args.path ?? args.filePath ?? args.query ?? "");
 	let Icon = FileIcon;
 
 	switch (toolName) {
 		case "mastra_workspace_read_file":
-			title = isPending ? "Reading" : "Read";
+			title = isPending ? t("chat.tool.reading") : t("chat.tool.read");
 			subtitle = String(
 				args.path ?? args.filePath ?? args.file_path ?? args.file ?? "",
 			);
 			Icon = FileIcon;
 			break;
 		case "mastra_workspace_list_files":
-			title = isPending ? "Listing files" : "Listed files";
+			title = isPending
+				? t("chat.tool.listingFiles")
+				: t("chat.tool.listedFiles");
 			subtitle = String(
 				args.path ??
 					args.directory ??
@@ -122,12 +126,12 @@ export function ReadOnlyToolCall({
 			Icon = FolderTreeIcon;
 			break;
 		case "mastra_workspace_file_stat":
-			title = "Check file";
+			title = t("chat.tool.checkFile");
 			subtitle = String(args.path ?? args.file_path ?? args.file ?? "");
 			Icon = FileSearchIcon;
 			break;
 		case "mastra_workspace_search":
-			title = "Search";
+			title = t("chat.tool.search");
 			subtitle = String(
 				args.query ??
 					args.pattern ??
@@ -139,7 +143,7 @@ export function ReadOnlyToolCall({
 			Icon = SearchIcon;
 			break;
 		case "mastra_workspace_index":
-			title = "Index";
+			title = t("chat.tool.index");
 			Icon = SearchIcon;
 			break;
 	}
@@ -164,7 +168,7 @@ export function ReadOnlyToolCall({
 			<ToolCallRow
 				icon={Icon}
 				isPending
-				title="Reading"
+				title={t("chat.tool.reading")}
 				description={subtitle}
 			/>
 		);

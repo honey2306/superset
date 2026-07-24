@@ -2,6 +2,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { type ComponentPropsWithoutRef, forwardRef } from "react";
 import { HiChevronRight, HiMiniPlus } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
 import { RenameInput } from "renderer/screens/main/components/WorkspaceSidebar/RenameInput";
 
@@ -42,6 +43,8 @@ export const DashboardSidebarProjectRow = forwardRef<
 		},
 		ref,
 	) => {
+		const { t } = useTranslation();
+
 		return (
 			// biome-ignore lint/a11y/noStaticElementInteractions: The header acts as a single toggle target in view mode while preserving nested inline controls.
 			<div
@@ -106,7 +109,7 @@ export const DashboardSidebarProjectRow = forwardRef<
 									}}
 									onKeyDown={(event) => event.stopPropagation()}
 									onContextMenu={(event) => event.stopPropagation()}
-									aria-label="New workspace"
+									aria-label={t("workspace.new")}
 									className="hidden size-full items-center justify-center rounded transition-colors hover:bg-muted group-hover:flex group-has-[:focus]:flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 								>
 									<HiMiniPlus className="size-4 text-muted-foreground" />

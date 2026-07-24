@@ -9,6 +9,7 @@ import {
 import { InputGroup, InputGroupInput } from "@superset/ui/input-group";
 import { Label } from "@superset/ui/label";
 import { useCallback, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export interface OAuthDialogProps {
 	provider: {
@@ -54,6 +55,7 @@ export function OAuthDialog({
 	onRetry,
 	onSubmit,
 }: OAuthDialogProps) {
+	const { t } = useTranslation();
 	const hasAuthUrl = Boolean(authUrl);
 	const showCodeInput = hasAuthUrl || isPending;
 	const canSubmit =
@@ -91,7 +93,7 @@ export function OAuthDialog({
 									onClick={onOpenAuthUrl}
 									disabled={!authUrl || isPending}
 								>
-									Open browser again
+									{t("oauthDialog.openBrowserAgain")}
 								</Button>
 								<Button
 									type="button"
@@ -99,7 +101,7 @@ export function OAuthDialog({
 									onClick={handleCopy}
 									disabled={!authUrl || isPending}
 								>
-									{copied ? "Copied!" : "Copy URL"}
+									{copied ? t("oauthDialog.copied") : t("oauthDialog.copyUrl")}
 								</Button>
 							</div>
 
@@ -147,10 +149,10 @@ export function OAuthDialog({
 							disabled={!canSubmit}
 						>
 							{isPending
-								? "Connecting..."
+								? t("oauthDialog.connecting")
 								: hasAuthUrl
-									? "Continue"
-									: "Try again"}
+									? t("oauthDialog.continue")
+									: t("oauthDialog.tryAgain")}
 						</Button>
 						<div className="flex items-center justify-between gap-2">
 							<Button
@@ -159,7 +161,7 @@ export function OAuthDialog({
 								onClick={() => onOpenChange(false)}
 								disabled={isPending}
 							>
-								Cancel
+								{t("oauthDialog.cancel")}
 							</Button>
 							{canDisconnect ? (
 								<Button
@@ -168,7 +170,7 @@ export function OAuthDialog({
 									onClick={onDisconnect}
 									disabled={isPending}
 								>
-									Disconnect
+									{t("oauthDialog.disconnect")}
 								</Button>
 							) : null}
 						</div>

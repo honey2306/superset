@@ -29,6 +29,15 @@ import type {
 	TabsState,
 } from "./types";
 
+/**
+ * Canonical initial name for freshly created chat panes/tabs.
+ * Kept as a module-level constant so callers (e.g. ChatPane title
+ * normalization) can compare against this value without relying on
+ * a locale-aware translation key. The localized display title is
+ * resolved separately via `t("chat.pane.newChat")`.
+ */
+export const NEW_CHAT_PANE_NAME = "New Chat";
+
 export const resolveFileViewerMode = ({
 	filePath,
 	diffCategory,
@@ -254,7 +263,7 @@ export const createChatPane = (
 		id,
 		tabId,
 		type: "chat",
-		name: "New Chat",
+		name: NEW_CHAT_PANE_NAME,
 		chat: {
 			sessionId,
 			launchConfig: options?.launchConfig ?? null,
@@ -350,7 +359,7 @@ export const createChatTabWithPane = (
 
 	const tab: Tab = {
 		id: tabId,
-		name: "New Chat",
+		name: NEW_CHAT_PANE_NAME,
 		workspaceId,
 		layout: pane.id,
 		createdAt: Date.now(),

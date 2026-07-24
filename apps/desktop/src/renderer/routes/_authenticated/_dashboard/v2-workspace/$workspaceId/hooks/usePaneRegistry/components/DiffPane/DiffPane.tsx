@@ -8,6 +8,7 @@ import type { RendererContext } from "@superset/panes";
 import { Button } from "@superset/ui/button";
 import { useCallback, useMemo, useRef } from "react";
 import { LuFileCode } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	createPaneScrollStateKey,
 	getPaneScrollState,
@@ -60,6 +61,7 @@ export function DiffPane({
 	onOpenFile,
 	onCreateNewAgentSession,
 }: DiffPaneProps) {
+	const { t } = useTranslation();
 	const data = context.pane.data as DiffPaneData;
 	const codeViewRef = useRef<CodeViewHandle<DiffAnnotationMetadata>>(null);
 	const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -297,7 +299,7 @@ export function DiffPane({
 	if (files.length === 0) {
 		return (
 			<div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
-				{isLoading ? "Loading…" : "No changes"}
+				{isLoading ? t("v2Diff.loading") : t("v2Diff.noChanges")}
 			</div>
 		);
 	}
@@ -306,9 +308,9 @@ export function DiffPane({
 		return (
 			<div className="flex h-full w-full cursor-text select-text items-center justify-center text-sm text-muted-foreground">
 				{hasPendingDiff
-					? "Loading…"
+					? t("v2Diff.loading")
 					: hasDiffError
-						? "Unable to load diff"
+						? t("v2Diff.unableToLoadDiff")
 						: null}
 			</div>
 		);
@@ -358,19 +360,22 @@ function BinaryDiffPlaceholder({
 	file: ChangesetFile;
 	onOpenFile: (path: string, openInNewTab?: boolean) => void;
 }) {
+	const { t } = useTranslation();
 	const canOpen = file.status !== "deleted";
 
 	return (
 		<div className="flex flex-col items-center justify-center gap-3 bg-muted/30 py-8 text-muted-foreground">
 			<LuFileCode className="size-8" />
-			<p className="cursor-text select-text text-sm">Binary file hidden</p>
+			<p className="cursor-text select-text text-sm">
+				{t("v2Diff.binaryFileHidden")}
+			</p>
 			{canOpen ? (
 				<Button
 					variant="outline"
 					size="sm"
 					onClick={() => onOpenFile(file.path)}
 				>
-					Open file
+					{t("v2Diff.openFile")}
 				</Button>
 			) : null}
 		</div>

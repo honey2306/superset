@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useV2UserPreferences } from "renderer/hooks/useV2UserPreferences";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { buildHint } from "../hint";
 import { tierFor } from "../tiers";
 import type {
@@ -9,6 +10,7 @@ import type {
 	ResolvedClick,
 	Surface,
 	TierMode,
+	Translator,
 } from "../types";
 
 export interface ClickPolicy {
@@ -45,6 +47,7 @@ export function buildPolicy(
 	map: LinkTierMap,
 	surface: Surface,
 	mode: TierMode,
+	t: Translator,
 ): ClickPolicy {
 	const resolve = (event: ModifierEvent): ResolvedClick => {
 		const tier = tierFor(event, mode);
@@ -54,7 +57,7 @@ export function buildPolicy(
 		resolve,
 		getAction: (event) => resolve(event).action,
 		tierForAction: (action) => tierForActionIn(map, action),
-		hint: buildHint(map, surface, mode),
+		hint: buildHint(map, surface, mode, t),
 		map,
 	};
 }
@@ -66,6 +69,7 @@ export function usePolicy(
 	surface: Surface,
 	mode: TierMode,
 ): ClickPolicy {
+	const { t } = useTranslation();
 	const { preferences } = useV2UserPreferences();
 	const map = preferences[key];
 	const resolve = useCallback(
@@ -84,8 +88,8 @@ export function usePolicy(
 		[map],
 	);
 	const hint = useMemo(
-		() => buildHint(map, surface, mode),
-		[map, surface, mode],
+		() => buildHint(map, surface, mode, t),
+		[map, surface, mode, t],
 	);
 	return { resolve, getAction, tierForAction, hint, map };
 }

@@ -14,6 +14,7 @@ import {
 	useEffect,
 	useState,
 } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCommandContext } from "../../core/ContextProvider";
 import { executeCommand } from "../../core/execute";
 import { useFrameStackStore } from "../../core/frames";
@@ -27,6 +28,7 @@ export function useCommandPaletteQuery(): string {
 }
 
 export function CommandPalette() {
+	const { t } = useTranslation();
 	const open = useFrameStackStore((s) => s.open);
 	const setOpen = useFrameStackStore((s) => s.setOpen);
 	const frames = useFrameStackStore((s) => s.frames);
@@ -83,14 +85,14 @@ export function CommandPalette() {
 	}, [open]);
 
 	const placeholder = currentFrame
-		? `Search in ${currentFrame.command.title}…`
-		: "Type a command or search…";
+		? t("commandPalette.searchIn", { title: currentFrame.command.title })
+		: t("commandPalette.search");
 
 	const backButton = (
 		<button
 			type="button"
 			onClick={handleBack}
-			aria-label="Back"
+			aria-label={t("navigation.back")}
 			className="text-muted-foreground hover:text-foreground"
 		>
 			<ArrowLeftIcon className="size-4 shrink-0" />
@@ -105,9 +107,9 @@ export function CommandPalette() {
 				style={{ top: "max(16px, calc(50% - 278px))" }}
 			>
 				<DialogHeader className="sr-only">
-					<DialogTitle>Command Palette</DialogTitle>
+					<DialogTitle>{t("commandPalette.title")}</DialogTitle>
 					<DialogDescription>
-						Run commands and navigate the application.
+						{t("commandPalette.description")}
 					</DialogDescription>
 				</DialogHeader>
 				<Command

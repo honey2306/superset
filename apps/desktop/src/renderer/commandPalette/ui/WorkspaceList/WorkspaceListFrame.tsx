@@ -11,6 +11,7 @@ import { CgLaptop } from "react-icons/cg";
 import { LuGitBranch, LuLaptop, LuMonitor } from "react-icons/lu";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	navigateToV2Workspace,
 	navigateToWorkspace,
@@ -63,6 +64,7 @@ export function WorkspaceListFrame() {
 }
 
 function V1WorkspaceList({ query }: { query: string }) {
+	const { t } = useTranslation();
 	const { data: groups = [] } =
 		electronTrpc.workspaces.getAllGrouped.useQuery();
 	const currentPath = useLocation({ select: (loc) => loc.pathname });
@@ -99,7 +101,7 @@ function V1WorkspaceList({ query }: { query: string }) {
 
 	return (
 		<CommandList>
-			<CommandEmpty>No workspaces found.</CommandEmpty>
+			<CommandEmpty>{t("commandPalette.noWorkspaces")}</CommandEmpty>
 			{projectGroups.map((group) => (
 				<CommandGroup key={group.projectId} heading={group.projectName}>
 					{group.workspaces.map((workspace) => (
@@ -134,6 +136,7 @@ function V1WorkspaceList({ query }: { query: string }) {
 }
 
 function V2WorkspaceList({ query }: { query: string }) {
+	const { t } = useTranslation();
 	const { all: workspaces } = useAccessibleV2Workspaces({
 		searchQuery: query,
 	});
@@ -172,7 +175,7 @@ function V2WorkspaceList({ query }: { query: string }) {
 
 	return (
 		<CommandList>
-			<CommandEmpty>No workspaces found.</CommandEmpty>
+			<CommandEmpty>{t("commandPalette.noWorkspaces")}</CommandEmpty>
 			{projectGroups.map((group) => (
 				<CommandGroup key={group.projectId} heading={group.projectName}>
 					{group.workspaces.map((workspace) => {

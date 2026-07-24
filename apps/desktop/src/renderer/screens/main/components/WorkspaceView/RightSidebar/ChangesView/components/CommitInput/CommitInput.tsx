@@ -22,6 +22,7 @@ import {
 	VscSync,
 } from "react-icons/vsc";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCreateOrOpenPR } from "renderer/screens/main/hooks";
 import { getPrimaryAction } from "./utils/getPrimaryAction";
 import { getPushActionCopy } from "./utils/getPushActionCopy";
@@ -51,40 +52,53 @@ export function CommitInput({
 	shouldAutoCreatePRAfterPublish,
 	onRefresh,
 }: CommitInputProps) {
+	const { t } = useTranslation();
 	const [commitMessage, setCommitMessage] = useState("");
 	const [isOpen, setIsOpen] = useState(false);
 
 	const commitMutation = electronTrpc.changes.commit.useMutation({
 		onSuccess: () => {
-			toast.success("Committed");
+			toast.success(t("v1Changes.commit.toastCommitted"));
 			setCommitMessage("");
 			onRefresh();
 		},
-		onError: (error) => toast.error(`Commit failed: ${error.message}`),
+		onError: (error) =>
+			toast.error(
+				t("v1Changes.commit.toastCommitFailed", { message: error.message }),
+			),
 	});
 
 	const pushMutation = electronTrpc.changes.push.useMutation({
 		onSuccess: () => {
-			toast.success("Pushed");
+			toast.success(t("v1Changes.commit.toastPushed"));
 			onRefresh();
 		},
-		onError: (error) => toast.error(`Push failed: ${error.message}`),
+		onError: (error) =>
+			toast.error(
+				t("v1Changes.commit.toastPushFailed", { message: error.message }),
+			),
 	});
 
 	const pullMutation = electronTrpc.changes.pull.useMutation({
 		onSuccess: () => {
-			toast.success("Pulled");
+			toast.success(t("v1Changes.commit.toastPulled"));
 			onRefresh();
 		},
-		onError: (error) => toast.error(`Pull failed: ${error.message}`),
+		onError: (error) =>
+			toast.error(
+				t("v1Changes.commit.toastPullFailed", { message: error.message }),
+			),
 	});
 
 	const syncMutation = electronTrpc.changes.sync.useMutation({
 		onSuccess: () => {
-			toast.success("Synced");
+			toast.success(t("v1Changes.commit.toastSynced"));
 			onRefresh();
 		},
-		onError: (error) => toast.error(`Sync failed: ${error.message}`),
+		onError: (error) =>
+			toast.error(
+				t("v1Changes.commit.toastSyncFailed", { message: error.message }),
+			),
 	});
 
 	const { createOrOpenPR, isPending: isCreateOrOpenPRPending } =
@@ -95,10 +109,13 @@ export function CommitInput({
 
 	const fetchMutation = electronTrpc.changes.fetch.useMutation({
 		onSuccess: () => {
-			toast.success("Fetched");
+			toast.success(t("v1Changes.commit.toastFetched"));
 			onRefresh();
 		},
-		onError: (error) => toast.error(`Fetch failed: ${error.message}`),
+		onError: (error) =>
+			toast.error(
+				t("v1Changes.commit.toastFetchFailed", { message: error.message }),
+			),
 	});
 
 	const isPending =
@@ -218,7 +235,7 @@ export function CommitInput({
 	return (
 		<div className="flex flex-col gap-1.5 px-2 py-2">
 			<Textarea
-				placeholder="Commit message"
+				placeholder={t("v1Changes.commit.placeholder")}
 				value={commitMessage}
 				onChange={(e) => setCommitMessage(e.target.value)}
 				className="min-h-[52px] resize-none text-[10px] bg-background"
@@ -244,13 +261,15 @@ export function CommitInput({
 							disabled={primary.disabled}
 						>
 							{primary.icon}
-							<span>{primary.label}</span>
+							<span>{t(primary.labelKey)}</span>
 							{countBadge && (
 								<span className="text-[10px] opacity-70">{countBadge}</span>
 							)}
 						</Button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">{primary.tooltip}</TooltipContent>
+					<TooltipContent side="bottom">
+						{t(primary.tooltipKey, primary.tooltipValues)}
+					</TooltipContent>
 				</Tooltip>
 				<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
 					<DropdownMenuTrigger asChild>
@@ -270,7 +289,7 @@ export function CommitInput({
 							className="text-xs"
 						>
 							<VscCheck className="size-3.5" />
-							Commit
+							{t("v1Changes.commit.commit")}
 						</DropdownMenuItem>
 						<DropdownMenuItem
 							onClick={handleCommitAndPush}
@@ -278,7 +297,7 @@ export function CommitInput({
 							className="text-xs"
 						>
 							<VscArrowUp className="size-3.5" />
-							Commit & Push
+							{t("v1Changes.commit.commitAndPush")}
 						</DropdownMenuItem>
 						{!hasExistingPR && canCreatePR && (
 							<DropdownMenuItem
@@ -287,7 +306,7 @@ export function CommitInput({
 								className="text-xs"
 							>
 								<VscLinkExternal className="size-3.5" />
-								Commit, Push & Create PR
+								{t("v1Changes.commit.commitPushCreatePR")}
 							</DropdownMenuItem>
 						)}
 
@@ -299,7 +318,7 @@ export function CommitInput({
 							className="text-xs"
 						>
 							<VscArrowUp className="size-3.5" />
-							<span className="flex-1">{pushActionCopy.menuLabel}</span>
+							<span className="flex-1">{t(pushActionCopy.menuLabelKey)}</span>
 							{pushCount > 0 && (
 								<span className="text-[10px] text-muted-foreground">
 									{pushCount}
@@ -312,7 +331,7 @@ export function CommitInput({
 							className="text-xs"
 						>
 							<VscArrowDown className="size-3.5" />
-							<span className="flex-1">Pull</span>
+							<span className="flex-1">{t("v1Changes.commit.pull")}</span>
 							{pullCount > 0 && (
 								<span className="text-[10px] text-muted-foreground">
 									{pullCount}
@@ -325,15 +344,15 @@ export function CommitInput({
 							className="text-xs"
 						>
 							<VscSync className="size-3.5" />
-							Sync
+							{t("v1Changes.commit.sync")}
 						</DropdownMenuItem>
 						<DropdownMenuItem onClick={handleFetch} className="text-xs">
 							<VscRefresh className="size-3.5" />
-							Fetch
+							{t("v1Changes.commit.fetch")}
 						</DropdownMenuItem>
 						<DropdownMenuItem onClick={handleFetchAndPull} className="text-xs">
 							<VscRefresh className="size-3.5" />
-							Fetch & Pull
+							{t("v1Changes.commit.fetchAndPull")}
 						</DropdownMenuItem>
 
 						<DropdownMenuSeparator />
@@ -341,12 +360,12 @@ export function CommitInput({
 						{hasExistingPR ? (
 							<DropdownMenuItem onClick={handleOpenPR} className="text-xs">
 								<VscLinkExternal className="size-3.5" />
-								Open Pull Request
+								{t("v1Changes.commit.openPullRequest")}
 							</DropdownMenuItem>
 						) : canCreatePR ? (
 							<DropdownMenuItem onClick={handleCreatePR} className="text-xs">
 								<VscLinkExternal className="size-3.5" />
-								Create Pull Request
+								{t("v1Changes.commit.createPullRequest")}
 							</DropdownMenuItem>
 						) : null}
 					</DropdownMenuContent>

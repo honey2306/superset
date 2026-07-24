@@ -7,6 +7,7 @@ import {
 	getPresetIcon,
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface AgentCardHeaderProps {
 	preset: ResolvedAgentConfig;
@@ -27,6 +28,7 @@ export function AgentCardHeader({
 	onEnabledChange,
 	onToggle,
 }: AgentCardHeaderProps) {
+	const { t } = useTranslation();
 	const isDark = useIsDarkTheme();
 	const icon = getPresetIcon(preset.id, isDark);
 	const contentId = `${preset.id}-settings`;
@@ -56,7 +58,7 @@ export function AgentCardHeader({
 					<div className="min-w-0">
 						<CardTitle className="truncate">{preset.label}</CardTitle>
 						<CardDescription className="mt-1">
-							{preset.description ?? "Agent launch configuration"}
+							{preset.description ?? t("agents.launchConfiguration")}
 						</CardDescription>
 					</div>
 				</div>
@@ -65,7 +67,7 @@ export function AgentCardHeader({
 						<div className="flex items-center">
 							<Switch
 								id={`${preset.id}-enabled`}
-								aria-label={`Enable ${preset.label}`}
+								aria-label={t("agents.enable", { name: preset.label })}
 								checked={enabled}
 								disabled={isUpdatingEnabled}
 								onCheckedChange={onEnabledChange}

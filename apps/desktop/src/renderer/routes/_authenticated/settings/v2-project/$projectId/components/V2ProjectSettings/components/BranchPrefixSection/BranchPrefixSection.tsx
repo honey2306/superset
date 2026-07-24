@@ -2,6 +2,7 @@ import type { BranchPrefixMode } from "@superset/shared/workspace-launch";
 import { toast } from "@superset/ui/sonner";
 import { useMutation } from "@tanstack/react-query";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { BranchPrefixControl } from "renderer/routes/_authenticated/settings/components/BranchPrefixControl";
 
 interface BranchPrefixSectionProps {
@@ -20,6 +21,7 @@ export function BranchPrefixSection({
 	customPrefix,
 	onChanged,
 }: BranchPrefixSectionProps) {
+	const { t } = useTranslation();
 	const setMutation = useMutation({
 		mutationFn: (vars: {
 			mode: BranchPrefixMode | null;
@@ -32,7 +34,9 @@ export function BranchPrefixSection({
 		onSuccess: () => onChanged(),
 		onError: (err) =>
 			toast.error(
-				err instanceof Error ? err.message : "Failed to update branch prefix",
+				err instanceof Error
+					? err.message
+					: t("project.failedUpdateBranchPrefix"),
 			),
 	});
 

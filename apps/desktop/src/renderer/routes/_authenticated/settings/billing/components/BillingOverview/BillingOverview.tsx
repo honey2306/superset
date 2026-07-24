@@ -6,6 +6,7 @@ import { useState } from "react";
 import { HiArrowRight } from "react-icons/hi2";
 import { env } from "renderer/env.renderer";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import {
 	isItemVisible,
@@ -23,6 +24,7 @@ interface BillingOverviewProps {
 }
 
 export function BillingOverview({ visibleItems }: BillingOverviewProps) {
+	const { t } = useTranslation();
 	const { data: session } = authClient.useSession();
 	const collections = useCollections();
 	const [isUpgrading, setIsUpgrading] = useState(false);
@@ -124,7 +126,7 @@ export function BillingOverview({ visibleItems }: BillingOverviewProps) {
 			await authClient.subscription.restore({
 				referenceId: activeOrgId,
 			});
-			toast.success("Plan restored");
+			toast.success(t("billing.restored"));
 		} finally {
 			setIsRestoring(false);
 		}
@@ -134,21 +136,21 @@ export function BillingOverview({ visibleItems }: BillingOverviewProps) {
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8 flex items-start justify-between gap-4">
 				<div>
-					<h2 className="text-xl font-semibold">Billing</h2>
+					<h2 className="text-xl font-semibold">{t("settings.billing")}</h2>
 					<p className="text-sm text-muted-foreground mt-1">
-						For questions about billing,{" "}
+						{t("billing.descriptionPrefix")}{" "}
 						<a
 							href="mailto:support@superset.sh"
 							className="text-primary hover:underline"
 						>
-							contact us
+							{t("billing.contactUs")}
 						</a>
 						.
 					</p>
 				</div>
 				<Button variant="ghost" size="sm" asChild>
 					<Link to="/settings/billing/plans">
-						All plans
+						{t("billing.allPlans")}
 						<HiArrowRight className="h-3 w-3" />
 					</Link>
 				</Button>
@@ -157,7 +159,7 @@ export function BillingOverview({ visibleItems }: BillingOverviewProps) {
 			<div className="space-y-6">
 				{showOverview && (
 					<div>
-						<h3 className="text-sm font-medium mb-2">Plan</h3>
+						<h3 className="text-sm font-medium mb-2">{t("billing.plan")}</h3>
 						<div className="divide-y divide-border">
 							<CurrentPlanCard
 								currentPlan={plan}

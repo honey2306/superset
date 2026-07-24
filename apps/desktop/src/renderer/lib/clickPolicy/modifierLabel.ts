@@ -1,25 +1,28 @@
-import type { LinkTier } from "./types";
+import type { LinkTier, Translator } from "./types";
 
 const isMac =
 	typeof navigator !== "undefined" &&
 	navigator.platform.toLowerCase().includes("mac");
 
-const MAC_LABELS: Record<LinkTier, string> = {
-	plain: "click",
-	shift: "⇧ click",
-	meta: "⌘ click",
-	metaShift: "⌘⇧ click",
-};
-
-const NON_MAC_LABELS: Record<LinkTier, string> = {
-	plain: "click",
-	shift: "Shift+click",
-	meta: "Ctrl+click",
-	metaShift: "Ctrl+Shift+click",
-};
-
-const LABELS = isMac ? MAC_LABELS : NON_MAC_LABELS;
-
-export function modifierLabel(tier: LinkTier): string {
-	return LABELS[tier];
+export function modifierLabel(tier: LinkTier, t: Translator): string {
+	const click = t("clickPolicy.modifier.click");
+	if (tier === "plain") return click;
+	if (isMac) {
+		switch (tier) {
+			case "shift":
+				return `⇧ ${click}`;
+			case "meta":
+				return `⌘ ${click}`;
+			case "metaShift":
+				return `⌘⇧ ${click}`;
+		}
+	}
+	switch (tier) {
+		case "shift":
+			return `Shift+${click}`;
+		case "meta":
+			return `Ctrl+${click}`;
+		case "metaShift":
+			return `Ctrl+Shift+${click}`;
+	}
 }

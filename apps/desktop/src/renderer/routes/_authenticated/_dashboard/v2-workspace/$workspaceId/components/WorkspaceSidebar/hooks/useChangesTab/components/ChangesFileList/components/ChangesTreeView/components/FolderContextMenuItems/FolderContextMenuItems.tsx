@@ -3,6 +3,7 @@ import {
 	DropdownMenuSeparator,
 } from "@superset/ui/dropdown-menu";
 import { ExternalLink } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PathActionsMenuItems } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/WorkspaceSidebar/components/PathActionsMenuItems";
 import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 
@@ -24,6 +25,7 @@ export function FolderContextMenuItems({
 	worktreePath,
 	onOpenInEditor,
 }: FolderContextMenuItemsProps) {
+	const { t } = useTranslation();
 	const absolutePath = worktreePath
 		? toAbsoluteWorkspacePath(worktreePath, relativePath)
 		: undefined;
@@ -34,7 +36,7 @@ export function FolderContextMenuItems({
 				disabled={!onOpenInEditor}
 			>
 				<ExternalLink />
-				Open in Editor
+				{t("v2Workspace.folderMenu.openInEditor")}
 			</DropdownMenuItem>
 			{absolutePath && (
 				<>

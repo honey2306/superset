@@ -5,13 +5,15 @@ import { Switch } from "@superset/ui/switch";
 import { cn } from "@superset/ui/utils";
 import { useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { differenceInDays, format } from "date-fns";
+import { differenceInDays } from "date-fns";
 import { Fragment, useState } from "react";
 import { HiArrowLeft, HiArrowUpRight, HiCheck } from "react-icons/hi2";
 import { env } from "renderer/env.renderer";
 import { track } from "renderer/lib/analytics";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
+import type { MessageKey } from "renderer/providers/I18nProvider/messages";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import type { PlanTier } from "../constants";
 
@@ -30,13 +32,13 @@ type PlanCardAction =
 
 type PlanCardData = {
 	id: "free" | "pro" | "enterprise";
-	name: string;
+	nameKey: MessageKey;
 	price: { monthly: string; yearly: string } | string;
-	priceNote?: { monthly: string; yearly: string } | string;
-	billingText: { monthly: string; yearly: string } | string;
+	priceNoteKey?: MessageKey;
+	billingTextKey: { monthly: MessageKey; yearly: MessageKey } | MessageKey;
 	showBillingToggle?: boolean;
 	actions: Array<{
-		label: string;
+		labelKey: MessageKey;
 		action: PlanCardAction;
 		variant: "default" | "secondary" | "outline";
 		size?: "default" | "sm";
@@ -48,26 +50,26 @@ type PlanCardData = {
 type ComparisonValue = string | boolean | null;
 
 type ComparisonRow = {
-	label: string;
+	labelKey: MessageKey;
 	values: ComparisonValue[];
-	badge?: { label: string; variant: "default" | "secondary" };
+	badge?: { labelKey: MessageKey; variant: "default" | "secondary" };
 };
 
 type ComparisonSection = {
-	title: string;
+	titleKey: MessageKey;
 	rows: ComparisonRow[];
 };
 
-const PLAN_CARDS: PlanCardData[] = [
+const createPlanCards = (t: ReturnType<typeof useTranslation>["t"]): PlanCardData[] => [
 	{
 		id: "free",
-		name: "Free",
+		nameKey: "billing.free",
 		price: "$0",
-		priceNote: "per user/month",
-		billingText: "Free for everyone",
+		priceNoteKey: "billing.perUserMonth",
+		billingTextKey: "billing.freeForEveryone",
 		actions: [
 			{
-				label: "Current plan",
+				labelKey: "billing.currentPlan",
 				action: "current",
 				variant: "secondary",
 			},
@@ -75,17 +77,14 @@ const PLAN_CARDS: PlanCardData[] = [
 	},
 	{
 		id: "pro",
-		name: "Pro",
+		nameKey: "billing.pro",
 		price: { monthly: "$20", yearly: "$15" },
-		priceNote: { monthly: "per user/month", yearly: "per user/month" },
-		billingText: {
-			monthly: "Billed monthly",
-			yearly: "Billed yearly",
-		},
+		priceNoteKey: "billing.perUserMonth",
+		billingTextKey: { monthly: "billing.billedMonthly", yearly: "billing.billedYearly" },
 		showBillingToggle: true,
 		actions: [
 			{
-				label: "Upgrade",
+				labelKey: "billing.upgrade",
 				action: "upgrade",
 				variant: "default",
 			},
@@ -93,12 +92,12 @@ const PLAN_CARDS: PlanCardData[] = [
 	},
 	{
 		id: "enterprise",
-		name: "Enterprise",
-		price: "Custom pricing",
-		billingText: "Billed yearly",
+		nameKey: "billing.enterprise",
+		price: t("billing.customPricing"),
+		billingTextKey: "billing.billedYearly",
 		actions: [
 			{
-				label: "Request a trial",
+				labelKey: "billing.requestTrial",
 				action: "contact",
 				variant: "outline",
 			},
@@ -108,99 +107,99 @@ const PLAN_CARDS: PlanCardData[] = [
 
 const COMPARISON_SECTIONS: ComparisonSection[] = [
 	{
-		title: "Usage",
+		titleKey: "billing.usage",
 		rows: [
 			{
-				label: "Team members",
-				values: ["1", "Unlimited", "Unlimited"],
+				labelKey: "billing.teamMembers",
+				values: ["1", "billing.unlimited", "billing.unlimited"],
 			},
 			{
-				label: "Workspaces",
-				values: ["Unlimited", "Unlimited", "Unlimited"],
+				labelKey: "billing.workspaces",
+				values: ["billing.unlimited", "billing.unlimited", "billing.unlimited"],
 			},
 			{
-				label: "Projects",
-				values: ["Unlimited", "Unlimited", "Unlimited"],
+				labelKey: "billing.projects",
+				values: ["billing.unlimited", "billing.unlimited", "billing.unlimited"],
 			},
 		],
 	},
 	{
-		title: "Features",
+		titleKey: "billing.features",
 		rows: [
 			{
-				label: "Desktop app",
+				labelKey: "billing.desktopApp",
 				values: [true, true, true],
 			},
 			{
-				label: "Local workspaces",
+				labelKey: "billing.localWorkspaces",
 				values: [true, true, true],
 			},
 			{
-				label: "Remote workspaces",
+				labelKey: "billing.remoteWorkspaces",
 				values: [null, true, true],
-				badge: { label: "Beta", variant: "default" },
+				badge: { labelKey: "billing.beta", variant: "default" },
 			},
 			{
-				label: "Automations",
+				labelKey: "billing.automations",
 				values: [true, true, true],
 			},
 			{
-				label: "Mobile app",
+				labelKey: "billing.mobileApp",
 				values: [null, true, true],
-				badge: { label: "Coming soon", variant: "secondary" },
+				badge: { labelKey: "billing.comingSoon", variant: "secondary" },
 			},
 			{
-				label: "GitHub integration",
+				labelKey: "billing.githubIntegration",
 				values: [true, true, true],
 			},
 			{
-				label: "Linear integration",
+				labelKey: "billing.linearIntegration",
 				values: [null, true, true],
 			},
 			{
-				label: "Slack integration",
+				labelKey: "billing.slackIntegration",
 				values: [null, true, true],
 			},
 			{
-				label: "Team collaboration",
+				labelKey: "billing.teamCollaboration",
 				values: [null, true, true],
 			},
 		],
 	},
 	{
-		title: "Support",
+		titleKey: "billing.support",
 		rows: [
 			{
-				label: "Priority support",
+				labelKey: "billing.prioritySupport",
 				values: [null, true, true],
 			},
 			{
-				label: "Uptime SLA",
+				labelKey: "billing.uptimeSla",
 				values: [null, null, true],
 			},
 			{
-				label: "Custom contracts",
+				labelKey: "billing.customContracts",
 				values: [null, null, true],
 			},
 		],
 	},
 	{
-		title: "Security",
+		titleKey: "billing.security",
 		rows: [
 			{
-				label: "SSO/SAML",
+				labelKey: "billing.ssoSaml",
 				values: [null, null, true],
 			},
 			{
-				label: "IP restrictions",
+				labelKey: "billing.ipRestrictions",
 				values: [null, null, true],
 			},
 			{
-				label: "SCIM provisioning",
+				labelKey: "billing.scimProvisioning",
 				values: [null, null, true],
 			},
 			{
-				label: "Audit log",
+				labelKey: "billing.auditLog",
 				values: [null, null, true],
 			},
 		],
@@ -208,6 +207,9 @@ const COMPARISON_SECTIONS: ComparisonSection[] = [
 ];
 
 function PlansPage() {
+	const { locale, t } = useTranslation();
+	const formatDate = (date: Date) =>
+		new Intl.DateTimeFormat(locale, { year: "numeric", month: "long", day: "numeric" }).format(date);
 	const [isYearly, setIsYearly] = useState(true);
 	const [isUpgrading, setIsUpgrading] = useState(false);
 	const [isCanceling, setIsCanceling] = useState(false);
@@ -248,10 +250,11 @@ function PlansPage() {
 	const memberCount = membersData?.length ?? 1;
 
 	const currentPlanLabelByTier: Record<PlanTier, string> = {
-		free: "Free",
-		pro: "Pro",
-		enterprise: "Enterprise",
+		free: t("billing.free"),
+		pro: t("billing.pro"),
+		enterprise: t("billing.enterprise"),
 	};
+	const planCards = createPlanCards(t);
 	const currentPlanLabel = currentPlanLabelByTier[currentPlan];
 
 	const getValue = <T,>(value: T | { monthly: T; yearly: T }): T => {
@@ -302,7 +305,7 @@ function PlansPage() {
 				await authClient.subscription.restore({
 					referenceId: activeOrgId,
 				});
-				toast.success("Plan restored");
+				toast.success(t("billing.restored"));
 			} finally {
 				setIsRestoring(false);
 			}
@@ -337,7 +340,7 @@ function PlansPage() {
 
 	const renderComparisonValue = (value: ComparisonValue) => {
 		if (value === null || value === false) {
-			return <span className="sr-only">Not included</span>;
+			return <span className="sr-only">{t("billing.notIncluded")}</span>;
 		}
 
 		if (value === true) {
@@ -362,18 +365,14 @@ function PlansPage() {
 				<Button variant="ghost" size="sm" asChild>
 					<Link to="/settings/billing">
 						<HiArrowLeft className="h-4 w-4" />
-						Billing
+						{t("settings.billing")}
 					</Link>
 				</Button>
 				<div>
-					<h2 className="text-xl font-semibold">Plans</h2>
+					<h2 className="text-xl font-semibold">{t("billing.plans")}</h2>
 					<p className="text-sm text-muted-foreground mt-1">
-						You are on the{" "}
-						<span className="text-foreground font-medium">
-							{currentPlanLabel} plan
-						</span>
-						. If you have any questions or would like further support with your
-						plan,{" "}
+						<span className="text-foreground font-medium">{t("billing.currentPlanSummary", { plan: currentPlanLabel })}</span>{" "}
+						{t("billing.supportPrompt")}{" "}
 						<button
 							type="button"
 							onClick={() => {
@@ -384,7 +383,7 @@ function PlansPage() {
 							}}
 							className="inline-flex items-center gap-1 text-primary hover:underline"
 						>
-							contact us
+							{t("billing.contactUs")}
 							<HiArrowUpRight className="h-3 w-3" />
 						</button>
 						.
@@ -414,8 +413,8 @@ function PlansPage() {
 								<div
 									className={cn("px-2", rowKey === "cta" ? "py-3" : "py-2.5")}
 								/>
-								{PLAN_CARDS.map((plan) => {
-									const isCurrent = currentPlanLabel === plan.name;
+								{planCards.map((plan) => {
+									const isCurrent = currentPlan === plan.id;
 									const isDowngrade =
 										plan.id === "free" && currentPlan !== "free";
 									const isOnEnterprise = currentPlan === "enterprise";
@@ -424,9 +423,7 @@ function PlansPage() {
 									if (isOnEnterprise) {
 										planActions = [
 											{
-												label: isCurrent
-													? "Current plan"
-													: "Included in Enterprise",
+												labelKey: isCurrent ? "billing.currentPlan" : "billing.includedInEnterprise",
 												action: "current" as const,
 												variant: "secondary" as const,
 											},
@@ -434,7 +431,7 @@ function PlansPage() {
 									} else if (isCurrent && cancelAt) {
 										planActions = [
 											{
-												label: isRestoring ? "Restoring..." : "Restore plan",
+												labelKey: isRestoring ? "billing.restoring" : "billing.restorePlan",
 												action: "restore" as const,
 												variant: "default" as const,
 											},
@@ -444,7 +441,7 @@ function PlansPage() {
 										if (intervalMatches) {
 											planActions = [
 												{
-													label: "Current plan",
+													labelKey: "billing.currentPlan",
 													action: "current" as const,
 													variant: "secondary" as const,
 												},
@@ -452,11 +449,11 @@ function PlansPage() {
 										} else {
 											planActions = [
 												{
-													label: isUpgrading
-														? "Changing..."
+													labelKey: isUpgrading
+														? "billing.changing"
 														: isYearly
-															? "Change to Annual"
-															: "Change to Monthly",
+															? "billing.changeAnnual"
+															: "billing.changeMonthly",
 													action: "upgrade" as const,
 													variant: "default" as const,
 												},
@@ -465,7 +462,7 @@ function PlansPage() {
 									} else if (isCurrent) {
 										planActions = [
 											{
-												label: "Current plan",
+												labelKey: "billing.currentPlan",
 												action: "current" as const,
 												variant: "secondary" as const,
 											},
@@ -473,7 +470,7 @@ function PlansPage() {
 									} else if (isDowngrade && cancelAt) {
 										planActions = [
 											{
-												label: `Starts ${cancelAt ? format(new Date(cancelAt), "MMMM d, yyyy") : ""}`,
+												labelKey: "billing.startsOn",
 												action: "current" as const,
 												variant: "outline" as const,
 											},
@@ -481,9 +478,9 @@ function PlansPage() {
 									} else if (isDowngrade) {
 										planActions = [
 											{
-												label: isCanceling
-													? "Downgrading..."
-													: "Downgrade to Free",
+												labelKey: isCanceling
+													? "billing.downgrading"
+													: "billing.downgradeFree",
 												action: "downgrade" as const,
 												variant: "outline" as const,
 											},
@@ -497,20 +494,20 @@ function PlansPage() {
 											<div key={plan.id} className="px-4 py-2.5">
 												<div className="space-y-0.5">
 													<div className="text-base font-medium">
-														{plan.name}
+														{t(plan.nameKey)}
 													</div>
 													<div
 														className={cn(
-															plan.priceNote
+															plan.priceNoteKey
 																? "text-xl font-semibold leading-tight"
 																: "text-base font-medium text-muted-foreground",
 														)}
 													>
 														{getValue(plan.price)}
 													</div>
-													{plan.priceNote && (
+													{plan.priceNoteKey && (
 														<div className="text-xs text-muted-foreground">
-															{getValue(plan.priceNote)}
+															{t(plan.priceNoteKey)}
 														</div>
 													)}
 												</div>
@@ -528,10 +525,10 @@ function PlansPage() {
 													<Switch
 														checked={isYearly}
 														onCheckedChange={setIsYearly}
-														aria-label="Billed yearly"
+														aria-label={t("billing.billedYearly")}
 													/>
 												)}
-												<span>{getValue(plan.billingText)}</span>
+												<span>{t(getValue(plan.billingTextKey))}</span>
 											</div>
 										);
 									}
@@ -541,7 +538,7 @@ function PlansPage() {
 											<div className="flex flex-col gap-2">
 												{planActions.map((action) => (
 													<Button
-														key={action.label}
+														key={action.labelKey}
 														variant={action.variant}
 														size={action.size ?? "sm"}
 														className={cn(
@@ -555,7 +552,7 @@ function PlansPage() {
 														}
 														onClick={() => handlePlanAction(action.action)}
 													>
-														{action.label}
+														{action.labelKey === "billing.startsOn" ? t(action.labelKey, { date: cancelAt ? formatDate(new Date(cancelAt)) : "" }) : t(action.labelKey)}
 													</Button>
 												))}
 											</div>
@@ -573,9 +570,9 @@ function PlansPage() {
 						))}
 
 						{COMPARISON_SECTIONS.map((section, sectionIndex) => (
-							<Fragment key={section.title}>
+							<Fragment key={section.titleKey}>
 								<div className="col-span-4 pt-6 pb-3 px-2">
-									<span className="text-sm font-semibold">{section.title}</span>
+									<span className="text-sm font-semibold">{t(section.titleKey)}</span>
 								</div>
 								<div className="col-span-4 h-px bg-border/60" />
 
@@ -585,21 +582,21 @@ function PlansPage() {
 										rowIndex === section.rows.length - 1;
 
 									return (
-										<Fragment key={row.label}>
+										<Fragment key={row.labelKey}>
 											<div className="flex items-center gap-1.5 px-2 py-2.5 text-xs text-muted-foreground">
-												{row.label}
+												{t(row.labelKey)}
 												{row.badge && (
 													<Badge
 														variant={row.badge.variant}
 														className="px-1.5 py-0 text-[10px] font-medium"
 													>
-														{row.badge.label}
+														{t(row.badge.labelKey)}
 													</Badge>
 												)}
 											</div>
 											{row.values.map((value, valueIndex) => (
 												<div
-													key={`${row.label}-${valueIndex}`}
+													key={`${t(row.labelKey)}-${valueIndex}`}
 													className="flex items-center justify-start gap-2 px-4 py-2.5"
 												>
 													{renderComparisonValue(value)}

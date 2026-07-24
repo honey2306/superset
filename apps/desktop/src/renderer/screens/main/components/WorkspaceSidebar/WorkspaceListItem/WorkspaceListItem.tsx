@@ -9,6 +9,7 @@ import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { HotkeyLabel } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useHoverGitHubStatus } from "renderer/lib/githubQueryPolicy";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { WorkspaceRunIndicator } from "renderer/screens/main/components/WorkspaceRunIndicator";
@@ -64,6 +65,7 @@ export function WorkspaceListItem({
 	sections = [],
 	orderedWorkspaceIds = [],
 }: WorkspaceListItemProps) {
+	const { t } = useTranslation();
 	const isBranchWorkspace = type === "branch";
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
@@ -241,12 +243,12 @@ export function WorkspaceListItem({
 	const handleCopyPath = async () => {
 		if (!worktreePath) return;
 		await copyToClipboard(worktreePath);
-		toast.success("Path copied to clipboard");
+		toast.success(t("workspace.pathCopied"));
 	};
 	const handleCopyBranchName = async () => {
 		if (!branch) return;
 		await copyToClipboard(branch);
-		toast.success("Branch name copied to clipboard");
+		toast.success(t("workspace.branchCopied"));
 	};
 
 	const pr = githubStatus?.pr;
@@ -338,14 +340,14 @@ export function WorkspaceListItem({
 					<TooltipContent side="right" sideOffset={8}>
 						{isBranchWorkspace ? (
 							<>
-								<p className="text-xs font-medium">Local workspace</p>
+								<p className="text-xs font-medium">{t("workspace.local")}</p>
 								<p className="text-xs text-muted-foreground">
 									Changes are made directly in the main repository
 								</p>
 							</>
 						) : (
 							<>
-								<p className="text-xs font-medium">Worktree workspace</p>
+								<p className="text-xs font-medium">{t("workspace.worktree")}</p>
 								<p className="text-xs text-muted-foreground">
 									Isolated copy for parallel development
 								</p>
@@ -420,14 +422,14 @@ export function WorkspaceListItem({
 														handleDeleteClick();
 													}}
 													className="flex items-center justify-center text-muted-foreground hover:text-foreground"
-													aria-label="Close workspace"
+													aria-label={t("workspace.closeLabel")}
 												>
 													<HiMiniXMark className="size-3.5" />
 												</button>
 											</TooltipTrigger>
 											<TooltipContent side="top" sideOffset={4}>
 												<HotkeyLabel
-													label="Close workspace"
+													label={t("workspace.closeLabel")}
 													id={isActive ? "CLOSE_WORKSPACE" : undefined}
 												/>
 											</TooltipContent>

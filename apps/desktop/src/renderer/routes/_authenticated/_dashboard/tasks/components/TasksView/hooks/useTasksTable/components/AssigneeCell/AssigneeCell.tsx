@@ -9,6 +9,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import type { CellContext } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import { HiOutlineUserCircle } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOptimisticCollectionActions } from "renderer/routes/_authenticated/hooks/useOptimisticCollectionActions";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import type { TaskWithStatus } from "../../useTasksTable";
@@ -18,6 +19,7 @@ interface AssigneeCellProps {
 }
 
 export function AssigneeCell({ info }: AssigneeCellProps) {
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const { tasks: taskActions } = useOptimisticCollectionActions();
 	const [open, setOpen] = useState(false);
@@ -80,7 +82,7 @@ export function AssigneeCell({ info }: AssigneeCellProps) {
 						className="flex items-center gap-2"
 					>
 						<HiOutlineUserCircle className="size-5 text-muted-foreground shrink-0" />
-						<span className="text-sm">No assignee</span>
+						<span className="text-sm">{t("tasks.noAssignee")}</span>
 						{!assigneeId && !task.assigneeExternalId && (
 							<span className="ml-auto text-xs text-muted-foreground">✓</span>
 						)}

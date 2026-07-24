@@ -3,6 +3,7 @@ import { useMatchRoute } from "@tanstack/react-router";
 import { LuPlus } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
 import { STROKE_WIDTH_THICK } from "../constants";
 
@@ -13,6 +14,7 @@ interface NewWorkspaceButtonProps {
 export function NewWorkspaceButton({
 	isCollapsed = false,
 }: NewWorkspaceButtonProps) {
+	const { t } = useTranslation();
 	const openModal = useOpenNewWorkspaceModal();
 	const shortcutText = useHotkeyDisplay("NEW_WORKSPACE").text;
 
@@ -51,7 +53,7 @@ export function NewWorkspaceButton({
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="right">
-					New Workspace ({shortcutText})
+					{t("workspace.new")} ({shortcutText})
 				</TooltipContent>
 			</Tooltip>
 		);
@@ -66,7 +68,7 @@ export function NewWorkspaceButton({
 			<div className="flex items-center justify-center size-5 rounded bg-accent">
 				<LuPlus className="size-3" strokeWidth={STROKE_WIDTH_THICK} />
 			</div>
-			<span className="flex-1 text-left">New Workspace</span>
+			<span className="flex-1 text-left">{t("workspace.new")}</span>
 			<span className="text-[10px] text-muted-foreground/40 group-hover:text-muted-foreground/80 transition-colors font-mono tabular-nums shrink-0">
 				{shortcutText}
 			</span>

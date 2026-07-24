@@ -17,6 +17,7 @@ import {
 } from "renderer/components/OpenInExternalDropdown";
 import { HotkeyLabel, useHotkey, useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useV2ProjectDefaultApp } from "renderer/routes/_authenticated/hooks/useV2ProjectDefaultApp";
 import { useThemeStore } from "renderer/stores";
 
@@ -31,6 +32,7 @@ export function V2OpenInMenuButton({
 	branch,
 	projectId,
 }: V2OpenInMenuButtonProps) {
+	const { t } = useTranslation();
 	const activeTheme = useThemeStore((state) => state.activeTheme);
 
 	const { app: persistedApp, setApp: persistDefaultApp } =
@@ -41,11 +43,13 @@ export function V2OpenInMenuButton({
 		onSuccess: (_data, variables) => {
 			persistDefaultApp(variables.app);
 		},
-		onError: (error) => toast.error(`Failed to open: ${error.message}`),
+		onError: (error) =>
+			toast.error(t("path.openFailed", { error: error.message })),
 	});
 	const copyPath = electronTrpc.external.copyPath.useMutation({
-		onSuccess: () => toast.success("Path copied to clipboard"),
-		onError: (error) => toast.error(`Failed to copy path: ${error.message}`),
+		onSuccess: () => toast.success(t("path.copied")),
+		onError: (error) =>
+			toast.error(t("path.copyFailed", { error: error.message })),
 	});
 
 	const currentApp = useMemo(
@@ -89,8 +93,10 @@ export function V2OpenInMenuButton({
 						disabled={isLoading || !currentApp}
 						aria-label={
 							currentApp
-								? `Open in ${currentApp.displayLabel ?? currentApp.label}`
-								: "Open in editor"
+								? t("dashboard.openInApp", {
+										app: currentApp.displayLabel ?? currentApp.label,
+									})
+								: t("dashboard.openInEditor")
 						}
 						className={cn(
 							// Icon-only when the nearest @container is narrow; the branch
@@ -125,13 +131,15 @@ export function V2OpenInMenuButton({
 					{currentApp ? (
 						<div className="flex flex-col gap-0.5">
 							<HotkeyLabel
-								label={`Open in ${currentApp.displayLabel ?? currentApp.label}`}
+								label={t("dashboard.openInApp", {
+									app: currentApp.displayLabel ?? currentApp.label,
+								})}
 								id="OPEN_IN_APP"
 							/>
 							<span className="text-muted-foreground">{worktreePath}</span>
 						</div>
 					) : (
-						"Select an editor from the dropdown"
+						t("dashboard.selectEditor")
 					)}
 				</TooltipContent>
 			</Tooltip>
@@ -141,6 +149,7 @@ export function V2OpenInMenuButton({
 					<button
 						type="button"
 						disabled={isLoading}
+						aria-label={t("dashboard.openInMenuAria")}
 						className={cn(
 							"flex items-center justify-center h-6 w-6 rounded-r border border-border/60 bg-secondary/50 text-muted-foreground",
 							"transition-all duration-150 ease-out",

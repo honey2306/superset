@@ -37,6 +37,7 @@ import { useV2AgentChoices } from "renderer/hooks/useV2AgentChoices";
 import { PLATFORM } from "renderer/hotkeys";
 import { authClient } from "renderer/lib/auth-client";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { useNewWorkspaceModalOpen } from "renderer/stores/new-workspace-modal";
 import { useNewWorkspacePromptContext } from "renderer/stores/new-workspace-prompt-context";
@@ -81,6 +82,7 @@ export function PromptGroup({
 	recentProjects,
 	onSelectProject,
 }: PromptGroupProps) {
+	const { t } = useTranslation();
 	const modKey = PLATFORM === "mac" ? "⌘" : "Ctrl";
 	const isNewWorkspaceModalOpen = useNewWorkspaceModalOpen();
 	const { closeModal, draft, updateDraft, resetKey } =
@@ -276,17 +278,17 @@ export function PromptGroup({
 	// fall into a toast.
 	const { otherHosts } = useWorkspaceHostOptions();
 	const submitBlocker = useMemo<string | null>(() => {
-		if (!projectId) return "Select a project";
+		if (!projectId) return t("workspace.selectProject");
 		const selectedHostId = draft.hostId ?? machineId;
-		if (!selectedHostId) return "No active host";
+		if (!selectedHostId) return t("workspace.noActiveHost");
 		if (selectedHostId !== machineId) {
 			const remote = otherHosts.find((h) => h.id === selectedHostId);
-			if (!remote?.isOnline) return "Host is offline";
+			if (!remote?.isOnline) return t("workspace.hostOffline");
 		} else if (!activeHostUrl) {
-			return "Host service is not running";
+			return t("workspace.hostServiceStopped");
 		}
 		return null;
-	}, [projectId, draft.hostId, machineId, activeHostUrl, otherHosts]);
+	}, [projectId, draft.hostId, machineId, activeHostUrl, otherHosts, t]);
 
 	// ── Linked-context prefetch ──────────────────────────────────────
 	const promptContext = useNewWorkspacePromptContext({
@@ -312,8 +314,8 @@ export function PromptGroup({
 		}
 		if (submitBlocker) {
 			if ((draft.hostId ?? machineId) === machineId && !activeHostUrl) {
-				showHostServiceUnavailableToast(hostService, {
-					action: "create the workspace",
+				showHostServiceUnavailableToast(hostService, t, {
+					action: t("workspace.createAction"),
 				});
 			} else {
 				toast.error(submitBlocker);
@@ -330,6 +332,7 @@ export function PromptGroup({
 		machineId,
 		needsSetup,
 		submitBlocker,
+		t,
 	]);
 
 	useEffect(() => {
@@ -360,7 +363,7 @@ export function PromptGroup({
 			<div className="flex items-center">
 				<Input
 					className="border-none bg-transparent dark:bg-transparent shadow-none text-base font-medium px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 min-w-0 flex-1"
-					placeholder="Workspace name (optional)"
+					placeholder={t("workspace.workspaceNameOptional")}
 					value={workspaceName}
 					onChange={(e) =>
 						updateDraft({
@@ -378,7 +381,7 @@ export function PromptGroup({
 						className={cn(
 							"border-none bg-transparent dark:bg-transparent shadow-none text-xs font-mono text-muted-foreground/60 px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/30 focus:text-muted-foreground text-right placeholder:text-right overflow-hidden text-ellipsis",
 						)}
-						placeholder={branchPreview || "branch name"}
+						placeholder={branchPreview || t("workspace.branchName")}
 						value={branchName}
 						onChange={(e) =>
 							updateDraft({
@@ -469,7 +472,7 @@ export function PromptGroup({
 					onChange={(markdown) => updateDraft({ prompt: markdown })}
 					onPasteFiles={(files) => attachments.add(files)}
 					autoFocus="start"
-					placeholder="What do you want to do?"
+					placeholder={t("workspace.promptPlaceholder")}
 					className="flex flex-col min-h-[100px] max-h-[200px] px-3 pt-3"
 					editorClassName="overflow-y-auto text-sm"
 					features={{
@@ -484,13 +487,13 @@ export function PromptGroup({
 						<AgentSelect<WorkspaceCreateAgent>
 							agents={v2Agents}
 							value={selectedAgent}
-							placeholder="No agent"
+							placeholder={t("workspace.noAgent")}
 							onValueChange={setSelectedAgent}
 							onBeforeConfigureAgents={closeModal}
 							triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-foreground w-auto max-w-[160px]`}
 							iconClassName="size-3 object-contain"
 							allowNone
-							noneLabel="No agent"
+							noneLabel={t("workspace.noAgent")}
 							noneValue="none"
 						/>
 						{modelSupport && (
@@ -515,10 +518,10 @@ export function PromptGroup({
 							linearIssueTrigger={
 								<IssueLinkCommand
 									onSelect={addLinkedIssue}
-									tooltipLabel="Link issue"
+									tooltipLabel={t("workspace.linkIssue")}
 								>
 									<PromptInputButton
-										aria-label="Link issue"
+										aria-label={t("workspace.linkIssue")}
 										className={`${PILL_BUTTON_CLASS} w-[22px]`}
 									>
 										<SiLinear className="size-3.5" />
@@ -537,10 +540,10 @@ export function PromptGroup({
 									}
 									projectId={projectId}
 									hostId={hostId}
-									tooltipLabel="Link GitHub issue"
+									tooltipLabel={t("workspace.linkGitHubIssue")}
 								>
 									<PromptInputButton
-										aria-label="Link GitHub issue"
+										aria-label={t("workspace.linkGitHubIssue")}
 										className={`${PILL_BUTTON_CLASS} w-[22px]`}
 									>
 										<GoIssueOpened className="size-3.5" />
@@ -552,10 +555,10 @@ export function PromptGroup({
 									onSelect={setLinkedPR}
 									projectId={projectId}
 									hostId={hostId}
-									tooltipLabel="Link pull request"
+									tooltipLabel={t("workspace.linkPullRequest")}
 								>
 									<PromptInputButton
-										aria-label="Link pull request"
+										aria-label={t("workspace.linkPullRequest")}
 										className={`${PILL_BUTTON_CLASS} w-[22px]`}
 									>
 										<LuGitPullRequest className="size-3.5" />
@@ -603,7 +606,7 @@ export function PromptGroup({
 								className="flex items-center gap-1 text-xs text-muted-foreground"
 							>
 								<LuGitPullRequest className="size-3 shrink-0" />
-								based off PR #{linkedPR.prNumber}
+								{t("workspace.basedOnPr", { number: linkedPR.prNumber })}
 							</motion.span>
 						) : (
 							<motion.div
@@ -628,7 +631,7 @@ export function PromptGroup({
 							className="h-6 px-2 text-[11px] text-amber-500 hover:text-amber-500"
 							onClick={handleGoToSetup}
 						>
-							Set up project…
+							{t("workspace.setupProject")}
 						</Button>
 					) : (
 						<span className="text-[11px] text-muted-foreground/50">

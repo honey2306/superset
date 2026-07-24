@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HiCheckCircle } from "react-icons/hi2";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { ScriptField } from "./components/ScriptField";
 
 interface V2ScriptsEditorProps {
@@ -94,6 +95,7 @@ export function V2ScriptsEditor({
 	projectId,
 	className,
 }: V2ScriptsEditorProps) {
+	const { t } = useTranslation();
 	const queryClient = useQueryClient();
 
 	const configQueryKey = [
@@ -314,11 +316,11 @@ export function V2ScriptsEditor({
 						</TabsTrigger>
 					</TabsList>
 					<div className="flex h-5 items-center pb-1.5 text-xs text-muted-foreground">
-						{saveStatus === "saving" && <span>Saving…</span>}
+						{saveStatus === "saving" && <span>{t("scripts.saving")}</span>}
 						{saveStatus === "saved" && (
 							<span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
 								<HiCheckCircle className="h-3.5 w-3.5" />
-								Saved
+								{t("scripts.saved")}
 							</span>
 						)}
 					</div>

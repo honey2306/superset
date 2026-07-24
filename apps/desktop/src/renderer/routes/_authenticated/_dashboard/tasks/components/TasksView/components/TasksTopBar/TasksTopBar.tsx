@@ -13,6 +13,7 @@ import {
 } from "react-icons/hi2";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { useHotkey } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { TypeTab, ViewMode } from "../../../../stores/tasks-filter-state";
 import type { TaskWithStatus } from "../../hooks/useTasksData";
 import type { SelectedIssue } from "../GitHubIssuesContent";
@@ -50,9 +51,9 @@ interface TasksTopBarProps {
 }
 
 const TYPE_TABS = [
-	{ value: "tasks" as const, label: "Tasks", Icon: ActiveIcon },
-	{ value: "prs" as const, label: "PRs", Icon: GoGitPullRequest },
-	{ value: "issues" as const, label: "Issues", Icon: GoIssueOpened },
+	{ value: "tasks" as const, Icon: ActiveIcon },
+	{ value: "prs" as const, Icon: GoGitPullRequest },
+	{ value: "issues" as const, Icon: GoIssueOpened },
 ] as const;
 
 export function TasksTopBar({
@@ -75,6 +76,7 @@ export function TasksTopBar({
 	linearProjectFilter,
 	onLinearProjectFilterChange,
 }: TasksTopBarProps) {
+	const { t } = useTranslation();
 	const showTaskOnlyControls = typeTab === "tasks";
 	const showIssues = typeTab === "issues";
 	const taskSelectedCount = selectedTasks.length;
@@ -106,12 +108,12 @@ export function TasksTopBar({
 								variant="ghost"
 								size="icon-xs"
 								onClick={showIssues ? onClearIssueSelection : onClearSelection}
-								aria-label="Clear selection"
+								aria-label={t("tasks.clearSelection")}
 							>
 								<HiXMark />
 							</Button>
 							<span className="text-sm font-medium">
-								{selectedCount} selected
+								{t("tasks.selected", { count: selectedCount })}
 							</span>
 							<div className="h-4 w-px bg-border" />
 							{showIssues ? (
@@ -159,12 +161,22 @@ export function TasksTopBar({
 											<TabsTrigger
 												key={tab.value}
 												value={tab.value}
-												title={tab.label}
+												title={
+													tab.value === "tasks"
+														? t("tasks.tasks")
+														: tab.value === "prs"
+															? t("tasks.pullRequests")
+															: t("tasks.issues")
+												}
 												className="h-8 rounded-md px-2 gap-1 data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
 											>
 												<Icon className="h-3.5 w-3.5" />
 												<span className="text-sm hidden @5xl:inline">
-													{tab.label}
+													{tab.value === "tasks"
+														? t("tasks.tasks")
+														: tab.value === "prs"
+															? t("tasks.pullRequests")
+															: t("tasks.issues")}
 												</span>
 											</TabsTrigger>
 										);
@@ -201,13 +213,13 @@ export function TasksTopBar({
 								onClick={() => setIsCreateTaskOpen(true)}
 							>
 								<HiOutlinePencilSquare className="size-4" />
-								<span className="hidden @4xl:inline">New task</span>
+								<span className="hidden @4xl:inline">{t("tasks.new")}</span>
 							</Button>
 
 							<div className="flex items-center rounded-md border bg-muted/30 p-0.5">
 								<button
 									type="button"
-									title="Table view"
+									title={t("tasks.tableView")}
 									className={cn(
 										"flex items-center justify-center size-6 rounded-sm transition-colors",
 										viewMode === "table"
@@ -220,7 +232,7 @@ export function TasksTopBar({
 								</button>
 								<button
 									type="button"
-									title="Board view"
+									title={t("tasks.boardView")}
 									className={cn(
 										"flex items-center justify-center size-6 rounded-sm transition-colors",
 										viewMode === "board"
@@ -242,10 +254,10 @@ export function TasksTopBar({
 							type="text"
 							placeholder={
 								typeTab === "prs"
-									? "Search pull requests..."
+									? t("tasks.searchPullRequests")
 									: typeTab === "issues"
-										? "Search issues..."
-										: "Search tasks..."
+										? t("tasks.searchIssues")
+										: t("tasks.searchTasks")
 							}
 							value={searchQuery}
 							onChange={(e) => onSearchChange(e.target.value)}

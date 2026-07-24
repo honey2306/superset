@@ -14,6 +14,7 @@ import {
 	HiOutlinePlus,
 } from "react-icons/hi2";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { SecretRow } from "./components/SecretRow";
 
 interface Secret {
@@ -27,12 +28,6 @@ interface Secret {
 }
 
 type SortOrder = "last-updated" | "name" | "type";
-
-const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
-	{ value: "last-updated", label: "Last Updated" },
-	{ value: "name", label: "Name" },
-	{ value: "type", label: "Type" },
-];
 
 function sortSecrets(secrets: Secret[], order: SortOrder): Secret[] {
 	return [...secrets].sort((a, b) => {
@@ -64,6 +59,12 @@ export function EnvironmentVariablesList({
 	onAdd,
 	onEdit,
 }: EnvironmentVariablesListProps) {
+	const { t } = useTranslation();
+	const sortOptions: { value: SortOrder; label: string }[] = [
+		{ value: "last-updated", label: t("secrets.lastUpdated") },
+		{ value: "name", label: t("common.name") },
+		{ value: "type", label: t("secrets.type") },
+	];
 	const [secrets, setSecrets] = useState<Secret[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -101,7 +102,7 @@ export function EnvironmentVariablesList({
 			<div className="flex items-center justify-end">
 				<Button size="sm" onClick={onAdd}>
 					<HiOutlinePlus className="h-4 w-4 mr-1.5" />
-					Add Environment Variable
+					{t("secrets.addTitle")}
 				</Button>
 			</div>
 
@@ -110,7 +111,7 @@ export function EnvironmentVariablesList({
 					<div className="relative flex-1">
 						<HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 						<Input
-							placeholder="Search by key name..."
+							placeholder={t("secrets.searchPlaceholder")}
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
 							className="pl-9"
@@ -125,7 +126,7 @@ export function EnvironmentVariablesList({
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							{SORT_OPTIONS.map((opt) => (
+							{sortOptions.map((opt) => (
 								<SelectItem key={opt.value} value={opt.value}>
 									{opt.label}
 								</SelectItem>
@@ -137,13 +138,11 @@ export function EnvironmentVariablesList({
 
 			{isLoading ? (
 				<div className="text-sm text-muted-foreground py-8 text-center">
-					Loading...
+					{t("project.loading")}
 				</div>
 			) : filteredAndSorted.length === 0 ? (
 				<div className="text-sm text-muted-foreground py-8 text-center border rounded-md">
-					{secrets.length === 0
-						? "No environment variables yet"
-						: "No matching variables"}
+					{secrets.length === 0 ? t("secrets.none") : t("secrets.noMatches")}
 				</div>
 			) : (
 				<div className="border rounded-md">

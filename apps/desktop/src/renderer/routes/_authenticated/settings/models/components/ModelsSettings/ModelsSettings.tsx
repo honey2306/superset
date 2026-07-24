@@ -17,6 +17,7 @@ import { AnthropicOAuthDialog } from "renderer/components/Chat/ChatInterface/com
 import { OpenAIOAuthDialog } from "renderer/components/Chat/ChatInterface/components/ModelPicker/components/OpenAIOAuthDialog";
 import { useAnthropicOAuth } from "renderer/components/Chat/ChatInterface/components/ModelPicker/hooks/useAnthropicOAuth";
 import { useOpenAIOAuth } from "renderer/components/Chat/ChatInterface/components/ModelPicker/hooks/useOpenAIOAuth";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	isItemVisible,
 	SETTING_ITEM_ID,
@@ -43,6 +44,7 @@ const DIALOG_CONTEXT = {
 } as const;
 
 export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
+	const { t } = useTranslation();
 	const showAnthropic = isItemVisible(
 		SETTING_ITEM_ID.MODELS_ANTHROPIC,
 		visibleItems,
@@ -120,6 +122,13 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 		[openAIAuthStatus],
 	);
 
+	const statusBadgeLabels = {
+		notConnected: t("common.notConnected"),
+		expired: t("models.expired"),
+		needsAttention: t("models.needsAttention"),
+		active: t("models.active"),
+	} as const;
+
 	const anthropicBadge = useMemo(
 		() => getStatusBadge(anthropicStatus),
 		[anthropicStatus],
@@ -141,10 +150,12 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 				refetchAnthropicEnvConfig(),
 				refetchAnthropicAuthStatus(),
 			]);
-			toast.success("Anthropic settings updated");
+			toast.success(t("models.settingsUpdated", { provider: "Anthropic" }));
 			return true;
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Failed to save");
+			toast.error(
+				error instanceof Error ? error.message : t("models.failedSave"),
+			);
 			return false;
 		}
 	};
@@ -179,9 +190,11 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 			await setAnthropicApiKeyMutation.mutateAsync({ apiKey });
 			setAnthropicApiKeyInput("");
 			await refetchAnthropicAuthStatus();
-			toast.success("Anthropic API key updated");
+			toast.success(t("models.apiKeyUpdated", { provider: "Anthropic" }));
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Failed to save");
+			toast.error(
+				error instanceof Error ? error.message : t("models.failedSave"),
+			);
 		}
 	};
 
@@ -192,9 +205,11 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 			await setOpenAIApiKeyMutation.mutateAsync({ apiKey });
 			setOpenAIApiKeyInput("");
 			await refetchOpenAIAuthStatus();
-			toast.success("OpenAI API key updated");
+			toast.success(t("models.apiKeyUpdated", { provider: "OpenAI" }));
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Failed to save");
+			toast.error(
+				error instanceof Error ? error.message : t("models.failedSave"),
+			);
 		}
 	};
 
@@ -214,7 +229,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 		if (action.kind === "logout") {
 			return (
 				<Button variant="outline" size="sm" onClick={onDisconnect}>
-					Sign out
+					{t("models.signOut")}
 				</Button>
 			);
 		}
@@ -224,7 +239,9 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 				onClick={() => void startOAuth()}
 				disabled={isStartingOAuth}
 			>
-				{action.kind === "reconnect" ? "Reconnect" : "Sign in"}
+				{action.kind === "reconnect"
+					? t("models.reconnect")
+					: t("models.signIn")}
 			</Button>
 		);
 	};
@@ -233,9 +250,9 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 		<>
 			<div className="w-full max-w-4xl p-6">
 				<div className="mb-8">
-					<h2 className="text-xl font-semibold">Models</h2>
+					<h2 className="text-xl font-semibold">{t("settings.models")}</h2>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Manage provider accounts, API keys, and overrides.
+						{t("models.description")}
 					</p>
 				</div>
 
@@ -244,12 +261,14 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 						<SettingsSection
 							title="Anthropic"
 							icon={<img alt="" className="size-4" src={claudeIcon} />}
-							description="Sign in with Claude or use an API key."
+							description={t("models.providerDescription", {
+								provider: "Claude",
+							})}
 							action={
 								<div className="flex items-center gap-2">
 									{anthropicBadge ? (
 										<Badge variant={anthropicBadge.variant}>
-											{anthropicBadge.label}
+											{statusBadgeLabels[anthropicBadge.kind]}
 										</Badge>
 									) : null}
 									{renderProviderAction({
@@ -270,7 +289,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 							}
 						>
 							<ConfigRow
-								title="API key"
+								title={t("models.apiKey")}
 								htmlFor="anthropic-api-key"
 								field={
 									<Input
@@ -282,7 +301,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 										}}
 										placeholder={
 											anthropicStatus?.authMethod === "api_key"
-												? "Saved Anthropic API key"
+												? t("models.savedApiKey", { provider: "Anthropic" })
 												: "sk-ant-..."
 										}
 										className="font-mono"
@@ -300,12 +319,14 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 											setAnthropicApiKeyInput("");
 											setAnthropicForm(nextForm);
 											await refetchAnthropicAuthStatus();
-											toast.success("Anthropic API key cleared");
+											toast.success(
+												t("models.apiKeyCleared", { provider: "Anthropic" }),
+											);
 										} catch (error) {
 											toast.error(
 												error instanceof Error
 													? error.message
-													: "Failed to clear",
+													: t("models.failedClear"),
 											);
 										}
 									})();
@@ -326,7 +347,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 											<HiChevronDown
 												className={`size-3.5 transition-transform ${advancedOpen ? "" : "-rotate-90"}`}
 											/>
-											Advanced
+											{t("models.advanced")}
 										</button>
 									</CollapsibleTrigger>
 									{advancedOpen && hasAdvancedContent ? (
@@ -336,7 +357,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 											disabled={isSavingAnthropicConfig}
 											className="text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
 										>
-											Reset
+											{t("models.reset")}
 										</button>
 									) : null}
 								</div>
@@ -346,7 +367,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 											htmlFor="anthropic-auth-token"
 											className="text-sm font-medium"
 										>
-											Auth token
+											{t("models.authToken")}
 										</Label>
 										<Input
 											id="anthropic-auth-token"
@@ -369,7 +390,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 											htmlFor="anthropic-base-url"
 											className="text-sm font-medium"
 										>
-											Base URL
+											{t("models.baseUrl")}
 										</Label>
 										<Input
 											id="anthropic-base-url"
@@ -391,7 +412,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 											htmlFor="anthropic-extra-env"
 											className="text-sm font-medium"
 										>
-											Additional env vars
+											{t("models.additionalEnv")}
 										</Label>
 										<Textarea
 											id="anthropic-extra-env"
@@ -411,7 +432,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 										/>
 									</div>
 									<p className="text-xs text-muted-foreground">
-										Saved on blur.
+										{t("models.savedOnBlur")}
 									</p>
 								</CollapsibleContent>
 							</Collapsible>
@@ -428,12 +449,14 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 									src="https://models.dev/logos/openai.svg"
 								/>
 							}
-							description="Sign in with ChatGPT or use an API key."
+							description={t("models.providerDescription", {
+								provider: "ChatGPT",
+							})}
 							action={
 								<div className="flex items-center gap-2">
 									{openAIBadge ? (
 										<Badge variant={openAIBadge.variant}>
-											{openAIBadge.label}
+											{statusBadgeLabels[openAIBadge.kind]}
 										</Badge>
 									) : null}
 									{renderProviderAction({
@@ -454,7 +477,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 							}
 						>
 							<ConfigRow
-								title="API key"
+								title={t("models.apiKey")}
 								htmlFor="openai-api-key"
 								field={
 									<Input
@@ -466,7 +489,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 										}}
 										placeholder={
 											openAIStatus?.authMethod === "api_key"
-												? "Saved OpenAI API key"
+												? t("models.savedApiKey", { provider: "OpenAI" })
 												: "sk-..."
 										}
 										className="font-mono"
@@ -482,12 +505,14 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 											await clearOpenAIApiKeyMutation.mutateAsync();
 											setOpenAIApiKeyInput("");
 											await refetchOpenAIAuthStatus();
-											toast.success("OpenAI API key cleared");
+											toast.success(
+												t("models.apiKeyCleared", { provider: "OpenAI" }),
+											);
 										} catch (error) {
 											toast.error(
 												error instanceof Error
 													? error.message
-													: "Failed to clear",
+													: t("models.failedClear"),
 											);
 										}
 									})();

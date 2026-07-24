@@ -2,6 +2,7 @@ import { Button } from "@superset/ui/button";
 import { Label } from "@superset/ui/label";
 import { cn } from "@superset/ui/utils";
 import type { ReactNode } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface ConfigRowProps {
 	title: string;
@@ -26,14 +27,17 @@ export function ConfigRow({
 	field,
 	onSave,
 	onClear,
-	saveLabel = "Save",
-	clearLabel = "Clear",
+	saveLabel,
+	clearLabel,
 	showSave = true,
 	showClear = true,
 	disableSave,
 	disableClear,
 	className,
 }: ConfigRowProps) {
+	const { t } = useTranslation();
+	const resolvedSaveLabel = saveLabel ?? t("common.save");
+	const resolvedClearLabel = clearLabel ?? t("common.clear");
 	return (
 		<div className={cn("space-y-1.5", className)}>
 			<Label htmlFor={htmlFor} className="text-sm font-medium">
@@ -51,12 +55,12 @@ export function ConfigRow({
 						onClick={onClear}
 						disabled={disableClear}
 					>
-						{clearLabel}
+						{resolvedClearLabel}
 					</Button>
 				) : null}
 				{onSave && showSave ? (
 					<Button size="sm" onClick={onSave} disabled={disableSave}>
-						{saveLabel}
+						{resolvedSaveLabel}
 					</Button>
 				) : null}
 			</div>

@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { FileXIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { getResult } from "../../../../utils/tool-helpers";
 import { SupersetToolCall } from "../SupersetToolCall";
@@ -11,6 +12,7 @@ interface DeleteTaskToolCallProps {
 
 export function DeleteTaskToolCall({ part }: DeleteTaskToolCallProps) {
 	const navigate = useNavigate();
+	const { t } = useTranslation();
 	const result = getResult(part);
 	const resultData =
 		typeof result.result === "object" && result.result !== null
@@ -23,22 +25,22 @@ export function DeleteTaskToolCall({ part }: DeleteTaskToolCallProps) {
 	return (
 		<SupersetToolCall
 			part={part}
-			toolName="Delete task"
+			toolName={t("chat.tool.deleteTask")}
 			icon={FileXIcon}
 			details={
 				<div className="space-y-2">
 					{deleted.length > 0 ? (
 						<div className="space-y-1">
 							<div className="font-medium text-foreground">
-								Deleted ({deleted.length})
+								{t("chat.tool.deletedCount", { count: deleted.length })}
 							</div>
 							<div className="space-y-1">
 								{deleted.map((taskId) => (
 									<TaskItemDisplay
 										key={taskId}
-										status="Deleted"
+										status={t("chat.tool.deletedStatus")}
 										taskId={taskId}
-										title="Deleted task"
+										title={t("chat.tool.deletedTaskTitle")}
 										onClick={() =>
 											navigate({
 												to: "/tasks/$taskId",
@@ -51,7 +53,7 @@ export function DeleteTaskToolCall({ part }: DeleteTaskToolCallProps) {
 						</div>
 					) : (
 						<div className="text-muted-foreground">
-							No deleted tasks in result.
+							{t("chat.tool.noDeletedTasks")}
 						</div>
 					)}
 				</div>

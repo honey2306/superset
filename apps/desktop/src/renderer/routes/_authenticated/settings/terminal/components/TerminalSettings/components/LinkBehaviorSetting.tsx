@@ -8,8 +8,10 @@ import {
 	SelectValue,
 } from "@superset/ui/select";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export function LinkBehaviorSetting() {
+	const { t } = useTranslation();
 	const utils = electronTrpc.useUtils();
 
 	const { data: terminalLinkBehavior, isLoading } =
@@ -40,10 +42,10 @@ export function LinkBehaviorSetting() {
 		<div className="flex items-center justify-between">
 			<div className="space-y-0.5">
 				<Label htmlFor="terminal-link-behavior" className="text-sm font-medium">
-					Terminal file links
+					{t("terminal.fileLinks")}
 				</Label>
 				<p className="text-xs text-muted-foreground">
-					Choose how to open file paths when Cmd+clicking in the terminal
+					{t("terminal.fileLinksDescription")}
 				</p>
 			</div>
 			<Select
@@ -59,8 +61,12 @@ export function LinkBehaviorSetting() {
 					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>
-					<SelectItem value="external-editor">External editor</SelectItem>
-					<SelectItem value="file-viewer">File viewer</SelectItem>
+					<SelectItem value="external-editor">
+						{t("terminal.externalEditor")}
+					</SelectItem>
+					<SelectItem value="file-viewer">
+						{t("terminal.fileViewer")}
+					</SelectItem>
 				</SelectContent>
 			</Select>
 		</div>

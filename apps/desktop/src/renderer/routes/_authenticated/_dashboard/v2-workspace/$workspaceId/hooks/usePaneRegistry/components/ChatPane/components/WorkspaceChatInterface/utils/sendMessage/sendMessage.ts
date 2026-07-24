@@ -1,4 +1,5 @@
 import type { ThinkingLevel } from "@superset/ui/ai-elements/thinking-toggle";
+import type { useTranslation } from "renderer/providers/I18nProvider";
 
 export type ChatSendMessageInput = {
 	payload: {
@@ -15,12 +16,14 @@ export type ChatSendMessageInput = {
 	};
 };
 
-function toBaseErrorMessage(error: unknown): string {
+type TranslationFunction = ReturnType<typeof useTranslation>["t"];
+
+function toBaseErrorMessage(error: unknown, t: TranslationFunction): string {
 	if (typeof error === "string" && error.trim().length > 0) return error;
 	if (error instanceof Error && error.message.trim().length > 0) {
 		return error.message;
 	}
-	return "Failed to send message";
+	return t("chat.error.sendFailed");
 }
 
 function toNumericStatus(value: unknown): number | null {
@@ -59,9 +62,12 @@ function getErrorStatusCode(error: unknown): number | null {
 	return null;
 }
 
-export function toSendFailureMessage(error: unknown): string {
-	const baseMessage = toBaseErrorMessage(error);
+export function toSendFailureMessage(
+	error: unknown,
+	t: TranslationFunction,
+): string {
+	const baseMessage = toBaseErrorMessage(error, t);
 	const statusCode = getErrorStatusCode(error);
 	if (statusCode !== 401 && statusCode !== 403) return baseMessage;
-	return "Model authentication failed. Reconnect OAuth or set an API key in the model picker, then retry.";
+	return t("chat.error.authFailed");
 }

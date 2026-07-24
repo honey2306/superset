@@ -10,6 +10,7 @@ import { useCallback, useRef, useState } from "react";
 import { FaGithub } from "react-icons/fa";
 import { LuImagePlus, LuTrash2, LuUpload } from "react-icons/lu";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 const ACCEPTED_MIME_TYPES = "image/png,image/jpeg,image/webp";
 const MAX_SIZE_MB = 4.5;
@@ -26,6 +27,7 @@ export function IconUploadField({
 	iconUrl,
 	hasGitHubRepo,
 }: IconUploadFieldProps) {
+	const { t } = useTranslation();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isPending, setIsPending] = useState(false);
 
@@ -44,7 +46,7 @@ export function IconUploadField({
 			if (file.size > MAX_SIZE_BYTES) {
 				const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
 				toast.error(
-					`File too large (${sizeInMB}MB). Maximum size is ${MAX_SIZE_MB}MB`,
+					t("project.fileTooLarge", { size: sizeInMB, max: MAX_SIZE_MB }),
 				);
 				return;
 			}
@@ -52,7 +54,7 @@ export function IconUploadField({
 			setIsPending(true);
 			const reader = new FileReader();
 			reader.onerror = () => {
-				toast.error("Could not read selected file");
+				toast.error(t("project.couldNotReadFile"));
 				setIsPending(false);
 			};
 			reader.onabort = () => {
@@ -61,7 +63,7 @@ export function IconUploadField({
 			reader.onload = async () => {
 				const fileData = reader.result;
 				if (typeof fileData !== "string") {
-					toast.error("Could not read selected file");
+					toast.error(t("project.couldNotReadFile"));
 					setIsPending(false);
 					return;
 				}
@@ -74,7 +76,7 @@ export function IconUploadField({
 					});
 				} catch (err) {
 					const message =
-						err instanceof Error ? err.message : "Failed to upload icon";
+						err instanceof Error ? err.message : t("project.failedUploadIcon");
 					toast.error(message);
 				} finally {
 					setIsPending(false);
@@ -82,7 +84,7 @@ export function IconUploadField({
 			};
 			reader.readAsDataURL(file);
 		},
-		[projectId],
+		[projectId, t],
 	);
 
 	const handleUseGitHub = useCallback(async () => {
@@ -91,12 +93,12 @@ export function IconUploadField({
 			await apiTrpcClient.v2Project.resetIconToGitHub.mutate({ id: projectId });
 		} catch (err) {
 			const message =
-				err instanceof Error ? err.message : "Failed to fetch GitHub icon";
+				err instanceof Error ? err.message : t("project.failedFetchGitHubIcon");
 			toast.error(message);
 		} finally {
 			setIsPending(false);
 		}
-	}, [projectId]);
+	}, [projectId, t]);
 
 	const handleRemove = useCallback(async () => {
 		setIsPending(true);
@@ -104,12 +106,12 @@ export function IconUploadField({
 			await apiTrpcClient.v2Project.removeIcon.mutate({ id: projectId });
 		} catch (err) {
 			const message =
-				err instanceof Error ? err.message : "Failed to remove icon";
+				err instanceof Error ? err.message : t("project.failedRemoveIcon");
 			toast.error(message);
 		} finally {
 			setIsPending(false);
 		}
-	}, [projectId]);
+	}, [projectId, t]);
 
 	const hasSecondaryActions = hasGitHubRepo || Boolean(iconUrl);
 
@@ -120,17 +122,17 @@ export function IconUploadField({
 			disabled={isPending}
 			aria-label={
 				hasSecondaryActions
-					? "Project icon options"
+					? t("project.iconOptions")
 					: iconUrl
-						? "Replace icon"
-						: "Upload icon"
+						? t("project.replaceIcon")
+						: t("project.uploadIcon")
 			}
 			className="size-9 rounded-md border overflow-hidden flex items-center justify-center text-muted-foreground transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
 		>
 			{iconUrl ? (
 				<img
 					src={iconUrl}
-					alt="Project icon"
+					alt={t("project.iconAlt")}
 					className="size-full object-cover"
 				/>
 			) : (
@@ -147,12 +149,12 @@ export function IconUploadField({
 					<DropdownMenuContent align="start" className="w-48">
 						<DropdownMenuItem onSelect={handleClickUpload}>
 							<LuUpload className="size-4" />
-							Upload image…
+							{t("agents.uploadImage")}
 						</DropdownMenuItem>
 						{hasGitHubRepo && (
 							<DropdownMenuItem onSelect={handleUseGitHub}>
 								<FaGithub className="size-4" />
-								Use GitHub icon
+								{t("project.useGitHubIcon")}
 							</DropdownMenuItem>
 						)}
 						{iconUrl && (
@@ -160,7 +162,7 @@ export function IconUploadField({
 								<DropdownMenuSeparator />
 								<DropdownMenuItem variant="destructive" onSelect={handleRemove}>
 									<LuTrash2 className="size-4" />
-									Remove icon
+									{t("project.removeIcon")}
 								</DropdownMenuItem>
 							</>
 						)}

@@ -17,6 +17,7 @@ import { useRecentProjects } from "renderer/hooks/host-projects/useRecentProject
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { useV2AgentChoices } from "renderer/hooks/useV2AgentChoices";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions";
 import { useSelectedHostProjectIds } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceModalContent/hooks/useSelectedHostProjectIds";
@@ -57,6 +58,7 @@ export function RunIssuesInWorkspacePopover({
 	onComplete,
 }: RunIssuesInWorkspacePopoverProps) {
 	const hostService = useLocalHostService();
+	const { t } = useTranslation();
 	const { machineId, activeHostUrl } = hostService;
 	const { otherHosts } = useWorkspaceHostOptions();
 	const { submit } = useWorkspaceCreates();
@@ -178,8 +180,8 @@ export function RunIssuesInWorkspacePopover({
 		if (!selectedProjectId || !hostId) return;
 		if (submitBlocker) {
 			if (hostId === machineId && !activeHostUrl) {
-				showHostServiceUnavailableToast(hostService, {
-					action: "run issues in workspaces",
+				showHostServiceUnavailableToast(hostService, t, {
+					action: t("tasks.runIssuesInWorkspacesAction"),
 				});
 			} else {
 				toast.error(submitBlocker);

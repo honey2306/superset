@@ -4,6 +4,7 @@ import { useRelayUrl } from "renderer/hooks/useRelayUrl";
 import { authClient } from "renderer/lib/auth-client";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { getHostServiceUnavailableMessage } from "renderer/lib/host-service-unavailable";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import type { WorkspacesCreateInput } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal";
 import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
@@ -33,6 +34,7 @@ export interface UseWorkspaceCreatesApi {
 
 export function useWorkspaceCreates(): UseWorkspaceCreatesApi {
 	const hostService = useLocalHostService();
+	const { t } = useTranslation();
 	const { machineId, activeHostUrl } = hostService;
 	const { data: session } = authClient.useSession();
 	const organizationId = session?.session?.activeOrganizationId;
@@ -83,8 +85,8 @@ export function useWorkspaceCreates(): UseWorkspaceCreatesApi {
 			if (!organizationId || !hostUrl) {
 				const error = !organizationId
 					? "No active organization"
-					: getHostServiceUnavailableMessage(hostService, {
-							action: "create the workspace",
+					: getHostServiceUnavailableMessage(hostService, t, {
+							action: t("workspace.createAction"),
 						});
 				recordFailure(error);
 				return {
@@ -178,6 +180,7 @@ export function useWorkspaceCreates(): UseWorkspaceCreatesApi {
 			hostWorkspacesCache,
 			relayUrl,
 			hostService,
+			t,
 			trackWorkspaceTransaction,
 		],
 	);

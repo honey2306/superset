@@ -2,6 +2,7 @@ import { Button } from "@superset/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import type { ReactNode } from "react";
 import { VscAdd, VscDiscard, VscRemove } from "react-icons/vsc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { getOrderedChangeSectionIds } from "renderer/stores/changes/section-order";
 import type {
 	ChangeCategory,
@@ -99,10 +100,13 @@ export function useOrderedSections({
 	isStageAllPending,
 	isUnstagedActioning,
 }: UseOrderedSectionsInput) {
+	const { t } = useTranslation();
 	const sectionDefinitions: Record<ChangeCategory, OrderedSection> = {
 		"against-base": {
 			id: "against-base",
-			title: `Against ${effectiveBaseBranch}`,
+			title: t("v1Changes.section.againstBranch", {
+				branch: effectiveBaseBranch,
+			}),
 			count: againstBaseFiles.length,
 			isExpanded: expandedSections["against-base"],
 			onToggle: () => toggleSection("against-base"),
@@ -122,7 +126,7 @@ export function useOrderedSections({
 		},
 		committed: {
 			id: "committed",
-			title: "Commits",
+			title: t("v1Changes.section.commits"),
 			count: totalCommitCount,
 			isExpanded: expandedSections.committed,
 			onToggle: () => toggleSection("committed"),
@@ -143,7 +147,7 @@ export function useOrderedSections({
 		},
 		staged: {
 			id: "staged",
-			title: "Staged",
+			title: t("v1Changes.section.staged"),
 			count: stagedFiles.length,
 			isExpanded: expandedSections.staged,
 			onToggle: () => toggleSection("staged"),
@@ -161,7 +165,9 @@ export function useOrderedSections({
 								<VscDiscard className="w-3.5 h-3.5" />
 							</Button>
 						</TooltipTrigger>
-						<TooltipContent side="bottom">Discard all staged</TooltipContent>
+						<TooltipContent side="bottom">
+							{t("v1Changes.section.discardAllStaged")}
+						</TooltipContent>
 					</Tooltip>
 					<Tooltip>
 						<TooltipTrigger asChild>
@@ -175,7 +181,9 @@ export function useOrderedSections({
 								<VscRemove className="w-4 h-4" />
 							</Button>
 						</TooltipTrigger>
-						<TooltipContent side="bottom">Unstage all</TooltipContent>
+						<TooltipContent side="bottom">
+							{t("v1Changes.section.unstageAll")}
+						</TooltipContent>
 					</Tooltip>
 				</div>
 			),
@@ -198,7 +206,7 @@ export function useOrderedSections({
 		},
 		unstaged: {
 			id: "unstaged",
-			title: "Unstaged",
+			title: t("v1Changes.section.unstaged"),
 			count: unstagedFiles.length,
 			isExpanded: expandedSections.unstaged,
 			onToggle: () => toggleSection("unstaged"),
@@ -216,7 +224,9 @@ export function useOrderedSections({
 								<VscDiscard className="w-3.5 h-3.5" />
 							</Button>
 						</TooltipTrigger>
-						<TooltipContent side="bottom">Discard all unstaged</TooltipContent>
+						<TooltipContent side="bottom">
+							{t("v1Changes.section.discardAllUnstaged")}
+						</TooltipContent>
 					</Tooltip>
 					<Tooltip>
 						<TooltipTrigger asChild>
@@ -230,7 +240,9 @@ export function useOrderedSections({
 								<VscAdd className="w-4 h-4" />
 							</Button>
 						</TooltipTrigger>
-						<TooltipContent side="bottom">Stage all</TooltipContent>
+						<TooltipContent side="bottom">
+							{t("v1Changes.section.stageAll")}
+						</TooltipContent>
 					</Tooltip>
 				</div>
 			),

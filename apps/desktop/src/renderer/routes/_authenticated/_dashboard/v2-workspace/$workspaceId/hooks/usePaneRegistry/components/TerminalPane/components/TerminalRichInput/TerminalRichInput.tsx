@@ -11,8 +11,9 @@ import { workspaceTrpc } from "@superset/workspace-client";
 import { ArrowUpIcon } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { TiptapPromptEditor } from "renderer/components/Chat/ChatInterface/components/TiptapPromptEditor/TiptapPromptEditor";
-import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useBinding, useHotkeyDisplay } from "renderer/hotkeys";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { TerminalPaneIcon } from "../TerminalPaneIcon";
 import { prepareTerminalSubmission } from "./prepareTerminalSubmission";
 
@@ -67,7 +68,9 @@ function TerminalRichInputInner({
 	isOpen,
 	onClose,
 }: TerminalRichInputProps) {
+	const { t } = useTranslation();
 	const controller = usePromptInputController();
+	const binding = useBinding("TOGGLE_TERMINAL_RICH_INPUT");
 	const hotkeyText = useHotkeyDisplay("TOGGLE_TERMINAL_RICH_INPUT").text;
 
 	// Deduped with the page-level workspace.get query; provides the cwd the
@@ -166,9 +169,11 @@ function TerminalRichInputInner({
 				{/* Pane root pads p-2 (8px); pt-2 sets the gap to the terminal and
 				    the mx-auto max-w keeps the card centered like the chat composer. */}
 				<div className="relative mx-auto w-full max-w-[680px] pt-2">
-					{hotkeyText !== "Unassigned" && (
+					{binding && (
 						<span className="pointer-events-none absolute top-5 right-3 z-10 text-xs text-muted-foreground/50">
-							{hotkeyText} to hide
+							{t("v2Workspace.terminalRichInput.hotkeyToHide", {
+								hotkey: hotkeyText,
+							})}
 						</span>
 					)}
 					<PromptInput
@@ -185,7 +190,7 @@ function TerminalRichInputInner({
 							cwd={cwd}
 							searchFiles={searchFiles}
 							slashCommands={[]}
-							placeholder="Ask to make changes"
+							placeholder={t("v2Workspace.terminalRichInput.placeholder")}
 						/>
 						<PromptInputFooter>
 							<span className="flex items-center pl-1">

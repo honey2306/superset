@@ -8,6 +8,7 @@ import {
 	PencilLineIcon,
 	RotateCcwIcon,
 } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface UserMessageActionsProps {
 	actionDisabled: boolean;
@@ -26,23 +27,24 @@ export function UserMessageActions({
 	onEdit,
 	onResend,
 }: UserMessageActionsProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="opacity-0 transition-opacity group-hover/msg:opacity-100 group-focus-within/msg:opacity-100">
 			<MessageActions className="rounded-lg bg-background/95 p-1 shadow-sm backdrop-blur-xs">
 				<MessageAction
 					className="size-7 text-muted-foreground hover:text-foreground"
-					label="Resend message"
+					label={t("chat.userMessage.resend")}
 					onClick={onResend}
-					tooltip="Resend"
+					tooltip={t("chat.userMessage.resendTooltip")}
 					disabled={actionDisabled}
 				>
 					<RotateCcwIcon className="size-3.5" />
 				</MessageAction>
 				<MessageAction
 					className="size-7 text-muted-foreground hover:text-foreground"
-					label="Edit message"
+					label={t("chat.userMessage.edit")}
 					onClick={onEdit}
-					tooltip="Edit"
+					tooltip={t("chat.userMessage.editTooltip")}
 					disabled={actionDisabled}
 				>
 					<PencilLineIcon className="size-3.5" />
@@ -50,9 +52,15 @@ export function UserMessageActions({
 				{fullText ? (
 					<MessageAction
 						className="size-7 text-muted-foreground hover:text-foreground"
-						label={copied ? "Copied" : "Copy message"}
+						label={
+							copied ? t("chat.userMessage.copied") : t("chat.userMessage.copy")
+						}
 						onClick={onCopy}
-						tooltip={copied ? "Copied" : "Copy"}
+						tooltip={
+							copied
+								? t("chat.userMessage.copied")
+								: t("chat.userMessage.copyTooltip")
+						}
 					>
 						{copied ? (
 							<CheckIcon className="size-3.5" />

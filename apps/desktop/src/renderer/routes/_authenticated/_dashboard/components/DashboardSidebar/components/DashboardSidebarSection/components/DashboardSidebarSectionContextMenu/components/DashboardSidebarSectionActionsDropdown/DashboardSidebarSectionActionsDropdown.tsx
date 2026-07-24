@@ -4,6 +4,7 @@ import {
 	DropdownMenuTrigger,
 } from "@superset/ui/dropdown-menu";
 import { LuEllipsis } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { DashboardSidebarSectionActionsProps } from "../../types";
 import { SectionActionsMenuItems } from "../SectionActionsMenuItems";
 
@@ -13,6 +14,8 @@ export function DashboardSidebarSectionActionsDropdown({
 	onSetColor,
 	onDelete,
 }: DashboardSidebarSectionActionsProps) {
+	const { t } = useTranslation();
+
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
@@ -22,7 +25,7 @@ export function DashboardSidebarSectionActionsDropdown({
 					onClick={(event) => event.stopPropagation()}
 					onContextMenu={(event) => event.stopPropagation()}
 					className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/80 opacity-0 transition-[opacity,color,background-color] hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-					aria-label="Group actions"
+					aria-label={t("workspace.groupActions")}
 				>
 					<LuEllipsis className="size-3.5" />
 				</button>

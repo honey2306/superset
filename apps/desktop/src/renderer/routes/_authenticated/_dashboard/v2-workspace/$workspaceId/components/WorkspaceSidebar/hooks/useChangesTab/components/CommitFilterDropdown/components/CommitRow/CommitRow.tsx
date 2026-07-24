@@ -1,19 +1,26 @@
 import type { AppRouter } from "@superset/host-service";
 import type { inferRouterOutputs } from "@trpc/server";
 import { Check } from "lucide-react";
+import {
+	type MessageKey,
+	useTranslation,
+} from "renderer/providers/I18nProvider";
 
 type Commit =
 	inferRouterOutputs<AppRouter>["git"]["listCommits"]["commits"][number];
 
-function timeAgo(date: string): string {
+function timeAgo(
+	date: string,
+	t: (key: MessageKey, params?: Record<string, number | string>) => string,
+): string {
 	const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-	if (seconds < 60) return "just now";
+	if (seconds < 60) return t("v2Workspace.commits.justNow");
 	const minutes = Math.floor(seconds / 60);
-	if (minutes < 60) return `${minutes}m ago`;
+	if (minutes < 60) return t("v2Workspace.commits.minutesAgo", { n: minutes });
 	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
+	if (hours < 24) return t("v2Workspace.commits.hoursAgo", { n: hours });
 	const days = Math.floor(hours / 24);
-	return `${days}d ago`;
+	return t("v2Workspace.commits.daysAgo", { n: days });
 }
 
 interface CommitRowProps {
@@ -27,6 +34,7 @@ export function CommitRow({
 	isSelected,
 	wrap = false,
 }: CommitRowProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="flex min-w-0 flex-1 items-start justify-between gap-2">
 			<div className="min-w-0 flex-1 overflow-hidden">
@@ -34,7 +42,7 @@ export function CommitRow({
 					{commit.message}
 				</div>
 				<div className="truncate text-xs text-muted-foreground">
-					{commit.shortHash} · {commit.author} · {timeAgo(commit.date)}
+					{commit.shortHash} · {commit.author} · {timeAgo(commit.date, t)}
 				</div>
 			</div>
 			{isSelected && <Check className="mt-0.5 size-3.5 shrink-0" />}

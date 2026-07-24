@@ -4,6 +4,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { useMemo } from "react";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	type PersistableTransaction,
 	useOptimisticCollectionActions,
@@ -33,6 +34,7 @@ interface HostSettingsProps {
 }
 
 export function HostSettings({ hostId }: HostSettingsProps) {
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const { data: session } = authClient.useSession();
 	const currentUserId = session?.user?.id ?? null;
@@ -93,7 +95,7 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 					usersHostsId: `${row.userId}:${row.hostId}`,
 					userId: row.userId,
 					role: row.role as "owner" | "member",
-					name: u?.name ?? "Unknown user",
+					name: u?.name ?? t("hosts.unknownUser"),
 					email: u?.email ?? "",
 				};
 			})
@@ -101,7 +103,7 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 				if (a.role !== b.role) return a.role === "owner" ? -1 : 1;
 				return a.name.localeCompare(b.name);
 			});
-	}, [hostUserRows, userMap]);
+	}, [hostUserRows, t, userMap]);
 
 	const candidates: CandidateRow[] = useMemo(() => {
 		const onHost = new Set(hostUserRows.map((r) => r.userId));
@@ -111,12 +113,12 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 				const u = userMap.get(m.userId);
 				return {
 					userId: m.userId,
-					name: u?.name ?? "Unknown user",
+					name: u?.name ?? t("hosts.unknownUser"),
 					email: u?.email ?? "",
 				};
 			})
 			.sort((a, b) => a.name.localeCompare(b.name));
-	}, [orgMembers, hostUserRows, userMap]);
+	}, [hostUserRows, orgMembers, t, userMap]);
 
 	const isOwner = useMemo(() => {
 		if (!currentUserId) return false;
@@ -130,7 +132,7 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 		if (!hostReady) return null;
 		return (
 			<div className="p-6 text-sm text-muted-foreground select-text cursor-text">
-				Host not found in this organization.
+				{t("hosts.notFound")}
 			</div>
 		);
 	}
@@ -142,21 +144,21 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 				userId: candidate.userId,
 				organizationId: host.organizationId,
 			}),
-			"Member added",
+			t("hosts.memberAdded"),
 		);
 	};
 
 	const handleRemove = (member: MemberRowData) => {
 		notifyOnPersist(
 			actions.v2UsersHosts.removeMember(member.usersHostsId),
-			"Member removed",
+			t("hosts.memberRemoved"),
 		);
 	};
 
 	const handleSetRole = (member: MemberRowData, role: "owner" | "member") => {
 		notifyOnPersist(
 			actions.v2UsersHosts.setMemberRole(member.usersHostsId, role),
-			"Role updated",
+			t("hosts.roleUpdated"),
 		);
 	};
 
@@ -181,10 +183,10 @@ export function HostSettings({ hostId }: HostSettingsProps) {
 				<section className="space-y-3">
 					<div className="flex items-end justify-between gap-4">
 						<div>
-							<h3 className="text-sm font-medium">Members</h3>
+							<h3 className="text-sm font-medium">{t("hosts.members")}</h3>
 							{!isOwner && (
 								<p className="text-sm text-muted-foreground mt-0.5">
-									Only owners can change membership.
+									{t("hosts.ownerOnlyMembership")}
 								</p>
 							)}
 						</div>

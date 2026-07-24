@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import type { DetectedLink } from "renderer/lib/terminal/links";
 import { electronTrpcClient as trpcClient } from "renderer/lib/trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTabsStore } from "renderer/stores/tabs/store";
 
 export interface UseFileLinkClickOptions {
@@ -18,6 +19,7 @@ export function useFileLinkClick({
 	workspaceId,
 	projectId,
 }: UseFileLinkClickOptions): UseFileLinkClickReturn {
+	const { t } = useTranslation();
 	const addFileViewerPane = useTabsStore((s) => s.addFileViewerPane);
 
 	const { data: terminalLinkBehavior } =
@@ -39,7 +41,7 @@ export function useFileLinkClick({
 						);
 						const errorMessage =
 							error instanceof Error ? error.message : String(error);
-						toast.error("Failed to open file in editor", {
+						toast.error(t("terminal.toastFailedToOpenFile"), {
 							description: errorMessage,
 						});
 					});
@@ -56,7 +58,7 @@ export function useFileLinkClick({
 				column,
 			});
 		},
-		[terminalLinkBehavior, workspaceId, projectId, addFileViewerPane],
+		[terminalLinkBehavior, workspaceId, projectId, addFileViewerPane, t],
 	);
 
 	return {

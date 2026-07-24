@@ -2,11 +2,15 @@ import { Button } from "@superset/ui/button";
 import { cn } from "@superset/ui/utils";
 import { Check, GitBranch, Loader2, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+	type MessageKey,
+	useTranslation,
+} from "renderer/providers/I18nProvider";
 import "./WorkspaceCreatingState.css";
 
 interface Step {
 	id: string;
-	label: string;
+	labelKey: MessageKey;
 	/** Cumulative seconds at which this step is considered complete. */
 	doneAt: number;
 }
@@ -15,13 +19,21 @@ interface Step {
 // labels feel real — v2 workspaces.create runs the same git work server-side
 // without streaming progress events, so timings here are estimates.
 const STEPS: readonly Step[] = [
-	{ id: "preparing", label: "Preparing", doneAt: 1 },
-	{ id: "syncing", label: "Syncing with remote", doneAt: 4 },
-	{ id: "verifying", label: "Verifying base branch", doneAt: 5 },
-	{ id: "fetching", label: "Fetching latest changes", doneAt: 15 },
-	{ id: "creating_worktree", label: "Creating git worktree", doneAt: 18 },
-	{ id: "copying_config", label: "Copying configuration", doneAt: 20 },
-	{ id: "finalizing", label: "Finalizing setup", doneAt: 23 },
+	{ id: "preparing", labelKey: "v2Workspace.creating.preparing", doneAt: 1 },
+	{ id: "syncing", labelKey: "v2Workspace.creating.syncing", doneAt: 4 },
+	{ id: "verifying", labelKey: "v2Workspace.creating.verifying", doneAt: 5 },
+	{ id: "fetching", labelKey: "v2Workspace.creating.fetching", doneAt: 15 },
+	{
+		id: "creating_worktree",
+		labelKey: "v2Workspace.creating.creatingWorktree",
+		doneAt: 18,
+	},
+	{
+		id: "copying_config",
+		labelKey: "v2Workspace.creating.copyingConfig",
+		doneAt: 20,
+	},
+	{ id: "finalizing", labelKey: "v2Workspace.creating.finalizing", doneAt: 23 },
 ] as const;
 
 const TOTAL_SECONDS = STEPS[STEPS.length - 1].doneAt;
@@ -47,6 +59,7 @@ export function WorkspaceCreatingState({
 	const activeIndex = getActiveIndex(elapsed);
 	const progress = Math.min(elapsed / TOTAL_SECONDS, PROGRESS_CAP);
 	const stuck = elapsed >= STUCK_AFTER_SECONDS;
+	const { t } = useTranslation();
 
 	return (
 		<div className="flex h-full w-full items-center justify-center p-6">
@@ -59,10 +72,10 @@ export function WorkspaceCreatingState({
 
 				<div className="flex flex-col gap-1.5">
 					<h1 className="text-[15px] font-medium tracking-tight text-foreground">
-						Creating workspace
+						{t("v2Workspace.creating.title")}
 					</h1>
 					<p className="truncate text-[13px] leading-relaxed text-muted-foreground">
-						{name || "Untitled workspace"}
+						{name || t("v2Workspace.creating.untitled")}
 					</p>
 				</div>
 
@@ -87,7 +100,9 @@ export function WorkspaceCreatingState({
 								: i === activeIndex
 									? "active"
 									: "pending";
-						return <StepRow key={step.id} label={step.label} state={state} />;
+						return (
+							<StepRow key={step.id} label={t(step.labelKey)} state={state} />
+						);
 					})}
 				</ul>
 
@@ -103,15 +118,18 @@ export function WorkspaceCreatingState({
 						<span className="font-mono tabular-nums">
 							{formatElapsed(elapsed)}
 						</span>
-						<span>~{TOTAL_SECONDS}s typical</span>
+						<span>
+							{t("v2Workspace.creating.typicalTime", {
+								seconds: TOTAL_SECONDS,
+							})}
+						</span>
 					</div>
 				</div>
 
 				{stuck && (
 					<div className="flex w-full flex-col gap-2 border-t border-border/60 pt-4 animate-in fade-in slide-in-from-bottom-1 duration-500">
 						<p className="select-text cursor-text text-[12px] leading-relaxed text-muted-foreground">
-							This is taking longer than usual. The workspace may already be
-							ready — reloading can pick it up.
+							{t("v2Workspace.creating.takingLonger")}
 						</p>
 						<Button
 							size="sm"
@@ -124,7 +142,7 @@ export function WorkspaceCreatingState({
 								strokeWidth={2}
 								aria-hidden="true"
 							/>
-							Reload window
+							{t("v2Workspace.creating.reloadWindow")}
 						</Button>
 					</div>
 				)}

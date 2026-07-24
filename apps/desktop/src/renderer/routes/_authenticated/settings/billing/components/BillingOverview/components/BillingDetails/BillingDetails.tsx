@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import stripeLinkIcon from "renderer/assets/stripe-link.png";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 type BillingDetailsData = NonNullable<
 	Awaited<ReturnType<typeof apiTrpcClient.billing.details.query>>
@@ -26,8 +27,10 @@ function capitalizeFirst(str: string) {
 
 function PaymentMethodLabel({
 	paymentMethod,
+	endingIn,
 }: {
 	paymentMethod: NonNullable<BillingDetailsData["paymentMethod"]>;
+	endingIn: string;
 }) {
 	if (paymentMethod.type === "link") {
 		return (
@@ -41,7 +44,7 @@ function PaymentMethodLabel({
 	if (paymentMethod.last4) {
 		return (
 			<span>
-				{capitalizeFirst(paymentMethod.brand)} ending in {paymentMethod.last4}
+				{capitalizeFirst(paymentMethod.brand)} {endingIn} {paymentMethod.last4}
 			</span>
 		);
 	}
@@ -50,6 +53,7 @@ function PaymentMethodLabel({
 }
 
 export function BillingDetails() {
+	const { t } = useTranslation();
 	const [details, setDetails] = useState<BillingDetailsData | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [openingPortal, setOpeningPortal] = useState<string | null>(null);
@@ -83,10 +87,10 @@ export function BillingDetails() {
 
 	return (
 		<div>
-			<h3 className="text-sm font-medium mb-2">Billing details</h3>
+			<h3 className="text-sm font-medium mb-2">{t("billing.details")}</h3>
 			<div>
 				<DetailRow
-					label={details.name ?? "No name on file"}
+					label={details.name ?? t("billing.noName")}
 					hint={
 						<>
 							{addressStr && <div>{addressStr}</div>}
@@ -100,17 +104,20 @@ export function BillingDetails() {
 							onClick={() => handleEdit("general")}
 							disabled={openingPortal !== null}
 						>
-							Edit
+							{t("billing.edit")}
 						</Button>
 					}
 				/>
 				<DetailRow
-					label="Payment method"
+					label={t("billing.paymentMethod")}
 					hint={
 						details.paymentMethod ? (
-							<PaymentMethodLabel paymentMethod={details.paymentMethod} />
+							<PaymentMethodLabel
+								paymentMethod={details.paymentMethod}
+								endingIn={t("billing.endingIn")}
+							/>
 						) : (
-							"No payment method on file"
+							t("billing.noPaymentMethod")
 						)
 					}
 					action={
@@ -120,16 +127,16 @@ export function BillingDetails() {
 							onClick={() => handleEdit("payment_method_update")}
 							disabled={openingPortal !== null}
 						>
-							Edit
+							{t("billing.edit")}
 						</Button>
 					}
 				/>
 				<DetailRow
-					label="Tax ID"
+					label={t("billing.taxId")}
 					hint={
 						details.taxId
 							? `${details.taxId.type.toUpperCase().replace("_", " ")} · ${details.taxId.value}`
-							: "No tax identifier on file"
+							: t("billing.noTaxId")
 					}
 					action={
 						<Button
@@ -138,7 +145,7 @@ export function BillingDetails() {
 							onClick={() => handleEdit("general")}
 							disabled={openingPortal !== null}
 						>
-							{details.taxId ? "Edit" : "Add tax ID"}
+							{details.taxId ? t("billing.edit") : t("billing.addTaxId")}
 						</Button>
 					}
 				/>

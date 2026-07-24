@@ -7,6 +7,7 @@ import {
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	type SettingsSection,
 	useSetSettingsSearchQuery,
@@ -107,6 +108,7 @@ function getPathFromSection(section: SettingsSection): string {
 }
 
 function SettingsLayout() {
+	const { locale } = useTranslation();
 	const { data: platform } = electronTrpc.window.getPlatform.useQuery();
 	const isMac = platform === undefined || platform === "darwin";
 	const searchQuery = useSettingsSearchQuery();
@@ -119,7 +121,7 @@ function SettingsLayout() {
 	const normalizedSearchQuery = searchQuery.trim();
 	const isSearchActive = normalizedSearchQuery.length > 0;
 	const totalMatches = isSearchActive
-		? searchSettings(normalizedSearchQuery).length
+		? searchSettings(normalizedSearchQuery, locale).length
 		: 0;
 
 	useEffect(() => {
@@ -131,7 +133,7 @@ function SettingsLayout() {
 		if (currentSection === "project") return;
 		if (currentSection === "hosts") return;
 
-		const matchCounts = getMatchCountBySection(normalizedSearchQuery);
+		const matchCounts = getMatchCountBySection(normalizedSearchQuery, locale);
 		const currentHasMatches = (matchCounts[currentSection] ?? 0) > 0;
 
 		if (!currentHasMatches) {
@@ -142,7 +144,13 @@ function SettingsLayout() {
 				navigate({ to: getPathFromSection(firstMatch), replace: true });
 			}
 		}
-	}, [isSearchActive, location.pathname, navigate, normalizedSearchQuery]);
+	}, [
+		isSearchActive,
+		locale,
+		location.pathname,
+		navigate,
+		normalizedSearchQuery,
+	]);
 
 	useHotkeys(
 		"escape",

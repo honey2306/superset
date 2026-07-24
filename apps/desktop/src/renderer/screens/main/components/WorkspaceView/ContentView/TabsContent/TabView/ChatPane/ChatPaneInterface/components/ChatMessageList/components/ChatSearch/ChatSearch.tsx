@@ -2,6 +2,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { useEffect, useRef } from "react";
 import { HiChevronDown, HiChevronUp, HiMiniXMark } from "react-icons/hi2";
 import { PiTextAa } from "react-icons/pi";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface ChatSearchProps {
 	isOpen: boolean;
@@ -29,6 +30,7 @@ export function ChatSearch({
 	onClose,
 }: ChatSearchProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
+	const { t } = useTranslation();
 
 	useEffect(() => {
 		if (isOpen && inputRef.current) {
@@ -60,18 +62,21 @@ export function ChatSearch({
 			<input
 				ref={inputRef}
 				type="text"
-				aria-label="Find in chat"
+				aria-label={t("chat.search.findInChat")}
 				value={query}
 				onChange={(event) => onQueryChange(event.target.value)}
 				onKeyDown={handleKeyDown}
-				placeholder="Find in chat"
+				placeholder={t("chat.search.findInChat")}
 				className="h-6 min-w-0 w-32 flex-shrink bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
 			/>
 			{query && (
 				<span className="whitespace-nowrap px-1 text-xs text-muted-foreground">
 					{matchCount === 0
-						? "No results"
-						: `${activeMatchIndex + 1} of ${matchCount}`}
+						? t("chat.search.noResults")
+						: t("chat.search.matchCount", {
+								current: activeMatchIndex + 1,
+								total: matchCount,
+							})}
 				</span>
 			)}
 			<div className="flex shrink-0 items-center">
@@ -79,7 +84,7 @@ export function ChatSearch({
 					<TooltipTrigger asChild>
 						<button
 							type="button"
-							aria-label="Match case"
+							aria-label={t("chat.search.matchCase")}
 							aria-pressed={caseSensitive}
 							onClick={() => onCaseSensitiveChange(!caseSensitive)}
 							className={`rounded p-1 transition-colors ${
@@ -91,46 +96,52 @@ export function ChatSearch({
 							<PiTextAa className="size-3.5" />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Match case</TooltipContent>
+					<TooltipContent side="bottom">
+						{t("chat.search.matchCase")}
+					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<button
 							type="button"
-							aria-label="Find previous match"
+							aria-label={t("chat.search.findPreviousMatch")}
 							onClick={onFindPrevious}
 							className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground"
 						>
 							<HiChevronUp className="size-3.5" />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Previous (Shift+Enter)</TooltipContent>
+					<TooltipContent side="bottom">
+						{t("chat.search.previous")}
+					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<button
 							type="button"
-							aria-label="Find next match"
+							aria-label={t("chat.search.findNextMatch")}
 							onClick={onFindNext}
 							className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground"
 						>
 							<HiChevronDown className="size-3.5" />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Next (Enter)</TooltipContent>
+					<TooltipContent side="bottom">{t("chat.search.next")}</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<button
 							type="button"
-							aria-label="Close find in chat"
+							aria-label={t("chat.search.closeFindInChat")}
 							onClick={onClose}
 							className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground"
 						>
 							<HiMiniXMark className="size-3.5" />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Close (Esc)</TooltipContent>
+					<TooltipContent side="bottom">
+						{t("chat.search.close")}
+					</TooltipContent>
 				</Tooltip>
 			</div>
 		</div>

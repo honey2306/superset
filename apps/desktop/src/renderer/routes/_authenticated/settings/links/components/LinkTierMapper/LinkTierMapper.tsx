@@ -15,6 +15,7 @@ import {
 	modifierLabel,
 	type Surface,
 } from "renderer/lib/clickPolicy";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 type SlotValue = LinkAction | "none";
 
@@ -46,6 +47,7 @@ export function LinkTierMapper({
 	idPrefix,
 	surface,
 }: LinkTierMapperProps) {
+	const { t } = useTranslation();
 	const pick = useCallback(
 		(tier: LinkTier, nextSlot: SlotValue) => {
 			const nextAction = fromSlot(nextSlot);
@@ -65,7 +67,7 @@ export function LinkTierMapper({
 					return (
 						<div key={tier} className="flex items-center justify-between gap-4">
 							<Label htmlFor={id} className="text-sm font-medium capitalize">
-								{modifierLabel(tier)}
+								{modifierLabel(tier, t)}
 							</Label>
 							<Select
 								value={toSlot(value[tier])}
@@ -75,10 +77,10 @@ export function LinkTierMapper({
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="none">Do nothing</SelectItem>
+									<SelectItem value="none">{t("links.doNothing")}</SelectItem>
 									{ACTIONS.map((action) => (
 										<SelectItem key={action} value={action}>
-											{actionLabel(action, surface)}
+											{actionLabel(action, surface, t)}
 										</SelectItem>
 									))}
 								</SelectContent>

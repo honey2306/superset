@@ -1,6 +1,7 @@
 import { cn } from "@superset/ui/utils";
 import { useState } from "react";
 import { LuCheck, LuFile, LuFolder, LuX } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { TREE_INDENT } from "../../constants";
 import type { NewItemMode } from "../../types";
 
@@ -19,6 +20,7 @@ export function NewItemInput({
 	onCancel,
 	level = 0,
 }: NewItemInputProps) {
+	const { t } = useTranslation();
 	const [value, setValue] = useState("");
 
 	const handleSubmit = () => {
@@ -57,7 +59,11 @@ export function NewItemInput({
 				value={value}
 				onChange={(e) => setValue(e.target.value)}
 				onKeyDown={handleKeyDown}
-				placeholder={isFolder ? "folder name" : "file name"}
+				placeholder={
+					isFolder
+						? t("files.newFolderPlaceholder")
+						: t("files.newFilePlaceholder")
+				}
 				className={cn(
 					"flex-1 min-w-0 px-1 py-0 text-xs",
 					"bg-background border border-ring rounded outline-none",

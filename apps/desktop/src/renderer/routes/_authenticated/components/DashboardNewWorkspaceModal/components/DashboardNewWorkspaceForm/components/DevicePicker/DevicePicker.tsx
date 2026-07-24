@@ -15,6 +15,7 @@ import {
 	HiOutlineComputerDesktop,
 	HiOutlineServer,
 } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { FormPickerTrigger } from "../../PromptGroup/components/FormPickerTrigger";
 import {
@@ -23,10 +24,11 @@ import {
 } from "./hooks/useWorkspaceHostOptions";
 
 function OnlineDot({ online }: { online: boolean }) {
+	const { t } = useTranslation();
 	return (
 		<span
 			role="img"
-			aria-label={online ? "online" : "offline"}
+			aria-label={online ? t("workspace.online") : t("workspace.offline")}
 			className={cn(
 				"inline-block size-1.5 shrink-0 rounded-full",
 				online ? "bg-emerald-500" : "bg-muted-foreground/60",
@@ -51,11 +53,15 @@ function getSelectedLabel(
 	machineId: string | null,
 	currentDeviceName: string | null,
 	otherHosts: WorkspaceHostOption[],
+	localDeviceLabel: string,
+	unknownHostLabel: string,
 ) {
 	if (hostId === null || hostId === machineId) {
-		return currentDeviceName ?? "Local Device";
+		return currentDeviceName ?? localDeviceLabel;
 	}
-	return otherHosts.find((host) => host.id === hostId)?.name ?? "Unknown Host";
+	return (
+		otherHosts.find((host) => host.id === hostId)?.name ?? unknownHostLabel
+	);
 }
 
 function getSelectedIcon(hostId: string | null, machineId: string | null) {
@@ -71,6 +77,7 @@ export function DevicePicker({
 	className,
 	showLocalOnlineState = false,
 }: DevicePickerProps) {
+	const { t } = useTranslation();
 	const { machineId } = useLocalHostService();
 	const { currentDeviceName, localHostIsOnline, otherHosts } =
 		useWorkspaceHostOptions();
@@ -80,6 +87,8 @@ export function DevicePicker({
 		machineId,
 		currentDeviceName,
 		otherHosts,
+		t("workspace.localDevice"),
+		t("workspace.unknownHost"),
 	);
 	// For direct (local) use the app itself is the host, so it's tautologically
 	// online and gets no indicator. Relay-dispatched contexts opt into showing
@@ -94,7 +103,7 @@ export function DevicePicker({
 			<DropdownMenuTrigger asChild>
 				<FormPickerTrigger
 					className={cn("max-w-[140px]", className)}
-					aria-label={`Device: ${selectedLabel}`}
+					aria-label={t("workspace.deviceLabel", { device: selectedLabel })}
 					title={selectedLabel}
 				>
 					{getSelectedIcon(hostId, machineId)}
@@ -106,7 +115,7 @@ export function DevicePicker({
 			<DropdownMenuContent align="start" className="w-72">
 				<DropdownMenuItem onSelect={() => onSelectHostId(machineId)}>
 					<HiOutlineComputerDesktop className="size-4" />
-					<span className="flex-1">Local Device</span>
+					<span className="flex-1">{t("workspace.localDevice")}</span>
 					{localOnline !== null && <OnlineDot online={localOnline} />}
 					{isLocal && <HiCheck className="size-4" />}
 				</DropdownMenuItem>
@@ -116,7 +125,7 @@ export function DevicePicker({
 						<DropdownMenuSub>
 							<DropdownMenuSubTrigger>
 								<HiOutlineServer className="size-4" />
-								Other Hosts
+								{t("workspace.otherHosts")}
 							</DropdownMenuSubTrigger>
 							<DropdownMenuSubContent className="w-72">
 								{otherHosts.map((host) => {

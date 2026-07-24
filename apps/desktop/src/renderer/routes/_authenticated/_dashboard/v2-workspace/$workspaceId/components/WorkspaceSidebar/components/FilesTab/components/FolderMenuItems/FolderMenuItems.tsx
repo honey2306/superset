@@ -3,6 +3,7 @@ import {
 	DropdownMenuSeparator,
 } from "@superset/ui/dropdown-menu";
 import { FilePlus, FolderPlus, Pencil, Trash2 } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PathActions } from "../PathActions";
 
 interface FolderMenuItemsProps {
@@ -22,26 +23,27 @@ export function FolderMenuItems({
 	onRename,
 	onDelete,
 }: FolderMenuItemsProps) {
+	const { t } = useTranslation();
 	return (
 		<>
 			<DropdownMenuItem onSelect={() => setTimeout(onNewFile, 0)}>
 				<FilePlus />
-				New File...
+				{t("v2Workspace.folderMenu.newFile")}
 			</DropdownMenuItem>
 			<DropdownMenuItem onSelect={() => setTimeout(onNewFolder, 0)}>
 				<FolderPlus />
-				New Folder...
+				{t("v2Workspace.folderMenu.newFolder")}
 			</DropdownMenuItem>
 			<DropdownMenuSeparator />
 			<PathActions absolutePath={absolutePath} relativePath={relativePath} />
 			<DropdownMenuSeparator />
 			<DropdownMenuItem onSelect={() => setTimeout(onRename, 0)}>
 				<Pencil />
-				Rename...
+				{t("v2Workspace.folderMenu.rename")}
 			</DropdownMenuItem>
 			<DropdownMenuItem variant="destructive" onSelect={onDelete}>
 				<Trash2 />
-				Delete
+				{t("v2Workspace.folderMenu.delete")}
 			</DropdownMenuItem>
 		</>
 	);

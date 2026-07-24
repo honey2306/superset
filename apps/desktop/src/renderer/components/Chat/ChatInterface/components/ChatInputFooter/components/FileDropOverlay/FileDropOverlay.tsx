@@ -1,10 +1,12 @@
 import { UploadIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface FileDropOverlayProps {
 	visible: boolean;
 }
 
 export function FileDropOverlay({ visible }: FileDropOverlayProps) {
+	const { t } = useTranslation();
 	if (!visible) return null;
 
 	return (
@@ -12,10 +14,10 @@ export function FileDropOverlay({ visible }: FileDropOverlayProps) {
 			<div className="flex size-8 items-center justify-center rounded-full bg-muted-foreground/20">
 				<UploadIcon className="size-4 text-muted-foreground" />
 			</div>
-			<p className="font-medium text-foreground text-sm">Drop files here</p>
-			<p className="text-muted-foreground text-xs">
-				Images, PDFs, text files, or folders
+			<p className="font-medium text-foreground text-sm">
+				{t("fileDrop.title")}
 			</p>
+			<p className="text-muted-foreground text-xs">{t("fileDrop.subtitle")}</p>
 		</div>
 	);
 }

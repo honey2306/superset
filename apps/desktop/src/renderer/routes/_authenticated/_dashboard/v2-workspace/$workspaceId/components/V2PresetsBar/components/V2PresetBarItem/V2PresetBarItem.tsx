@@ -13,6 +13,7 @@ import { HiMiniCommandLine } from "react-icons/hi2";
 import type { HotkeyId } from "renderer/hotkeys";
 import { HotkeyTooltip } from "renderer/hotkeys";
 import { resolveV2PresetIcon } from "renderer/lib/preset-icon";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { V2TerminalPresetRow } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal";
 
 const V2_PRESET_BAR_ITEM_TYPE = "V2_PRESET_BAR_ITEM";
@@ -42,6 +43,7 @@ export function V2PresetBarItem({
 }: V2PresetBarItemProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const icon = resolveV2PresetIcon(preset, agents, isDark);
+	const { t } = useTranslation();
 
 	const [{ isDragging }, drag] = useDrag(
 		() => ({
@@ -102,7 +104,7 @@ export function V2PresetBarItem({
 								<HiMiniCommandLine className="size-3.5 shrink-0" />
 							)}
 							<span className="min-w-0 truncate">
-								{preset.name || "default"}
+								{preset.name || t("v2Workspace.presets.defaultName")}
 							</span>
 						</Button>
 					</HotkeyTooltip>
@@ -110,11 +112,11 @@ export function V2PresetBarItem({
 			</ContextMenuTrigger>
 			<ContextMenuContent>
 				<ContextMenuItem onSelect={() => onExecutePreset(preset)}>
-					Run preset
+					{t("v2Workspace.presets.runPreset")}
 				</ContextMenuItem>
 				<ContextMenuSeparator />
 				<ContextMenuItem onSelect={() => onEdit(preset)}>
-					Edit preset
+					{t("v2Workspace.presets.editPreset")}
 				</ContextMenuItem>
 			</ContextMenuContent>
 		</ContextMenu>

@@ -1,8 +1,11 @@
+import { useTranslation } from "renderer/providers/I18nProvider";
+
 interface PRStatusBadgeProps {
 	state: "open" | "draft" | "merged" | "closed";
 }
 
 export function PRStatusBadge({ state }: PRStatusBadgeProps) {
+	const { t } = useTranslation();
 	const styles = {
 		open: "bg-emerald-500/15 text-emerald-500",
 		draft: "bg-muted text-muted-foreground",
@@ -11,10 +14,10 @@ export function PRStatusBadge({ state }: PRStatusBadgeProps) {
 	};
 
 	const labels = {
-		open: "Open",
-		draft: "Draft",
-		merged: "Merged",
-		closed: "Closed",
+		open: t("workspace.prOpen"),
+		draft: t("workspace.prDraft"),
+		merged: t("workspace.prMerged"),
+		closed: t("workspace.prClosed"),
 	};
 
 	return (

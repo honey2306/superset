@@ -1,6 +1,7 @@
 import { Button } from "@superset/ui/button";
 import { Label } from "@superset/ui/label";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface WorktreeLocationPickerProps {
 	currentPath: string | null | undefined;
@@ -20,17 +21,18 @@ export function useDefaultWorktreePath() {
 export function WorktreeLocationPicker({
 	currentPath,
 	defaultPathLabel,
-	dialogTitle = "Select worktree location",
+	dialogTitle,
 	defaultBrowsePath,
 	disabled,
 	onSelect,
 	onReset,
 }: WorktreeLocationPickerProps) {
+	const { t } = useTranslation();
 	const selectDirectory = electronTrpc.window.selectDirectory.useMutation();
 
 	const handleBrowse = async () => {
 		const result = await selectDirectory.mutateAsync({
-			title: dialogTitle,
+			title: dialogTitle ?? t("path.selectWorktree"),
 			defaultPath: defaultBrowsePath ?? undefined,
 		});
 		if (!result.canceled && result.path) {
@@ -41,7 +43,7 @@ export function WorktreeLocationPicker({
 	return (
 		<div className="flex items-center justify-between">
 			<div className="space-y-0.5">
-				<Label className="text-sm font-medium">Directory</Label>
+				<Label className="text-sm font-medium">{t("path.directory")}</Label>
 				<code className="text-xs bg-muted px-1.5 py-0.5 rounded text-foreground block mt-1">
 					{currentPath ?? defaultPathLabel}
 				</code>
@@ -53,7 +55,7 @@ export function WorktreeLocationPicker({
 					onClick={handleBrowse}
 					disabled={disabled || selectDirectory.isPending}
 				>
-					Browse...
+					{t("path.browse")}
 				</Button>
 				{currentPath && (
 					<Button
@@ -62,7 +64,7 @@ export function WorktreeLocationPicker({
 						onClick={onReset}
 						disabled={disabled}
 					>
-						Reset
+						{t("common.reset")}
 					</Button>
 				)}
 			</div>

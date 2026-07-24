@@ -10,26 +10,13 @@ import { HiMiniMinus, HiMiniXMark } from "react-icons/hi2";
 import type { DiffStats } from "renderer/hooks/host-service/useDiffStats";
 import { HotkeyLabel } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { RenameInput } from "renderer/screens/main/components/WorkspaceSidebar/RenameInput";
 import type { ActivePaneStatus } from "shared/tabs-types";
-import type {
-	DashboardSidebarWorkspace,
-	DashboardSidebarWorkspacePullRequest,
-} from "../../../../types";
+import type { DashboardSidebarWorkspace } from "../../../../types";
 import { DashboardSidebarWorkspaceDiffStats } from "../DashboardSidebarWorkspaceDiffStats";
 import { DashboardSidebarWorkspaceIcon } from "../DashboardSidebarWorkspaceIcon";
 import { DashboardSidebarWorkspaceChips } from "./components/DashboardSidebarWorkspaceChips";
-
-const PR_STATE_LABEL: Record<
-	DashboardSidebarWorkspacePullRequest["state"],
-	string
-> = {
-	open: "Open",
-	merged: "Merged",
-	closed: "Closed",
-	draft: "Draft",
-	queued: "Queued",
-};
 
 interface DashboardSidebarExpandedWorkspaceRowProps
 	extends ComponentPropsWithoutRef<"div"> {
@@ -76,6 +63,7 @@ export const DashboardSidebarExpandedWorkspaceRow = forwardRef<
 		},
 		ref,
 	) => {
+		const { t } = useTranslation();
 		const {
 			accentColor = null,
 			hostType,
@@ -99,14 +87,21 @@ export const DashboardSidebarExpandedWorkspaceRow = forwardRef<
 			}
 		}, [isActive]);
 
-		const creationStatusText = isPending ? "Creating…" : null;
+		const creationStatusText = isPending ? t("workspace.creating") : null;
 		const isMainWorkspace = workspace.type === "main";
 		const workspaceKindTitle = isMainWorkspace
-			? "Main workspace"
-			: "Worktree workspace";
+			? t("workspace.main")
+			: t("workspace.worktree");
 		const workspaceKindDescription = isMainWorkspace
-			? "Uses the repository checkout on this host"
-			: "Isolated copy for parallel development";
+			? t("workspace.localDescription")
+			: t("workspace.worktreeDescription");
+		const prStateLabels = {
+			open: t("workspace.prOpen"),
+			merged: t("workspace.prMerged"),
+			closed: t("workspace.prClosed"),
+			draft: t("workspace.prDraft"),
+			queued: t("workspace.prQueued"),
+		};
 
 		return (
 			<div
@@ -163,7 +158,9 @@ export const DashboardSidebarExpandedWorkspaceRow = forwardRef<
 											event.stopPropagation();
 										}
 									}}
-									aria-label={`Open pull request #${pullRequest.number}`}
+									aria-label={t("workspace.openPullRequest", {
+										number: pullRequest.number,
+									})}
 									className="relative mr-2.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded hover:bg-foreground/10"
 								>
 									<DashboardSidebarWorkspaceIcon
@@ -196,11 +193,13 @@ export const DashboardSidebarExpandedWorkspaceRow = forwardRef<
 							{pullRequest ? (
 								<>
 									<p className="text-xs font-medium">
-										PR #{pullRequest.number} —{" "}
-										{PR_STATE_LABEL[pullRequest.state]}
+										{t("workspace.prStatus", {
+											number: pullRequest.number,
+											status: prStateLabels[pullRequest.state],
+										})}
 									</p>
 									<p className="text-xs text-muted-foreground">
-										Click to open on GitHub
+										{t("workspace.clickOpenGithub")}
 									</p>
 								</>
 							) : (
@@ -209,23 +208,23 @@ export const DashboardSidebarExpandedWorkspaceRow = forwardRef<
 										{isMainWorkspace
 											? workspaceKindTitle
 											: hostType === "local-device"
-												? "Local workspace"
+												? t("workspace.local")
 												: hostType === "remote-device"
 													? hostIsOnline === false
-														? "Remote workspace — device offline"
-														: "Remote workspace"
-													: "Cloud workspace"}
+														? t("workspace.remoteOffline")
+														: t("workspace.remote")
+													: t("workspace.cloud")}
 									</p>
 									<p className="text-xs text-muted-foreground">
 										{isMainWorkspace
 											? workspaceKindDescription
 											: hostType === "local-device"
-												? "Running on this device"
+												? t("workspace.runningHere")
 												: hostType === "remote-device"
 													? hostIsOnline === false
-														? "The associated device isn't reachable right now"
-														: "Running on a paired device"
-													: "Hosted in the cloud"}
+														? t("workspace.deviceUnreachable")
+														: t("workspace.runningPaired")
+													: t("workspace.hostedCloud")}
 									</p>
 								</>
 							)}
@@ -296,13 +295,13 @@ export const DashboardSidebarExpandedWorkspaceRow = forwardRef<
 														}
 													}}
 													className="flex items-center justify-center text-muted-foreground hover:text-foreground"
-													aria-label="Remove from sidebar"
+													aria-label={t("workspace.removeSidebar")}
 												>
 													<HiMiniMinus className="size-3.5" />
 												</button>
 											</TooltipTrigger>
 											<TooltipContent side="top" sideOffset={4}>
-												<HotkeyLabel label="Remove from sidebar" />
+												<HotkeyLabel label={t("workspace.removeSidebar")} />
 											</TooltipContent>
 										</Tooltip>
 									) : (
@@ -324,14 +323,14 @@ export const DashboardSidebarExpandedWorkspaceRow = forwardRef<
 														}
 													}}
 													className="flex items-center justify-center text-muted-foreground hover:text-foreground"
-													aria-label="Close workspace"
+													aria-label={t("workspace.closeLabel")}
 												>
 													<HiMiniXMark className="size-3.5" />
 												</button>
 											</TooltipTrigger>
 											<TooltipContent side="top" sideOffset={4}>
 												<HotkeyLabel
-													label="Close workspace"
+													label={t("workspace.closeLabel")}
 													id={isActive ? "CLOSE_WORKSPACE" : undefined}
 												/>
 											</TooltipContent>

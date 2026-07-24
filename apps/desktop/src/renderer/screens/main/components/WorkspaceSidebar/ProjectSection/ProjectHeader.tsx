@@ -26,6 +26,7 @@ import {
 } from "react-icons/lu";
 import { ColorSelector } from "renderer/components/ColorSelector";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useUpdateProject } from "renderer/react-query/projects/useUpdateProject";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { useProjectRename } from "renderer/screens/main/hooks/useProjectRename";
@@ -65,6 +66,7 @@ export function ProjectHeader({
 	workspaceCount,
 	onNewWorkspace,
 }: ProjectHeaderProps) {
+	const { t } = useTranslation();
 	const utils = electronTrpc.useUtils();
 	const navigate = useNavigate();
 	const params = useParams({ strict: false }) as { workspaceId?: string };
@@ -113,12 +115,15 @@ export function ProjectHeader({
 			}
 		},
 		onError: (error) => {
-			toast.error(`Failed to close project: ${error.message}`);
+			toast.error(
+				t("workspace.failedCloseProject", { message: error.message }),
+			);
 		},
 	});
 
 	const openInFinder = electronTrpc.external.openInFinder.useMutation({
-		onError: (error) => toast.error(`Failed to open: ${error.message}`),
+		onError: (error) =>
+			toast.error(t("workspace.failedOpen", { message: error.message })),
 	});
 
 	const handleCloseProject = () => {
@@ -138,7 +143,8 @@ export function ProjectHeader({
 	};
 
 	const updateProject = useUpdateProject({
-		onError: (error) => toast.error(`Failed to update color: ${error.message}`),
+		onError: (error) =>
+			toast.error(t("workspace.failedUpdateColor", { message: error.message })),
 	});
 
 	const handleColorChange = (color: string) => {
@@ -152,18 +158,20 @@ export function ProjectHeader({
 	const createSection = electronTrpc.workspaces.createSection.useMutation({
 		onSuccess: () => utils.workspaces.getAllGrouped.invalidate(),
 		onError: (error) =>
-			toast.error(`Failed to create section: ${error.message}`),
+			toast.error(
+				t("workspace.failedCreateSection", { message: error.message }),
+			),
 	});
 
 	const handleNewSection = () => {
-		createSection.mutate({ projectId, name: "New Section" });
+		createSection.mutate({ projectId, name: t("workspace.newSection") });
 	};
 
 	const colorPickerSubmenu = (
 		<ContextMenuSub>
 			<ContextMenuSubTrigger>
 				<LuPalette className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-				Set Color
+				{t("workspace.setColor")}
 			</ContextMenuSubTrigger>
 			<ContextMenuSubContent className="w-40 max-h-80 overflow-y-auto">
 				<ColorSelector
@@ -204,14 +212,14 @@ export function ProjectHeader({
 						<TooltipContent className="flex flex-col gap-0.5">
 							<span className="font-medium">{projectName}</span>
 							<span className="text-xs text-muted-foreground">
-								{workspaceCount} workspace{workspaceCount !== 1 ? "s" : ""}
+								{t("workspace.projectCount", { count: workspaceCount })}
 							</span>
 						</TooltipContent>
 					</Tooltip>
 					<ContextMenuContent>
 						<ContextMenuItem onSelect={rename.startRename}>
 							<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-							Rename
+							{t("workspace.renameAction")}
 						</ContextMenuItem>
 						<ContextMenuSeparator />
 						<ContextMenuItem onSelect={handleOpenInFinder}>
@@ -219,16 +227,16 @@ export function ProjectHeader({
 								className="size-4 mr-2"
 								strokeWidth={STROKE_WIDTH}
 							/>
-							Open in Finder
+							{t("workspace.openFinder")}
 						</ContextMenuItem>
 						<ContextMenuItem onSelect={handleOpenSettings}>
 							<LuSettings className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-							Project Settings
+							{t("workspace.projectSettings")}
 						</ContextMenuItem>
 						{colorPickerSubmenu}
 						<ContextMenuItem onSelect={handleNewSection}>
 							<LuListPlus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-							New Section
+							{t("workspace.newSection")}
 						</ContextMenuItem>
 						<ContextMenuSeparator />
 						<ContextMenuItem
@@ -240,7 +248,9 @@ export function ProjectHeader({
 								className="size-4 mr-2 text-destructive"
 								strokeWidth={STROKE_WIDTH}
 							/>
-							{closeProject.isPending ? "Closing..." : "Close Project"}
+							{closeProject.isPending
+								? t("workspace.closing")
+								: t("workspace.closeProject")}
 						</ContextMenuItem>
 					</ContextMenuContent>
 				</ContextMenu>
@@ -321,7 +331,7 @@ export function ProjectHeader({
 								</button>
 							</TooltipTrigger>
 							<TooltipContent side="bottom" sideOffset={4}>
-								New workspace
+								{t("workspace.new")}
 							</TooltipContent>
 						</Tooltip>
 
@@ -344,16 +354,16 @@ export function ProjectHeader({
 				<ContextMenuContent>
 					<ContextMenuItem onSelect={rename.startRename}>
 						<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						Rename
+						{t("workspace.renameAction")}
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 					<ContextMenuItem onSelect={handleOpenInFinder}>
 						<LuFolderOpen className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						Open in Finder
+						{t("workspace.openFinder")}
 					</ContextMenuItem>
 					<ContextMenuItem onSelect={handleOpenSettings}>
 						<LuSettings className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						Project Settings
+						{t("workspace.projectSettings")}
 					</ContextMenuItem>
 					{colorPickerSubmenu}
 					<ContextMenuItem onSelect={handleToggleImage}>
@@ -362,11 +372,11 @@ export function ProjectHeader({
 						) : (
 							<LuImageOff className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 						)}
-						{hideImage ? "Show Image" : "Hide Image"}
+						{hideImage ? t("workspace.showImage") : t("workspace.hideImage")}
 					</ContextMenuItem>
 					<ContextMenuItem onSelect={handleNewSection}>
 						<LuListPlus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						New Section
+						{t("workspace.newSection")}
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 					<ContextMenuItem
@@ -378,7 +388,9 @@ export function ProjectHeader({
 							className="size-4 mr-2 text-destructive"
 							strokeWidth={STROKE_WIDTH}
 						/>
-						{closeProject.isPending ? "Closing..." : "Close Project"}
+						{closeProject.isPending
+							? t("workspace.closing")
+							: t("workspace.closeProject")}
 					</ContextMenuItem>
 				</ContextMenuContent>
 			</ContextMenu>

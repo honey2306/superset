@@ -12,6 +12,8 @@ import {
 	HiMiniChevronDown,
 	HiMiniPlus,
 } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
+import { NEW_CHAT_PANE_NAME } from "renderer/stores/tabs/utils";
 import { getRelativeTime } from "../../../../../../../WorkspacesListView/utils";
 import { SessionSelectorItem } from "./components/SessionSelectorItem";
 
@@ -38,7 +40,15 @@ interface SessionGroup {
 
 const SESSION_PAGE_SIZE = 20;
 
-function toSessionGroupLabel(updatedAt: Date): string {
+type TranslationFn = (
+	key:
+		| "chat.session.today"
+		| "chat.session.yesterday"
+		| "chat.session.last7Days"
+		| "chat.session.last30Days",
+) => string;
+
+function toSessionGroupLabel(updatedAt: Date, t: TranslationFn): string {
 	const startOfToday = new Date();
 	startOfToday.setHours(0, 0, 0, 0);
 
@@ -51,18 +61,21 @@ function toSessionGroupLabel(updatedAt: Date): string {
 	const startOfLastMonth = new Date(startOfToday);
 	startOfLastMonth.setDate(startOfLastMonth.getDate() - 30);
 
-	if (updatedAt >= startOfToday) return "Today";
-	if (updatedAt >= startOfYesterday) return "Yesterday";
-	if (updatedAt >= startOfLastWeek) return "Last 7 days";
-	if (updatedAt >= startOfLastMonth) return "Last 30 days";
+	if (updatedAt >= startOfToday) return t("chat.session.today");
+	if (updatedAt >= startOfYesterday) return t("chat.session.yesterday");
+	if (updatedAt >= startOfLastWeek) return t("chat.session.last7Days");
+	if (updatedAt >= startOfLastMonth) return t("chat.session.last30Days");
 	return getRelativeTime(updatedAt.getTime());
 }
 
-function groupSessionsByAge(sessions: SessionItem[]): SessionGroup[] {
+function groupSessionsByAge(
+	sessions: SessionItem[],
+	t: TranslationFn,
+): SessionGroup[] {
 	const groups: SessionGroup[] = [];
 
 	for (const session of sessions) {
-		const label = toSessionGroupLabel(session.updatedAt);
+		const label = toSessionGroupLabel(session.updatedAt, t);
 		const lastGroup = groups[groups.length - 1];
 
 		if (lastGroup?.label === label) {
@@ -85,6 +98,7 @@ export function SessionSelector({
 	onNewChat,
 	onDeleteSession,
 }: SessionSelectorProps) {
+	const { t } = useTranslation();
 	const [isOpen, setIsOpen] = useState(false);
 	const [visibleCount, setVisibleCount] = useState(SESSION_PAGE_SIZE);
 
@@ -93,8 +107,8 @@ export function SessionSelector({
 		[sessions, visibleCount],
 	);
 	const groupedSessions = useMemo(
-		() => groupSessionsByAge(visibleSessions),
-		[visibleSessions],
+		() => groupSessionsByAge(visibleSessions, t),
+		[visibleSessions, t],
 	);
 	const hasMoreSessions = sessions.length > visibleCount;
 
@@ -112,12 +126,17 @@ export function SessionSelector({
 	const current = sessions.find(
 		(session) => session.sessionId === currentSessionId,
 	);
+	const newChatTitle = t("chat.pane.newChat");
 	const resolvedFallbackTitle =
-		fallbackTitle && fallbackTitle !== "New Chat" ? fallbackTitle : null;
+		fallbackTitle &&
+		fallbackTitle !== NEW_CHAT_PANE_NAME &&
+		fallbackTitle !== newChatTitle
+			? fallbackTitle
+			: null;
 	const currentTitle =
 		current?.title ||
 		resolvedFallbackTitle ||
-		(isSessionInitializing ? "Creating Chat" : "New Chat");
+		(isSessionInitializing ? t("chat.session.creatingChat") : newChatTitle);
 
 	return (
 		<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -137,7 +156,9 @@ export function SessionSelector({
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-80">
-				<DropdownMenuLabel className="text-xs">Sessions</DropdownMenuLabel>
+				<DropdownMenuLabel className="text-xs">
+					{t("chat.session.sessions")}
+				</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 				<div className="max-h-80 overflow-y-auto">
 					{sessions.length > 0 ? (
@@ -174,14 +195,14 @@ export function SessionSelector({
 										className="w-full rounded px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 										onClick={loadMoreSessions}
 									>
-										Show more sessions
+										{t("chat.session.showMoreSessions")}
 									</button>
 								</div>
 							)}
 						</>
 					) : (
 						<div className="px-2 py-1.5 text-xs text-muted-foreground">
-							No sessions yet
+							{t("chat.session.noSessionsYet")}
 						</div>
 					)}
 				</div>
@@ -194,7 +215,7 @@ export function SessionSelector({
 					}}
 				>
 					<HiMiniPlus className="mr-1.5 size-3.5" />
-					<span className="text-xs">New Chat</span>
+					<span className="text-xs">{t("chat.pane.newChat")}</span>
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

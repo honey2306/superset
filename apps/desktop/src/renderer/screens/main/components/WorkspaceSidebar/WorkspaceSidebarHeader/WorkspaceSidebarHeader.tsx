@@ -4,6 +4,7 @@ import { useMatchRoute, useNavigate } from "@tanstack/react-router";
 import { HiOutlineClipboardDocumentList } from "react-icons/hi2";
 import { LuLayers } from "react-icons/lu";
 import { GATED_FEATURES, usePaywall } from "renderer/components/Paywall";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	tasksSearchFromFilters,
 	useTasksFilterStore,
@@ -18,6 +19,7 @@ interface WorkspaceSidebarHeaderProps {
 export function WorkspaceSidebarHeader({
 	isCollapsed = false,
 }: WorkspaceSidebarHeaderProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
 	const { gateFeature } = usePaywall();
@@ -77,7 +79,9 @@ export function WorkspaceSidebarHeader({
 							<LuLayers className="size-4" strokeWidth={STROKE_WIDTH} />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="right">Workspaces</TooltipContent>
+					<TooltipContent side="right">
+						{t("workspace.workspaces")}
+					</TooltipContent>
 				</Tooltip>
 
 				<Tooltip delayDuration={300}>
@@ -98,7 +102,9 @@ export function WorkspaceSidebarHeader({
 							/>
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="right">Tasks & PRs</TooltipContent>
+					<TooltipContent side="right">
+						{t("workspace.tasksAndPrs")}
+					</TooltipContent>
 				</Tooltip>
 
 				<NewWorkspaceButton isCollapsed />
@@ -121,7 +127,9 @@ export function WorkspaceSidebarHeader({
 				<div className="flex items-center justify-center size-5">
 					<LuLayers className="size-4" strokeWidth={STROKE_WIDTH} />
 				</div>
-				<span className="text-sm font-medium flex-1 text-left">Workspaces</span>
+				<span className="text-sm font-medium flex-1 text-left">
+					{t("workspace.workspaces")}
+				</span>
 			</button>
 
 			<button
@@ -141,7 +149,7 @@ export function WorkspaceSidebarHeader({
 					/>
 				</div>
 				<span className="text-sm font-medium flex-1 text-left">
-					Tasks & PRs
+					{t("workspace.tasksAndPrs")}
 				</span>
 			</button>
 

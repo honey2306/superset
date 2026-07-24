@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { env } from "renderer/env.renderer";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { MOCK_ORG_ID } from "shared/constants";
 import {
@@ -27,6 +28,7 @@ interface HostsSettingsSidebarProps {
 export function HostsSettingsSidebar({
 	selectedHostId,
 }: HostsSettingsSidebarProps) {
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const { data: session } = authClient.useSession();
 
@@ -55,26 +57,26 @@ export function HostsSettingsSidebar({
 		return [
 			{
 				id: "online",
-				title: "Online",
+				title: t("hosts.online"),
 				rows: sorted.filter((h) => h.isOnline),
 			},
 			{
 				id: "offline",
-				title: "Offline",
+				title: t("hosts.offline"),
 				rows: sorted.filter((h) => !h.isOnline),
 			},
 		];
-	}, [hosts]);
+	}, [hosts, t]);
 
 	return (
 		<SettingsListSidebar
-			searchPlaceholder="Filter hosts..."
-			searchAriaLabel="Filter hosts"
+			searchPlaceholder={t("hosts.filter")}
+			searchAriaLabel={t("hosts.filterAria")}
 			groups={listGroups}
 			filterRow={(row, q) => row.name.toLowerCase().includes(q.toLowerCase())}
 			getRowKey={(row) => row.id}
-			emptyLabel="No hosts yet."
-			noMatchLabel={(q) => `No hosts match "${q}".`}
+			emptyLabel={t("hosts.none")}
+			noMatchLabel={(q) => t("hosts.noMatch", { query: q })}
 			renderRow={(row) => (
 				<Link
 					to="/settings/hosts/$hostId"

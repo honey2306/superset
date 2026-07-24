@@ -30,6 +30,7 @@ import {
 	LuX,
 } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useCreateSectionFromWorkspaces,
 	useMoveWorkspacesToSection,
@@ -81,6 +82,7 @@ export function WorkspaceContextMenu({
 	children,
 }: WorkspaceContextMenuProps) {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+	const { t } = useTranslation();
 	const [renameBranchTarget, setRenameBranchTarget] = useState<string | null>(
 		null,
 	);
@@ -138,12 +140,12 @@ export function WorkspaceContextMenu({
 			{isUnread ? (
 				<>
 					<LuEye className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-					Mark as Read
+					{t("workspace.markRead")}
 				</>
 			) : (
 				<>
 					<LuEyeOff className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-					Mark as Unread
+					{t("workspace.markUnread")}
 				</>
 			)}
 		</ContextMenuItem>
@@ -153,19 +155,19 @@ export function WorkspaceContextMenu({
 		<>
 			<ContextMenuItem onSelect={onOpenInFinder}>
 				<LuFolderOpen className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-				Open in Finder
+				{t("workspace.openFinder")}
 			</ContextMenuItem>
 			<ContextMenuItem onSelect={onOpenInEditor}>
 				<LuExternalLink className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-				Open in Editor
+				{t("workspace.openEditor")}
 			</ContextMenuItem>
 			<ContextMenuItem onSelect={onCopyPath}>
 				<LuCopy className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-				Copy Path
+				{t("workspace.copyPath")}
 			</ContextMenuItem>
 			<ContextMenuItem onSelect={onCopyBranchName}>
 				<LuGitBranch className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-				Copy Branch Name
+				{t("workspace.copyBranch")}
 			</ContextMenuItem>
 			<ContextMenuSeparator />
 			<ContextMenuSub>
@@ -174,17 +176,17 @@ export function WorkspaceContextMenu({
 						className="size-4 mr-2"
 						strokeWidth={STROKE_WIDTH}
 					/>
-					Move to Section
+					{t("workspace.moveSection")}
 				</ContextMenuSubTrigger>
 				<ContextMenuSubContent>
 					<ContextMenuItem onSelect={handleCreateSectionFromSelection}>
 						<LuFolderPlus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						New Section
+						{t("workspace.newSection")}
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 					<ContextMenuItem onSelect={() => handleMoveToSection(null)}>
 						<LuMinus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						Ungrouped
+						{t("workspace.ungrouped")}
 					</ContextMenuItem>
 					{sections.length > 0 && <ContextMenuSeparator />}
 					{sections.map((section) => (
@@ -202,7 +204,7 @@ export function WorkspaceContextMenu({
 			{workspaceStatus && (
 				<ContextMenuItem onSelect={onResetStatus}>
 					<LuBellOff className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-					Clear Status
+					{t("workspace.clearStatus")}
 				</ContextMenuItem>
 			)}
 			<ContextMenuSeparator />
@@ -212,7 +214,9 @@ export function WorkspaceContextMenu({
 				}}
 			>
 				<LuX className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-				{isBranchWorkspace ? "Close Workspace" : "Close Worktree"}
+				{isBranchWorkspace
+					? t("workspace.close")
+					: t("workspace.closeWorktree")}
 				{showDeleteShortcut && (
 					<ContextMenuShortcut>{deleteHotkeyText}</ContextMenuShortcut>
 				)}
@@ -252,7 +256,7 @@ export function WorkspaceContextMenu({
 				>
 					<ContextMenuItem onSelect={onRename}>
 						<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						Rename
+						{t("workspace.renameAction")}
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 					{commonContextMenuItems}

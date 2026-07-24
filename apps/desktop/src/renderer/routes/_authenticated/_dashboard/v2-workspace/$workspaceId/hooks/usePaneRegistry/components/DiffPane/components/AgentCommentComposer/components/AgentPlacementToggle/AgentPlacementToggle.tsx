@@ -1,5 +1,6 @@
 import { ToggleGroup, ToggleGroupItem } from "@superset/ui/toggle-group";
 import { LuColumns2, LuPanelTopOpen } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { AgentSessionPlacement } from "../../hooks/useDiffCommentTarget";
 
 interface AgentPlacementToggleProps {
@@ -11,6 +12,7 @@ export function AgentPlacementToggle({
 	value,
 	onValueChange,
 }: AgentPlacementToggleProps) {
+	const { t } = useTranslation();
 	return (
 		<ToggleGroup
 			type="single"
@@ -21,21 +23,21 @@ export function AgentPlacementToggle({
 		>
 			<ToggleGroupItem
 				value="split-pane"
-				aria-label="Open in split pane"
-				title="Split pane"
+				aria-label={t("v2Workspace.agentPlacement.splitAria")}
+				title={t("v2Workspace.agentPlacement.split")}
 				className="h-6 gap-1 rounded-sm px-1.5 text-[11px] text-muted-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground"
 			>
 				<LuColumns2 className="size-3" />
-				<span>Split</span>
+				<span>{t("v2Workspace.agentPlacement.split")}</span>
 			</ToggleGroupItem>
 			<ToggleGroupItem
 				value="new-tab"
-				aria-label="Open in new tab"
-				title="New tab"
+				aria-label={t("v2Workspace.agentPlacement.newTabAria")}
+				title={t("v2Workspace.agentPlacement.newTab")}
 				className="h-6 gap-1 rounded-sm px-1.5 text-[11px] text-muted-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground"
 			>
 				<LuPanelTopOpen className="size-3" />
-				<span>New tab</span>
+				<span>{t("v2Workspace.agentPlacement.newTab")}</span>
 			</ToggleGroupItem>
 		</ToggleGroup>
 	);

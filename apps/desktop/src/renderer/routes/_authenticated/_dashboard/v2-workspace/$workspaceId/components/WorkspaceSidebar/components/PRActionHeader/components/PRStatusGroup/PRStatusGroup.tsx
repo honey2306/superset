@@ -15,6 +15,7 @@ import { cn } from "@superset/ui/utils";
 import { workspaceTrpc } from "@superset/workspace-client";
 import { useMemo } from "react";
 import { VscChevronDown, VscGitMerge, VscLoading } from "react-icons/vsc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PRIcon, type PRState } from "renderer/screens/main/components/PRIcon";
 import { computeChecksRollup } from "../../utils/computeChecksStatus";
 import type { PRFlowState } from "../../utils/getPRFlowState";
@@ -43,6 +44,7 @@ export function PRStatusGroup({
 	workspaceId,
 	onRefresh,
 }: PRStatusGroupProps) {
+	const { t } = useTranslation();
 	const pr =
 		state.kind === "pr-exists"
 			? state.pr
@@ -59,24 +61,25 @@ export function PRStatusGroup({
 
 	const mergePRMutation = workspaceTrpc.github.mergePR.useMutation({
 		onMutate: () => {
-			const toastId = toast.loading("Merging PR...");
+			const toastId = toast.loading(t("v2Workspace.pr.mergingToast"));
 			return { toastId };
 		},
 		onSuccess: async (_data, _variables, context) => {
-			toast.success("PR merged", { id: context?.toastId });
+			toast.success(t("v2Workspace.pr.mergedToast"), { id: context?.toastId });
 			try {
 				await refreshPRMutation.mutateAsync({ workspaceIds: [workspaceId] });
 			} catch (error) {
 				console.warn("Failed to refresh PR state after merge", error);
-				toast.warning(
-					"Merged, but couldn't refresh PR state — try again in a moment",
-				);
+				toast.warning(t("v2Workspace.pr.mergedRefreshFailed"));
 			} finally {
 				onRefresh?.();
 			}
 		},
 		onError: (error, _variables, context) => {
-			toast.error(`Merge failed: ${error.message}`, { id: context?.toastId });
+			toast.error(
+				t("v2Workspace.pr.mergeFailedToast", { message: error.message }),
+				{ id: context?.toastId },
+			);
 		},
 	});
 
@@ -166,8 +169,8 @@ export function PRStatusGroup({
 								disabled={mergePRMutation.isPending}
 								aria-label={
 									mergePRMutation.isPending
-										? "Merging pull request"
-										: "Open merge options"
+										? t("v2Workspace.pr.mergingAria")
+										: t("v2Workspace.pr.openMergeOptions")
 								}
 							>
 								{mergePRMutation.isPending ? (
@@ -179,7 +182,7 @@ export function PRStatusGroup({
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-44">
 							<DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-								Merge
+								{t("v2Workspace.pr.mergeLabel")}
 							</DropdownMenuLabel>
 							<DropdownMenuItem
 								onClick={() => handleMerge("squash")}
@@ -187,7 +190,7 @@ export function PRStatusGroup({
 								disabled={mergePRMutation.isPending}
 							>
 								<VscGitMerge className="size-3.5" />
-								Squash and merge
+								{t("v2Workspace.pr.squashAndMerge")}
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={() => handleMerge("merge")}
@@ -195,7 +198,7 @@ export function PRStatusGroup({
 								disabled={mergePRMutation.isPending}
 							>
 								<VscGitMerge className="size-3.5" />
-								Create merge commit
+								{t("v2Workspace.pr.createMergeCommit")}
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={() => handleMerge("rebase")}
@@ -203,7 +206,7 @@ export function PRStatusGroup({
 								disabled={mergePRMutation.isPending}
 							>
 								<VscGitMerge className="size-3.5" />
-								Rebase and merge
+								{t("v2Workspace.pr.rebaseAndMerge")}
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>

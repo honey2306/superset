@@ -1,5 +1,6 @@
 import { cn } from "@superset/ui/utils";
 import { LuLaptop, LuLayers, LuMonitor } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	DEVICE_FILTER_ALL,
 	DEVICE_FILTER_THIS_DEVICE,
@@ -14,11 +15,12 @@ export function DeviceFilterTriggerLabel({
 	deviceFilter,
 	selectedRemoteHost,
 }: DeviceFilterTriggerLabelProps) {
+	const { t } = useTranslation();
 	if (deviceFilter === DEVICE_FILTER_ALL) {
 		return (
 			<span className="flex items-center gap-2">
 				<LuLayers className="size-3.5" />
-				<span>All devices</span>
+				<span>{t("workspace.allDevices")}</span>
 			</span>
 		);
 	}
@@ -26,7 +28,7 @@ export function DeviceFilterTriggerLabel({
 		return (
 			<span className="flex items-center gap-2">
 				<LuLaptop className="size-3.5" />
-				<span>This device</span>
+				<span>{t("workspace.thisDevice")}</span>
 			</span>
 		);
 	}
@@ -34,7 +36,7 @@ export function DeviceFilterTriggerLabel({
 		<span className="flex min-w-0 items-center gap-2">
 			<LuMonitor className="size-3.5" />
 			<span className="min-w-0 truncate">
-				{selectedRemoteHost?.hostName ?? "Unknown device"}
+				{selectedRemoteHost?.hostName ?? t("workspace.unknownDevice")}
 			</span>
 			{selectedRemoteHost ? (
 				<span

@@ -3,6 +3,7 @@ import { workspaceTrpc } from "@superset/workspace-client";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useMemo } from "react";
 import { LuMessageSquare } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { CommentPaneData, DiffFocusSide } from "../../../../types";
 import {
 	coerceCheckStatus,
@@ -31,6 +32,7 @@ export function useReviewTab({
 	onOpenComment,
 	onOpenInDiff,
 }: UseReviewTabParams): SidebarTabDefinition {
+	const { t } = useTranslation();
 	const prQuery = workspaceTrpc.git.getPullRequest.useQuery(
 		{ workspaceId },
 		{
@@ -98,7 +100,7 @@ export function useReviewTab({
 
 	return {
 		id: "review",
-		label: "Review",
+		label: t("v2Workspace.review.tabLabel"),
 		icon: LuMessageSquare,
 		badge: openReviewCount > 0 ? openReviewCount : undefined,
 		content,

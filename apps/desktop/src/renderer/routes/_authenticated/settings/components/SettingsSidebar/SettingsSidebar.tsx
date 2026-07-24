@@ -17,14 +17,18 @@ import { getVisibleMatchCountBySection } from "../../utils/settings-search";
 import { GeneralSettings } from "./GeneralSettings";
 
 export function SettingsSidebar() {
-	const { t } = useTranslation();
+	const { locale, t } = useTranslation();
 	const searchQuery = useSettingsSearchQuery();
 	const setSearchQuery = useSetSettingsSearchQuery();
 	const originRoute = useSettingsOriginRoute();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 	const normalizedSearchQuery = searchQuery.trim();
 	const matchCounts = normalizedSearchQuery
-		? getVisibleMatchCountBySection(normalizedSearchQuery, isV2CloudEnabled)
+		? getVisibleMatchCountBySection(
+				normalizedSearchQuery,
+				isV2CloudEnabled,
+				locale,
+			)
 		: null;
 
 	return (

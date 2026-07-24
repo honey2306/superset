@@ -1,3 +1,4 @@
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { AttachmentChip } from "../../../AttachmentChip";
 import { ImageHoverPreview } from "../../../ImageHoverPreview";
 import type { ChatMessage, ChatMessagePart } from "../../types";
@@ -11,6 +12,7 @@ export function UserMessageAttachments({
 	message,
 	onOpenAttachment,
 }: UserMessageAttachmentsProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="flex max-w-[85%] flex-wrap justify-end gap-2">
 			{message.content.map((part: ChatMessagePart, partIndex: number) => {
@@ -43,7 +45,7 @@ export function UserMessageAttachments({
 						>
 							<img
 								src={legacySrc}
-								alt="Attached"
+								alt={t("chat.assistant.attached")}
 								className="max-h-48 rounded-lg object-contain"
 							/>
 						</ImageHoverPreview>

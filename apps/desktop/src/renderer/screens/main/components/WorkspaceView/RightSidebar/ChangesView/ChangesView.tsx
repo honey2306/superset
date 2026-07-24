@@ -8,6 +8,7 @@ import {
 	getGitHubPRCommentsQueryPolicy,
 	getGitHubStatusQueryPolicy,
 } from "renderer/lib/githubQueryPolicy";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import {
 	checkSummaryIconConfig,
@@ -82,6 +83,7 @@ export function ChangesView({
 	isExpandedView,
 	isActive = true,
 }: ChangesViewProps) {
+	const { t } = useTranslation();
 	const { workspaceId } = useParams({ strict: false });
 	const trpcUtils = electronTrpc.useUtils();
 	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
@@ -123,7 +125,9 @@ export function ChangesView({
 		onSuccess: () => refetch(),
 		onError: (error) => {
 			console.error("Failed to stage all files:", error);
-			toast.error(`Failed to stage all: ${error.message}`);
+			toast.error(
+				t("v1Changes.toastStageAllFailed", { message: error.message }),
+			);
 		},
 	});
 
@@ -131,7 +135,9 @@ export function ChangesView({
 		onSuccess: () => refetch(),
 		onError: (error) => {
 			console.error("Failed to unstage all files:", error);
-			toast.error(`Failed to unstage all: ${error.message}`);
+			toast.error(
+				t("v1Changes.toastUnstageAllFailed", { message: error.message }),
+			);
 		},
 	});
 
@@ -139,7 +145,12 @@ export function ChangesView({
 		onSuccess: () => refetch(),
 		onError: (error, variables) => {
 			console.error(`Failed to stage file ${variables.filePath}:`, error);
-			toast.error(`Failed to stage ${variables.filePath}: ${error.message}`);
+			toast.error(
+				t("v1Changes.toastStageFileFailed", {
+					path: variables.filePath,
+					message: error.message,
+				}),
+			);
 		},
 	});
 
@@ -147,7 +158,12 @@ export function ChangesView({
 		onSuccess: () => refetch(),
 		onError: (error, variables) => {
 			console.error(`Failed to unstage file ${variables.filePath}:`, error);
-			toast.error(`Failed to unstage ${variables.filePath}: ${error.message}`);
+			toast.error(
+				t("v1Changes.toastUnstageFileFailed", {
+					path: variables.filePath,
+					message: error.message,
+				}),
+			);
 		},
 	});
 
@@ -158,7 +174,9 @@ export function ChangesView({
 				`Failed to stage files ${variables.filePaths.join(", ")}:`,
 				error,
 			);
-			toast.error(`Failed to stage files: ${error.message}`);
+			toast.error(
+				t("v1Changes.toastStageFilesFailed", { message: error.message }),
+			);
 		},
 	});
 
@@ -169,7 +187,9 @@ export function ChangesView({
 				`Failed to unstage files ${variables.filePaths.join(", ")}:`,
 				error,
 			);
-			toast.error(`Failed to unstage files: ${error.message}`);
+			toast.error(
+				t("v1Changes.toastUnstageFilesFailed", { message: error.message }),
+			);
 		},
 	});
 
@@ -180,7 +200,9 @@ export function ChangesView({
 				`Failed to discard changes for ${variables.filePaths.join(", ")}:`,
 				error,
 			);
-			toast.error(`Failed to discard changes: ${error.message}`);
+			toast.error(
+				t("v1Changes.toastDiscardFilesFailed", { message: error.message }),
+			);
 		},
 	});
 
@@ -189,65 +211,79 @@ export function ChangesView({
 			onSuccess: () => refetch(),
 			onError: (error, variables) => {
 				console.error(`Failed to delete ${variables.filePath}:`, error);
-				toast.error(`Failed to delete file: ${error.message}`);
+				toast.error(
+					t("v1Changes.toastDeleteFileFailed", { message: error.message }),
+				);
 			},
 		});
 
 	const discardAllUnstagedMutation =
 		electronTrpc.changes.discardAllUnstaged.useMutation({
 			onSuccess: () => {
-				toast.success("Discarded all unstaged changes");
+				toast.success(t("v1Changes.toastDiscardAllUnstagedSuccess"));
 				refetch();
 			},
 			onError: (error) => {
 				console.error("Failed to discard all unstaged:", error);
-				toast.error(`Failed to discard: ${error.message}`);
+				toast.error(
+					t("v1Changes.toastDiscardAllUnstagedFailed", {
+						message: error.message,
+					}),
+				);
 			},
 		});
 
 	const discardAllStagedMutation =
 		electronTrpc.changes.discardAllStaged.useMutation({
 			onSuccess: () => {
-				toast.success("Discarded all staged changes");
+				toast.success(t("v1Changes.toastDiscardAllStagedSuccess"));
 				refetch();
 			},
 			onError: (error) => {
 				console.error("Failed to discard all staged:", error);
-				toast.error(`Failed to discard: ${error.message}`);
+				toast.error(
+					t("v1Changes.toastDiscardAllStagedFailed", {
+						message: error.message,
+					}),
+				);
 			},
 		});
 
 	const stashMutation = electronTrpc.changes.stash.useMutation({
 		onSuccess: () => {
-			toast.success("Changes stashed");
+			toast.success(t("v1Changes.toastStashSuccess"));
 			refetch();
 		},
 		onError: (error) => {
 			console.error("Failed to stash:", error);
-			toast.error(`Failed to stash: ${error.message}`);
+			toast.error(t("v1Changes.toastStashFailed", { message: error.message }));
 		},
 	});
 
 	const stashIncludeUntrackedMutation =
 		electronTrpc.changes.stashIncludeUntracked.useMutation({
 			onSuccess: () => {
-				toast.success("All changes stashed (including untracked)");
+				toast.success(t("v1Changes.toastStashAllSuccess"));
 				refetch();
 			},
 			onError: (error) => {
 				console.error("Failed to stash:", error);
-				toast.error(`Failed to stash: ${error.message}`);
+				toast.error(
+					t("v1Changes.toastStashAllFailed", { message: error.message }),
+				);
 			},
 		});
 
 	const stashPopMutation = electronTrpc.changes.stashPop.useMutation({
 		onSuccess: () => {
-			toast.success("Stash applied and removed");
+			toast.success(t("v1Changes.toastStashPopSuccess"));
 			refetch();
 		},
 		onError: (error) => {
 			console.error("Failed to pop stash:", error);
-			toast.error(`Failed to pop stash: ${error.message}`);
+			toast.error(
+				t("v1Changes.toastStashPopFailed", { message: error.message }),
+			);
 		},
 	});
 
@@ -658,7 +694,7 @@ export function ChangesView({
 	if (!worktreePath) {
 		return (
 			<div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
-				No workspace selected
+				{t("v1Changes.noWorkspaceSelected")}
 			</div>
 		);
 	}
@@ -666,7 +702,7 @@ export function ChangesView({
 	if (!status && isLoading) {
 		return (
 			<div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
-				Loading changes...
+				{t("v1Changes.loadingChanges")}
 			</div>
 		);
 	}
@@ -681,7 +717,7 @@ export function ChangesView({
 	) {
 		return (
 			<div className="flex-1 flex select-text cursor-text items-center justify-center text-muted-foreground text-sm p-4">
-				Unable to load changes
+				{t("v1Changes.unableToLoad")}
 			</div>
 		);
 	}
@@ -718,7 +754,7 @@ export function ChangesView({
 								"min-w-0 w-full justify-center",
 							)}
 						>
-							<span>Diffs</span>
+							<span>{t("v1Changes.diffsTab")}</span>
 							<span className="text-[11px] text-muted-foreground/60 tabular-nums">
 								{againstMainCount}
 							</span>
@@ -730,7 +766,7 @@ export function ChangesView({
 								"min-w-0 w-full justify-center",
 							)}
 						>
-							<span>Review</span>
+							<span>{t("v1Changes.reviewTab")}</span>
 							<span className="text-[11px] text-muted-foreground/60 tabular-nums">
 								{reviewCommentCount}
 							</span>
@@ -790,7 +826,7 @@ export function ChangesView({
 
 					{!hasChanges ? (
 						<div className="flex flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
-							No changes detected
+							{t("v1Changes.noChangesDetected")}
 						</div>
 					) : (
 						<div
@@ -835,27 +871,27 @@ export function ChangesView({
 			<DiscardConfirmDialog
 				open={showDiscardUnstagedDialog}
 				onOpenChange={setShowDiscardUnstagedDialog}
-				title="Discard all unstaged changes?"
-				description="This will revert all unstaged modifications and delete untracked files. This action cannot be undone."
+				title={t("v1Changes.discardAllUnstagedTitle")}
+				description={t("v1Changes.discardAllUnstagedDesc")}
 				onConfirm={() =>
 					discardAllUnstagedMutation.mutate({
 						worktreePath: worktreePath || "",
 					})
 				}
-				confirmLabel="Discard All"
+				confirmLabel={t("v1Changes.discardAll")}
 			/>
 
 			<DiscardConfirmDialog
 				open={showDiscardStagedDialog}
 				onOpenChange={setShowDiscardStagedDialog}
-				title="Discard all staged changes?"
-				description="This will unstage and revert all staged changes. Staged new files will be deleted. This action cannot be undone."
+				title={t("v1Changes.discardAllStagedTitle")}
+				description={t("v1Changes.discardAllStagedDesc")}
 				onConfirm={() =>
 					discardAllStagedMutation.mutate({
 						worktreePath: worktreePath || "",
 					})
 				}
-				confirmLabel="Discard All"
+				confirmLabel={t("v1Changes.discardAll")}
 			/>
 		</div>
 	);

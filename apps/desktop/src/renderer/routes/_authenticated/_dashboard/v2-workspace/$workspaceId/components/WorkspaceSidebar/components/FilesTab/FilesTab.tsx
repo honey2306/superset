@@ -33,6 +33,7 @@ import {
 	createPierreTreeStyle,
 	PIERRE_TREE_UNSAFE_CSS,
 } from "renderer/lib/pierreTree";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOpenInExternalEditor } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useOpenInExternalEditor";
 import { PierreRowContextMenu } from "../PierreRowContextMenu";
 import { FileMenuItems } from "./components/FileMenuItems";
@@ -79,6 +80,7 @@ export function FilesTab({
 	gitStatus,
 	onSearch,
 }: FilesTabProps) {
+	const { t } = useTranslation();
 	// Shares the query cache with V2WorkspacePage's workspace.get query, so
 	// the first render after a workspace switch typically already has cached
 	// data from React Query (the parent route resolves it first). staleTime
@@ -276,10 +278,10 @@ export function FilesTab({
 				{workspaceQuery.isLoading ? (
 					<>
 						<Loader2 className="size-3.5 animate-spin" />
-						<span>Loading files...</span>
+						<span>{t("v2Workspace.filesTab.loading")}</span>
 					</>
 				) : (
-					"Workspace worktree not available"
+					t("v2Workspace.filesTab.notAvailable")
 				)}
 			</div>
 		);
@@ -309,29 +311,31 @@ export function FilesTab({
 									className="flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
 								>
 									<Search className="size-3.5 shrink-0" />
-									<span className="truncate">Search files</span>
+									<span className="truncate">
+										{t("v2Workspace.filesTab.searchFiles")}
+									</span>
 								</button>
 							)}
 							<div className="ml-auto flex items-center gap-0.5">
 								<FilesTabHeaderButton
 									icon={FilePlus}
-									label="New File"
+									label={t("v2Workspace.filesTab.newFile")}
 									onClick={() => void startCreating("file")}
 								/>
 								<FilesTabHeaderButton
 									icon={FolderPlus}
-									label="New Folder"
+									label={t("v2Workspace.filesTab.newFolder")}
 									onClick={() => void startCreating("folder")}
 								/>
 								<FilesTabHeaderButton
 									icon={RefreshCw}
-									label="Refresh"
+									label={t("v2Workspace.filesTab.refresh")}
 									loading={bridge.isRefreshing}
 									onClick={() => void bridge.doRefresh()}
 								/>
 								<FilesTabHeaderButton
 									icon={FoldVertical}
-									label="Collapse All"
+									label={t("v2Workspace.filesTab.collapseAll")}
 									onClick={collapseAll}
 								/>
 							</div>

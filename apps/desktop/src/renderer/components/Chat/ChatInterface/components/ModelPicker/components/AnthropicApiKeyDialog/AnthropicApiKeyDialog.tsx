@@ -8,6 +8,7 @@ import {
 } from "@superset/ui/dialog";
 import { InputGroup, InputGroupInput } from "@superset/ui/input-group";
 import { Label } from "@superset/ui/label";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface AnthropicApiKeyDialogProps {
 	open: boolean;
@@ -32,26 +33,28 @@ export function AnthropicApiKeyDialog({
 	onSubmit,
 	onClear,
 }: AnthropicApiKeyDialogProps) {
+	const { t } = useTranslation();
 	const errorId = "anthropic-api-key-error";
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-[calc(100vw-2rem)] overflow-hidden sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>Connect Anthropic</DialogTitle>
+					<DialogTitle>{t("apiKeyDialog.connectAnthropic")}</DialogTitle>
 					<DialogDescription>
-						Paste your Anthropic API key to enable Claude models in chat.
+						{t("apiKeyDialog.pasteAnthropicKey")}
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-4">
 					<div className="rounded-lg border border-border/70 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
-						API key mode is best if you already manage Anthropic access with a
-						standard `sk-ant-...` key.
+						{t("apiKeyDialog.modeHintAnthropic")}
 					</div>
 
 					<div className="space-y-2">
-						<Label htmlFor="anthropic-api-key">API key</Label>
+						<Label htmlFor="anthropic-api-key">
+							{t("apiKeyDialog.apiKeyLabel")}
+						</Label>
 						<InputGroup className="h-11 border-border/70 bg-muted/10">
 							<InputGroupInput
 								id="anthropic-api-key"
@@ -72,7 +75,7 @@ export function AnthropicApiKeyDialog({
 							/>
 						</InputGroup>
 						<p className="text-muted-foreground text-xs">
-							Use the same key you would pass as `ANTHROPIC_API_KEY`.
+							{t("apiKeyDialog.useSameKeyAnthropic")}
 						</p>
 					</div>
 
@@ -88,7 +91,7 @@ export function AnthropicApiKeyDialog({
 							onClick={onSubmit}
 							disabled={isPending || apiKey.trim().length === 0}
 						>
-							{isPending ? "Saving..." : "Save key"}
+							{isPending ? t("common.saving") : t("apiKeyDialog.saveKey")}
 						</Button>
 						<div className="flex items-center justify-between gap-2">
 							<Button
@@ -97,7 +100,7 @@ export function AnthropicApiKeyDialog({
 								onClick={() => onOpenChange(false)}
 								disabled={isPending}
 							>
-								Back
+								{t("apiKeyDialog.back")}
 							</Button>
 							{canClearApiKey ? (
 								<Button
@@ -106,7 +109,7 @@ export function AnthropicApiKeyDialog({
 									onClick={onClear}
 									disabled={isPending}
 								>
-									Clear key
+									{t("apiKeyDialog.clearKey")}
 								</Button>
 							) : null}
 						</div>

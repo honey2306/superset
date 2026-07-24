@@ -17,6 +17,7 @@ import {
 	HiOutlineUserCircle,
 } from "react-icons/hi2";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOptimisticCollectionActions } from "renderer/routes/_authenticated/hooks/useOptimisticCollectionActions";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import type { TaskWithStatus } from "../../../../hooks/useTasksTable";
@@ -38,6 +39,7 @@ export function TaskContextMenu({
 	task,
 	onDelete,
 }: TaskContextMenuProps) {
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const { tasks: taskActions } = useOptimisticCollectionActions();
 
@@ -94,7 +96,7 @@ export function TaskContextMenu({
 				<ContextMenuSub>
 					<ContextMenuSubTrigger>
 						<ActiveIcon className="mr-2" />
-						<span>Status</span>
+						<span>{t("tasks.status")}</span>
 					</ContextMenuSubTrigger>
 					<ContextMenuSubContent className="w-48">
 						<div className="max-h-64 overflow-y-auto">
@@ -112,7 +114,7 @@ export function TaskContextMenu({
 				<ContextMenuSub>
 					<ContextMenuSubTrigger>
 						<HiOutlineUserCircle className="mr-2 size-4" />
-						<span>Assignee</span>
+						<span>{t("tasks.assignee")}</span>
 					</ContextMenuSubTrigger>
 					<ContextMenuSubContent className="w-56">
 						<div className="max-h-64 overflow-y-auto">
@@ -131,7 +133,7 @@ export function TaskContextMenu({
 				<ContextMenuSub>
 					<ContextMenuSubTrigger>
 						<PriorityMenuIcon className="mr-1" />
-						<span>Priority</span>
+						<span>{t("tasks.priority")}</span>
 					</ContextMenuSubTrigger>
 					<ContextMenuSubContent className="w-52">
 						<PriorityMenuItems
@@ -149,14 +151,14 @@ export function TaskContextMenu({
 				<ContextMenuSub>
 					<ContextMenuSubTrigger>
 						<HiOutlineDocumentDuplicate className="mr-2 size-4" />
-						<span>Copy</span>
+						<span>{t("tasks.copy")}</span>
 					</ContextMenuSubTrigger>
 					<ContextMenuSubContent className="w-48">
 						<ContextMenuItem onClick={handleCopyId}>
-							<span>Copy ID</span>
+							<span>{t("tasks.copyId")}</span>
 						</ContextMenuItem>
 						<ContextMenuItem onClick={handleCopyTitle}>
-							<span>Copy Title</span>
+							<span>{t("tasks.copyTitle")}</span>
 						</ContextMenuItem>
 					</ContextMenuSubContent>
 				</ContextMenuSub>
@@ -168,7 +170,7 @@ export function TaskContextMenu({
 					className="text-destructive focus:text-destructive"
 				>
 					<HiOutlineTrash className="text-destructive size-4" />
-					<span>Delete</span>
+					<span>{t("tasks.delete")}</span>
 				</ContextMenuItem>
 			</ContextMenuContent>
 		</ContextMenu>

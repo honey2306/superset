@@ -11,6 +11,7 @@ import {
 import type React from "react";
 import { useCallback, useMemo } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTheme } from "renderer/stores";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { READ_ONLY_TOOLS } from "../../constants";
@@ -47,6 +48,7 @@ export function MessagePartsRenderer({
 	workspaceCwd,
 	onAnswer,
 }: MessagePartsRendererProps): React.ReactNode[] {
+	const { t } = useTranslation();
 	const theme = useTheme();
 	const { data: openLinksInApp } =
 		electronTrpc.settings.getOpenLinksInApp.useQuery();
@@ -213,15 +215,15 @@ export function MessagePartsRenderer({
 							toolName: name,
 							args,
 						});
-						let title = "Read";
+						let title = t("chat.tool.read");
 						let subtitle = "";
 						let icon = FileIcon;
 						switch (name) {
 							case "mastra_workspace_read_file":
 								title =
 									p.state !== "output-available" && p.state !== "output-error"
-										? "Reading"
-										: "Read";
+										? t("chat.tool.reading")
+										: t("chat.tool.read");
 								subtitle = String(
 									args.path ??
 										args.filePath ??
@@ -234,8 +236,8 @@ export function MessagePartsRenderer({
 							case "mastra_workspace_list_files":
 								title =
 									p.state !== "output-available" && p.state !== "output-error"
-										? "Listing"
-										: "Listed";
+										? t("chat.tool.listing")
+										: t("chat.tool.listed");
 								subtitle = String(
 									args.path ??
 										args.directory ??
@@ -250,8 +252,8 @@ export function MessagePartsRenderer({
 							case "mastra_workspace_file_stat":
 								title =
 									p.state !== "output-available" && p.state !== "output-error"
-										? "Checking"
-										: "Checked";
+										? t("chat.tool.checking")
+										: t("chat.tool.checked");
 								subtitle = String(
 									args.path ?? args.file_path ?? args.file ?? "",
 								);
@@ -260,8 +262,8 @@ export function MessagePartsRenderer({
 							case "mastra_workspace_search":
 								title =
 									p.state !== "output-available" && p.state !== "output-error"
-										? "Searching"
-										: "Searched";
+										? t("chat.tool.searching")
+										: t("chat.tool.searched");
 								subtitle = String(
 									args.query ??
 										args.pattern ??
@@ -275,8 +277,8 @@ export function MessagePartsRenderer({
 							case "mastra_workspace_index":
 								title =
 									p.state !== "output-available" && p.state !== "output-error"
-										? "Indexing"
-										: "Indexed";
+										? t("chat.tool.indexing")
+										: t("chat.tool.indexed");
 								icon = SearchIcon;
 								break;
 							default:

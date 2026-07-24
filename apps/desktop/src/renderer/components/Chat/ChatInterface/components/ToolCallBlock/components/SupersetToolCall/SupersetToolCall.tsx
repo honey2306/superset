@@ -6,6 +6,7 @@ import { ToolCallRow } from "@superset/ui/ai-elements/tool-call-row";
 import { WrenchIcon } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useMemo } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 
 type SupersetToolCallProps = {
@@ -32,6 +33,7 @@ export function SupersetToolCall({
 	details,
 	subtitle,
 }: SupersetToolCallProps) {
+	const { t } = useTranslation();
 	const output =
 		"output" in part ? (part as { output?: unknown }).output : undefined;
 	const outputObject =
@@ -49,8 +51,8 @@ export function SupersetToolCall({
 		if (typeof outputObject?.message === "string") return outputObject.message;
 		if (outputError !== undefined) return stringifyValue(outputError);
 		if (output !== undefined) return stringifyValue(output);
-		return "Tool failed";
-	}, [isError, output, outputError, outputObject?.message]);
+		return t("chat.tool.toolFailed");
+	}, [isError, output, outputError, outputObject?.message, t]);
 
 	const contentText = (() => {
 		if (isPending || isError) return null;

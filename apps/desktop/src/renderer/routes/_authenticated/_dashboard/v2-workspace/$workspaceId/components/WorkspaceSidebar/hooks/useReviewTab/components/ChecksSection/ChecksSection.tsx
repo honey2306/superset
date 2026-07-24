@@ -15,6 +15,7 @@ import {
 	LuX,
 } from "react-icons/lu";
 import { VscChevronRight } from "react-icons/vsc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { NormalizedCheck, NormalizedPR } from "../../types";
 
 const checkIconConfig = {
@@ -51,6 +52,7 @@ export function ChecksSection({
 	checksStatus,
 	prUrl,
 }: ChecksSectionProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(true);
 
 	const relevantChecks = useMemo(
@@ -66,8 +68,11 @@ export function ChecksSection({
 	).length;
 	const checksSummary =
 		relevantChecks.length > 0
-			? `${passingChecks}/${relevantChecks.length} checks passing`
-			: "No checks reported";
+			? t("v2Workspace.checks.summary", {
+					passing: passingChecks,
+					total: relevantChecks.length,
+				})
+			: t("v2Workspace.checks.noReported");
 	const checksStatusConfig = checkSummaryIconConfig[checksStatus];
 	const ChecksStatusIcon = checksStatusConfig.icon;
 
@@ -86,7 +91,9 @@ export function ChecksSection({
 							open && "rotate-90",
 						)}
 					/>
-					<span className="truncate text-xs font-medium">Checks</span>
+					<span className="truncate text-xs font-medium">
+						{t("v2Workspace.checks.tabLabel")}
+					</span>
 					<span className="shrink-0 text-[10px] text-muted-foreground">
 						{relevantChecks.length}
 					</span>
@@ -111,7 +118,7 @@ export function ChecksSection({
 			<CollapsibleContent className="min-w-0 overflow-hidden px-0.5 pb-1">
 				{relevantChecks.length === 0 ? (
 					<div className="px-1.5 py-1 text-xs text-muted-foreground">
-						No checks reported.
+						{t("v2Workspace.checks.noneMore")}
 					</div>
 				) : (
 					relevantChecks.map((check, index) => (
@@ -211,6 +218,7 @@ function CopyLogsButton({
 	workspaceId: string;
 	detailsUrl: string;
 }) {
+	const { t } = useTranslation();
 	const utils = workspaceTrpc.useUtils();
 	const [state, setState] = useState<"idle" | "loading" | "copied" | "error">(
 		"idle",
@@ -249,8 +257,8 @@ function CopyLogsButton({
 		<button
 			type="button"
 			onClick={handleCopy}
-			title="Copy job logs to clipboard"
-			aria-label="Copy job logs to clipboard"
+			title={t("v2Workspace.checks.copyLogsTitle")}
+			aria-label={t("v2Workspace.checks.copyLogsTitle")}
 			className={cn(
 				"shrink-0 rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground",
 				"opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",

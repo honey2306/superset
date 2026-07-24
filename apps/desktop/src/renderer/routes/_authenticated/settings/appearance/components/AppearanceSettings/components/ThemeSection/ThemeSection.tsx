@@ -18,6 +18,7 @@ import {
 	HiOutlineArrowUpTray,
 } from "react-icons/hi2";
 import { ThemeSwatch } from "renderer/components/ThemeSwatch";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	SYSTEM_THEME_ID,
 	useSetSystemThemePreference,
@@ -69,6 +70,7 @@ function ThemeRow({
 	options,
 	includeSystem,
 }: ThemeRowProps) {
+	const { t } = useTranslation();
 	const isSystem = includeSystem !== undefined && value === SYSTEM_THEME_ID;
 	return (
 		<div className="flex items-center justify-between gap-6 p-4">
@@ -85,7 +87,9 @@ function ThemeRow({
 									<ThemeSwatch theme={includeSystem.lightTheme} />
 									<ThemeSwatch theme={includeSystem.darkTheme} />
 								</div>
-								<span className="truncate text-xs">System</span>
+								<span className="truncate text-xs">
+									{t("appearance.system")}
+								</span>
 							</div>
 						) : (
 							<div className="flex items-center gap-2 min-w-0">
@@ -104,7 +108,7 @@ function ThemeRow({
 										<ThemeSwatch theme={includeSystem.lightTheme} />
 										<ThemeSwatch theme={includeSystem.darkTheme} />
 									</div>
-									<span className="truncate">System</span>
+									<span className="truncate">{t("appearance.system")}</span>
 								</div>
 							</SelectItem>
 							<SelectSeparator />
@@ -130,6 +134,7 @@ function ThemeRow({
 }
 
 export function ThemeSection() {
+	const { t } = useTranslation();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [isImporting, setIsImporting] = useState(false);
 	const activeThemeId = useThemeId();
@@ -150,12 +155,12 @@ export function ThemeSection() {
 	const customDarkThemes = darkThemes.filter((t) => t.isCustom);
 
 	const allOptions: ReadonlyArray<{ group: string; themes: Theme[] }> = [
-		{ group: "Light", themes: builtInLightThemes },
-		{ group: "Dark", themes: builtInDarkThemes },
+		{ group: t("appearance.light"), themes: builtInLightThemes },
+		{ group: t("appearance.dark"), themes: builtInDarkThemes },
 		...(customThemes.length > 0
 			? [
 					{
-						group: "Custom",
+						group: t("appearance.custom"),
 						themes: [...customLightThemes, ...customDarkThemes],
 					},
 				]
@@ -164,17 +169,17 @@ export function ThemeSection() {
 	const lightOptions: ReadonlyArray<{ group: string; themes: Theme[] }> =
 		customLightThemes.length > 0
 			? [
-					{ group: "Light", themes: builtInLightThemes },
-					{ group: "Custom", themes: customLightThemes },
+					{ group: t("appearance.light"), themes: builtInLightThemes },
+					{ group: t("appearance.custom"), themes: customLightThemes },
 				]
-			: [{ group: "Light", themes: builtInLightThemes }];
+			: [{ group: t("appearance.light"), themes: builtInLightThemes }];
 	const darkOptions: ReadonlyArray<{ group: string; themes: Theme[] }> =
 		customDarkThemes.length > 0
 			? [
-					{ group: "Dark", themes: builtInDarkThemes },
-					{ group: "Custom", themes: customDarkThemes },
+					{ group: t("appearance.dark"), themes: builtInDarkThemes },
+					{ group: t("appearance.custom"), themes: customDarkThemes },
 				]
-			: [{ group: "Dark", themes: builtInDarkThemes }];
+			: [{ group: t("appearance.dark"), themes: builtInDarkThemes }];
 
 	const systemLightTheme =
 		allThemes.find((t) => t.id === systemLightThemeId) ??
@@ -194,8 +199,8 @@ export function ThemeSection() {
 		event.target.value = "";
 		if (!file) return;
 		if (file.size > MAX_THEME_FILE_SIZE) {
-			toast.error("Theme file too large", {
-				description: "Maximum size is 256 KB.",
+			toast.error(t("appearance.themeTooLarge"), {
+				description: t("appearance.maxThemeSize"),
 			});
 			return;
 		}
@@ -206,7 +211,7 @@ export function ThemeSection() {
 			const parsed = parseThemeConfigFile(content);
 
 			if (!parsed.ok) {
-				toast.error("Failed to import theme file", {
+				toast.error(t("appearance.themeImportFailed"), {
 					description: parsed.error,
 				});
 				return;
@@ -216,36 +221,40 @@ export function ThemeSection() {
 			const totalImported = summary.added + summary.updated;
 
 			if (totalImported === 0) {
-				toast.error("No themes were imported", {
+				toast.error(t("appearance.noThemesImported"), {
 					description:
 						summary.skipped > 0
-							? "All themes used reserved IDs (built-in or system)."
-							: "The file did not contain any importable themes.",
+							? t("appearance.reservedThemeIds")
+							: t("appearance.noImportableThemes"),
 				});
 				return;
 			}
 
 			toast.success(
 				totalImported === 1
-					? "Imported 1 custom theme"
-					: `Imported ${totalImported} custom themes`,
+					? t("appearance.oneThemeImported")
+					: t("appearance.themesImported", { count: totalImported }),
 				{
 					description:
 						summary.updated > 0
-							? `${summary.updated} existing theme${summary.updated === 1 ? "" : "s"} updated`
+							? summary.updated === 1
+								? t("appearance.oneThemeUpdated")
+								: t("appearance.themesUpdated", { count: summary.updated })
 							: undefined,
 				},
 			);
 
 			if (parsed.issues.length > 0) {
-				toast.warning("Some themes were skipped", {
+				toast.warning(t("appearance.themesSkipped"), {
 					description: parsed.issues[0],
 				});
 			}
 		} catch (error) {
-			toast.error("Failed to import theme file", {
+			toast.error(t("appearance.themeImportFailed"), {
 				description:
-					error instanceof Error ? error.message : "Unable to read file",
+					error instanceof Error
+						? error.message
+						: t("appearance.unableReadFile"),
 			});
 		} finally {
 			setIsImporting(false);
@@ -280,27 +289,27 @@ export function ThemeSection() {
 	return (
 		<div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
 			<ThemeRow
-				label="Theme"
+				label={t("appearance.theme")}
 				hint={
 					<>
-						Pick a theme or follow your system appearance. Browse the{" "}
+						{t("appearance.themeHintPrefix")}{" "}
 						<a
 							href={`${COMPANY.MARKETING_URL}/marketplace/themes`}
 							target="_blank"
 							rel="noopener noreferrer"
 							className="inline-flex items-center gap-0.5 text-primary hover:underline"
 						>
-							marketplace
+							{t("appearance.marketplace")}
 							<HiOutlineArrowTopRightOnSquare className="h-3 w-3" />
 						</a>{" "}
-						or{" "}
+						{t("appearance.or")}{" "}
 						<a
 							href={`${COMPANY.DOCS_URL}/custom-themes`}
 							target="_blank"
 							rel="noopener noreferrer"
 							className="inline-flex items-center gap-0.5 text-primary hover:underline"
 						>
-							docs
+							{t("appearance.docs")}
 							<HiOutlineArrowTopRightOnSquare className="h-3 w-3" />
 						</a>
 						.
@@ -318,16 +327,16 @@ export function ThemeSection() {
 			{isSystemMode && (
 				<>
 					<ThemeRow
-						label="Light theme"
-						hint="Used when your system is in light mode."
+						label={t("appearance.lightTheme")}
+						hint={t("appearance.lightThemeHint")}
 						value={systemLightThemeId}
 						onValueChange={(id) => setSystemThemePreference("light", id)}
 						currentTheme={systemLightTheme}
 						options={lightOptions}
 					/>
 					<ThemeRow
-						label="Dark theme"
-						hint="Used when your system is in dark mode."
+						label={t("appearance.darkTheme")}
+						hint={t("appearance.darkThemeHint")}
 						value={systemDarkThemeId}
 						onValueChange={(id) => setSystemThemePreference("dark", id)}
 						currentTheme={systemDarkTheme}
@@ -337,9 +346,11 @@ export function ThemeSection() {
 			)}
 			<div className="flex items-center justify-between gap-6 p-4">
 				<div className="min-w-0 flex-1">
-					<div className="text-sm font-medium">Custom themes</div>
+					<div className="text-sm font-medium">
+						{t("commandPalette.custom")}
+					</div>
 					<div className="text-xs text-muted-foreground">
-						Import a theme file or grab a starter to edit.
+						{t("appearance.customThemeHint")}
 					</div>
 				</div>
 				<div className="flex items-center gap-2 shrink-0">
@@ -357,7 +368,7 @@ export function ThemeSection() {
 						onClick={handleDownloadBaseTheme}
 					>
 						<HiOutlineArrowDownTray className="mr-1.5 h-4 w-4" />
-						Download starter
+						{t("appearance.downloadStarter")}
 					</Button>
 					<Button
 						type="button"
@@ -367,7 +378,7 @@ export function ThemeSection() {
 						disabled={isImporting}
 					>
 						<HiOutlineArrowUpTray className="mr-1.5 h-4 w-4" />
-						{isImporting ? "Importing..." : "Import"}
+						{isImporting ? t("appearance.importing") : t("appearance.import")}
 					</Button>
 				</div>
 			</div>

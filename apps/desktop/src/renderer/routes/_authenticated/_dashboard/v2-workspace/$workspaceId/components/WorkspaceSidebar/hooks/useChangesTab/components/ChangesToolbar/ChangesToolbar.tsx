@@ -2,6 +2,7 @@ import { Button } from "@superset/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { FoldVertical, RefreshCw, UnfoldVertical } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type {
 	ChangesFilter,
 	ChangesViewMode,
@@ -50,7 +51,10 @@ export function ChangesToolbar({
 	collapsed,
 	onToggleFold,
 }: ChangesToolbarProps) {
-	const label = collapsed ? "Expand all" : "Collapse all";
+	const { t } = useTranslation();
+	const label = collapsed
+		? t("v2Workspace.changes.expandAll")
+		: t("v2Workspace.changes.collapseAll");
 	const Icon = collapsed ? UnfoldVertical : FoldVertical;
 	return (
 		<>
@@ -62,7 +66,9 @@ export function ChangesToolbar({
 					uncommittedCount={uncommittedCount}
 				/>
 				<span className="whitespace-nowrap">
-					{totalFiles} {totalFiles === 1 ? "file" : "files"}
+					{totalFiles === 1
+						? t("v2Workspace.changes.oneFile", { count: totalFiles })
+						: t("v2Workspace.changes.filesCount", { count: totalFiles })}
 				</span>
 				{(totalAdditions > 0 || totalDeletions > 0) && (
 					<span className="whitespace-nowrap">
@@ -87,14 +93,16 @@ export function ChangesToolbar({
 								className="size-7 text-muted-foreground hover:text-foreground"
 								onClick={onRefresh}
 								disabled={isRefreshing}
-								aria-label="Refresh changes"
+								aria-label={t("v2Workspace.changes.refreshChanges")}
 							>
 								<RefreshCw
 									className={cn("size-3.5", isRefreshing && "animate-spin")}
 								/>
 							</Button>
 						</TooltipTrigger>
-						<TooltipContent side="bottom">Refresh changes</TooltipContent>
+						<TooltipContent side="bottom">
+							{t("v2Workspace.changes.refreshChanges")}
+						</TooltipContent>
 					</Tooltip>
 					<Tooltip>
 						<TooltipTrigger asChild>

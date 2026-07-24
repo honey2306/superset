@@ -1,4 +1,5 @@
 import { Input } from "@superset/ui/input";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ParamField } from "../../slash-command-preview.model";
 
 interface SlashCommandParamFieldProps {
@@ -18,6 +19,7 @@ export function SlashCommandParamField({
 	required,
 	onChange,
 }: SlashCommandParamFieldProps) {
+	const { t } = useTranslation();
 	const inputId = getInputId(field);
 
 	return (
@@ -28,7 +30,7 @@ export function SlashCommandParamField({
 					<span className="text-destructive">*</span>
 				) : (
 					<span className="normal-case text-[10px] text-muted-foreground/80">
-						optional
+						{t("slashCommand.optional")}
 					</span>
 				)}
 			</div>
@@ -38,7 +40,9 @@ export function SlashCommandParamField({
 				id={inputId}
 				onChange={(event) => onChange(event.target.value)}
 				placeholder={
-					required ? `Set ${field.label}` : `Set ${field.label} (optional)`
+					required
+						? t("slashCommand.setLabel", { label: field.label })
+						: t("slashCommand.setLabelOptional", { label: field.label })
 				}
 				value={value}
 			/>

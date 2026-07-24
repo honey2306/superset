@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { FileSearchIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { getArgs, getResult } from "../../../../utils/tool-helpers";
 import { formatTaskDate, toStringArray } from "../../utils/taskToolCallHelpers";
@@ -12,6 +13,7 @@ interface GetTaskToolCallProps {
 
 export function GetTaskToolCall({ part }: GetTaskToolCallProps) {
 	const navigate = useNavigate();
+	const { t } = useTranslation();
 	const args = getArgs(part);
 	const result = getResult(part);
 	const resultData =
@@ -73,11 +75,13 @@ export function GetTaskToolCall({ part }: GetTaskToolCallProps) {
 				? task.assigneeAvatarUrl
 				: null;
 	const extraDetails = [
-		creator ? { label: "Creator", value: creator } : null,
-		assigneeEmail ? { label: "Assignee Email", value: assigneeEmail } : null,
-		branch ? { label: "Branch", value: branch } : null,
-		prUrl ? { label: "PR", value: prUrl } : null,
-		externalUrl ? { label: "External", value: externalUrl } : null,
+		creator ? { label: t("chat.tool.creator"), value: creator } : null,
+		assigneeEmail
+			? { label: t("chat.tool.assigneeEmail"), value: assigneeEmail }
+			: null,
+		branch ? { label: t("chat.tool.branch"), value: branch } : null,
+		prUrl ? { label: t("chat.tool.pr"), value: prUrl } : null,
+		externalUrl ? { label: t("chat.tool.external"), value: externalUrl } : null,
 	].filter((detail): detail is { label: string; value: string } =>
 		Boolean(detail),
 	);
@@ -85,7 +89,7 @@ export function GetTaskToolCall({ part }: GetTaskToolCallProps) {
 	return (
 		<SupersetToolCall
 			part={part}
-			toolName="Get task"
+			toolName={t("chat.tool.getTask")}
 			icon={FileSearchIcon}
 			details={
 				<div className="space-y-2">
@@ -105,7 +109,9 @@ export function GetTaskToolCall({ part }: GetTaskToolCallProps) {
 							statusType={statusType}
 							taskId={typeof task.id === "string" ? task.id : taskId}
 							title={
-								typeof task.title === "string" ? task.title : "Task details"
+								typeof task.title === "string"
+									? task.title
+									: t("chat.tool.taskDetails")
 							}
 							assigneeImage={assigneeImage}
 							onClick={
@@ -120,7 +126,7 @@ export function GetTaskToolCall({ part }: GetTaskToolCallProps) {
 						/>
 					) : (
 						<div className="text-muted-foreground">
-							No task object in result.
+							{t("chat.tool.noTaskObject")}
 						</div>
 					)}
 				</div>

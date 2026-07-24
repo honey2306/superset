@@ -30,6 +30,7 @@ import {
 	getTerminalBackgroundMarkerIdsKey,
 	subscribeTerminalBackgroundMarkers,
 } from "renderer/lib/terminal/terminal-background-intents";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { getRelativeTime } from "renderer/screens/main/components/WorkspacesListView/utils";
 import { useStore } from "zustand";
 import type { StoreApi } from "zustand/vanilla";
@@ -61,7 +62,18 @@ export const BackgroundTerminalsButton = memo(
 		workspaceId,
 		store,
 	}: BackgroundTerminalsButtonProps) {
+		const { t } = useTranslation();
 		const [isOpen, setIsOpen] = useState(false);
+
+		const compactTimeLabels = {
+			now: t("time.compactNow"),
+			minutesAgo: (count: number) => t("time.compactMinutesAgo", { count }),
+			hoursAgo: (count: number) => t("time.compactHoursAgo", { count }),
+			daysAgo: (count: number) => t("time.compactDaysAgo", { count }),
+			weeksAgo: (count: number) => t("time.compactWeeksAgo", { count }),
+			monthsAgo: (count: number) => t("time.compactMonthsAgo", { count }),
+			yearsAgo: (count: number) => t("time.compactYearsAgo", { count }),
+		};
 		const attachedTerminalIdsKey = useStore(store, (s) =>
 			getAttachedTerminalIdsKey(s.tabs),
 		);
@@ -196,9 +208,10 @@ export const BackgroundTerminalsButton = memo(
 
 		if (!isOpen && backgroundCount === 0) return null;
 
-		const label = `${backgroundCount} background terminal session${
-			backgroundCount === 1 ? "" : "s"
-		}`;
+		const label =
+			backgroundCount === 1
+				? t("v2Workspace.background.oneSession", { count: backgroundCount })
+				: t("v2Workspace.background.sessions", { count: backgroundCount });
 
 		const handleAdopt = (terminalId: string) => {
 			clearTerminalBackgroundMarker(workspaceId, terminalId);
@@ -218,7 +231,7 @@ export const BackgroundTerminalsButton = memo(
 					"[BackgroundTerminalsButton] Failed to kill session:",
 					error,
 				);
-				toast.error("Failed to close terminal session");
+				toast.error(t("v2Workspace.background.killFailed"));
 			} finally {
 				void utils.terminal.listSessions.invalidate({ workspaceId });
 				void utils.terminal.countBackgroundSessions.invalidate({ workspaceId });
@@ -241,18 +254,18 @@ export const BackgroundTerminalsButton = memo(
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-80">
 					<DropdownMenuLabel className="text-xs">
-						Background terminal sessions
+						{t("v2Workspace.background.header")}
 					</DropdownMenuLabel>
 					<DropdownMenuSeparator />
 					<div className="max-h-80 overflow-y-auto">
 						{sessionsQuery.isLoading && (
 							<div className="px-2 py-3 text-xs text-muted-foreground">
-								Loading sessions…
+								{t("v2Workspace.background.loadingSessions")}
 							</div>
 						)}
 						{!sessionsQuery.isLoading && backgroundSessions.length === 0 && (
 							<div className="px-2 py-3 text-xs text-muted-foreground">
-								No background terminal sessions
+								{t("v2Workspace.background.noSessions")}
 							</div>
 						)}
 						{backgroundSessions.map((session) => (
@@ -263,17 +276,20 @@ export const BackgroundTerminalsButton = memo(
 							>
 								<Archive className="size-3.5 shrink-0 text-muted-foreground" />
 								<span className="min-w-0 flex-1 truncate text-xs">
-									{session.title ?? "Terminal"}
+									{session.title ?? t("v2Workspace.background.terminalDefault")}
 								</span>
 								{session.createdAt > 0 && (
 									<span className="shrink-0 text-xs text-muted-foreground/70">
-										{getRelativeTime(session.createdAt, { format: "compact" })}
+										{getRelativeTime(session.createdAt, {
+											format: "compact",
+											labels: compactTimeLabels,
+										})}
 									</span>
 								)}
 								<button
 									type="button"
-									aria-label="Close terminal session"
-									title="Close terminal session"
+									aria-label={t("v2Workspace.background.closeSession")}
+									title={t("v2Workspace.background.closeSession")}
 									disabled={
 										killSession.isPending &&
 										killSession.variables?.terminalId === session.terminalId

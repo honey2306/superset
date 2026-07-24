@@ -11,6 +11,7 @@ import { createChatServiceIpcClient } from "renderer/components/Chat/utils/chat-
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { electronQueryClient } from "renderer/providers/ElectronTRPCProvider";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { OnboardingNavigation } from "./components/OnboardingNavigation";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
@@ -24,18 +25,15 @@ const STEPS = [
 	{
 		path: "/onboarding",
 		match: (p: string) => p === "/onboarding",
-		title: "Setup Superset",
-		subtitle: "Connect your agents and tools to get started.",
 	},
 	{
 		path: "/onboarding/project",
 		match: (p: string) => p === "/onboarding/project",
-		title: "Point Superset at some code",
-		subtitle: "Open a folder or clone a repo to finish setup.",
 	},
 ] as const;
 
 function OnboardingFlowLayout() {
+	const { t } = useTranslation();
 	const { data: session, isPending } = authClient.useSession();
 	const { data: platform } = electronTrpc.window.getPlatform.useQuery();
 	const isMac = platform === undefined || platform === "darwin";
@@ -78,10 +76,14 @@ function OnboardingFlowLayout() {
 						<div className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-8 pt-16 pb-6">
 							<div className="space-y-2">
 								<h1 className="text-2xl font-semibold text-foreground">
-									{currentStep.title}
+									{currentStepIdx === 0
+										? t("onboarding.setupTitle")
+										: t("onboarding.projectTitle")}
 								</h1>
 								<p className="text-sm text-muted-foreground">
-									{currentStep.subtitle}
+									{currentStepIdx === 0
+										? t("onboarding.setupSubtitle")
+										: t("onboarding.projectSubtitle")}
 								</p>
 							</div>
 							<Outlet />
@@ -96,7 +98,7 @@ function OnboardingFlowLayout() {
 						totalSteps={STEPS.length}
 						onBack={isFirstStep ? null : handleBack}
 						onContinue={handleContinue}
-						continueLabel="Continue"
+						continueLabel={t("onboarding.continue")}
 					/>
 				)}
 			</div>

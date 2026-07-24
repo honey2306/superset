@@ -12,6 +12,7 @@ import {
 import { toast } from "@superset/ui/sonner";
 import { useEffect, useRef } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOpenProject } from "renderer/react-query/projects";
 import { useOpenNewProjectModal } from "renderer/stores/add-repository-modal";
 import {
@@ -43,6 +44,7 @@ function PromptInputResetSync() {
 }
 
 export function NewWorkspaceModal() {
+	const { t } = useTranslation();
 	const isOpen = useNewWorkspaceModalOpen();
 	const closeModal = useCloseNewWorkspaceModal();
 	const { openNew } = useOpenProject();
@@ -57,9 +59,9 @@ export function NewWorkspaceModal() {
 		try {
 			await openNew();
 		} catch (error) {
-			toast.error("Failed to open project", {
+			toast.error(t("workspace.openFailed"), {
 				description:
-					error instanceof Error ? error.message : "An unknown error occurred",
+					error instanceof Error ? error.message : t("workspace.unknownError"),
 			});
 		}
 	};
@@ -79,8 +81,10 @@ export function NewWorkspaceModal() {
 					onOpenChange={(open) => !open && closeModal()}
 				>
 					<DialogHeader className="sr-only">
-						<DialogTitle>New Workspace</DialogTitle>
-						<DialogDescription>Create a new workspace</DialogDescription>
+						<DialogTitle>{t("workspace.new")}</DialogTitle>
+						<DialogDescription>
+							{t("workspace.newDescription")}
+						</DialogDescription>
 					</DialogHeader>
 					<DialogContent
 						showCloseButton={false}

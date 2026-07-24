@@ -6,6 +6,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@superset/ui/table";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { MemberRow, type MemberRowData } from "./components/MemberRow";
 
 interface MembersTableProps {
@@ -21,14 +22,15 @@ export function MembersTable({
 	onSetRole,
 	onRemove,
 }: MembersTableProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="rounded-md border">
 			<Table>
 				<TableHeader>
 					<TableRow>
-						<TableHead>Name</TableHead>
-						<TableHead>Email</TableHead>
-						<TableHead className="w-32">Role</TableHead>
+						<TableHead>{t("common.name")}</TableHead>
+						<TableHead>{t("common.email")}</TableHead>
+						<TableHead className="w-32">{t("hosts.role")}</TableHead>
 						{isOwner && <TableHead className="w-12" />}
 					</TableRow>
 				</TableHeader>
@@ -48,7 +50,7 @@ export function MembersTable({
 								colSpan={isOwner ? 4 : 3}
 								className="text-center text-sm text-muted-foreground py-6"
 							>
-								No members yet.
+								{t("hosts.noMembers")}
 							</TableCell>
 						</TableRow>
 					)}

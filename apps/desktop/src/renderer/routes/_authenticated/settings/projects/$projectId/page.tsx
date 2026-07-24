@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { NotFound } from "renderer/routes/not-found";
 import { useSettingsSearchQuery } from "renderer/stores/settings-state";
 import { ProjectSettings } from "../../project/$projectId/components/ProjectSettings";
@@ -18,6 +19,7 @@ export const Route = createFileRoute(
 });
 
 function ProjectDetailPage() {
+	const { locale } = useTranslation();
 	const { projectId } = Route.useParams();
 	const { hostId } = Route.useSearch();
 	const searchQuery = useSettingsSearchQuery();
@@ -30,10 +32,10 @@ function ProjectDetailPage() {
 
 	const visibleItems = useMemo(() => {
 		if (!searchQuery) return null;
-		return getMatchingItemsForSection(searchQuery, "project").map(
+		return getMatchingItemsForSection(searchQuery, "project", locale).map(
 			(item) => item.id,
 		);
-	}, [searchQuery]);
+	}, [searchQuery, locale]);
 
 	if (v2Match.length > 0) {
 		return <V2ProjectSettings projectId={projectId} hostId={hostId ?? null} />;

@@ -6,6 +6,7 @@ import {
 } from "@superset/ui/hover-card";
 import { cn } from "@superset/ui/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/ChatPane/hooks/useWorkspaceChatDisplay";
 
 type ChatMessage = NonNullable<UseChatDisplayReturn["messages"]>[number];
@@ -18,7 +19,10 @@ interface MessageScrollbackRailProps {
 	messages: ChatMessage[];
 }
 
-function buildPreview(message: ChatMessage): string {
+function buildPreview(
+	message: ChatMessage,
+	t: ReturnType<typeof useTranslation>["t"],
+): string {
 	const textContent = message.content
 		.filter(
 			(
@@ -42,11 +46,11 @@ function buildPreview(message: ChatMessage): string {
 	).length;
 	if (attachmentCount > 0) {
 		return attachmentCount === 1
-			? "Sent 1 attachment"
-			: `Sent ${attachmentCount} attachments`;
+			? t("chat.scrollback.sentOneAttachment")
+			: t("chat.scrollback.sentNAttachments", { count: attachmentCount });
 	}
 
-	return "(empty message)";
+	return t("chat.scrollback.emptyMessage");
 }
 
 function findUserMessageElement(
@@ -92,6 +96,7 @@ export function MessageScrollbackRail({
 	messages,
 }: MessageScrollbackRailProps) {
 	const { scrollRef, stopScroll } = useConversationContext();
+	const { t } = useTranslation();
 	const [entries, setEntries] = useState<
 		{ id: string; preview: string; top: number; isLatest: boolean }[]
 	>([]);
@@ -105,10 +110,10 @@ export function MessageScrollbackRail({
 		const filtered = messages.filter((msg) => msg.role === "user");
 		return filtered.map((msg, index) => ({
 			id: msg.id,
-			preview: buildPreview(msg),
+			preview: buildPreview(msg, t),
 			isLatest: index === filtered.length - 1,
 		}));
-	}, [messages]);
+	}, [messages, t]);
 
 	const recalculateEntries = useCallback(() => {
 		const scrollElement = scrollRef.current;
@@ -276,7 +281,9 @@ export function MessageScrollbackRail({
 										onFocus={() => setHoveredMessageId(entry.id)}
 										onBlur={() => setHoveredMessageId(null)}
 										onClick={() => handleJumpToMessage(entry.id)}
-										aria-label={`Jump to message: ${entry.preview}`}
+										aria-label={t("chat.scrollback.jumpToMessage", {
+											preview: entry.preview,
+										})}
 									/>
 								);
 							})}

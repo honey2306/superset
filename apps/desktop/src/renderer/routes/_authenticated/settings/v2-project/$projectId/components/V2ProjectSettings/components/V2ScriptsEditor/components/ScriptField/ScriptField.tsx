@@ -2,6 +2,7 @@ import { Textarea } from "@superset/ui/textarea";
 import { cn } from "@superset/ui/utils";
 import { useCallback, useRef, useState } from "react";
 import { HiDocumentArrowUp } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface ScriptFieldProps {
 	placeholder: string;
@@ -18,6 +19,7 @@ export function ScriptField({
 	onFocus,
 	onBlur,
 }: ScriptFieldProps) {
+	const { t } = useTranslation();
 	const [isDragOver, setIsDragOver] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -41,7 +43,7 @@ export function ScriptField({
 			{/* biome-ignore lint/a11y/useSemanticElements: drop zone wrapper */}
 			<div
 				role="region"
-				aria-label="Script editor with file drop support"
+				aria-label={t("scripts.editorAria")}
 				className={cn(
 					"relative rounded-md border transition-colors",
 					isDragOver
@@ -77,17 +79,17 @@ export function ScriptField({
 				<button
 					type="button"
 					onClick={() => fileInputRef.current?.click()}
-					title="Import from file"
+					title={t("scripts.importFile")}
 					className="absolute bottom-2 right-2 flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
 				>
 					<HiDocumentArrowUp className="h-3.5 w-3.5" />
-					Import
+					{t("scripts.import")}
 				</button>
 				{isDragOver && (
 					<div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md bg-primary/10">
 						<div className="flex items-center gap-2 text-primary text-sm font-medium">
 							<HiDocumentArrowUp className="h-5 w-5" />
-							Drop to import
+							{t("scripts.dropToImport")}
 						</div>
 					</div>
 				)}

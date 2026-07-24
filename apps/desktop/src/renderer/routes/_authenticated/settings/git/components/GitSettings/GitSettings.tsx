@@ -15,7 +15,8 @@ import {
 import { Switch } from "@superset/ui/switch";
 import { useEffect, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { BRANCH_PREFIX_MODE_LABELS } from "../../../utils/branch-prefix";
+import { useTranslation } from "renderer/providers/I18nProvider";
+import { BRANCH_PREFIX_MODE_LABEL_KEYS } from "../../../utils/branch-prefix";
 import {
 	isItemVisible,
 	SETTING_ITEM_ID,
@@ -28,6 +29,7 @@ interface GitSettingsProps {
 }
 
 export function GitSettings({ visibleItems }: GitSettingsProps) {
+	const { t } = useTranslation();
 	const showDeleteLocalBranch = isItemVisible(
 		SETTING_ITEM_ID.GIT_DELETE_LOCAL_BRANCH,
 		visibleItems,
@@ -123,9 +125,9 @@ export function GitSettings({ visibleItems }: GitSettingsProps) {
 	return (
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Git & worktrees</h2>
+				<h2 className="text-xl font-semibold">{t("settings.gitWorktrees")}</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Configure git branch and worktree behavior
+					{t("git.legacyDescription")}
 				</p>
 			</div>
 
@@ -137,11 +139,10 @@ export function GitSettings({ visibleItems }: GitSettingsProps) {
 								htmlFor="delete-local-branch"
 								className="text-sm font-medium"
 							>
-								Delete local branch on workspace removal
+								{t("git.deleteLocalBranch")}
 							</Label>
 							<p className="text-xs text-muted-foreground">
-								Also delete the local git branch when deleting a worktree
-								workspace
+								{t("git.deleteLocalBranchHint")}
 							</p>
 						</div>
 						<Switch
@@ -156,9 +157,11 @@ export function GitSettings({ visibleItems }: GitSettingsProps) {
 				{showBranchPrefix && (
 					<div className="flex items-center justify-between">
 						<div className="space-y-0.5">
-							<Label className="text-sm font-medium">Branch prefix</Label>
+							<Label className="text-sm font-medium">
+								{t("git.branchPrefix")}
+							</Label>
 							<p className="text-xs text-muted-foreground">
-								Group new branches under a folder.{" "}
+								{t("git.branchPrefixHint")}{" "}
 								<code className="bg-muted px-1.5 py-0.5 rounded text-foreground">
 									{previewPrefix
 										? `${previewPrefix}/branch-name`
@@ -179,20 +182,20 @@ export function GitSettings({ visibleItems }: GitSettingsProps) {
 								</SelectTrigger>
 								<SelectContent>
 									{(
-										Object.entries(BRANCH_PREFIX_MODE_LABELS) as [
+										Object.entries(BRANCH_PREFIX_MODE_LABEL_KEYS) as [
 											BranchPrefixMode,
-											string,
+											(typeof BRANCH_PREFIX_MODE_LABEL_KEYS)[BranchPrefixMode],
 										][]
-									).map(([value, label]) => (
+									).map(([value, labelKey]) => (
 										<SelectItem key={value} value={value}>
-											{label}
+											{t(labelKey)}
 										</SelectItem>
 									))}
 								</SelectContent>
 							</Select>
 							{branchPrefix?.mode === "custom" && (
 								<Input
-									placeholder="Prefix"
+									placeholder={t("project.prefixPlaceholder")}
 									value={customPrefixInput}
 									onChange={(e) => setCustomPrefixInput(e.target.value)}
 									onBlur={handleCustomPrefixBlur}

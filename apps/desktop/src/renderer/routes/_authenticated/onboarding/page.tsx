@@ -10,6 +10,7 @@ import { HiArrowUpRight } from "react-icons/hi2";
 import { LuCheck } from "react-icons/lu";
 import { SiGithub, SiOpenai } from "react-icons/si";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { GhAuthDialog } from "./components/GhAuthDialog";
 import {
 	type Provider,
@@ -22,6 +23,7 @@ export const Route = createFileRoute("/_authenticated/onboarding/")({
 });
 
 function OnboardingDashboardPage() {
+	const { t } = useTranslation();
 	const [connectProvider, setConnectProvider] = useState<Provider | null>(null);
 	const [ghAuthOpen, setGhAuthOpen] = useState(false);
 
@@ -58,10 +60,12 @@ function OnboardingDashboardPage() {
 					icon={<SiGithub className="size-4.5" />}
 					chipClassName="bg-foreground text-background"
 					name="GitHub CLI"
-					description="Clone, push, and create PRs."
+					description={t("onboarding.githubDescription")}
 					status={rowStatus(isFetchingGh, ghReady)}
 					required
-					actionLabel={ghInstalled ? "Sign in" : "Install"}
+					actionLabel={
+						ghInstalled ? t("onboarding.signIn") : t("onboarding.install")
+					}
 					actionIcon={
 						ghInstalled ? undefined : <HiArrowUpRight className="size-3.5" />
 					}
@@ -72,9 +76,9 @@ function OnboardingDashboardPage() {
 					icon={<ClaudeLogo className="size-4.5 text-white" />}
 					chipClassName="bg-[#D97757]"
 					name="Claude Code"
-					description="Anthropic's coding agent."
+					description={t("onboarding.claudeDescription")}
 					status={rowStatus(isFetchingAnthropic, claudeConnected)}
-					actionLabel="Sign in"
+					actionLabel={t("onboarding.signIn")}
 					onAction={() => setConnectProvider("anthropic")}
 					onRecheck={() => void refetchAnthropic()}
 				/>
@@ -82,19 +86,19 @@ function OnboardingDashboardPage() {
 					icon={<SiOpenai className="size-4.5" />}
 					chipClassName="bg-foreground text-background"
 					name="Codex"
-					description="OpenAI's coding agent."
+					description={t("onboarding.codexDescription")}
 					status={rowStatus(isFetchingOpenAI, codexConnected)}
-					actionLabel="Sign in"
+					actionLabel={t("onboarding.signIn")}
 					onAction={() => setConnectProvider("openai")}
 					onRecheck={() => void refetchOpenAI()}
 				/>
 				<OnboardingRow
 					icon={<FaAws className="size-4.5" />}
 					chipClassName="bg-foreground text-background"
-					name="More providers"
-					description="Bedrock, Vertex, and more."
+					name={t("onboarding.moreProviders")}
+					description={t("onboarding.moreProvidersDescription")}
 					status="disconnected"
-					actionLabel="Provider docs"
+					actionLabel={t("onboarding.providerDocs")}
 					actionIcon={<HiArrowUpRight className="size-3.5" />}
 					onAction={() =>
 						window.open(
@@ -154,6 +158,7 @@ function OnboardingRow({
 	onAction,
 	onRecheck,
 }: OnboardingRowProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="flex items-center gap-4 py-7 first:pt-0 last:pb-0">
 			<div
@@ -172,7 +177,7 @@ function OnboardingRow({
 				{status === "loading" ? (
 					<span className="flex items-center gap-1.5 px-3 text-sm text-muted-foreground">
 						<Spinner className="size-3.5" />
-						Checking…
+						{t("onboarding.checking")}
 					</span>
 				) : status === "connected" ? (
 					<Button
@@ -184,11 +189,13 @@ function OnboardingRow({
 						className="text-emerald-500 hover:text-emerald-500"
 					>
 						<LuCheck className="size-3.5" strokeWidth={2.5} />
-						Connected
+						{t("onboarding.connected")}
 					</Button>
 				) : (
 					<>
-						{required && <Badge variant="outline">Required</Badge>}
+						{required && (
+							<Badge variant="outline">{t("onboarding.required")}</Badge>
+						)}
 						<Button type="button" size="sm" onClick={onAction}>
 							{actionLabel}
 							{actionIcon}

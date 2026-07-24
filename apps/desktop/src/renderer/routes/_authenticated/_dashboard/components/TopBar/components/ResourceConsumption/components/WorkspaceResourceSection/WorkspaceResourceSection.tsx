@@ -1,5 +1,6 @@
 import { cn } from "@superset/ui/lib/utils";
 import { HiOutlineChevronDown, HiOutlineChevronRight } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { SortOption, WorkspaceMetrics } from "../../types";
 import { formatCpu, formatMemory } from "../../utils/formatters";
 import { getUsageSeverity } from "../../utils/resourceSeverity";
@@ -33,12 +34,13 @@ interface WorkspaceResourceSectionProps {
 
 function groupWorkspacesByProject(
 	workspaces: WorkspaceMetrics[],
+	unknownProjectLabel: string,
 ): ProjectResourceGroup[] {
 	const projectMap = new Map<string, ProjectResourceGroup>();
 
 	for (const workspace of workspaces) {
 		const projectId = workspace.projectId || "unknown";
-		const projectName = workspace.projectName || "Unknown Project";
+		const projectName = workspace.projectName || unknownProjectLabel;
 		let group = projectMap.get(projectId);
 		if (!group) {
 			group = {
@@ -144,7 +146,11 @@ export function WorkspaceResourceSection({
 	navigateToPane,
 	getPaneName,
 }: WorkspaceResourceSectionProps) {
-	const rawProjectGroups = groupWorkspacesByProject(workspaces);
+	const { t } = useTranslation();
+	const rawProjectGroups = groupWorkspacesByProject(
+		workspaces,
+		t("dashboard.unknownProject"),
+	);
 	const sortedProjectGroups = sortProjectGroups(
 		rawProjectGroups,
 		sortOption,
@@ -174,7 +180,9 @@ export function WorkspaceResourceSection({
 					onClick={() => toggleProject(project.projectId)}
 					className="group w-full flex items-center justify-between px-2 py-1.5 hover:bg-foreground/[0.04] transition-colors"
 					aria-label={
-						isProjectCollapsed ? "Expand project" : "Collapse project"
+						isProjectCollapsed
+							? t("dashboard.expandProject")
+							: t("dashboard.collapseProject")
 					}
 				>
 					<div className="flex items-center gap-1 min-w-0 mr-2">
@@ -211,7 +219,9 @@ export function WorkspaceResourceSection({
 											onClick={() => toggleWorkspace(workspace.workspaceId)}
 											className="flex items-center justify-center h-7 w-5 ml-3.5 shrink-0 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
 											aria-label={
-												isCollapsed ? "Expand workspace" : "Collapse workspace"
+												isCollapsed
+													? t("dashboard.expandWorkspace")
+													: t("dashboard.collapseWorkspace")
 											}
 										>
 											{isCollapsed ? (

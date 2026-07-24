@@ -5,6 +5,7 @@ import {
 } from "@superset/ui/hover-card";
 import { cn } from "@superset/ui/utils";
 import type { ReactNode } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface ImageHoverPreviewProps {
 	src: string;
@@ -23,6 +24,7 @@ export function ImageHoverPreview({
 	triggerClassName,
 	children,
 }: ImageHoverPreviewProps) {
+	const { t } = useTranslation();
 	return (
 		<HoverCard openDelay={200} closeDelay={50}>
 			<HoverCardTrigger asChild>
@@ -34,7 +36,7 @@ export function ImageHoverPreview({
 				<div className="w-auto space-y-3">
 					<div className="relative flex max-h-96 w-96 items-center justify-center overflow-hidden rounded-md border">
 						<img
-							alt={alt ?? filename ?? "image preview"}
+							alt={alt ?? filename ?? t("chat.imageHoverPreview.altFallback")}
 							className="max-h-full max-w-full object-contain"
 							src={src}
 						/>

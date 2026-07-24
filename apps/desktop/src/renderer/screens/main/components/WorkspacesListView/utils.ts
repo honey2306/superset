@@ -15,9 +15,59 @@ const DAYS_PER_YEAR = 365;
 const TWO_WEEKS_DAYS = 14;
 const TWO_MONTHS_DAYS = 60;
 
+/** Localizable labels for the "default" (long-form) relative time format. */
+export interface RelativeTimeDefaultLabels {
+	now: string;
+	minutesAgo: (count: number) => string;
+	hoursAgo: (count: number) => string;
+	yesterday: string;
+	daysAgo: (count: number) => string;
+	oneWeekAgo: string;
+	weeksAgo: (count: number) => string;
+	oneMonthAgo: string;
+	monthsAgo: (count: number) => string;
+	overYearAgo: string;
+}
+
+/** Localizable labels for the "compact" relative time format. */
+export interface RelativeTimeCompactLabels {
+	now: string;
+	minutesAgo: (count: number) => string;
+	hoursAgo: (count: number) => string;
+	daysAgo: (count: number) => string;
+	weeksAgo: (count: number) => string;
+	monthsAgo: (count: number) => string;
+	yearsAgo: (count: number) => string;
+}
+
 interface GetRelativeTimeOptions {
 	format?: "default" | "compact";
+	labels?: RelativeTimeDefaultLabels | RelativeTimeCompactLabels;
 }
+
+/** Fallback English labels (used when no caller-supplied labels are provided). */
+const DEFAULT_LABELS: RelativeTimeDefaultLabels = {
+	now: "just now",
+	minutesAgo: (count) => `${count}m ago`,
+	hoursAgo: (count) => `${count}h ago`,
+	yesterday: "yesterday",
+	daysAgo: (count) => `${count} days ago`,
+	oneWeekAgo: "1 week ago",
+	weeksAgo: (count) => `${count} weeks ago`,
+	oneMonthAgo: "1 month ago",
+	monthsAgo: (count) => `${count} months ago`,
+	overYearAgo: "over a year ago",
+};
+
+const COMPACT_LABELS: RelativeTimeCompactLabels = {
+	now: "now",
+	minutesAgo: (count) => `${count}m ago`,
+	hoursAgo: (count) => `${count}h ago`,
+	daysAgo: (count) => `${count}d ago`,
+	weeksAgo: (count) => `${count}w ago`,
+	monthsAgo: (count) => `${count}mo ago`,
+	yearsAgo: (count) => `${count}y ago`,
+};
 
 /**
  * Returns a human-readable relative time string
@@ -36,27 +86,33 @@ export function getRelativeTime(
 	const days = Math.floor(diff / MS_PER_DAY);
 
 	if (format === "compact") {
-		if (minutes < 1) return "now";
-		if (minutes < MINUTES_PER_HOUR) return `${minutes}m ago`;
-		if (hours < HOURS_PER_DAY) return `${hours}h ago`;
-		if (days < DAYS_PER_WEEK) return `${days}d ago`;
+		const labels =
+			(options?.labels as RelativeTimeCompactLabels | undefined) ??
+			COMPACT_LABELS;
+		if (minutes < 1) return labels.now;
+		if (minutes < MINUTES_PER_HOUR) return labels.minutesAgo(minutes);
+		if (hours < HOURS_PER_DAY) return labels.hoursAgo(hours);
+		if (days < DAYS_PER_WEEK) return labels.daysAgo(days);
 		if (days < DAYS_PER_MONTH)
-			return `${Math.floor(days / DAYS_PER_WEEK)}w ago`;
+			return labels.weeksAgo(Math.floor(days / DAYS_PER_WEEK));
 		if (days < DAYS_PER_YEAR)
-			return `${Math.floor(days / DAYS_PER_MONTH)}mo ago`;
-		return `${Math.floor(days / DAYS_PER_YEAR)}y ago`;
+			return labels.monthsAgo(Math.floor(days / DAYS_PER_MONTH));
+		return labels.yearsAgo(Math.floor(days / DAYS_PER_YEAR));
 	}
 
-	if (minutes < 1) return "just now";
-	if (minutes < MINUTES_PER_HOUR) return `${minutes}m ago`;
-	if (hours < HOURS_PER_DAY) return `${hours}h ago`;
-	if (days === 1) return "yesterday";
-	if (days < DAYS_PER_WEEK) return `${days} days ago`;
-	if (days < TWO_WEEKS_DAYS) return "1 week ago";
+	const labels =
+		(options?.labels as RelativeTimeDefaultLabels | undefined) ??
+		DEFAULT_LABELS;
+	if (minutes < 1) return labels.now;
+	if (minutes < MINUTES_PER_HOUR) return labels.minutesAgo(minutes);
+	if (hours < HOURS_PER_DAY) return labels.hoursAgo(hours);
+	if (days === 1) return labels.yesterday;
+	if (days < DAYS_PER_WEEK) return labels.daysAgo(days);
+	if (days < TWO_WEEKS_DAYS) return labels.oneWeekAgo;
 	if (days < DAYS_PER_MONTH)
-		return `${Math.floor(days / DAYS_PER_WEEK)} weeks ago`;
-	if (days < TWO_MONTHS_DAYS) return "1 month ago";
+		return labels.weeksAgo(Math.floor(days / DAYS_PER_WEEK));
+	if (days < TWO_MONTHS_DAYS) return labels.oneMonthAgo;
 	if (days < DAYS_PER_YEAR)
-		return `${Math.floor(days / DAYS_PER_MONTH)} months ago`;
-	return "over a year ago";
+		return labels.monthsAgo(Math.floor(days / DAYS_PER_MONTH));
+	return labels.overYearAgo;
 }

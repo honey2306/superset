@@ -2,6 +2,7 @@ import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useEffect, useRef, useState } from "react";
 import { LuFile, LuGitCompareArrows } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceGitStatus } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/providers/WorkspaceGitStatusProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useSettings } from "renderer/stores/settings";
@@ -62,6 +63,7 @@ export function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
 	const gitStatus = useWorkspaceGitStatus();
 	const collections = useCollections();
+	const { t } = useTranslation();
 	const { data: [localState] = [] } = useLiveQuery(
 		(query) =>
 			query
@@ -131,7 +133,7 @@ export function WorkspaceSidebar({
 
 	const filesTab: SidebarTabDefinition = {
 		id: "files",
-		label: "Files",
+		label: t("v2Workspace.filesTab.tabLabel"),
 		icon: LuFile,
 		content: (
 			<FilesTab

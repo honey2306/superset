@@ -2,6 +2,7 @@ import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { Link } from "@tanstack/react-router";
 import { LuExternalLink } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	StatusIcon,
 	type StatusType,
@@ -13,6 +14,7 @@ interface LinkedTaskSectionProps {
 }
 
 export function LinkedTaskSection({ taskId }: LinkedTaskSectionProps) {
+	const { t } = useTranslation();
 	const collections = useCollections();
 
 	const { data: rows = [] } = useLiveQuery(
@@ -41,7 +43,7 @@ export function LinkedTaskSection({ taskId }: LinkedTaskSectionProps) {
 	return (
 		<div className="pt-2 border-t border-border space-y-0.5">
 			<span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-				Task
+				{t("workspace.task")}
 			</span>
 			<div className="flex items-center gap-1.5">
 				<Link
@@ -72,7 +74,7 @@ export function LinkedTaskSection({ taskId }: LinkedTaskSectionProps) {
 						target="_blank"
 						rel="noopener noreferrer"
 						className="shrink-0 text-muted-foreground hover:text-foreground"
-						title="Open task externally"
+						title={t("workspace.openTaskExternally")}
 						onClick={(e) => e.stopPropagation()}
 					>
 						<LuExternalLink className="size-3" />

@@ -1,6 +1,7 @@
 import { COMPANY } from "@superset/shared/constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { LuChevronRight, LuCircleHelp, LuRadioTower } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { usePortsStore } from "renderer/stores";
 import { STROKE_WIDTH } from "../constants";
 import { WorkspacePortGroup } from "./components/WorkspacePortGroup";
@@ -9,6 +10,7 @@ import { usePortsData } from "./hooks/usePortsData";
 const PORTS_DOCS_URL = `${COMPANY.DOCS_URL}/ports`;
 
 export function PortsList() {
+	const { t } = useTranslation();
 	const isCollapsed = usePortsStore((s) => s.isListCollapsed);
 	const toggleCollapsed = usePortsStore((s) => s.toggleListCollapsed);
 
@@ -37,7 +39,7 @@ export function PortsList() {
 						strokeWidth={STROKE_WIDTH}
 					/>
 					<LuRadioTower className="size-3" strokeWidth={STROKE_WIDTH} />
-					Ports
+					{t("ports.title")}
 				</button>
 
 				<Tooltip delayDuration={300}>
@@ -51,7 +53,7 @@ export function PortsList() {
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="top" sideOffset={4}>
-						<p className="text-xs">Learn about port labels</p>
+						<p className="text-xs">{t("ports.learnLabels")}</p>
 					</TooltipContent>
 				</Tooltip>
 				<span className="text-[10px] font-normal">{totalPortCount}</span>

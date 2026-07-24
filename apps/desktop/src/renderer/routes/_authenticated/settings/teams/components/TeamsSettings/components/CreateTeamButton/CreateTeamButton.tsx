@@ -12,6 +12,7 @@ import { Label } from "@superset/ui/label";
 import { toast } from "@superset/ui/sonner";
 import { useState } from "react";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface CreateTeamButtonProps {
 	organizationId: string;
@@ -25,6 +26,7 @@ function slugify(value: string): string {
 }
 
 export function CreateTeamButton({ organizationId }: CreateTeamButtonProps) {
+	const { t } = useTranslation();
 	const [isOpen, setIsOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [slug, setSlug] = useState("");
@@ -61,15 +63,15 @@ export function CreateTeamButton({ organizationId }: CreateTeamButtonProps) {
 				organizationId,
 			});
 			if (result.error) {
-				toast.error(result.error.message ?? "Failed to create team");
+				toast.error(result.error.message ?? t("teams.createFailed"));
 				return;
 			}
-			toast.success(`Created team "${trimmedName}"`);
+			toast.success(t("teams.createdNamed", { name: trimmedName }));
 			reset();
 			setIsOpen(false);
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : "Failed to create team",
+				error instanceof Error ? error.message : t("teams.createFailed"),
 			);
 		} finally {
 			setIsSubmitting(false);
@@ -78,7 +80,7 @@ export function CreateTeamButton({ organizationId }: CreateTeamButtonProps) {
 
 	return (
 		<>
-			<Button onClick={() => setIsOpen(true)}>Create team</Button>
+			<Button onClick={() => setIsOpen(true)}>{t("teams.create")}</Button>
 			<Dialog
 				open={isOpen}
 				onOpenChange={(open) => {
@@ -89,30 +91,30 @@ export function CreateTeamButton({ organizationId }: CreateTeamButtonProps) {
 				<DialogContent>
 					<form onSubmit={handleSubmit}>
 						<DialogHeader>
-							<DialogTitle>Create a team</DialogTitle>
+							<DialogTitle>{t("teams.createTitle")}</DialogTitle>
 							<DialogDescription>
-								Name and a URL-friendly slug. Both can be changed later.
+								{t("teams.createDescription")}
 							</DialogDescription>
 						</DialogHeader>
 						<div className="my-4 space-y-4">
 							<div className="space-y-1.5">
-								<Label htmlFor="team-name">Name</Label>
+								<Label htmlFor="team-name">{t("common.name")}</Label>
 								<Input
 									id="team-name"
 									value={name}
 									onChange={(event) => handleNameChange(event.target.value)}
-									placeholder="e.g. Engineering"
+									placeholder={t("teams.namePlaceholder")}
 									autoFocus
 									required
 								/>
 							</div>
 							<div className="space-y-1.5">
-								<Label htmlFor="team-slug">Slug</Label>
+								<Label htmlFor="team-slug">{t("organization.slugLabel")}</Label>
 								<Input
 									id="team-slug"
 									value={slug}
 									onChange={(event) => handleSlugChange(event.target.value)}
-									placeholder="e.g. engineering"
+									placeholder={t("teams.slugPlaceholder")}
 									required
 								/>
 							</div>
@@ -124,13 +126,13 @@ export function CreateTeamButton({ organizationId }: CreateTeamButtonProps) {
 								onClick={() => setIsOpen(false)}
 								disabled={isSubmitting}
 							>
-								Cancel
+								{t("common.cancel")}
 							</Button>
 							<Button
 								type="submit"
 								disabled={!name.trim() || !slug.trim() || isSubmitting}
 							>
-								{isSubmitting ? "Creating..." : "Create"}
+								{isSubmitting ? t("teams.creating") : t("teams.create")}
 							</Button>
 						</DialogFooter>
 					</form>

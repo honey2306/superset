@@ -1,3 +1,5 @@
+import { useTranslation } from "renderer/providers/I18nProvider";
+
 interface ReviewStatusProps {
 	status: "approved" | "changes_requested" | "pending";
 	requestedReviewers?: string[];
@@ -7,20 +9,23 @@ export function ReviewStatus({
 	status,
 	requestedReviewers,
 }: ReviewStatusProps) {
+	const { t } = useTranslation();
 	const config = {
 		approved: {
-			label: "Approved",
+			label: t("workspace.reviewApproved"),
 			className: "bg-emerald-500/15 text-emerald-500",
 		},
 		changes_requested: {
-			label: "Changes requested",
+			label: t("workspace.reviewChangesRequested"),
 			className: "bg-destructive/15 text-destructive-foreground",
 		},
 		pending: {
 			label:
 				requestedReviewers && requestedReviewers.length > 0
-					? `Awaiting ${requestedReviewers.join(", ")}`
-					: "Review pending",
+					? t("workspace.awaitingReviewers", {
+							reviewers: requestedReviewers.join(", "),
+						})
+					: t("workspace.reviewPending"),
 			className: "bg-amber-500/15 text-amber-500",
 		},
 	};

@@ -1,8 +1,11 @@
+import { useTranslation } from "renderer/providers/I18nProvider";
+
 interface PullRequestStatusBadgeProps {
 	state: "open" | "draft" | "merged" | "closed" | "queued";
 }
 
 export function PullRequestStatusBadge({ state }: PullRequestStatusBadgeProps) {
+	const { t } = useTranslation();
 	const styles = {
 		open: "bg-emerald-500/15 text-emerald-500",
 		draft: "bg-muted text-muted-foreground",
@@ -12,11 +15,11 @@ export function PullRequestStatusBadge({ state }: PullRequestStatusBadgeProps) {
 	};
 
 	const labels = {
-		open: "Open",
-		draft: "Draft",
-		merged: "Merged",
-		closed: "Closed",
-		queued: "Queued",
+		open: t("workspace.prOpen"),
+		draft: t("workspace.prDraft"),
+		merged: t("workspace.prMerged"),
+		closed: t("workspace.prClosed"),
+		queued: t("workspace.prQueued"),
 	};
 
 	return (

@@ -71,3 +71,17 @@ describe("settings search - hosts", () => {
 		expect(ids).toContain(SETTING_ITEM_ID.HOST_DELETE);
 	});
 });
+
+describe("settings search - localization", () => {
+	it("uses localized titles and finds Chinese keywords", () => {
+		const results = searchSettings("字体", "zh-CN");
+		const ids = getIds(results);
+
+		expect(ids).toContain(SETTING_ITEM_ID.APPEARANCE_EDITOR_FONT);
+		expect(ids).toContain(SETTING_ITEM_ID.APPEARANCE_TERMINAL_FONT);
+		expect(
+			results.find((item) => item.id === SETTING_ITEM_ID.APPEARANCE_EDITOR_FONT)
+				?.title,
+		).toBe("编辑器字体");
+	});
+});

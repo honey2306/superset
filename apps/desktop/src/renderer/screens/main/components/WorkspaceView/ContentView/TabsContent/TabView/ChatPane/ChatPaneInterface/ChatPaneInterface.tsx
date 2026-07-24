@@ -26,6 +26,7 @@ import {
 	isDesktopChatDevMode,
 } from "renderer/lib/dev-chat";
 import { posthog } from "renderer/lib/posthog";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useChatPreferencesStore } from "renderer/stores/chat-preferences";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { ChatMessageList } from "./components/ChatMessageList";
@@ -146,7 +147,7 @@ function toErrorMessage(error: unknown): string | null {
 	if (!error) return null;
 	if (typeof error === "string") return error;
 	if (error instanceof Error) return error.message;
-	return "Unknown chat error";
+	return null;
 }
 
 const AUTO_LAUNCH_MAX_RETRIES = 3;
@@ -201,6 +202,7 @@ export function ChatPaneInterface({
 	onUserMessageSubmitted,
 }: ChatPaneInterfaceProps) {
 	const { models: availableModels, defaultModel } = useAvailableModels();
+	const { t } = useTranslation();
 	const selectedModelId = useChatPreferencesStore(
 		(state) => state.selectedModelId,
 	);
@@ -410,7 +412,7 @@ export function ChatPaneInterface({
 		} catch (error) {
 			setInterruptedMessage(null);
 			setRuntimeErrorMessage(
-				toErrorMessage(error) ?? "Failed to stop response",
+				toErrorMessage(error) ?? t("chat.pane.failedToStopResponse"),
 			);
 			return;
 		}
@@ -427,6 +429,7 @@ export function ChatPaneInterface({
 		clearRuntimeError,
 		commands,
 		setRuntimeErrorMessage,
+		t,
 	]);
 
 	const { resolveSlashCommandInput } = useSlashCommandExecutor({
@@ -557,7 +560,7 @@ export function ChatPaneInterface({
 						if (!startResult.created || !startResult.sessionId) {
 							throw new Error(
 								startResult.errorMessage ??
-									"Failed to create a chat session. Please retry.",
+									t("chat.session.failedToCreateSession"),
 							);
 						}
 						effectiveSessionId = startResult.sessionId;
@@ -678,6 +681,7 @@ export function ChatPaneInterface({
 			onUserMessageSubmitted,
 			thinkingLevel,
 			clearDraftInStore,
+			t,
 		],
 	);
 
@@ -823,7 +827,7 @@ export function ChatPaneInterface({
 			options?: { trigger?: "edit" | "resend" },
 		) => {
 			if (!sessionId) {
-				throw new Error("Chat session is still starting. Please retry.");
+				throw new Error(t("chat.session.stillStarting"));
 			}
 
 			setInterruptedMessage(null);
@@ -897,6 +901,7 @@ export function ChatPaneInterface({
 			setRuntimeErrorMessage,
 			thinkingLevel,
 			clearDraftInStore,
+			t,
 		],
 	);
 	const handleResendUserMessage = useCallback(
@@ -980,7 +985,8 @@ export function ChatPaneInterface({
 		[clearRuntimeError, commands, paneId],
 	);
 
-	const errorMessage = runtimeError ?? toErrorMessage(error);
+	const errorMessage =
+		runtimeError ?? toErrorMessage(error) ?? t("chat.pane.unknownError");
 
 	return (
 		<PromptInputProvider initialInput={initialLaunchConfig?.draftInput}>

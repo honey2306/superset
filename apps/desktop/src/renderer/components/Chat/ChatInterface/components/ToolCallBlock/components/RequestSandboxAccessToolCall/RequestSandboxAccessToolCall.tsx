@@ -7,6 +7,7 @@ import {
 	XIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import type { ToolStatusBadgeVariant } from "../ToolStatusBadge";
 import { ToolStatusBadge } from "../ToolStatusBadge";
@@ -24,15 +25,24 @@ const ACCESS_STATUS_CONFIG: Record<
 	AccessStatus,
 	{
 		icon: ComponentType<{ className?: string }>;
-		label: string;
+		labelKey:
+			| "chat.tool.awaitingResponse"
+			| "chat.tool.accessGranted"
+			| "chat.tool.accessDenied"
+			| "chat.tool.cancelled"
+			| "chat.tool.error";
 		variant?: ToolStatusBadgeVariant;
 	}
 > = {
-	pending: { icon: ClockIcon, label: "Awaiting Response" },
-	granted: { icon: CheckIcon, label: "Access Granted" },
-	denied: { icon: XIcon, label: "Access Denied" },
-	cancelled: { icon: XIcon, label: "Cancelled" },
-	error: { icon: CircleXIcon, label: "Error", variant: "danger" },
+	pending: { icon: ClockIcon, labelKey: "chat.tool.awaitingResponse" },
+	granted: { icon: CheckIcon, labelKey: "chat.tool.accessGranted" },
+	denied: { icon: XIcon, labelKey: "chat.tool.accessDenied" },
+	cancelled: { icon: XIcon, labelKey: "chat.tool.cancelled" },
+	error: {
+		icon: CircleXIcon,
+		labelKey: "chat.tool.error",
+		variant: "danger",
+	},
 };
 
 function toAccessDecision(content: string): "granted" | "denied" | null {
@@ -73,13 +83,14 @@ export function RequestSandboxAccessToolCall({
 	result,
 	isInterrupted = false,
 }: RequestSandboxAccessToolCallProps) {
+	const { t } = useTranslation();
 	const requestedPath = typeof args.path === "string" ? args.path.trim() : null;
 	const reason = typeof args.reason === "string" ? args.reason.trim() : null;
 
 	const status = toAccessStatus(part, result, isInterrupted);
-	const { icon, label, variant } = ACCESS_STATUS_CONFIG[status];
+	const { icon, labelKey, variant } = ACCESS_STATUS_CONFIG[status];
 	const statusBadge = (
-		<ToolStatusBadge icon={icon} label={label} variant={variant} />
+		<ToolStatusBadge icon={icon} label={t(labelKey)} variant={variant} />
 	);
 
 	const isPending = status === "pending";
@@ -91,29 +102,31 @@ export function RequestSandboxAccessToolCall({
 			icon={FolderLockIcon}
 			isPending={false}
 			isError={false}
-			title="Request Access"
+			title={t("chat.tool.requestAccess")}
 			description={statusBadge}
 		>
 			{!isPending && hasContext ? (
 				<div className="space-y-1 px-3 py-2">
 					{requestedPath ? (
 						<div className="text-xs text-muted-foreground">
-							Path: {requestedPath}
+							{t("chat.tool.path", { path: requestedPath })}
 						</div>
 					) : null}
 					{reason ? (
 						<div className="text-xs text-muted-foreground">
-							Reason: {reason}
+							{t("chat.tool.reason", { reason })}
 						</div>
 					) : null}
 					{!isCancelledOrError ? (
 						<div className="text-sm text-foreground">
-							{status === "granted" ? "Access granted" : "Access denied"}
+							{status === "granted"
+								? t("chat.tool.accessGrantedText")
+								: t("chat.tool.accessDeniedText")}
 						</div>
 					) : (
 						<div className="flex items-center gap-1 text-sm text-destructive">
 							<CircleXIcon className="h-3 w-3 shrink-0" />
-							Aborted
+							{t("chat.tool.aborted")}
 						</div>
 					)}
 				</div>

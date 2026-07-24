@@ -11,6 +11,7 @@ import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useDashboardSidebarSectionRename } from "renderer/routes/_authenticated/_dashboard/components/DashboardSidebar/components/DashboardSidebarSectionRenameContext";
 import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 import { useOptimisticCollectionActions } from "renderer/routes/_authenticated/hooks/useOptimisticCollectionActions";
@@ -33,6 +34,7 @@ export function useDashboardSidebarWorkspaceItemActions({
 	branch,
 	isMainWorkspace = false,
 }: UseDashboardSidebarWorkspaceItemActionsOptions) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
 	const hostService = useLocalHostService();
@@ -111,8 +113,8 @@ export function useDashboardSidebarWorkspaceItemActions({
 
 	const resolveWorktreePath = async (): Promise<string | null> => {
 		if (!activeHostUrl) {
-			showHostServiceUnavailableToast(hostService, {
-				action: "resolve the workspace path",
+			showHostServiceUnavailableToast(hostService, t, {
+				action: t("workspace.resolvePathAction"),
 			});
 			return null;
 		}
@@ -120,7 +122,7 @@ export function useDashboardSidebarWorkspaceItemActions({
 			activeHostUrl,
 		).workspace.get.query({ id: workspaceId });
 		if (!workspace?.worktreePath) {
-			toast.error("Workspace path is not available");
+			toast.error(t("workspace.workspacePathUnavailable"));
 			return null;
 		}
 		return workspace.worktreePath;
@@ -133,7 +135,9 @@ export function useDashboardSidebarWorkspaceItemActions({
 			await electronTrpcClient.external.openInFinder.mutate(path);
 		} catch (error) {
 			toast.error(
-				`Failed to open in Finder: ${error instanceof Error ? error.message : "Unknown error"}`,
+				t("workspace.failedOpenFinder", {
+					message: error instanceof Error ? error.message : t("common.unknown"),
+				}),
 			);
 		}
 	};
@@ -143,10 +147,12 @@ export function useDashboardSidebarWorkspaceItemActions({
 			const path = await resolveWorktreePath();
 			if (!path) return;
 			await copyToClipboard(path);
-			toast.success("Path copied");
+			toast.success(t("workspace.pathCopiedToast"));
 		} catch (error) {
 			toast.error(
-				`Failed to copy path: ${error instanceof Error ? error.message : "Unknown error"}`,
+				t("workspace.failedCopyPath", {
+					message: error instanceof Error ? error.message : t("common.unknown"),
+				}),
 			);
 		}
 	};
@@ -175,22 +181,26 @@ export function useDashboardSidebarWorkspaceItemActions({
 			});
 		} catch (error) {
 			toast.error(
-				`Failed to clear agent status: ${error instanceof Error ? error.message : "Unknown error"}`,
+				t("workspace.failedClearStatus", {
+					message: error instanceof Error ? error.message : t("common.unknown"),
+				}),
 			);
 		}
 	};
 
 	const handleCopyBranchName = async () => {
 		if (!branch) {
-			toast.error("Branch name is not available");
+			toast.error(t("workspace.branchNameUnavailable"));
 			return;
 		}
 		try {
 			await copyToClipboard(branch);
-			toast.success("Branch name copied");
+			toast.success(t("workspace.branchCopiedToast"));
 		} catch (error) {
 			toast.error(
-				`Failed to copy branch name: ${error instanceof Error ? error.message : "Unknown error"}`,
+				t("workspace.failedCopyBranch", {
+					message: error instanceof Error ? error.message : t("common.unknown"),
+				}),
 			);
 		}
 	};

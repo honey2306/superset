@@ -8,6 +8,7 @@ import { Separator } from "@superset/ui/separator";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
 import { LuLoaderCircle, LuX } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { STROKE_WIDTH } from "renderer/screens/main/components/WorkspaceSidebar/constants";
 import { STATUS_PRIORITY } from "shared/tabs-types";
 import { useDashboardSidebarAgentKill } from "../../hooks/useDashboardSidebarAgentKill";
@@ -32,6 +33,7 @@ export function DashboardSidebarAgentsChip({
 	workspaceId,
 	agents,
 }: DashboardSidebarAgentsChipProps) {
+	const { t } = useTranslation();
 	const { isPending, killAgents } = useDashboardSidebarAgentKill(workspaceId);
 	const { hold, release } = useDashboardSidebarChipHoverSuppression();
 
@@ -52,8 +54,8 @@ export function DashboardSidebarAgentsChip({
 		if (stoppedCount > 0) {
 			toast.success(
 				stoppedCount === 1
-					? "Stopped 1 agent"
-					: `Stopped ${stoppedCount} agents`,
+					? t("workspace.stoppedAgent")
+					: t("workspace.stoppedAgents", { count: stoppedCount }),
 			);
 		}
 	};
@@ -81,7 +83,9 @@ export function DashboardSidebarAgentsChip({
 						}}
 						disabled={isPending}
 						aria-busy={isPending}
-						aria-label={`${agents.length} running agents — stop all`}
+						aria-label={t("workspace.runningAgentsStopAll", {
+							count: agents.length,
+						})}
 						className={cn(
 							"group/chip h-[18px] overflow-visible bg-muted/60 px-1.5 py-0 text-[9px] font-medium tabular-nums text-muted-foreground",
 							"[&>svg]:size-2.5 hover:bg-muted hover:text-foreground disabled:opacity-70",
@@ -116,7 +120,7 @@ export function DashboardSidebarAgentsChip({
 				className="w-64 p-1"
 			>
 				<div className="flex items-center justify-between px-2 py-1.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-					<span>Agents</span>
+					<span>{t("workspace.agents")}</span>
 					<span className="tabular-nums">{agents.length}</span>
 				</div>
 				<div className="max-h-60 overflow-y-auto">
@@ -136,7 +140,7 @@ export function DashboardSidebarAgentsChip({
 					className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-70"
 				>
 					<LuX className="size-3" strokeWidth={STROKE_WIDTH} />
-					Stop all agents
+					{t("workspace.stopAllAgents")}
 				</button>
 			</HoverCardContent>
 		</HoverCard>

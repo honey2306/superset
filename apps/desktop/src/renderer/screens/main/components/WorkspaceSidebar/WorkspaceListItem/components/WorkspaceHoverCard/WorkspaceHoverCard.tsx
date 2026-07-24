@@ -1,6 +1,6 @@
 import { Button } from "@superset/ui/button";
 import { Kbd, KbdGroup } from "@superset/ui/kbd";
-import { formatDistanceToNow } from "date-fns";
+
 import { FaGithub } from "react-icons/fa";
 import {
 	LuExternalLink,
@@ -11,6 +11,7 @@ import {
 } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { usePRStatus } from "renderer/screens/main/hooks";
 import { STROKE_WIDTH } from "../../../constants";
 import { ChecksList } from "./components/ChecksList";
@@ -29,6 +30,7 @@ export function WorkspaceHoverCardContent({
 	workspaceAlias,
 	onEditBranchClick,
 }: WorkspaceHoverCardContentProps) {
+	const { locale, t } = useTranslation();
 	const { data: worktreeInfo } =
 		electronTrpc.workspaces.getWorktreeInfo.useQuery(
 			{ workspaceId },
@@ -57,7 +59,7 @@ export function WorkspaceHoverCardContent({
 		>
 			<a href={previewUrl} target="_blank" rel="noopener noreferrer">
 				<LuGlobe className="size-3" strokeWidth={STROKE_WIDTH} />
-				Open Preview
+				{t("workspace.openPreview")}
 			</a>
 		</Button>
 	) : null;
@@ -81,7 +83,7 @@ export function WorkspaceHoverCardContent({
 				{branchName && (
 					<div className="space-y-0.5">
 						<span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-							Branch
+							{t("workspace.branch")}
 						</span>
 						<div className="flex items-center gap-1.5">
 							{onEditBranchClick ? (
@@ -89,7 +91,7 @@ export function WorkspaceHoverCardContent({
 									type="button"
 									onClick={() => onEditBranchClick(branchName)}
 									className={`group/branch flex min-w-0 flex-1 items-center gap-1 font-mono break-all text-left hover:text-foreground hover:underline ${hasCustomAlias ? "text-xs" : "text-sm"}`}
-									title="Rename branch"
+									title={t("workspace.renameBranch")}
 								>
 									<span className="break-all">{branchName}</span>
 									<LuPencil
@@ -110,7 +112,7 @@ export function WorkspaceHoverCardContent({
 									target="_blank"
 									rel="noopener noreferrer"
 									className="shrink-0 text-muted-foreground hover:text-foreground"
-									title="Open branch on GitHub"
+									title={t("workspace.openBranchGithub")}
 									onClick={(e) => e.stopPropagation()}
 								>
 									<LuExternalLink
@@ -124,7 +126,16 @@ export function WorkspaceHoverCardContent({
 				)}
 				{worktreeInfo?.createdAt && (
 					<span className="text-xs text-muted-foreground block">
-						{formatDistanceToNow(worktreeInfo.createdAt, { addSuffix: true })}
+						{new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
+							-Math.max(
+								1,
+								Math.round(
+									(Date.now() - new Date(worktreeInfo.createdAt).getTime()) /
+										86_400_000,
+								),
+							),
+							"day",
+						)}
 					</span>
 				)}
 			</div>
@@ -136,8 +147,7 @@ export function WorkspaceHoverCardContent({
 						strokeWidth={STROKE_WIDTH}
 					/>
 					<span>
-						Behind main by {behindCount ?? "?"} commit
-						{behindCount !== 1 && "s"}, needs rebase
+						{t("workspace.behindNeedsRebase", { count: behindCount ?? "?" })}
 					</span>
 				</div>
 			)}
@@ -148,7 +158,7 @@ export function WorkspaceHoverCardContent({
 						className="size-3 animate-spin"
 						strokeWidth={STROKE_WIDTH}
 					/>
-					<span className="text-xs">Loading PR...</span>
+					<span className="text-xs">{t("workspace.loadingPr")}</span>
 				</div>
 			) : pr ? (
 				<div className="pt-2 border-t border-border space-y-2">

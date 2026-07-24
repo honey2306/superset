@@ -1,4 +1,5 @@
 import { BotIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { SupersetToolCall } from "../SupersetToolCall";
 
@@ -9,7 +10,11 @@ interface StartAgentSessionToolCallProps {
 
 export function StartAgentSessionToolCall({
 	part,
-	toolName = "Start agent session",
+	toolName,
 }: StartAgentSessionToolCallProps) {
-	return <SupersetToolCall part={part} toolName={toolName} icon={BotIcon} />;
+	const { t } = useTranslation();
+	const resolvedToolName = toolName ?? t("chat.tool.startAgentSession");
+	return (
+		<SupersetToolCall part={part} toolName={resolvedToolName} icon={BotIcon} />
+	);
 }

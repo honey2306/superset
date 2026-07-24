@@ -1,4 +1,4 @@
-import type { PushActionCopy } from "./getPushActionCopy";
+import type { MessageKey } from "renderer/providers/I18nProvider";
 
 export type PrimaryActionType = "commit" | "sync" | "push" | "pull";
 
@@ -9,14 +9,24 @@ export interface PrimaryActionInput {
 	pushCount: number;
 	pullCount: number;
 	hasUpstream: boolean;
-	pushActionCopy: Pick<PushActionCopy, "label" | "tooltip">;
+	pushActionCopy: Pick<
+		PushActionCopyForPrimary,
+		"labelKey" | "tooltipKey" | "tooltipValues"
+	>;
+}
+
+export interface PushActionCopyForPrimary {
+	labelKey: MessageKey;
+	tooltipKey: MessageKey;
+	tooltipValues?: Record<string, number | string>;
 }
 
 export interface PrimaryActionState {
 	action: PrimaryActionType;
-	label: string;
+	labelKey: MessageKey;
+	tooltipKey: MessageKey;
+	tooltipValues?: Record<string, number | string>;
 	disabled: boolean;
-	tooltip: string;
 }
 
 export function getPrimaryAction({
@@ -31,52 +41,58 @@ export function getPrimaryAction({
 	if (canCommit) {
 		return {
 			action: "commit",
-			label: "Commit",
+			labelKey: "v1Changes.primaryAction.commit",
+			tooltipKey: "v1Changes.primaryAction.commitStaged",
 			disabled: isPending,
-			tooltip: "Commit staged changes",
 		};
 	}
 
 	if (pushCount > 0 && pullCount > 0) {
 		return {
 			action: "sync",
-			label: "Sync",
+			labelKey: "v1Changes.primaryAction.sync",
+			tooltipKey: "v1Changes.primaryAction.syncTooltip",
+			tooltipValues: { pull: pullCount, push: pushCount },
 			disabled: isPending,
-			tooltip: `Pull ${pullCount}, push ${pushCount}`,
 		};
 	}
 
 	if (pushCount > 0) {
 		return {
 			action: "push",
-			label: pushActionCopy.label,
+			labelKey: pushActionCopy.labelKey,
 			disabled: isPending,
-			tooltip: pushActionCopy.tooltip,
+			tooltipKey: pushActionCopy.tooltipKey,
+			tooltipValues: pushActionCopy.tooltipValues,
 		};
 	}
 
 	if (pullCount > 0) {
 		return {
 			action: "pull",
-			label: "Pull",
+			labelKey: "v1Changes.primaryAction.pull",
+			tooltipKey: "v1Changes.primaryAction.pullTooltip",
+			tooltipValues: { count: pullCount },
 			disabled: isPending,
-			tooltip: `Pull ${pullCount} commit${pullCount !== 1 ? "s" : ""}`,
 		};
 	}
 
 	if (!hasUpstream) {
 		return {
 			action: "push",
-			label: pushActionCopy.label,
+			labelKey: pushActionCopy.labelKey,
 			disabled: isPending,
-			tooltip: pushActionCopy.tooltip,
+			tooltipKey: pushActionCopy.tooltipKey,
+			tooltipValues: pushActionCopy.tooltipValues,
 		};
 	}
 
 	return {
 		action: "commit",
-		label: "Commit",
+		labelKey: "v1Changes.primaryAction.commit",
 		disabled: true,
-		tooltip: hasStagedChanges ? "Enter a message" : "No staged changes",
+		tooltipKey: hasStagedChanges
+			? "v1Changes.primaryAction.enterMessage"
+			: "v1Changes.primaryAction.noStagedChanges",
 	};
 }

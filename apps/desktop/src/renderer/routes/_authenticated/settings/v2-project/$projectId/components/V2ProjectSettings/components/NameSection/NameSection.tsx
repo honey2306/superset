@@ -1,6 +1,7 @@
 import { Input } from "@superset/ui/input";
 import { useEffect, useState } from "react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface NameSectionProps {
 	projectId: string;
@@ -20,6 +21,7 @@ export function NameSection({
 	canRename,
 	onRenamed,
 }: NameSectionProps) {
+	const { t } = useTranslation();
 	const [value, setValue] = useState(currentName);
 
 	useEffect(() => {
@@ -63,7 +65,7 @@ export function NameSection({
 					(e.target as HTMLInputElement).blur();
 				}
 			}}
-			placeholder="Project name"
+			placeholder={t("project.namePlaceholder")}
 			className="w-96"
 		/>
 	);

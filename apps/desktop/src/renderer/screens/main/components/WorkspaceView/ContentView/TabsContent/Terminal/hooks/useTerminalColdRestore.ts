@@ -1,6 +1,7 @@
 import type { Terminal as XTerm } from "@xterm/xterm";
 import { useCallback, useRef, useState } from "react";
 import { electronTrpcClient as trpcClient } from "renderer/lib/trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { isTerminalAttachCanceledMessage } from "../attach-cancel";
 import { coldRestoreState } from "../state";
 import type {
@@ -66,6 +67,7 @@ export function useTerminalColdRestore({
 	flushPendingEvents,
 	resetModes,
 }: UseTerminalColdRestoreOptions): UseTerminalColdRestoreReturn {
+	const { t } = useTranslation();
 	const [isRestoredMode, setIsRestoredMode] = useState(false);
 	const [restoredCwd, setRestoredCwd] = useState<string | null>(null);
 
@@ -95,7 +97,7 @@ export function useTerminalColdRestore({
 					if (!currentXterm) return;
 
 					setConnectionError(null);
-					currentXterm.writeln("\x1b[90m[Reconnected]\x1b[0m");
+					currentXterm.writeln(`\x1b[90m${t("terminal.reconnected")}\x1b[0m`);
 
 					if (result.isColdRestore) {
 						const scrollback =
@@ -163,6 +165,7 @@ export function useTerminalColdRestore({
 		setExitStatus,
 		maybeApplyInitialState,
 		flushPendingEvents,
+		t,
 	]);
 
 	const handleStartShell = useCallback(() => {

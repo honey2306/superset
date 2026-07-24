@@ -10,6 +10,7 @@ import { Button } from "@superset/ui/button";
 import { Checkbox } from "@superset/ui/checkbox";
 import { Label } from "@superset/ui/label";
 import { useEffect, useId } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { shouldConfirmDeleteDialogKey } from "../../utils/shouldConfirmDeleteDialogKey";
 
 interface DestroyConfirmPaneProps {
@@ -39,6 +40,7 @@ export function DestroyConfirmPane({
 	onConfirm,
 	confirmLabel,
 }: DestroyConfirmPaneProps) {
+	const { t } = useTranslation();
 	const checkboxId = useId();
 	const hasWarnings = hasChanges || hasUnpushedCommits;
 
@@ -60,11 +62,10 @@ export function DestroyConfirmPane({
 			<AlertDialogContent className="max-w-[340px] gap-0 p-0">
 				<AlertDialogHeader className="px-4 pt-4 pb-2">
 					<AlertDialogTitle className="font-medium">
-						Delete workspace "{workspaceName}"?
+						{t("workspace.deleteNamedQuestion", { name: workspaceName })}
 					</AlertDialogTitle>
 					<AlertDialogDescription>
-						This removes the worktree from disk. The cloud workspace record will
-						also be removed.
+						{t("workspace.destroyDescription")}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<div className="px-4 pb-2">
@@ -78,10 +79,10 @@ export function DestroyConfirmPane({
 					>
 						{hasWarnings
 							? hasChanges && hasUnpushedCommits
-								? "Has uncommitted changes and unpushed commits"
+								? t("workspace.hasChangesAndUnpushed")
 								: hasChanges
-									? "Has uncommitted changes"
-									: "Has unpushed commits"
+									? t("workspace.hasChanges")
+									: t("workspace.hasUnpushed")
 							: " "}
 					</div>
 				</div>
@@ -105,7 +106,7 @@ export function DestroyConfirmPane({
 							htmlFor={checkboxId}
 							className="text-xs text-muted-foreground cursor-pointer select-none"
 						>
-							Also delete local branch
+							{t("workspace.deleteLocalBranch")}
 						</Label>
 					</div>
 				</div>
@@ -116,7 +117,7 @@ export function DestroyConfirmPane({
 						className="h-7 px-3 text-xs"
 						onClick={() => onOpenChange(false)}
 					>
-						Cancel
+						{t("common.cancel")}
 					</Button>
 					<Button
 						variant="destructive"

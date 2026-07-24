@@ -1,4 +1,5 @@
 import type { GitHubStatus } from "@superset/local-db";
+import type { MessageKey } from "renderer/providers/I18nProvider";
 
 type PushActionPullRequest = Pick<
 	NonNullable<GitHubStatus["pr"]>,
@@ -6,9 +7,10 @@ type PushActionPullRequest = Pick<
 >;
 
 export interface PushActionCopy {
-	label: string;
-	menuLabel: string;
-	tooltip: string;
+	labelKey: MessageKey;
+	menuLabelKey: MessageKey;
+	tooltipKey: MessageKey;
+	tooltipValues?: Record<string, number | string>;
 }
 
 function formatPullRequestPushTarget(
@@ -35,29 +37,34 @@ export function getPushActionCopy({
 	const pullRequestTarget = formatPullRequestPushTarget(pullRequest);
 	if (pullRequestTarget) {
 		return {
-			label: "Push to PR",
-			menuLabel: "Push to PR",
-			tooltip:
+			labelKey: "v1Changes.push.toPR",
+			menuLabelKey: "v1Changes.push.toPR",
+			tooltipKey:
 				pushCount > 0
-					? `Push ${pushCount} commit${pushCount !== 1 ? "s" : ""} to ${pullRequestTarget}`
-					: `Push changes to ${pullRequestTarget}`,
+					? "v1Changes.push.pushCommitsTooltip"
+					: "v1Changes.push.pushChangesTooltip",
+			tooltipValues: {
+				count: pushCount,
+				target: pullRequestTarget,
+			},
 		};
 	}
 
 	if (!hasUpstream) {
 		return {
-			label: "Publish Branch",
-			menuLabel: "Publish Branch",
-			tooltip: "Publish branch to remote",
+			labelKey: "v1Changes.push.publishBranch",
+			menuLabelKey: "v1Changes.push.publishBranch",
+			tooltipKey: "v1Changes.push.publishBranchTooltip",
 		};
 	}
 
 	return {
-		label: "Push",
-		menuLabel: "Push",
-		tooltip:
+		labelKey: "v1Changes.push.push",
+		menuLabelKey: "v1Changes.push.push",
+		tooltipKey:
 			pushCount > 0
-				? `Push ${pushCount} commit${pushCount !== 1 ? "s" : ""}`
-				: "Push branch changes",
+				? "v1Changes.push.pushCommits"
+				: "v1Changes.push.pushBranchChanges",
+		tooltipValues: pushCount > 0 ? { count: pushCount } : undefined,
 	};
 }

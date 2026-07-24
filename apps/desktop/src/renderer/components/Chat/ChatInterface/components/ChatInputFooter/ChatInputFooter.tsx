@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusPromptOnPane } from "renderer/components/Chat/ChatInterface/hooks/useFocusPromptOnPane";
 import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { SlashCommand } from "../../hooks/useSlashCommands";
 import type { ModelOption, PermissionMode } from "../../types";
 import { TiptapPromptEditor } from "../TiptapPromptEditor";
@@ -85,6 +86,7 @@ export function ChatInputFooter({
 	onQuestionRespond,
 	onQuestionCancel,
 }: ChatInputFooterProps) {
+	const { t } = useTranslation();
 	useFocusPromptOnPane(isFocused);
 
 	// Focus the prompt when the question overlay dismisses (pendingQuestion → null).
@@ -210,7 +212,7 @@ export function ChatInputFooter({
 									previewSlashCommand={previewSlashCommand}
 									slashCommands={slashCommands}
 									availableModels={availableModels}
-									placeholder="Ask to make changes, @mention files, run /commands"
+									placeholder={t("chatInput.placeholder")}
 									focusShortcutText={
 										showFocusHint ? focusShortcutText : undefined
 									}

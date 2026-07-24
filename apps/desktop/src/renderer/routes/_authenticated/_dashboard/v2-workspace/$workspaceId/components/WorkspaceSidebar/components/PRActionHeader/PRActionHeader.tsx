@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { VscGitPullRequest, VscLoading } from "react-icons/vsc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { V2WorkspaceOpenInButton } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/V2WorkspaceOpenInButton";
 import type { PRFlowDispatch } from "../../hooks/usePRFlowDispatch";
 import { PRStatusGroup } from "./components/PRStatusGroup";
@@ -68,6 +69,7 @@ function ActionSlot({
 	createPREnabled: boolean;
 	workspaceId: string;
 }) {
+	const { t } = useTranslation();
 	switch (variant.kind) {
 		case "hidden":
 			// `pr-exists` lands here — render the link + indicators + dropdown.
@@ -87,7 +89,7 @@ function ActionSlot({
 				return (
 					<UnavailableIcon
 						reason="create-disabled"
-						tooltip="Create PR coming soon"
+						tooltip={t("v2Workspace.pr.createComingSoon")}
 					/>
 				);
 			}
@@ -110,7 +112,7 @@ function ActionSlot({
 				<button
 					type="button"
 					onClick={onRetry}
-					aria-label="Retry loading pull request"
+					aria-label={t("v2Workspace.pr.retryLoading")}
 					className="flex items-center text-muted-foreground/60 transition-colors hover:text-muted-foreground"
 				>
 					<VscGitPullRequest className="size-4" />
@@ -126,7 +128,8 @@ function UnavailableIcon({
 	reason: UnavailableReason | "create-disabled";
 	tooltip?: string;
 }) {
-	const tooltipText = tooltip ?? unavailableTooltip(reason);
+	const { t } = useTranslation();
+	const tooltipText = tooltip ?? unavailableTooltip(reason, t);
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
@@ -141,16 +144,17 @@ function UnavailableIcon({
 
 function unavailableTooltip(
 	reason: UnavailableReason | "create-disabled",
+	t: (key: Parameters<ReturnType<typeof useTranslation>["t"]>[0]) => string,
 ): string {
 	switch (reason) {
 		case "no-repo":
-			return "No GitHub repository connected";
+			return t("v2Workspace.pr.noRepo");
 		case "default-branch":
-			return "Switch to a feature branch to create a pull request";
+			return t("v2Workspace.pr.defaultBranchTip");
 		case "detached-head":
-			return "Checkout a branch to create a pull request";
+			return t("v2Workspace.pr.detachedHeadTip");
 		case "create-disabled":
-			return "Create PR coming soon";
+			return t("v2Workspace.pr.createComingSoon");
 	}
 }
 
@@ -161,19 +165,22 @@ function CreatePRIconButton({
 	state: PRFlowState;
 	dispatch: PRFlowDispatch;
 }) {
+	const { t } = useTranslation();
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<button
 					type="button"
 					onClick={() => dispatch({ state, draft: false })}
-					aria-label="Create pull request"
+					aria-label={t("v2Workspace.pr.createPRAria")}
 					className="flex items-center text-muted-foreground transition-colors hover:text-foreground"
 				>
 					<VscGitPullRequest className="size-4" />
 				</button>
 			</TooltipTrigger>
-			<TooltipContent side="bottom">Create Pull Request</TooltipContent>
+			<TooltipContent side="bottom">
+				{t("v2Workspace.pr.createPRTooltip")}
+			</TooltipContent>
 		</Tooltip>
 	);
 }

@@ -4,6 +4,7 @@ import { Input } from "@superset/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { FaGithub } from "react-icons/fa";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface RepositorySectionProps {
 	repoUrl: string | null;
@@ -15,6 +16,7 @@ interface RepositorySectionProps {
  * to change it.
  */
 export function RepositorySection({ repoUrl }: RepositorySectionProps) {
+	const { t } = useTranslation();
 	const openUrl = electronTrpc.external.openUrl.useMutation();
 	const parsed = repoUrl ? parseGitHubRemote(repoUrl) : null;
 
@@ -25,7 +27,7 @@ export function RepositorySection({ repoUrl }: RepositorySectionProps) {
 				value={repoUrl ?? ""}
 				readOnly
 				disabled
-				placeholder="No git remote detected"
+				placeholder={t("project.noGitRemote")}
 				className="w-full font-mono text-sm pr-9"
 			/>
 			{parsed && (
@@ -37,12 +39,12 @@ export function RepositorySection({ repoUrl }: RepositorySectionProps) {
 							size="icon"
 							className="absolute right-1 top-1 size-7 text-muted-foreground hover:text-foreground"
 							onClick={() => openUrl.mutate(parsed.url)}
-							aria-label="Open in GitHub"
+							aria-label={t("project.openInGitHub")}
 						>
 							<FaGithub className="size-4" />
 						</Button>
 					</TooltipTrigger>
-					<TooltipContent>Open in GitHub</TooltipContent>
+					<TooltipContent>{t("project.openInGitHub")}</TooltipContent>
 				</Tooltip>
 			)}
 		</div>

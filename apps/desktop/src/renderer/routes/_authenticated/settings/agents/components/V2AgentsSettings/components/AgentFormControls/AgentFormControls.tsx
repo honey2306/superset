@@ -2,6 +2,7 @@ import type { PromptTransport } from "@superset/shared/agent-prompt-launch";
 import { Input } from "@superset/ui/input";
 import { Label } from "@superset/ui/label";
 import { cn } from "@superset/ui/utils";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { AgentIcon } from "../AgentIcon";
 
 /**
@@ -67,11 +68,12 @@ export function AgentLaunchFields({
 	promptTransport,
 	onPromptTransportChange,
 }: AgentLaunchFieldsProps) {
+	const { t } = useTranslation();
 	return (
-		<Section title="Launch">
+		<Section title={t("agents.launch")}>
 			<StackedField
-				label="Command"
-				hint="Argv used to launch the agent."
+				label={t("agents.command")}
+				hint={t("agents.commandHint")}
 				htmlFor={`${idPrefix}-command`}
 			>
 				<Input
@@ -85,7 +87,7 @@ export function AgentLaunchFields({
 			</StackedField>
 
 			<StackedField
-				label="Prompt-only args"
+				label={t("agents.promptOnlyArgs")}
 				hint={
 					<>
 						Added only when launching with a prompt — e.g. <code>--</code>,{" "}
@@ -105,8 +107,8 @@ export function AgentLaunchFields({
 			</StackedField>
 
 			<StackedField
-				label="Prompt transport"
-				hint="How the prompt is delivered to the process."
+				label={t("agents.promptTransport")}
+				hint={t("agents.promptTransportHint")}
 			>
 				<PromptTransportToggle
 					value={promptTransport}
@@ -167,6 +169,7 @@ export function PromptTransportToggle({
 	value,
 	onChange,
 }: PromptTransportToggleProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="inline-flex rounded-md border border-border overflow-hidden">
 			{TRANSPORT_OPTIONS.map((option, index) => {
@@ -176,7 +179,7 @@ export function PromptTransportToggle({
 						key={option}
 						type="button"
 						aria-pressed={isSelected}
-						aria-label={`Prompt transport: ${option}`}
+						aria-label={t("agents.promptTransportAria", { transport: option })}
 						onClick={() => onChange(option)}
 						className={cn(
 							"px-3 py-1 text-xs font-medium transition-colors",

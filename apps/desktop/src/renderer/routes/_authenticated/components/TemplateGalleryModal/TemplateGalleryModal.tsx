@@ -11,6 +11,7 @@ import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useCreateV1Project,
 	useFinalizeProjectSetup,
@@ -42,6 +43,7 @@ export function TemplateGalleryModal({
 	onCreated,
 	onError,
 }: TemplateGalleryModalProps) {
+	const { t } = useTranslation();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 	const hostService = useLocalHostService();
 	const { activeHostUrl } = hostService;
@@ -54,9 +56,9 @@ export function TemplateGalleryModal({
 	const handleSelect = async (template: ProjectTemplate) => {
 		if (!template.repo || cloningId) return;
 		if (!parentDir) {
-			const message = "Projects directory not ready yet.";
+			const message = t("template.projectsDirectoryNotReady");
 			if (onError) onError(message);
-			else toast.error("Could not create project", { description: message });
+			else toast.error(t("project.couldNotCreate"), { description: message });
 			return;
 		}
 		setCloningId(template.id);
@@ -64,8 +66,8 @@ export function TemplateGalleryModal({
 		try {
 			if (isV2CloudEnabled) {
 				if (!activeHostUrl) {
-					showHostServiceUnavailableToast(hostService, {
-						action: "create the project",
+					showHostServiceUnavailableToast(hostService, t, {
+						action: t("project.createProjectAction"),
 					});
 					return;
 				}
@@ -85,7 +87,7 @@ export function TemplateGalleryModal({
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			if (onError) onError(message);
-			else toast.error("Could not create project", { description: message });
+			else toast.error(t("project.couldNotCreate"), { description: message });
 		} finally {
 			setCloningId(null);
 		}
@@ -104,11 +106,8 @@ export function TemplateGalleryModal({
 				onOpenAutoFocus={(event) => event.preventDefault()}
 			>
 				<DialogHeader>
-					<DialogTitle>Start from a template</DialogTitle>
-					<DialogDescription>
-						Scaffold a new project from a starter, cloned with a fresh git
-						history.
-					</DialogDescription>
+					<DialogTitle>{t("template.title")}</DialogTitle>
+					<DialogDescription>{t("template.description")}</DialogDescription>
 				</DialogHeader>
 				<div className="grid grid-cols-3 gap-3">
 					{PROJECT_TEMPLATES.map((template) => (

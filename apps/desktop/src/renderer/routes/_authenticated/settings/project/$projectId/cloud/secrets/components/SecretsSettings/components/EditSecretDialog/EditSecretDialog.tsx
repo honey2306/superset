@@ -11,6 +11,7 @@ import { Input } from "@superset/ui/input";
 import { toast } from "@superset/ui/sonner";
 import { useEffect, useState } from "react";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface EditSecretDialogProps {
 	open: boolean;
@@ -34,6 +35,7 @@ export function EditSecretDialog({
 	secret,
 	onSaved,
 }: EditSecretDialogProps) {
+	const { t } = useTranslation();
 	const [value, setValue] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
 
@@ -56,12 +58,12 @@ export function EditSecretDialog({
 				value: value.trim(),
 				sensitive: secret.sensitive,
 			});
-			toast.success(`Updated ${secret.key}`);
+			toast.success(t("secrets.updated", { key: secret.key }));
 			onSaved();
 			onOpenChange(false);
 		} catch (err) {
 			console.error("[secrets/edit] Failed to update:", err);
-			toast.error("Failed to update environment variable");
+			toast.error(t("secrets.updateFailed"));
 		} finally {
 			setIsSaving(false);
 		}
@@ -71,9 +73,9 @@ export function EditSecretDialog({
 		<Dialog open={open} onOpenChange={onOpenChange} modal>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Edit Environment Variable</DialogTitle>
+					<DialogTitle>{t("secrets.editTitle")}</DialogTitle>
 					<DialogDescription>
-						Update the value for{" "}
+						{t("secrets.updateValueFor")}{" "}
 						<code className="font-mono font-semibold text-foreground">
 							{secret.key}
 						</code>
@@ -82,7 +84,7 @@ export function EditSecretDialog({
 
 				<div className="space-y-4 py-2">
 					<div className="space-y-2">
-						<span className="text-sm font-medium">Key</span>
+						<span className="text-sm font-medium">{t("secrets.key")}</span>
 						<Input
 							value={secret.key}
 							disabled
@@ -91,9 +93,13 @@ export function EditSecretDialog({
 					</div>
 
 					<div className="space-y-2">
-						<span className="text-sm font-medium">Value</span>
+						<span className="text-sm font-medium">{t("secrets.value")}</span>
 						<Input
-							placeholder={secret.sensitive ? "Enter new value" : "Value"}
+							placeholder={
+								secret.sensitive
+									? t("secrets.enterNewValue")
+									: t("secrets.value")
+							}
 							value={value}
 							onChange={(e) => setValue(e.target.value)}
 							className="font-mono text-sm"
@@ -109,10 +115,10 @@ export function EditSecretDialog({
 						onClick={() => onOpenChange(false)}
 						disabled={isSaving}
 					>
-						Cancel
+						{t("common.cancel")}
 					</Button>
 					<Button onClick={handleSave} disabled={isSaving || !value.trim()}>
-						{isSaving ? "Saving..." : "Save"}
+						{isSaving ? t("common.saving") : t("common.save")}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

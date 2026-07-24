@@ -6,6 +6,7 @@ import { useCallback, useId, useMemo, useState } from "react";
 import { LuArrowUpRight, LuCheck, LuCopy, LuUndo2 } from "react-icons/lu";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { useSidebarFilePolicy } from "renderer/lib/clickPolicy";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DiscardConfirmDialog } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/DiscardConfirmDialog";
 import { StatusIndicator } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/StatusIndicator";
 import type { ChangesetFile } from "../../../../../useChangeset";
@@ -29,6 +30,7 @@ export function DiffHeaderMetadata({
 	onOpenFile,
 	onOpenInExternalEditor,
 }: DiffHeaderMetadataProps) {
+	const { t } = useTranslation();
 	const viewedId = useId();
 	const { copyToClipboard, copied } = useCopyToClipboard();
 	const policy = useSidebarFilePolicy();
@@ -40,10 +42,10 @@ export function DiffHeaderMetadata({
 	}, [viewed, file.path, onSetViewed, onSetCollapsed]);
 
 	const showDeletedFileToast = useCallback(() => {
-		toast.error("File no longer exists", {
-			description: `${file.path} was deleted in this change.`,
+		toast.error(t("v2Diff.fileNoLongerExists"), {
+			description: t("v2Diff.fileNoLongerExistsDesc", { path: file.path }),
 		});
-	}, [file.path]);
+	}, [file.path, t]);
 
 	const handleOpenClick = useCallback(
 		(event: React.MouseEvent) => {
@@ -73,7 +75,9 @@ export function DiffHeaderMetadata({
 			void utils.git.getDiff.invalidate({ workspaceId });
 		},
 		onError: (err) => {
-			toast.error("Couldn't discard changes", { description: err.message });
+			toast.error(t("v2Diff.couldntDiscardChanges"), {
+				description: err.message,
+			});
 		},
 	});
 	const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
@@ -97,7 +101,7 @@ export function DiffHeaderMetadata({
 						<button
 							type="button"
 							onClick={handleOpenClick}
-							aria-label="Open in file viewer"
+							aria-label={t("v2Diff.openInFileViewer")}
 							className="rounded p-1 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-muted-foreground"
 						>
 							<LuArrowUpRight className="size-3.5" />
@@ -112,7 +116,7 @@ export function DiffHeaderMetadata({
 						<button
 							type="button"
 							onClick={() => void copyToClipboard(file.path)}
-							aria-label="Copy path"
+							aria-label={t("v2Diff.copyPath")}
 							className="rounded p-1 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-muted-foreground"
 						>
 							{copied ? (
@@ -123,7 +127,7 @@ export function DiffHeaderMetadata({
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom" showArrow={false}>
-						{copied ? "Copied" : "Copy path"}
+						{copied ? t("v2Diff.copied") : t("v2Diff.copyPath")}
 					</TooltipContent>
 				</Tooltip>
 				<StatusIndicator status={file.status} iconClassName="size-3.5" />
@@ -138,7 +142,7 @@ export function DiffHeaderMetadata({
 						htmlFor={viewedId}
 						className="hidden cursor-pointer select-none text-xs text-muted-foreground @min-[380px]/diff-header:inline"
 					>
-						Viewed
+						{t("v2Diff.viewed")}
 					</label>
 				</div>
 				{requestDiscard ? (
@@ -147,7 +151,7 @@ export function DiffHeaderMetadata({
 							<button
 								type="button"
 								onClick={requestDiscard}
-								aria-label="Discard changes"
+								aria-label={t("v2Workspace.changes.discardChanges")}
 								data-discard-button
 								className="rounded p-1 text-muted-foreground/60 opacity-0 transition-all hover:bg-accent hover:text-destructive"
 							>
@@ -155,7 +159,7 @@ export function DiffHeaderMetadata({
 							</button>
 						</TooltipTrigger>
 						<TooltipContent side="bottom" showArrow={false}>
-							Discard changes
+							{t("v2Workspace.changes.discardChanges")}
 						</TooltipContent>
 					</Tooltip>
 				) : null}
@@ -166,15 +170,19 @@ export function DiffHeaderMetadata({
 					onOpenChange={setShowDiscardConfirm}
 					title={
 						isDeleteAction
-							? `Delete "${basename}"?`
-							: `Discard changes to "${basename}"?`
+							? t("v2Workspace.changes.deleteFile", { name: basename })
+							: t("v2Workspace.changes.discardFile", { name: basename })
 					}
 					description={
 						isDeleteAction
-							? "This will permanently delete this file. This action cannot be undone."
-							: "This will revert all changes to this file. This action cannot be undone."
+							? t("v2Workspace.changes.deleteDesc")
+							: t("v2Workspace.changes.discardDesc")
 					}
-					confirmLabel={isDeleteAction ? "Delete" : "Discard"}
+					confirmLabel={
+						isDeleteAction
+							? t("v2Workspace.changes.deleteAction")
+							: t("v2Workspace.changes.discardAction")
+					}
 					onConfirm={confirmDiscard}
 				/>
 			) : null}

@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { FilePenIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { getArgs, getResult } from "../../../../utils/tool-helpers";
 import {
@@ -16,6 +17,7 @@ interface UpdateTaskToolCallProps {
 
 export function UpdateTaskToolCall({ part }: UpdateTaskToolCallProps) {
 	const navigate = useNavigate();
+	const { t } = useTranslation();
 	const args = getArgs(part);
 	const result = getResult(part);
 	const resultData =
@@ -47,21 +49,21 @@ export function UpdateTaskToolCall({ part }: UpdateTaskToolCallProps) {
 	return (
 		<SupersetToolCall
 			part={part}
-			toolName="Update task"
+			toolName={t("chat.tool.updateTask")}
 			icon={FilePenIcon}
 			details={
 				<div className="space-y-2">
 					{updated.length > 0 ? (
 						<div className="space-y-1">
 							<div className="font-medium text-foreground">
-								Updated ({updated.length})
+								{t("chat.tool.updatedCount", { count: updated.length })}
 							</div>
 							<div className="space-y-1">
 								{updated.map((task) => {
 									const title =
 										typeof task.title === "string"
 											? task.title
-											: "Updated task";
+											: t("chat.tool.updatedTaskTitle");
 									const slug = typeof task.slug === "string" ? task.slug : null;
 									const taskId = typeof task.id === "string" ? task.id : null;
 									const matchedUpdate =
@@ -174,7 +176,7 @@ export function UpdateTaskToolCall({ part }: UpdateTaskToolCallProps) {
 						</div>
 					) : (
 						<div className="text-muted-foreground">
-							No updated tasks in result.
+							{t("chat.tool.noUpdatedTasks")}
 						</div>
 					)}
 				</div>

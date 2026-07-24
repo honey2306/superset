@@ -31,6 +31,7 @@ import {
 	useChangesSidebarFilePolicy,
 } from "renderer/lib/clickPolicy";
 import { FileIcon } from "renderer/lib/fileIcons";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DiscardConfirmDialog } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/DiscardConfirmDialog";
 import { StatusIndicator } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/StatusIndicator";
 import { PathActionsMenuItems } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/WorkspaceSidebar/components/PathActionsMenuItems";
@@ -82,6 +83,7 @@ export const FileRow = memo(function FileRow({
 	const canDiscard = file.source.kind === "unstaged";
 	const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 	const isDeleteAction = file.status === "untracked" || file.status === "added";
+	const { t } = useTranslation();
 	const utils = workspaceTrpc.useUtils();
 	const discardMutation = workspaceTrpc.git.discardChanges.useMutation({
 		onSuccess: () => {
@@ -89,7 +91,9 @@ export const FileRow = memo(function FileRow({
 			void utils.git.getDiff.invalidate({ workspaceId });
 		},
 		onError: (err) => {
-			toast.error("Couldn't discard changes", { description: err.message });
+			toast.error(t("v2Workspace.changes.discardChangesFailed"), {
+				description: err.message,
+			});
 		},
 	});
 	const confirmDiscard = () => {
@@ -151,26 +155,21 @@ export const FileRow = memo(function FileRow({
 						<TooltipTrigger asChild>
 							<button
 								type="button"
-								aria-label="Discard changes"
-								className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-destructive"
-								onClick={(e) => {
-									e.stopPropagation();
-									setShowDiscardConfirm(true);
-								}}
+								aria-label={t("v2Workspace.changes.discardChanges")}
 							>
 								<Undo2 className="size-3.5" />
 							</button>
 						</TooltipTrigger>
-						<TooltipContent side="top">Discard changes</TooltipContent>
+						<TooltipContent side="top">
+							{t("v2Workspace.changes.discardChanges")}
+						</TooltipContent>
 					</Tooltip>
 				)}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<button
 							type="button"
-							aria-label="More actions"
-							className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-							onClick={(e) => e.stopPropagation()}
+							aria-label={t("v2Workspace.fileRow.moreActions")}
 						>
 							<ChevronDown className="size-3.5" />
 						</button>
@@ -180,16 +179,16 @@ export const FileRow = memo(function FileRow({
 							onSelect={() => onSelect?.(file.path, false, changeKey)}
 						>
 							<GitCompare />
-							Open Diff
+							{t("v2Workspace.fileRow.openDiff")}
 						</DropdownMenuItem>
 						<DropdownMenuItem
 							onSelect={() => onSelect?.(file.path, true, changeKey)}
 						>
 							<SquarePlus />
-							Open Diff in New Tab
+							{t("v2Workspace.fileRow.openDiffNewTab")}
 							{diffNewTabTier && (
 								<DropdownMenuShortcut>
-									{modifierLabel(diffNewTabTier)}
+									{modifierLabel(diffNewTabTier, t)}
 								</DropdownMenuShortcut>
 							)}
 						</DropdownMenuItem>
@@ -198,10 +197,10 @@ export const FileRow = memo(function FileRow({
 							disabled={!onOpenFile || !absolutePath}
 						>
 							<FileText />
-							Open File
+							{t("v2Workspace.fileRow.openFile")}
 							{fileTier && (
 								<DropdownMenuShortcut>
-									{modifierLabel(fileTier)}
+									{modifierLabel(fileTier, t)}
 								</DropdownMenuShortcut>
 							)}
 						</DropdownMenuItem>
@@ -210,17 +209,17 @@ export const FileRow = memo(function FileRow({
 							disabled={!onOpenFile || !absolutePath}
 						>
 							<SquarePlus />
-							Open File in New Tab
+							{t("v2Workspace.fileRow.openFileNewTab")}
 						</DropdownMenuItem>
 						<DropdownMenuItem
 							onSelect={() => onOpenInEditor?.(file.path)}
 							disabled={!onOpenInEditor}
 						>
 							<ExternalLink />
-							Open in Editor
+							{t("v2Workspace.fileRow.openInEditor")}
 							{externalTier && (
 								<DropdownMenuShortcut>
-									{modifierLabel(externalTier)}
+									{modifierLabel(externalTier, t)}
 								</DropdownMenuShortcut>
 							)}
 						</DropdownMenuItem>
@@ -243,16 +242,16 @@ export const FileRow = memo(function FileRow({
 					onSelect={() => onSelect?.(file.path, false, changeKey)}
 				>
 					<GitCompare />
-					Open Diff
+					{t("v2Workspace.fileRow.openDiff")}
 				</ContextMenuItem>
 				<ContextMenuItem
 					onSelect={() => onSelect?.(file.path, true, changeKey)}
 				>
 					<SquarePlus />
-					Open Diff in New Tab
+					{t("v2Workspace.fileRow.openDiffNewTab")}
 					{diffNewTabTier && (
 						<ContextMenuShortcut>
-							{modifierLabel(diffNewTabTier)}
+							{modifierLabel(diffNewTabTier, t)}
 						</ContextMenuShortcut>
 					)}
 				</ContextMenuItem>
@@ -261,9 +260,11 @@ export const FileRow = memo(function FileRow({
 					disabled={!onOpenFile || !absolutePath}
 				>
 					<FileText />
-					Open File
+					{t("v2Workspace.fileRow.openFile")}
 					{fileTier && (
-						<ContextMenuShortcut>{modifierLabel(fileTier)}</ContextMenuShortcut>
+						<ContextMenuShortcut>
+							{modifierLabel(fileTier, t)}
+						</ContextMenuShortcut>
 					)}
 				</ContextMenuItem>
 				<ContextMenuItem
@@ -271,17 +272,17 @@ export const FileRow = memo(function FileRow({
 					disabled={!onOpenFile || !absolutePath}
 				>
 					<SquarePlus />
-					Open File in New Tab
+					{t("v2Workspace.fileRow.openFileNewTab")}
 				</ContextMenuItem>
 				<ContextMenuItem
 					onSelect={() => onOpenInEditor?.(file.path)}
 					disabled={!onOpenInEditor}
 				>
 					<ExternalLink />
-					Open in Editor
+					{t("v2Workspace.fileRow.openInEditor")}
 					{externalTier && (
 						<ContextMenuShortcut>
-							{modifierLabel(externalTier)}
+							{modifierLabel(externalTier, t)}
 						</ContextMenuShortcut>
 					)}
 				</ContextMenuItem>
@@ -302,7 +303,9 @@ export const FileRow = memo(function FileRow({
 							onSelect={() => setShowDiscardConfirm(true)}
 						>
 							{isDeleteAction ? <Trash2 /> : <Undo2 />}
-							{isDeleteAction ? "Delete" : "Discard changes"}
+							{isDeleteAction
+								? t("v2Workspace.changes.deleteAction")
+								: t("v2Workspace.changes.discardChanges")}
 						</ContextMenuItem>
 					</>
 				)}
@@ -312,15 +315,19 @@ export const FileRow = memo(function FileRow({
 				onOpenChange={setShowDiscardConfirm}
 				title={
 					isDeleteAction
-						? `Delete "${basename}"?`
-						: `Discard changes to "${basename}"?`
+						? t("v2Workspace.changes.deleteFile", { name: basename })
+						: t("v2Workspace.changes.discardFile", { name: basename })
 				}
 				description={
 					isDeleteAction
-						? "This will permanently delete this file. This action cannot be undone."
-						: "This will revert all changes to this file. This action cannot be undone."
+						? t("v2Workspace.changes.deleteDesc")
+						: t("v2Workspace.changes.discardDesc")
 				}
-				confirmLabel={isDeleteAction ? "Delete" : "Discard"}
+				confirmLabel={
+					isDeleteAction
+						? t("v2Workspace.changes.deleteAction")
+						: t("v2Workspace.changes.discardAction")
+				}
 				onConfirm={confirmDiscard}
 			/>
 		</ContextMenu>

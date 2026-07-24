@@ -25,6 +25,8 @@ import {
 	VscSourceControl,
 } from "react-icons/vsc";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import type { MessageKey } from "renderer/providers/I18nProvider";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ChangesViewMode } from "../../types";
 import { ViewModeToggle } from "../ViewModeToggle";
 import { PRButton } from "./components/PRButton";
@@ -40,7 +42,7 @@ interface ChangesHeaderProps {
 	pr: GitHubStatus["pr"] | null;
 	isPRStatusLoading: boolean;
 	canCreatePR: boolean;
-	createPRBlockedReason: string | null;
+	createPRBlockedReason: MessageKey | null;
 	onStash: () => void;
 	onStashIncludeUntracked: () => void;
 	onStashPop: () => void;
@@ -48,6 +50,7 @@ interface ChangesHeaderProps {
 }
 
 function BaseBranchSelector({ worktreePath }: { worktreePath: string }) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 	const utils = electronTrpc.useUtils();
@@ -115,18 +118,18 @@ function BaseBranchSelector({ worktreePath }: { worktreePath: string }) {
 					</PopoverTrigger>
 				</TooltipTrigger>
 				<TooltipContent side="top" showArrow={false}>
-					Change base branch
+					{t("v1Changes.header.changeBaseBranch")}
 				</TooltipContent>
 			</Tooltip>
 			<PopoverContent align="start" className="w-56 p-0">
 				<Command shouldFilter={false}>
 					<CommandInput
-						placeholder="Search branches..."
+						placeholder={t("v1Changes.header.searchBranches")}
 						value={search}
 						onValueChange={setSearch}
 					/>
 					<CommandList className="max-h-[200px]">
-						<CommandEmpty>No branches found</CommandEmpty>
+						<CommandEmpty>{t("v1Changes.header.noBranchesFound")}</CommandEmpty>
 						{filteredBranches.map((branch) => (
 							<CommandItem
 								key={branch}
@@ -138,7 +141,7 @@ function BaseBranchSelector({ worktreePath }: { worktreePath: string }) {
 									{branch}
 									{branch === branchData?.defaultBranch && (
 										<span className="ml-1 text-muted-foreground">
-											(default)
+											{t("v1Changes.header.defaultSuffix")}
 										</span>
 									)}
 								</span>
@@ -165,6 +168,7 @@ function StashDropdown({
 	onStashPop: () => void;
 	isPending: boolean;
 }) {
+	const { t } = useTranslation();
 	return (
 		<DropdownMenu>
 			<Tooltip>
@@ -181,22 +185,22 @@ function StashDropdown({
 					</DropdownMenuTrigger>
 				</TooltipTrigger>
 				<TooltipContent side="top" showArrow={false}>
-					Stash operations
+					{t("v1Changes.header.stashOperations")}
 				</TooltipContent>
 			</Tooltip>
 			<DropdownMenuContent align="start" className="w-52">
 				<DropdownMenuItem onClick={onStash} className="text-xs">
 					<VscGitStash className="size-4" />
-					Stash Changes
+					{t("v1Changes.header.stashChanges")}
 				</DropdownMenuItem>
 				<DropdownMenuItem onClick={onStashIncludeUntracked} className="text-xs">
 					<VscGitStash className="size-4" />
-					Stash (Include Untracked)
+					{t("v1Changes.header.stashIncludeUntracked")}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onClick={onStashPop} className="text-xs">
 					<VscGitStashApply className="size-4" />
-					Pop Stash
+					{t("v1Changes.header.popStash")}
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -204,6 +208,7 @@ function StashDropdown({
 }
 
 function RefreshButton({ onRefresh }: { onRefresh: () => void }) {
+	const { t } = useTranslation();
 	const [isSpinning, setIsSpinning] = useState(false);
 	const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -236,7 +241,7 @@ function RefreshButton({ onRefresh }: { onRefresh: () => void }) {
 				</Button>
 			</TooltipTrigger>
 			<TooltipContent side="top" showArrow={false}>
-				Refresh changes
+				{t("v1Changes.header.refreshChanges")}
 			</TooltipContent>
 		</Tooltip>
 	);

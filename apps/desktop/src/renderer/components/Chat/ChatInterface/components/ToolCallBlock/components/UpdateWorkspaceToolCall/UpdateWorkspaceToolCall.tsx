@@ -1,4 +1,5 @@
 import { PencilLineIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { SupersetToolCall } from "../SupersetToolCall";
 
@@ -9,10 +10,11 @@ interface UpdateWorkspaceToolCallProps {
 export function UpdateWorkspaceToolCall({
 	part,
 }: UpdateWorkspaceToolCallProps) {
+	const { t } = useTranslation();
 	return (
 		<SupersetToolCall
 			part={part}
-			toolName="Update workspace"
+			toolName={t("chat.tool.updateWorkspace")}
 			icon={PencilLineIcon}
 		/>
 	);

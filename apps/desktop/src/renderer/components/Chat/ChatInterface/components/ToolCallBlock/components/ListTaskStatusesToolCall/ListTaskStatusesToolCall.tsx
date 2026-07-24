@@ -1,5 +1,6 @@
 import { TaskItem, TaskItemFile } from "@superset/ui/ai-elements/task";
 import { ListChecksIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	StatusIcon,
 	type StatusType,
@@ -29,6 +30,7 @@ function normalizeStatusType(value: unknown): StatusType | null {
 export function ListTaskStatusesToolCall({
 	part,
 }: ListTaskStatusesToolCallProps) {
+	const { t } = useTranslation();
 	const result = getResult(part);
 	const resultData =
 		typeof result.result === "object" && result.result !== null
@@ -44,12 +46,12 @@ export function ListTaskStatusesToolCall({
 	return (
 		<SupersetToolCall
 			part={part}
-			toolName="List task statuses"
+			toolName={t("chat.tool.listTaskStatuses")}
 			icon={ListChecksIcon}
 			details={
 				<div className="space-y-2">
 					<div className="text-muted-foreground">
-						Statuses: {statuses.length}
+						{t("chat.tool.statusesCount", { count: statuses.length })}
 					</div>
 					{statuses.length > 0 ? (
 						<div className="space-y-1">
@@ -57,7 +59,7 @@ export function ListTaskStatusesToolCall({
 								const name =
 									typeof status.name === "string"
 										? status.name
-										: `Status ${index + 1}`;
+										: t("chat.tool.statusN", { index: index + 1 });
 								const statusId =
 									typeof status.id === "string" ? status.id : null;
 								const type =
@@ -92,13 +94,19 @@ export function ListTaskStatusesToolCall({
 											</div>
 											<div className="flex flex-wrap gap-1">
 												{type ? (
-													<TaskItemFile>Type: {type}</TaskItemFile>
+													<TaskItemFile>
+														{t("chat.tool.typeLabel")}: {type}
+													</TaskItemFile>
 												) : null}
 												{color ? (
-													<TaskItemFile>Color: {color}</TaskItemFile>
+													<TaskItemFile>
+														{t("chat.tool.colorLabel")}: {color}
+													</TaskItemFile>
 												) : null}
 												{position ? (
-													<TaskItemFile>Position: {position}</TaskItemFile>
+													<TaskItemFile>
+														{t("chat.tool.positionLabel")}: {position}
+													</TaskItemFile>
 												) : null}
 											</div>
 										</TaskItem>
@@ -107,7 +115,9 @@ export function ListTaskStatusesToolCall({
 							})}
 						</div>
 					) : (
-						<div className="text-muted-foreground">No statuses in result.</div>
+						<div className="text-muted-foreground">
+							{t("chat.tool.noStatusesInResult")}
+						</div>
 					)}
 				</div>
 			}

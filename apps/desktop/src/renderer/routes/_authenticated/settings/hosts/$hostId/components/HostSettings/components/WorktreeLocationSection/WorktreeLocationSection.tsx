@@ -1,3 +1,4 @@
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useSetV2WorktreeBaseDir,
 	useV2WorktreeLocationSettings,
@@ -19,6 +20,7 @@ export function WorktreeLocationSection({
 	isOnline,
 	canEdit,
 }: WorktreeLocationSectionProps) {
+	const { t } = useTranslation();
 	const settingsQuery = useV2WorktreeLocationSettings(hostUrl, {
 		enabled: isOnline,
 	});
@@ -34,9 +36,9 @@ export function WorktreeLocationSection({
 	return (
 		<section className="space-y-3">
 			<div>
-				<h3 className="text-sm font-medium">Worktrees</h3>
+				<h3 className="text-sm font-medium">{t("project.worktrees")}</h3>
 				<p className="mt-0.5 text-sm text-muted-foreground">
-					Default location for new worktree workspaces on this host.
+					{t("hosts.worktreeLocationDescription")}
 				</p>
 			</div>
 			<V2WorktreeLocationPicker
@@ -46,13 +48,13 @@ export function WorktreeLocationSection({
 				hostName={hostName}
 				isRemoteTarget={isRemoteTarget}
 				disabled={disabled}
-				browseTitle="Select default worktree location"
+				browseTitle={t("git.selectWorktreeLocation")}
 				onSelect={(path) => setLocation.mutate(path)}
 				onReset={() => setLocation.mutate(null)}
 			/>
 			{!canEdit ? (
 				<p className="text-xs text-muted-foreground">
-					Only host owners can change this location.
+					{t("hosts.ownerLocationOnly")}
 				</p>
 			) : null}
 		</section>

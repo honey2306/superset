@@ -1,5 +1,6 @@
 import { Button } from "@superset/ui/button";
 import { XIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	IssueIcon,
 	type IssueState,
@@ -22,6 +23,7 @@ export function LinkedGitHubIssuePill({
 	state,
 	onRemove,
 }: LinkedGitHubIssuePillProps) {
+	const { t } = useTranslation();
 	return (
 		<div
 			title={title}
@@ -33,7 +35,7 @@ export function LinkedGitHubIssuePill({
 					className="size-5 transition-opacity group-hover:opacity-0"
 				/>
 				<Button
-					aria-label="Remove linked issue"
+					aria-label={t("workspace.removeLinkedIssue")}
 					className="pointer-events-none absolute inset-0 size-7 cursor-pointer rounded-md p-0 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 [&>svg]:size-3"
 					onClick={(e) => {
 						e.stopPropagation();
@@ -43,7 +45,7 @@ export function LinkedGitHubIssuePill({
 					variant="ghost"
 				>
 					<XIcon />
-					<span className="sr-only">Remove</span>
+					<span className="sr-only">{t("common.remove")}</span>
 				</Button>
 			</div>
 			<div className="flex flex-col items-start leading-tight">

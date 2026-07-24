@@ -11,6 +11,7 @@ import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useCreateV1Project,
 	useFinalizeProjectSetup,
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/_authenticated/onboarding/project/")({
 });
 
 function OnboardingProjectPage() {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 	const { refetch: refetchSession } = authClient.useSession();
@@ -59,7 +61,7 @@ function OnboardingProjectPage() {
 			await refetchSession({ query: { disableCookieCache: true } });
 		} catch (error) {
 			console.error("[onboarding] completeOnboarding failed", error);
-			toast.error("Could not finish onboarding. Please try again.");
+			toast.error(t("onboarding.finishFailed"));
 			return;
 		}
 		if (isV2CloudEnabled) {
@@ -92,13 +94,15 @@ function OnboardingProjectPage() {
 		setBusy(true);
 		try {
 			const picked = await selectDirectory.mutateAsync({
-				title: "Open a folder",
+				title: t("onboarding.openFolder"),
 			});
 			if (picked.canceled || !picked.path) return;
 			const project = await openProject.openFromPath(picked.path);
 			if (project) await finish(project.id);
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Failed to open folder");
+			toast.error(
+				err instanceof Error ? err.message : t("onboarding.openFolderFailed"),
+			);
 		} finally {
 			setBusy(false);
 		}
@@ -113,7 +117,7 @@ function OnboardingProjectPage() {
 			if (isV2CloudEnabled) {
 				const activeHostUrl = await waitForHostReady();
 				if (!activeHostUrl) {
-					toast.error("Local host service isn't ready yet. Please try again.");
+					toast.error(t("onboarding.hostNotReady"));
 					return;
 				}
 				const hostService = getHostServiceClientByUrl(activeHostUrl);
@@ -132,7 +136,7 @@ function OnboardingProjectPage() {
 			}
 		} catch (err) {
 			toast.error(
-				err instanceof Error ? err.message : "Failed to clone repository",
+				err instanceof Error ? err.message : t("onboarding.cloneFailed"),
 			);
 		} finally {
 			setBusy(false);
@@ -144,9 +148,11 @@ function OnboardingProjectPage() {
 			<Card className="flex-row items-center gap-4 p-5">
 				<ProjectIcon icon={<LuFolderOpen className="size-4.5" />} />
 				<div className="min-w-0 flex-1">
-					<p className="text-sm font-medium text-foreground">Open a folder</p>
+					<p className="text-sm font-medium text-foreground">
+						{t("onboarding.openFolder")}
+					</p>
 					<p className="text-xs text-muted-foreground">
-						Choose any local directory, git repo or not.
+						{t("onboarding.openFolderDescription")}
 					</p>
 				</div>
 				<Button
@@ -155,7 +161,7 @@ function OnboardingProjectPage() {
 					onClick={handleOpenFolder}
 					disabled={busy}
 				>
-					Browse…
+					{t("onboarding.browse")}
 				</Button>
 			</Card>
 
@@ -163,9 +169,11 @@ function OnboardingProjectPage() {
 				<div className="flex items-center gap-4">
 					<ProjectIcon icon={<LuGitBranch className="size-4.5" />} />
 					<div className="min-w-0 flex-1">
-						<p className="text-sm font-medium text-foreground">Clone a repo</p>
+						<p className="text-sm font-medium text-foreground">
+							{t("onboarding.cloneRepo")}
+						</p>
 						<p className="text-xs text-muted-foreground">
-							Paste an HTTPS or SSH URL.
+							{t("onboarding.cloneDescription")}
 						</p>
 					</div>
 				</div>
@@ -182,7 +190,7 @@ function OnboardingProjectPage() {
 						type="submit"
 						disabled={!url.trim() || busy || !cloneTargetDir}
 					>
-						{busy ? "Cloning…" : "Clone"}
+						{busy ? t("onboarding.cloning") : t("onboarding.clone")}
 					</Button>
 				</form>
 			</Card>
@@ -191,10 +199,10 @@ function OnboardingProjectPage() {
 				<ProjectIcon icon={<LuLayoutTemplate className="size-4.5" />} />
 				<div className="min-w-0 flex-1">
 					<p className="text-sm font-medium text-foreground">
-						Start from a template
+						{t("workspace.startFromTemplate")}
 					</p>
 					<p className="text-xs text-muted-foreground">
-						Scaffold a new project from a starter like gstack.
+						{t("onboarding.templateDescription")}
 					</p>
 				</div>
 				<Button
@@ -203,7 +211,7 @@ function OnboardingProjectPage() {
 					onClick={() => setTemplateOpen(true)}
 					disabled={busy}
 				>
-					Browse…
+					{t("onboarding.browse")}
 				</Button>
 			</Card>
 

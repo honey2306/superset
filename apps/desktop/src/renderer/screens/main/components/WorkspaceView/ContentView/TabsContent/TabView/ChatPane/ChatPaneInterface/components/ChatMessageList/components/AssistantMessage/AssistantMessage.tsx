@@ -8,6 +8,7 @@ import { ReasoningBlock } from "renderer/components/Chat/ChatInterface/component
 import { ToolCallBlock } from "renderer/components/Chat/ChatInterface/components/ToolCallBlock";
 import type { ToolPart } from "renderer/components/Chat/ChatInterface/utils/tool-helpers";
 import { normalizeToolName } from "renderer/components/Chat/ChatInterface/utils/tool-helpers";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { AttachmentChip } from "../AttachmentChip";
 import { PendingPlanApprovalMessage } from "../PendingPlanApprovalMessage";
@@ -38,10 +39,11 @@ interface AssistantMessageProps {
 }
 
 function ImagePart({ data, mimeType }: { data: string; mimeType: string }) {
+	const { t } = useTranslation();
 	return (
 		<img
 			src={`data:${mimeType};base64,${data}`}
-			alt="Attached"
+			alt={t("chat.assistant.attached")}
 			className="max-h-48 rounded-lg object-contain"
 		/>
 	);
@@ -115,6 +117,7 @@ export function AssistantMessage({
 	onPlanRespond,
 }: AssistantMessageProps) {
 	const addFileViewerPane = useTabsStore((store) => store.addFileViewerPane);
+	const { t } = useTranslation();
 	const nodes: ReactNode[] = [];
 	const renderedToolCallIds = new Set<string>();
 	let didRenderPendingPlanApproval = false;
@@ -214,14 +217,16 @@ export function AssistantMessage({
 						className="max-w-[85%] cursor-pointer"
 						aria-label={
 							rawPart.filename
-								? `View ${rawPart.filename}`
-								: "View generated image"
+								? t("chat.assistant.viewFilename", {
+										filename: rawPart.filename,
+									})
+								: t("chat.assistant.viewGeneratedImage")
 						}
 						onClick={() => handleAttachmentClick(data, rawPart.filename)}
 					>
 						<img
 							src={data}
-							alt={rawPart.filename ?? "Generated"}
+							alt={rawPart.filename ?? t("chat.assistant.generated")}
 							className="max-h-48 rounded-lg object-contain"
 						/>
 					</button>,
@@ -334,7 +339,7 @@ export function AssistantMessage({
 			<MessageContent>
 				{nodes.length === 0 && isStreaming ? (
 					<ShimmerLabel className="text-sm text-muted-foreground">
-						Thinking...
+						{t("chat.thinkingEllipsis")}
 					</ShimmerLabel>
 				) : (
 					nodes

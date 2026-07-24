@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback } from "react";
 import { FileIcon } from "renderer/lib/fileIcons";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ChangesetFile } from "../../../../../useChangeset";
 
 interface DiffHeaderPrefixProps {
@@ -14,6 +15,7 @@ export function DiffHeaderPrefix({
 	collapsed,
 	onSetCollapsed,
 }: DiffHeaderPrefixProps) {
+	const { t } = useTranslation();
 	const onToggle = useCallback(
 		() => onSetCollapsed(!collapsed),
 		[onSetCollapsed, collapsed],
@@ -26,7 +28,9 @@ export function DiffHeaderPrefix({
 			<button
 				type="button"
 				onClick={onToggle}
-				aria-label={collapsed ? "Expand file" : "Collapse file"}
+				aria-label={
+					collapsed ? t("v2Diff.expandFile") : t("v2Diff.collapseFile")
+				}
 				className="rounded p-1 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-muted-foreground"
 			>
 				{collapsed ? (

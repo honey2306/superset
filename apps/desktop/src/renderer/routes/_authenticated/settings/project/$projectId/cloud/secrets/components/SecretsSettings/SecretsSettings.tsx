@@ -5,6 +5,7 @@ import { HiOutlineCloud } from "react-icons/hi2";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { SettingsSection } from "../../../../components/ProjectSettings";
 import { ProjectSettingsHeader } from "../../../../components/ProjectSettingsHeader";
@@ -24,6 +25,7 @@ interface EditingSecret {
 }
 
 export function SecretsSettings({ projectId }: SecretsSettingsProps) {
+	const { t } = useTranslation();
 	const utils = electronTrpc.useUtils();
 	const collections = useCollections();
 	const { data: project } = electronTrpc.projects.get.useQuery({
@@ -118,7 +120,7 @@ export function SecretsSettings({ projectId }: SecretsSettingsProps) {
 
 	return (
 		<div className="p-6 max-w-4xl w-full mx-auto select-text">
-			<ProjectSettingsHeader title="Environment Variables" />
+			<ProjectSettingsHeader title={t("secrets.title")} />
 
 			<div className="space-y-6">
 				{isConnected && organizationId && project.neonProjectId ? (
@@ -132,14 +134,14 @@ export function SecretsSettings({ projectId }: SecretsSettingsProps) {
 				) : (
 					<SettingsSection
 						icon={<HiOutlineCloud className="h-4 w-4" />}
-						title="Cloud Project"
-						description="Link this project to a cloud project for sandboxes and environment variables."
+						title={t("secrets.cloudProject")}
+						description={t("secrets.cloudProjectDescription")}
 					>
 						<div className="flex items-center justify-between">
 							<p className="text-sm text-muted-foreground">
 								{linkToNeon.isPending
-									? "Connecting..."
-									: "Not connected to a cloud project."}
+									? t("secrets.connecting")
+									: t("secrets.notConnected")}
 							</p>
 							{!linkToNeon.isPending && (
 								<Button
@@ -148,7 +150,9 @@ export function SecretsSettings({ projectId }: SecretsSettingsProps) {
 									disabled={isCreatingCloud || !project.githubOwner}
 									onClick={handleCreateCloudProject}
 								>
-									{isCreatingCloud ? "Connecting..." : "Connect to Cloud"}
+									{isCreatingCloud
+										? t("secrets.connecting")
+										: t("secrets.connectCloud")}
 								</Button>
 							)}
 						</div>

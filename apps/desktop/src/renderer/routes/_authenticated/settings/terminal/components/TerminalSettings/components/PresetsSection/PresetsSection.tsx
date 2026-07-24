@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HiOutlinePlus } from "react-icons/hi2";
 import { useIsDarkTheme } from "renderer/assets/app-icons/preset-icons";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { usePresets } from "renderer/react-query/presets";
 import type { PresetColumnKey } from "renderer/routes/_authenticated/settings/presets/types";
 import { PresetEditorDialog } from "./components/PresetEditorDialog";
@@ -37,6 +38,7 @@ export function PresetsSection({
 	pendingCreateProjectId,
 	onPendingCreateProjectIdChange,
 }: PresetsSectionProps) {
+	const { t } = useTranslation();
 	const isDark = useIsDarkTheme();
 	const { data: groupedProjects = [] } =
 		electronTrpc.workspaces.getAllGrouped.useQuery();
@@ -480,10 +482,9 @@ export function PresetsSection({
 		<div className="space-y-4">
 			<div className="flex items-center justify-between">
 				<div className="space-y-0.5">
-					<Label className="text-sm font-medium">Terminal Presets</Label>
+					<Label className="text-sm font-medium">{t("terminal.presets")}</Label>
 					<p className="text-xs text-muted-foreground">
-						Presets let you quickly launch terminals with pre-configured
-						commands.
+						{t("terminal.presetsDescription")}
 					</p>
 				</div>
 				{showPresets && (
@@ -494,7 +495,7 @@ export function PresetsSection({
 						onClick={() => handleAddRow()}
 					>
 						<HiOutlinePlus className="h-4 w-4" />
-						Add Preset
+						{t("terminal.addPreset")}
 					</Button>
 				)}
 			</div>
@@ -522,7 +523,7 @@ export function PresetsSection({
 						onToggleVisibility={handleToggleVisibility}
 					/>
 					<p className="text-xs text-muted-foreground">
-						Click a preset row to edit details.
+						{t("terminal.clickPresetToEdit")}
 					</p>
 				</>
 			)}

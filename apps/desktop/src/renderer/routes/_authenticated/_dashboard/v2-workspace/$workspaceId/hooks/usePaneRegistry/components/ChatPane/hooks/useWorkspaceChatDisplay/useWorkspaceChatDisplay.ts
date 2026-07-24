@@ -3,6 +3,7 @@ import { workspaceTrpc } from "@superset/workspace-client";
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hasAnsweredQuestionToolCall } from "renderer/components/Chat/ChatInterface/utils/messageHelpers";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface UseChatDisplayOptions {
 	sessionId: string | null;
@@ -119,6 +120,7 @@ function getLegacyImagePayload(
 export function useChatDisplay(options: UseChatDisplayOptions) {
 	const { sessionId, workspaceId, enabled = true, fps = 4 } = options;
 	const [commandError, setCommandError] = useState<unknown>(null);
+	const { t } = useTranslation();
 	const queryInput =
 		sessionId === null ? undefined : { sessionId, workspaceId };
 	const isQueryEnabled = enabled && Boolean(sessionId);
@@ -215,9 +217,7 @@ export function useChatDisplay(options: UseChatDisplayOptions) {
 				input: Omit<SendMessageInput, "sessionId" | "workspaceId">,
 			) => {
 				if (!sessionId) {
-					const error = new Error(
-						"Chat session is still starting. Please retry in a moment.",
-					);
+					const error = new Error(t("chat.session.stillStartingRetry"));
 					setCommandError(error);
 					throw error;
 				}
@@ -351,6 +351,7 @@ export function useChatDisplay(options: UseChatDisplayOptions) {
 			sendMessageMutation,
 			sessionId,
 			stopMutation,
+			t,
 			workspaceId,
 		],
 	);

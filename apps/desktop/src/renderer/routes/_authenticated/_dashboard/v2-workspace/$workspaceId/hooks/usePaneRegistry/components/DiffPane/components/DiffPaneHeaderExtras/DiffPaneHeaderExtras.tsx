@@ -8,9 +8,11 @@ import {
 	SquareSplitHorizontal,
 } from "lucide-react";
 import { TbScan } from "react-icons/tb";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useSettings } from "renderer/stores/settings";
 
 export function DiffPaneHeaderExtras() {
+	const { t } = useTranslation();
 	const diffStyle = useSettings((s) => s.diffStyle);
 	const showDiffComments = useSettings((s) => s.showDiffComments);
 	const expandUnchanged = useSettings((s) => s.expandUnchanged);
@@ -31,7 +33,7 @@ export function DiffPaneHeaderExtras() {
 					<button
 						type="button"
 						onClick={() => updateSetting("diffStyle", "unified")}
-						aria-label="Unified view"
+						aria-label={t("v2Diff.unifiedView")}
 						aria-pressed={diffStyle === "unified"}
 						className={buttonClass(diffStyle === "unified")}
 					>
@@ -39,7 +41,7 @@ export function DiffPaneHeaderExtras() {
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom" showArrow={false}>
-					Unified view
+					{t("v2Diff.unifiedView")}
 				</TooltipContent>
 			</Tooltip>
 			<Tooltip>
@@ -47,7 +49,7 @@ export function DiffPaneHeaderExtras() {
 					<button
 						type="button"
 						onClick={() => updateSetting("diffStyle", "split")}
-						aria-label="Split view"
+						aria-label={t("v2Diff.splitView")}
 						aria-pressed={diffStyle === "split"}
 						className={buttonClass(diffStyle === "split")}
 					>
@@ -55,7 +57,7 @@ export function DiffPaneHeaderExtras() {
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom" showArrow={false}>
-					Split view
+					{t("v2Diff.splitView")}
 				</TooltipContent>
 			</Tooltip>
 			<div
@@ -69,8 +71,8 @@ export function DiffPaneHeaderExtras() {
 						onClick={() => updateSetting("showDiffComments", !showDiffComments)}
 						aria-label={
 							showDiffComments
-								? "Hide PR review comments"
-								: "Show PR review comments"
+								? t("v2Diff.hidePrReviewComments")
+								: t("v2Diff.showPrReviewComments")
 						}
 						aria-pressed={showDiffComments}
 						className={buttonClass(showDiffComments)}
@@ -83,7 +85,9 @@ export function DiffPaneHeaderExtras() {
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom" showArrow={false}>
-					{showDiffComments ? "Hide review comments" : "Show review comments"}
+					{showDiffComments
+						? t("v2Diff.hideReviewComments")
+						: t("v2Diff.showReviewComments")}
 				</TooltipContent>
 			</Tooltip>
 			<Tooltip>
@@ -92,7 +96,9 @@ export function DiffPaneHeaderExtras() {
 						type="button"
 						onClick={() => updateSetting("expandUnchanged", !expandUnchanged)}
 						aria-label={
-							expandUnchanged ? "Hide unchanged regions" : "Show all lines"
+							expandUnchanged
+								? t("v2Diff.hideUnchangedRegions")
+								: t("v2Diff.showAllLines")
 						}
 						aria-pressed={expandUnchanged}
 						className={buttonClass(expandUnchanged)}
@@ -105,7 +111,9 @@ export function DiffPaneHeaderExtras() {
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom" showArrow={false}>
-					{expandUnchanged ? "Hide unchanged regions" : "Show all lines"}
+					{expandUnchanged
+						? t("v2Diff.hideUnchangedRegions")
+						: t("v2Diff.showAllLines")}
 				</TooltipContent>
 			</Tooltip>
 			<div

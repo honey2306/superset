@@ -10,6 +10,7 @@ import {
 	DialogTitle,
 } from "@superset/ui/dialog";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useCloseNewWorkspaceModal,
 	useNewWorkspaceModalOpen,
@@ -39,6 +40,7 @@ function PromptInputResetSync() {
 }
 
 export function DashboardNewWorkspaceModal() {
+	const { t } = useTranslation();
 	const isOpen = useNewWorkspaceModalOpen();
 	const closeModal = useCloseNewWorkspaceModal();
 	const preSelectedProjectId = usePreSelectedProjectId();
@@ -53,8 +55,10 @@ export function DashboardNewWorkspaceModal() {
 					onOpenChange={(open) => !open && closeModal()}
 				>
 					<DialogHeader className="sr-only">
-						<DialogTitle>New Workspace</DialogTitle>
-						<DialogDescription>Create a new workspace</DialogDescription>
+						<DialogTitle>{t("workspace.new")}</DialogTitle>
+						<DialogDescription>
+							{t("workspace.newDescription")}
+						</DialogDescription>
 					</DialogHeader>
 					<DialogContent
 						showCloseButton={false}

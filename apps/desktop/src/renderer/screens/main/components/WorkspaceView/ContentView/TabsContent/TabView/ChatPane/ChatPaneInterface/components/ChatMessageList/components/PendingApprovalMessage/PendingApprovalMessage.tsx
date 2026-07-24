@@ -2,6 +2,7 @@ import type { UseChatDisplayReturn } from "@superset/chat/client";
 import { Message, MessageContent } from "@superset/ui/ai-elements/message";
 import { Button } from "@superset/ui/button";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 type ApprovalDecision = "approve" | "decline" | "always_allow_category";
 type PendingApproval = UseChatDisplayReturn["pendingApproval"];
@@ -12,15 +13,19 @@ interface PendingApprovalMessageProps {
 	onRespond: (decision: ApprovalDecision) => Promise<void>;
 }
 
-function stringifyArgs(value: unknown): string {
+function stringifyArgs(
+	value: unknown,
+	noArgsLabel: string,
+	errorLabel: string,
+): string {
 	try {
-		if (value === undefined) return "No arguments";
+		if (value === undefined) return noArgsLabel;
 		if (typeof value === "string" && value.trim().length > 0) return value;
-		if (typeof value === "string") return "No arguments";
+		if (typeof value === "string") return noArgsLabel;
 		const serialized = JSON.stringify(value, null, 2);
-		return serialized && serialized !== "{}" ? serialized : "No arguments";
+		return serialized && serialized !== "{}" ? serialized : noArgsLabel;
 	} catch {
-		return "Unable to render tool arguments";
+		return errorLabel;
 	}
 }
 
@@ -29,6 +34,7 @@ export function PendingApprovalMessage({
 	isSubmitting,
 	onRespond,
 }: PendingApprovalMessageProps) {
+	const { t } = useTranslation();
 	const [selectedDecision, setSelectedDecision] =
 		useState<ApprovalDecision | null>(null);
 	const inFlightResponseRef = useRef(false);
@@ -45,8 +51,13 @@ export function PendingApprovalMessage({
 
 	const toolCallId = approval.toolCallId?.trim() ?? "";
 	const toolName =
-		approval.toolName?.trim().replaceAll("_", " ") || "tool execution";
-	const renderedArgs = stringifyArgs(approval.args);
+		approval.toolName?.trim().replaceAll("_", " ") ||
+		t("chat.approval.toolExecution");
+	const renderedArgs = stringifyArgs(
+		approval.args,
+		t("chat.approval.noArguments"),
+		t("chat.approval.unableToRender"),
+	);
 	const canRespond = toolCallId.length > 0;
 
 	const getDecisionClassName = (decision: ApprovalDecision): string => {
@@ -74,11 +85,11 @@ export function PendingApprovalMessage({
 			<MessageContent>
 				<div className="w-full max-w-none space-y-3 rounded-xl border bg-card/95 p-3">
 					<div className="text-sm text-foreground">
-						The agent requested permission to run {toolName}.
+						{t("chat.approval.permissionRequested", { toolName })}
 					</div>
 					<div className="rounded-md border bg-muted/20 p-3">
 						<div className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-							Arguments
+							{t("chat.approval.arguments")}
 						</div>
 						<pre className="max-h-64 overflow-auto text-xs whitespace-pre-wrap break-words">
 							{renderedArgs}
@@ -94,7 +105,7 @@ export function PendingApprovalMessage({
 								void handleRespond("always_allow_category");
 							}}
 						>
-							Always allow category
+							{t("chat.approval.alwaysAllowCategory")}
 						</Button>
 						<div className="flex items-center gap-2">
 							<Button
@@ -106,7 +117,7 @@ export function PendingApprovalMessage({
 									void handleRespond("decline");
 								}}
 							>
-								Decline
+								{t("chat.approval.decline")}
 							</Button>
 							<Button
 								type="button"
@@ -116,7 +127,7 @@ export function PendingApprovalMessage({
 									void handleRespond("approve");
 								}}
 							>
-								Approve
+								{t("chat.approval.approve")}
 							</Button>
 						</div>
 					</div>

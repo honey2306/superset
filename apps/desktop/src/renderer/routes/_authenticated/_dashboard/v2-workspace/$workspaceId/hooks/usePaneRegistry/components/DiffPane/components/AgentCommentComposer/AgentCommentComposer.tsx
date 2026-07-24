@@ -5,6 +5,7 @@ import { LuCornerDownLeft, LuLoaderCircle } from "react-icons/lu";
 import { useTerminalAgentBindings } from "renderer/hooks/host-service/useTerminalAgentBindings";
 import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
 import { useV2AgentConfigs } from "renderer/hooks/useV2AgentConfigs";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { AgentPickerSelect } from "./components/AgentPickerSelect";
 import { AgentPlacementToggle } from "./components/AgentPlacementToggle";
 import {
@@ -35,6 +36,7 @@ export function AgentCommentComposer({
 	onCancel,
 	onSubmit,
 }: AgentCommentComposerProps) {
+	const { t } = useTranslation();
 	const bindings = useTerminalAgentBindings(workspaceId);
 	const sessions = useMemo(
 		() =>
@@ -111,7 +113,7 @@ export function AgentCommentComposer({
 					{lineLabel}
 				</span>
 				<span className="text-[10px] tracking-tight text-muted-foreground/70">
-					esc to dismiss
+					{t("v2Diff.escToDismiss")}
 				</span>
 			</div>
 
@@ -120,7 +122,7 @@ export function AgentCommentComposer({
 					ref={textareaRef}
 					value={comment}
 					onChange={(e) => setComment(e.target.value)}
-					placeholder="Ask the AI about these lines…"
+					placeholder={t("v2Diff.askAiPlaceholder")}
 					rows={3}
 					className={cn(
 						"block w-full resize-none bg-transparent text-[13px] leading-snug text-foreground",
@@ -152,7 +154,7 @@ export function AgentCommentComposer({
 						disabled={submitting}
 						className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
 					>
-						Cancel
+						{t("common.cancel")}
 					</Button>
 					<Button
 						type="submit"
@@ -167,7 +169,9 @@ export function AgentCommentComposer({
 						{submitting ? (
 							<LuLoaderCircle className="size-3 animate-spin" />
 						) : null}
-						<span>{submitting ? "Sending…" : "Comment"}</span>
+						<span>
+							{submitting ? t("v2Diff.sending") : t("v2Diff.comment")}
+						</span>
 						{submitting ? null : <KbdEnter />}
 					</Button>
 				</div>
@@ -181,6 +185,7 @@ const IS_MAC =
 	navigator.platform.toLowerCase().includes("mac");
 
 function KbdEnter() {
+	const { t } = useTranslation();
 	return (
 		<span
 			className={cn(
@@ -188,7 +193,7 @@ function KbdEnter() {
 				"text-[9px] font-medium leading-none text-primary-foreground/85",
 			)}
 		>
-			<span>{IS_MAC ? "⌘" : "Ctrl"}</span>
+			<span>{IS_MAC ? t("v2Diff.kbdCmd") : t("v2Diff.kbdCtrl")}</span>
 			<LuCornerDownLeft className="size-2.5" strokeWidth={2.5} />
 		</span>
 	);

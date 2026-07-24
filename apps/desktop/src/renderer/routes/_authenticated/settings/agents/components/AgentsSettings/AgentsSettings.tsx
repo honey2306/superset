@@ -1,5 +1,6 @@
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	isItemVisible,
 	SETTING_ITEM_ID,
@@ -26,6 +27,7 @@ export function AgentsSettings({
 }
 
 function V1AgentsSettings({ visibleItems }: AgentsSettingsProps) {
+	const { t } = useTranslation();
 	const { data: presets = [], isLoading } =
 		electronTrpc.settings.getAgentPresets.useQuery();
 
@@ -45,16 +47,15 @@ function V1AgentsSettings({ visibleItems }: AgentsSettingsProps) {
 	return (
 		<div className="p-6 max-w-5xl w-full mx-auto">
 			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Agents</h2>
+				<h2 className="text-xl font-semibold">{t("settings.agents")}</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Configure which agents appear in launchers and how their launches are
-					built.
+					{t("agents.v1Description")}
 				</p>
 			</div>
 
 			{isLoading ? (
 				<p className="text-sm text-muted-foreground">
-					Loading agent settings...
+					{t("agents.loadingSettings")}
 				</p>
 			) : (
 				<div className="space-y-4">

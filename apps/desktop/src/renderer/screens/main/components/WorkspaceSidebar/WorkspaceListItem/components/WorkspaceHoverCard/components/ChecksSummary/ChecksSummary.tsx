@@ -1,5 +1,6 @@
 import type { CheckItem } from "@superset/local-db";
 import { LuCheck, LuLoaderCircle, LuX } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { STROKE_WIDTH } from "../../../../../constants";
 
 interface ChecksSummaryProps {
@@ -8,6 +9,7 @@ interface ChecksSummaryProps {
 }
 
 export function ChecksSummary({ checks, status }: ChecksSummaryProps) {
+	const { t } = useTranslation();
 	if (status === "none") return null;
 
 	const passing = checks.filter((c) => c.status === "success").length;
@@ -31,7 +33,10 @@ export function ChecksSummary({ checks, status }: ChecksSummaryProps) {
 	};
 
 	const { icon: Icon, className } = config[status];
-	const label = total > 0 ? `${passing}/${total} checks` : "Checks";
+	const label =
+		total > 0
+			? t("workspace.checkCount", { passing, total })
+			: t("workspace.checks");
 
 	return (
 		<span className={`flex items-center gap-1 ${className}`}>

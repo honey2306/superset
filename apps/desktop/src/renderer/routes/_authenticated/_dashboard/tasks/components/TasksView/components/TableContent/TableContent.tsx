@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { HiCheckCircle } from "react-icons/hi2";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { TaskWithStatus } from "../../hooks/useTasksData";
 import { useTasksTable } from "../../hooks/useTasksTable";
 import { TasksTableView } from "../TasksTableView";
@@ -26,6 +27,7 @@ export function TableContent({
 	onTaskClick,
 	onSelectionChange,
 }: TableContentProps) {
+	const { t } = useTranslation();
 	const { table, slugColumnWidth, rowSelection, setRowSelection } =
 		useTasksTable({
 			filterTab,
@@ -51,7 +53,7 @@ export function TableContent({
 			<div className="flex-1 flex items-center justify-center">
 				<div className="flex flex-col items-center gap-2 text-muted-foreground">
 					<HiCheckCircle className="h-8 w-8" />
-					<span className="text-sm">No tasks found</span>
+					<span className="text-sm">{t("tasks.none")}</span>
 				</div>
 			</div>
 		);

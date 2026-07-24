@@ -28,6 +28,7 @@ import {
 import { HiMiniAtSymbol } from "react-icons/hi2";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
 import { FileIcon } from "renderer/lib/fileIcons";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 const MAX_RESULTS = 20;
 
@@ -70,6 +71,7 @@ export function MentionProvider({
 	cwd: string;
 	children: ReactNode;
 }) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [triggerIndex, setTriggerIndex] = useState(-1);
@@ -142,7 +144,7 @@ export function MentionProvider({
 				>
 					<Command shouldFilter={false}>
 						<CommandInput
-							placeholder="Search files..."
+							placeholder={t("mention.searchFiles")}
 							value={searchQuery}
 							onValueChange={setSearchQuery}
 						/>
@@ -150,14 +152,14 @@ export function MentionProvider({
 							{files.length === 0 && (
 								<CommandEmpty className="px-2 py-3 text-left text-xs text-muted-foreground">
 									{searchQuery.length === 0
-										? "Type to search files..."
+										? t("mention.typeToSearch")
 										: isSearchPending
-											? "Searching files..."
-											: "No results found."}
+											? t("mention.searchingFiles")
+											: t("mention.noResults")}
 								</CommandEmpty>
 							)}
 							{files.length > 0 && (
-								<CommandGroup heading="Files">
+								<CommandGroup heading={t("mention.filesHeading")}>
 									{files.map((file) => {
 										const dirPath = getDirectoryPath(file.relativePath);
 										return (

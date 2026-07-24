@@ -29,6 +29,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuArrowUpRight, LuCheck, LuCopy } from "react-icons/lu";
 import { VscChevronRight } from "react-icons/vsc";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import {
+	type MessageKey,
+	useTranslation,
+} from "renderer/providers/I18nProvider";
 import { getMarkdownPreviewText } from "renderer/utils/markdownPreview";
 import type { CommentPaneData, DiffFocusSide } from "../../../../../../types";
 import type { NormalizedComment } from "../../types";
@@ -53,6 +57,7 @@ export function CommentsSection({
 	onOpenComment,
 	onOpenInDiff,
 }: CommentsSectionProps) {
+	const { t } = useTranslation();
 	const [commentsOpen, setCommentsOpen] = useState(true);
 	const [reviewOpen, setReviewOpen] = useState(true);
 	const [resolvedOpen, setResolvedOpen] = useState(false);
@@ -112,7 +117,9 @@ export function CommentsSection({
 
 	const handleCopySingle = useCallback(
 		(comment: NormalizedComment) => {
-			void copyToClipboard(comment.body.trim() || "No comment body")
+			void copyToClipboard(
+				comment.body.trim() || t("v2Workspace.comments.noBody"),
+			)
 				.then(() => {
 					markCopied(`comment:${comment.id}`);
 				})
@@ -120,12 +127,12 @@ export function CommentsSection({
 					console.warn("Failed to copy comment", err);
 				});
 		},
-		[copyToClipboard, markCopied],
+		[copyToClipboard, markCopied, t],
 	);
 
 	const copyCommentList = useCallback(
 		(list: NormalizedComment[], actionKey: string) => {
-			const text = buildCommentsClipboardText(list);
+			const text = buildCommentsClipboardText(list, t);
 			void copyToClipboard(text)
 				.then(() => {
 					markCopied(actionKey);
@@ -134,7 +141,7 @@ export function CommentsSection({
 					console.warn("Failed to copy comments", err);
 				});
 		},
-		[copyToClipboard, markCopied],
+		[copyToClipboard, markCopied, t],
 	);
 
 	const handleCopyConversationComments = useCallback(() => {
@@ -169,7 +176,11 @@ export function CommentsSection({
 			).length;
 			if (failedCount > 0) {
 				toast.error(
-					`Failed to resolve ${failedCount} thread${failedCount === 1 ? "" : "s"}`,
+					failedCount === 1
+						? t("v2Workspace.comments.resolveFailedOne", { count: failedCount })
+						: t("v2Workspace.comments.resolveFailedMany", {
+								count: failedCount,
+							}),
 				);
 			}
 		} finally {
@@ -180,6 +191,7 @@ export function CommentsSection({
 		setReviewThreadResolution,
 		utils.git.getPullRequestThreads,
 		workspaceId,
+		t,
 	]);
 
 	const conversationCommentsCountLabel = isLoading
@@ -189,9 +201,13 @@ export function CommentsSection({
 		? "..."
 		: openReviewComments.length;
 	const conversationCopyAllLabel =
-		copiedActionKey === "comments:conversation" ? "Copied" : "Copy all";
+		copiedActionKey === "comments:conversation"
+			? t("v2Workspace.comments.copied")
+			: t("v2Workspace.comments.copyAll");
 	const reviewCopyAllLabel =
-		copiedActionKey === "comments:review" ? "Copied" : "Copy all";
+		copiedActionKey === "comments:review"
+			? t("v2Workspace.comments.copied")
+			: t("v2Workspace.comments.copyAll");
 
 	return (
 		<>
@@ -213,7 +229,9 @@ export function CommentsSection({
 								commentsOpen && "rotate-90",
 							)}
 						/>
-						<span className="truncate text-xs font-medium">Comments</span>
+						<span className="truncate text-xs font-medium">
+							{t("v2Workspace.comments.tabLabel")}
+						</span>
 						<span className="shrink-0 text-[10px] text-muted-foreground">
 							{conversationCommentsCountLabel}
 						</span>
@@ -240,7 +258,7 @@ export function CommentsSection({
 						renderCommentSkeletons()
 					) : conversationComments.length === 0 ? (
 						<div className="px-1.5 py-1 text-xs text-muted-foreground">
-							No comments yet.
+							{t("v2Workspace.comments.noComments")}
 						</div>
 					) : (
 						conversationComments.map((comment) => (
@@ -275,7 +293,9 @@ export function CommentsSection({
 								reviewOpen && "rotate-90",
 							)}
 						/>
-						<span className="truncate text-xs font-medium">Review</span>
+						<span className="truncate text-xs font-medium">
+							{t("v2Workspace.comments.reviewTabLabel")}
+						</span>
 						<span className="shrink-0 text-[10px] text-muted-foreground">
 							{reviewCommentsCountLabel}
 						</span>
@@ -294,7 +314,7 @@ export function CommentsSection({
 									) : (
 										<CheckCheck className="size-3" />
 									)}
-									<span>Resolve all</span>
+									<span>{t("v2Workspace.comments.resolveAll")}</span>
 								</button>
 							)}
 							<button
@@ -317,7 +337,7 @@ export function CommentsSection({
 						renderCommentSkeletons()
 					) : openReviewComments.length === 0 ? (
 						<div className="px-1.5 py-1 text-xs text-muted-foreground">
-							No open review comments.
+							{t("v2Workspace.comments.noOpenReview")}
 						</div>
 					) : (
 						openReviewComments.map((comment) => (
@@ -352,7 +372,9 @@ export function CommentsSection({
 								resolvedOpen && "rotate-90",
 							)}
 						/>
-						<span className="truncate text-xs font-medium">Resolved</span>
+						<span className="truncate text-xs font-medium">
+							{t("v2Workspace.comments.resolvedTabLabel")}
+						</span>
 						<span className="shrink-0 text-[10px] text-muted-foreground">
 							{resolvedComments.length}
 						</span>
@@ -375,7 +397,10 @@ export function CommentsSection({
 	);
 }
 
-function buildCommentsClipboardText(comments: NormalizedComment[]): string {
+function buildCommentsClipboardText(
+	comments: NormalizedComment[],
+	t: (key: MessageKey, values?: Record<string, number | string>) => string,
+): string {
 	return comments
 		.map((c) => {
 			const location = c.path
@@ -383,16 +408,18 @@ function buildCommentsClipboardText(comments: NormalizedComment[]): string {
 					? `${c.path}:${c.line}`
 					: c.path
 				: c.kind === "conversation"
-					? "Conversation"
+					? t("v2Workspace.comments.conversationLabel")
 					: null;
 			const meta = [
 				c.authorLogin,
-				c.kind === "review" ? "Review" : "Comment",
+				c.kind === "review"
+					? t("v2Workspace.comments.reviewLabel")
+					: t("v2Workspace.comments.commentLabel"),
 				location,
 			]
 				.filter(Boolean)
 				.join(" \u2022 ");
-			return [meta, c.body.trim() || "No comment body"]
+			return [meta, c.body.trim() || t("v2Workspace.comments.noBody")]
 				.filter(Boolean)
 				.join("\n");
 		})
@@ -450,6 +477,7 @@ function CommentRow({
 	onOpen,
 	onOpenInDiff,
 }: CommentRowProps) {
+	const { t } = useTranslation();
 	const age = formatShortAge(comment.createdAt);
 	const isCopied = copiedActionKey === `comment:${comment.id}`;
 
@@ -494,7 +522,7 @@ function CommentRow({
 					</span>
 					{comment.kind === "review" && comment.isOutdated ? (
 						<span className="shrink-0 rounded border border-border/70 bg-muted/35 px-1 py-0 text-[9px] uppercase tracking-wide text-muted-foreground">
-							Outdated
+							{t("v2Workspace.comments.outdated")}
 						</span>
 					) : null}
 					<span className="flex-1" />
@@ -517,7 +545,9 @@ function CommentRow({
 				type="button"
 				onClick={handleClick}
 				className="flex min-w-0 flex-1 items-start gap-2 text-left"
-				aria-label={`View comment by ${comment.authorLogin}`}
+				aria-label={t("v2Workspace.comments.viewCommentByAuthor", {
+					author: comment.authorLogin,
+				})}
 			>
 				{content}
 			</button>
@@ -529,7 +559,7 @@ function CommentRow({
 						rel="noopener noreferrer"
 						onClick={(e) => e.stopPropagation()}
 						className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-						aria-label="Open comment on GitHub"
+						aria-label={t("v2Workspace.comments.openCommentOnGitHub")}
 					>
 						<LuArrowUpRight className="size-3" />
 					</a>
@@ -539,7 +569,7 @@ function CommentRow({
 						<button
 							type="button"
 							onClick={(e) => e.stopPropagation()}
-							aria-label="More actions"
+							aria-label={t("v2Workspace.comments.moreActions")}
 							className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
 						>
 							<ChevronDown className="size-3" />
@@ -559,7 +589,7 @@ function CommentRow({
 									}
 								>
 									<GitCompare />
-									Open in diff
+									{t("v2Workspace.comments.openInDiff")}
 								</DropdownMenuItem>
 								<DropdownMenuItem
 									onSelect={() =>
@@ -572,7 +602,7 @@ function CommentRow({
 									}
 								>
 									<SquarePlus />
-									Open in diff in new tab
+									{t("v2Workspace.comments.openInDiffNewTab")}
 								</DropdownMenuItem>
 								<DropdownMenuSeparator />
 							</>
@@ -592,19 +622,21 @@ function CommentRow({
 								}
 							>
 								<MessageSquare />
-								Open as comment pane
+								{t("v2Workspace.comments.openAsPane")}
 							</DropdownMenuItem>
 						) : null}
 						<DropdownMenuItem onSelect={() => onCopy(comment)}>
 							{isCopied ? <LuCheck /> : <CopyIcon />}
-							{isCopied ? "Copied" : "Copy comment"}
+							{isCopied
+								? t("v2Workspace.comments.copied")
+								: t("v2Workspace.comments.copy")}
 						</DropdownMenuItem>
 						{comment.url ? (
 							<DropdownMenuItem
 								onSelect={() => window.open(comment.url, "_blank", "noopener")}
 							>
 								<ExternalLink />
-								Open on GitHub
+								{t("v2Workspace.comments.openOnGitHub")}
 							</DropdownMenuItem>
 						) : null}
 					</DropdownMenuContent>

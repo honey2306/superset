@@ -2,6 +2,7 @@ import type { AppRouter } from "@superset/host-service";
 import { Spinner } from "@superset/ui/spinner";
 import type { inferRouterOutputs } from "@trpc/server";
 import { memo, useCallback, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type {
 	ChangesFilter,
 	ChangesViewMode,
@@ -74,6 +75,7 @@ export const ChangesTabContent = memo(function ChangesTabContent({
 	onRenameBranch,
 	canRenameBranch,
 }: ChangesTabContentProps) {
+	const { t } = useTranslation();
 	const [foldSignal, setFoldSignal] = useState<FoldSignal>({
 		epoch: 0,
 		action: "expand",
@@ -96,7 +98,7 @@ export const ChangesTabContent = memo(function ChangesTabContent({
 		return (
 			<div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
 				<Spinner className="size-3.5" />
-				<span>Loading changes...</span>
+				<span>{t("v2Workspace.changes.loadingChanges")}</span>
 			</div>
 		);
 	}
@@ -104,7 +106,7 @@ export const ChangesTabContent = memo(function ChangesTabContent({
 	if (!status.data) {
 		return (
 			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-				Unable to load git status
+				{t("v2Workspace.changes.unableToLoad")}
 			</div>
 		);
 	}

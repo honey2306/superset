@@ -1,5 +1,6 @@
 import { useParams } from "@tanstack/react-router";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useGitChangesStatus } from "renderer/screens/main/hooks/useGitChangesStatus";
 import {
 	RightSidebarTab,
@@ -8,6 +9,7 @@ import {
 import { InfiniteScrollView } from "./components/InfiniteScrollView";
 
 export function ChangesContent() {
+	const { t } = useTranslation();
 	const { workspaceId } = useParams({ strict: false });
 	const isChangesSidebarVisible = useSidebarStore(
 		(s) => s.isSidebarOpen && s.rightSidebarTab === RightSidebarTab.Changes,
@@ -27,7 +29,7 @@ export function ChangesContent() {
 	if (!worktreePath) {
 		return (
 			<div className="h-full flex items-center justify-center text-muted-foreground">
-				No workspace selected
+				{t("v1Changes.noWorkspaceSelected")}
 			</div>
 		);
 	}
@@ -35,7 +37,7 @@ export function ChangesContent() {
 	if (!status && isLoading) {
 		return (
 			<div className="h-full flex items-center justify-center text-muted-foreground">
-				Loading changes...
+				{t("v1Changes.loadingChanges")}
 			</div>
 		);
 	}
@@ -43,7 +45,7 @@ export function ChangesContent() {
 	if (!status) {
 		return (
 			<div className="h-full flex select-text cursor-text items-center justify-center text-muted-foreground">
-				Unable to load changes
+				{t("v1Changes.unableToLoad")}
 			</div>
 		);
 	}

@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { CommentPaneData, DiffFocusSide } from "../../../../../../types";
 import type { NormalizedComment, NormalizedPR } from "../../types";
 import { ChecksSection } from "../ChecksSection";
@@ -31,10 +32,11 @@ export const ReviewTabContent = memo(function ReviewTabContent({
 	onOpenComment,
 	onOpenInDiff,
 }: ReviewTabContentProps) {
+	const { t } = useTranslation();
 	if (isError) {
 		return (
 			<div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
-				Unable to load review status
+				{t("v2Workspace.review.unableToLoad")}
 			</div>
 		);
 	}
@@ -42,7 +44,7 @@ export const ReviewTabContent = memo(function ReviewTabContent({
 	if (isLoading && !pr) {
 		return (
 			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-				Loading review...
+				{t("v2Workspace.review.loading")}
 			</div>
 		);
 	}
@@ -50,7 +52,7 @@ export const ReviewTabContent = memo(function ReviewTabContent({
 	if (!pr) {
 		return (
 			<div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
-				Open a pull request to view review status, checks, and comments.
+				{t("v2Workspace.review.empty")}
 			</div>
 		);
 	}

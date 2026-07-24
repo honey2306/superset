@@ -17,6 +17,7 @@ import { LuFolderOpen } from "react-icons/lu";
 import { RemotePathPicker } from "renderer/components/RemotePathPicker";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 import { ClickablePath } from "../../../../../../components/ClickablePath";
 import { SetupProjectModal } from "../SetupProjectModal";
@@ -49,6 +50,7 @@ export function ProjectLocationSection({
 	isRemoteTarget,
 	onChanged,
 }: ProjectLocationSectionProps) {
+	const { t } = useTranslation();
 	const selectDirectory = electronTrpc.window.selectDirectory.useMutation();
 	const navigate = useNavigate();
 	const { ensureProjectInSidebar, ensureWorkspaceInSidebar } =
@@ -62,7 +64,7 @@ export function ProjectLocationSection({
 
 	const pickPath = async (title: string) => {
 		if (!hostUrl) {
-			toast.error(`Host unavailable: ${hostName}`);
+			toast.error(t("project.hostUnavailable", { host: hostName }));
 			return null;
 		}
 		try {
@@ -80,11 +82,11 @@ export function ProjectLocationSection({
 
 	const proposeRelocate = async (path: string) => {
 		if (path === currentPath) {
-			toast.info("Project is already at that location");
+			toast.info(t("project.alreadyAtLocation"));
 			return;
 		}
 		if (!hostUrl) {
-			toast.error(`Host unavailable: ${hostName}`);
+			toast.error(t("project.hostUnavailable", { host: hostName }));
 			return;
 		}
 		try {
@@ -109,7 +111,7 @@ export function ProjectLocationSection({
 			setChangeBrowseOpen(true);
 			return;
 		}
-		const path = await pickPath("Select new project location");
+		const path = await pickPath(t("project.selectNewLocation"));
 		if (!path) return;
 		await proposeRelocate(path);
 	};
@@ -117,7 +119,7 @@ export function ProjectLocationSection({
 	const handleConfirmRelocate = async () => {
 		if (!pendingPath) return;
 		if (!hostUrl) {
-			toast.error(`Host unavailable: ${hostName}`);
+			toast.error(t("project.hostUnavailable", { host: hostName }));
 			return;
 		}
 		setIsSubmitting(true);
@@ -127,7 +129,7 @@ export function ProjectLocationSection({
 				projectId,
 				mode: { kind: "import", repoPath: pendingPath, allowRelocate: true },
 			});
-			toast.success(`Project relocated to ${result.repoPath}`);
+			toast.success(t("project.relocated", { path: result.repoPath }));
 			if (result.mainWorkspaceId) {
 				ensureWorkspaceInSidebar(result.mainWorkspaceId, projectId);
 			} else {
@@ -158,18 +160,18 @@ export function ProjectLocationSection({
 								className="size-9 shrink-0"
 								onClick={handleChange}
 								disabled={selectDirectory.isPending || isSubmitting}
-								aria-label="Change location"
+								aria-label={t("project.changeLocation")}
 							>
 								<LuFolderOpen className="size-4" />
 							</Button>
 						</TooltipTrigger>
-						<TooltipContent>Change location</TooltipContent>
+						<TooltipContent>{t("project.changeLocation")}</TooltipContent>
 					</Tooltip>
 				</div>
 			) : (
 				<div className="flex items-center gap-3">
 					<span className="text-sm text-muted-foreground">
-						Not set up on {hostName}
+						{t("project.notSetUp", { host: hostName })}
 					</span>
 					<Button
 						type="button"
@@ -178,7 +180,7 @@ export function ProjectLocationSection({
 						onClick={() => setSetupOpen(true)}
 						disabled={!hostUrl}
 					>
-						Set up project…
+						{t("project.setup")}
 					</Button>
 				</div>
 			)}
@@ -202,9 +204,9 @@ export function ProjectLocationSection({
 				hostUrl={hostUrl}
 				hostName={hostName}
 				initialPath={currentPath ?? undefined}
-				title="Change project location"
-				description={`Pick the new project folder on ${hostName}.`}
-				confirmLabel="Use this folder"
+				title={t("project.changeLocationTitle")}
+				description={t("project.pickNewFolder", { host: hostName })}
+				confirmLabel={t("project.useFolder")}
 				onPick={(path) => {
 					void proposeRelocate(path);
 				}}
@@ -221,15 +223,16 @@ export function ProjectLocationSection({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Repository already linked</AlertDialogTitle>
+						<AlertDialogTitle>{t("project.repositoryLinked")}</AlertDialogTitle>
 						<AlertDialogDescription className="select-text cursor-text">
-							This repository is already linked to project "
-							{conflict?.name ?? ""}" in this organization. Open that project to
-							set it up on {hostName}.
+							{t("project.repositoryLinkedDescription", {
+								project: conflict?.name ?? "",
+								host: hostName,
+							})}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={(e) => {
 								e.preventDefault();
@@ -244,7 +247,7 @@ export function ProjectLocationSection({
 								});
 							}}
 						>
-							Open project
+							{t("project.openProject")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -258,27 +261,30 @@ export function ProjectLocationSection({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Relocate project?</AlertDialogTitle>
+						<AlertDialogTitle>{t("project.relocateTitle")}</AlertDialogTitle>
 						<AlertDialogDescription asChild>
 							<div className="space-y-3 text-sm select-text cursor-text">
 								<div>
-									<div className="text-muted-foreground text-xs">From</div>
+									<div className="text-muted-foreground text-xs">
+										{t("project.from")}
+									</div>
 									<div className="font-mono break-all">{currentPath}</div>
 								</div>
 								<div>
-									<div className="text-muted-foreground text-xs">To</div>
+									<div className="text-muted-foreground text-xs">
+										{t("project.to")}
+									</div>
 									<div className="font-mono break-all">{pendingPath}</div>
 								</div>
 								<p className="text-muted-foreground">
-									Existing worktrees under the old path will be orphaned. You
-									can re-import them from the worktrees flow.
+									{t("project.relocateWarning")}
 								</p>
 							</div>
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel disabled={isSubmitting}>
-							Cancel
+							{t("common.cancel")}
 						</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={(e) => {
@@ -287,7 +293,7 @@ export function ProjectLocationSection({
 							}}
 							disabled={isSubmitting}
 						>
-							{isSubmitting ? "Relocating…" : "Relocate"}
+							{isSubmitting ? t("project.relocating") : t("project.relocate")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

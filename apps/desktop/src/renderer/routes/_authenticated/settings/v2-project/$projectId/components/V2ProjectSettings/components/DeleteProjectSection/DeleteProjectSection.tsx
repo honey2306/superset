@@ -17,6 +17,7 @@ import { useState } from "react";
 import { useHostUrls } from "renderer/hooks/host-service/useHostTargetUrl";
 import { authClient } from "renderer/lib/auth-client";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface DeleteProjectSectionProps {
 	projectId: string;
@@ -30,6 +31,7 @@ export function DeleteProjectSection({
 	projectName,
 	hostIds,
 }: DeleteProjectSectionProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const hostUrls = useHostUrls(hostIds);
 	const reachableHosts = hostUrls.filter(
@@ -48,7 +50,7 @@ export function DeleteProjectSection({
 
 	const handleDelete = async () => {
 		if (reachableHosts.length === 0) {
-			toast.error("No host serving this project is reachable right now");
+			toast.error(t("project.noReachableHost"));
 			return;
 		}
 		setIsDeleting(true);
@@ -71,15 +73,21 @@ export function DeleteProjectSection({
 			const skipped = hostIds.length - reachableHosts.length;
 			if (failed.length > 0 || skipped > 0) {
 				toast.warning(
-					`Deleted "${projectName}" from ${results.length - failed.length} of ${hostIds.length} devices — unreachable devices keep their copy`,
+					t("project.deletedPartial", {
+						project: projectName,
+						deleted: results.length - failed.length,
+						total: hostIds.length,
+					}),
 				);
 			} else {
-				toast.success(`Deleted "${projectName}"`);
+				toast.success(t("project.deleted", { project: projectName }));
 			}
 			setIsOpen(false);
 			navigate({ to: "/settings/projects" });
 		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Failed to delete");
+			toast.error(
+				err instanceof Error ? err.message : t("project.failedDelete"),
+			);
 		} finally {
 			setIsDeleting(false);
 		}
@@ -88,7 +96,7 @@ export function DeleteProjectSection({
 	return (
 		<div className="flex items-center justify-between gap-8 py-2.5">
 			<div className="min-w-0 flex-1">
-				<div className="text-sm font-medium">Delete project</div>
+				<div className="text-sm font-medium">{t("project.delete")}</div>
 			</div>
 			{!isOwner ? (
 				<Tooltip>
@@ -101,12 +109,12 @@ export function DeleteProjectSection({
 								className="pointer-events-none shrink-0"
 								disabled
 							>
-								Delete project
+								{t("project.delete")}
 							</Button>
 						</span>
 					</TooltipTrigger>
 					<TooltipContent side="left">
-						Only organization owners can delete this project.
+						{t("project.ownerDeleteOnly")}
 					</TooltipContent>
 				</Tooltip>
 			) : (
@@ -118,23 +126,21 @@ export function DeleteProjectSection({
 							size="sm"
 							className="shrink-0"
 						>
-							Delete project
+							{t("project.delete")}
 						</Button>
 					</AlertDialogTrigger>
 					<AlertDialogContent>
 						<AlertDialogHeader>
-							<AlertDialogTitle>Delete "{projectName}"?</AlertDialogTitle>
+							<AlertDialogTitle>
+								{t("project.deleteTitle", { project: projectName })}
+							</AlertDialogTitle>
 							<AlertDialogDescription>
-								This deletes the project and all of its workspaces from{" "}
-								<span className="font-medium text-foreground">
-									every reachable device
-								</span>{" "}
-								where it is set up. This cannot be undone.
+								{t("project.deleteDescription")}
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
 							<AlertDialogCancel disabled={isDeleting}>
-								Cancel
+								{t("common.cancel")}
 							</AlertDialogCancel>
 							<AlertDialogAction
 								onClick={(e) => {
@@ -144,7 +150,7 @@ export function DeleteProjectSection({
 								disabled={isDeleting || reachableHosts.length === 0}
 								className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 							>
-								{isDeleting ? "Deleting…" : "Delete"}
+								{isDeleting ? t("common.deleting") : t("common.delete")}
 							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>

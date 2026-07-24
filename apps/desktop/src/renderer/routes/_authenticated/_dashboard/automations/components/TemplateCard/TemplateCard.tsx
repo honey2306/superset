@@ -8,10 +8,17 @@ import type { AutomationTemplate } from "../../templates";
 
 interface TemplateCardProps {
 	template: AutomationTemplate;
+	displayDescription?: string;
+	displayName?: string;
 	onSelect: (template: AutomationTemplate) => void;
 }
 
-export function TemplateCard({ template, onSelect }: TemplateCardProps) {
+export function TemplateCard({
+	template,
+	displayDescription,
+	displayName,
+	onSelect,
+}: TemplateCardProps) {
 	return (
 		<Card
 			role="button"
@@ -28,10 +35,10 @@ export function TemplateCard({ template, onSelect }: TemplateCardProps) {
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2 text-sm">
 					<span className="text-lg leading-none">{template.emoji}</span>
-					{template.name}
+					{displayName ?? template.name}
 				</CardTitle>
 				<CardDescription className="line-clamp-2">
-					{template.description}
+					{displayDescription ?? template.description}
 				</CardDescription>
 			</CardHeader>
 		</Card>

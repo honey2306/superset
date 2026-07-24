@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { HiMiniXMark } from "react-icons/hi2";
 import { TbLayoutColumns, TbLayoutRows } from "react-icons/tb";
 import { HotkeyLabel } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { PaneViewerData, TerminalPaneData } from "../../types";
 import type { TerminalLauncher } from "../useV2TerminalLauncher";
 
@@ -11,6 +12,7 @@ export function useDefaultPaneActions({
 }: {
 	launcher: TerminalLauncher;
 }): PaneActionConfig<PaneViewerData>[] {
+	const { t } = useTranslation();
 	return useMemo<PaneActionConfig<PaneViewerData>[]>(
 		() => [
 			{
@@ -21,7 +23,9 @@ export function useDefaultPaneActions({
 					) : (
 						<TbLayoutColumns className="size-3.5" />
 					),
-				tooltip: <HotkeyLabel label="Split pane" id="SPLIT_AUTO" />,
+				tooltip: (
+					<HotkeyLabel label={t("v2Workspace.pane.split")} id="SPLIT_AUTO" />
+				),
 				onClick: async (ctx) => {
 					const position =
 						ctx.pane.parentDirection === "horizontal" ? "down" : "right";
@@ -38,6 +42,6 @@ export function useDefaultPaneActions({
 				onClick: (ctx) => ctx.actions.close(),
 			},
 		],
-		[launcher],
+		[launcher, t],
 	);
 }

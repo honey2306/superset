@@ -1,1 +1,4 @@
-export { formatRelativeTime } from "./formatRelativeTime";
+export {
+	formatRelativeTime,
+	type RelativeTimeLabels,
+} from "./formatRelativeTime";

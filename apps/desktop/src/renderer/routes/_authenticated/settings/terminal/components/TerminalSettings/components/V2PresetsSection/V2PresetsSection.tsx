@@ -12,6 +12,7 @@ import { useIsDarkTheme } from "renderer/assets/app-icons/preset-icons";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useV2AgentConfigs } from "renderer/hooks/useV2AgentConfigs";
 import { getAgentCommandText } from "renderer/lib/agent-launch-command";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import type { V2TerminalPresetRow } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
@@ -53,6 +54,7 @@ export function V2PresetsSection({
 	pendingCreateProjectId,
 	onPendingCreateProjectIdChange,
 }: V2PresetsSectionProps) {
+	const { t } = useTranslation();
 	const isDark = useIsDarkTheme();
 	const collections = useCollections();
 
@@ -604,10 +606,9 @@ export function V2PresetsSection({
 			<div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
 				<div className="flex items-start justify-between gap-3 p-4">
 					<div className="min-w-0">
-						<h3 className="text-sm font-medium">Terminal presets</h3>
+						<h3 className="text-sm font-medium">{t("terminal.presets")}</h3>
 						<p className="text-xs text-muted-foreground mt-0.5">
-							Pre-configured terminal launches. Click a preset to edit, drag to
-							reorder.
+							{t("terminal.presetsCompactDescription")}
 						</p>
 					</div>
 					<div className="flex shrink-0 items-center gap-2">
@@ -623,7 +624,7 @@ export function V2PresetsSection({
 						{showPresets && (
 							<Button size="sm" onClick={() => handleAddRow()}>
 								<HiOutlinePlus className="size-4" />
-								Add preset
+								{t("terminal.addPreset")}
 							</Button>
 						)}
 					</div>

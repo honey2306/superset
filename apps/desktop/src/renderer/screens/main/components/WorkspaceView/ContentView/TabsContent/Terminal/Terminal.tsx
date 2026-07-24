@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { sanitizeTerminalFontFamily } from "renderer/lib/terminal/appearance";
 import { buildTerminalCommand } from "renderer/lib/terminal/launch-command";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTerminalTheme } from "renderer/stores/theme";
 import { SessionKilledOverlay } from "./components";
@@ -41,6 +42,7 @@ export const Terminal = memo(function Terminal({
 	tabId,
 	workspaceId,
 }: TerminalProps) {
+	const { t } = useTranslation();
 	const pane = useTabsStore((s) => s.panes[paneId]);
 	const isWorkspaceRunPane = Boolean(pane?.workspaceRun?.workspaceId);
 	const paneInitialCwd = pane?.initialCwd;
@@ -211,7 +213,7 @@ export const Terminal = memo(function Terminal({
 			handleTerminalExitRef.current(exitCode, xterm, reason),
 		onErrorEvent: (event, xterm) => handleStreamErrorRef.current(event, xterm),
 		onDisconnectEvent: (reason) =>
-			setConnectionError(reason || "Connection to terminal daemon lost"),
+			setConnectionError(reason || t("terminal.connectionToDaemonLost")),
 	});
 
 	// Cold restore handling
@@ -278,7 +280,7 @@ export const Terminal = memo(function Terminal({
 
 		if (retryCountRef.current === 0) {
 			xtermRef.current?.writeln(
-				"\r\n\x1b[90m[Connection lost. Reconnecting...]\x1b[0m",
+				`\r\n\x1b[90m${t("terminal.connectionLostReconnecting")}\x1b[0m`,
 			);
 		}
 
@@ -287,7 +289,7 @@ export const Terminal = memo(function Terminal({
 
 		const timeout = setTimeout(handleRetryConnection, delay);
 		return () => clearTimeout(timeout);
-	}, [connectionError, handleRetryConnection]);
+	}, [connectionError, handleRetryConnection, t]);
 
 	const handleClearHotkey = useCallback(() => {
 		const xterm = xtermRef.current;
@@ -378,7 +380,7 @@ export const Terminal = memo(function Terminal({
 				setConnectionError(
 					error instanceof Error
 						? error.message
-						: "Connection to terminal lost",
+						: t("terminal.connectionToTerminalLost"),
 				);
 			},
 		});
@@ -392,7 +394,7 @@ export const Terminal = memo(function Terminal({
 		return () => {
 			v1TerminalCache.unregisterHandlers(paneId);
 		};
-	}, [paneId, xtermInstance, handleStreamData, setConnectionError]);
+	}, [paneId, xtermInstance, handleStreamData, setConnectionError, t]);
 
 	useEffect(() => {
 		const xterm = xtermRef.current;

@@ -17,6 +17,7 @@ import { HiChevronRight } from "react-icons/hi2";
 import { LuPalette, LuPencil, LuTrash2 } from "react-icons/lu";
 import { ColorSelector } from "renderer/components/ColorSelector";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useReorderProjectChildren } from "renderer/react-query/workspaces";
 import { PROJECT_COLOR_DEFAULT } from "shared/constants/project-colors";
 import { SECTION_DND_TYPE, STROKE_WIDTH } from "../constants";
@@ -54,6 +55,7 @@ export function WorkspaceSection({
 	allSections = [],
 	orderedWorkspaceIds,
 }: WorkspaceSectionProps) {
+	const { t } = useTranslation();
 	const utils = electronTrpc.useUtils();
 	const [isRenaming, setIsRenaming] = useState(false);
 	const [renameValue, setRenameValue] = useState(name);
@@ -86,7 +88,11 @@ export function WorkspaceSection({
 			{
 				onError: (error) => {
 					void utils.workspaces.getAllGrouped.invalidate();
-					toast.error(`Failed to reorder project items: ${error.message}`);
+					toast.error(
+						t("workspace.reorderProjectItemsFailed", {
+							message: error.message,
+						}),
+					);
 				},
 			},
 		);
@@ -258,12 +264,12 @@ export function WorkspaceSection({
 				<ContextMenuContent>
 					<ContextMenuItem onSelect={handleStartRename}>
 						<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						Rename Section
+						{t("workspace.renameSection")}
 					</ContextMenuItem>
 					<ContextMenuSub>
 						<ContextMenuSubTrigger>
 							<LuPalette className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-							Set Color
+							{t("workspace.setColor")}
 						</ContextMenuSubTrigger>
 						<ContextMenuSubContent className="w-40 max-h-80 overflow-y-auto">
 							<ColorSelector
@@ -283,7 +289,9 @@ export function WorkspaceSection({
 							className="size-4 mr-2 text-destructive"
 							strokeWidth={STROKE_WIDTH}
 						/>
-						{mutations.isDeleting ? "Deleting..." : "Delete Section"}
+						{mutations.isDeleting
+							? t("workspace.deleting")
+							: t("workspace.deleteSection")}
 					</ContextMenuItem>
 				</ContextMenuContent>
 			</ContextMenu>

@@ -30,6 +30,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
 import { resolveHotkeyFromEvent } from "renderer/hotkeys";
 import { FileIcon } from "renderer/lib/fileIcons";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	getCommandMatchRank,
 	type SlashCommand,
@@ -86,10 +87,12 @@ export function TiptapPromptEditor({
 	previewSlashCommand,
 	slashCommands,
 	availableModels,
-	placeholder = "Ask to make changes, @mention files, run /commands",
+	placeholder,
 	className,
 	focusShortcutText,
 }: TiptapPromptEditorProps) {
+	const { t } = useTranslation();
+	const resolvedPlaceholder = placeholder ?? t("chatInput.placeholder");
 	const controller = usePromptInputController();
 	const attachments = usePromptInputAttachments();
 
@@ -194,7 +197,7 @@ export function TiptapPromptEditor({
 			HardBreak,
 			History,
 
-			Placeholder.configure({ placeholder }),
+			Placeholder.configure({ placeholder: resolvedPlaceholder }),
 
 			FileMentionNode,
 			SlashCommandNode,
@@ -706,7 +709,7 @@ export function TiptapPromptEditor({
 					>
 						{focusShortcutText && !isFocused && (
 							<span className="pointer-events-none absolute top-0 right-3 flex h-full items-center text-xs text-muted-foreground/50">
-								{focusShortcutText} to focus
+								{t("chatInput.focusHint", { shortcut: focusShortcutText })}
 							</span>
 						)}
 						<EditorContent editor={editor} />
@@ -747,7 +750,7 @@ export function TiptapPromptEditor({
 					>
 						<Command shouldFilter={false}>
 							<CommandInput
-								placeholder="Search files..."
+								placeholder={t("mention.searchFiles")}
 								value={mentionState?.query ?? ""}
 								onValueChange={(q) =>
 									setMentionState((prev) =>
@@ -759,12 +762,12 @@ export function TiptapPromptEditor({
 								{mentionFiles.length === 0 && (
 									<CommandEmpty className="px-2 py-3 text-left text-xs text-muted-foreground">
 										{!mentionState?.query
-											? "Type to search files..."
-											: "No results found."}
+											? t("mention.typeToSearch")
+											: t("mention.noResults")}
 									</CommandEmpty>
 								)}
 								{mentionFiles.length > 0 && (
-									<CommandGroup heading="Files">
+									<CommandGroup heading={t("mention.filesHeading")}>
 										{mentionFiles.map((file, idx) => {
 											const dirPath = getDirectoryPath(file.relativePath);
 											return (

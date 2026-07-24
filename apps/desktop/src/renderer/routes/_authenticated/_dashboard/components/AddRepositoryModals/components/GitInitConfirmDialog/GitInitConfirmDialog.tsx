@@ -8,6 +8,7 @@ import {
 } from "@superset/ui/alert-dialog";
 import { Button } from "@superset/ui/button";
 import { getBaseName } from "renderer/lib/pathBasename";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useGitInitConfirmStore } from "renderer/stores/git-init-confirm";
 
 /**
@@ -16,11 +17,12 @@ import { useGitInitConfirmStore } from "renderer/stores/git-init-confirm";
  * the folder-first import flow; mounted once via AddRepositoryModals.
  */
 export function GitInitConfirmDialog() {
+	const { t } = useTranslation();
 	const isOpen = useGitInitConfirmStore((s) => s.isOpen);
 	const repoPath = useGitInitConfirmStore((s) => s.repoPath);
 	const resolve = useGitInitConfirmStore((s) => s.resolve);
 
-	const folderName = repoPath ? getBaseName(repoPath) : "this folder";
+	const folderName = repoPath ? getBaseName(repoPath) : t("project.thisFolder");
 
 	return (
 		<AlertDialog
@@ -31,21 +33,18 @@ export function GitInitConfirmDialog() {
 		>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Initialize git repository?</AlertDialogTitle>
-					<AlertDialogDescription asChild>
-						<p>
-							<span className="font-medium text-foreground select-text cursor-text">
-								{folderName}
-							</span>{" "}
-							isn't a git repository yet. Initialize git here and import it?
-						</p>
+					<AlertDialogTitle>{t("project.initializeGitTitle")}</AlertDialogTitle>
+					<AlertDialogDescription>
+						{t("project.initializeGitDescription", { folder: folderName })}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<Button variant="outline" onClick={() => resolve(false)}>
-						Cancel
+						{t("common.cancel")}
 					</Button>
-					<Button onClick={() => resolve(true)}>Initialize &amp; import</Button>
+					<Button onClick={() => resolve(true)}>
+						{t("project.initializeAndImport")}
+					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>

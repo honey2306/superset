@@ -16,6 +16,7 @@ import { useDelayElapsed } from "renderer/hooks/useDelayElapsed";
 import { track } from "renderer/lib/analytics";
 import { setAuthToken } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { SupersetLogo } from "./components/SupersetLogo";
 import { useSessionRecovery } from "./hooks/useSessionRecovery";
 
@@ -40,6 +41,7 @@ function readLastUsedMethod(): AuthMethod | null {
 }
 
 function SignInPage() {
+	const { t } = useTranslation();
 	const signInMutation = electronTrpc.auth.signIn.useMutation();
 	const persistToken = electronTrpc.auth.persistToken.useMutation();
 	const navigate = useNavigate();
@@ -140,13 +142,13 @@ function SignInPage() {
 			await navigate({ to: "/workspace", replace: true });
 		} catch (error) {
 			setDevError(
-				error instanceof Error ? error.message : "Dev sign-in failed",
+				error instanceof Error ? error.message : t("auth.devSignInFailed"),
 			);
 			setIsLoadingDev(false);
 		}
 	};
 
-	const lastUsedBadge = <Badge variant="secondary">Last used</Badge>;
+	const lastUsedBadge = <Badge variant="secondary">{t("auth.lastUsed")}</Badge>;
 
 	return (
 		<div className="flex flex-col h-full w-full bg-background">
@@ -160,12 +162,12 @@ function SignInPage() {
 
 					<div className="text-center mb-8">
 						<h1 className="text-xl font-semibold text-foreground mb-2">
-							Welcome to Superset
+							{t("auth.welcome")}
 						</h1>
 						<p className="text-sm text-muted-foreground">
 							{hasLocalToken
-								? "Restoring your session"
-								: "Sign in to get started"}
+								? t("auth.restoringSession")
+								: t("auth.signInStarted")}
 						</p>
 					</div>
 
@@ -178,9 +180,7 @@ function SignInPage() {
 								className="w-full gap-3"
 								disabled={isLoadingDev}
 							>
-								{isLoadingDev
-									? "Signing in..."
-									: "Sign in as Local Admin (dev)"}
+								{isLoadingDev ? t("auth.signingIn") : t("auth.localAdmin")}
 								{lastUsedMethod === "dev" && lastUsedBadge}
 							</Button>
 						)}
@@ -197,7 +197,7 @@ function SignInPage() {
 							disabled={signInMutation.isPending}
 						>
 							<FaGithub className="size-5" />
-							Continue with GitHub
+							{t("auth.continueGithub")}
 							{lastUsedMethod === "github" && lastUsedBadge}
 						</Button>
 
@@ -209,29 +209,29 @@ function SignInPage() {
 							disabled={signInMutation.isPending}
 						>
 							<FcGoogle className="size-5" />
-							Continue with Google
+							{t("auth.continueGoogle")}
 							{lastUsedMethod === "google" && lastUsedBadge}
 						</Button>
 					</div>
 
 					<p className="mt-8 text-xs text-muted-foreground/70 text-center max-w-xs">
-						By signing in, you agree to our{" "}
+						{t("auth.agreementPrefix")}{" "}
 						<a
 							href={COMPANY.TERMS_URL}
 							target="_blank"
 							rel="noopener noreferrer"
 							className="underline hover:text-muted-foreground transition-colors"
 						>
-							Terms of Service
+							{t("auth.terms")}
 						</a>{" "}
-						and{" "}
+						{t("auth.and")}{" "}
 						<a
 							href={COMPANY.PRIVACY_URL}
 							target="_blank"
 							rel="noopener noreferrer"
 							className="underline hover:text-muted-foreground transition-colors"
 						>
-							Privacy Policy
+							{t("auth.privacy")}
 						</a>
 					</p>
 				</div>

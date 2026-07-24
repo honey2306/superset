@@ -98,20 +98,27 @@ export function getProviderSubtitle(
 	return "Connected";
 }
 
-export function getStatusBadge(
-	status: ModelProviderStatus | undefined,
-): { label: string; variant: "secondary" | "outline" | "destructive" } | null {
+export type ModelStatusBadgeKind =
+	| "notConnected"
+	| "expired"
+	| "needsAttention"
+	| "active";
+
+export function getStatusBadge(status: ModelProviderStatus | undefined): {
+	kind: ModelStatusBadgeKind;
+	variant: "secondary" | "outline" | "destructive";
+} | null {
 	if (!status || status.connectionState === "disconnected") {
-		return { label: "Not connected", variant: "outline" };
+		return { kind: "notConnected", variant: "outline" };
 	}
 	if (status.issue?.code === "expired") {
-		return { label: "Expired", variant: "destructive" };
+		return { kind: "expired", variant: "destructive" };
 	}
 	if (status.issue) {
-		return { label: "Needs attention", variant: "outline" };
+		return { kind: "needsAttention", variant: "outline" };
 	}
 	if (status.connectionState === "connected") {
-		return { label: "Active", variant: "secondary" };
+		return { kind: "active", variant: "secondary" };
 	}
 	return null;
 }

@@ -5,6 +5,7 @@ import { useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuFileCode, LuLoader } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { CodeEditor } from "renderer/screens/main/components/WorkspaceView/components/CodeEditor";
 import { FileSaveConflictDialog } from "renderer/screens/main/components/WorkspaceView/components/FileSaveConflictDialog";
 import { useChangesStore } from "renderer/stores/changes";
@@ -80,6 +81,7 @@ export function FileDiffSection({
 	onDiscard,
 	isActioning = false,
 }: FileDiffSectionProps) {
+	const { t } = useTranslation();
 	const { workspaceId } = useParams({ strict: false });
 	const sectionRef = useRef<HTMLDivElement>(null);
 	const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -408,7 +410,7 @@ export function FileDiffSection({
 			className="flex items-center justify-center text-xs text-muted-foreground bg-background"
 			style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 		>
-			Diff preview loads when this file is on screen
+			{t("v1Changes.diffPreviewLoads")}
 		</div>
 	);
 
@@ -418,11 +420,9 @@ export function FileDiffSection({
 			style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 		>
 			<span className="select-text cursor-text">
-				Binary file — cannot display diff
+				{t("v1Changes.binaryFileCannotDisplay")}
 			</span>
-			<span className="max-w-md text-xs">
-				Use the file header to open this file outside the diff viewer.
-			</span>
+			<span className="max-w-md text-xs">{t("v1Changes.useFileHeader")}</span>
 		</div>
 	);
 
@@ -461,15 +461,17 @@ export function FileDiffSection({
 							<LuFileCode className="w-8 h-8" />
 							<p className="text-sm">
 								{isGenerated
-									? "Generated file hidden"
-									: `Large diff hidden — ${totalChanges.toLocaleString()} lines changed`}
+									? t("v1Changes.generatedFileHidden")
+									: t("v1Changes.largeDiffHidden", {
+											count: totalChanges.toLocaleString(),
+										})}
 							</p>
 							<Button
 								variant="outline"
 								size="sm"
 								onClick={() => setLoadHiddenDiff(true)}
 							>
-								Load diff
+								{t("v1Changes.loadDiff")}
 							</Button>
 						</div>
 					) : isLoadingDiff ? (
@@ -478,7 +480,7 @@ export function FileDiffSection({
 							style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 						>
 							<LuLoader className="w-4 h-4 animate-spin mr-2" />
-							<span>Loading diff...</span>
+							<span>{t("v1Changes.loadingDiff")}</span>
 						</div>
 					) : hasRenderedDiff ? (
 						isEditing ? (
@@ -486,17 +488,18 @@ export function FileDiffSection({
 								{hasExternalDiskChange && (
 									<div className="border-b px-3 py-2">
 										<Alert variant="destructive">
-											<AlertTitle>File changed on disk</AlertTitle>
+											<AlertTitle>
+												{t("v1Changes.fileChangedOnDisk")}
+											</AlertTitle>
 											<AlertDescription>
-												This diff editor has local edits. Review the conflict
-												before saving or reload the current disk version.
+												{t("v1Changes.fileChangedOnDiskDesc")}
 												<div className="mt-2 flex gap-2">
 													<Button
 														size="sm"
 														variant="outline"
 														onClick={handleReloadFromDisk}
 													>
-														Reload From Disk
+														{t("v1Changes.reloadFromDisk")}
 													</Button>
 													<Button
 														size="sm"
@@ -508,7 +511,7 @@ export function FileDiffSection({
 															});
 														}}
 													>
-														Review Diff
+														{t("v1Changes.reviewDiff")}
 													</Button>
 												</div>
 											</AlertDescription>
@@ -546,10 +549,10 @@ export function FileDiffSection({
 							{diffData ? (
 								<>
 									<LuLoader className="w-4 h-4 animate-spin mr-2" />
-									<span>Loading editor...</span>
+									<span>{t("v1Changes.loadingEditor")}</span>
 								</>
 							) : (
-								"Unable to load diff"
+								t("v1Changes.unableToLoadDiff")
 							)}
 						</div>
 					)}

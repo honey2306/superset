@@ -1,3 +1,4 @@
+import type { MessageKey } from "renderer/providers/I18nProvider/messages";
 import type {
 	LinkAction,
 	LinkTier,
@@ -5,6 +6,11 @@ import type {
 } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal/schema";
 
 export type { LinkAction, LinkTier, LinkTierMap };
+
+export type Translator = (
+	key: MessageKey,
+	values?: Record<string, number | string>,
+) => string;
 
 export interface ModifierEvent {
 	metaKey: boolean;

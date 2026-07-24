@@ -1,16 +1,20 @@
 import type { BranchPrefixMode } from "@superset/local-db";
+import type { MessageKey } from "renderer/providers/I18nProvider";
 
-export const BRANCH_PREFIX_MODE_LABELS: Record<BranchPrefixMode, string> = {
-	none: "No prefix",
-	github: "GitHub username",
-	author: "Git author name",
-	custom: "Custom prefix",
+export const BRANCH_PREFIX_MODE_LABEL_KEYS: Record<
+	BranchPrefixMode,
+	MessageKey
+> = {
+	none: "branchPrefix.mode.none",
+	github: "branchPrefix.mode.github",
+	author: "branchPrefix.mode.author",
+	custom: "branchPrefix.mode.custom",
 };
 
-export const BRANCH_PREFIX_MODE_LABELS_WITH_DEFAULT: Record<
+export const BRANCH_PREFIX_MODE_LABEL_KEYS_WITH_DEFAULT: Record<
 	BranchPrefixMode | "default",
-	string
+	MessageKey
 > = {
-	default: "Use global default",
-	...BRANCH_PREFIX_MODE_LABELS,
+	default: "branchPrefix.mode.default",
+	...BRANCH_PREFIX_MODE_LABEL_KEYS,
 };

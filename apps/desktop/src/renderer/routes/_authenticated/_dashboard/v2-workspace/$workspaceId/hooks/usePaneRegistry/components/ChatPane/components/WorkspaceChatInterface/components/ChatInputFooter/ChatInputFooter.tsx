@@ -20,6 +20,7 @@ import type {
 	PermissionMode,
 } from "renderer/components/Chat/ChatInterface/types";
 import { useHotkeyDisplay } from "renderer/hotkeys";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { ChatComposerControls } from "./components/ChatComposerControls";
 import { ChatInputDropZone } from "./components/ChatInputDropZone";
 import { ChatShortcuts } from "./components/ChatShortcuts";
@@ -90,6 +91,7 @@ export function ChatInputFooter({
 	onQuestionRespond,
 	onQuestionCancel,
 }: ChatInputFooterProps) {
+	const { t } = useTranslation();
 	useFocusPromptOnPane(isFocused);
 
 	// Re-focus the editor when the question overlay dismisses.
@@ -106,7 +108,7 @@ export function ChatInputFooter({
 
 	const [linkedIssues, setLinkedIssues] = useState<LinkedIssue[]>([]);
 	const inputRootRef = useRef<HTMLDivElement>(null);
-	const errorMessage = getErrorMessage(error);
+	const errorMessage = getErrorMessage(error, t);
 	const focusShortcutText = useHotkeyDisplay("FOCUS_CHAT_INPUT").text;
 	const showFocusHint = focusShortcutText !== "Unassigned";
 
@@ -180,7 +182,7 @@ export function ChatInputFooter({
 						>
 							{showFocusHint && (
 								<span className="pointer-events-none absolute top-3 right-3 z-10 text-xs text-muted-foreground/50 [:focus-within>&]:hidden">
-									{focusShortcutText} to focus
+									{t("chatInput.focusHint", { shortcut: focusShortcutText })}
 								</span>
 							)}
 							<PromptInput
@@ -212,7 +214,7 @@ export function ChatInputFooter({
 									searchFiles={searchFiles}
 									slashCommands={slashCommands}
 									availableModels={availableModels}
-									placeholder="Ask to make changes, @mention files, run /commands"
+									placeholder={t("chatInput.placeholder")}
 								/>
 								<ChatComposerControls
 									availableModels={availableModels}

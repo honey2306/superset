@@ -10,6 +10,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@superset/ui/popover";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { parsePrimaryFamily } from "../../font-utils";
 import type { FontInfo } from "../../hooks/useSystemFonts";
 
@@ -34,6 +35,7 @@ export function FontFamilyCombobox({
 	fonts,
 	fontsLoading,
 }: FontFamilyComboboxProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 
@@ -111,7 +113,7 @@ export function FontFamilyCombobox({
 						className="truncate"
 						style={{ fontFamily: `"${displayLabel}"` }}
 					>
-						{fontsLoading ? "Loading fonts..." : displayLabel}
+						{fontsLoading ? t("appearance.loadingFonts") : displayLabel}
 					</span>
 					<ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />
 				</Button>
@@ -119,7 +121,7 @@ export function FontFamilyCombobox({
 			<PopoverContent className="w-[320px] p-0" align="start" side="top">
 				<Command shouldFilter={true}>
 					<CommandInput
-						placeholder="Search fonts..."
+						placeholder={t("appearance.searchFonts")}
 						value={search}
 						onValueChange={setSearch}
 					/>
@@ -131,27 +133,28 @@ export function FontFamilyCombobox({
 									className="w-full text-center cursor-pointer hover:underline"
 									onClick={() => selectFont(search.trim())}
 								>
-									Use &ldquo;{search.trim()}&rdquo;
+									{t("appearance.useFont", { font: search.trim() })}
 								</button>
 							) : (
-								"No fonts found."
+								t("appearance.noFonts")
 							)}
 						</CommandEmpty>
 						{allowCustomEntry && !hasExactMatch && search.trim() && (
-							<CommandGroup heading="Custom">
+							<CommandGroup heading={t("appearance.customFonts")}>
 								<CommandItem
 									value={`__custom__${search.trim()}`}
 									onSelect={() => selectFont(search.trim())}
 								>
 									<span className="truncate flex-1">
-										Use &ldquo;{search.trim()}&rdquo;
+										{t("appearance.useFont", { font: search.trim() })}
 									</span>
 								</CommandItem>
 							</CommandGroup>
 						)}
 						{renderGroup("Nerd Fonts", nerdFonts)}
-						{renderGroup("Monospace", monoFonts)}
-						{variant !== "terminal" && renderGroup("Other", otherFonts)}
+						{renderGroup(t("appearance.monospaceFonts"), monoFonts)}
+						{variant !== "terminal" &&
+							renderGroup(t("appearance.otherFonts"), otherFonts)}
 					</CommandList>
 				</Command>
 			</PopoverContent>

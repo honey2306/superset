@@ -6,6 +6,7 @@ import {
 	useIsV2OnlyUser,
 } from "renderer/hooks/useIsV2CloudEnabled";
 import { track } from "renderer/lib/analytics";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useInlineWorkspacePortsEnabled,
 	useInlineWorkspacePortsStore,
@@ -29,6 +30,7 @@ interface ExperimentalSettingsProps {
 export function ExperimentalSettings({
 	visibleItems,
 }: ExperimentalSettingsProps) {
+	const { t } = useTranslation();
 	const showSupersetV2 = isItemVisible(
 		SETTING_ITEM_ID.EXPERIMENTAL_SUPERSET_V2,
 		visibleItems,
@@ -61,9 +63,9 @@ export function ExperimentalSettings({
 	return (
 		<div className="p-6 max-w-4xl w-full mx-auto">
 			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Experimental</h2>
+				<h2 className="text-xl font-semibold">{t("settings.experimental")}</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Try early access features and previews.
+					{t("experimental.description")}
 				</p>
 			</div>
 
@@ -72,10 +74,10 @@ export function ExperimentalSettings({
 					<div className="flex items-center justify-between gap-6">
 						<div className="min-w-0 flex-1 space-y-0.5">
 							<Label htmlFor="superset-v2" className="text-sm font-medium">
-								Try Superset v2
+								{t("experimental.tryV2")}
 							</Label>
 							<p className="text-xs text-muted-foreground">
-								Use the new workspace experience.
+								{t("experimental.tryV2Description")}
 							</p>
 						</div>
 						<Switch
@@ -94,14 +96,15 @@ export function ExperimentalSettings({
 				{showV1Migration && !isV2OnlyUser && (
 					<div className="flex items-center justify-between gap-6">
 						<div className="min-w-0 flex-1 space-y-0.5">
-							<Label className="text-sm font-medium">Import from v1</Label>
+							<Label className="text-sm font-medium">
+								{t("experimental.importV1")}
+							</Label>
 							<p className="text-xs text-muted-foreground">
-								Bring v1 projects, workspaces, and terminal presets over to v2.
-								Each item is imported individually and can be retried.
+								{t("experimental.importV1Description")}
 							</p>
 							{!isV2CloudEnabled && (
 								<p className="text-xs text-muted-foreground">
-									Available when v2 is enabled.
+									{t("experimental.v2Required")}
 								</p>
 							)}
 						</div>
@@ -113,7 +116,7 @@ export function ExperimentalSettings({
 							disabled={!isV2CloudEnabled}
 							className="shrink-0"
 						>
-							Open importer
+							{t("experimental.openImporter")}
 						</Button>
 					</div>
 				)}
@@ -124,11 +127,10 @@ export function ExperimentalSettings({
 								htmlFor="inline-workspace-ports"
 								className="text-sm font-medium"
 							>
-								Inline workspace ports
+								{t("experimental.inlinePorts")}
 							</Label>
 							<p className="text-xs text-muted-foreground">
-								Show detected ports under each workspace in the sidebar instead
-								of a single panel at the bottom.
+								{t("experimental.inlinePortsDescription")}
 							</p>
 						</div>
 						<Switch
@@ -142,11 +144,10 @@ export function ExperimentalSettings({
 					<div className="flex items-center justify-between gap-6">
 						<div className="min-w-0 flex-1 space-y-0.5">
 							<Label htmlFor="workspace-agents" className="text-sm font-medium">
-								Workspace agents
+								{t("experimental.workspaceAgents")}
 							</Label>
 							<p className="text-xs text-muted-foreground">
-								Show running agents under each workspace in the sidebar, with
-								their live status.
+								{t("experimental.workspaceAgentsDescription")}
 							</p>
 						</div>
 						<Switch

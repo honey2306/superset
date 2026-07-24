@@ -9,6 +9,7 @@ import {
 	resolveDesktopChatOrganizationId,
 } from "renderer/lib/dev-chat";
 import { posthog } from "renderer/lib/posthog";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOptimisticCollectionActions } from "renderer/routes/_authenticated/hooks/useOptimisticCollectionActions";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 
@@ -62,6 +63,7 @@ export function useWorkspaceChatController({
 	const organizationId = resolveDesktopChatOrganizationId(
 		session?.session?.activeOrganizationId,
 	);
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const endSessionMutation = workspaceTrpc.chat.endSession.useMutation();
 	const { chatSessions: chatSessionActions } = useOptimisticCollectionActions();
@@ -99,7 +101,7 @@ export function useWorkspaceChatController({
 		async (sessionIdToDelete: string) => {
 			const transaction = chatSessionActions.deleteSession(sessionIdToDelete);
 			if (!transaction && !isDesktopChatDevMode()) {
-				throw new Error("Failed to delete chat session");
+				throw new Error(t("chat.session.deleteFailed"));
 			}
 			// Tear down the host-service in-memory runtime so it doesn't leak.
 			// Failures here must not block the user-visible delete.
@@ -122,13 +124,14 @@ export function useWorkspaceChatController({
 			onSessionIdChange,
 			organizationId,
 			sessionId,
+			t,
 			workspaceId,
 		],
 	);
 
 	const getOrCreateSession = useCallback(async (): Promise<string> => {
 		if (!organizationId) {
-			throw new Error("No active organization selected");
+			throw new Error(t("chat.session.noActiveOrg"));
 		}
 
 		if (sessionId) {
@@ -155,7 +158,7 @@ export function useWorkspaceChatController({
 			organization_id: organizationId,
 		});
 		return nextSessionId;
-	}, [onSessionIdChange, organizationId, sessionId, sessions, workspaceId]);
+	}, [onSessionIdChange, organizationId, sessionId, sessions, t, workspaceId]);
 
 	const sessionItems = useMemo(() => {
 		const nextItems = sessions.map((item) => toSessionSelectorItem(item));

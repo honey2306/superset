@@ -5,6 +5,7 @@ import type {
 	LinkTier,
 	LinkTierMap,
 	ModifierEvent,
+	Translator,
 } from "../types";
 
 export type ChangesSidebarFileIntent =
@@ -25,11 +26,14 @@ function intentFor(
 	return tier === "plain" ? "diff" : "file";
 }
 
-function shortIntentLabel(intent: ChangesSidebarFileIntent): string {
-	if (intent === "diff") return "diff";
-	if (intent === "diffNewTab") return "diff in new tab";
-	if (intent === "file") return "open file";
-	return "editor";
+function shortIntentLabel(
+	intent: ChangesSidebarFileIntent,
+	t: Translator,
+): string {
+	if (intent === "diff") return t("clickPolicy.short.diff");
+	if (intent === "diffNewTab") return t("clickPolicy.short.diffNewTab");
+	if (intent === "file") return t("clickPolicy.short.openFile");
+	return t("clickPolicy.short.editor");
 }
 
 export function resolveChangesSidebarFileIntent(
@@ -50,10 +54,13 @@ export function tierForChangesSidebarFileIntent(
 	return null;
 }
 
-export function buildChangesSidebarFileHint(map: LinkTierMap): string {
+export function buildChangesSidebarFileHint(
+	map: LinkTierMap,
+	t: Translator,
+): string {
 	return MODIFIER_TIERS.flatMap((tier) => {
 		const intent = intentFor(tier, map[tier]);
 		if (intent === null) return [];
-		return `${modifierLabel(tier)}: ${shortIntentLabel(intent)}`;
+		return `${modifierLabel(tier, t)}: ${shortIntentLabel(intent, t)}`;
 	}).join(" · ");
 }

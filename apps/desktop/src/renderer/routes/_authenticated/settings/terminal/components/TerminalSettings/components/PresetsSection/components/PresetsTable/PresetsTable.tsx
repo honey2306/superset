@@ -2,6 +2,7 @@ import type { HostAgentConfig } from "@superset/host-service/settings";
 import type { TerminalPreset } from "@superset/local-db";
 import { cn } from "@superset/ui/utils";
 import type { RefObject } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PresetRow } from "../../../PresetRow";
 import type { PresetProjectOption } from "../../preset-project-options";
 
@@ -32,6 +33,7 @@ export function PresetsTable({
 	onToggleVisibility,
 	bordered = true,
 }: PresetsTableProps) {
+	const { t } = useTranslation();
 	return (
 		<div
 			ref={presetsContainerRef}
@@ -42,7 +44,7 @@ export function PresetsTable({
 		>
 			{isLoading ? (
 				<div className="py-8 text-center text-sm text-muted-foreground">
-					Loading presets...
+					{t("terminal.loadingPresets")}
 				</div>
 			) : presets.length > 0 ? (
 				presets.map((preset, index) => (
@@ -60,7 +62,7 @@ export function PresetsTable({
 				))
 			) : (
 				<div className="py-10 text-center text-sm text-muted-foreground">
-					No presets yet. Click "Add preset" to create your first one.
+					{t("terminal.noPresets")}
 				</div>
 			)}
 		</div>

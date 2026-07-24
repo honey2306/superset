@@ -124,8 +124,8 @@ export function V2GitSettings({ hostId }: V2GitSettingsProps) {
 		}) => {
 			if (!targetHostUrl) {
 				throw new Error(
-					getHostServiceUnavailableMessage(hostService, {
-						action: "update the branch prefix",
+					getHostServiceUnavailableMessage(hostService, t, {
+						action: t("git.updateBranchPrefixAction"),
 					}),
 				);
 			}
@@ -140,7 +140,9 @@ export function V2GitSettings({ hostId }: V2GitSettingsProps) {
 		},
 		onError: (err) =>
 			toast.error(
-				err instanceof Error ? err.message : "Failed to update branch prefix",
+				err instanceof Error
+					? err.message
+					: t("project.failedUpdateBranchPrefix"),
 			),
 	});
 

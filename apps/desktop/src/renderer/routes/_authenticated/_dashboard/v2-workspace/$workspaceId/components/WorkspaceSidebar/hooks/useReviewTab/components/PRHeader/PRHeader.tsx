@@ -1,21 +1,22 @@
 import { cn } from "@superset/ui/utils";
 import { LuArrowUpRight } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PRIcon } from "renderer/screens/main/components/PRIcon";
 import type { NormalizedPR } from "../../types";
 
 const reviewDecisionConfig = {
 	approved: {
-		label: "Approved",
+		labelKey: "v2Workspace.review.approved",
 		className:
 			"border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
 	},
 	changes_requested: {
-		label: "Changes requested",
+		labelKey: "v2Workspace.review.changesRequested",
 		className:
 			"border border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300",
 	},
 	pending: {
-		label: "Review pending",
+		labelKey: "v2Workspace.review.pending",
 		className:
 			"border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 	},
@@ -26,6 +27,7 @@ interface PRHeaderProps {
 }
 
 export function PRHeader({ pr }: PRHeaderProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="space-y-1.5 px-2 py-2">
 			<a
@@ -53,7 +55,7 @@ export function PRHeader({ pr }: PRHeaderProps) {
 						reviewDecisionConfig[pr.reviewDecision].className,
 					)}
 				>
-					{reviewDecisionConfig[pr.reviewDecision].label}
+					{t(reviewDecisionConfig[pr.reviewDecision].labelKey)}
 				</span>
 			</div>
 		</div>

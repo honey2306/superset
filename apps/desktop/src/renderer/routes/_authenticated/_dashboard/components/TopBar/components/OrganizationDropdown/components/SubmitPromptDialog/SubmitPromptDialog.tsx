@@ -13,6 +13,7 @@ import { toast } from "@superset/ui/sonner";
 import { Textarea } from "@superset/ui/textarea";
 import { useState } from "react";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface SubmitPromptDialogProps {
 	open: boolean;
@@ -23,6 +24,7 @@ export function SubmitPromptDialog({
 	open,
 	onOpenChange,
 }: SubmitPromptDialogProps) {
+	const { t } = useTranslation();
 	const [promptText, setPromptText] = useState("");
 	const [submitterName, setSubmitterName] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,11 +50,11 @@ export function SubmitPromptDialog({
 				promptText: promptText.trim(),
 				submitterName: submitterName.trim() || undefined,
 			});
-			toast.success("Prompt submitted — thanks!");
+			toast.success(t("dashboard.promptSubmitted"));
 			handleOpenChange(false);
 		} catch (error) {
 			console.error("[submit-prompt] failed", error);
-			toast.error("Could not submit prompt. Try again.");
+			toast.error(t("dashboard.promptSubmitFailed"));
 			setIsSubmitting(false);
 		}
 	};
@@ -68,21 +70,20 @@ export function SubmitPromptDialog({
 		<Dialog open={open} onOpenChange={handleOpenChange}>
 			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>Submit a prompt</DialogTitle>
+					<DialogTitle>{t("dashboard.submitPrompt")}</DialogTitle>
 					<DialogDescription>
-						Prompt a coding agent to build what you want to see in Superset. If
-						we like your prompt, we'll run it and merge the result.
+						{t("dashboard.submitPromptDescription")}
 					</DialogDescription>
 				</DialogHeader>
 				<div className="flex flex-col gap-4 py-2">
 					<div className="flex flex-col gap-2">
-						<Label htmlFor="submit-prompt-text">Prompt</Label>
+						<Label htmlFor="submit-prompt-text">{t("dashboard.prompt")}</Label>
 						<Textarea
 							id="submit-prompt-text"
 							value={promptText}
 							onChange={(e) => setPromptText(e.target.value)}
 							onKeyDown={handleKeyDown}
-							placeholder="Describe what you'd like to see built…"
+							placeholder={t("dashboard.promptPlaceholder")}
 							rows={6}
 							autoFocus
 							disabled={isSubmitting}
@@ -90,23 +91,25 @@ export function SubmitPromptDialog({
 					</div>
 					<div className="flex flex-col gap-2">
 						<Label htmlFor="submit-prompt-name">
-							Your name{" "}
+							{t("dashboard.yourName")}{" "}
 							<span className="font-normal text-muted-foreground">
-								(if we use your prompt, we'll credit you in the changelog)
+								{t("dashboard.promptCreditHint")}
 							</span>
 						</Label>
 						<Input
 							id="submit-prompt-name"
 							value={submitterName}
 							onChange={(e) => setSubmitterName(e.target.value)}
-							placeholder="Jane Doe"
+							placeholder={t("dashboard.submitterNamePlaceholder")}
 							disabled={isSubmitting}
 						/>
 					</div>
 				</div>
 				<DialogFooter>
 					<Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
-						{isSubmitting ? "Submitting…" : "Submit prompt"}
+						{isSubmitting
+							? t("dashboard.submitting")
+							: t("dashboard.submitPromptAction")}
 						<span className="ml-2 inline-flex items-center gap-1 text-base font-mono tabular-nums opacity-80">
 							<span>⌘</span>
 							<span>↵</span>

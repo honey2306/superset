@@ -3,6 +3,7 @@ import type { ISearchOptions, SearchAddon } from "@xterm/addon-search";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HiChevronDown, HiChevronUp, HiMiniXMark } from "react-icons/hi2";
 import { PiTextAa } from "react-icons/pi";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface TerminalSearchProps {
 	searchAddon: SearchAddon | null;
@@ -24,6 +25,7 @@ export function TerminalSearch({
 	isOpen,
 	onClose,
 }: TerminalSearchProps) {
+	const { t } = useTranslation();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [query, setQuery] = useState("");
 	const [matchCount, setMatchCount] = useState<number | null>(null);
@@ -124,12 +126,12 @@ export function TerminalSearch({
 				value={query}
 				onChange={handleInputChange}
 				onKeyDown={handleKeyDown}
-				placeholder="Find"
+				placeholder={t("v2Workspace.terminalSearch.find")}
 				className="h-6 min-w-0 w-28 flex-shrink bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
 			/>
 			{matchCount === 0 && query && (
 				<span className="text-xs text-muted-foreground whitespace-nowrap px-1">
-					No results
+					{t("v2Workspace.terminalSearch.noResults")}
 				</span>
 			)}
 			<div className="flex items-center shrink-0">
@@ -147,7 +149,9 @@ export function TerminalSearch({
 							<PiTextAa className="size-3.5" />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Match case</TooltipContent>
+					<TooltipContent side="bottom">
+						{t("v2Workspace.terminalSearch.matchCase")}
+					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>
@@ -159,7 +163,9 @@ export function TerminalSearch({
 							<HiChevronUp className="size-3.5" />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Previous (Shift+Enter)</TooltipContent>
+					<TooltipContent side="bottom">
+						{t("v2Workspace.terminalSearch.previous")}
+					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>
@@ -171,7 +177,9 @@ export function TerminalSearch({
 							<HiChevronDown className="size-3.5" />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Next (Enter)</TooltipContent>
+					<TooltipContent side="bottom">
+						{t("v2Workspace.terminalSearch.next")}
+					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
 					<TooltipTrigger asChild>
@@ -183,7 +191,9 @@ export function TerminalSearch({
 							<HiMiniXMark className="size-3.5" />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="bottom">Close (Esc)</TooltipContent>
+					<TooltipContent side="bottom">
+						{t("v2Workspace.terminalSearch.close")}
+					</TooltipContent>
 				</Tooltip>
 			</div>
 		</div>

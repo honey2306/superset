@@ -5,6 +5,7 @@ import {
 } from "@superset/ui/ai-elements/message";
 import { cn } from "@superset/ui/lib/utils";
 import { SubagentInnerToolCall } from "renderer/components/Chat/components/SubagentInnerToolCall";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	type SubagentEntries,
 	toSubagentViewModels,
@@ -15,10 +16,13 @@ interface SubagentExecutionMessageProps {
 	inline?: boolean;
 }
 
-function getStatusLabel(status: "running" | "completed" | "error"): string {
-	if (status === "running") return "Running";
-	if (status === "completed") return "Completed";
-	return "Failed";
+function getStatusLabel(
+	status: "running" | "completed" | "error",
+	t: ReturnType<typeof useTranslation>["t"],
+): string {
+	if (status === "running") return t("chat.subagent.running");
+	if (status === "completed") return t("chat.subagent.completed");
+	return t("chat.subagent.failed");
 }
 
 function getStatusClassName(status: "running" | "completed" | "error"): string {
@@ -35,13 +39,14 @@ export function SubagentExecutionMessage({
 	subagents,
 	inline = false,
 }: SubagentExecutionMessageProps) {
+	const { t } = useTranslation();
 	if (subagents.length === 0) return null;
 	const viewModels = toSubagentViewModels(subagents);
 
 	const content = (
 		<div className="w-full max-w-none space-y-3 rounded-xl border bg-card/95 p-3">
 			<div className="text-sm font-medium text-foreground">
-				Subagent activity
+				{t("chat.subagent.activity")}
 			</div>
 			<div className="space-y-3">
 				{viewModels.map((subagent) => (
@@ -59,7 +64,7 @@ export function SubagentExecutionMessage({
 									getStatusClassName(subagent.status),
 								)}
 							>
-								{getStatusLabel(subagent.status)}
+								{getStatusLabel(subagent.status, t)}
 							</span>
 						</div>
 						{subagent.toolCalls.length > 0 ? (

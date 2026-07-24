@@ -1,5 +1,6 @@
 import { ToolCallRow } from "@superset/ui/ai-elements/tool-call-row";
 import { ZapIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 
 type SkillToolCallProps = {
@@ -8,6 +9,7 @@ type SkillToolCallProps = {
 };
 
 export function SkillToolCall({ part, skillName }: SkillToolCallProps) {
+	const { t } = useTranslation();
 	const isError = part.state === "output-error";
 	const isPending =
 		part.state !== "output-available" && part.state !== "output-error";
@@ -17,15 +19,17 @@ export function SkillToolCall({ part, skillName }: SkillToolCallProps) {
 			icon={ZapIcon}
 			isError={isError}
 			isPending={isPending}
-			title={`Skill(${skillName})`}
+			title={t("chat.tool.skillLabel", { name: skillName })}
 		>
 			{!isPending ? (
 				<div className="py-1 pl-3">
 					{isError ? (
-						<p className="text-xs text-destructive">Failed to load skill</p>
+						<p className="text-xs text-destructive">
+							{t("chat.tool.failedToLoadSkill")}
+						</p>
 					) : (
 						<p className="text-xs text-muted-foreground">
-							Successfully loaded skill
+							{t("chat.tool.successfullyLoadedSkill")}
 						</p>
 					)}
 				</div>

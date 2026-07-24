@@ -1,4 +1,5 @@
 import { FileUp } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { FilesTabDropTarget } from "../../hooks/useFilesTabDrop";
 
 interface FilesTabDropOverlayProps {
@@ -14,6 +15,7 @@ interface FilesTabDropOverlayProps {
  */
 export function FilesTabDropOverlay({ target }: FilesTabDropOverlayProps) {
 	const { rect, label } = target;
+	const { t } = useTranslation();
 	return (
 		<div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
 			{rect ? (
@@ -33,7 +35,9 @@ export function FilesTabDropOverlay({ target }: FilesTabDropOverlayProps) {
 			<div className="absolute inset-x-0 bottom-2 flex justify-center">
 				<div className="flex max-w-[90%] items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow">
 					<FileUp className="size-3.5 shrink-0" />
-					<span className="truncate">Drop into {label}</span>
+					<span className="truncate">
+						{t("v2Workspace.filesTab.dropInto", { label })}
+					</span>
 				</div>
 			</div>
 		</div>

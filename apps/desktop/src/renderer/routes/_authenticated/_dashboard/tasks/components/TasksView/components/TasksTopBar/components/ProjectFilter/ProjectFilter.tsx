@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@superset/ui/popover";
 import { useMemo, useState } from "react";
 import { HiCheck, HiChevronDown, HiOutlineFolder } from "react-icons/hi2";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
 
 interface ProjectFilterProps {
@@ -19,6 +20,7 @@ interface ProjectFilterProps {
 }
 
 export function ProjectFilter({ value, onChange }: ProjectFilterProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
 
@@ -65,8 +67,8 @@ export function ProjectFilter({ value, onChange }: ProjectFilterProps) {
 				<Button
 					variant="ghost"
 					size="sm"
-					title={selected ? selected.name : "Project"}
-					aria-label={selected ? selected.name : "Project"}
+					title={selected ? selected.name : t("tasks.project")}
+					aria-label={selected ? selected.name : t("tasks.project")}
 					className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
 				>
 					{selected ? (
@@ -79,7 +81,7 @@ export function ProjectFilter({ value, onChange }: ProjectFilterProps) {
 						<HiOutlineFolder className="size-4" />
 					)}
 					<span className="text-sm hidden @4xl:inline">
-						{selected ? selected.name : "Project"}
+						{selected ? selected.name : t("tasks.project")}
 					</span>
 					<HiChevronDown className="size-3" />
 				</Button>
@@ -87,13 +89,13 @@ export function ProjectFilter({ value, onChange }: ProjectFilterProps) {
 			<PopoverContent align="start" className="w-60 p-0">
 				<Command shouldFilter={false}>
 					<CommandInput
-						placeholder="Search projects..."
+						placeholder={t("tasks.searchProjects")}
 						value={search}
 						onValueChange={setSearch}
 					/>
 					<CommandList className="max-h-80">
 						{filtered.length === 0 && search && (
-							<CommandEmpty>No projects found.</CommandEmpty>
+							<CommandEmpty>{t("tasks.noProjects")}</CommandEmpty>
 						)}
 						{filtered.length > 0 && (
 							<CommandGroup>

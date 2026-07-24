@@ -1,6 +1,7 @@
 import { ToolInput, ToolOutput } from "@superset/ui/ai-elements/tool";
 import { ToolCallRow } from "@superset/ui/ai-elements/tool-call-row";
 import { SearchCheckIcon } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { getArgs } from "../../../../utils/tool-helpers";
 import { getGenericToolCallState } from "../GenericToolCall/getGenericToolCallState";
@@ -10,6 +11,7 @@ interface LspInspectToolCallProps {
 }
 
 export function LspInspectToolCall({ part }: LspInspectToolCallProps) {
+	const { t } = useTranslation();
 	const args = getArgs(part);
 	const { output, isError, isNotConfigured, errorText } =
 		getGenericToolCallState(part);
@@ -31,7 +33,7 @@ export function LspInspectToolCall({ part }: LspInspectToolCallProps) {
 			isError={isError}
 			isNotConfigured={isNotConfigured}
 			isPending={isPending}
-			title="LSP Inspect"
+			title={t("chat.tool.lspInspect")}
 			description={fileName}
 		>
 			{hasDetails ? (

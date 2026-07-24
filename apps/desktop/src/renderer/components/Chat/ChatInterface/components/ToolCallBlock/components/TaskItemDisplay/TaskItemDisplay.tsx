@@ -1,6 +1,7 @@
 import { TaskItem } from "@superset/ui/ai-elements/task";
 import { Badge } from "@superset/ui/badge";
 import { cn } from "@superset/ui/lib/utils";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface TaskItemDisplayDetail {
 	label: string;
@@ -30,28 +31,38 @@ function hasText(value: string | null | undefined): value is string {
 	return typeof value === "string" && value.trim().length > 0;
 }
 
-function getBaseDetails({
-	status,
-	priority,
-	assignee,
-	dueDate,
-	estimate,
-}: Pick<
-	TaskItemDisplayProps,
-	"status" | "priority" | "assignee" | "dueDate" | "estimate"
->): TaskItemDisplayDetail[] {
+type TranslateFn = ReturnType<typeof useTranslation>["t"];
+
+function getBaseDetails(
+	{
+		status,
+		priority,
+		assignee,
+		dueDate,
+		estimate,
+	}: Pick<
+		TaskItemDisplayProps,
+		"status" | "priority" | "assignee" | "dueDate" | "estimate"
+	>,
+	t: TranslateFn,
+): TaskItemDisplayDetail[] {
 	const details: TaskItemDisplayDetail[] = [];
-	if (hasText(status)) details.push({ label: "Status", value: status });
-	if (hasText(priority)) details.push({ label: "Priority", value: priority });
-	if (hasText(assignee)) details.push({ label: "Assignee", value: assignee });
-	if (hasText(dueDate)) details.push({ label: "Due", value: dueDate });
-	if (hasText(estimate)) details.push({ label: "Estimate", value: estimate });
+	if (hasText(status))
+		details.push({ label: t("chat.task.status"), value: status });
+	if (hasText(priority))
+		details.push({ label: t("chat.task.priority"), value: priority });
+	if (hasText(assignee))
+		details.push({ label: t("chat.task.assignee"), value: assignee });
+	if (hasText(dueDate))
+		details.push({ label: t("chat.task.due"), value: dueDate });
+	if (hasText(estimate))
+		details.push({ label: t("chat.task.estimate"), value: estimate });
 	return details;
 }
 
-function renderContent(props: TaskItemDisplayProps) {
+function renderContent(props: TaskItemDisplayProps, t: TranslateFn) {
 	const details = [
-		...getBaseDetails(props),
+		...getBaseDetails(props, t),
 		...(props.extraDetails ?? []).filter(
 			(detail) => hasText(detail.label) && hasText(detail.value),
 		),
@@ -124,6 +135,7 @@ function renderContent(props: TaskItemDisplayProps) {
 }
 
 export function TaskItemDisplay(props: TaskItemDisplayProps) {
+	const { t } = useTranslation();
 	const className = cn(
 		"w-full rounded border border-border/60 bg-background/60 px-2.5 py-2 text-left",
 		props.onClick ? "transition-colors hover:bg-accent/30" : undefined,
@@ -132,10 +144,10 @@ export function TaskItemDisplay(props: TaskItemDisplayProps) {
 	if (props.onClick) {
 		return (
 			<button className={className} onClick={props.onClick} type="button">
-				{renderContent(props)}
+				{renderContent(props, t)}
 			</button>
 		);
 	}
 
-	return <div className={className}>{renderContent(props)}</div>;
+	return <div className={className}>{renderContent(props, t)}</div>;
 }

@@ -8,6 +8,7 @@ import { Separator } from "@superset/ui/separator";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
 import { LuLoaderCircle, LuRadioTower, LuX } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useDashboardSidebarPortKill } from "renderer/routes/_authenticated/_dashboard/components/DashboardSidebar/components/DashboardSidebarPortsList/hooks/useDashboardSidebarPortKill";
 import type { DashboardSidebarPort } from "renderer/routes/_authenticated/_dashboard/components/DashboardSidebar/components/DashboardSidebarPortsList/hooks/useDashboardSidebarPortsData";
 import { STROKE_WIDTH } from "renderer/screens/main/components/WorkspaceSidebar/constants";
@@ -26,6 +27,7 @@ interface DashboardSidebarPortsChipProps {
 export function DashboardSidebarPortsChip({
 	ports,
 }: DashboardSidebarPortsChipProps) {
+	const { t } = useTranslation();
 	const { isPending, killPorts } = useDashboardSidebarPortKill();
 	const { hold, release } = useDashboardSidebarChipHoverSuppression();
 
@@ -35,7 +37,9 @@ export function DashboardSidebarPortsChip({
 		const closedCount = results.filter((result) => result.success).length;
 		if (closedCount > 0) {
 			toast.success(
-				closedCount === 1 ? "Closed 1 port" : `Closed ${closedCount} ports`,
+				closedCount === 1
+					? t("workspace.closedPort")
+					: t("workspace.closedPorts", { count: closedCount }),
 			);
 		}
 	};
@@ -63,7 +67,9 @@ export function DashboardSidebarPortsChip({
 						}}
 						disabled={isPending}
 						aria-busy={isPending}
-						aria-label={`${ports.length} active ${ports.length === 1 ? "port" : "ports"} — close all`}
+						aria-label={t("workspace.activePortsCloseAll", {
+							count: ports.length,
+						})}
 						className={cn(
 							"group/chip h-[18px] bg-muted/60 px-1.5 py-0 text-[9px] font-medium tabular-nums text-muted-foreground",
 							"[&>svg]:size-2.5 hover:bg-muted hover:text-foreground disabled:opacity-70",
@@ -101,7 +107,7 @@ export function DashboardSidebarPortsChip({
 				className="w-64 p-1"
 			>
 				<div className="flex items-center justify-between px-2 py-1.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-					<span>Ports</span>
+					<span>{t("workspace.ports")}</span>
 					<span className="tabular-nums">{ports.length}</span>
 				</div>
 				<div className="max-h-60 overflow-y-auto">
@@ -120,7 +126,7 @@ export function DashboardSidebarPortsChip({
 					className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-70"
 				>
 					<LuX className="size-3" strokeWidth={STROKE_WIDTH} />
-					Close all ports
+					{t("ports.closeAll")}
 				</button>
 			</HoverCardContent>
 		</HoverCard>

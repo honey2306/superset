@@ -16,6 +16,7 @@ import {
 } from "renderer/components/OpenInExternalDropdown";
 import { HotkeyLabel, useHotkey, useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useThemeStore } from "renderer/stores";
 
 interface OpenInMenuButtonProps {
@@ -29,6 +30,7 @@ export const OpenInMenuButton = memo(function OpenInMenuButton({
 	branch,
 	projectId,
 }: OpenInMenuButtonProps) {
+	const { t } = useTranslation();
 	const activeTheme = useThemeStore((state) => state.activeTheme);
 	const utils = electronTrpc.useUtils();
 	const { data: defaultApp } = electronTrpc.projects.getDefaultApp.useQuery(
@@ -42,11 +44,13 @@ export const OpenInMenuButton = memo(function OpenInMenuButton({
 				utils.projects.getDefaultApp.invalidate({ projectId });
 			}
 		},
-		onError: (error) => toast.error(`Failed to open: ${error.message}`),
+		onError: (error) =>
+			toast.error(t("path.openFailed", { error: error.message })),
 	});
 	const copyPath = electronTrpc.external.copyPath.useMutation({
-		onSuccess: () => toast.success("Path copied to clipboard"),
-		onError: (error) => toast.error(`Failed to copy path: ${error.message}`),
+		onSuccess: () => toast.success(t("path.copied")),
+		onError: (error) =>
+			toast.error(t("path.copyFailed", { error: error.message })),
 	});
 
 	const currentApp = useMemo(
@@ -92,8 +96,10 @@ export const OpenInMenuButton = memo(function OpenInMenuButton({
 						disabled={isLoading || !currentApp}
 						aria-label={
 							currentApp
-								? `Open in ${currentApp.displayLabel ?? currentApp.label}`
-								: "Open in editor"
+								? t("dashboard.openInApp", {
+										app: currentApp.displayLabel ?? currentApp.label,
+									})
+								: t("dashboard.openInEditor")
 						}
 						className={cn(
 							"group flex items-center gap-1.5 h-6 px-1.5 sm:pl-1.5 sm:pr-2 rounded-l border border-r-0 border-border/60 bg-secondary/50 text-xs font-medium",
@@ -117,18 +123,20 @@ export const OpenInMenuButton = memo(function OpenInMenuButton({
 							</span>
 						)}
 						<span className="hidden sm:inline text-foreground font-medium">
-							Open
+							{t("dashboard.open")}
 						</span>
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom" sideOffset={6}>
 					{currentApp ? (
 						<HotkeyLabel
-							label={`Open in ${currentApp.displayLabel ?? currentApp.label}`}
+							label={t("dashboard.openInApp", {
+								app: currentApp.displayLabel ?? currentApp.label,
+							})}
 							id="OPEN_IN_APP"
 						/>
 					) : (
-						"Select an editor from the dropdown"
+						t("dashboard.selectEditor")
 					)}
 				</TooltipContent>
 			</Tooltip>
@@ -139,6 +147,7 @@ export const OpenInMenuButton = memo(function OpenInMenuButton({
 					<button
 						type="button"
 						disabled={isLoading}
+						aria-label={t("dashboard.openInMenuAria")}
 						className={cn(
 							"flex items-center justify-center h-6 w-6 rounded-r border border-border/60 bg-secondary/50 text-muted-foreground",
 							"transition-all duration-150 ease-out",

@@ -1,8 +1,8 @@
-import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { HiArrowTopRightOnSquare } from "react-icons/hi2";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface Invoice {
 	id: string;
@@ -12,18 +12,23 @@ interface Invoice {
 	hostedInvoiceUrl: string | null | undefined;
 }
 
-function formatAmount(amount: number, currency: string) {
-	return new Intl.NumberFormat("en-US", {
+function formatAmount(amount: number, currency: string, locale: string) {
+	return new Intl.NumberFormat(locale, {
 		style: "currency",
 		currency: currency.toUpperCase(),
 	}).format(amount / 100);
 }
 
-function formatDate(timestamp: number) {
-	return format(new Date(timestamp * 1000), "MMM d, yyyy");
+function formatDate(timestamp: number, locale: string) {
+	return new Intl.DateTimeFormat(locale, {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	}).format(new Date(timestamp * 1000));
 }
 
 export function RecentInvoices() {
+	const { locale, t } = useTranslation();
 	const [invoices, setInvoices] = useState<Invoice[]>([]);
 	const openUrl = electronTrpc.external.openUrl.useMutation();
 
@@ -42,7 +47,9 @@ export function RecentInvoices() {
 
 	return (
 		<div>
-			<h3 className="text-sm font-medium mb-2">Recent invoices</h3>
+			<h3 className="text-sm font-medium mb-2">
+				{t("billing.recentInvoices")}
+			</h3>
 			<div className="divide-y divide-border">
 				{invoices.map((invoice) => (
 					<div
@@ -51,10 +58,10 @@ export function RecentInvoices() {
 					>
 						<div className="flex items-center gap-6 text-sm">
 							<span className="text-muted-foreground tabular-nums">
-								{formatDate(invoice.date)}
+								{formatDate(invoice.date, locale)}
 							</span>
 							<span className="tabular-nums">
-								{formatAmount(invoice.amount, invoice.currency)}
+								{formatAmount(invoice.amount, invoice.currency, locale)}
 							</span>
 						</div>
 						{invoice.hostedInvoiceUrl ? (
@@ -65,7 +72,7 @@ export function RecentInvoices() {
 								}
 								className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
 							>
-								View
+								{t("billing.viewInvoice")}
 								<HiArrowTopRightOnSquare className="h-3 w-3" />
 							</button>
 						) : null}

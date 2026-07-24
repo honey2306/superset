@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
-import { UNBOUND_HINT } from "../../hint";
+import { useTranslation } from "renderer/providers/I18nProvider";
+import { unboundHint } from "../../hint";
 
 const TOOLTIP_OFFSET_PX = 14;
 const TOOLTIP_CLASSES =
@@ -34,6 +35,7 @@ export function LinkHoverHint({
 	hoverPosition,
 	clickHint,
 }: LinkHoverHintProps) {
+	const { t } = useTranslation();
 	const showingHover = hoverLabel !== null && hoverPosition !== null;
 	return createPortal(
 		<>
@@ -62,7 +64,7 @@ export function LinkHoverHint({
 							top: clickHint.clientY + TOOLTIP_OFFSET_PX,
 						}}
 					>
-						{UNBOUND_HINT}
+						{unboundHint(t)}
 					</motion.div>
 				)}
 			</AnimatePresence>

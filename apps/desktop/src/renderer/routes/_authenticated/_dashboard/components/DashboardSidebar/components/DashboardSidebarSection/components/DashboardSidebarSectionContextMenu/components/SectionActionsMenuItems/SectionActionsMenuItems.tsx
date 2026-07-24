@@ -14,6 +14,7 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { HiCheck } from "react-icons/hi2";
 import { LuPalette, LuPencil, LuTrash2 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	PROJECT_COLOR_DEFAULT,
 	PROJECT_COLORS,
@@ -35,9 +36,10 @@ export function SectionActionsMenuItems({
 	onSetColor,
 	onDelete,
 }: SectionActionsMenuItemsProps) {
+	const { t } = useTranslation();
 	const selectedValue = color ?? PROJECT_COLOR_DEFAULT;
 	const colorOptions = [
-		{ name: "Default", value: PROJECT_COLOR_DEFAULT },
+		{ name: t("workspace.defaultColor"), value: PROJECT_COLOR_DEFAULT },
 		...PROJECT_COLORS,
 	];
 	const iconClassName = kind === "context" ? "size-4 mr-2" : "size-4";
@@ -114,7 +116,7 @@ export function SectionActionsMenuItems({
 	const colorTrigger = (
 		<>
 			<LuPalette className={iconClassName} />
-			Set group color
+			{t("workspace.setGroupColor")}
 		</>
 	);
 
@@ -125,7 +127,7 @@ export function SectionActionsMenuItems({
 				children: (
 					<>
 						<LuPencil className={iconClassName} />
-						Rename group
+						{t("workspace.renameGroup")}
 					</>
 				),
 			})}
@@ -161,7 +163,7 @@ export function SectionActionsMenuItems({
 									: "size-4 text-destructive"
 							}
 						/>
-						Delete group
+						{t("workspace.deleteGroup")}
 					</>
 				),
 			})}

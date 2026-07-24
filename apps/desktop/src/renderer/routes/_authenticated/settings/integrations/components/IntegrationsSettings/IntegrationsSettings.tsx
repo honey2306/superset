@@ -8,6 +8,7 @@ import { SiLinear } from "react-icons/si";
 import { env } from "renderer/env.renderer";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import {
 	isItemVisible,
@@ -31,6 +32,7 @@ interface GithubInstallation {
 export function IntegrationsSettings({
 	visibleItems,
 }: IntegrationsSettingsProps) {
+	const { t } = useTranslation();
 	const { data: session } = authClient.useSession();
 	const activeOrganizationId = session?.session?.activeOrganizationId;
 	const collections = useCollections();
@@ -100,13 +102,15 @@ export function IntegrationsSettings({
 		return (
 			<div className="p-6 max-w-4xl w-full">
 				<div className="mb-8">
-					<h2 className="text-xl font-semibold">Integrations</h2>
+					<h2 className="text-xl font-semibold">
+						{t("settings.integrations")}
+					</h2>
 					<p className="text-sm text-muted-foreground mt-1">
-						Connect external services to sync data.
+						{t("integrations.descriptionNoOrganization")}
 					</p>
 				</div>
 				<p className="text-sm text-muted-foreground">
-					You need to be part of an organization to use integrations.
+					{t("integrations.organizationRequired")}
 				</p>
 			</div>
 		);
@@ -115,9 +119,9 @@ export function IntegrationsSettings({
 	return (
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Integrations</h2>
+				<h2 className="text-xl font-semibold">{t("settings.integrations")}</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Connect external services to sync data with your organization.
+					{t("integrations.description")}
 				</p>
 			</div>
 
@@ -125,7 +129,7 @@ export function IntegrationsSettings({
 				{showLinear && (
 					<IntegrationRow
 						name="Linear"
-						description="Sync issues bidirectionally with Linear."
+						description={t("integrations.linearDescription")}
 						icon={<SiLinear className="size-5" />}
 						isConnected={isLinearConnected}
 						connectedOrgName={linearConnection?.externalOrgName}
@@ -136,7 +140,7 @@ export function IntegrationsSettings({
 				{showGithub && (
 					<IntegrationRow
 						name="GitHub"
-						description="Connect repos and sync pull requests."
+						description={t("integrations.githubDescription")}
 						icon={<FaGithub className="size-5" />}
 						isConnected={isGithubConnected}
 						connectedOrgName={githubInstallation?.accountLogin}
@@ -148,7 +152,7 @@ export function IntegrationsSettings({
 				{showSlack && (
 					<IntegrationRow
 						name="Slack"
-						description="Manage tasks from Slack conversations."
+						description={t("integrations.slackDescription")}
 						icon={<FaSlack className="size-5" />}
 						isConnected={isSlackConnected}
 						connectedOrgName={slackConnection?.externalOrgName}
@@ -158,7 +162,7 @@ export function IntegrationsSettings({
 			</div>
 
 			<p className="mt-6 text-xs text-muted-foreground">
-				Manage integrations in the web app to connect and configure services.
+				{t("integrations.manageOnWeb")}
 			</p>
 		</div>
 	);
@@ -183,6 +187,7 @@ function IntegrationRow({
 	isLoading,
 	onManage,
 }: IntegrationRowProps) {
+	const { t } = useTranslation();
 	const status = isLoading ? (
 		<Skeleton className="h-4 w-24" />
 	) : (
@@ -197,9 +202,9 @@ function IntegrationRow({
 			<span className="text-xs text-muted-foreground">
 				{isConnected
 					? connectedOrgName
-						? `Connected to ${connectedOrgName}`
-						: "Connected"
-					: "Not connected"}
+						? t("integrations.connectedTo", { name: connectedOrgName })
+						: t("common.connected")
+					: t("common.notConnected")}
 			</span>
 		</div>
 	);
@@ -226,7 +231,7 @@ function IntegrationRow({
 					className="gap-2"
 				>
 					<HiOutlineArrowTopRightOnSquare className="size-4" />
-					{isConnected ? "Manage" : "Connect"}
+					{isConnected ? t("common.manage") : t("common.connect")}
 				</Button>
 			</div>
 		</div>

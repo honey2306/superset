@@ -10,12 +10,14 @@ import { toast } from "@superset/ui/sonner";
 import { useState } from "react";
 import { HiEllipsisVertical, HiOutlineXMark } from "react-icons/hi2";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface InvitationActionsProps {
 	invitation: SelectInvitation;
 }
 
 export function InvitationActions({ invitation }: InvitationActionsProps) {
+	const { t } = useTranslation();
 	const [isCanceling, setIsCanceling] = useState(false);
 
 	const handleCancel = async () => {
@@ -24,10 +26,12 @@ export function InvitationActions({ invitation }: InvitationActionsProps) {
 			await authClient.organization.cancelInvitation({
 				invitationId: invitation.id,
 			});
-			toast.success("Invitation canceled");
+			toast.success(t("members.invitationCanceled"));
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : "Failed to cancel invitation",
+				error instanceof Error
+					? error.message
+					: t("members.cancelInvitationFailed"),
 			);
 		} finally {
 			setIsCanceling(false);
@@ -48,7 +52,7 @@ export function InvitationActions({ invitation }: InvitationActionsProps) {
 					className="text-destructive gap-2"
 				>
 					<HiOutlineXMark className="h-4 w-4" />
-					Cancel
+					{t("common.cancel")}
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

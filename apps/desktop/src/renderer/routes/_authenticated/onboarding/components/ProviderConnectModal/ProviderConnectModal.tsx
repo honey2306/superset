@@ -16,6 +16,7 @@ import { OpenAIOAuthDialog } from "renderer/components/Chat/ChatInterface/compon
 import { useAnthropicOAuth } from "renderer/components/Chat/ChatInterface/components/ModelPicker/hooks/useAnthropicOAuth";
 import { useOpenAIOAuth } from "renderer/components/Chat/ChatInterface/components/ModelPicker/hooks/useOpenAIOAuth";
 import { track } from "renderer/lib/analytics";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export type Provider = "anthropic" | "openai";
 
@@ -42,6 +43,7 @@ function AnthropicConnectDialog({
 }: {
 	onOpenChange: (open: boolean) => void;
 }) {
+	const { t } = useTranslation();
 	const { refetch } = chatServiceTrpc.auth.getAnthropicStatus.useQuery();
 	const setApiKey = chatServiceTrpc.auth.setAnthropicApiKey.useMutation();
 	const { isStartingOAuth, startAnthropicOAuth, oauthDialog } =
@@ -84,14 +86,14 @@ function AnthropicConnectDialog({
 
 	return (
 		<ConnectDialogShell
-			title="Connect Claude Code"
-			description="Use your Anthropic subscription or an API key."
-			oauthLabel="Continue with Claude Pro/Max"
+			title={t("onboarding.connectClaude")}
+			description={t("onboarding.connectClaudeDescription")}
+			oauthLabel={t("onboarding.continueClaude")}
 			oauthPreparing={isStartingOAuth || oauthDialog.isPreparing}
 			onOAuth={startAnthropicOAuth}
 			apiKeyPlaceholder="sk-ant-..."
 			apiKeyHelpUrl="https://console.anthropic.com/settings/keys"
-			apiKeyHelpLabel="Get an API key from console.anthropic.com →"
+			apiKeyHelpLabel={t("onboarding.anthropicApiKey")}
 			onApiKeySubmit={handleApiKeySubmit}
 			onOpenChange={onOpenChange}
 		/>
@@ -103,6 +105,7 @@ function OpenAIConnectDialog({
 }: {
 	onOpenChange: (open: boolean) => void;
 }) {
+	const { t } = useTranslation();
 	const { refetch } = chatServiceTrpc.auth.getOpenAIStatus.useQuery();
 	const setApiKey = chatServiceTrpc.auth.setOpenAIApiKey.useMutation();
 	const { isStartingOAuth, startOpenAIOAuth, oauthDialog } = useOpenAIOAuth({
@@ -144,14 +147,14 @@ function OpenAIConnectDialog({
 
 	return (
 		<ConnectDialogShell
-			title="Connect Codex"
-			description="Use your ChatGPT subscription or an API key."
-			oauthLabel="Sign in with ChatGPT"
+			title={t("onboarding.connectCodex")}
+			description={t("onboarding.connectCodexDescription")}
+			oauthLabel={t("onboarding.signInChatGPT")}
 			oauthPreparing={isStartingOAuth}
 			onOAuth={startOpenAIOAuth}
 			apiKeyPlaceholder="sk-..."
 			apiKeyHelpUrl="https://platform.openai.com/api-keys"
-			apiKeyHelpLabel="Get an API key from platform.openai.com →"
+			apiKeyHelpLabel={t("onboarding.openaiApiKey")}
 			onApiKeySubmit={handleApiKeySubmit}
 			onOpenChange={onOpenChange}
 		/>
@@ -183,6 +186,7 @@ function ConnectDialogShell({
 	onApiKeySubmit,
 	onOpenChange,
 }: ConnectDialogShellProps) {
+	const { t } = useTranslation();
 	const [mode, setMode] = useState<"choose" | "api-key">("choose");
 	const [apiKey, setApiKey] = useState("");
 	const [submitting, setSubmitting] = useState(false);
@@ -196,7 +200,7 @@ function ConnectDialogShell({
 			await onApiKeySubmit(trimmed);
 		} catch (err) {
 			toast.error(
-				err instanceof Error ? err.message : "Failed to save the API key.",
+				err instanceof Error ? err.message : t("onboarding.apiKeySaveFailed"),
 			);
 		} finally {
 			setSubmitting(false);
@@ -218,7 +222,7 @@ function ConnectDialogShell({
 							onClick={() => void onOAuth()}
 							disabled={oauthPreparing}
 						>
-							{oauthPreparing ? "Preparing…" : oauthLabel}
+							{oauthPreparing ? t("onboarding.preparing") : oauthLabel}
 						</Button>
 						<Button
 							size="sm"
@@ -226,7 +230,7 @@ function ConnectDialogShell({
 							onClick={() => setMode("api-key")}
 						>
 							<LuKeyRound />
-							Use API key instead
+							{t("onboarding.useApiKey")}
 						</Button>
 					</div>
 				) : (
@@ -256,10 +260,12 @@ function ConnectDialogShell({
 								onClick={() => setMode("choose")}
 								disabled={submitting}
 							>
-								Back
+								{t("onboarding.back")}
 							</Button>
 							<Button type="submit" size="sm" disabled={submitting}>
-								{submitting ? "Saving…" : "Save & connect"}
+								{submitting
+									? t("onboarding.saving")
+									: t("onboarding.saveConnect")}
 							</Button>
 						</div>
 					</form>

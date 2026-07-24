@@ -22,6 +22,7 @@ import {
 	VscLinkExternal,
 	VscRemove,
 } from "react-icons/vsc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import { usePathActions } from "../../hooks";
 import { DiscardConfirmDialog } from "../DiscardConfirmDialog";
@@ -122,6 +123,7 @@ export function FolderRow({
 	projectId,
 	defaultApp,
 }: FolderRowProps) {
+	const { t } = useTranslation();
 	const [showDiscardDialog, setShowDiscardDialog] = useState(false);
 	const isGrouped = variant === "grouped";
 	const isRoot = folderPath === "";
@@ -130,7 +132,6 @@ export function FolderRow({
 		: toAbsoluteWorkspacePath(worktreePath, folderPath);
 	const hasAction = !!(onStageAll || onUnstageAll || onDiscardAll);
 	const discardFileCount = fileCount ?? "all";
-	const discardFileSuffix = fileCount === 1 ? "" : "s";
 
 	const { copyPath, copyRelativePath, revealInFinder, openInEditor } =
 		usePathActions({
@@ -146,7 +147,7 @@ export function FolderRow({
 			? [
 					{
 						key: "discard-all",
-						label: "Discard All",
+						label: t("v1Changes.folder.discardAll"),
 						icon: <VscDiscard className="size-3" />,
 						onClick: openDiscardDialog,
 						isDestructive: true,
@@ -158,7 +159,7 @@ export function FolderRow({
 			? [
 					{
 						key: "stage-all",
-						label: "Stage All",
+						label: t("v1Changes.folder.stageAll"),
 						icon: <VscAdd className="size-3" />,
 						onClick: onStageAll,
 						disabled: isActioning,
@@ -169,7 +170,7 @@ export function FolderRow({
 			? [
 					{
 						key: "unstage-all",
-						label: "Unstage All",
+						label: t("v1Changes.folder.unstageAll"),
 						icon: <VscRemove className="size-3" />,
 						onClick: onUnstageAll,
 						disabled: isActioning,
@@ -200,22 +201,22 @@ export function FolderRow({
 		<ContextMenuContent className="w-48">
 			<ContextMenuItem onClick={copyPath}>
 				<VscClippy className="mr-2 size-4" />
-				Copy Path
+				{t("v1Changes.fileItem.copyPath")}
 			</ContextMenuItem>
 			{!isRoot && (
 				<ContextMenuItem onClick={copyRelativePath}>
 					<VscClippy className="mr-2 size-4" />
-					Copy Relative Path
+					{t("v1Changes.fileItem.copyRelativePath")}
 				</ContextMenuItem>
 			)}
 			<ContextMenuSeparator />
 			<ContextMenuItem onClick={revealInFinder}>
 				<VscFolderOpened className="mr-2 size-4" />
-				Reveal in Finder
+				{t("v1Changes.fileItem.revealInFinder")}
 			</ContextMenuItem>
 			<ContextMenuItem onClick={openInEditor}>
 				<VscLinkExternal className="mr-2 size-4" />
-				Open in Editor
+				{t("v1Changes.fileItem.openInEditor")}
 			</ContextMenuItem>
 
 			{(onStageAll || onUnstageAll || onDiscardAll) && <ContextMenuSeparator />}
@@ -223,14 +224,14 @@ export function FolderRow({
 			{onStageAll && (
 				<ContextMenuItem onClick={onStageAll} disabled={isActioning}>
 					<VscAdd className="mr-2 size-4" />
-					Stage All
+					{t("v1Changes.folder.stageAll")}
 				</ContextMenuItem>
 			)}
 
 			{onUnstageAll && (
 				<ContextMenuItem onClick={onUnstageAll} disabled={isActioning}>
 					<VscRemove className="mr-2 size-4" />
-					Unstage All
+					{t("v1Changes.folder.unstageAll")}
 				</ContextMenuItem>
 			)}
 
@@ -241,7 +242,7 @@ export function FolderRow({
 					className="text-destructive focus:text-destructive"
 				>
 					<VscDiscard className="mr-2 size-4" />
-					Discard All
+					{t("v1Changes.folder.discardAll")}
 				</ContextMenuItem>
 			)}
 		</ContextMenuContent>
@@ -281,8 +282,10 @@ export function FolderRow({
 			<DiscardConfirmDialog
 				open={showDiscardDialog}
 				onOpenChange={setShowDiscardDialog}
-				title={`Discard all changes in "${name}"?`}
-				description={`This will revert all changes to ${discardFileCount} file${discardFileSuffix} in this folder. This action cannot be undone.`}
+				title={t("v1Changes.folder.discardAllTitle", { name })}
+				description={t("v1Changes.folder.discardAllDesc", {
+					count: discardFileCount,
+				})}
 				onConfirm={() => onDiscardAll?.()}
 				confirmDisabled={!onDiscardAll || isActioning}
 			/>

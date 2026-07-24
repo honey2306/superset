@@ -29,6 +29,7 @@ import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import {
 	getImageExtensionFromMimeType,
@@ -73,6 +74,7 @@ function SettingsRow({ label, hint, htmlFor, children }: SettingsRowProps) {
 export function OrganizationSettings({
 	visibleItems,
 }: OrganizationSettingsProps) {
+	const { locale, t } = useTranslation();
 	const { data: session } = authClient.useSession();
 	const activeOrganizationId = session?.session?.activeOrganizationId;
 	const collections = useCollections();
@@ -152,7 +154,7 @@ export function OrganizationSettings({
 
 	const formatDate = (date: Date | string) => {
 		const d = date instanceof Date ? date : new Date(date);
-		return d.toLocaleDateString("en-US", {
+		return d.toLocaleDateString(locale, {
 			month: "short",
 			day: "numeric",
 		});
@@ -182,10 +184,10 @@ export function OrganizationSettings({
 			});
 
 			setLogoPreview(uploadResult.url);
-			toast.success("Logo updated");
+			toast.success(t("organization.logoUpdated"));
 		} catch (error) {
 			console.error("[organization-settings] Logo upload failed:", error);
-			toast.error("Failed to update logo");
+			toast.error(t("organization.logoUpdateFailed"));
 		}
 	}
 
@@ -202,10 +204,10 @@ export function OrganizationSettings({
 				id: organization.id,
 				name: nameValue,
 			});
-			toast.success("Organization name updated");
+			toast.success(t("organization.nameUpdated"));
 		} catch (error) {
 			console.error("[organization-settings] Name update failed:", error);
-			toast.error("Failed to update name");
+			toast.error(t("organization.nameUpdateFailed"));
 			setNameValue(organization.name);
 		}
 	}
@@ -214,7 +216,7 @@ export function OrganizationSettings({
 		return (
 			<div className="p-6 max-w-4xl w-full">
 				<p className="text-sm text-muted-foreground">
-					No organization selected
+					{t("organization.noneSelected")}
 				</p>
 			</div>
 		);
@@ -243,7 +245,7 @@ export function OrganizationSettings({
 		return (
 			<div className="p-6 max-w-4xl w-full">
 				<p className="text-sm text-muted-foreground select-text cursor-text">
-					Organization not found.
+					{t("organization.notFound")}
 				</p>
 			</div>
 		);
@@ -262,9 +264,9 @@ export function OrganizationSettings({
 		<>
 			<div className="p-6 max-w-4xl w-full">
 				<div className="mb-8">
-					<h2 className="text-xl font-semibold">Organization</h2>
+					<h2 className="text-xl font-semibold">{t("organization.title")}</h2>
 					<p className="text-sm text-muted-foreground mt-1">
-						Manage your organization's branding and members.
+						{t("organization.settingsDescription")}
 					</p>
 				</div>
 
@@ -273,13 +275,16 @@ export function OrganizationSettings({
 						<section>
 							<div>
 								{showLogo && (
-									<SettingsRow label="Logo" hint="Recommended size 256×256.">
+									<SettingsRow
+										label={t("organization.logo")}
+										hint={t("organization.logoHint")}
+									>
 										<button
 											type="button"
 											onClick={handleLogoUpload}
 											disabled={!isOwner}
 											className="rounded-md transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-100"
-											aria-label="Change organization logo"
+											aria-label={t("organization.changeLogo")}
 										>
 											<OrganizationLogo
 												logo={logoPreview}
@@ -290,7 +295,7 @@ export function OrganizationSettings({
 								)}
 
 								{showName && (
-									<SettingsRow label="Name" htmlFor="org-name">
+									<SettingsRow label={t("common.name")} htmlFor="org-name">
 										<Input
 											id="org-name"
 											value={nameValue}
@@ -305,8 +310,8 @@ export function OrganizationSettings({
 
 								{showSlug && (
 									<SettingsRow
-										label="Slug"
-										hint="Used in URLs and APIs."
+										label={t("organization.slugLabel")}
+										hint={t("organization.slugHint")}
 										htmlFor="org-slug"
 									>
 										<Input
@@ -337,14 +342,14 @@ export function OrganizationSettings({
 								{showId && (
 									<SettingsRow
 										label="ID"
-										hint="Use this when calling the Superset API."
+										hint={t("organization.idHint")}
 										htmlFor="org-id"
 									>
 										<button
 											type="button"
 											id="org-id"
 											onClick={() => copyToClipboard(organization.id)}
-											aria-label="Copy organization ID"
+											aria-label={t("organization.copyId")}
 											className="group relative block w-72 cursor-pointer rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 										>
 											<Input
@@ -364,7 +369,7 @@ export function OrganizationSettings({
 													</span>
 												</TooltipTrigger>
 												<TooltipContent>
-													{copied ? "Copied!" : "Copy"}
+													{copied ? t("common.copied") : t("common.copy")}
 												</TooltipContent>
 											</Tooltip>
 										</button>
@@ -374,7 +379,7 @@ export function OrganizationSettings({
 
 							{!isOwner && (
 								<p className="text-xs text-muted-foreground mt-3">
-									Only organization owners can modify these settings.
+									{t("organization.ownerOnly")}
 								</p>
 							)}
 						</section>
@@ -396,9 +401,11 @@ export function OrganizationSettings({
 							{showMembersList && (
 								<div>
 									<div className="mb-3">
-										<h3 className="text-sm font-medium">Members</h3>
+										<h3 className="text-sm font-medium">
+											{t("organization.members")}
+										</h3>
 										<p className="text-xs text-muted-foreground mt-0.5">
-											Everyone with access to this organization.
+											{t("organization.membersDescription")}
 										</p>
 									</div>
 
@@ -418,17 +425,17 @@ export function OrganizationSettings({
 										</div>
 									) : members.length === 0 ? (
 										<div className="text-center py-12 text-sm text-muted-foreground border rounded-lg">
-											No members yet.
+											{t("organization.noMembers")}
 										</div>
 									) : (
 										<div className="border rounded-lg overflow-hidden">
 											<Table>
 												<TableHeader>
 													<TableRow>
-														<TableHead>Name</TableHead>
-														<TableHead>Email</TableHead>
-														<TableHead>Role</TableHead>
-														<TableHead>Joined</TableHead>
+														<TableHead>{t("common.name")}</TableHead>
+														<TableHead>{t("common.email")}</TableHead>
+														<TableHead>{t("organization.role")}</TableHead>
+														<TableHead>{t("common.joined")}</TableHead>
 														<TableHead className="w-[50px]" />
 													</TableRow>
 												</TableHeader>
@@ -448,14 +455,14 @@ export function OrganizationSettings({
 																		/>
 																		<div className="flex items-center gap-2">
 																			<span className="font-medium">
-																				{member.name || "Unknown"}
+																				{member.name || t("common.unknown")}
 																			</span>
 																			{isCurrentUserRow && (
 																				<Badge
 																					variant="secondary"
 																					className="text-[10px] h-4 px-1.5"
 																				>
-																					You
+																					{t("common.you")}
 																				</Badge>
 																			)}
 																		</div>
@@ -473,7 +480,12 @@ export function OrganizationSettings({
 																		}
 																		className="text-xs capitalize"
 																	>
-																		{member.role}
+																		{t(
+																			`organization.role.${member.role}` as
+																				| "organization.role.owner"
+																				| "organization.role.admin"
+																				| "organization.role.member",
+																		)}
 																	</Badge>
 																</TableCell>
 																<TableCell className="text-muted-foreground">

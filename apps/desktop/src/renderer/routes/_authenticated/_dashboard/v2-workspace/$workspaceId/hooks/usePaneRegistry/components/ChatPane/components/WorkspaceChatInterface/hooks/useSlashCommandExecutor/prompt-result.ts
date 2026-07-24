@@ -1,3 +1,5 @@
+import type { useTranslation } from "renderer/providers/I18nProvider";
+
 interface PromptResolutionInput {
 	handled: boolean;
 	prompt?: string;
@@ -11,6 +13,8 @@ interface PromptResolution {
 	errorMessage?: string;
 }
 
+type TranslationFunction = ReturnType<typeof useTranslation>["t"];
+
 function getSlashCommandLabel(input: PromptResolutionInput): string {
 	const rawLabel = input.invokedAs?.trim() || input.commandName?.trim() || "";
 	const normalized = rawLabel.replace(/^\//, "");
@@ -19,6 +23,7 @@ function getSlashCommandLabel(input: PromptResolutionInput): string {
 
 export function resolveSlashPromptResult(
 	input: PromptResolutionInput,
+	t: TranslationFunction,
 ): PromptResolution {
 	if (!input.handled) {
 		return { handled: false, nextText: "" };
@@ -32,6 +37,8 @@ export function resolveSlashPromptResult(
 	return {
 		handled: true,
 		nextText: "",
-		errorMessage: `Slash command /${getSlashCommandLabel(input)} produced an empty prompt`,
+		errorMessage: t("chat.slash.emptyPrompt", {
+			label: getSlashCommandLabel(input),
+		}),
 	};
 }

@@ -1,5 +1,9 @@
 import { OverflowFadeContainer } from "@superset/ui/overflow-fade-container";
 import { memo, useMemo } from "react";
+import {
+	type MessageKey,
+	useTranslation,
+} from "renderer/providers/I18nProvider";
 import type { ChangesetFile } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useChangeset";
 import type { ChangesViewMode } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal/schema";
 import { ChangesFoldersView } from "./components/ChangesFoldersView";
@@ -38,11 +42,11 @@ const GROUP_ORDER: GroupKey[] = [
 	"commit",
 ];
 
-const GROUP_TITLES: Record<GroupKey, string> = {
-	unstaged: "Unstaged",
-	staged: "Staged",
-	"against-base": "Against base",
-	commit: "Committed",
+const GROUP_TITLES: Record<GroupKey, MessageKey> = {
+	unstaged: "v2Workspace.changes.groupUnstaged",
+	staged: "v2Workspace.changes.groupStaged",
+	"against-base": "v2Workspace.changes.groupAgainstBase",
+	commit: "v2Workspace.changes.groupCommit",
 };
 
 export const ChangesFileList = memo(function ChangesFileList({
@@ -57,6 +61,7 @@ export const ChangesFileList = memo(function ChangesFileList({
 	onOpenFile,
 	onOpenInEditor,
 }: ChangesFileListProps) {
+	const { t } = useTranslation();
 	const grouped = useMemo(() => {
 		const groups: Record<GroupKey, ChangesetFile[]> = {
 			unstaged: [],
@@ -73,7 +78,7 @@ export const ChangesFileList = memo(function ChangesFileList({
 	if (isLoading) {
 		return (
 			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-				Loading...
+				{t("v2Workspace.changes.loading")}
 			</div>
 		);
 	}
@@ -81,7 +86,7 @@ export const ChangesFileList = memo(function ChangesFileList({
 	if (files.length === 0) {
 		return (
 			<div className="px-3 py-6 text-center text-sm text-muted-foreground">
-				No changes
+				{t("v2Workspace.changes.noChanges")}
 			</div>
 		);
 	}
@@ -100,7 +105,7 @@ export const ChangesFileList = memo(function ChangesFileList({
 					<ChangesSection
 						key={key}
 						sectionKey={key}
-						title={GROUP_TITLES[key]}
+						title={t(GROUP_TITLES[key])}
 						count={groupFiles.length}
 						stagingActions={
 							hasStagingActions

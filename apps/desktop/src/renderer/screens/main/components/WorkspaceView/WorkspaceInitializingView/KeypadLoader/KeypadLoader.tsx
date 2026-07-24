@@ -8,6 +8,7 @@ import {
 	LuGitBranch,
 	LuRefreshCw,
 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	getStepIndex,
 	type WorkspaceInitStep,
@@ -26,7 +27,12 @@ interface KeyDef {
 	/** Steps during which this key should animate as "currently being pressed". */
 	activeSteps: readonly WorkspaceInitStep[];
 	Icon: ComponentType<{ className?: string }>;
-	label: string;
+	labelKey:
+		| "workspace.setupSyncing"
+		| "workspace.setupFetching"
+		| "workspace.setupCreatingWorktree"
+		| "workspace.setupCopyingConfig"
+		| "workspace.setupFinalizing";
 }
 
 // 6 underlying steps are collapsed into 5 keys by merging syncing + verifying.
@@ -38,35 +44,35 @@ const KEYS: readonly KeyDef[] = [
 		// first progress event arrives from the backend.
 		activeSteps: ["pending", "syncing", "verifying"],
 		Icon: LuRefreshCw,
-		label: "Syncing",
+		labelKey: "workspace.setupSyncing",
 	},
 	{
 		id: "two",
 		pressedAfter: "fetching",
 		activeSteps: ["fetching"],
 		Icon: LuDownload,
-		label: "Fetching",
+		labelKey: "workspace.setupFetching",
 	},
 	{
 		id: "three",
 		pressedAfter: "creating_worktree",
 		activeSteps: ["creating_worktree"],
 		Icon: LuGitBranch,
-		label: "Creating worktree",
+		labelKey: "workspace.setupCreatingWorktree",
 	},
 	{
 		id: "four",
 		pressedAfter: "copying_config",
 		activeSteps: ["copying_config"],
 		Icon: LuFileCog,
-		label: "Copying config",
+		labelKey: "workspace.setupCopyingConfig",
 	},
 	{
 		id: "five",
 		pressedAfter: "finalizing",
 		activeSteps: ["finalizing"],
 		Icon: LuDatabase,
-		label: "Finalizing",
+		labelKey: "workspace.setupFinalizing",
 	},
 ];
 
@@ -86,6 +92,7 @@ export function KeypadLoader({
 	muted = false,
 	volume = DEFAULT_CLICK_VOLUME,
 }: KeypadLoaderProps) {
+	const { t } = useTranslation();
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const prevStepRef = useRef<WorkspaceInitStep>(currentStep);
 	const [reducedMotion, setReducedMotion] = useState(false);
@@ -174,10 +181,12 @@ export function KeypadLoader({
 		<div
 			className={cn("keypad-loader", className)}
 			role="img"
-			aria-label={`Setup in progress: ${
-				KEYS.find((k) => k.activeSteps.includes(currentStep))?.label ??
-				"Preparing"
-			}`}
+			aria-label={t("workspace.setupProgress", {
+				step: t(
+					KEYS.find((key) => key.activeSteps.includes(currentStep))?.labelKey ??
+						"workspace.setupPreparing",
+				),
+			})}
 		>
 			<div className="keypad-loader__base">
 				<img src={keypadBaseUrl} alt="" />

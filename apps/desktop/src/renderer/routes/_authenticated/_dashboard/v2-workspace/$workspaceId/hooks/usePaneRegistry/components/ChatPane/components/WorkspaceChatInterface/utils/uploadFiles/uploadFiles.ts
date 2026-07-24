@@ -1,6 +1,9 @@
 import type { FileUIPart } from "ai";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { isDesktopChatDevMode } from "renderer/lib/dev-chat";
+import type { useTranslation } from "renderer/providers/I18nProvider";
+
+type TranslationFunction = ReturnType<typeof useTranslation>["t"];
 
 async function getHttpErrorDetail(response: Response): Promise<string> {
 	const errorBody = await response
@@ -12,15 +15,15 @@ async function getHttpErrorDetail(response: Response): Promise<string> {
 	return `${response.status}${statusText}${detail}`;
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
+function blobToDataUrl(blob: Blob, t: TranslationFunction): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onerror = () => {
-			reject(reader.error ?? new Error("Failed to read attachment"));
+			reject(reader.error ?? new Error(t("chat.upload.readFailed")));
 		};
 		reader.onload = () => {
 			if (typeof reader.result !== "string") {
-				reject(new Error("Attachment could not be converted to a data URL"));
+				reject(new Error(t("chat.upload.dataUrlFailed")));
 				return;
 			}
 
@@ -33,12 +36,13 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 async function uploadFile(
 	sessionId: string,
 	file: FileUIPart,
+	t: TranslationFunction,
 	signal?: AbortSignal,
 ): Promise<FileUIPart> {
 	const response = await fetch(file.url, { signal });
 	if (!response.ok) {
 		const detail = await getHttpErrorDetail(response);
-		throw new Error(`Failed to fetch attachment ${file.url}: ${detail}`);
+		throw new Error(t("chat.upload.fetchFailed", { url: file.url, detail }));
 	}
 
 	const blob = await response.blob();
@@ -46,7 +50,7 @@ async function uploadFile(
 	if (signal?.aborted) {
 		throw new DOMException("The operation was aborted", "AbortError");
 	}
-	const fileData = await blobToDataUrl(blob);
+	const fileData = await blobToDataUrl(blob, t);
 
 	if (isDesktopChatDevMode()) {
 		return {
@@ -74,8 +78,11 @@ async function uploadFile(
 export async function uploadFiles(
 	sessionId: string,
 	files: FileUIPart[],
+	t: TranslationFunction,
 	signal?: AbortSignal,
 ): Promise<FileUIPart[]> {
 	if (files.length === 0) return [];
-	return Promise.all(files.map((file) => uploadFile(sessionId, file, signal)));
+	return Promise.all(
+		files.map((file) => uploadFile(sessionId, file, t, signal)),
+	);
 }

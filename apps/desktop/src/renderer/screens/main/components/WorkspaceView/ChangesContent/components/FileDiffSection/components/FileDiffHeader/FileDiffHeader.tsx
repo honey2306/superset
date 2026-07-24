@@ -12,6 +12,7 @@ import {
 	LuPencil,
 	LuUndo2,
 } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ChangedFile } from "shared/changes-types";
 
 interface FileDiffHeaderProps {
@@ -55,6 +56,7 @@ export function FileDiffHeader({
 	onDiscard,
 	isActioning,
 }: FileDiffHeaderProps) {
+	const { t } = useTranslation();
 	const hasAction = onStage || onUnstage;
 	const isDeleteAction = file.status === "untracked" || file.status === "added";
 
@@ -86,14 +88,16 @@ export function FileDiffHeader({
 						type="button"
 						className="group/filename flex items-center gap-1 text-xs truncate min-w-0 hover:underline hover:text-primary cursor-pointer font-mono"
 						onClick={onOpenInEditor}
-						aria-label={`Open ${file.path} in editor`}
+						aria-label={t("v1Changes.fileDiffHeader.openInEditor", {
+							path: file.path,
+						})}
 					>
 						<span className="truncate">{file.path}</span>
 						<LuExternalLink className="size-3 shrink-0 opacity-0 group-hover/filename:opacity-100 transition-opacity" />
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom" showArrow={false}>
-					Click to open in editor
+					{t("v1Changes.fileDiffHeader.clickToOpenInEditor")}
 				</TooltipContent>
 			</Tooltip>
 
@@ -112,7 +116,9 @@ export function FileDiffHeader({
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom" showArrow={false}>
-					{isCopied ? "Copied!" : "Copy path"}
+					{isCopied
+						? t("v1Changes.fileDiffHeader.copied")
+						: t("v1Changes.fileDiffHeader.copyPath")}
 				</TooltipContent>
 			</Tooltip>
 
@@ -136,7 +142,9 @@ export function FileDiffHeader({
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom" showArrow={false}>
-						{isEditing ? "Switch to read-only" : "Edit file"}
+						{isEditing
+							? t("v1Changes.fileDiffHeader.switchToReadOnly")
+							: t("v1Changes.fileDiffHeader.editFile")}
 					</TooltipContent>
 				</Tooltip>
 			)}
@@ -174,7 +182,7 @@ export function FileDiffHeader({
 					htmlFor={`viewed-${fileKey}`}
 					className="text-muted-foreground cursor-pointer"
 				>
-					Viewed
+					{t("v1Changes.fileDiffHeader.viewed")}
 				</label>
 			</div>
 
@@ -198,7 +206,9 @@ export function FileDiffHeader({
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent side="bottom" showArrow={false}>
-							{isDeleteAction ? "Delete" : "Discard changes"}
+							{isDeleteAction
+								? t("v1Changes.fileDiffHeader.delete")
+								: t("v1Changes.fileDiffHeader.discardChanges")}
 						</TooltipContent>
 					</Tooltip>
 				)}
@@ -219,7 +229,7 @@ export function FileDiffHeader({
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent side="bottom" showArrow={false}>
-									Stage
+									{t("v1Changes.fileDiffHeader.stage")}
 								</TooltipContent>
 							</Tooltip>
 						)}
@@ -237,7 +247,7 @@ export function FileDiffHeader({
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent side="bottom" showArrow={false}>
-									Unstage
+									{t("v1Changes.fileDiffHeader.unstage")}
 								</TooltipContent>
 							</Tooltip>
 						)}

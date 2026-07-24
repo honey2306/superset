@@ -1,5 +1,6 @@
 import { CommandEmpty, CommandGroup, CommandList } from "@superset/ui/command";
 import { useMemo } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCommandContext } from "../../core/ContextProvider";
 import type { Command } from "../../core/types";
 import { CommandItemRow } from "../CommandItemRow/CommandItemRow";
@@ -10,6 +11,7 @@ interface SubPaletteViewProps {
 }
 
 export function SubPaletteView({ parent, onSelect }: SubPaletteViewProps) {
+	const { t } = useTranslation();
 	const context = useCommandContext();
 
 	const children = useMemo<Command[]>(() => {
@@ -26,7 +28,7 @@ export function SubPaletteView({ parent, onSelect }: SubPaletteViewProps) {
 
 	return (
 		<CommandList>
-			<CommandEmpty>Nothing here.</CommandEmpty>
+			<CommandEmpty>{t("commandPalette.nothing")}</CommandEmpty>
 			<CommandGroup heading={parent.title}>
 				{visible.map((command) => (
 					<CommandItemRow

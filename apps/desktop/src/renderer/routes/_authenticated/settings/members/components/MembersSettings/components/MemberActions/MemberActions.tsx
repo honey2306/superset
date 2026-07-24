@@ -1,7 +1,6 @@
 import {
 	getAvailableRoleChanges,
 	getRoleLevel,
-	ORGANIZATION_ROLES,
 	type OrganizationRole,
 } from "@superset/shared/auth";
 import { alert } from "@superset/ui/atoms/Alert";
@@ -22,6 +21,7 @@ import { HiEllipsisVertical, HiOutlineTrash } from "react-icons/hi2";
 import { useCurrentPlan } from "renderer/hooks/useCurrentPlan";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { TeamMember } from "../../../../types";
 
 export function MemberActions({
@@ -37,6 +37,7 @@ export function MemberActions({
 	isCurrentUser: boolean;
 	canRemove: boolean;
 }) {
+	const { t } = useTranslation();
 	const [isChangingRole, setIsChangingRole] = useState(false);
 	const { refetch: refetchSession } = authClient.useSession();
 	const { plan } = useCurrentPlan();
@@ -71,34 +72,38 @@ export function MemberActions({
 	function handleRemove(): void {
 		if (isCurrentUser) {
 			toast.promise(leaveOrganization(), {
-				loading: "Leaving organization...",
-				success: "Left organization",
-				error: (err) => err.message || "Failed to leave organization",
+				loading: t("members.leaving"),
+				success: t("members.left"),
+				error: (err) => err.message || t("members.leaveFailed"),
 			});
 		} else {
 			toast.promise(removeMember(), {
-				loading: "Removing member...",
-				success: "Member removed",
-				error: (err) => err.message || "Failed to remove member",
+				loading: t("members.removing"),
+				success: t("members.removed"),
+				error: (err) => err.message || t("members.removeFailed"),
 			});
 		}
 	}
 
 	const handleRemoveClick = () => {
 		const billingNote =
-			plan === "pro" || plan === "enterprise"
-				? " Your subscription will be adjusted accordingly."
-				: "";
+			plan === "pro" || plan === "enterprise" ? t("members.billingNote") : "";
 
 		alert({
-			title: isCurrentUser ? "Leave organization?" : "Remove team member?",
+			title: isCurrentUser ? t("members.leaveTitle") : t("members.removeTitle"),
 			description: isCurrentUser
-				? `Are you sure you want to leave this organization? You will lose access immediately.${billingNote}`
-				: `Are you sure you want to remove ${member.name} (${member.email}) from the organization? They will lose access immediately.${billingNote}`,
+				? t("members.leaveConfirm", { billingNote })
+				: t("members.removeConfirm", {
+						name: member.name,
+						email: member.email,
+						billingNote,
+					}),
 			actions: [
-				{ label: "Cancel", variant: "outline", onClick: () => {} },
+				{ label: t("common.cancel"), variant: "outline", onClick: () => {} },
 				{
-					label: isCurrentUser ? "Leave Organization" : "Remove Member",
+					label: isCurrentUser
+						? t("members.leaveOrganization")
+						: t("members.removeMember"),
 					variant: "destructive",
 					onClick: () => handleRemove(),
 				},
@@ -114,10 +119,12 @@ export function MemberActions({
 				memberId: member.memberId,
 				role: newRole,
 			});
-			toast.success(`Role changed to ${ORGANIZATION_ROLES[newRole].name}`);
+			toast.success(
+				t("members.roleChanged", { role: t(`organization.role.${newRole}`) }),
+			);
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : "Failed to change role",
+				error instanceof Error ? error.message : t("members.roleChangeFailed"),
 			);
 		} finally {
 			setIsChangingRole(false);
@@ -130,12 +137,15 @@ export function MemberActions({
 
 		if (isSelfDemotion) {
 			alert({
-				title: "Demote yourself?",
-				description: `You're about to change your role from ${ORGANIZATION_ROLES[member.role].name} to ${ORGANIZATION_ROLES[newRole].name}. Another owner will need to restore your permissions. Are you sure?`,
+				title: t("members.demoteTitle"),
+				description: t("members.demoteDescription", {
+					from: t(`organization.role.${member.role}`),
+					to: t(`organization.role.${newRole}`),
+				}),
 				actions: [
-					{ label: "Cancel", variant: "outline", onClick: () => {} },
+					{ label: t("common.cancel"), variant: "outline", onClick: () => {} },
 					{
-						label: "Yes, demote me",
+						label: t("members.confirmDemote"),
 						variant: "destructive",
 						onClick: () => handleChangeRole(newRole),
 					},
@@ -157,7 +167,7 @@ export function MemberActions({
 				{availableRoles.length > 0 && (
 					<DropdownMenuSub>
 						<DropdownMenuSubTrigger disabled={isChangingRole}>
-							Change role
+							{t("members.changeRole")}
 						</DropdownMenuSubTrigger>
 						<DropdownMenuSubContent>
 							{availableRoles.map((role) => (
@@ -166,7 +176,9 @@ export function MemberActions({
 									onSelect={() => handleRoleSelection(role)}
 									disabled={isChangingRole}
 								>
-									Change to {ORGANIZATION_ROLES[role].name}
+									{t("members.changeToRole", {
+										role: t(`organization.role.${role}`),
+									})}
 								</DropdownMenuItem>
 							))}
 						</DropdownMenuSubContent>
@@ -179,7 +191,7 @@ export function MemberActions({
 						onSelect={handleRemoveClick}
 					>
 						<HiOutlineTrash className="h-4 w-4 text-destructive" />
-						<span>Leave organization...</span>
+						<span>{t("members.leaveOrganizationMenu")}</span>
 					</DropdownMenuItem>
 				) : canRemove ? (
 					<DropdownMenuItem
@@ -187,7 +199,7 @@ export function MemberActions({
 						onSelect={handleRemoveClick}
 					>
 						<HiOutlineTrash className="h-4 w-4 text-destructive" />
-						<span>Remove member</span>
+						<span>{t("members.removeMember")}</span>
 					</DropdownMenuItem>
 				) : null}
 			</DropdownMenuContent>

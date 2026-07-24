@@ -3,6 +3,7 @@ import { Button } from "@superset/ui/button";
 import { useState } from "react";
 import { HiArrowPath, HiExclamationTriangle } from "react-icons/hi2";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { AppFrame } from "renderer/screens/main/components/AppFrame";
 import { Background } from "renderer/screens/main/components/Background";
 import { AUTO_UPDATE_STATUS, type AutoUpdateStatus } from "shared/auto-update";
@@ -18,6 +19,7 @@ export function UpdateRequiredPage({
 	minimumVersion,
 	message,
 }: UpdateRequiredPageProps) {
+	const { t } = useTranslation();
 	const openUrl = electronTrpc.external.openUrl.useMutation();
 	const checkMutation = electronTrpc.autoUpdate.check.useMutation();
 	const installMutation = electronTrpc.autoUpdate.install.useMutation();
@@ -63,25 +65,30 @@ export function UpdateRequiredPage({
 					</div>
 
 					<div className="flex flex-col items-center gap-2 text-center">
-						<h1 className="text-xl font-semibold">Update Required</h1>
+						<h1 className="text-xl font-semibold">
+							{t("updateRequired.title")}
+						</h1>
 						<p className="max-w-md text-muted-foreground">
-							{message ||
-								"A new version of Superset is required to continue. Please update to the latest version."}
+							{message || t("updateRequired.description")}
 						</p>
 					</div>
 
 					<div className="flex flex-col items-center gap-1 text-sm text-muted-foreground">
-						<span>Your version: {currentVersion}</span>
-						<span>Required version: {minimumVersion}+</span>
+						<span>
+							{t("updateRequired.currentVersion", { version: currentVersion })}
+						</span>
+						<span>
+							{t("updateRequired.minimumVersion", { version: minimumVersion })}
+						</span>
 					</div>
 
 					<p className="text-xs text-muted-foreground/70">
-						Your terminal sessions won't be interrupted.
+						{t("updateRequired.sessionsSafe")}
 					</p>
 
 					{isError && (
 						<p className="text-sm text-destructive select-text cursor-text break-words">
-							{updateStatus.error || "Update check failed. Please try again."}
+							{updateStatus.error || t("updateRequired.checkFailed")}
 						</p>
 					)}
 
@@ -96,8 +103,8 @@ export function UpdateRequiredPage({
 									<HiArrowPath className="h-4 w-4 animate-spin" />
 								)}
 								{installMutation.isPending
-									? "Installing..."
-									: "Install & Restart"}
+									? t("updateRequired.installing")
+									: t("updateRequired.installRestart")}
 							</Button>
 						) : (
 							<Button
@@ -109,15 +116,15 @@ export function UpdateRequiredPage({
 									className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
 								/>
 								{isChecking
-									? "Checking..."
+									? t("updateRequired.checking")
 									: isDownloading
-										? "Downloading..."
-										: "Check for Update"}
+										? t("updateRequired.downloading")
+										: t("updateRequired.check")}
 							</Button>
 						)}
 
 						<Button variant="ghost" onClick={handleDownloadManually}>
-							Download Manually
+							{t("updateRequired.downloadManually")}
 						</Button>
 					</div>
 				</div>

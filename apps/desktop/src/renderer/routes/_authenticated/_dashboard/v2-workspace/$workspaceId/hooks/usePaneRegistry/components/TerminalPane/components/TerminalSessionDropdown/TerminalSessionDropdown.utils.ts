@@ -15,12 +15,14 @@ export function getTerminalDisplayTitle({
 	titleOverride,
 	runtimeTitle,
 	sessionTitle,
+	defaultTitle = "Terminal",
 }: {
 	titleOverride?: string;
 	runtimeTitle?: string | null;
 	sessionTitle?: string | null;
+	defaultTitle?: string;
 }): string {
 	// Explicit pane titles come from user/preset labels, so they should not be
 	// hidden by transient shell-reported titles such as "zsh" or "Terminal".
-	return titleOverride ?? runtimeTitle ?? sessionTitle ?? "Terminal";
+	return titleOverride ?? runtimeTitle ?? sessionTitle ?? defaultTitle;
 }

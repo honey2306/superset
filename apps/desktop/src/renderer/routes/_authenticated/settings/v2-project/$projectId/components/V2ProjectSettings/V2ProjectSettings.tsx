@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
@@ -29,6 +30,7 @@ export function V2ProjectSettings({
 	projectId,
 	hostId,
 }: V2ProjectSettingsProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { machineId } = useLocalHostService();
 	const { currentDeviceName, localHostId, otherHosts } =
@@ -48,7 +50,7 @@ export function V2ProjectSettings({
 		if (localHostId) {
 			options.push({
 				id: localHostId,
-				name: currentDeviceName ?? "This device",
+				name: currentDeviceName ?? t("project.thisDevice"),
 				isLocal: true,
 				isOnline: true,
 			});
@@ -64,13 +66,14 @@ export function V2ProjectSettings({
 		if (targetHostId && !options.some((option) => option.id === targetHostId)) {
 			options.push({
 				id: targetHostId,
-				name: targetHostId === machineId ? "This device" : targetHostId,
+				name:
+					targetHostId === machineId ? t("project.thisDevice") : targetHostId,
 				isLocal: targetHostId === machineId,
 				isOnline: targetHostId === machineId,
 			});
 		}
 		return options;
-	}, [currentDeviceName, localHostId, machineId, otherHosts, targetHostId]);
+	}, [currentDeviceName, localHostId, machineId, otherHosts, t, targetHostId]);
 
 	const selectedHost = useMemo(
 		() => hostOptions.find((option) => option.id === targetHostId) ?? null,
@@ -78,9 +81,10 @@ export function V2ProjectSettings({
 	);
 	const targetHostName = useMemo(() => {
 		if (selectedHost?.name) return selectedHost.name;
-		if (!targetHostId || targetHostId === machineId) return "this device";
+		if (!targetHostId || targetHostId === machineId)
+			return t("project.thisDeviceLower");
 		return targetHostId;
-	}, [machineId, selectedHost, targetHostId]);
+	}, [machineId, selectedHost, t, targetHostId]);
 	const hasMultipleHosts = hostOptions.length > 1;
 	const isRemoteTarget = Boolean(
 		targetHostId && machineId && targetHostId !== machineId,
@@ -107,7 +111,7 @@ export function V2ProjectSettings({
 		if (!isReady) return null;
 		return (
 			<div className="p-6 text-sm text-muted-foreground select-text cursor-text">
-				Project not found.
+				{t("project.notFound")}
 			</div>
 		);
 	}
@@ -144,7 +148,7 @@ export function V2ProjectSettings({
 
 			<div className="space-y-10">
 				<section>
-					<SettingsRow label="Name" htmlFor="project-name">
+					<SettingsRow label={t("project.name")} htmlFor="project-name">
 						<NameSection
 							projectId={projectId}
 							// The targeted host's own name, not the cross-host merged
@@ -156,13 +160,13 @@ export function V2ProjectSettings({
 							onRenamed={() => refetchHostProject()}
 						/>
 					</SettingsRow>
-					<SettingsRow label="Repository" htmlFor="project-repo">
+					<SettingsRow label={t("project.repository")} htmlFor="project-repo">
 						<RepositorySection repoUrl={project.repoUrl} />
 					</SettingsRow>
 					{targetHostUrl && hostProject && (
 						<SettingsRow
-							label="Branch prefix"
-							hint="Namespace new branches for this project. Defaults to the host-wide Git setting."
+							label={t("project.branchPrefix")}
+							hint={t("project.branchPrefixHint")}
 						>
 							<BranchPrefixSection
 								projectId={projectId}
@@ -176,7 +180,7 @@ export function V2ProjectSettings({
 				</section>
 
 				<section>
-					<SettingsRow label="Location">
+					<SettingsRow label={t("project.location")}>
 						<ProjectLocationSection
 							projectId={projectId}
 							projectName={project.name}
@@ -190,8 +194,8 @@ export function V2ProjectSettings({
 						/>
 					</SettingsRow>
 					<SettingsRow
-						label="Worktrees"
-						hint="Base directory for new worktree workspaces on this host."
+						label={t("project.worktrees")}
+						hint={t("project.worktreesHint")}
 					>
 						<WorktreeLocationSection
 							projectId={projectId}
@@ -207,10 +211,9 @@ export function V2ProjectSettings({
 					{targetHostUrl && (
 						<div className="pt-4">
 							<div className="mb-3">
-								<h3 className="text-sm font-medium">Scripts</h3>
+								<h3 className="text-sm font-medium">{t("project.scripts")}</h3>
 								<p className="mt-0.5 text-xs text-muted-foreground">
-									Runs in a terminal for setup, teardown, and the workspace Run
-									button.
+									{t("project.scriptsHint")}
 								</p>
 							</div>
 							<V2ScriptsEditor hostUrl={targetHostUrl} projectId={projectId} />

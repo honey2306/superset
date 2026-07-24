@@ -17,6 +17,7 @@ import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
 import { useV2AgentConfigs } from "renderer/hooks/useV2AgentConfigs";
 import type { HotkeyId } from "renderer/hotkeys";
 import { resolveV2PresetIcon } from "renderer/lib/preset-icon";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import type { V2TerminalPresetRow } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
@@ -74,6 +75,7 @@ export function V2PresetsBar({
 	const collections = useCollections();
 	const { activeHostUrl } = useLocalHostService();
 	const { data: agents } = useV2AgentConfigs(activeHostUrl);
+	const { t } = useTranslation();
 
 	const [localVisiblePresetIds, setLocalVisiblePresetIds] = useState<string[]>(
 		() => getVisiblePresetOrder(matchedPresets),
@@ -216,7 +218,7 @@ export function V2PresetsBar({
 						showArrow={false}
 						className="rounded-sm border border-border bg-background px-1.5 py-0.5 font-medium text-muted-foreground shadow-sm"
 					>
-						Manage Presets
+						{t("v2Workspace.presets.managePresets")}
 					</TooltipContent>
 				</Tooltip>
 				<DropdownMenuContent align="end" className="w-56">
@@ -243,7 +245,7 @@ export function V2PresetsBar({
 									<HiMiniCommandLine className="size-4" />
 								)}
 								<span className="min-w-0 flex-1 truncate">
-									{preset.name || "default"}
+									{preset.name || t("v2Workspace.presets.defaultName")}
 								</span>
 								<div className="ml-auto flex items-center gap-2">
 									{isVisible && hotkeyId ? (
@@ -266,7 +268,7 @@ export function V2PresetsBar({
 						}
 						onSelect={(event) => event.preventDefault()}
 					>
-						Show Preset Bar
+						{t("v2Workspace.addTab.showPresetsBar")}
 					</DropdownMenuCheckboxItem>
 					<DropdownMenuSeparator />
 					<DropdownMenuItem
@@ -274,7 +276,7 @@ export function V2PresetsBar({
 						onClick={() => navigate({ to: "/settings/terminal" })}
 					>
 						<Settings className="size-4" />
-						<span>Manage Presets</span>
+						<span>{t("v2Workspace.presets.managePresets")}</span>
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

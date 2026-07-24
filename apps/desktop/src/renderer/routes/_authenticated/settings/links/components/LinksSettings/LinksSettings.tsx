@@ -14,6 +14,7 @@ import {
 	type LinkAction,
 	type LinkTierMap,
 } from "renderer/lib/clickPolicy";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	isItemVisible,
 	SETTING_ITEM_ID,
@@ -28,6 +29,7 @@ interface LinksSettingsProps {
 }
 
 export function LinksSettings({ visibleItems }: LinksSettingsProps) {
+	const { t } = useTranslation();
 	const {
 		preferences,
 		setFileLinks,
@@ -47,50 +49,49 @@ export function LinksSettings({ visibleItems }: LinksSettingsProps) {
 	const handleFileChange = useCallback(
 		(next: LinkTierMap) => {
 			setFileLinks(next);
-			toast.success("Changes saved");
+			toast.success(t("common.changesSaved"));
 		},
-		[setFileLinks],
+		[setFileLinks, t],
 	);
 
 	const handleUrlChange = useCallback(
 		(next: LinkTierMap) => {
 			setUrlLinks(next);
-			toast.success("Changes saved");
+			toast.success(t("common.changesSaved"));
 		},
-		[setUrlLinks],
+		[setUrlLinks, t],
 	);
 
 	const handleSidebarChange = useCallback(
 		(next: LinkTierMap) => {
 			setSidebarFileLinks(next);
-			toast.success("Changes saved");
+			toast.success(t("common.changesSaved"));
 		},
-		[setSidebarFileLinks],
+		[setSidebarFileLinks, t],
 	);
 
 	const handlePortChange = useCallback(
 		(next: LinkAction) => {
 			setPortOpenAction(next);
-			toast.success("Changes saved");
+			toast.success(t("common.changesSaved"));
 		},
-		[setPortOpenAction],
+		[setPortOpenAction, t],
 	);
 
 	return (
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Links</h2>
+				<h2 className="text-xl font-semibold">{t("settings.links")}</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Control what each click — plain or with a modifier — does to a file or
-					URL. Each row binds one modifier combination to an action.
+					{t("links.description")}
 				</p>
 			</div>
 
 			<div className="space-y-6">
 				{showSidebar && (
 					<LinkTierMapper
-						title="Sidebar file rows"
-						description="Applies to the file tree, changes list, and diff header."
+						title={t("links.sidebarRows")}
+						description={t("links.sidebarRowsDescription")}
 						value={preferences.sidebarFileLinks}
 						onChange={handleSidebarChange}
 						idPrefix="links-sidebar-file"
@@ -100,16 +101,16 @@ export function LinksSettings({ visibleItems }: LinksSettingsProps) {
 
 				{showPort && (
 					<div>
-						<h3 className="text-sm font-medium mb-1">Ports</h3>
+						<h3 className="text-sm font-medium mb-1">{t("ports.title")}</h3>
 						<p className="text-xs text-muted-foreground mb-3">
-							Where detected-port badges in the sidebar open when clicked.
+							{t("links.portsDescription")}
 						</p>
 						<div className="flex items-center justify-between gap-4">
 							<Label
 								htmlFor="links-port-action"
 								className="text-sm font-medium"
 							>
-								On click
+								{t("links.onClick")}
 							</Label>
 							<Select
 								value={preferences.portOpenAction}
@@ -125,7 +126,7 @@ export function LinksSettings({ visibleItems }: LinksSettingsProps) {
 								<SelectContent>
 									{PORT_ACTIONS.map((action) => (
 										<SelectItem key={action} value={action}>
-											{actionLabel(action, "url")}
+											{actionLabel(action, "url", t)}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -136,8 +137,8 @@ export function LinksSettings({ visibleItems }: LinksSettingsProps) {
 
 				{showFile && (
 					<LinkTierMapper
-						title="File links"
-						description="Applies to file paths in terminals, chat tool calls, and task markdown."
+						title={t("links.fileLinks")}
+						description={t("links.fileLinksDescription")}
 						value={preferences.fileLinks}
 						onChange={handleFileChange}
 						idPrefix="links-file"
@@ -147,8 +148,8 @@ export function LinksSettings({ visibleItems }: LinksSettingsProps) {
 
 				{showUrl && (
 					<LinkTierMapper
-						title="URL links"
-						description="Applies to URLs in terminals, chat messages, and task browsers."
+						title={t("links.urlLinks")}
+						description={t("links.urlLinksDescription")}
 						value={preferences.urlLinks}
 						onChange={handleUrlChange}
 						idPrefix="links-url"

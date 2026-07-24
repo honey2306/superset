@@ -18,6 +18,7 @@ import {
 	VscRemove,
 	VscTrash,
 } from "react-icons/vsc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { createFileKey, useScrollContext } from "../../../../ChangesContent";
@@ -80,6 +81,7 @@ export function FileItem({
 	projectId,
 	defaultApp,
 }: FileItemProps) {
+	const { t } = useTranslation();
 	const [showDiscardDialog, setShowDiscardDialog] = useState(false);
 	const { activeFileKey } = useScrollContext();
 	const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -164,13 +166,15 @@ export function FileItem({
 	};
 
 	const isDeleteAction = file.status === "untracked" || file.status === "added";
-	const discardLabel = isDeleteAction ? "Delete" : "Discard";
+	const discardLabel = isDeleteAction
+		? t("v1Changes.fileItem.delete")
+		: t("v1Changes.fileItem.discard");
 	const discardDialogTitle = isDeleteAction
-		? `Delete "${fileName}"?`
-		: `Discard changes to "${fileName}"?`;
+		? t("v1Changes.fileItem.deleteTitle", { name: fileName })
+		: t("v1Changes.fileItem.discardTitle", { name: fileName });
 	const discardDialogDescription = isDeleteAction
-		? "This will permanently delete this file. This action cannot be undone."
-		: "This will revert all changes to this file. This action cannot be undone.";
+		? t("v1Changes.fileItem.deleteDesc")
+		: t("v1Changes.fileItem.discardDesc");
 	const hoverActions: RowHoverAction[] = [
 		...(onDiscard
 			? [
@@ -192,7 +196,7 @@ export function FileItem({
 			? [
 					{
 						key: "stage",
-						label: "Stage",
+						label: t("v1Changes.fileItem.stage"),
 						icon: <VscAdd className="size-3" />,
 						onClick: onStage,
 						disabled: isActioning,
@@ -203,7 +207,7 @@ export function FileItem({
 			? [
 					{
 						key: "unstage",
-						label: "Unstage",
+						label: t("v1Changes.fileItem.unstage"),
 						icon: <VscRemove className="size-3" />,
 						onClick: onUnstage,
 						disabled: isActioning,
@@ -277,20 +281,20 @@ export function FileItem({
 				<ContextMenuContent className="w-48">
 					<ContextMenuItem onClick={copyPath}>
 						<VscClippy className="mr-2 size-4" />
-						Copy Path
+						{t("v1Changes.fileItem.copyPath")}
 					</ContextMenuItem>
 					<ContextMenuItem onClick={copyRelativePath}>
 						<VscClippy className="mr-2 size-4" />
-						Copy Relative Path
+						{t("v1Changes.fileItem.copyRelativePath")}
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 					<ContextMenuItem onClick={revealInFinder}>
 						<VscFolderOpened className="mr-2 size-4" />
-						Reveal in Finder
+						{t("v1Changes.fileItem.revealInFinder")}
 					</ContextMenuItem>
 					<ContextMenuItem onClick={openInEditor}>
 						<VscLinkExternal className="mr-2 size-4" />
-						Open in Editor
+						{t("v1Changes.fileItem.openInEditor")}
 					</ContextMenuItem>
 
 					{(onStage || onUnstage || onDiscard) && <ContextMenuSeparator />}
@@ -298,14 +302,14 @@ export function FileItem({
 					{onStage && (
 						<ContextMenuItem onClick={onStage} disabled={isActioning}>
 							<VscAdd className="mr-2 size-4" />
-							Stage
+							{t("v1Changes.fileItem.stage")}
 						</ContextMenuItem>
 					)}
 
 					{onUnstage && (
 						<ContextMenuItem onClick={onUnstage} disabled={isActioning}>
 							<VscRemove className="mr-2 size-4" />
-							Unstage
+							{t("v1Changes.fileItem.unstage")}
 						</ContextMenuItem>
 					)}
 
@@ -332,7 +336,11 @@ export function FileItem({
 				title={discardDialogTitle}
 				description={discardDialogDescription}
 				onConfirm={handleConfirmDiscard}
-				confirmLabel={isDeleteAction ? "Delete" : "Discard"}
+				confirmLabel={
+					isDeleteAction
+						? t("v1Changes.fileItem.delete")
+						: t("v1Changes.fileItem.discard")
+				}
 				confirmDisabled={!onDiscard || isActioning}
 			/>
 		</>

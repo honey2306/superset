@@ -9,6 +9,7 @@ import { cn } from "@superset/ui/utils";
 import { HiMiniCommandLine } from "react-icons/hi2";
 import { LuCheck, LuChevronDown, LuPlus } from "react-icons/lu";
 import { getPresetIcon } from "renderer/assets/app-icons/preset-icons";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export interface QuickAddAgentPill {
 	agentId: string;
@@ -35,6 +36,7 @@ export function QuickAddPresets({
 	isPillAdded,
 	onAddPill,
 }: QuickAddPresetsProps) {
+	const { t } = useTranslation();
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
@@ -44,7 +46,7 @@ export function QuickAddPresets({
 					disabled={isAddDisabled || pills.length === 0}
 				>
 					<LuPlus className="size-4" />
-					Import agent
+					{t("terminal.importAgent")}
 					<LuChevronDown className="size-4 opacity-60" />
 				</Button>
 			</DropdownMenuTrigger>

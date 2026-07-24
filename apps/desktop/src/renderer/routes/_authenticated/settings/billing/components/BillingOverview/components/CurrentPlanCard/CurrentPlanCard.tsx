@@ -1,5 +1,5 @@
 import { Button } from "@superset/ui/button";
-import { format } from "date-fns";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PLANS, type PlanTier } from "../../../../constants";
 
 interface CurrentPlanCardProps {
@@ -21,6 +21,13 @@ export function CurrentPlanCard({
 	cancelAt,
 	periodEnd,
 }: CurrentPlanCardProps) {
+	const { locale, t } = useTranslation();
+	const formatDate = (date: Date) =>
+		new Intl.DateTimeFormat(locale, {
+			year: "numeric",
+			month: "long",
+			day: "numeric",
+		}).format(date);
 	const plan = PLANS[currentPlan];
 	const isPaidPlan = currentPlan !== "free";
 	const isEnterprise = currentPlan === "enterprise";
@@ -28,18 +35,22 @@ export function CurrentPlanCard({
 
 	const hint =
 		isCancelingAtPeriodEnd && cancelAt
-			? `Cancels ${format(new Date(cancelAt), "MMMM d, yyyy")} — downgrades to Free at the end of the billing period.`
+			? t("billing.cancelsOn", { date: formatDate(new Date(cancelAt)) })
 			: isEnterprise
-				? "Managed by your organization admin."
+				? t("billing.managedByAdmin")
 				: isPaidPlan && periodEnd
-					? `Renews ${format(new Date(periodEnd), "MMMM d, yyyy")}.`
-					: `${plan.description}.`;
+					? t("billing.renewsOn", { date: formatDate(new Date(periodEnd)) })
+					: currentPlan === "free"
+						? t("billing.freePlanDescription")
+						: plan.description;
 
 	return (
 		<div className="flex items-center justify-between gap-8 py-3">
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
-					<span className="text-sm font-medium">{plan.name} plan</span>
+					<span className="text-sm font-medium">
+						{t("billing.namedPlan", { name: plan.name })}
+					</span>
 					{isPaidPlan && (
 						<span className="inline-flex items-center rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-background">
 							{plan.name}
@@ -58,7 +69,7 @@ export function CurrentPlanCard({
 							disabled={isRestoring}
 							className="text-primary"
 						>
-							{isRestoring ? "Restoring..." : "Restore plan"}
+							{isRestoring ? t("billing.restoring") : t("billing.restorePlan")}
 						</Button>
 					) : (
 						<Button
@@ -68,7 +79,7 @@ export function CurrentPlanCard({
 							disabled={isCanceling}
 							className="text-muted-foreground hover:text-destructive"
 						>
-							{isCanceling ? "Canceling..." : "Cancel plan"}
+							{isCanceling ? t("billing.canceling") : t("billing.cancelPlan")}
 						</Button>
 					)}
 				</div>

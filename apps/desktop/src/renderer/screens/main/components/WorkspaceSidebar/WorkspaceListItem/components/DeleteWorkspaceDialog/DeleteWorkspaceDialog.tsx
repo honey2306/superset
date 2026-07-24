@@ -13,6 +13,7 @@ import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useCloseWorkspace,
 	useDeleteWorkspace,
@@ -38,6 +39,7 @@ export function DeleteWorkspaceDialog({
 	open,
 	onOpenChange,
 }: DeleteWorkspaceDialogProps) {
+	const { t } = useTranslation();
 	const isBranch = workspaceType === "branch";
 	const deleteWorkspace = useDeleteWorkspace();
 	const closeWorkspace = useCloseWorkspace();
@@ -90,21 +92,21 @@ export function DeleteWorkspaceDialog({
 		onOpenChange(false);
 
 		toast.promise(closeWorkspace.mutateAsync({ id: workspaceId }), {
-			loading: "Hiding...",
+			loading: t("workspace.hiding"),
 			success: (result) => {
 				if (result.terminalWarning) {
 					setTimeout(() => {
-						toast.warning("Terminal warning", {
+						toast.warning(t("workspace.terminalWarning"), {
 							description: result.terminalWarning,
 						});
 					}, 100);
 				}
-				return "Workspace hidden";
+				return t("workspace.hidden");
 			},
 			error: (error) =>
-				error instanceof Error ? error.message : "Failed to hide",
+				error instanceof Error ? error.message : t("workspace.hideFailed"),
 		});
-	}, [onOpenChange, closeWorkspace, workspaceId]);
+	}, [onOpenChange, closeWorkspace, workspaceId, t]);
 
 	const handleDelete = useCallback(async () => {
 		onOpenChange(false);
@@ -191,13 +193,12 @@ export function DeleteWorkspaceDialog({
 				>
 					<AlertDialogHeader className="px-4 pt-4 pb-2">
 						<AlertDialogTitle className="font-medium">
-							Close workspace "{workspaceName}"?
+							{t("workspace.closeNamedQuestion", { name: workspaceName })}
 						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
 							<div className="text-muted-foreground space-y-1.5">
 								<span className="block">
-									This will close the workspace and kill any active terminals.
-									Your branch and commits will remain in the repository.
+									{t("workspace.closeBranchDescription")}
 								</span>
 							</div>
 						</AlertDialogDescription>
@@ -210,7 +211,7 @@ export function DeleteWorkspaceDialog({
 							className="h-7 px-3 text-xs"
 							onClick={() => onOpenChange(false)}
 						>
-							Cancel
+							{t("common.cancel")}
 						</Button>
 						<Button
 							ref={closeActionButtonRef}
@@ -219,7 +220,7 @@ export function DeleteWorkspaceDialog({
 							className="h-7 px-3 text-xs"
 							onClick={handleClose}
 						>
-							Close
+							{t("workspace.close")}
 						</Button>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -237,18 +238,17 @@ export function DeleteWorkspaceDialog({
 			>
 				<AlertDialogHeader className="px-4 pt-4 pb-2">
 					<AlertDialogTitle className="font-medium">
-						Remove workspace "{workspaceName}"?
+						{t("workspace.removeNamedQuestion", { name: workspaceName })}
 					</AlertDialogTitle>
 					<AlertDialogDescription asChild>
 						<div className="text-muted-foreground space-y-1.5">
 							{isLoading ? (
-								"Checking status..."
+								t("workspace.checkingStatus")
 							) : !canDelete ? (
 								<span className="text-destructive">{reason}</span>
 							) : (
 								<span className="block">
-									Deleting will permanently remove the worktree. You can hide
-									instead to keep files on disk.
+									{t("workspace.removeDescription")}
 								</span>
 							)}
 						</div>
@@ -259,10 +259,10 @@ export function DeleteWorkspaceDialog({
 					<div className="px-4 pb-2">
 						<div className="text-xs text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/20 rounded-md px-2.5 py-1.5">
 							{hasChanges && hasUnpushedCommits
-								? "Has uncommitted changes and unpushed commits"
+								? t("workspace.hasChangesAndUnpushed")
 								: hasChanges
-									? "Has uncommitted changes"
-									: "Has unpushed commits"}
+									? t("workspace.hasChanges")
+									: t("workspace.hasUnpushed")}
 						</div>
 					</div>
 				)}
@@ -281,7 +281,7 @@ export function DeleteWorkspaceDialog({
 								htmlFor="delete-local-branch"
 								className="text-xs text-muted-foreground cursor-pointer select-none"
 							>
-								Also delete local branch
+								{t("workspace.deleteLocalBranch")}
 							</Label>
 						</div>
 					</div>
@@ -294,7 +294,7 @@ export function DeleteWorkspaceDialog({
 						className="h-7 px-3 text-xs"
 						onClick={() => onOpenChange(false)}
 					>
-						Cancel
+						{t("common.cancel")}
 					</Button>
 					<Button
 						ref={closeActionButtonRef}
@@ -303,7 +303,7 @@ export function DeleteWorkspaceDialog({
 						className="h-7 px-3 text-xs"
 						onClick={handleClose}
 					>
-						Hide
+						{t("workspace.hide")}
 					</Button>
 					<Tooltip delayDuration={400}>
 						<TooltipTrigger asChild>
@@ -314,11 +314,11 @@ export function DeleteWorkspaceDialog({
 								onClick={handleDelete}
 								disabled={!canDelete || isLoading}
 							>
-								Delete
+								{t("common.delete")}
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent side="top" className="text-xs max-w-[200px]">
-							Permanently delete workspace and git worktree from disk.
+							{t("workspace.deleteDiskTooltip")}
 						</TooltipContent>
 					</Tooltip>
 				</AlertDialogFooter>

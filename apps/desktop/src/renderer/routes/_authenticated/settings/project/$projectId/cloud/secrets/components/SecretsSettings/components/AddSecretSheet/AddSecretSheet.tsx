@@ -21,6 +21,7 @@ import {
 	HiPlus,
 } from "react-icons/hi2";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { parseEnvContent, validateEnvContent } from "../../utils/env-file";
 
 interface SecretEntry {
@@ -63,6 +64,7 @@ export function AddSecretSheet({
 	organizationId,
 	onSaved,
 }: AddSecretSheetProps) {
+	const { t } = useTranslation();
 	const [entries, setEntries] = useState<SecretEntry[]>([createEmptyEntry()]);
 	const [sensitive, setSensitive] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
@@ -74,13 +76,12 @@ export function AddSecretSheet({
 	const handleOpenChange = (nextOpen: boolean) => {
 		if (!nextOpen && hasContent) {
 			alert({
-				title: "Discard unsaved changes?",
-				description:
-					"You have unsaved environment variables. Are you sure you want to close?",
+				title: t("secrets.discardTitle"),
+				description: t("secrets.discardDescription"),
 				actions: [
-					{ label: "Cancel", variant: "outline", onClick: () => {} },
+					{ label: t("common.cancel"), variant: "outline", onClick: () => {} },
 					{
-						label: "Discard",
+						label: t("secrets.discard"),
 						variant: "destructive",
 						onClick: () => onOpenChange(false),
 					},
@@ -139,24 +140,27 @@ export function AddSecretSheet({
 		}
 	};
 
-	const handleFileImport = useCallback((content: string) => {
-		const parsed = toSecretEntries(parseEnvContent(content));
-		if (parsed.length === 0) {
-			toast.error("No valid environment variables found in file");
-			return;
-		}
-		setEntries((prev) => {
-			const hasExisting = prev.some((e) => e.key || e.value);
-			return hasExisting ? [...prev, ...parsed] : parsed;
-		});
-	}, []);
+	const handleFileImport = useCallback(
+		(content: string) => {
+			const parsed = toSecretEntries(parseEnvContent(content));
+			if (parsed.length === 0) {
+				toast.error(t("secrets.noValidVariables"));
+				return;
+			}
+			setEntries((prev) => {
+				const hasExisting = prev.some((e) => e.key || e.value);
+				return hasExisting ? [...prev, ...parsed] : parsed;
+			});
+		},
+		[t],
+	);
 
 	const MAX_FILE_SIZE = 256 * 1024; // 256 KB
 
 	const validateAndReadFile = useCallback(
 		(file: File) => {
 			if (file.size > MAX_FILE_SIZE) {
-				toast.error("File too large. Maximum size is 256 KB.");
+				toast.error(t("secrets.fileTooLarge"));
 				return;
 			}
 
@@ -174,11 +178,11 @@ export function AddSecretSheet({
 				handleFileImport(text);
 			};
 			reader.onerror = () => {
-				toast.error("Failed to read file.");
+				toast.error(t("secrets.readFileFailed"));
 			};
 			reader.readAsText(file);
 		},
-		[handleFileImport],
+		[handleFileImport, t],
 	);
 
 	const handleDrop = useCallback(
@@ -218,14 +222,14 @@ export function AddSecretSheet({
 			}
 			toast.success(
 				validEntries.length === 1
-					? `Added ${validEntries[0].key.trim()}`
-					: `Added ${validEntries.length} environment variables`,
+					? t("secrets.added", { key: validEntries[0].key.trim() })
+					: t("secrets.addedCount", { count: validEntries.length }),
 			);
 			onSaved();
 			onOpenChange(false);
 		} catch (err) {
 			console.error("[secrets/upsert] Failed to save:", err);
-			toast.error("Failed to save environment variables");
+			toast.error(t("secrets.saveFailed"));
 		} finally {
 			setIsSaving(false);
 		}
@@ -245,11 +249,8 @@ export function AddSecretSheet({
 				onDrop={handleDrop}
 			>
 				<SheetHeader className="p-6 pb-4">
-					<SheetTitle>Add Environment Variable</SheetTitle>
-					<SheetDescription>
-						Add one or more environment variables. You can also drag and drop a
-						.env file.
-					</SheetDescription>
+					<SheetTitle>{t("secrets.addTitle")}</SheetTitle>
+					<SheetDescription>{t("secrets.addDescription")}</SheetDescription>
 				</SheetHeader>
 
 				<div
@@ -262,10 +263,10 @@ export function AddSecretSheet({
 						{/* Column headers */}
 						<div className="flex items-center gap-2">
 							<span className="flex-1 text-xs font-medium text-muted-foreground">
-								Key
+								{t("secrets.key")}
 							</span>
 							<span className="flex-1 text-xs font-medium text-muted-foreground">
-								Value
+								{t("secrets.value")}
 							</span>
 							{/* spacer for trash button */}
 							<div className="w-8 shrink-0" />
@@ -309,20 +310,21 @@ export function AddSecretSheet({
 							onClick={addEntry}
 						>
 							<HiPlus className="h-3.5 w-3.5" />
-							Add Another
+							{t("secrets.addAnother")}
 						</Button>
 
 						<div className="flex items-center gap-2 pt-2">
 							<Switch checked={sensitive} onCheckedChange={setSensitive} />
-							<span className="text-sm text-muted-foreground">Sensitive</span>
+							<span className="text-sm text-muted-foreground">
+								{t("secrets.sensitive")}
+							</span>
 							<Tooltip>
 								<TooltipTrigger asChild>
 									<HiOutlineQuestionMarkCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
 								</TooltipTrigger>
 								<TooltipContent side="right">
 									<p className="max-w-[200px] text-xs">
-										Sensitive values are encrypted and cannot be revealed in the
-										UI after saving.
+										{t("secrets.sensitiveHint")}
 									</p>
 								</TooltipContent>
 							</Tooltip>
@@ -340,10 +342,10 @@ export function AddSecretSheet({
 							onClick={() => fileInputRef.current?.click()}
 						>
 							<HiOutlineArrowDownTray className="h-3.5 w-3.5" />
-							Import .env
+							{t("secrets.importEnv")}
 						</Button>
 						<span className="text-xs text-muted-foreground">
-							or paste .env contents in Key input
+							{t("secrets.pasteEnvHint")}
 						</span>
 						<input
 							ref={fileInputRef}
@@ -354,7 +356,7 @@ export function AddSecretSheet({
 						/>
 					</div>
 					<Button onClick={handleSave} disabled={isSaving || !hasValidEntries}>
-						{isSaving ? "Saving..." : "Save"}
+						{isSaving ? t("common.saving") : t("common.save")}
 					</Button>
 				</div>
 			</SheetContent>

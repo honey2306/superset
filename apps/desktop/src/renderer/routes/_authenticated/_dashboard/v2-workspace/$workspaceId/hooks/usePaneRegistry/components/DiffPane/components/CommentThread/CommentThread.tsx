@@ -17,6 +17,7 @@ import {
 	LuLoaderCircle,
 } from "react-icons/lu";
 import { CommentMarkdown } from "renderer/components/CommentMarkdown";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import "./comment-thread.css";
 
 interface Comment {
@@ -48,6 +49,7 @@ export function CommentThread({
 	comments,
 	focusTick,
 }: CommentThreadProps) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(!isResolved && !isOutdated);
 	const [isCopied, setIsCopied] = useState(false);
 	useEffect(() => {
@@ -66,7 +68,7 @@ export function CommentThread({
 			.then(() => setIsCopied(true))
 			.catch((err) => {
 				console.error("[CommentThread/copy] Failed to copy:", err);
-				toast.error("Couldn't copy comment");
+				toast.error(t("v2Diff.couldntCopyComment"));
 			});
 	};
 	// Auto-collapse on resolve/outdated (matches GitHub).
@@ -85,7 +87,7 @@ export function CommentThread({
 				void utils.git.getPullRequestThreads.invalidate({ workspaceId });
 			},
 			onError: (error) => {
-				toast.error("Couldn't update thread", {
+				toast.error(t("v2Diff.couldntUpdateThread"), {
 					description: error.message,
 				});
 			},
@@ -104,7 +106,7 @@ export function CommentThread({
 			<div className="flex items-center gap-2 px-2.5 py-1.5">
 				<CollapsibleTrigger
 					className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none"
-					aria-label={open ? "Collapse thread" : "Expand thread"}
+					aria-label={open ? t("v2Diff.collapseFile") : t("v2Diff.expandFile")}
 				>
 					<LuChevronRight
 						className={cn(
@@ -114,17 +116,17 @@ export function CommentThread({
 					/>
 					<span className="shrink-0">
 						{comments.length === 1
-							? "1 comment"
-							: `${comments.length} comments`}
+							? t("v2Diff.oneComment")
+							: t("v2Diff.commentCount", { count: comments.length })}
 					</span>
 					{isOutdated && (
 						<span className="shrink-0 rounded-sm border border-border px-1 py-px text-[10px] font-medium uppercase tracking-wide">
-							Outdated
+							{t("v2Workspace.comments.outdated")}
 						</span>
 					)}
 					{isResolved && (
 						<span className="shrink-0 rounded-sm border border-border px-1 py-px text-[10px] font-medium uppercase tracking-wide">
-							Resolved
+							{t("v2Workspace.comments.resolvedTabLabel")}
 						</span>
 					)}
 				</CollapsibleTrigger>
@@ -134,10 +136,10 @@ export function CommentThread({
 					className="shrink-0 text-muted-foreground hover:text-foreground"
 					aria-label={
 						isCopied
-							? "Copied"
+							? t("v2Diff.copied")
 							: comments.length === 1
-								? "Copy comment"
-								: "Copy comments"
+								? t("v2Diff.copyComment")
+								: t("v2Diff.copyComments")
 					}
 				>
 					{isCopied ? (
@@ -153,7 +155,7 @@ export function CommentThread({
 						rel="noreferrer"
 						onClick={(e) => e.stopPropagation()}
 						className="shrink-0 text-muted-foreground hover:text-foreground"
-						aria-label="Open on GitHub"
+						aria-label={t("v2Workspace.comments.openOnGitHub")}
 					>
 						<LuExternalLink className="size-3" />
 					</a>
@@ -182,7 +184,9 @@ export function CommentThread({
 						{setResolution.isPending && (
 							<LuLoaderCircle className="size-3 animate-spin" />
 						)}
-						{isResolved ? "Unresolve" : "Resolve conversation"}
+						{isResolved
+							? t("v2Diff.unresolve")
+							: t("v2Diff.resolveConversation")}
 					</Button>
 				</div>
 			</CollapsibleContent>
@@ -191,6 +195,7 @@ export function CommentThread({
 }
 
 function CommentRow({ comment }: { comment: Comment }) {
+	const { t } = useTranslation();
 	return (
 		<li className="flex gap-2 px-2.5 py-2">
 			<Avatar className="mt-0.5 size-5 shrink-0">
@@ -211,7 +216,7 @@ function CommentRow({ comment }: { comment: Comment }) {
 							className="text-muted-foreground"
 							dateTime={new Date(comment.createdAt).toISOString()}
 						>
-							{formatRelative(comment.createdAt)}
+							{formatRelative(comment.createdAt, t)}
 						</time>
 					)}
 				</div>
@@ -223,20 +228,27 @@ function CommentRow({ comment }: { comment: Comment }) {
 	);
 }
 
-function formatRelative(ms: number): string {
+function formatRelative(
+	ms: number,
+	t: (
+		key: import("renderer/providers/I18nProvider").MessageKey,
+		values?: Record<string, number | string>,
+	) => string,
+): string {
 	// Floor (not round) so a 30-minute comment doesn't read "1h ago".
 	// Clamp >=0 so future-dated timestamps from clock skew aren't negative.
 	const delta = Math.max(0, Date.now() - ms);
 	const seconds = Math.floor(delta / 1000);
-	if (seconds < 60) return `${seconds}s ago`;
+	if (seconds < 5) return t("time.compactNow");
+	if (seconds < 60) return t("time.compactSecondsAgo", { count: seconds });
 	const minutes = Math.floor(seconds / 60);
-	if (minutes < 60) return `${minutes}m ago`;
+	if (minutes < 60) return t("time.compactMinutesAgo", { count: minutes });
 	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
+	if (hours < 24) return t("time.compactHoursAgo", { count: hours });
 	const days = Math.floor(hours / 24);
-	if (days < 30) return `${days}d ago`;
+	if (days < 30) return t("time.compactDaysAgo", { count: days });
 	const months = Math.floor(days / 30);
-	if (months < 12) return `${months}mo ago`;
+	if (months < 12) return t("time.compactMonthsAgo", { count: months });
 	const years = Math.floor(days / 365);
-	return `${years}y ago`;
+	return t("time.compactYearsAgo", { count: years });
 }

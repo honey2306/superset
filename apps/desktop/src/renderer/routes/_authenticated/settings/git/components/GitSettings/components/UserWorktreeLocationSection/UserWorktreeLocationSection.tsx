@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import {
@@ -25,6 +26,7 @@ export function UserWorktreeLocationSection() {
 }
 
 function V1Body() {
+	const { t } = useTranslation();
 	const utils = electronTrpc.useUtils();
 	const defaultWorktreePath = useDefaultWorktreePath();
 
@@ -53,13 +55,11 @@ function V1Body() {
 
 	return (
 		<div className="space-y-0.5">
-			<Label className="text-sm font-medium">Worktree location</Label>
-			<p className="text-xs text-muted-foreground">
-				Base directory for new worktrees
-			</p>
+			<Label className="text-sm font-medium">{t("git.worktreeLocation")}</Label>
+			<p className="text-xs text-muted-foreground">{t("git.baseDirectory")}</p>
 			<WorktreeLocationPicker
 				currentPath={worktreeBaseDir}
-				defaultPathLabel={`Default (${defaultWorktreePath})`}
+				defaultPathLabel={`${t("path.default")} (${defaultWorktreePath})`}
 				defaultBrowsePath={worktreeBaseDir}
 				disabled={isLoading || setWorktreeBaseDir.isPending}
 				onSelect={(path) => setWorktreeBaseDir.mutate({ path })}
@@ -70,6 +70,7 @@ function V1Body() {
 }
 
 function V2Body() {
+	const { t } = useTranslation();
 	const { machineId } = useLocalHostService();
 	const { currentDeviceName, localHostId, otherHosts } =
 		useWorkspaceHostOptions();
@@ -80,7 +81,7 @@ function V2Body() {
 		if (localHostId) {
 			opts.push({
 				id: localHostId,
-				name: currentDeviceName ?? "This device",
+				name: currentDeviceName ?? t("project.thisDevice"),
 				isLocal: true,
 				isOnline: true,
 			});
@@ -94,7 +95,7 @@ function V2Body() {
 			});
 		}
 		return opts;
-	}, [currentDeviceName, localHostId, otherHosts]);
+	}, [currentDeviceName, localHostId, otherHosts, t]);
 
 	const [selectedHostId, setSelectedHostId] = useState<string | null>(
 		() => localHostId ?? machineId ?? null,
@@ -126,15 +127,17 @@ function V2Body() {
 		<div className="space-y-2">
 			<div className="flex items-start justify-between gap-3">
 				<div className="space-y-0.5">
-					<Label className="text-sm font-medium">Worktree location</Label>
+					<Label className="text-sm font-medium">
+						{t("git.worktreeLocation")}
+					</Label>
 					<p className="text-xs text-muted-foreground">
 						{hasMultipleHosts
-							? `Base directory for new worktrees on ${
-									selectedHost?.isLocal
-										? "this device"
-										: (selectedHost?.name ?? "this device")
-								}`
-							: "Base directory for new worktrees"}
+							? t("git.worktreeLocationHint", {
+									host: selectedHost?.isLocal
+										? t("git.thisDevice")
+										: (selectedHost?.name ?? t("git.thisDevice")),
+								})
+							: t("git.baseDirectory")}
 					</p>
 				</div>
 				{hasMultipleHosts && effectiveHostId ? (
@@ -153,18 +156,20 @@ function V2Body() {
 				hostUrl={targetHostUrl}
 				hostName={
 					selectedHost?.isLocal
-						? "this device"
-						: (selectedHost?.name ?? "this device")
+						? t("git.thisDevice")
+						: (selectedHost?.name ?? t("git.thisDevice"))
 				}
 				isRemoteTarget={!isLocal}
 				disabled={disabled}
-				browseTitle="Select default worktree location"
+				browseTitle={t("git.selectWorktreeLocation")}
 				onSelect={(path) => setLocation.mutate(path)}
 				onReset={() => setLocation.mutate(null)}
 			/>
 			{hasMultipleHosts && !isOnline ? (
 				<p className="text-xs text-muted-foreground">
-					{selectedHost?.name ?? "This device"} is offline.
+					{t("git.hostOffline", {
+						host: selectedHost?.name ?? t("project.thisDevice"),
+					})}
 				</p>
 			) : null}
 		</div>

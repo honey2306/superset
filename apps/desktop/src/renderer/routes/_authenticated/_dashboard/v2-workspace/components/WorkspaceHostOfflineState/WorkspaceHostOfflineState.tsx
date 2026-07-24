@@ -1,6 +1,7 @@
 import { Button } from "@superset/ui/button";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Monitor, Settings, WifiOff } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface WorkspaceHostOfflineStateProps {
 	hostId: string;
@@ -11,6 +12,7 @@ export function WorkspaceHostOfflineState({
 	hostId,
 	hostName,
 }: WorkspaceHostOfflineStateProps) {
+	const { t } = useTranslation();
 	return (
 		<div className="flex h-full w-full items-center justify-center p-6">
 			<div className="flex w-full max-w-sm flex-col items-start gap-6">
@@ -32,12 +34,10 @@ export function WorkspaceHostOfflineState({
 
 				<div className="flex flex-col gap-1.5">
 					<h1 className="text-[15px] font-medium tracking-tight text-foreground">
-						Host offline
+						{t("v2Workspace.hostOffline.title")}
 					</h1>
 					<p className="select-text cursor-text text-[13px] leading-relaxed text-muted-foreground">
-						This workspace lives on a paired device that is not reachable right
-						now. Terminals and file actions are unavailable until that device
-						reconnects.
+						{t("v2Workspace.hostOffline.description")}
 					</p>
 				</div>
 
@@ -57,7 +57,7 @@ export function WorkspaceHostOfflineState({
 					<div className="border-t border-border/60 px-3 py-2">
 						<div className="grid gap-1.5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center sm:gap-3">
 							<span className="shrink-0 text-[11px] uppercase tracking-wider text-muted-foreground/70">
-								Host ID
+								{t("v2Workspace.hostOffline.hostId")}
 							</span>
 							<div className="min-w-0 overflow-x-auto sm:text-right">
 								<code
@@ -84,7 +84,7 @@ export function WorkspaceHostOfflineState({
 								strokeWidth={2}
 								aria-hidden="true"
 							/>
-							Host settings
+							{t("v2Workspace.hostOffline.hostSettings")}
 						</Link>
 					</Button>
 					<Button
@@ -94,7 +94,7 @@ export function WorkspaceHostOfflineState({
 						className="h-7 gap-1.5 px-2 text-[13px] font-medium text-foreground hover:bg-muted/60"
 					>
 						<Link to="/v2-workspaces">
-							Browse workspaces
+							{t("v2Workspace.browseWorkspaces")}
 							<ArrowRight
 								className="size-3.5"
 								strokeWidth={2}

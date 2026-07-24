@@ -19,6 +19,7 @@ import {
 	type TerminalLogEntry,
 	terminalRuntimeRegistry,
 } from "renderer/lib/terminal/terminal-runtime-registry";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface TerminalConnectionIndicatorProps {
 	terminalId: string;
@@ -71,6 +72,7 @@ export function TerminalConnectionIndicator({
 	terminalId,
 	terminalInstanceId,
 }: TerminalConnectionIndicatorProps) {
+	const { t } = useTranslation();
 	const subscribe = useCallback(
 		(callback: () => void) => {
 			const unsubState = terminalRuntimeRegistry.onStateChange(
@@ -117,13 +119,15 @@ export function TerminalConnectionIndicator({
 	);
 	const restartDaemon = workspaceTrpc.terminal.daemon.restart.useMutation({
 		onSuccess: () => {
-			toast.success("Terminals restarted", {
-				description: "All terminal sessions were closed.",
+			toast.success(t("v2Workspace.terminalConnection.restartedToast"), {
+				description: t("v2Workspace.terminalConnection.restartedDesc"),
 			});
 			void healthQuery.refetch();
 		},
 		onError: (error) => {
-			toast.error("Couldn't restart terminals", { description: error.message });
+			toast.error(t("v2Workspace.terminalConnection.restartFailed"), {
+				description: error.message,
+			});
 		},
 	});
 
@@ -162,10 +166,10 @@ export function TerminalConnectionIndicator({
 	const reconnecting = connectionState === "connecting";
 	const label =
 		mode === "unresponsive"
-			? "Terminals aren't responding"
+			? t("v2Workspace.terminalConnection.unresponsive")
 			: mode === "disconnected"
-				? "Disconnected"
-				: "Reconnecting…";
+				? t("v2Workspace.terminalConnection.disconnected")
+				: t("v2Workspace.terminalConnection.reconnecting");
 	const StatusIcon = mode === "reconnecting" ? Loader2 : TriangleAlert;
 	const accentClass =
 		mode === "disconnected" ? "text-destructive" : "text-yellow-500";
@@ -181,7 +185,9 @@ export function TerminalConnectionIndicator({
 			<PopoverTrigger asChild>
 				<button
 					type="button"
-					aria-label={`Terminal connection: ${label}`}
+					aria-label={t("v2Workspace.terminalConnection.connectionAria", {
+						label,
+					})}
 					className="flex h-5 items-center gap-1.5 rounded px-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
 				>
 					<span className={cn("size-1.5 rounded-full", dotClass)} />
@@ -224,12 +230,12 @@ export function TerminalConnectionIndicator({
 								{reconnecting ? (
 									<>
 										<Loader2 className="animate-spin" />
-										Reconnecting…
+										{t("v2Workspace.terminalConnection.reconnecting")}
 									</>
 								) : (
 									<>
 										<RotateCw />
-										Reconnect
+										{t("v2Workspace.terminalConnection.reconnect")}
 									</>
 								)}
 							</Button>
@@ -241,7 +247,7 @@ export function TerminalConnectionIndicator({
 								disabled={restartDaemon.isPending}
 								onClick={() => setConfirmRestartOpen(true)}
 							>
-								Restart
+								{t("v2Workspace.terminalConnection.restart")}
 							</Button>
 						)}
 					</div>
@@ -251,7 +257,9 @@ export function TerminalConnectionIndicator({
 							onClick={() => setShowLog((v) => !v)}
 							className="self-center text-xs text-muted-foreground/70 transition-colors hover:text-foreground"
 						>
-							{showLog ? "Hide log" : "View log"}
+							{showLog
+								? t("v2Workspace.terminalConnection.hideLog")
+								: t("v2Workspace.terminalConnection.viewLog")}
 						</button>
 					)}
 				</div>
@@ -295,7 +303,7 @@ export function TerminalConnectionIndicator({
 							}
 							className="self-start text-muted-foreground transition-colors hover:text-foreground"
 						>
-							Copy log
+							{t("v2Workspace.terminalConnection.copyLog")}
 						</button>
 					</div>
 				)}
@@ -306,22 +314,24 @@ export function TerminalConnectionIndicator({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Restart all terminals?</AlertDialogTitle>
+						<AlertDialogTitle>
+							{t("v2Workspace.terminalConnection.restartTitle")}
+						</AlertDialogTitle>
 						<AlertDialogDescription>
-							This closes every terminal session — in this workspace and any
-							others — and can't be undone. If they're only briefly stuck,
-							waiting usually brings them back.
+							{t("v2Workspace.terminalConnection.restartDesc")}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Keep waiting</AlertDialogCancel>
+						<AlertDialogCancel>
+							{t("v2Workspace.terminalConnection.keepWaiting")}
+						</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => {
 								setConfirmRestartOpen(false);
 								restartDaemon.mutate();
 							}}
 						>
-							Restart terminals
+							{t("v2Workspace.terminalConnection.restartTerminals")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

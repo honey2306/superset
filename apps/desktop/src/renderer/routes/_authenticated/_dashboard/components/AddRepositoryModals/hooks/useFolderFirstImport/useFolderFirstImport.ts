@@ -3,6 +3,7 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { getHostServiceUnavailableMessage } from "renderer/lib/host-service-unavailable";
 import { getBaseName } from "renderer/lib/pathBasename";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	type ProjectSetupResult,
 	useFinalizeProjectSetup,
@@ -24,6 +25,7 @@ export function useFolderFirstImport(options?: {
 	onMultipleProjects?: (input: { candidates: MatchingProject[] }) => void;
 }): UseFolderFirstImportResult {
 	const hostService = useLocalHostService();
+	const { t } = useTranslation();
 	const { waitForHostReady } = hostService;
 	const finalizeSetup = useFinalizeProjectSetup();
 	const selectDirectory = electronTrpc.window.selectDirectory.useMutation();
@@ -48,8 +50,8 @@ export function useFolderFirstImport(options?: {
 		const activeHostUrl = await waitForHostReady();
 		if (!activeHostUrl) {
 			onError?.(
-				getHostServiceUnavailableMessage(hostService, {
-					action: "import a folder",
+				getHostServiceUnavailableMessage(hostService, t, {
+					action: t("project.importFolderAction"),
 				}),
 			);
 			return null;
@@ -124,6 +126,7 @@ export function useFolderFirstImport(options?: {
 		waitForHostReady,
 		finalizeSetup,
 		hostService,
+		t,
 		onError,
 		onMultipleProjects,
 		requestGitInit,

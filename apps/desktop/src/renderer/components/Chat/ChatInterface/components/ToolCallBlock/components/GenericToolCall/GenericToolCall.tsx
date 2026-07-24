@@ -2,6 +2,7 @@ import { ToolInput, ToolOutput } from "@superset/ui/ai-elements/tool";
 import { ToolCallRow } from "@superset/ui/ai-elements/tool-call-row";
 import { WrenchIcon } from "lucide-react";
 import type { ComponentType } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ToolPart } from "../../../../utils/tool-helpers";
 import { getGenericToolCallState } from "./getGenericToolCallState";
 
@@ -26,6 +27,7 @@ export function GenericToolCall({
 	subtitle,
 	icon: Icon = WrenchIcon,
 }: GenericToolCallProps) {
+	const { t } = useTranslation();
 	const { output, isError, isNotConfigured, displayState, errorText } =
 		getGenericToolCallState(part);
 	const isPending =
@@ -47,7 +49,7 @@ export function GenericToolCall({
 					{query != null ? (
 						<div className="space-y-1">
 							<h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-								Query
+								{t("chat.tool.createQuery")}
 							</h4>
 							<p className="text-xs text-foreground">{query}</p>
 						</div>
@@ -58,7 +60,7 @@ export function GenericToolCall({
 						<ToolOutput
 							output={!isError ? output : undefined}
 							errorText={isError ? errorText : undefined}
-							label={query != null ? "Response" : undefined}
+							label={query != null ? t("chat.tool.createResponse") : undefined}
 						/>
 					)}
 				</div>

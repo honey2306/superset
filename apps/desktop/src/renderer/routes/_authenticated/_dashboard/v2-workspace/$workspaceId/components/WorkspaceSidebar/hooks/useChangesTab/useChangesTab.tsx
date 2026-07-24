@@ -1,6 +1,7 @@
 import { toast } from "@superset/ui/sonner";
 import { workspaceTrpc } from "@superset/workspace-client";
 import { useCallback } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useChangeset } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useChangeset";
 import { useOpenInExternalEditor } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useOpenInExternalEditor";
 import { useSidebarDiffRef } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useSidebarDiffRef";
@@ -34,6 +35,7 @@ export function useChangesTab({
 	onSelectFile,
 	onOpenFile,
 }: UseChangesTabParams): SidebarTabDefinition {
+	const { t } = useTranslation();
 	const status = useWorkspaceGitStatus();
 	const collections = useCollections();
 	const utils = workspaceTrpc.useUtils();
@@ -129,14 +131,16 @@ export function useChangesTab({
 					newName,
 				}),
 				{
-					loading: `Renaming branch to ${newName}...`,
-					success: `Branch renamed to ${newName}`,
+					loading: t("v2Workspace.changes.renamingBranch", { name: newName }),
+					success: t("v2Workspace.changes.branchRenamed", { name: newName }),
 					error: (err) =>
-						err instanceof Error ? err.message : "Failed to rename branch",
+						err instanceof Error
+							? err.message
+							: t("v2Workspace.changes.renameFailed"),
 				},
 			);
 		},
-		[workspaceId, status.data?.currentBranch.name, renameBranchMutation],
+		[workspaceId, status.data?.currentBranch.name, renameBranchMutation, t],
 	);
 
 	const canRenameBranch = !status.data?.currentBranch.upstream;
@@ -157,10 +161,12 @@ export function useChangesTab({
 		} catch (error) {
 			console.warn("Failed to refresh changes tab", error);
 			toast.error(
-				error instanceof Error ? error.message : "Failed to refresh changes",
+				error instanceof Error
+					? error.message
+					: t("v2Workspace.changes.refreshFailed"),
 			);
 		}
-	}, [utils, workspaceId]);
+	}, [utils, workspaceId, t]);
 
 	const content = (
 		<ChangesTabContent
@@ -192,7 +198,7 @@ export function useChangesTab({
 
 	return {
 		id: "changes",
-		label: "Changes",
+		label: t("v2Workspace.changes.tabLabel"),
 		badge: totalChanges > 0 ? totalChanges : undefined,
 		content,
 	};

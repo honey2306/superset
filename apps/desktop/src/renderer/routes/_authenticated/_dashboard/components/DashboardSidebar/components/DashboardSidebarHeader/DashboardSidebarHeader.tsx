@@ -25,6 +25,7 @@ import { ZoomStable } from "renderer/components/ZoomStable";
 import { useZoomFactor } from "renderer/hooks/useZoomFactor";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
 import { NavigationControls } from "renderer/routes/_authenticated/_dashboard/components/NavigationControls";
 import { SidebarToggle } from "renderer/routes/_authenticated/_dashboard/components/SidebarToggle";
@@ -51,19 +52,22 @@ interface DashboardSidebarHeaderProps {
 export function DashboardSidebarHeader({
 	isCollapsed = false,
 }: DashboardSidebarHeaderProps) {
+	const { t } = useTranslation();
 	const openModal = useOpenNewWorkspaceModal();
 	const openNewProject = useOpenNewProjectModal();
 	const openTemplateGallery = useOpenTemplateGalleryModal();
 	const navigate = useNavigate();
 	const folderImport = useFolderFirstImport({
 		onError: (message) => {
-			toast.error(`Import failed: ${message}`);
+			toast.error(t("dashboard.importFailedWithMessage", { message }));
 		},
 		onMultipleProjects: ({ candidates }) => {
-			toast.error("Import failed", {
-				description: `Multiple projects use this repository (${candidates.length}). Choose the project in settings to set it up on this device.`,
+			toast.error(t("dashboard.importFailed"), {
+				description: t("dashboard.multipleProjects", {
+					count: candidates.length,
+				}),
 				action: {
-					label: "Open Projects",
+					label: t("dashboard.openProjects"),
 					onClick: () => navigate({ to: "/settings/projects" }),
 				},
 			});
@@ -73,7 +77,7 @@ export function DashboardSidebarHeader({
 	const handleImportFolder = async () => {
 		const result = await folderImport.start();
 		if (result) {
-			toast.success("Project ready — open it from the sidebar.");
+			toast.success(t("dashboard.projectReady"));
 		}
 	};
 
@@ -149,7 +153,7 @@ export function DashboardSidebarHeader({
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="right">
-						New Workspace ({shortcutText})
+						{t("workspace.new")} ({shortcutText})
 					</TooltipContent>
 				</Tooltip>
 
@@ -166,8 +170,8 @@ export function DashboardSidebarHeader({
 					</TooltipTrigger>
 					<TooltipContent side="right">
 						{searchShortcutText !== "Unassigned"
-							? `Search (${searchShortcutText})`
-							: "Search"}
+							? `${t("dashboard.search")} (${searchShortcutText})`
+							: t("dashboard.search")}
 					</TooltipContent>
 				</Tooltip>
 
@@ -187,7 +191,9 @@ export function DashboardSidebarHeader({
 								<LuLayers className="size-4" />
 							</button>
 						</TooltipTrigger>
-						<TooltipContent side="right">Workspaces</TooltipContent>
+						<TooltipContent side="right">
+							{t("workspace.workspaces")}
+						</TooltipContent>
 					</Tooltip>
 				)}
 
@@ -198,8 +204,10 @@ export function DashboardSidebarHeader({
 							onClick={handleAutomationsClick}
 							aria-label={
 								myFailedCount > 0
-									? `Automations, ${myFailedCount} failing`
-									: "Automations"
+									? t("dashboard.automationsFailingLabel", {
+											count: myFailedCount,
+										})
+									: t("dashboard.automations")
 							}
 							className={cn(
 								"relative flex size-8 items-center justify-center rounded-md transition-colors",
@@ -219,8 +227,8 @@ export function DashboardSidebarHeader({
 					</TooltipTrigger>
 					<TooltipContent side="right">
 						{myFailedCount > 0
-							? `Automations (${myFailedCount} failing)`
-							: "Automations"}
+							? t("dashboard.automationsFailing", { count: myFailedCount })
+							: t("dashboard.automations")}
 					</TooltipContent>
 				</Tooltip>
 
@@ -239,7 +247,9 @@ export function DashboardSidebarHeader({
 							<HiOutlineClipboardDocumentList className="size-4" />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="right">Tasks & PRs</TooltipContent>
+					<TooltipContent side="right">
+						{t("workspace.tasksAndPrs")}
+					</TooltipContent>
 				</Tooltip>
 
 				<DropdownMenu>
@@ -248,14 +258,16 @@ export function DashboardSidebarHeader({
 							<DropdownMenuTrigger asChild>
 								<button
 									type="button"
-									aria-label="Add repository"
+									aria-label={t("workspace.addRepository")}
 									className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
 								>
 									<LuFolderPlus className="size-4" />
 								</button>
 							</DropdownMenuTrigger>
 						</TooltipTrigger>
-						<TooltipContent side="right">Add repository</TooltipContent>
+						<TooltipContent side="right">
+							{t("workspace.addRepository")}
+						</TooltipContent>
 					</Tooltip>
 					<DropdownMenuContent
 						align="start"
@@ -263,15 +275,15 @@ export function DashboardSidebarHeader({
 					>
 						<DropdownMenuItem onSelect={() => openNewProject()}>
 							<HiMiniPlus className="size-4" />
-							Clone from URL
+							{t("workspace.cloneFromUrl")}
 						</DropdownMenuItem>
 						<DropdownMenuItem onSelect={handleImportFolder}>
 							<LuFolderInput className="size-4" />
-							Open from folder
+							{t("dashboard.openFromFolder")}
 						</DropdownMenuItem>
 						<DropdownMenuItem onSelect={() => openTemplateGallery()}>
 							<LuLayoutTemplate className="size-4" />
-							Start from a template
+							{t("workspace.startFromTemplate")}
 						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
@@ -319,7 +331,7 @@ export function DashboardSidebarHeader({
 			>
 				<LuPlus className="size-4 shrink-0" strokeWidth={STROKE_WIDTH_THICK} />
 				<span className="flex-1 truncate text-left whitespace-nowrap">
-					New Workspace
+					{t("workspace.new")}
 				</span>
 				<span
 					className={cn(
@@ -338,7 +350,7 @@ export function DashboardSidebarHeader({
 				className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
 			>
 				<LuSearch className="size-4 shrink-0" />
-				<span className="flex-1 text-left">Search</span>
+				<span className="flex-1 text-left">{t("dashboard.search")}</span>
 				{searchShortcutText !== "Unassigned" && (
 					<span
 						className={cn(
@@ -363,7 +375,7 @@ export function DashboardSidebarHeader({
 					)}
 				>
 					<LuLayers className="size-4 shrink-0" />
-					<span className="flex-1 text-left">Workspaces</span>
+					<span className="flex-1 text-left">{t("workspace.workspaces")}</span>
 				</button>
 			)}
 
@@ -378,10 +390,12 @@ export function DashboardSidebarHeader({
 				)}
 			>
 				<LuClock className="size-4 shrink-0" />
-				<span className="flex-1 text-left">Automations</span>
+				<span className="flex-1 text-left">{t("dashboard.automations")}</span>
 				{myFailedCount > 0 && (
 					<span
-						title={`${myFailedCount} of your automations failed their last run`}
+						title={t("dashboard.automationFailures", {
+							count: myFailedCount,
+						})}
 						className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-red-500/15 px-1 text-[10px] font-medium tabular-nums text-red-600 dark:text-red-400"
 					>
 						{myFailedCount > 9 ? "9+" : myFailedCount}
@@ -400,7 +414,7 @@ export function DashboardSidebarHeader({
 				)}
 			>
 				<HiOutlineClipboardDocumentList className="size-4 shrink-0" />
-				<span className="flex-1 text-left">Tasks & PRs</span>
+				<span className="flex-1 text-left">{t("workspace.tasksAndPrs")}</span>
 			</button>
 		</div>
 	);

@@ -2,6 +2,7 @@ import { Button } from "@superset/ui/button";
 import { Input } from "@superset/ui/input";
 import { useCallback, useEffect, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	DEFAULT_TERMINAL_FONT_FAMILY,
 	DEFAULT_TERMINAL_FONT_SIZE,
@@ -16,16 +17,16 @@ import { useSystemFonts } from "./hooks/useSystemFonts";
 
 const VARIANT_CONFIG = {
 	editor: {
-		title: "Editor font",
-		description: "Font used in diff views and file editors",
+		titleKey: "appearance.editorFont",
+		descriptionKey: "appearance.editorFontDescription",
 		defaultFamily: DEFAULT_CODE_EDITOR_FONT_FAMILY,
 		defaultSize: DEFAULT_CODE_EDITOR_FONT_SIZE,
 		familyKey: "editorFontFamily",
 		sizeKey: "editorFontSize",
 	},
 	terminal: {
-		title: "Terminal font",
-		description: "Font used in terminal panels.",
+		titleKey: "appearance.terminalFont",
+		descriptionKey: "appearance.terminalFontDescription",
 		defaultFamily: DEFAULT_TERMINAL_FONT_FAMILY,
 		defaultSize: DEFAULT_TERMINAL_FONT_SIZE,
 		familyKey: "terminalFontFamily",
@@ -38,6 +39,7 @@ interface FontSettingSectionProps {
 }
 
 export function FontSettingSection({ variant }: FontSettingSectionProps) {
+	const { t } = useTranslation();
 	const config = VARIANT_CONFIG[variant];
 
 	const utils = electronTrpc.useUtils();
@@ -107,9 +109,9 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 
 	return (
 		<div>
-			<h3 className="text-sm font-medium mb-1">{config.title}</h3>
+			<h3 className="text-sm font-medium mb-1">{t(config.titleKey)}</h3>
 			<p className="text-xs text-muted-foreground mb-3">
-				{config.description}
+				{t(config.descriptionKey)}
 				{variant === "terminal" && (
 					<>
 						{" "}
@@ -121,7 +123,7 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 						>
 							Nerd Fonts
 						</a>{" "}
-						recommended for shell theme icons.
+						{t("appearance.nerdFontsRecommended")}
 					</>
 				)}
 			</p>
@@ -147,7 +149,9 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 					}}
 					disabled={isLoading}
 					className="w-20"
-					aria-label={`${config.title} size`}
+					aria-label={t("appearance.fontSize", {
+						font: t(config.titleKey),
+					})}
 				/>
 				{(currentFamily || currentSize) && (
 					<Button
@@ -162,7 +166,7 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 							setFontSizeDraft(null);
 						}}
 					>
-						Reset
+						{t("common.reset")}
 					</Button>
 				)}
 			</div>

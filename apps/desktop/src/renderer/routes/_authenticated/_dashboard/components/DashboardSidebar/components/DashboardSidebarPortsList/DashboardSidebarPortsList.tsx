@@ -1,6 +1,7 @@
 import { COMPANY } from "@superset/shared/constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { LuChevronRight, LuCircleHelp, LuRadioTower } from "react-icons/lu";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { STROKE_WIDTH } from "renderer/screens/main/components/WorkspaceSidebar/constants";
 import { usePortsStore } from "renderer/stores";
 import { useDashboardSidebarAllPorts } from "../../providers/DashboardSidebarPortsProvider";
@@ -9,6 +10,7 @@ import { DashboardSidebarPortGroup } from "./components/DashboardSidebarPortGrou
 const PORTS_DOCS_URL = `${COMPANY.DOCS_URL}/ports`;
 
 export function DashboardSidebarPortsList() {
+	const { t } = useTranslation();
 	const isCollapsed = usePortsStore((state) => state.isListCollapsed);
 	const toggleCollapsed = usePortsStore((state) => state.toggleListCollapsed);
 	const { totalPortCount, workspacePortGroups } = useDashboardSidebarAllPorts();
@@ -41,7 +43,7 @@ export function DashboardSidebarPortsList() {
 							strokeWidth={STROKE_WIDTH}
 						/>
 					</span>
-					Ports
+					{t("ports.title")}
 				</button>
 
 				<Tooltip delayDuration={300}>
@@ -49,14 +51,14 @@ export function DashboardSidebarPortsList() {
 						<button
 							type="button"
 							onClick={handleOpenPortsDocs}
-							aria-label="Learn about port labels"
+							aria-label={t("ports.learnLabels")}
 							className="ml-auto rounded p-0.5 opacity-0 transition-opacity hover:bg-muted/50 group-hover:opacity-100"
 						>
 							<LuCircleHelp className="size-3" strokeWidth={STROKE_WIDTH} />
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="top" sideOffset={4}>
-						<p className="text-xs">Learn about port labels</p>
+						<p className="text-xs">{t("ports.learnLabels")}</p>
 					</TooltipContent>
 				</Tooltip>
 				<span className="text-[10px] font-normal">{totalPortCount}</span>

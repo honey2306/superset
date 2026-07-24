@@ -13,6 +13,7 @@ import {
 	ShieldIcon,
 	ShieldOffIcon,
 } from "lucide-react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { PILL_BUTTON_CLASS } from "../../styles";
 import type { PermissionMode } from "../../types";
 
@@ -23,27 +24,6 @@ interface PermissionModeOption {
 	icon: LucideIcon;
 }
 
-const PERMISSION_MODES: PermissionModeOption[] = [
-	{
-		value: "bypassPermissions",
-		label: "Auto",
-		description: "Tools run without approval",
-		icon: ShieldOffIcon,
-	},
-	{
-		value: "acceptEdits",
-		label: "Semi-auto",
-		description: "Edits auto-approved, others need approval",
-		icon: ShieldCheckIcon,
-	},
-	{
-		value: "default",
-		label: "Manual",
-		description: "All tools require approval",
-		icon: ShieldIcon,
-	},
-];
-
 export function PermissionModePicker({
 	selectedMode,
 	onSelectMode,
@@ -51,9 +31,31 @@ export function PermissionModePicker({
 	selectedMode: PermissionMode;
 	onSelectMode: (mode: PermissionMode) => void;
 }) {
+	const { t } = useTranslation();
+
+	const permissionModes: PermissionModeOption[] = [
+		{
+			value: "bypassPermissions",
+			label: t("permissionMode.auto"),
+			description: t("permissionMode.autoDescription"),
+			icon: ShieldOffIcon,
+		},
+		{
+			value: "acceptEdits",
+			label: t("permissionMode.semiAuto"),
+			description: t("permissionMode.semiAutoDescription"),
+			icon: ShieldCheckIcon,
+		},
+		{
+			value: "default",
+			label: t("permissionMode.manual"),
+			description: t("permissionMode.manualDescription"),
+			icon: ShieldIcon,
+		},
+	];
+
 	const active =
-		PERMISSION_MODES.find((m) => m.value === selectedMode) ??
-		PERMISSION_MODES[0];
+		permissionModes.find((m) => m.value === selectedMode) ?? permissionModes[0];
 	const ActiveIcon = active.icon;
 
 	return (
@@ -68,7 +70,7 @@ export function PermissionModePicker({
 				</PromptInputButton>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-64">
-				{PERMISSION_MODES.map((mode) => {
+				{permissionModes.map((mode) => {
 					const Icon = mode.icon;
 					const isActive = mode.value === selectedMode;
 					return (

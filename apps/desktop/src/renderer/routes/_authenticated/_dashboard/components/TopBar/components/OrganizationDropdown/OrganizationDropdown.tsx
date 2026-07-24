@@ -25,6 +25,7 @@ import {
 import { useCurrentPlan } from "renderer/hooks/useCurrentPlan";
 import { useSignOut } from "renderer/hooks/useSignOut";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { HelpSubMenu } from "./components/HelpSubMenu";
 import { SubmitPromptDialog } from "./components/SubmitPromptDialog";
@@ -35,6 +36,7 @@ export function OrganizationDropdown({
 	variant?: "topbar" | "expanded" | "collapsed";
 }) {
 	const { data: session } = authClient.useSession();
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const signOut = useSignOut();
 	const navigate = useNavigate();
@@ -58,7 +60,8 @@ export function OrganizationDropdown({
 	}
 
 	const userName = session?.user?.name;
-	const displayName = activeOrganization?.name ?? userName ?? "Organization";
+	const displayName =
+		activeOrganization?.name ?? userName ?? t("dashboard.organization");
 
 	const { plan: currentPlan } = useCurrentPlan();
 	const isPaid = currentPlan !== "free";
@@ -77,7 +80,7 @@ export function OrganizationDropdown({
 			<button
 				type="button"
 				className="flex size-8 items-center justify-center rounded-md transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-				aria-label="Organization menu"
+				aria-label={t("dashboard.organizationMenu")}
 			>
 				<Avatar
 					size="xs"
@@ -90,7 +93,7 @@ export function OrganizationDropdown({
 			<button
 				type="button"
 				className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground min-w-0"
-				aria-label="Organization menu"
+				aria-label={t("dashboard.organizationMenu")}
 			>
 				<Avatar
 					size="xs"
@@ -105,7 +108,7 @@ export function OrganizationDropdown({
 			<button
 				type="button"
 				className="group no-drag flex items-center gap-1.5 h-6 px-1.5 rounded border border-border/60 bg-secondary/50 hover:bg-secondary hover:border-border transition-all duration-150 ease-out focus:outline-none focus:ring-1 focus:ring-ring"
-				aria-label="Organization menu"
+				aria-label={t("dashboard.organizationMenu")}
 			>
 				<Avatar
 					size="xs"
@@ -140,13 +143,13 @@ export function OrganizationDropdown({
 						onSelect={() => navigate({ to: "/settings/organization" })}
 					>
 						<FiUsers className="h-4 w-4" />
-						<span>Manage members</span>
+						<span>{t("dashboard.manageMembers")}</span>
 					</DropdownMenuItem>
 					{organizations && organizations.length > 0 && (
 						<DropdownMenuSub>
 							<DropdownMenuSubTrigger className="gap-2">
 								<HiOutlineArrowsRightLeft className="h-4 w-4" />
-								<span>Switch organization</span>
+								<span>{t("dashboard.switchOrganization")}</span>
 							</DropdownMenuSubTrigger>
 							<DropdownMenuSubContent>
 								{userEmail && (
@@ -179,7 +182,7 @@ export function OrganizationDropdown({
 									onSelect={() => navigate({ to: "/create-organization" })}
 								>
 									<HiOutlinePlus className="h-4 w-4" />
-									<span>Create organization</span>
+									<span>{t("dashboard.createOrganization")}</span>
 								</DropdownMenuItem>
 							</DropdownMenuSubContent>
 						</DropdownMenuSub>
@@ -192,7 +195,7 @@ export function OrganizationDropdown({
 					{/* Account */}
 					<DropdownMenuItem onSelect={handleSignOut} className="gap-2">
 						<HiOutlineArrowRightOnRectangle className="h-4 w-4" />
-						<span>Log out</span>
+						<span>{t("dashboard.logOut")}</span>
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

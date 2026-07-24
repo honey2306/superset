@@ -1,6 +1,7 @@
 import { chatServiceTrpc } from "@superset/chat/client";
 import { usePromptInputController } from "@superset/ui/ai-elements/prompt-input";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { SlashCommandParamField } from "./components/SlashCommandParamField";
 import {
 	buildNextSlashInput,
@@ -47,6 +48,7 @@ export function SlashCommandPreview({
 	cwd,
 	slashCommands,
 }: SlashCommandPreviewProps) {
+	const { t } = useTranslation();
 	const { textInput } = usePromptInputController();
 	const inputValue = textInput.value;
 	const slashPreviewInput = normalizeSlashPreviewInput(inputValue);
@@ -150,7 +152,7 @@ export function SlashCommandPreview({
 					<span className="font-mono text-foreground/90">
 						{parsedInput.commandName}
 					</span>
-					<span>{commandDescription || "Fill command parameters"}</span>
+					<span>{commandDescription || t("slashCommand.fillParams")}</span>
 				</div>
 
 				<div className="grid gap-2 sm:grid-cols-2">
@@ -176,7 +178,7 @@ export function SlashCommandPreview({
 
 				<div className="mt-2 space-y-1">
 					<div className="text-[11px] text-muted-foreground uppercase tracking-wide">
-						Prompt Preview
+						{t("slashCommand.promptPreview")}
 					</div>
 					<div className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded border border-border/70 bg-background/70 px-2 py-1.5 font-mono text-xs text-foreground/90">
 						{previewPrompt}

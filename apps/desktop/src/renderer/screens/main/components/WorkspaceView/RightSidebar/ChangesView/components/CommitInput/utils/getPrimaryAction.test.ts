@@ -18,8 +18,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("commit");
-		expect(state.label).toBe("Commit");
-		expect(state.tooltip).toBe("Commit staged changes");
+		expect(state.labelKey).toBe("v1Changes.primaryAction.commit");
+		expect(state.tooltipKey).toBe("v1Changes.primaryAction.commitStaged");
 		expect(state.disabled).toBe(false);
 	});
 
@@ -38,8 +38,9 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("sync");
-		expect(state.label).toBe("Sync");
-		expect(state.tooltip).toBe("Pull 1, push 2");
+		expect(state.labelKey).toBe("v1Changes.primaryAction.sync");
+		expect(state.tooltipKey).toBe("v1Changes.primaryAction.syncTooltip");
+		expect(state.tooltipValues).toEqual({ pull: 1, push: 2 });
 	});
 
 	test("shows push when only push is pending", () => {
@@ -57,8 +58,9 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("push");
-		expect(state.label).toBe("Push");
-		expect(state.tooltip).toBe("Push 2 commits");
+		expect(state.labelKey).toBe("v1Changes.push.push");
+		expect(state.tooltipKey).toBe("v1Changes.push.pushCommits");
+		expect(state.tooltipValues).toEqual({ count: 2 });
 	});
 
 	test("shows pull when only pull is pending", () => {
@@ -76,8 +78,9 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("pull");
-		expect(state.label).toBe("Pull");
-		expect(state.tooltip).toBe("Pull 2 commits");
+		expect(state.labelKey).toBe("v1Changes.primaryAction.pull");
+		expect(state.tooltipKey).toBe("v1Changes.primaryAction.pullTooltip");
+		expect(state.tooltipValues).toEqual({ count: 2 });
 	});
 
 	test("shows publish branch for unpublished branch without PR", () => {
@@ -95,8 +98,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("push");
-		expect(state.label).toBe("Publish Branch");
-		expect(state.tooltip).toBe("Publish branch to remote");
+		expect(state.labelKey).toBe("v1Changes.push.publishBranch");
+		expect(state.tooltipKey).toBe("v1Changes.push.publishBranchTooltip");
 	});
 
 	test("shows push label for unpublished branch with existing PR", () => {
@@ -118,8 +121,12 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("push");
-		expect(state.label).toBe("Push to PR");
-		expect(state.tooltip).toBe("Push changes to Kitenite:feature/pr-branch");
+		expect(state.labelKey).toBe("v1Changes.push.toPR");
+		expect(state.tooltipKey).toBe("v1Changes.push.pushChangesTooltip");
+		expect(state.tooltipValues).toEqual({
+			count: 0,
+			target: "Kitenite:feature/pr-branch",
+		});
 	});
 
 	test("falls back to disabled commit state", () => {
@@ -137,8 +144,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("commit");
-		expect(state.label).toBe("Commit");
+		expect(state.labelKey).toBe("v1Changes.primaryAction.commit");
 		expect(state.disabled).toBe(true);
-		expect(state.tooltip).toBe("No staged changes");
+		expect(state.tooltipKey).toBe("v1Changes.primaryAction.noStagedChanges");
 	});
 });

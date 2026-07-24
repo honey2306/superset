@@ -2,6 +2,7 @@ import { Button } from "@superset/ui/button";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, FolderX, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { DashboardSidebarDeleteDialog } from "renderer/routes/_authenticated/_dashboard/components/DashboardSidebar/components/DashboardSidebarDeleteDialog";
 
 interface WorkspaceMissingWorktreeStateProps {
@@ -22,6 +23,7 @@ export function WorkspaceMissingWorktreeState({
 	isRefreshing = false,
 }: WorkspaceMissingWorktreeStateProps) {
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const { t } = useTranslation();
 	const displayName = workspaceName || branch;
 
 	return (
@@ -37,18 +39,17 @@ export function WorkspaceMissingWorktreeState({
 
 				<div className="flex flex-col gap-1.5">
 					<h1 className="select-text cursor-text text-[15px] font-medium tracking-tight text-foreground">
-						Worktree missing
+						{t("workspace.worktreeMissing")}
 					</h1>
 					<p className="select-text cursor-text text-[13px] leading-relaxed text-muted-foreground">
-						This workspace record still exists, but its worktree folder is no
-						longer on this host. Terminals and file actions are unavailable.
+						{t("workspace.worktreeMissingDescription")}
 					</p>
 				</div>
 
 				{worktreePath ? (
 					<div className="flex w-full items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-2.5 py-1.5">
 						<span className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
-							Path
+							{t("workspace.path")}
 						</span>
 						<div className="min-w-0 flex-1 overflow-x-auto">
 							<code
@@ -69,7 +70,7 @@ export function WorkspaceMissingWorktreeState({
 						onClick={() => setDeleteDialogOpen(true)}
 					>
 						<Trash2 className="size-3.5" strokeWidth={2} aria-hidden="true" />
-						Delete workspace
+						{t("workspace.deleteAction")}
 					</Button>
 					<Button
 						size="sm"
@@ -83,7 +84,7 @@ export function WorkspaceMissingWorktreeState({
 							strokeWidth={2}
 							aria-hidden="true"
 						/>
-						Refresh
+						{t("workspace.refresh")}
 					</Button>
 					<Button
 						asChild
@@ -92,7 +93,7 @@ export function WorkspaceMissingWorktreeState({
 						className="h-7 gap-1.5 px-2 text-[13px] font-medium"
 					>
 						<Link to="/v2-workspaces">
-							Browse workspaces
+							{t("workspace.browse")}
 							<ArrowRight
 								className="size-3.5"
 								strokeWidth={2}

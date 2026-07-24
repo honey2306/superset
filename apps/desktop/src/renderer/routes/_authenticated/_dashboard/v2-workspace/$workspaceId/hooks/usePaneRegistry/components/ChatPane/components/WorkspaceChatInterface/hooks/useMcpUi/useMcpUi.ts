@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { McpOverviewPayload } from "renderer/components/Chat/ChatInterface/types";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export interface UseMcpUiOptions {
 	cwd: string;
@@ -42,6 +43,7 @@ export function useMcpUi({
 	const [authenticatingServerName, setAuthenticatingServerName] = useState<
 		string | null
 	>(null);
+	const { t } = useTranslation();
 
 	const resetUi = useCallback(() => {
 		setOverview(null);
@@ -64,7 +66,7 @@ export function useMcpUi({
 
 	const openOverview = useCallback(async () => {
 		if (!cwd) {
-			onSetErrorMessage("Workspace path is missing");
+			onSetErrorMessage(t("chat.mcp.workspacePathMissing"));
 			return;
 		}
 		setIsOverviewLoading(true);
@@ -74,11 +76,11 @@ export function useMcpUi({
 			setOverview(nextOverview);
 			setOverviewOpen(true);
 		} catch {
-			onSetErrorMessage("Failed to load MCP settings");
+			onSetErrorMessage(t("chat.mcp.loadSettingsFailed"));
 		} finally {
 			setIsOverviewLoading(false);
 		}
-	}, [cwd, loadOverview, onClearError, onSetErrorMessage]);
+	}, [cwd, loadOverview, onClearError, onSetErrorMessage, t]);
 
 	const refreshOverview = useCallback(async () => {
 		if (!cwd) return;
@@ -93,7 +95,7 @@ export function useMcpUi({
 	const authenticateMcpServer = useCallback(
 		async (serverName: string) => {
 			if (!cwd) {
-				onSetErrorMessage("Workspace path is missing");
+				onSetErrorMessage(t("chat.mcp.workspacePathMissing"));
 				return;
 			}
 
@@ -108,7 +110,9 @@ export function useMcpUi({
 					server_name: serverName,
 				});
 			} catch {
-				onSetErrorMessage(`Failed to authenticate MCP server: ${serverName}`);
+				onSetErrorMessage(
+					t("chat.mcp.authenticateFailed", { name: serverName }),
+				);
 			} finally {
 				setAuthenticatingServerName(null);
 			}
@@ -120,6 +124,7 @@ export function useMcpUi({
 			onClearError,
 			onSetErrorMessage,
 			onTrackEvent,
+			t,
 		],
 	);
 

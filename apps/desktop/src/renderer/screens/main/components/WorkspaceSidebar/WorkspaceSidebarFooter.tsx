@@ -14,6 +14,7 @@ import {
 	LuLayoutTemplate,
 } from "react-icons/lu";
 import { UpdatesPill } from "renderer/components/UpdatesPill";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOpenProject } from "renderer/react-query/projects";
 import { useOpenMainRepoWorkspace } from "renderer/react-query/workspaces";
 import {
@@ -29,6 +30,7 @@ interface WorkspaceSidebarFooterProps {
 export function WorkspaceSidebarFooter({
 	isCollapsed = false,
 }: WorkspaceSidebarFooterProps) {
+	const { t } = useTranslation();
 	const { openNew, isPending: isOpenPending } = useOpenProject();
 	const openMainRepoWorkspace = useOpenMainRepoWorkspace();
 	const openNewProject = useOpenNewProjectModal();
@@ -44,16 +46,16 @@ export function WorkspaceSidebarFooter({
 						projectId: project.id,
 					});
 				} catch (err) {
-					toast.error(`Failed to open ${project.name}`, {
+					toast.error(t("workspace.openNamedFailed", { name: project.name }), {
 						description:
-							err instanceof Error ? err.message : "Failed to create workspace",
+							err instanceof Error ? err.message : t("workspace.createFailed"),
 					});
 				}
 			}
 		} catch (error) {
-			toast.error("Failed to open project", {
+			toast.error(t("workspace.openFailed"), {
 				description:
-					error instanceof Error ? error.message : "An unknown error occurred",
+					error instanceof Error ? error.message : t("workspace.unknownError"),
 			});
 		}
 	};
@@ -62,9 +64,9 @@ export function WorkspaceSidebarFooter({
 		try {
 			await openMainRepoWorkspace.mutateAsync({ projectId });
 		} catch (err) {
-			toast.error("Failed to open project", {
+			toast.error(t("workspace.openFailed"), {
 				description:
-					err instanceof Error ? err.message : "Failed to create workspace",
+					err instanceof Error ? err.message : t("workspace.createFailed"),
 			});
 		}
 	};
@@ -99,20 +101,22 @@ export function WorkspaceSidebarFooter({
 								</Button>
 							</DropdownMenuTrigger>
 						</TooltipTrigger>
-						<TooltipContent side="right">Add repository</TooltipContent>
+						<TooltipContent side="right">
+							{t("workspace.addRepository")}
+						</TooltipContent>
 					</Tooltip>
 					<DropdownMenuContent side="top" align="start">
 						<DropdownMenuItem onClick={handleOpenProject} disabled={isLoading}>
 							<LuFolderOpen className="size-4" strokeWidth={STROKE_WIDTH} />
-							Open project
+							{t("workspace.openProject")}
 						</DropdownMenuItem>
 						<DropdownMenuItem onClick={handleCloneProject}>
 							<LuGitBranch className="size-4" strokeWidth={STROKE_WIDTH} />
-							Clone from URL
+							{t("workspace.cloneFromUrl")}
 						</DropdownMenuItem>
 						<DropdownMenuItem onClick={handleTemplateProject}>
 							<LuLayoutTemplate className="size-4" strokeWidth={STROKE_WIDTH} />
-							Start from a template
+							{t("workspace.startFromTemplate")}
 						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
@@ -131,21 +135,21 @@ export function WorkspaceSidebarFooter({
 						disabled={isLoading}
 					>
 						<LuFolderPlus className="w-4 h-4" strokeWidth={STROKE_WIDTH} />
-						<span>Add repository</span>
+						<span>{t("workspace.addRepository")}</span>
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent side="top" align="start">
 					<DropdownMenuItem onClick={handleOpenProject} disabled={isLoading}>
 						<LuFolderOpen className="size-4" strokeWidth={STROKE_WIDTH} />
-						Open project
+						{t("workspace.openProject")}
 					</DropdownMenuItem>
 					<DropdownMenuItem onClick={handleCloneProject}>
 						<LuGitBranch className="size-4" strokeWidth={STROKE_WIDTH} />
-						Clone from URL
+						{t("workspace.cloneFromUrl")}
 					</DropdownMenuItem>
 					<DropdownMenuItem onClick={handleTemplateProject}>
 						<LuLayoutTemplate className="size-4" strokeWidth={STROKE_WIDTH} />
-						Start from a template
+						{t("workspace.startFromTemplate")}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

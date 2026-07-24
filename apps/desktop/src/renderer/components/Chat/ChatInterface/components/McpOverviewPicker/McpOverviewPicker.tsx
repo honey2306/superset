@@ -7,6 +7,7 @@ import {
 	ModelSelectorItem,
 	ModelSelectorList,
 } from "@superset/ui/ai-elements/model-selector";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { McpOverviewPayload, McpServerOverviewItem } from "../../types";
 
 interface McpOverviewPickerProps {
@@ -28,30 +29,6 @@ function getStateClassName(state: McpServerOverviewItem["state"]): string {
 	}
 }
 
-function formatStateLabel(state: McpServerOverviewItem["state"]): string {
-	switch (state) {
-		case "enabled":
-			return "Enabled";
-		case "disabled":
-			return "Disabled";
-		default:
-			return "Invalid";
-	}
-}
-
-function formatTransportLabel(
-	transport: McpServerOverviewItem["transport"],
-): string {
-	switch (transport) {
-		case "remote":
-			return "Remote";
-		case "local":
-			return "Local";
-		default:
-			return "Unknown";
-	}
-}
-
 export function McpOverviewPicker({
 	overview,
 	open,
@@ -59,25 +36,50 @@ export function McpOverviewPicker({
 	onAuthenticateServer,
 	authenticatingServerName,
 }: McpOverviewPickerProps) {
+	const { t } = useTranslation();
 	const servers = overview?.servers ?? [];
+
+	const formatStateLabel = (state: McpServerOverviewItem["state"]): string => {
+		switch (state) {
+			case "enabled":
+				return t("mcp.stateEnabled");
+			case "disabled":
+				return t("mcp.stateDisabled");
+			default:
+				return t("mcp.stateInvalid");
+		}
+	};
+
+	const formatTransportLabel = (
+		transport: McpServerOverviewItem["transport"],
+	): string => {
+		switch (transport) {
+			case "remote":
+				return t("mcp.transportRemote");
+			case "local":
+				return t("mcp.transportLocal");
+			default:
+				return t("common.unknown");
+		}
+	};
 
 	return (
 		<ModelSelector open={open} onOpenChange={onOpenChange}>
-			<ModelSelectorContent className="max-w-2xl" title="MCP Servers">
+			<ModelSelectorContent className="max-w-2xl" title={t("mcp.serversTitle")}>
 				<div className="border-b border-border/60 px-4 py-3">
 					<div className="text-sm font-medium text-foreground">
-						MCP Servers ({servers.length})
+						{t("mcp.serversCount", { count: servers.length })}
 					</div>
 					<div className="mt-1 truncate text-xs text-muted-foreground">
 						{overview?.sourcePath
-							? `Loaded from ${overview.sourcePath}`
-							: "No MCP config found in this workspace"}
+							? t("mcp.loadedFrom", { path: overview.sourcePath })
+							: t("mcp.noConfig")}
 					</div>
 				</div>
-				<ModelSelectorInput placeholder="Search MCP servers..." />
+				<ModelSelectorInput placeholder={t("mcp.searchMcp")} />
 				<ModelSelectorList className="max-h-[420px]">
-					<ModelSelectorEmpty>No MCP servers configured.</ModelSelectorEmpty>
-					<ModelSelectorGroup heading="Servers">
+					<ModelSelectorEmpty>{t("mcp.noServers")}</ModelSelectorEmpty>
+					<ModelSelectorGroup heading={t("mcp.serversHeading")}>
 						{servers.map((server) => (
 							<ModelSelectorItem
 								key={server.name}
@@ -109,11 +111,11 @@ export function McpOverviewPicker({
 								<div className="ml-3 flex shrink-0 items-center gap-1.5">
 									{server.connected === true ? (
 										<span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-											Connected
+											{t("common.connected")}
 										</span>
 									) : server.connected === false ? (
 										<span className="rounded-full border border-zinc-500/30 bg-zinc-500/10 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:text-zinc-300">
-											Disconnected
+											{t("mcp.disconnected")}
 										</span>
 									) : null}
 									<span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
@@ -129,10 +131,10 @@ export function McpOverviewPicker({
 									server.state !== "disabled" ? (
 										<span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-foreground">
 											{authenticatingServerName === server.name
-												? "Connecting..."
+												? t("mcp.connecting")
 												: server.connected
-													? "Re-auth"
-													: "Auth"}
+													? t("mcp.reauth")
+													: t("mcp.auth")}
 										</span>
 									) : null}
 								</div>

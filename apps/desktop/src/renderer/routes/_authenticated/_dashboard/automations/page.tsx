@@ -35,6 +35,7 @@ import { LuPlus, LuSearchX, LuTerminal, LuX } from "react-icons/lu";
 import { useRecentProjects } from "renderer/hooks/host-projects/useRecentProjects";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	DATA_TABLE_HEAD_CELL,
 	DataTableHeader,
@@ -64,6 +65,7 @@ type Scope = "mine" | "team";
 type AutomationSortField = "name" | "owner" | "project" | "schedule";
 
 function AutomationsPage() {
+	const { t } = useTranslation();
 	const collections = useCollections();
 	const { data: session } = authClient.useSession();
 	const currentUserId = session?.user?.id;
@@ -88,14 +90,15 @@ function AutomationsPage() {
 			name: string;
 			targetHostId: string | null;
 		}) => apiTrpcClient.automation.runNow.mutate({ id }),
-		onSuccess: (_, { name }) => toast.success(`Running "${name}" now`),
+		onSuccess: (_, { name }) =>
+			toast.success(t("automations.runningNow", { name })),
 		onError: (error, { targetHostId }) => {
 			const message = error instanceof Error ? error.message : null;
 			if (isHostOfflineError(message)) {
 				setHostOfflineRun({ hostId: targetHostId });
 				return;
 			}
-			toast.error(message ?? "Failed to trigger run");
+			toast.error(message ?? t("automations.runFailed"));
 		},
 	});
 
@@ -104,11 +107,11 @@ function AutomationsPage() {
 			apiTrpcClient.automation.delete.mutate({ id }),
 		onSuccess: (_, { name }) => {
 			setPendingDelete(null);
-			toast.success(`"${name}" deleted`);
+			toast.success(t("automations.deleted", { name }));
 		},
 		onError: (error) =>
 			toast.error(
-				error instanceof Error ? error.message : "Failed to delete automation",
+				error instanceof Error ? error.message : t("automations.deleteFailed"),
 			),
 	});
 
@@ -264,7 +267,9 @@ function AutomationsPage() {
 		<div className="flex h-full w-full flex-1 flex-col overflow-hidden">
 			<header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
 				<div className="flex items-center gap-3">
-					<h1 className="text-sm font-semibold tracking-tight">Automations</h1>
+					<h1 className="text-sm font-semibold tracking-tight">
+						{t("dashboard.automations")}
+					</h1>
 					<div className="h-4 w-px bg-border" />
 					<Tabs value={scope} onValueChange={handleScopeChange}>
 						<TabsList className="h-8 bg-transparent p-0 gap-1">
@@ -272,7 +277,7 @@ function AutomationsPage() {
 								value="mine"
 								className="h-8 rounded-md px-3 data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
 							>
-								<span className="text-sm">Mine</span>
+								<span className="text-sm">{t("automations.mine")}</span>
 								<span className="ml-1 tabular-nums text-xs text-muted-foreground">
 									{mineCount}
 								</span>
@@ -281,7 +286,7 @@ function AutomationsPage() {
 								value="team"
 								className="h-8 rounded-md px-3 data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
 							>
-								<span className="text-sm">Team</span>
+								<span className="text-sm">{t("automations.team")}</span>
 								<span className="ml-1 tabular-nums text-xs text-muted-foreground">
 									{teamCount}
 								</span>
@@ -302,7 +307,7 @@ function AutomationsPage() {
 							target="_blank"
 							rel="noreferrer"
 						>
-							Learn more
+							{t("automations.learnMore")}
 						</a>
 					</Button>
 					<Button
@@ -313,7 +318,7 @@ function AutomationsPage() {
 						onClick={() => setCreateOpen(true)}
 					>
 						<LuPlus className="size-4" />
-						<span>New automation</span>
+						<span>{t("automations.new")}</span>
 					</Button>
 				</div>
 			</header>
@@ -326,23 +331,17 @@ function AutomationsPage() {
 						</div>
 						<div className="min-w-0 space-y-1">
 							<p className="text-sm font-medium text-foreground">
-								Supercharge automations with the{" "}
-								<code className="select-text cursor-text rounded bg-background/80 px-1 py-0.5 font-mono text-[13px]">
-									superset
-								</code>{" "}
-								CLI
+								{t("automations.cliTitle", { cli: "superset" })}
 							</p>
 							<p className="text-sm leading-relaxed text-muted-foreground">
-								It&apos;s available in every Superset terminal. Tell the agent
-								to use it to spin up workspaces, run tasks, or manage other
-								automations.{" "}
+								{t("automations.cliDescription")}{" "}
 								<a
 									href={`${COMPANY.DOCS_URL}/cli/getting-started`}
 									target="_blank"
 									rel="noreferrer"
 									className="font-medium text-foreground underline underline-offset-2 hover:text-foreground/80"
 								>
-									Getting started
+									{t("automations.gettingStarted")}
 								</a>{" "}
 								·{" "}
 								<a
@@ -351,7 +350,7 @@ function AutomationsPage() {
 									rel="noreferrer"
 									className="font-medium text-foreground underline underline-offset-2 hover:text-foreground/80"
 								>
-									CLI reference
+									{t("automations.cliReference")}
 								</a>
 							</p>
 						</div>
@@ -360,7 +359,7 @@ function AutomationsPage() {
 							variant="ghost"
 							size="icon-sm"
 							onClick={() => setCliHintDismissed(true)}
-							aria-label="Dismiss"
+							aria-label={t("automations.dismiss")}
 							className="absolute right-2 top-2 size-6 text-muted-foreground hover:text-foreground"
 						>
 							<LuX className="size-3.5" />
@@ -383,9 +382,9 @@ function AutomationsPage() {
 							>
 								<LuSearchX />
 							</EmptyMedia>
-							<EmptyTitle>No team automations</EmptyTitle>
+							<EmptyTitle>{t("automations.noTeam")}</EmptyTitle>
 							<EmptyDescription>
-								Nobody on your team has shared automations yet.
+								{t("automations.noTeamDescription")}
 							</EmptyDescription>
 						</EmptyHeader>
 					</Empty>
@@ -400,7 +399,7 @@ function AutomationsPage() {
 									<TableHead className={cn(DATA_TABLE_HEAD_CELL, "pl-4")}>
 										<SortableHeader
 											field="name"
-											label="Name"
+											label={t("automations.name")}
 											sortField={sortField}
 											sortDirection={sortDirection}
 											onSort={handleSort}
@@ -410,7 +409,7 @@ function AutomationsPage() {
 										<TableHead className={cn(DATA_TABLE_HEAD_CELL, "w-[12%]")}>
 											<SortableHeader
 												field="owner"
-												label="Owner"
+												label={t("automations.owner")}
 												sortField={sortField}
 												sortDirection={sortDirection}
 												onSort={handleSort}
@@ -420,34 +419,34 @@ function AutomationsPage() {
 									<TableHead className={cn(DATA_TABLE_HEAD_CELL, colWidth)}>
 										<SortableHeader
 											field="project"
-											label="Project"
+											label={t("automations.project")}
 											sortField={sortField}
 											sortDirection={sortDirection}
 											onSort={handleSort}
 										/>
 									</TableHead>
 									<TableHead className={cn(DATA_TABLE_HEAD_CELL, colWidth)}>
-										Workspace
+										{t("automations.workspace")}
 									</TableHead>
 									<TableHead className={cn(DATA_TABLE_HEAD_CELL, colWidth)}>
-										Device
+										{t("automations.device")}
 									</TableHead>
 									<TableHead className={cn(DATA_TABLE_HEAD_CELL, colWidth)}>
-										Agent
+										{t("automations.agent")}
 									</TableHead>
 									<TableHead
 										className={cn(DATA_TABLE_HEAD_CELL, scheduleWidth)}
 									>
 										<SortableHeader
 											field="schedule"
-											label="Schedule"
+											label={t("automations.schedule")}
 											sortField={sortField}
 											sortDirection={sortDirection}
 											onSort={handleSort}
 										/>
 									</TableHead>
 									<TableHead className={cn(DATA_TABLE_HEAD_CELL, lastRunWidth)}>
-										Last run
+										{t("automations.lastRun")}
 									</TableHead>
 									<TableHead
 										className={cn(DATA_TABLE_HEAD_CELL, "w-12 pr-4")}
@@ -460,8 +459,8 @@ function AutomationsPage() {
 										? workspacesById.get(automation.v2WorkspaceId)
 										: null;
 									const workspaceLabel = !automation.v2WorkspaceId
-										? "New workspace"
-										: (workspace?.name ?? "Deleted");
+										? t("automations.newWorkspace")
+										: (workspace?.name ?? t("automations.deletedWorkspace"));
 									const host = automation.targetHostId
 										? hostsById.get(automation.targetHostId)
 										: null;
@@ -474,7 +473,7 @@ function AutomationsPage() {
 											showOwner={scope === "team"}
 											project={projectsById.get(automation.v2ProjectId)}
 											workspaceLabel={workspaceLabel}
-											hostLabel={host?.name ?? "Auto"}
+											hostLabel={host?.name ?? t("automations.autoDevice")}
 											lastRunStatus={
 												lastRunStatusById.get(automation.id) ?? null
 											}
@@ -519,18 +518,17 @@ function AutomationsPage() {
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete automation?</AlertDialogTitle>
+						<AlertDialogTitle>{t("automations.deleteTitle")}</AlertDialogTitle>
 						<AlertDialogDescription>
-							{pendingDelete ? (
-								<>
-									"{pendingDelete.name}" will stop firing and its run history
-									will be removed. This can't be undone.
-								</>
-							) : null}
+							{pendingDelete
+								? t("automations.deleteDescription", {
+										name: pendingDelete.name,
+									})
+								: null}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
 						<AlertDialogAction
 							disabled={deleteMutation.isPending}
 							onClick={() => {
@@ -542,7 +540,7 @@ function AutomationsPage() {
 								}
 							}}
 						>
-							Delete
+							{t("automations.delete")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

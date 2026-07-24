@@ -1,8 +1,10 @@
 import { Button } from "@superset/ui/button";
 import { useNavigate } from "@tanstack/react-router";
 import { SiLinear } from "react-icons/si";
+import { useTranslation } from "renderer/providers/I18nProvider";
 
 export function LinearCTA() {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 
 	const handleConnectLinear = () => {
@@ -16,13 +18,14 @@ export function LinearCTA() {
 					<SiLinear className="size-8" />
 				</div>
 				<div className="space-y-2">
-					<h3 className="text-lg font-semibold">Connect Linear</h3>
+					<h3 className="text-lg font-semibold">{t("tasks.connectLinear")}</h3>
 					<p className="text-sm text-muted-foreground">
-						Connect your Linear workspace to sync issues and manage tasks
-						directly from Superset.
+						{t("tasks.connectLinearDescription")}
 					</p>
 				</div>
-				<Button onClick={handleConnectLinear}>Connect Linear</Button>
+				<Button onClick={handleConnectLinear}>
+					{t("tasks.connectLinear")}
+				</Button>
 			</div>
 		</div>
 	);

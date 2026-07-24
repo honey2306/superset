@@ -1,3 +1,9 @@
+import {
+	DEFAULT_LOCALE,
+	type Locale,
+	type MessageKey,
+	messages,
+} from "renderer/providers/I18nProvider/messages";
 import type { SettingsSection } from "renderer/stores/settings-state";
 
 export const SETTING_ITEM_ID = {
@@ -100,6 +106,7 @@ export interface SettingsItem {
 	title: string;
 	description: string;
 	keywords: string[];
+	localizedKeywords?: Partial<Record<Locale, string[]>>;
 }
 
 /**
@@ -213,12 +220,22 @@ export function isItemAllowedForVariant(
 	return isV2 ? variant === "v2" : variant === "v1";
 }
 
-export const SETTINGS_ITEMS: SettingsItem[] = [
+interface SettingsItemDefinition {
+	id: SettingItemId;
+	section: SettingsSection;
+	titleKey: MessageKey;
+	descriptionKey: MessageKey;
+	keywords: string[];
+	localizedKeywords?: Partial<Record<Locale, string[]>>;
+}
+
+const SETTINGS_ITEM_DEFINITIONS: SettingsItemDefinition[] = [
 	{
 		id: SETTING_ITEM_ID.ACCOUNT_PROFILE,
+		titleKey: "settingsSearch.account_profile.title",
+		descriptionKey: "settingsSearch.account_profile.description",
 		section: "account",
-		title: "Profile",
-		description: "Your profile information",
+		localizedKeywords: { "zh-CN": ["账户", "个人资料", "退出登录"] },
 		keywords: [
 			"account",
 			"name",
@@ -233,9 +250,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.ACCOUNT_SIGNOUT,
+		titleKey: "settingsSearch.account_signout.title",
+		descriptionKey: "settingsSearch.account_signout.description",
 		section: "account",
-		title: "Sign Out",
-		description: "Sign out of your account",
+		localizedKeywords: { "zh-CN": ["账户", "个人资料", "退出登录"] },
 		keywords: [
 			"account",
 			"sign out",
@@ -247,9 +265,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.ORGANIZATION_LOGO,
+		titleKey: "settingsSearch.organization_logo.title",
+		descriptionKey: "settingsSearch.organization_logo.description",
 		section: "organization",
-		title: "Organization Logo",
-		description: "Upload and manage your organization's logo",
+		localizedKeywords: { "zh-CN": ["组织", "成员", "团队", "邀请"] },
 		keywords: [
 			"organization",
 			"logo",
@@ -263,9 +282,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.ORGANIZATION_NAME,
+		titleKey: "settingsSearch.organization_name.title",
+		descriptionKey: "settingsSearch.organization_name.description",
 		section: "organization",
-		title: "Organization Name",
-		description: "Change your organization's display name",
+		localizedKeywords: { "zh-CN": ["组织", "成员", "团队", "邀请"] },
 		keywords: [
 			"organization",
 			"name",
@@ -277,9 +297,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.ORGANIZATION_SLUG,
+		titleKey: "settingsSearch.organization_slug.title",
+		descriptionKey: "settingsSearch.organization_slug.description",
 		section: "organization",
-		title: "Organization Slug",
-		description: "Your organization's unique identifier",
+		localizedKeywords: { "zh-CN": ["组织", "成员", "团队", "邀请"] },
 		keywords: [
 			"organization",
 			"slug",
@@ -292,9 +313,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.ORGANIZATION_ID,
+		titleKey: "settingsSearch.organization_id.title",
+		descriptionKey: "settingsSearch.organization_id.description",
 		section: "organization",
-		title: "Organization ID",
-		description: "Your organization's unique identifier",
+		localizedKeywords: { "zh-CN": ["组织", "成员", "团队", "邀请"] },
 		keywords: [
 			"organization",
 			"id",
@@ -307,9 +329,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.ORGANIZATION_MEMBERS_LIST,
+		titleKey: "settingsSearch.organization_members_list.title",
+		descriptionKey: "settingsSearch.organization_members_list.description",
 		section: "organization",
-		title: "Team Members",
-		description: "View and manage team members and their roles",
+		localizedKeywords: { "zh-CN": ["组织", "成员", "团队", "邀请"] },
 		keywords: [
 			"organization",
 			"members",
@@ -326,9 +349,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.ORGANIZATION_MEMBERS_INVITE,
+		titleKey: "settingsSearch.organization_members_invite.title",
+		descriptionKey: "settingsSearch.organization_members_invite.description",
 		section: "organization",
-		title: "Invite Members",
-		description: "Invite new members to your organization",
+		localizedKeywords: { "zh-CN": ["组织", "成员", "团队", "邀请"] },
 		keywords: [
 			"organization",
 			"members",
@@ -344,9 +368,11 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.ORGANIZATION_MEMBERS_PENDING_INVITATIONS,
+		titleKey: "settingsSearch.organization_members_pending_invitations.title",
+		descriptionKey:
+			"settingsSearch.organization_members_pending_invitations.description",
 		section: "organization",
-		title: "Pending Invitations",
-		description: "View and manage pending organization invitations",
+		localizedKeywords: { "zh-CN": ["组织", "成员", "团队", "邀请"] },
 		keywords: [
 			"organization",
 			"members",
@@ -363,9 +389,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.TEAMS_LIST,
+		titleKey: "settingsSearch.teams_list.title",
+		descriptionKey: "settingsSearch.teams_list.description",
 		section: "teams",
-		title: "Teams",
-		description: "Create, rename, and delete teams within your organization",
+		localizedKeywords: { "zh-CN": ["团队", "小组"] },
 		keywords: [
 			"teams",
 			"team",
@@ -378,9 +405,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.APPEARANCE_THEME,
+		titleKey: "settingsSearch.appearance_theme.title",
+		descriptionKey: "settingsSearch.appearance_theme.description",
 		section: "appearance",
-		title: "Theme",
-		description: "Choose your theme",
+		localizedKeywords: { "zh-CN": ["外观", "主题", "字体", "样式"] },
 		keywords: [
 			"appearance",
 			"theme",
@@ -396,9 +424,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.APPEARANCE_MARKDOWN,
+		titleKey: "settingsSearch.appearance_markdown.title",
+		descriptionKey: "settingsSearch.appearance_markdown.description",
 		section: "appearance",
-		title: "Markdown Style",
-		description: "Rendering style for markdown files",
+		localizedKeywords: { "zh-CN": ["外观", "主题", "字体", "样式"] },
 		keywords: [
 			"appearance",
 			"markdown",
@@ -414,9 +443,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.APPEARANCE_CUSTOM_THEMES,
+		titleKey: "settingsSearch.appearance_custom_themes.title",
+		descriptionKey: "settingsSearch.appearance_custom_themes.description",
 		section: "appearance",
-		title: "Custom Themes",
-		description: "Import custom theme files",
+		localizedKeywords: { "zh-CN": ["外观", "主题", "字体", "样式"] },
 		keywords: [
 			"appearance",
 			"custom",
@@ -431,9 +461,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.APPEARANCE_EDITOR_FONT,
+		titleKey: "settingsSearch.appearance_editor_font.title",
+		descriptionKey: "settingsSearch.appearance_editor_font.description",
 		section: "appearance",
-		title: "Editor Font",
-		description: "Font used in diff views and file editors",
+		localizedKeywords: { "zh-CN": ["外观", "主题", "字体", "样式"] },
 		keywords: [
 			"appearance",
 			"font",
@@ -449,9 +480,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.APPEARANCE_TERMINAL_FONT,
+		titleKey: "settingsSearch.appearance_terminal_font.title",
+		descriptionKey: "settingsSearch.appearance_terminal_font.description",
 		section: "appearance",
-		title: "Terminal Font",
-		description: "Font used in terminal panels",
+		localizedKeywords: { "zh-CN": ["外观", "主题", "字体", "样式"] },
 		keywords: [
 			"appearance",
 			"font",
@@ -467,9 +499,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.RINGTONES_NOTIFICATION,
+		titleKey: "settingsSearch.ringtones_notification.title",
+		descriptionKey: "settingsSearch.ringtones_notification.description",
 		section: "ringtones",
-		title: "Notification Sound",
-		description: "Choose the notification sound for completed tasks",
+		localizedKeywords: { "zh-CN": ["通知", "声音", "铃声"] },
 		keywords: [
 			"notifications",
 			"notification",
@@ -489,9 +522,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.KEYBOARD_SHORTCUTS,
+		titleKey: "settingsSearch.keyboard_shortcuts.title",
+		descriptionKey: "settingsSearch.keyboard_shortcuts.description",
 		section: "keyboard",
-		title: "Keyboard Shortcuts",
-		description: "View and customize keyboard shortcuts",
+		localizedKeywords: { "zh-CN": ["键盘", "快捷键"] },
 		keywords: [
 			"keyboard",
 			"shortcuts",
@@ -508,9 +542,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.BEHAVIOR_CONFIRM_QUIT,
+		titleKey: "settingsSearch.behavior_confirm_quit.title",
+		descriptionKey: "settingsSearch.behavior_confirm_quit.description",
 		section: "behavior",
-		title: "Confirm before quitting",
-		description: "Show a confirmation dialog when quitting the app",
+		localizedKeywords: { "zh-CN": ["行为", "文件", "退出", "资源"] },
 		keywords: [
 			"features",
 			"confirm",
@@ -526,10 +561,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.GIT_DELETE_LOCAL_BRANCH,
+		titleKey: "settingsSearch.git_delete_local_branch.title",
+		descriptionKey: "settingsSearch.git_delete_local_branch.description",
 		section: "git",
-		title: "Delete local branch on workspace removal",
-		description:
-			"Also delete the local git branch when deleting a worktree workspace",
+		localizedKeywords: { "zh-CN": ["Git", "分支", "工作树"] },
 		keywords: [
 			"git",
 			"delete",
@@ -543,9 +578,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.GIT_BRANCH_PREFIX,
+		titleKey: "settingsSearch.git_branch_prefix.title",
+		descriptionKey: "settingsSearch.git_branch_prefix.description",
 		section: "git",
-		title: "Branch Prefix",
-		description: "Default prefix for new branch names",
+		localizedKeywords: { "zh-CN": ["Git", "分支", "工作树"] },
 		keywords: [
 			"git",
 			"branch",
@@ -561,10 +597,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.BEHAVIOR_FILE_OPEN_MODE,
+		titleKey: "settingsSearch.behavior_file_open_mode.title",
+		descriptionKey: "settingsSearch.behavior_file_open_mode.description",
 		section: "behavior",
-		title: "File open mode",
-		description:
-			"Choose how files open when clicked in the file tree or changes view",
+		localizedKeywords: { "zh-CN": ["行为", "文件", "退出", "资源"] },
 		keywords: [
 			"file",
 			"open",
@@ -580,10 +616,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.BEHAVIOR_RESOURCE_MONITOR,
+		titleKey: "settingsSearch.behavior_resource_monitor.title",
+		descriptionKey: "settingsSearch.behavior_resource_monitor.description",
 		section: "behavior",
-		title: "Resource monitor",
-		description:
-			"Show CPU and memory usage for workspaces and terminal sessions in the top bar",
+		localizedKeywords: { "zh-CN": ["行为", "文件", "退出", "资源"] },
 		keywords: [
 			"features",
 			"resource",
@@ -599,9 +635,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.GIT_WORKTREE_LOCATION,
+		titleKey: "settingsSearch.git_worktree_location.title",
+		descriptionKey: "settingsSearch.git_worktree_location.description",
 		section: "git",
-		title: "Worktree location",
-		description: "User-level base directory where new worktrees are created",
+		localizedKeywords: { "zh-CN": ["Git", "分支", "工作树"] },
 		keywords: [
 			"git",
 			"worktree",
@@ -616,10 +653,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.BEHAVIOR_OPEN_LINKS_IN_APP,
+		titleKey: "settingsSearch.behavior_open_links_in_app.title",
+		descriptionKey: "settingsSearch.behavior_open_links_in_app.description",
 		section: "behavior",
-		title: "Open links in the in-app browser",
-		description:
-			"Open links from chat and terminal in the in-app browser instead of your default browser",
+		localizedKeywords: { "zh-CN": ["行为", "文件", "退出", "资源"] },
 		keywords: [
 			"browser",
 			"links",
@@ -633,9 +670,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.AGENTS_ENABLED,
+		titleKey: "settingsSearch.agents_enabled.title",
+		descriptionKey: "settingsSearch.agents_enabled.description",
 		section: "agents",
-		title: "Enabled agents",
-		description: "Control which agents appear in workspace launchers",
+		localizedKeywords: { "zh-CN": ["智能体", "命令", "提示词"] },
 		keywords: [
 			"agents",
 			"enabled",
@@ -652,9 +690,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.AGENTS_COMMANDS,
+		titleKey: "settingsSearch.agents_commands.title",
+		descriptionKey: "settingsSearch.agents_commands.description",
 		section: "agents",
-		title: "Agent commands",
-		description: "Configure no-prompt and prompt launch commands",
+		localizedKeywords: { "zh-CN": ["智能体", "命令", "提示词"] },
 		keywords: [
 			"agents",
 			"commands",
@@ -675,9 +714,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.AGENTS_TASK_PROMPTS,
+		titleKey: "settingsSearch.agents_task_prompts.title",
+		descriptionKey: "settingsSearch.agents_task_prompts.description",
 		section: "agents",
-		title: "Task prompt templates",
-		description: "Configure task prompt templates for agent launches",
+		localizedKeywords: { "zh-CN": ["智能体", "命令", "提示词"] },
 		keywords: [
 			"agents",
 			"task prompt",
@@ -691,9 +731,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.TERMINAL_PRESETS,
+		titleKey: "settingsSearch.terminal_presets.title",
+		descriptionKey: "settingsSearch.terminal_presets.description",
 		section: "terminal",
-		title: "Terminal Presets",
-		description: "Manage your terminal presets",
+		localizedKeywords: { "zh-CN": ["终端", "预设", "会话"] },
 		keywords: [
 			"terminal",
 			"preset",
@@ -710,9 +751,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.TERMINAL_QUICK_ADD,
+		titleKey: "settingsSearch.terminal_quick_add.title",
+		descriptionKey: "settingsSearch.terminal_quick_add.description",
 		section: "terminal",
-		title: "Quick Add Templates",
-		description: "Pre-configured terminal presets",
+		localizedKeywords: { "zh-CN": ["终端", "预设", "会话"] },
 		keywords: [
 			"terminal",
 			"quick",
@@ -734,9 +776,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.TERMINAL_SESSIONS,
+		titleKey: "settingsSearch.terminal_sessions.title",
+		descriptionKey: "settingsSearch.terminal_sessions.description",
 		section: "terminal",
-		title: "Terminal Daemon",
-		description: "Manage the terminal daemon and active sessions",
+		localizedKeywords: { "zh-CN": ["终端", "预设", "会话"] },
 		keywords: [
 			"terminal",
 			"daemon",
@@ -758,9 +801,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.TERMINAL_BACKGROUND_LIMIT,
+		titleKey: "settingsSearch.terminal_background_limit.title",
+		descriptionKey: "settingsSearch.terminal_background_limit.description",
 		section: "terminal",
-		title: "Background terminal memory",
-		description: "How many hidden terminals stay fully loaded",
+		localizedKeywords: { "zh-CN": ["终端", "预设", "会话"] },
 		keywords: [
 			"terminal",
 			"memory",
@@ -776,9 +820,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.TERMINAL_LINK_BEHAVIOR,
+		titleKey: "settingsSearch.terminal_link_behavior.title",
+		descriptionKey: "settingsSearch.terminal_link_behavior.description",
 		section: "terminal",
-		title: "Link Behavior",
-		description: "How to open links from terminal",
+		localizedKeywords: { "zh-CN": ["终端", "预设", "会话"] },
 		keywords: [
 			"terminal",
 			"link",
@@ -796,10 +841,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.LINKS_FILE,
+		titleKey: "settingsSearch.links_file.title",
+		descriptionKey: "settingsSearch.links_file.description",
 		section: "links",
-		title: "File links",
-		description:
-			"How file paths open when clicked in terminals, chat, and tasks",
+		localizedKeywords: { "zh-CN": ["链接", "文件", "浏览器"] },
 		keywords: [
 			"links",
 			"file",
@@ -820,9 +865,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.LINKS_URL,
+		titleKey: "settingsSearch.links_url.title",
+		descriptionKey: "settingsSearch.links_url.description",
 		section: "links",
-		title: "URL links",
-		description: "How URLs open when clicked in terminals, chat, and tasks",
+		localizedKeywords: { "zh-CN": ["链接", "文件", "浏览器"] },
 		keywords: [
 			"links",
 			"url",
@@ -845,10 +891,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.LINKS_SIDEBAR_FILE,
+		titleKey: "settingsSearch.links_sidebar_file.title",
+		descriptionKey: "settingsSearch.links_sidebar_file.description",
 		section: "links",
-		title: "Sidebar file rows",
-		description:
-			"How file rows in the file tree, changes list, and diff header open when clicked",
+		localizedKeywords: { "zh-CN": ["链接", "文件", "浏览器"] },
 		keywords: [
 			"links",
 			"sidebar",
@@ -871,10 +917,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.LINKS_PORT,
+		titleKey: "settingsSearch.links_port.title",
+		descriptionKey: "settingsSearch.links_port.description",
 		section: "links",
-		title: "Ports",
-		description:
-			"How detected-port badges in the sidebar open when clicked (in-app or system browser)",
+		localizedKeywords: { "zh-CN": ["链接", "文件", "浏览器"] },
 		keywords: [
 			"links",
 			"port",
@@ -898,9 +944,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.MODELS_ANTHROPIC,
+		titleKey: "settingsSearch.models_anthropic.title",
+		descriptionKey: "settingsSearch.models_anthropic.description",
 		section: "models",
-		title: "Anthropic Model Auth",
-		description: "Connect Anthropic for workspace naming and small model tasks",
+		localizedKeywords: { "zh-CN": ["模型", "认证", "连接"] },
 		keywords: [
 			"models",
 			"anthropic",
@@ -914,9 +961,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.MODELS_OPENAI,
+		titleKey: "settingsSearch.models_openai.title",
+		descriptionKey: "settingsSearch.models_openai.description",
 		section: "models",
-		title: "OpenAI Model Auth",
-		description: "Connect OpenAI for supported model tasks",
+		localizedKeywords: { "zh-CN": ["模型", "认证", "连接"] },
 		keywords: [
 			"models",
 			"openai",
@@ -930,9 +978,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.EXPERIMENTAL_SUPERSET_V2,
+		titleKey: "settingsSearch.experimental_superset_v2.title",
+		descriptionKey: "settingsSearch.experimental_superset_v2.description",
 		section: "experimental",
-		title: "Try Superset Version 2 (Early Access)",
-		description: "Switch between Superset V1 and the new V2 experience",
+		localizedKeywords: { "zh-CN": ["实验", "预览", "迁移"] },
 		keywords: [
 			"experimental",
 			"experiments",
@@ -950,9 +999,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.EXPERIMENTAL_V1_MIGRATION,
+		titleKey: "settingsSearch.experimental_v1_migration.title",
+		descriptionKey: "settingsSearch.experimental_v1_migration.description",
 		section: "experimental",
-		title: "V1 to V2 Migration",
-		description: "Rerun the V1 to V2 data migration",
+		localizedKeywords: { "zh-CN": ["实验", "预览", "迁移"] },
 		keywords: [
 			"experimental",
 			"migration",
@@ -968,10 +1018,11 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.EXPERIMENTAL_INLINE_WORKSPACE_PORTS,
+		titleKey: "settingsSearch.experimental_inline_workspace_ports.title",
+		descriptionKey:
+			"settingsSearch.experimental_inline_workspace_ports.description",
 		section: "experimental",
-		title: "Inline workspace ports",
-		description:
-			"Show detected ports under each workspace in the sidebar instead of a single panel at the bottom",
+		localizedKeywords: { "zh-CN": ["实验", "预览", "迁移"] },
 		keywords: [
 			"experimental",
 			"ports",
@@ -987,10 +1038,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.EXPERIMENTAL_WORKSPACE_AGENTS,
+		titleKey: "settingsSearch.experimental_workspace_agents.title",
+		descriptionKey: "settingsSearch.experimental_workspace_agents.description",
 		section: "experimental",
-		title: "Workspace agents",
-		description:
-			"Show running agents under each workspace in the sidebar, with their live status",
+		localizedKeywords: { "zh-CN": ["实验", "预览", "迁移"] },
 		keywords: [
 			"experimental",
 			"agents",
@@ -1007,9 +1058,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.INTEGRATIONS_LINEAR,
+		titleKey: "settingsSearch.integrations_linear.title",
+		descriptionKey: "settingsSearch.integrations_linear.description",
 		section: "integrations",
-		title: "Linear",
-		description: "Sync issues bidirectionally with Linear",
+		localizedKeywords: { "zh-CN": ["集成", "同步", "连接"] },
 		keywords: [
 			"integrations",
 			"linear",
@@ -1023,9 +1075,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.INTEGRATIONS_GITHUB,
+		titleKey: "settingsSearch.integrations_github.title",
+		descriptionKey: "settingsSearch.integrations_github.description",
 		section: "integrations",
-		title: "GitHub",
-		description: "Connect repos and sync pull requests",
+		localizedKeywords: { "zh-CN": ["集成", "同步", "连接"] },
 		keywords: [
 			"integrations",
 			"github",
@@ -1042,9 +1095,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.INTEGRATIONS_SLACK,
+		titleKey: "settingsSearch.integrations_slack.title",
+		descriptionKey: "settingsSearch.integrations_slack.description",
 		section: "integrations",
-		title: "Slack",
-		description: "Manage tasks from Slack conversations",
+		localizedKeywords: { "zh-CN": ["集成", "同步", "连接"] },
 		keywords: [
 			"integrations",
 			"slack",
@@ -1060,9 +1114,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.BILLING_OVERVIEW,
+		titleKey: "settingsSearch.billing_overview.title",
+		descriptionKey: "settingsSearch.billing_overview.description",
 		section: "billing",
-		title: "Current plan",
-		description: "View your current subscription and usage",
+		localizedKeywords: { "zh-CN": ["计费", "套餐", "用量"] },
 		keywords: [
 			"billing",
 			"plan",
@@ -1076,9 +1131,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.BILLING_PLANS,
+		titleKey: "settingsSearch.billing_plans.title",
+		descriptionKey: "settingsSearch.billing_plans.description",
 		section: "billing",
-		title: "All plans",
-		description: "Compare and upgrade plans",
+		localizedKeywords: { "zh-CN": ["计费", "套餐", "用量"] },
 		keywords: [
 			"billing",
 			"upgrade",
@@ -1092,9 +1148,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.BILLING_USAGE,
+		titleKey: "settingsSearch.billing_usage.title",
+		descriptionKey: "settingsSearch.billing_usage.description",
 		section: "billing",
-		title: "Usage limits",
-		description: "Track workspace and user limits",
+		localizedKeywords: { "zh-CN": ["计费", "套餐", "用量"] },
 		keywords: [
 			"billing",
 			"usage",
@@ -1107,16 +1164,18 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PROJECT_NAME,
+		titleKey: "settingsSearch.project_name.title",
+		descriptionKey: "settingsSearch.project_name.description",
 		section: "project",
-		title: "Project Name",
-		description: "The name of this project",
+		localizedKeywords: { "zh-CN": ["项目", "仓库", "脚本", "工作树"] },
 		keywords: ["project", "name", "rename", "title", "label"],
 	},
 	{
 		id: SETTING_ITEM_ID.PROJECT_PATH,
+		titleKey: "settingsSearch.project_path.title",
+		descriptionKey: "settingsSearch.project_path.description",
 		section: "project",
-		title: "Repository Path",
-		description: "The file path to this project",
+		localizedKeywords: { "zh-CN": ["项目", "仓库", "脚本", "工作树"] },
 		keywords: [
 			"project",
 			"path",
@@ -1131,9 +1190,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PROJECT_SCRIPTS,
+		titleKey: "settingsSearch.project_scripts.title",
+		descriptionKey: "settingsSearch.project_scripts.description",
 		section: "project",
-		title: "Scripts",
-		description: "Setup, teardown, and run scripts for workspaces",
+		localizedKeywords: { "zh-CN": ["项目", "仓库", "脚本", "工作树"] },
 		keywords: [
 			"project",
 			"scripts",
@@ -1153,9 +1213,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PROJECT_BRANCH_PREFIX,
+		titleKey: "settingsSearch.project_branch_prefix.title",
+		descriptionKey: "settingsSearch.project_branch_prefix.description",
 		section: "project",
-		title: "Branch Prefix",
-		description: "Override the default branch prefix for this project",
+		localizedKeywords: { "zh-CN": ["项目", "仓库", "脚本", "工作树"] },
 		keywords: [
 			"project",
 			"branch",
@@ -1173,9 +1234,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PROJECT_WORKTREE_LOCATION,
+		titleKey: "settingsSearch.project_worktree_location.title",
+		descriptionKey: "settingsSearch.project_worktree_location.description",
 		section: "project",
-		title: "Worktree Location",
-		description: "Override the host worktree directory for this project",
+		localizedKeywords: { "zh-CN": ["项目", "仓库", "脚本", "工作树"] },
 		keywords: [
 			"project",
 			"worktree",
@@ -1189,9 +1251,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PROJECT_IMPORT_WORKTREES,
+		titleKey: "settingsSearch.project_import_worktrees.title",
+		descriptionKey: "settingsSearch.project_import_worktrees.description",
 		section: "project",
-		title: "Import Worktrees",
-		description: "Import existing worktrees from disk into Superset",
+		localizedKeywords: { "zh-CN": ["项目", "仓库", "脚本", "工作树"] },
 		keywords: [
 			"project",
 			"import",
@@ -1207,9 +1270,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PROJECT_ENV_VARS,
+		titleKey: "settingsSearch.project_env_vars.title",
+		descriptionKey: "settingsSearch.project_env_vars.description",
 		section: "project",
-		title: "Environment Variables",
-		description: "Manage environment variables and secrets for cloud sandboxes",
+		localizedKeywords: { "zh-CN": ["项目", "仓库", "脚本", "工作树"] },
 		keywords: [
 			"environment",
 			"variables",
@@ -1221,9 +1285,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.API_KEYS_LIST,
+		titleKey: "settingsSearch.api_keys_list.title",
+		descriptionKey: "settingsSearch.api_keys_list.description",
 		section: "apikeys",
-		title: "API Keys",
-		description: "Manage API keys for MCP server access",
+		localizedKeywords: { "zh-CN": ["API 密钥", "令牌"] },
 		keywords: [
 			"api",
 			"key",
@@ -1239,9 +1304,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.API_KEYS_GENERATE,
+		titleKey: "settingsSearch.api_keys_generate.title",
+		descriptionKey: "settingsSearch.api_keys_generate.description",
 		section: "apikeys",
-		title: "Generate API Key",
-		description: "Create new API keys for external integrations",
+		localizedKeywords: { "zh-CN": ["API 密钥", "令牌"] },
 		keywords: [
 			"api",
 			"key",
@@ -1255,10 +1321,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PERMISSIONS_FULL_DISK_ACCESS,
+		titleKey: "settingsSearch.permissions_full_disk_access.title",
+		descriptionKey: "settingsSearch.permissions_full_disk_access.description",
 		section: "permissions",
-		title: "Full Disk Access",
-		description:
-			"Persistent access to Documents, Downloads, Desktop, and iCloud from terminal sessions",
+		localizedKeywords: { "zh-CN": ["权限", "隐私", "系统"] },
 		keywords: [
 			"permissions",
 			"full disk access",
@@ -1275,10 +1341,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PERMISSIONS_ACCESSIBILITY,
+		titleKey: "settingsSearch.permissions_accessibility.title",
+		descriptionKey: "settingsSearch.permissions_accessibility.description",
 		section: "permissions",
-		title: "Accessibility",
-		description:
-			"Send keystrokes, manage windows, and control other applications",
+		localizedKeywords: { "zh-CN": ["权限", "隐私", "系统"] },
 		keywords: [
 			"permissions",
 			"accessibility",
@@ -1293,9 +1359,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PERMISSIONS_MICROPHONE,
+		titleKey: "settingsSearch.permissions_microphone.title",
+		descriptionKey: "settingsSearch.permissions_microphone.description",
 		section: "permissions",
-		title: "Microphone",
-		description: "Use voice transcription and push-to-talk features",
+		localizedKeywords: { "zh-CN": ["权限", "隐私", "系统"] },
 		keywords: [
 			"permissions",
 			"microphone",
@@ -1311,9 +1378,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PERMISSIONS_APPLE_EVENTS,
+		titleKey: "settingsSearch.permissions_apple_events.title",
+		descriptionKey: "settingsSearch.permissions_apple_events.description",
 		section: "permissions",
-		title: "Automation",
-		description: "Run terminal commands and interact with other applications",
+		localizedKeywords: { "zh-CN": ["权限", "隐私", "系统"] },
 		keywords: [
 			"permissions",
 			"automation",
@@ -1327,9 +1395,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.PERMISSIONS_LOCAL_NETWORK,
+		titleKey: "settingsSearch.permissions_local_network.title",
+		descriptionKey: "settingsSearch.permissions_local_network.description",
 		section: "permissions",
-		title: "Local Network",
-		description: "Discover and connect to development servers on your network",
+		localizedKeywords: { "zh-CN": ["权限", "隐私", "系统"] },
 		keywords: [
 			"permissions",
 			"local network",
@@ -1343,10 +1412,11 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.SECURITY_EXPOSE_HOST_SERVICE_VIA_RELAY,
+		titleKey: "settingsSearch.security_expose_host_service_via_relay.title",
+		descriptionKey:
+			"settingsSearch.security_expose_host_service_via_relay.description",
 		section: "security",
-		title: "Allow remote workspaces to access this device via relay",
-		description:
-			"Controls whether remote workspaces can reach your local host service through the Superset relay",
+		localizedKeywords: { "zh-CN": ["安全", "中继", "远程"] },
 		keywords: [
 			"security",
 			"relay",
@@ -1363,9 +1433,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.HOST_MEMBERS,
+		titleKey: "settingsSearch.host_members.title",
+		descriptionKey: "settingsSearch.host_members.description",
 		section: "hosts",
-		title: "Host members",
-		description: "View who has access to a host in your organization",
+		localizedKeywords: { "zh-CN": ["主机", "成员", "工作树"] },
 		keywords: [
 			"host",
 			"hosts",
@@ -1380,9 +1451,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.HOST_WORKTREE_LOCATION,
+		titleKey: "settingsSearch.host_worktree_location.title",
+		descriptionKey: "settingsSearch.host_worktree_location.description",
 		section: "hosts",
-		title: "Worktree location",
-		description: "Default location for new worktree workspaces on this host",
+		localizedKeywords: { "zh-CN": ["主机", "成员", "工作树"] },
 		keywords: [
 			"host",
 			"hosts",
@@ -1398,9 +1470,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.HOST_INVITE_MEMBER,
+		titleKey: "settingsSearch.host_invite_member.title",
+		descriptionKey: "settingsSearch.host_invite_member.description",
 		section: "hosts",
-		title: "Grant access to a host",
-		description: "Add an organization member to a host",
+		localizedKeywords: { "zh-CN": ["主机", "成员", "工作树"] },
 		keywords: [
 			"host",
 			"hosts",
@@ -1414,9 +1487,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.HOST_MEMBER_ROLE,
+		titleKey: "settingsSearch.host_member_role.title",
+		descriptionKey: "settingsSearch.host_member_role.description",
 		section: "hosts",
-		title: "Host member role",
-		description: "Change a member's role on a host (owner or member)",
+		localizedKeywords: { "zh-CN": ["主机", "成员", "工作树"] },
 		keywords: [
 			"host",
 			"hosts",
@@ -1429,10 +1503,10 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 	{
 		id: SETTING_ITEM_ID.HOST_DELETE,
+		titleKey: "settingsSearch.host_delete.title",
+		descriptionKey: "settingsSearch.host_delete.description",
 		section: "hosts",
-		title: "Delete host",
-		description:
-			"Remove a host and its synced workspace records from the organization",
+		localizedKeywords: { "zh-CN": ["主机", "成员", "工作树"] },
 		keywords: [
 			"host",
 			"hosts",
@@ -1447,11 +1521,29 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 	},
 ];
 
-export function searchSettings(query: string): SettingsItem[] {
-	if (!query.trim()) return SETTINGS_ITEMS;
+export function getSettingsItems(
+	locale: Locale = DEFAULT_LOCALE,
+): SettingsItem[] {
+	return SETTINGS_ITEM_DEFINITIONS.map((item) => ({
+		id: item.id,
+		section: item.section,
+		title: messages[locale][item.titleKey],
+		description: messages[locale][item.descriptionKey],
+		keywords: [...item.keywords, ...(item.localizedKeywords?.[locale] ?? [])],
+	}));
+}
+
+export const SETTINGS_ITEMS = getSettingsItems();
+
+export function searchSettings(
+	query: string,
+	locale: Locale = DEFAULT_LOCALE,
+): SettingsItem[] {
+	const items = getSettingsItems(locale);
+	if (!query.trim()) return items;
 
 	const q = query.toLowerCase();
-	return SETTINGS_ITEMS.filter(
+	return items.filter(
 		(item) =>
 			item.title.toLowerCase().includes(q) ||
 			item.description.toLowerCase().includes(q) ||
@@ -1461,8 +1553,9 @@ export function searchSettings(query: string): SettingsItem[] {
 
 export function getMatchCountBySection(
 	query: string,
+	locale: Locale = DEFAULT_LOCALE,
 ): Partial<Record<SettingsSection, number>> {
-	const matches = searchSettings(query);
+	const matches = searchSettings(query, locale);
 	const counts: Partial<Record<SettingsSection, number>> = {};
 
 	for (const item of matches) {
@@ -1475,8 +1568,11 @@ export function getMatchCountBySection(
 export function getMatchingItemsForSection(
 	query: string,
 	section: SettingsSection,
+	locale: Locale = DEFAULT_LOCALE,
 ): SettingsItem[] {
-	return searchSettings(query).filter((item) => item.section === section);
+	return searchSettings(query, locale).filter(
+		(item) => item.section === section,
+	);
 }
 
 export function isItemVisible(
@@ -1496,10 +1592,11 @@ export function getVisibleItemsForSection(params: {
 	section: SettingsSection;
 	searchQuery: string;
 	isV2: boolean;
+	locale?: Locale;
 }): SettingItemId[] {
-	const { section, searchQuery, isV2 } = params;
+	const { section, searchQuery, isV2, locale = DEFAULT_LOCALE } = params;
 	const matched = searchQuery.trim()
-		? getMatchingItemsForSection(searchQuery, section)
+		? getMatchingItemsForSection(searchQuery, section, locale)
 		: SETTINGS_ITEMS.filter((item) => item.section === section);
 	return matched
 		.filter((item) => isItemAllowedForVariant(item.id, isV2))
@@ -1514,8 +1611,9 @@ export function getVisibleItemsForSection(params: {
 export function getVisibleMatchCountBySection(
 	query: string,
 	isV2: boolean,
+	locale: Locale = DEFAULT_LOCALE,
 ): Partial<Record<SettingsSection, number>> {
-	const matches = searchSettings(query).filter((item) =>
+	const matches = searchSettings(query, locale).filter((item) =>
 		isItemAllowedForVariant(item.id, isV2),
 	);
 	const counts: Partial<Record<SettingsSection, number>> = {};
