@@ -101,4 +101,9 @@ export class SessionStore {
 	snapshotBuffer(session: Session): Buffer {
 		return Buffer.concat(session.buffer);
 	}
+
+	clearBuffer(session: Session): void {
+		session.buffer = [];
+		session.bufferBytes = 0;
+	}
 }

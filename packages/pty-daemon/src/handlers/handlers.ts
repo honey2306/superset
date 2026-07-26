@@ -4,6 +4,7 @@ import {
 	type SpawnOptions,
 } from "../Pty/index.ts";
 import type {
+	ClearBufferMessage,
 	CloseMessage,
 	InputMessage,
 	ListReplyMessage,
@@ -127,6 +128,16 @@ export function handleResize(
 	} catch (err) {
 		return errorFor(msg.id, (err as Error).message, "ERESIZE");
 	}
+	return undefined;
+}
+
+export function handleClearBuffer(
+	ctx: HandlerCtx,
+	msg: ClearBufferMessage,
+): ServerMessage | undefined {
+	const session = ctx.store.get(msg.id);
+	if (!session) return errorFor(msg.id, `unknown session: ${msg.id}`, "ENOENT");
+	ctx.store.clearBuffer(session);
 	return undefined;
 }
 

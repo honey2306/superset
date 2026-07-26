@@ -458,6 +458,10 @@ describe("createTerminalSessionInternal — host-service restart adoption", () =
 
 		const first = makeCaptureSocket();
 		replayBuffer(result, first.socket);
+		assert.ok(
+			first.received().startsWith("\x1b[?2004l"),
+			"cold restore should reset stale bracketed-paste mode before replay",
+		);
 		assert.match(
 			first.received(),
 			/Session Contents Restored/,

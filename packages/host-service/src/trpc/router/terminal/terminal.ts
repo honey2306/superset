@@ -5,12 +5,14 @@ import { getSupervisor, waitForDaemonReady } from "../../../daemon";
 import { terminalSessions, workspaces } from "../../../db/schema";
 import {
 	createTerminalSessionInternal,
+	daemonSessionHasRunningProcess,
 	disposeSessionAndWait,
 	disposeSessionsByWorkspaceId,
 	disposeSessionsByWorktreePath,
 	listWorkspaceTerminalSessions,
 	parseThemeType,
 	sessionHasRunningProcess,
+	writeInputToDaemonSession,
 	writeInputToSession,
 } from "../../../terminal/terminal";
 import type { HostServiceContext } from "../../../types";
@@ -154,9 +156,26 @@ export const terminalRouter = router({
 				workspaceId: z.string(),
 			}),
 		)
-		.query(({ input }) => ({
-			running: sessionHasRunningProcess(input.terminalId, input.workspaceId),
-		})),
+		.query(async ({ ctx, input }) => {
+			const localRunning = sessionHasRunningProcess(
+				input.terminalId,
+				input.workspaceId,
+			);
+			if (localRunning) return { running: true };
+			const row = ctx.db.query.terminalSessions
+				.findFirst({ where: eq(terminalSessions.id, input.terminalId) })
+				.sync();
+			if (
+				!row ||
+				row.originWorkspaceId !== input.workspaceId ||
+				row.status !== "active"
+			) {
+				return { running: false };
+			}
+			return {
+				running: await daemonSessionHasRunningProcess(input.terminalId),
+			};
+		}),
 
 	writeInput: protectedProcedure
 		.input(
@@ -166,8 +185,26 @@ export const terminalRouter = router({
 				data: z.string(),
 			}),
 		)
-		.mutation(({ input }) => {
-			const result = writeInputToSession(input);
+		.mutation(async ({ ctx, input }) => {
+			let result = writeInputToSession(input);
+			if ("error" in result && result.error === "Terminal session not found") {
+				const row = ctx.db.query.terminalSessions
+					.findFirst({ where: eq(terminalSessions.id, input.terminalId) })
+					.sync();
+				if (!row) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Terminal session not found",
+					});
+				}
+				if (row.originWorkspaceId !== input.workspaceId) {
+					throw new TRPCError({
+						code: "FORBIDDEN",
+						message: "Terminal session does not belong to this workspace",
+					});
+				}
+				result = await writeInputToDaemonSession(input.terminalId, input.data);
+			}
 			if ("error" in result) {
 				throw new TRPCError({
 					code: "NOT_FOUND",

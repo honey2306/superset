@@ -73,6 +73,7 @@ export function buildPromptAgentLaunchRequest({
 			},
 		};
 	}
+	const terminalConfig = requireTerminalConfig(config);
 
 	// For terminal agents with files, append file information to the prompt
 	// Use the same filename sanitization logic as terminal-adapter.ts to ensure paths match
@@ -148,6 +149,10 @@ export function buildPromptAgentLaunchRequest({
 		source,
 		terminal: {
 			command,
+			hostAgent: {
+				agent: terminalConfig.id,
+				prompt: enhancedPrompt,
+			},
 			name: config.label,
 			initialFiles: initialFiles?.length ? initialFiles : undefined,
 		},
@@ -214,6 +219,10 @@ export function buildTaskAgentLaunchRequest({
 		source,
 		terminal: {
 			command,
+			hostAgent: {
+				agent: terminalConfig.id,
+				prompt: renderedPrompt,
+			},
 			name: task.slug,
 			taskPromptContent: renderedPrompt,
 			taskPromptFileName,

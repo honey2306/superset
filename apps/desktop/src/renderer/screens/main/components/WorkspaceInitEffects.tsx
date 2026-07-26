@@ -2,13 +2,20 @@ import {
 	type AgentLaunchRequest,
 	normalizeAgentLaunchRequest,
 } from "@superset/shared/agent-launch";
+import { FEATURE_FLAGS } from "@superset/shared/constants";
 import { toast } from "@superset/ui/sonner";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useCallback, useEffect, useRef } from "react";
 import { useCreateOrAttachWithTheme } from "renderer/hooks/useCreateOrAttachWithTheme";
 import { launchAgentSession } from "renderer/lib/agent-session-orchestrator";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { writeCommandsInPane } from "renderer/lib/terminal/launch-command";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import {
+	buildTerminalCommand,
+	writeCommandsInPane,
+} from "renderer/lib/terminal/launch-command";
 import { isTerminalAttachCanceledMessage } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/attach-cancel";
+import { waitForV1HostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/v1-host-terminal-backend";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTabsWithPresets } from "renderer/stores/tabs/useTabsWithPresets";
 import {
@@ -27,6 +34,8 @@ export function WorkspaceInitEffects() {
 		(s) => s.removePendingTerminalSetup,
 	);
 	const clearProgress = useWorkspaceInitStore((s) => s.clearProgress);
+	const hostTerminalEnabled =
+		useFeatureFlagEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ?? false;
 
 	const { data: autoApplyDefaultPreset } =
 		electronTrpc.settings.getAutoApplyDefaultPreset.useQuery();
@@ -125,13 +134,33 @@ export function WorkspaceInitEffects() {
 
 	const runSetupCommandsInPane = useCallback(
 		async (paneId: string, commands: string[] | null) => {
+			if (hostTerminalEnabled) {
+				const command = buildTerminalCommand(commands);
+				if (!command) return;
+				const pane = useTabsStore.getState().panes[paneId];
+				const tab = pane
+					? useTabsStore
+							.getState()
+							.tabs.find((candidate) => candidate.id === pane.tabId)
+					: null;
+				if (!tab) throw new Error(`Setup pane not found: ${paneId}`);
+				const backend = await waitForV1HostTerminalBackend(tab.workspaceId);
+				await getHostServiceClientByUrl(
+					backend.hostUrl,
+				).terminal.createSession.mutate({
+					terminalId: paneId,
+					workspaceId: backend.hostWorkspaceId,
+					initialCommand: command,
+				});
+				return;
+			}
 			await writeCommandsInPane({
 				paneId,
 				commands,
 				write: (input) => terminalWrite.mutateAsync(input),
 			});
 		},
-		[terminalWrite],
+		[hostTerminalEnabled, terminalWrite],
 	);
 
 	const handleTerminalSetup = useCallback(
@@ -144,6 +173,28 @@ export function WorkspaceInitEffects() {
 			);
 			const hasPresets = shouldApplyPreset && presets.length > 0;
 			const { agentCommand, agentLaunchRequest } = setup;
+
+			if (hostTerminalEnabled && hasSetupScript) {
+				const { tabId, paneId } = addTab(setup.workspaceId);
+				setTabAutoTitle(tabId, "Workspace Setup");
+				openPresetsInActiveTab(setup.workspaceId, presets);
+				if (agentLaunchRequest || agentCommand) {
+					launchAgentViaOrchestrator(setup, paneId);
+				}
+				void runSetupCommandsInPane(paneId, setup.initialCommands ?? null)
+					.catch((error) => {
+						console.error(
+							"[WorkspaceInitEffects] Failed to run host setup commands:",
+							error,
+						);
+						toast.error("Failed to run setup commands", {
+							description:
+								error instanceof Error ? error.message : String(error),
+						});
+					})
+					.finally(onComplete);
+				return;
+			}
 
 			if (hasSetupScript && hasPresets) {
 				const { tabId: setupTabId, paneId: setupPaneId } = addTab(
@@ -315,6 +366,7 @@ export function WorkspaceInitEffects() {
 			runSetupCommandsInPane,
 			openPresetsInActiveTab,
 			shouldApplyPreset,
+			hostTerminalEnabled,
 		],
 	);
 

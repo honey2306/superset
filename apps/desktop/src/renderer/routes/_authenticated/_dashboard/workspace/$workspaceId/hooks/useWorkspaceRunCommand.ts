@@ -1,10 +1,14 @@
+import { FEATURE_FLAGS } from "@superset/shared/constants";
 import { toast } from "@superset/ui/sonner";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useCallback, useRef, useState } from "react";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import {
 	buildTerminalCommand,
 	launchCommandInPane,
 } from "renderer/lib/terminal/launch-command";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { waitForV1HostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/v1-host-terminal-backend";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import {
 	clearPaneWorkspaceRunLaunchPending,
@@ -26,6 +30,8 @@ export function useWorkspaceRunCommand({
 }: UseWorkspaceRunCommandOptions) {
 	const isStartingRef = useRef(false);
 	const [isPending, setIsPending] = useState(false);
+	const hostTerminalEnabled =
+		useFeatureFlagEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ?? false;
 
 	const addTab = useTabsStore((s) => s.addTab);
 	const setPaneName = useTabsStore((s) => s.setPaneName);
@@ -63,6 +69,18 @@ export function useWorkspaceRunCommand({
 		}) => {
 			markPaneWorkspaceRunLaunchPending(paneId);
 			try {
+				if (hostTerminalEnabled) {
+					const backend = await waitForV1HostTerminalBackend(workspaceId);
+					await getHostServiceClientByUrl(
+						backend.hostUrl,
+					).terminal.createSession.mutate({
+						terminalId: paneId,
+						workspaceId: backend.hostWorkspaceId,
+						initialCommand: command,
+						cwd,
+					});
+					return;
+				}
 				await launchCommandInPane({
 					paneId,
 					tabId,
@@ -80,7 +98,7 @@ export function useWorkspaceRunCommand({
 				clearPaneWorkspaceRunLaunchPending(paneId);
 			}
 		},
-		[workspaceId],
+		[hostTerminalEnabled, workspaceId],
 	);
 
 	const toggleWorkspaceRun = useCallback(async () => {
@@ -91,6 +109,18 @@ export function useWorkspaceRunCommand({
 		if (isRunning && runPane) {
 			setIsPending(true);
 			try {
+				if (hostTerminalEnabled) {
+					const backend = await waitForV1HostTerminalBackend(workspaceId);
+					await getHostServiceClientByUrl(
+						backend.hostUrl,
+					).terminal.writeInput.mutate({
+						terminalId: runPane.id,
+						workspaceId: backend.hostWorkspaceId,
+						data: CTRL_C_INPUT,
+					});
+					setPaneWorkspaceRunState(runPane.id, "stopped-by-user");
+					return;
+				}
 				await electronTrpcClient.terminal.write.mutate({
 					paneId: runPane.id,
 					data: CTRL_C_INPUT,
@@ -216,6 +246,7 @@ export function useWorkspaceRunCommand({
 		setPaneWorkspaceRun,
 		workspaceId,
 		worktreePath,
+		hostTerminalEnabled,
 	]);
 
 	const forceStopWorkspaceRun = useCallback(async () => {
@@ -223,6 +254,17 @@ export function useWorkspaceRunCommand({
 
 		setIsPending(true);
 		try {
+			if (hostTerminalEnabled) {
+				const backend = await waitForV1HostTerminalBackend(workspaceId);
+				await getHostServiceClientByUrl(
+					backend.hostUrl,
+				).terminal.killSession.mutate({
+					terminalId: runPane.id,
+					workspaceId: backend.hostWorkspaceId,
+				});
+				setPaneWorkspaceRunState(runPane.id, "stopped-by-user");
+				return;
+			}
 			await electronTrpcClient.terminal.kill.mutate({
 				paneId: runPane.id,
 			});
@@ -239,7 +281,7 @@ export function useWorkspaceRunCommand({
 		} finally {
 			setIsPending(false);
 		}
-	}, [isRunning, runPane]);
+	}, [hostTerminalEnabled, isRunning, runPane, workspaceId]);
 
 	return {
 		canForceStop,

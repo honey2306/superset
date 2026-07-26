@@ -14,6 +14,11 @@ import { createWriteCoalescer, type WriteCoalescer } from "./write-coalescer";
 
 export type ConnectionState = "disconnected" | "connecting" | "open" | "closed";
 
+export interface TerminalExitInfo {
+	exitCode: number;
+	signal: number;
+}
+
 export type TerminalLogLevel = "info" | "warn" | "error";
 
 export interface TerminalLogEntry {
@@ -41,6 +46,9 @@ export interface TerminalTransport {
 	title: string | null | undefined;
 	stateListeners: Set<() => void>;
 	titleListeners: Set<() => void>;
+	exitInfo: TerminalExitInfo | null;
+	exitListeners: Set<(info: TerminalExitInfo) => void>;
+	dataListeners: Set<(data: Uint8Array) => void>;
 	/**
 	 * Transport-level status log (WebSocket close/error/reconnect notices).
 	 * Surfaced to the pane UI instead of being written into the xterm buffer,
@@ -249,6 +257,9 @@ export function createTransport(): TerminalTransport {
 		title: undefined,
 		stateListeners: new Set(),
 		titleListeners: new Set(),
+		exitInfo: null,
+		exitListeners: new Set(),
+		dataListeners: new Set(),
 		logs: [],
 		logListeners: new Set(),
 		lastDiagnosis: null,
@@ -518,13 +529,17 @@ function attachSocketListeners(
 		// Binary frame = PTY output bytes (data + replay collapsed onto one
 		// channel; renderer treats them identically). Pipe straight into xterm.
 		if (data instanceof ArrayBuffer) {
+			const bytes = new Uint8Array(data);
+			for (const listener of transport.dataListeners) {
+				listener(bytes);
+			}
 			// Queue PTY bytes; the coalescer batches them into one xterm.write per
 			// animation frame. There's no output ACK back to host-service:
 			// back-pressure lives entirely on the host side, which bounds this
 			// socket's send buffer and drops us (we reconnect and replay) if we
 			// fall hopelessly behind. A slow renderer can never wedge the shell —
 			// it just loses some scrollback.
-			transport._writeCoalescer?.push(new Uint8Array(data));
+			transport._writeCoalescer?.push(bytes);
 			transport._hasReceivedBytes = true;
 			return;
 		}
@@ -544,6 +559,7 @@ function attachSocketListeners(
 		}
 
 		if (message.type === "attached") {
+			transport.exitInfo = null;
 			transport.lastDiagnosis = null;
 			transport._diagnosisLogged = false;
 			setConnectionState(transport, "open");
@@ -570,6 +586,13 @@ function attachSocketListeners(
 				category: "unknown",
 				message: `The terminal session ended (exit code ${message.exitCode}).`,
 			};
+			transport.exitInfo = {
+				exitCode: message.exitCode,
+				signal: message.signal,
+			};
+			for (const listener of transport.exitListeners) {
+				listener(transport.exitInfo);
+			}
 			socket.close();
 			terminal.writeln(
 				`\r\n[terminal] exited with code ${message.exitCode} (signal ${message.signal})`,
@@ -645,6 +668,7 @@ function attachSocketListeners(
 export function reconnect(transport: TerminalTransport) {
 	if (!transport._socket || !transport.currentUrl) return;
 	transport._terminated = false;
+	transport.exitInfo = null;
 	transport._diagnosisLogged = false;
 	transport.lastDiagnosis = null;
 	setConnectionState(transport, "connecting");
@@ -689,6 +713,12 @@ export function sendInput(transport: TerminalTransport, data: string) {
 	socket.send(JSON.stringify({ type: "input", data }));
 }
 
+export function sendClearScrollback(transport: TerminalTransport) {
+	const socket = transport._socket;
+	if (!socket || socket.readyState !== WebSocket.OPEN) return;
+	socket.send(JSON.stringify({ type: "clear-scrollback" }));
+}
+
 export function sendDispose(transport: TerminalTransport) {
 	if (transport._socket?.readyState === WebSocket.OPEN) {
 		transport._socket.send(JSON.stringify({ type: "dispose" }));
@@ -717,6 +747,8 @@ export function disposeTransport(transport: TerminalTransport) {
 		transport._titleNotifyTimer = null;
 	}
 	transport.titleListeners.clear();
+	transport.exitListeners.clear();
+	transport.dataListeners.clear();
 	transport.logs = [];
 	transport.logListeners.clear();
 }

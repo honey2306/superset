@@ -136,19 +136,28 @@ test("multiple local subscribers get fanned out from one wire subscription", asy
 			onExit: () => {},
 		},
 	);
-	// Second subscriber must use replay:false — the daemon's buffer was
-	// already delivered to the first subscribe; requesting replay again
-	// is now an explicit error (see DaemonClient.subscribe). The
-	// fan-out applies to live output only.
+	c.input(id, Buffer.from("echo cached-before-second-subscriber\n"));
+	await waitFor(
+		() =>
+			Buffer.concat(a).toString().includes("cached-before-second-subscriber"),
+		3000,
+	);
+
+	// The daemon only replays once. A second local route graph requesting
+	// replay receives the DaemonClient's byte cache, then joins live fan-out.
 	const unsubB = c.subscribe(
 		id,
-		{ replay: false },
+		{ replay: true },
 		{
 			onOutput: (buf) => b.push(buf),
 			onExit: () => {},
 		},
 	);
+	assert.ok(
+		Buffer.concat(b).toString().includes("cached-before-second-subscriber"),
+	);
 
+	c.input(id, Buffer.from("echo fanout\n"));
 	await new Promise((r) => setTimeout(r, 500));
 	assert.ok(Buffer.concat(a).toString().includes("fanout"));
 	assert.ok(Buffer.concat(b).toString().includes("fanout"));

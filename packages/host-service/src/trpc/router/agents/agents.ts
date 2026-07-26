@@ -1,5 +1,9 @@
 import { readFileSync } from "node:fs";
 import {
+	AGENT_IDENTITY_IDS,
+	type AgentIdentityId,
+} from "@superset/shared/agent-catalog";
+import {
 	buildAgentEffortArgs,
 	buildAgentModelArgs,
 	buildAgentModelEnv,
@@ -157,6 +161,7 @@ export interface AgentRunInput {
 	workspaceId: string;
 	agent: string;
 	prompt: string;
+	terminalId?: string;
 	attachmentIds?: string[];
 	model?: string;
 	effort?: string;
@@ -228,7 +233,7 @@ async function runChatAgent(
 }
 
 async function runTerminalAgent(
-	ctx: { db: HostDb; eventBus: import("../../../events").EventBus },
+	ctx: Pick<HostServiceContext, "db" | "eventBus" | "terminalAgentStore">,
 	input: AgentRunInput,
 ): Promise<AgentRunResult> {
 	const config = resolveHostAgentConfig(ctx.db, input.agent);
@@ -261,7 +266,7 @@ async function runTerminalAgent(
 	const modelEnv = buildAgentModelEnv(config.presetId, input.model);
 	const fullCommand = `${envOverlayPrefix({ ...config.env, ...modelEnv })}${command}`;
 
-	const terminalId = crypto.randomUUID();
+	const terminalId = input.terminalId ?? crypto.randomUUID();
 	const result = await createTerminalSessionInternal({
 		terminalId,
 		workspaceId: input.workspaceId,
@@ -274,6 +279,27 @@ async function runTerminalAgent(
 		throw new TRPCError({
 			code: "INTERNAL_SERVER_ERROR",
 			message: result.error,
+		});
+	}
+
+	const agentId = AGENT_IDENTITY_IDS.find(
+		(candidate): candidate is AgentIdentityId => candidate === config.presetId,
+	);
+	if (agentId) {
+		const occurredAt = Date.now();
+		ctx.terminalAgentStore.recordEvent({
+			terminalId: result.terminalId,
+			workspaceId: input.workspaceId,
+			eventType: "Attached",
+			agentId,
+			occurredAt,
+		});
+		ctx.eventBus.broadcastAgentLifecycle({
+			workspaceId: input.workspaceId,
+			eventType: "Attached",
+			terminalId: result.terminalId,
+			agent: { agentId },
+			occurredAt,
 		});
 	}
 
@@ -311,7 +337,11 @@ export const agentsRouter = router({
 			z.object({
 				workspaceId: z.string().uuid(),
 				agent: z.string().min(1),
-				prompt: z.string().min(1),
+				// Empty means launch the configured interactive CLI without a
+				// prompt. buildAgentCommandString deliberately drops prompt-only
+				// flags for this case.
+				prompt: z.string(),
+				terminalId: z.string().min(1).optional(),
 				attachmentIds: z.array(z.string().uuid()).optional(),
 				model: z.string().min(1).optional(),
 				effort: z.string().min(1).optional(),

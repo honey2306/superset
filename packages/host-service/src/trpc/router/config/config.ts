@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { projects } from "../../../db/schema";
+import { projects, workspaces } from "../../../db/schema";
 import {
 	getProjectConfigPath,
 	hasConfiguredScripts,
@@ -12,6 +12,7 @@ import {
 	type SetupConfig,
 	shellSingleQuote,
 } from "../../../runtime/setup/config";
+import { createTerminalSessionInternal } from "../../../terminal/terminal";
 import type { HostServiceContext } from "../../../types";
 import { protectedProcedure, router } from "../../index";
 
@@ -36,6 +37,71 @@ function requireProject(
 }
 
 export const configRouter = router({
+	launchLifecycleScript: protectedProcedure
+		.input(
+			z.object({
+				workspaceId: z.string(),
+				terminalId: z.string().min(1).optional(),
+				kind: z.enum(["setup", "run", "teardown"]),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const row = ctx.db
+				.select({
+					projectId: workspaces.projectId,
+					repoPath: projects.repoPath,
+					worktreePath: workspaces.worktreePath,
+				})
+				.from(workspaces)
+				.innerJoin(projects, eq(projects.id, workspaces.projectId))
+				.where(eq(workspaces.id, input.workspaceId))
+				.get();
+			if (!row) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `Workspace not found: ${input.workspaceId}`,
+				});
+			}
+			const resolved = resolveScript(input.kind, {
+				projectId: row.projectId,
+				repoPath: row.repoPath,
+				worktreePath: row.worktreePath,
+			});
+			if (!resolved) {
+				return { status: "not-configured" as const };
+			}
+			const command =
+				resolved.kind === "commands"
+					? resolved.commands.join(" && ")
+					: `bash ${shellSingleQuote(resolved.scriptPath)}`;
+			// Lifecycle panes represent one finite setup/run/teardown job. Replace
+			// the interactive shell so the PTY exits with the script's status;
+			// otherwise the command returns to a prompt and the renderer can never
+			// transition its lifecycle badge out of "running".
+			const terminalCommand = `exec bash -lc ${shellSingleQuote(command)}`;
+			const terminalId = input.terminalId ?? crypto.randomUUID();
+			const session = await createTerminalSessionInternal({
+				terminalId,
+				workspaceId: input.workspaceId,
+				db: ctx.db,
+				eventBus: ctx.eventBus,
+				initialCommand: terminalCommand,
+				...(resolved.cwd && { cwd: resolved.cwd }),
+			});
+			if ("error" in session) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: session.error,
+				});
+			}
+			return {
+				status: "running" as const,
+				terminalId,
+				command: terminalCommand,
+				kind: input.kind,
+			};
+		}),
+
 	/**
 	 * Decide whether the v2 sidebar setup-script CTA should show for a project.
 	 * Returns true only when no source (main repo, user override, local overlay)

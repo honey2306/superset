@@ -5,6 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { Conn, HandlerCtx } from "../handlers/index.ts";
 import {
+	handleClearBuffer,
 	handleClose,
 	handleInput,
 	handleList,
@@ -449,6 +450,11 @@ export class Server {
 			}
 			case "resize": {
 				const reply = handleResize(ctx, msg);
+				if (reply) conn.send(reply);
+				return;
+			}
+			case "clear-buffer": {
+				const reply = handleClearBuffer(ctx, msg);
 				if (reply) conn.send(reply);
 				return;
 			}

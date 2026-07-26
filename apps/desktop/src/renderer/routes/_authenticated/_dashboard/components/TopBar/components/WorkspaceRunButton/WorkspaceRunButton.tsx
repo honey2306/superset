@@ -1,3 +1,4 @@
+import { FEATURE_FLAGS } from "@superset/shared/constants";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -5,21 +6,27 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@superset/ui/dropdown-menu";
+import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
 import { useNavigate } from "@tanstack/react-router";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { memo, useCallback } from "react";
 import {
 	HiChevronDown,
 	HiMiniCog6Tooth,
+	HiMiniCommandLine,
 	HiMiniPlay,
 	HiMiniStop,
 	HiMiniXMark,
 } from "react-icons/hi2";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceRunCommand } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/useWorkspaceRunCommand";
+import { waitForV1HostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/v1-host-terminal-backend";
 import { useSetSettingsSearchQuery } from "renderer/stores/settings-state";
+import { useTabsStore } from "renderer/stores/tabs/store";
 
 interface WorkspaceRunButtonProps {
 	projectId?: string | null;
@@ -36,6 +43,15 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 	const navigate = useNavigate();
 	const setSettingsSearchQuery = useSetSettingsSearchQuery();
 	const hotkeyText = useHotkeyDisplay("RUN_WORKSPACE_COMMAND").text;
+	const hostTerminalEnabled =
+		useFeatureFlagEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ?? false;
+	const addTab = useTabsStore((state) => state.addTab);
+	const removePane = useTabsStore((state) => state.removePane);
+	const setPaneName = useTabsStore((state) => state.setPaneName);
+	const setPaneStatus = useTabsStore((state) => state.setPaneStatus);
+	const setPaneLifecycleScript = useTabsStore(
+		(state) => state.setPaneLifecycleScript,
+	);
 	const {
 		canForceStop,
 		forceStopWorkspaceRun,
@@ -93,6 +109,43 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 	const handleForceStopClick = useCallback(() => {
 		void forceStopWorkspaceRun();
 	}, [forceStopWorkspaceRun]);
+
+	const launchLifecycleScript = useCallback(
+		async (kind: "setup" | "teardown") => {
+			const { paneId } = addTab(workspaceId);
+			const label = kind === "setup" ? "Workspace Setup" : "Workspace Teardown";
+			setPaneName(paneId, label);
+			setPaneLifecycleScript(paneId, { kind, state: "running" });
+			try {
+				const backend = await waitForV1HostTerminalBackend(workspaceId);
+				const result = await getHostServiceClientByUrl(
+					backend.hostUrl,
+				).config.launchLifecycleScript.mutate({
+					workspaceId: backend.hostWorkspaceId,
+					terminalId: paneId,
+					kind,
+				});
+				if (result.status === "not-configured") {
+					removePane(paneId);
+					toast.error(`No ${kind} script configured`);
+				}
+			} catch (error) {
+				setPaneLifecycleScript(paneId, { kind, state: "failed" });
+				setPaneStatus(paneId, "failed");
+				toast.error(`Failed to run ${kind} script`, {
+					description: error instanceof Error ? error.message : String(error),
+				});
+			}
+		},
+		[
+			addTab,
+			removePane,
+			setPaneLifecycleScript,
+			setPaneName,
+			setPaneStatus,
+			workspaceId,
+		],
+	);
 
 	const buttonLabel = isRunning
 		? t("dashboard.stopRun")
@@ -175,6 +228,23 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 							>
 								<HiMiniXMark className="mr-2 size-4 text-destructive" />
 								{t("dashboard.forceStop")}
+							</DropdownMenuItem>
+							<DropdownMenuSeparator />
+						</>
+					)}
+					{hostTerminalEnabled && (
+						<>
+							<DropdownMenuItem
+								onClick={() => void launchLifecycleScript("setup")}
+							>
+								<HiMiniCommandLine className="mr-2 size-4" />
+								Run setup
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={() => void launchLifecycleScript("teardown")}
+							>
+								<HiMiniCommandLine className="mr-2 size-4" />
+								Run teardown
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
 						</>

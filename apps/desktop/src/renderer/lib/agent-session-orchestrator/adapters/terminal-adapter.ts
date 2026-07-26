@@ -1,5 +1,10 @@
 import type { AgentLaunchRequest } from "@superset/shared/agent-launch";
+import { FEATURE_FLAGS } from "@superset/shared/constants";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { posthog } from "renderer/lib/posthog";
 import { launchCommandInPane } from "renderer/lib/terminal/launch-command";
+import { launchTerminalAgent } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/host-service-terminal-agent-launcher";
+import { waitForV1HostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/v1-host-terminal-backend";
 import type { AgentSessionLaunchContext, LaunchResultPayload } from "../types";
 
 type TerminalLaunchRequest = Extract<AgentLaunchRequest, { kind: "terminal" }>;
@@ -196,6 +201,24 @@ export async function launchTerminalAdapter(
 	const targetPaneId = request.terminal.paneId;
 
 	const noExecute = request.terminal.autoExecute === false;
+	const launchInHost = async (paneId: string) => {
+		const hostAgent = request.terminal.hostAgent;
+		if (
+			noExecute ||
+			!hostAgent ||
+			posthog.isFeatureEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) !== true
+		) {
+			return false;
+		}
+		const backend = await waitForV1HostTerminalBackend(workspaceId);
+		const launched = await launchTerminalAgent({
+			client: getHostServiceClientByUrl(backend.hostUrl),
+			workspaceId: backend.hostWorkspaceId,
+			paneId,
+			...hostAgent,
+		});
+		return launched;
+	};
 
 	if (targetPaneId) {
 		const targetPane = tabs.getPane(targetPaneId);
@@ -230,15 +253,17 @@ export async function launchTerminalAdapter(
 				await writeAttachmentFiles(workspaceId, request.terminal.initialFiles);
 			}
 
-			await launchCommandInPane({
-				paneId: newPaneId,
-				tabId: tab.id,
-				workspaceId,
-				command: request.terminal.command,
-				createOrAttach: context.createOrAttach,
-				write: context.write,
-				noExecute,
-			});
+			const hostLaunch = await launchInHost(newPaneId);
+			if (!hostLaunch)
+				await launchCommandInPane({
+					paneId: newPaneId,
+					tabId: tab.id,
+					workspaceId,
+					command: request.terminal.command,
+					createOrAttach: context.createOrAttach,
+					write: context.write,
+					noExecute,
+				});
 		} catch (error) {
 			tabs.removePane(newPaneId);
 			throw error;
@@ -271,15 +296,17 @@ export async function launchTerminalAdapter(
 			await writeAttachmentFiles(workspaceId, request.terminal.initialFiles);
 		}
 
-		await launchCommandInPane({
-			paneId,
-			tabId,
-			workspaceId,
-			command: request.terminal.command,
-			createOrAttach: context.createOrAttach,
-			write: context.write,
-			noExecute,
-		});
+		const hostLaunch = await launchInHost(paneId);
+		if (!hostLaunch)
+			await launchCommandInPane({
+				paneId,
+				tabId,
+				workspaceId,
+				command: request.terminal.command,
+				createOrAttach: context.createOrAttach,
+				write: context.write,
+				noExecute,
+			});
 	} catch (error) {
 		tabs.removePane(paneId);
 		throw error;

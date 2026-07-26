@@ -1199,6 +1199,18 @@ export const useTabsStore = create<TabsStore>()(
 						};
 					});
 				},
+				setPaneLifecycleScript: (paneId, lifecycleScript) => {
+					set((state) => {
+						const pane = state.panes[paneId];
+						if (!pane) return state;
+						return {
+							panes: {
+								...state.panes,
+								[paneId]: { ...pane, lifecycleScript },
+							},
+						};
+					});
+				},
 				setPaneAutoTitle: (paneId, title) => {
 					set((state) => {
 						const pane = state.panes[paneId];
