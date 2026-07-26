@@ -1,10 +1,13 @@
 import type { ExternalApp } from "@superset/local-db";
+import { FEATURE_FLAGS } from "@superset/shared/constants";
 import { useParams } from "@tanstack/react-router";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useEffect, useMemo, useRef } from "react";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { resolveActiveTabIdForWorkspace } from "renderer/stores/tabs/utils";
 import { EmptyTabView } from "./EmptyTabView";
 import { TabView } from "./TabView";
+import { V1PanesWorkspace } from "./V1PanesWorkspace";
 
 interface TabsContentProps {
 	defaultExternalApp?: ExternalApp | null;
@@ -18,6 +21,8 @@ export function TabsContent({
 	onOpenQuickOpen,
 }: TabsContentProps) {
 	const { workspaceId: activeWorkspaceId } = useParams({ strict: false });
+	const panesInV1Enabled =
+		useFeatureFlagEnabled(FEATURE_FLAGS.V2_PANES_IN_V1) ?? false;
 	const allTabs = useTabsStore((s) => s.tabs);
 	const activeTabIds = useTabsStore((s) => s.activeTabIds);
 	const tabHistoryStacks = useTabsStore((s) => s.tabHistoryStacks);
@@ -89,7 +94,9 @@ export function TabsContent({
 
 	return (
 		<div ref={contentRef} className="flex-1 min-h-0 flex overflow-hidden">
-			{tabToRender ? (
+			{panesInV1Enabled && activeWorkspaceId ? (
+				<V1PanesWorkspace workspaceId={activeWorkspaceId} />
+			) : tabToRender ? (
 				<TabView tab={tabToRender} />
 			) : (
 				<EmptyTabView
