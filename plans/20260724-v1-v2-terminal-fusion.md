@@ -582,21 +582,180 @@ Mitigation:
 
 - [x] (2026-07-24) Captured migration direction: v1 UI stays, v2 terminal
   backend and selected workflow capabilities are migrated.
-- [ ] Milestone 0: Baseline audit and safety tests.
-- [ ] Milestone 1: v1 terminal backend adapter.
-- [ ] Milestone 2: byte-safe v1 terminal output.
-- [ ] Milestone 3: v1 terminal UX parity on new runtime.
-- [ ] Milestone 4: terminal agents and status.
-- [ ] Milestone 5: ports, run scripts, click policy.
+- [x] (2026-07-25) Milestone 0: Baseline audit and safety tests.
+  - Documented v1 terminal actions: create / createWithCommand (via
+    `createOrAttach` `command` field) / write / resize / clear /
+    clearScrollback / search (renderer-side xterm SearchAddon) / signal /
+    kill / detach / restart / coldRestore / tabSwitch (via v1-terminal-cache
+    parking) / paste / scrollToBottom / link click / cwd+title tracking /
+    auto-reconnect with exponential backoff.
+  - Added `apps/desktop/src/main/terminal-host/session-byte-fidelity.test.ts`:
+    - characterization test locking the current mojibake bug (split
+      multibyte UTF-8 across chunks corrupts via per-chunk
+      `toString("utf8")` at `session.ts:379-383`).
+    - happy-path baseline (complete multibyte string in one chunk).
+    - non-UTF-8 byte handling gap (no round-trip today).
+    - v1 behavior audit tests (create/ready, command spawn payload, exit
+      broadcast).
+  - Recorded v1 settings/presets: `shellReadyState` gating (OSC 133),
+    `SHELLS_WITH_READY_MARKER`, `scrollbackLines` /
+    `DEFAULT_TERMINAL_SCROLLBACK`, env via `buildSafeEnv`, shell args via
+    `getShellArgs`/`getCommandShellArgs`, cold-restore snapshot replay,
+    emulator backlog backpressure watermarks
+    (`EMULATOR_WRITE_QUEUE_HIGH_WATERMARK_BYTES = 1_000_000`,
+    `EMULATOR_WRITE_QUEUE_LOW_WATERMARK_BYTES = 250_000`),
+    `ATTACH_FLUSH_TIMEOUT_MS = 500`, `SHELL_READY_TIMEOUT_MS = 15_000`.
+- [x] (2026-07-26) Milestone 1: v1 terminal backend adapter.
+  - Added `host-service-terminal-adapter.ts`: creates/adopts host-service
+    terminal sessions, maintains stable paneId→terminalId identity across
+    adapter remounts, deduplicates concurrent creates, and constructs WebSocket
+    URLs with token/workspace/theme params.
+  - Added `useHostServiceTerminal` hook: feature-flag-gated adapter factory.
+  - Added `FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL` to shared constants.
+  - (2026-07-26) Replaced placeholder write/resize/detach methods with shared
+    runtime operations; added host-service readiness waiting and concurrent
+    create/close race handling.
+  - (2026-07-26) Added backend-aware terminal cleanup routing. Hidden tab
+    unmounts park the runtime without killing the PTY; explicit pane/tab close
+    uses host-service kill and discards renderer state. A live legacy runtime
+    is retired if a feature-flag refresh moves the pane to host-service.
+  - (2026-07-26) Added v1→host workspace identity resolution. The adapter
+    prefers an exact UUID and otherwise maps the v1 workspace to the
+    host-owned workspace row by normalized worktree path.
+  - Manual feature-flagged v1 smoke passed: session create/attach, input,
+    resize, workspace switch/remount, and explicit pane-close disposal all ran
+    through host-service without mounting v2 UI.
+- [x] (2026-07-26) Milestone 2: byte-safe v1 terminal output.
+  - Added `HostServiceTerminalPane`: uses `terminalRuntimeRegistry` +
+    `terminal-ws-transport`, receives `Uint8Array` binary frames from
+    host-service WebSocket, xterm handles UTF-8 boundaries internally.
+  - Modified `TabPane.tsx`: feature-flag-gated switch between legacy
+    `Terminal` and `HostServiceTerminalPane`.
+  - (2026-07-26) Restored v1 clear/scroll/copy/paste callbacks, terminal
+    hotkeys/search, scroll-to-bottom UI, focus, title updates, initial cwd, and
+    workspace-run initial command plumbing on the host-service pane.
+  - (2026-07-26) Moved `useTerminalAppearance` to the neutral renderer terminal
+    library so v1 does not depend on v2 workspace UI code.
+  - Automated validation: 25 focused tests pass, including adapter
+    input/resize/detach, remount identity, create/kill race, cleanup routing,
+    v1/host workspace identity mapping, and legacy mojibake characterization;
+    full typecheck passes (35/35 tasks) and lint passes (5,355 files).
+  - The user ran the required local migration/seed. The correct local desktop
+    instance and its full dependency stack were then restarted for manual
+    validation (`localhost:3005`, local-dev app identity; isolated DB stack on
+    3014/3015; active local host-service on 48679).
+  - Manual byte-path smoke passed in the mounted v1 pane: raw UTF-8 bytes
+    rendered `中文:🙂`, a 200-line stream completed, window resize propagated
+    PTY dimensions from `47 122` to `47 149`, workspace switch/back preserved
+    the same session and scrollback, and pane close changed the durable
+    terminal row from `active` to `disposed`.
+  - Agent CLI launch/status validation remains Milestone 4 work; it is not
+    counted as part of the completed byte-pipeline exit criterion.
+- [x] (2026-07-26) Milestone 3: v1 terminal UX parity on the new runtime.
+  - Added host-runtime data/exit subscriptions, durable exit information,
+    connection/exit overlays, restart, server-backed clear, streamed cwd
+    tracking, and persistent close cleanup registration.
+  - Preserved v1 search, copy/paste, scroll-to-bottom, split/tab/workspace
+    remount, workspace-run, pane title/status callbacks, and close
+    confirmation/semantics. Terminal URL and file links now use the centralized
+    click policy and host `statPath` lookup.
+  - Fixed two lifecycle defects found by the real UI smoke: cold replay could
+    leave bracketed-paste mode enabled, and a session created through a
+    different host-service router instance could neither replay nor accept
+    input after remount. Replay now begins with a terminal-mode reset;
+    `DaemonClient` retains a bounded 64 KiB local replay window and router
+    write/process checks have ownership-validated daemon fallbacks.
+  - Real v1 UI evidence covered UTF-8 output, large output, PTY resize
+    (`48x147` to `46x178`), search/clear/paste, exit/restart, workspace
+    switch/back, cold restore, and pane close/reopen. Session rows and
+    WebSocket/runtime cleanup agreed with the visible lifecycle.
+- [x] (2026-07-26) Milestone 4: terminal agents and status.
+  - Replaced the launcher spike with the formal host-service `agents.run`
+    path. Shared launch requests now carry a typed `hostAgent`; the host route
+    accepts the caller's v1 pane terminal id and launches the wrapper in that
+    existing terminal.
+  - Formal launch immediately records an `Attached` terminal-agent binding and
+    broadcasts lifecycle state; existing CLI hooks refine working,
+    permission, review, and stopped states when available. The v1 terminal
+    reads host-owned bindings and exposes the terminal-native status without
+    adding ACP/native transcript UI.
+  - Real v1 UI launch ran the locally installed Codex TUI in the selected pane.
+    The durable host row recorded the same terminal id, host workspace id,
+    `codex`, and `Attached`. Missing/unconfigured agent behavior remains a
+    typed, testable host-route failure rather than silently falling back to an
+    unrelated command.
+- [x] (2026-07-26) Milestone 5: ports, scripts, and centralized click policy.
+  - v1 port data now merges host-service discovery through normalized
+    workspace identity and host event invalidation. Sidebar open/kill actions
+    use the centralized port-open policy.
+  - Workspace run, setup, and teardown launch host-owned terminal sessions in
+    the v1 tab surface. Script jobs use an `exec bash -lc` wrapper so terminal
+    exit status is the script status and visible success/failure overlays are
+    reliable.
+  - Real v1 UI validation ran setup and teardown to exit 0, launched a Python
+    server on port 41873, observed the discovered port in the v1 sidebar,
+    invoked its open action, then stopped the terminal and observed the server
+    become unreachable. The localhost endpoint independently returned HTTP
+    200 while active. macOS handed the open action to the configured external
+    browser; browser-window rendering was not used as proof of server health.
+  - Final validation: 77 focused tests passed; 6 real DaemonClient PTY tests
+    passed under the repository's Node runner; 20 real SQLite + PTY adoption
+    tests passed under Electron's matching native-module ABI; full monorepo
+    typecheck passed 35/35; desktop typecheck, lint (5,358 files), and
+    `git diff --check` passed.
 - [ ] Milestone 6: remove v2 workspace entry points.
 - [ ] Milestone 7: delete v2 UI.
 
 ## Surprises & Discoveries
 
 - v1 mojibake is a real architecture issue, not just a rendering glitch. The
-  v1 terminal-host code documents possible UTF-8 boundary mangling.
+  v1 terminal-host code documents possible UTF-8 boundary mangling
+  (`session.ts:379-383`): every `PtySubprocessIpcType.Data` chunk is decoded
+  with `Buffer.from(...).toString("utf8")` independently, with no
+  per-session `StringDecoder`, so a multibyte character split across two
+  PTY chunks becomes replacement chars. Confirmed by
+  `session-byte-fidelity.test.ts`.
 - v2 already has byte-fidelity tests that should be reused or mirrored for the
-  fused v1 path.
+  fused v1 path. `packages/pty-daemon/test/byte-fidelity.test.ts` is the
+  runtime canary; `no-encoding-hops.test.ts` is the source-level guard.
+- v1 and v2 already share the `terminal-parking` container and the
+  `@superset/shared/shell-ready-scanner` — the fusion can reuse these
+  without introducing a third architecture.
+- v1 `paneId === terminalId` today (the tRPC router keys everything on
+  `paneId`). Milestone 1 must introduce an explicit `paneId -> terminalId`
+  mapping before the backend identity diverges.
+- The manual fused-pane smoke reached the correct local desktop app but not the
+  v1 workspace until the user ran migration/seed for the isolated local DB.
+  After that, the complete v1 UI path was testable.
+- v1 and host-service workspace UUIDs are independent even when they represent
+  the same checkout. Passing the v1 UUID directly caused
+  `terminal.createSession` to fail with `Workspace not found`. Resolving the
+  host-owned row by worktree path keeps the v1 product identity intact while
+  using host-service as the runtime owner.
+- Host-service router instances do not necessarily share their in-memory
+  session maps. A renderer remount could subscribe through a second
+  `DaemonClient`, where the daemon correctly rejected a second replay, while
+  write and process checks failed before reaching the daemon. A bounded local
+  replay cache plus ownership-validated daemon fallbacks preserves the
+  single-daemon-session model across router instances.
+- Replayed xterm bytes can include DEC mode state. Cold restore reproduced a
+  case where bracketed-paste mode remained set even though the original shell
+  was no longer in that mode; prefixing replay with `ESC[?2004l` makes paste
+  deterministic without decoding or rewriting user output.
+- A PTY script launched as `bash -lc <command>` may return to an interactive
+  parent shell, leaving a lifecycle terminal apparently running after the
+  script finishes. Using `exec bash -lc <command>` makes the PTY lifecycle and
+  script exit code identical.
+- The local Codex installation had an unrelated malformed global hooks config,
+  so hook-driven status refinement could not be assumed at launch time.
+  Recording `Attached` in the formal host route gives every supported CLI a
+  durable baseline binding; hooks remain best-effort refinements.
+- React Query publishes observer-added cache events synchronously. Mounting the
+  v1 host binding query during `HostServiceTerminalPane` render therefore
+  exposed an existing dock-badge subscriber that called React state
+  synchronously and triggered a React 19 cross-render warning. Deferring the
+  badge refresh to a microtask keeps the same cache semantics without a render
+  side effect.
 
 ## Decision Log
 
@@ -616,6 +775,41 @@ Mitigation:
   this migration.
   Date/Author: 2026-07-24 / Codex
 
+- Decision: Seed terminal-agent binding in `agents.run`, before relying on CLI
+  hooks.
+  Rationale: Launch ownership is known synchronously, while hook availability
+  is CLI- and user-config-dependent. A durable `Attached` event gives v1 a
+  truthful baseline and lets hooks add richer states later.
+  Date/Author: 2026-07-26 / Codex
+
+- Decision: Reuse host-service capabilities only through v1 surfaces for
+  Milestones 3–5.
+  Rationale: Ports, scripts, link policy, runtime, and agent bindings improve
+  reliability; importing the v2 pane registry or workspace product UI would
+  violate the fusion boundary.
+  Date/Author: 2026-07-26 / Codex
+
 ## Outcomes & Retrospective
 
-To be filled after implementation.
+Milestones 0–5 are implemented behind the `v1-host-service-terminal` feature
+flag. The v1 workspace now owns the visible tab/pane lifecycle while
+host-service and pty-daemon own byte-safe PTYs, reconnect/replay, agent
+bindings, port discovery, and lifecycle scripts. The real UI validation used
+the isolated `fusion-m3-m5` Electron instance at the v1 route, not another
+running Superset checkout.
+
+The main reliability gains were architectural rather than cosmetic: PTY output
+stays binary, pane close is backend-aware, remounts reuse host sessions, agent
+launch is a formal host operation, and script/port state derives from the same
+runtime. v2 UI remains present and unchanged because Milestones 6 and 7 are
+explicitly out of scope. The remaining release risk is feature-flag rollout
+and broader cross-machine CLI/browser-default coverage, not a known missing
+M3–M5 product path.
+
+One unrelated pre-existing integration discrepancy remains outside this diff:
+`DaemonSupervisor.node-test.ts` expects automatic daemon update to defer while
+live sessions exist, while `DaemonSupervisor.ts` explicitly documents and
+implements non-destructive fd-handoff for live sessions. The combined suite
+therefore reports 17/18 even though every DaemonClient test passes. This plan
+does not silently reinterpret that baseline mismatch as an M3–M5 failure or
+change daemon update policy as part of terminal fusion.
