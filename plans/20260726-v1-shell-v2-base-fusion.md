@@ -20,6 +20,35 @@ require. The end state is:
 - The internal pane/layout/view/state layer is the **v2-grade
   `@superset/panes` engine** plus v2's per-workspace isolation, not v1's
   mosaic + global tabs store.
+
+### Current scope: "base" pass (2026-07-26)
+
+This pass builds the **base** only — v1 shell on the v2 panes engine with
+terminal + file panes usable as the default. The four product goals that
+*sit on top of* the base are out of scope and tracked as medium-term:
+
+- **Out of scope (medium-term, do NOT do this pass):**
+  - M3 — ACP agent pane (`acp` pane kind via `session-protocol`).
+  - M5 — strengthened git (v2 review surface + v1 operations merged).
+  - M6 — mobile remote control (relay-driven panes).
+- **In scope (base):**
+  - M1 — real-render validation + persistence adapter ✅ (done).
+  - M2 — terminal pane registry parity (daily-driver terminal under the
+    flag).
+  - M4 — editor preview + LSP via view registry. **LSP scoped to a few
+    common languages** (not exhaustive) — LSP is net-new; the view-registry
+    pluggability is the base, languages are filled incrementally.
+  - M7 — retire v1 mosaic + global tabs store, **soft**: `V2_PANES_IN_V1`
+    becomes the default for terminal/file; the mosaic code path stays as
+    fallback for pane kinds not yet migrated (`webview`/`chat`/`devtools`/
+    `comment`) until M3/M5 give them panes-engine renderers. The mosaic
+    *files* are not deleted in M7 — only the routing default flips. Hard
+    deletion waits for full pane-kind parity (post-M3/M5).
+  - M8 — delete the v2 immersive workspace shell. No pane kind depends on
+    it; host-agnostic packages (`@superset/panes`, `@superset/workspace-
+    client`, `session-protocol`) and shared renderer/lib code are kept.
+    Shared hooks still living under the v2-workspace route path are moved
+    to neutral `renderer/lib`/`renderer/hooks` first.
 - Four product goals are delivered on top of this base:
   1. **Terminal agent + ACP agent** as two pane kinds in the same registry.
   2. **Complete editor preview + LSP** as a pluggable view registry.
@@ -201,6 +230,60 @@ Tasks:
    make the terminal connect in panes mode (and confirm it matches mosaic
    mode behavior), otherwise the panes mount is not a usable terminal
    surface.
+
+#### M1 TDD interface & behavior contract (2026-07-26)
+
+Tasks 1 (CDP) and 5 (host-service connection) are verification/diagnosis,
+not TDD. Tasks 2/3/4 are TDD with these confirmed decisions:
+
+- **Persistence backend**: reuse the v2 `v2WorkspaceLocalState` TanStack DB
+  collection (per-workspace row, `paneLayout` field), NOT a new tRPC/lowdb
+  endpoint. Modeled on `useV2WorkspacePaneLayout` but adapted for the v1
+  shell (explicit `workspaceId` arg; the v1 shell may not have v2's
+  `WorkspaceProvider`, so it must not rely on `useWorkspace()`).
+- **Seed scope**: migrate only `type==="terminal"` panes from the v1 global
+  tabs store, one terminal pane per workspace, default layout (no v1 mosaic
+  split geometry — that is a fidelity follow-up per the D2 migration plan).
+  Source pane = the active tab's first terminal pane, falling back to the
+  workspace's first terminal pane. `data.terminalId = v1 pane.id` (so the
+  existing host-service session survives; the host-service terminalId
+  derivation already defaults to paneId).
+- **Close channel**: `onAfterClose` calls `killTerminalForPane(pane.id)` —
+  the v1 unified kill entry. `HostServiceTerminalPane` already registers
+  its host-service kill there, so this routes to host-service kill
+  idempotently. Identity key is `pane.id` (NOT `pane.data.terminalId`),
+  matching how `HostServiceTerminalPane` derives terminalId. `onBeforeClose`
+  (confirm-close dialog) is deferred to M2 task 4.
+- **Seed idempotency**: presence of a non-empty `paneLayout` in the
+  workspace's `v2WorkspaceLocalState` row is the "already migrated" mark.
+  Empty/absent → seed once and write back; present → skip. No new schema
+  field.
+
+Behaviors under test (vertical slices, RED→GREEN each):
+
+- **Persistence adapter (`useV1PanesWorkspacePaneLayout`)**
+  1. No persisted row for workspace → store hydrates to EMPTY_STATE.
+  2. Persisted non-empty `paneLayout` → `replaceState` called; store state
+     reflects the persisted layout.
+  3. After a store mutation (e.g. `addTab`), the collection row's
+     `paneLayout` is written back as `{version, tabs, activeTabId}`.
+  4. A `replaceState` hydration does not trigger a writeback echo
+     (snapshot guard).
+  5. On `workspaceId` change, `lastSyncedSnapshot` resets; the new
+     workspace hydrates from its own row, no cross-workspace leakage.
+- **Seed migration (`seedPanesFromV1TabsStore`)**
+  6. Non-empty persisted `paneLayout` present → seed is a no-op (idempotent).
+  7. No persisted layout + v1 active tab has a terminal pane → seeded store
+     has one tab with one terminal pane whose `data.terminalId` equals the
+     v1 pane's `id`.
+  8. No persisted layout + active tab has no terminal pane → falls back to
+     the workspace's first terminal pane.
+  9. No persisted layout + workspace has no terminal pane → seeds one tab
+     with one fresh terminal pane (UUID terminalId), matching current PoC.
+- **onAfterClose wiring**
+  10. Closing a terminal pane calls `killTerminalForPane(pane.id)`.
+  11. When `pane.data.terminalId !== pane.id`, the kill still uses
+      `pane.id` (identity rule locked).
 
 Exit criteria:
 
@@ -483,6 +566,74 @@ happens only after the validation matrix passes on the new base.
   to `ContentView` so it owns the whole view. Verified via CDP: flag on →
   GroupStrip item count 0, single panes tab bar; flag off → v1 mosaic.
   Captured as the mount-boundary rule in M1 task 1.
+- [x] (2026-07-26) M1 TDD tasks 2/3/4 landed (this branch). Persistence
+  adapter, v1→v2 seed migration, and onAfterClose→terminal cleanup all
+  built red-green with 12 new unit tests (16 total in V1PanesWorkspace,
+  typecheck + lint clean). See "M1 TDD interface & behavior contract" for
+  the confirmed decisions: v2WorkspaceLocalState backend, terminal-only
+  seed with active-tab-first source, killTerminalForPane(pane.id) close
+  channel, paneLayout-existence idempotency. Architecture: the sync core
+  (`createPaneLayoutSyncer`) and the seed migration (`seedPanesFromV1Tabs`)
+  are pure injected functions so they test without Electron/collection;
+  the hook (`useV1PanesWorkspacePaneLayout`) wires them to the shared
+  v2 collection. Row creation for v1 workspaces without a v2 row is
+  deferred (writeback only persists when the row exists) — to be
+  confirmed by M1 task 1 CDP whether v1 workspaces already have rows.
+- [x] (2026-07-26) M1 task 1 CDP core gate passed on this branch. With
+  the dev flag override fix, `superset:debug:v2-panes-in-v1=1` makes the
+  panes `<Workspace>` mount inside the v1 shell (PoC `+ terminal (PoC)`
+  button present, v1 mosaic absent) and survives reload with no crash.
+  The terminal pane renders its header. The seed migration produces a
+  terminal pane (task 3 active). Verified via CDP against the matched
+  renderer on this worktree's ports (3025/3031/19325). Remaining task-1
+  sub-checks (terminal input/output/resize, split, workspace switch)
+  are gated on task 5 (terminal connect).
+
+  **Split button verified (2026-07-26):** CDP confirmed the PoC `+ terminal
+  (PoC)` button click does split a second terminal pane (pane count goes
+  1→2). The "no response" impression is the connection-lost overlay
+  (task 5) making every pane look dead, not a split failure.
+
+  **UX regression to track (not a bug — intentional M1 scope cut):** with
+  the flag on, `ContentView` returns `<V1PanesWorkspace>` wholesale,
+  replacing `GroupStrip + PresetsBar + TabsContent`. The v1 `PresetsBar`
+  (the agent quick-launch row: claude/amp/codex/gemini/copilot/vibe/kimi)
+  is therefore absent under the flag. This is the mount-boundary rule
+  (M1 task 1) working as designed — but it drops one-click agent preset
+  launch until M2 task 3 ports `useWorkspacePaneOpeners` and routes the
+  v1 sidebar/preset/run openers through it. Do not treat M1 as
+  feature-complete for daily terminal use; the preset row is a known
+  missing surface, not a regression in the panes engine.
+- [x] (2026-07-26) M1 task 5 root cause located AND fixed on this branch.
+  The terminal showed "与终端守护进程的连接已丢失" (`connectionToDaemonLost`,
+  i.e. `status === "unavailable"` from `useHostServiceTerminal`) in BOTH
+  panes and mosaic modes — confirmed via CDP. Root cause: the v1 workspace
+  was not registered with the local host service. `host.db` `workspaces`
+  (and `projects`) tables were EMPTY — `resolveHostWorkspaceId` (in
+  `host-service-terminal-adapter.ts:63`) calls `client.workspace.list`,
+  finds neither an id match for the v1 workspaceId nor a `worktreePath`
+  match, throws, and `useHostServiceTerminal` sets `workspaceUnavailable`.
+  v1's workspace creation flow never calls the host-service
+  `workspace-creation` router (v1 originally used Electron IPC terminals,
+  not host-service), so opening `V1_HOST_SERVICE_TERMINAL` had no
+  registered host workspace to attach to.
+  **Fix:** wired the existing D2 headless migrator `runV1Migration`
+  (`renderer/lib/v1-migration/`) as a boot trigger — new hook
+  `useRunV1MigrationOnBoot` mounted in `LocalHostServiceProvider` runs
+  `runV1Migration` once per (org, hostUrl) when the local host service is
+  up. `runV1Migration` registers v1 projects/workspaces into host-service
+  (idempotent via its ledger), and crucially does NOT trigger the v2 flip
+  — it only registers + returns `gateComplete`. This is exactly D2's
+  "Boot trigger with preconditions" work item
+  (`plans/20260716-v1-to-v2-auto-migration.md`), but scoped to M1's need
+  (preset/terminal targets omitted — M1 has its own panes-store seed in
+  `seedPanesFromV1Tabs`; those steps never gate the flip anyway).
+  **Verified via CDP:** after the boot pass, `host.db` has the project +
+  workspace rows; the panes terminal renders xterm (`xtermCount: 2`) with
+  shell content and no "连接已丢失" overlay — in BOTH panes and mosaic
+  modes. This unblocks M1's exit criterion "terminal connects, accepts
+  input, shows output" and the validation matrix's Terminal row. The
+  remaining preset-row UX gap is M2 task 3, not task 5.
 - [ ] Milestone 1: real-render validation + persistence adapter.
 - [ ] Milestone 2: terminal pane registry parity.
 - [ ] Milestone 3: ACP agent pane.
@@ -494,6 +645,20 @@ happens only after the validation matrix passes on the new base.
 
 ## Surprises & Discoveries
 
+- **PoC's dev flag override was dead code (2026-07-26, M1 task 1).** The
+  PoC CDP script (`cdp-poc-v2-panes.ts:100`) set
+  `localStorage["superset:debug:v2-panes-in-v1"]="1"`, but no code in the
+  repo ever reads that key — `useFeatureFlagEnabled` is pure PostHog, and
+  in local dev the PostHog key is `phc_local_dev_disabled` (server-side
+  flags never load), so `V2_PANES_IN_V1` was always false. The PoC's
+  reported CDP PASS could not have come from this override. Fixed by
+  adding a dev-only override in `initPostHog` (`renderer/lib/posthog.ts`):
+  when the key is the disabled sentinel, read every
+  `localStorage["superset:debug:<flag>"]="1"` entry and feed it to
+  `posthog.featureFlags.override(...)`. The pure collector
+  (`renderer/lib/dev-flag-overrides.ts`) is unit-tested. This is a general
+  mechanism — any `FEATURE_FLAGS` entry can now be toggled in dev via
+  localStorage, not just `V2_PANES_IN_V1`.
 - v1's tab concept is split across two layers: `GroupStrip` (the tab strip,
   in `ContentView`) and `TabsContent` (the pane area). The panes engine
   unifies both into `<Workspace>`. Mounting the panes engine at the

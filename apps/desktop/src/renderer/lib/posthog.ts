@@ -2,9 +2,23 @@ import { setRelaySocketTelemetry } from "@superset/workspace-client";
 import posthogFull from "posthog-js/dist/module.full.no-external";
 import type { PostHog } from "posthog-js/react";
 import { env } from "../env.renderer";
+import {
+	collectDevFlagOverrides,
+	DEV_FLAG_OVERRIDE_PREFIX,
+} from "./dev-flag-overrides";
 
 // Cast to standard PostHog type for compatibility with posthog-js/react
 export const posthog = posthogFull as unknown as PostHog;
+
+/**
+ * Local-dev PostHog key marker. When the configured key is this sentinel,
+ * PostHog is disabled in dev (no server-side flags), so
+ * `useFeatureFlagEnabled` would always return false. In that case we feed
+ * any `localStorage["superset:debug:<flag>"]="1"` overrides into
+ * `posthog.featureFlags.override(...)` so a developer (or the CDP
+ * validation script) can turn a feature flag on without PostHog access.
+ */
+const LOCAL_DEV_POSTHOG_KEY = "phc_local_dev_disabled";
 
 export function initPostHog() {
 	if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
@@ -30,6 +44,27 @@ export function initPostHog() {
 		app_version: window.App?.appVersion,
 		platform: window.navigator.platform,
 	});
+
+	// Local-dev flag overrides: in dev the PostHog key is the disabled
+	// sentinel, so server-side flags never load. Honor any
+	// `localStorage["superset:debug:<flag>"]="1"` entry by overriding the
+	// flag on the PostHog client. This is what makes the `V2_PANES_IN_V1`
+	// CDP validation (and any dev flag toggle) actually take effect.
+	if (env.NEXT_PUBLIC_POSTHOG_KEY === LOCAL_DEV_POSTHOG_KEY) {
+		const keys: string[] = [];
+		for (let i = 0; i < window.localStorage.length; i++) {
+			const key = window.localStorage.key(i);
+			if (key) keys.push(key);
+		}
+		const overrides = collectDevFlagOverrides(
+			keys,
+			(k) => window.localStorage.getItem(k),
+			DEV_FLAG_OVERRIDE_PREFIX,
+		);
+		if (Object.keys(overrides).length > 0) {
+			posthogFull.featureFlags.override(overrides);
+		}
+	}
 
 	// Relay socket health (event bus / workspace "disconnected" surface). At
 	// most one event per outage episode plus one on recovery.

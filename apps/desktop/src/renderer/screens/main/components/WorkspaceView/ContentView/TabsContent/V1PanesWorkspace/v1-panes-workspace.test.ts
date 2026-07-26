@@ -1,7 +1,17 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type { PaneDefinition, RendererContext } from "@superset/panes";
 import { createWorkspaceStore } from "@superset/panes";
+import { buildV1PanesLifecycleRegistry } from "./buildV1PanesLifecycleRegistry";
 import type { V1PanesPaneData } from "./types";
+
+// Stub `terminalRuntimeRegistry` for the lifecycle registry tests below.
+// The real registry's module graph pulls the Electron tRPC client at load
+// time; the onAfterClose behaviors under test do not depend on it. The
+// PoC wiring tests use a local `buildRegistry()` clone and never touch this.
+const terminalRuntimeStub = {
+	onTitleChange: () => () => {},
+	getTitle: () => undefined,
+};
 
 /**
  * PoC wiring tests for the v2-panes-in-v1 mount.
@@ -137,5 +147,47 @@ describe("V1PanesWorkspace PoC wiring", () => {
 		expect(next.tabs).toHaveLength(1);
 		// The tab's layout is a split node now, not a bare pane.
 		expect(nextTab.layout.type).toBe("split");
+	});
+});
+
+describe("V1PanesWorkspace terminal onAfterClose wiring", () => {
+	test("closing a terminal pane calls killTerminal with the pane id", () => {
+		const killTerminal = mock<(paneId: string) => void>();
+		const lifecycle = buildV1PanesLifecycleRegistry({
+			terminalRuntime: terminalRuntimeStub,
+			killTerminal,
+		});
+		const pane = {
+			id: "pane-1",
+			kind: "terminal",
+			data: { terminalId: "term-1" },
+		} as never;
+
+		lifecycle.onAfterClose?.(pane);
+
+		expect(killTerminal).toHaveBeenCalledTimes(1);
+		expect(killTerminal).toHaveBeenCalledWith("pane-1");
+	});
+
+	test("onAfterClose uses pane.id, not pane.data.terminalId, for the kill key", () => {
+		const killTerminal = mock<(paneId: string) => void>();
+		const lifecycle = buildV1PanesLifecycleRegistry({
+			terminalRuntime: terminalRuntimeStub,
+			killTerminal,
+		});
+		// terminalId intentionally differs from pane.id — the identity rule
+		// says paneId (UI identity) ≠ terminalId (backend identity), and the
+		// kill must be keyed by the UI identity the host-service adapter
+		// derives from (paneId), not the stored terminalId.
+		const pane = {
+			id: "pane-1",
+			kind: "terminal",
+			data: { terminalId: "different-backend-id" },
+		} as never;
+
+		lifecycle.onAfterClose?.(pane);
+
+		expect(killTerminal).toHaveBeenCalledWith("pane-1");
+		expect(killTerminal).not.toHaveBeenCalledWith("different-backend-id");
 	});
 });

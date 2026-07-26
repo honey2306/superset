@@ -43,7 +43,7 @@ function cdpEval(
 	ws: WebSocket,
 	expression: string,
 	awaitPromise = true,
-): Promise<any> {
+): Promise<unknown> {
 	return new Promise((resolve, reject) => {
 		const reqId = Math.floor(Math.random() * 1e6) + 1;
 		const onMsg = (ev: MessageEvent) => {
@@ -114,14 +114,20 @@ const CHECK_RENDER = `(() => {
 async function main() {
 	const target = await findRendererTarget();
 	console.log(`[poc] attached: ${target.url}`);
-	const ws = new WebSocket(target.webSocketDebuggerUrl!);
+	const wsUrl = target.webSocketDebuggerUrl;
+	if (!wsUrl) throw new Error("renderer target missing webSocketDebuggerUrl");
+	const ws = new WebSocket(wsUrl);
 	await new Promise((res, rej) => {
 		ws.addEventListener("open", res, { once: true });
 		ws.addEventListener("error", rej, { once: true });
 	});
 
 	// 1. Sign in + find/create workspace.
-	const v1 = await cdpEval(ws, SETUP);
+	const v1 = (await cdpEval(ws, SETUP)) as {
+		ok: boolean;
+		where?: string;
+		workspaceId?: string;
+	};
 	console.log("[poc] setup:", v1);
 	if (!v1?.ok) {
 		console.log("FAIL: could not get a workspace:", v1);
@@ -146,7 +152,10 @@ async function main() {
 	await new Promise((r) => setTimeout(r, 5000));
 
 	// 5. Re-attach (reload closed the page context) and check render.
-	const v2 = await cdpEval(ws, CHECK_RENDER, false);
+	const v2 = (await cdpEval(ws, CHECK_RENDER, false)) as {
+		pocMounted?: boolean;
+		mosaicPresent?: boolean;
+	};
 	console.log("[poc] render:", v2);
 
 	const passed = v2?.pocMounted === true && v2?.mosaicPresent === false;
