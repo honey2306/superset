@@ -175,6 +175,16 @@ Tasks:
      resizes.
    - The PoC "+ terminal" button splits a second terminal pane.
    - Workspace switch and renderer remount do not crash.
+   - **Mount boundary: the flag must own the whole `ContentView`, not just
+     `TabsContent`.** v1's tab strip (`GroupStrip`) renders one level above
+     `TabsContent` in `ContentView`; mounting the panes engine inside
+     `TabsContent` produces two tab bars side by side (v1 `GroupStrip` +
+     panes `<Workspace>` TabBar). The PoC hit this and was fixed by moving
+     the flag check to `ContentView` (commit `8d34903cf`). M1 keeps that
+     boundary: flag on → `ContentView` returns `<V1PanesWorkspace>` wholesale,
+     replacing `GroupStrip + PresetsBar + TabsContent`. v1's tab concept is
+     split across two layers; panes unifies them, so接管 must be at the
+     layer that owns the tab strip, not the pane area.
 2. Replace the in-memory store with a persistence adapter modeled on
    `useV2WorkspacePaneLayout` but backed by v1's persistence
    (`trpcTabsStorage` or a per-workspace key) instead of TanStack DB
@@ -184,6 +194,13 @@ Tasks:
    their layout on first flag-on.
 4. Verify pane close routes to the M0–M5 backend-aware terminal-cleanup
    (park vs kill) — the PoC left `onAfterClose` unwired.
+5. Solve the terminal→host-service connection: in the PoC's real-render
+   validation (commit `a8849b0f0`), the terminal pane showed "连接已丢失".
+   The same loss appears in v1 mosaic mode on this dev instance, so the
+   root cause is local host-service attach, not the panes adapter. M1 must
+   make the terminal connect in panes mode (and confirm it matches mosaic
+   mode behavior), otherwise the panes mount is not a usable terminal
+   surface.
 
 Exit criteria:
 
@@ -454,6 +471,18 @@ happens only after the validation matrix passes on the new base.
   mounts `@superset/panes` inside v1 `TabsContent`, terminal pane reuses
   M0–M5 `HostServiceTerminalPane`. typecheck 35/35, lint clean, 4 wiring
   tests pass.
+- [x] (2026-07-26) PoC real-render validated via CDP (commit `a8849b0f0`)
+  against a running dev app on this worktree's ports. Confirmed the panes
+  `<Workspace>` mounts inside the v1 shell: panes tab bar renders, v1
+  mosaic absent, flag toggle is reversible. Terminal showed "连接已丢失"
+  in BOTH panes and mosaic mode — root cause is local host-service attach,
+  not the panes adapter; deferred to M1 task 5.
+- [x] (2026-07-26) Fixed double-tab-bar PoC defect (commit `8d34903cf`):
+  mounting inside `TabsContent` left v1's `GroupStrip` (one level up in
+  `ContentView`) rendering alongside panes' TabBar. Moved the flag check
+  to `ContentView` so it owns the whole view. Verified via CDP: flag on →
+  GroupStrip item count 0, single panes tab bar; flag off → v1 mosaic.
+  Captured as the mount-boundary rule in M1 task 1.
 - [ ] Milestone 1: real-render validation + persistence adapter.
 - [ ] Milestone 2: terminal pane registry parity.
 - [ ] Milestone 3: ACP agent pane.
@@ -465,6 +494,14 @@ happens only after the validation matrix passes on the new base.
 
 ## Surprises & Discoveries
 
+- v1's tab concept is split across two layers: `GroupStrip` (the tab strip,
+  in `ContentView`) and `TabsContent` (the pane area). The panes engine
+  unifies both into `<Workspace>`. Mounting the panes engine at the
+  `TabsContent` level (the PoC's first try) produced two tab bars side by
+  side — v1 `GroupStrip` above panes' TabBar. The fix is to own the whole
+  `ContentView` when the flag is on. General rule for the fusion: when v1
+  splits a concept across layers that v2 unifies, the接管 boundary must be
+  at the outermost of those layers, not the innermost.
 - v2 is not "another workspace UI"; it is a re-architected base whose core
   is already extracted into host-agnostic packages (`@superset/panes`,
   `@superset/workspace-client`, `session-protocol`). The v2 *shell* is the
