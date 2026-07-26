@@ -1,0 +1,50 @@
+# Superset bash rcfile wrapper
+
+# Save Superset env vars before sourcing user config
+_superset_saved_env="$(export -p 2>/dev/null | grep ' SUPERSET_')"
+
+# Source system profile
+[[ -f /etc/profile ]] && source /etc/profile
+
+# Source user's login profile
+if [[ -f "$HOME/.bash_profile" ]]; then
+  source "$HOME/.bash_profile"
+elif [[ -f "$HOME/.bash_login" ]]; then
+  source "$HOME/.bash_login"
+elif [[ -f "$HOME/.profile" ]]; then
+  source "$HOME/.profile"
+fi
+
+# Source bashrc if separate
+[[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc"
+
+# Restore Superset env vars that user config may have overridden
+eval "$_superset_saved_env" 2>/dev/null || true
+
+# Keep superset bin first without duplicating entries
+_superset_prepend_bin() {
+  case ":$PATH:" in
+    *:'/Users/wufan/.codex/worktrees/99c0/superset/superset-dev-data-fusion/bin':*) ;;
+    *) export PATH='/Users/wufan/.codex/worktrees/99c0/superset/superset-dev-data-fusion/bin':"$PATH" ;;
+  esac
+}
+_superset_prepend_bin
+hash -r 2>/dev/null || true
+# Minimal prompt (path/env shown in toolbar) - emerald to match app theme
+export PS1=$'\[\e[1;38;2;52;211;153m\]❯\[\e[0m\] '
+# Shell readiness markers — see zsh wrapper for rationale on emitting both.
+# Protocol ref: https://gitlab.freedesktop.org/Per_Bothner/specifications/blob/master/proposals/semantic-prompts.md
+__superset_prompt_mark() {
+  printf "\033]777;superset-shell-ready\007\033]133;A\007"
+}
+# Hook via PROMPT_COMMAND. Supports both scalar and array forms (Bash 5.1+).
+if [[ "$(declare -p PROMPT_COMMAND 2>/dev/null)" == "declare -a"* ]]; then
+  PROMPT_COMMAND=("${PROMPT_COMMAND[@]}" "__superset_prompt_mark")
+else
+  _superset_orig_prompt_cmd="${PROMPT_COMMAND}"
+  if [[ -n "${_superset_orig_prompt_cmd}" ]]; then
+    PROMPT_COMMAND="${_superset_orig_prompt_cmd};__superset_prompt_mark"
+  else
+    PROMPT_COMMAND="__superset_prompt_mark"
+  fi
+fi

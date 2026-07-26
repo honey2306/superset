@@ -1,0 +1,106 @@
+{
+  "tabsState": {
+    "tabs": [
+      {
+        "id": "tab-1785062897030-nanriu1vb",
+        "name": "Terminal 1",
+        "userTitle": "claude",
+        "workspaceId": "cfb5eef8-0293-4423-9af9-bc2134695ab4",
+        "createdAt": 1785062897030,
+        "layout": "pane-1785062897030-mxgytdkmh"
+      },
+      {
+        "id": "tab-1785062899598-ga5x132ss",
+        "name": "Terminal 2",
+        "userTitle": "claude",
+        "workspaceId": "cfb5eef8-0293-4423-9af9-bc2134695ab4",
+        "createdAt": 1785062899598,
+        "layout": "pane-1785062899598-c7cg9r9ca"
+      },
+      {
+        "id": "tab-1785063256197-nszkydlnb",
+        "name": "Terminal 3",
+        "workspaceId": "cfb5eef8-0293-4423-9af9-bc2134695ab4",
+        "createdAt": 1785063256197,
+        "layout": "pane-1785063256197-ldhjld1ox"
+      },
+      {
+        "id": "tab-1785063258159-7lia8tt3u",
+        "name": "Terminal 4",
+        "workspaceId": "cfb5eef8-0293-4423-9af9-bc2134695ab4",
+        "createdAt": 1785063258159,
+        "layout": "pane-1785063258159-f6sea2rw"
+      }
+    ],
+    "panes": {
+      "pane-1785062897030-mxgytdkmh": {
+        "id": "pane-1785062897030-mxgytdkmh",
+        "tabId": "tab-1785062897030-nanriu1vb",
+        "type": "terminal",
+        "name": "Terminal",
+        "isNew": true,
+        "status": "idle",
+        "cwd": "/Users/wufan/Code/mini-krow",
+        "cwdConfirmed": false
+      },
+      "pane-1785062899598-c7cg9r9ca": {
+        "id": "pane-1785062899598-c7cg9r9ca",
+        "tabId": "tab-1785062899598-ga5x132ss",
+        "type": "terminal",
+        "name": "Terminal",
+        "isNew": true,
+        "status": "idle",
+        "cwd": "/Users/wufan/Code/mini-krow",
+        "cwdConfirmed": false
+      },
+      "pane-1785063256197-ldhjld1ox": {
+        "id": "pane-1785063256197-ldhjld1ox",
+        "tabId": "tab-1785063256197-nszkydlnb",
+        "type": "terminal",
+        "name": "Terminal",
+        "isNew": true,
+        "cwd": "/Users/wufan/Code/mini-krow",
+        "cwdConfirmed": false
+      },
+      "pane-1785063258159-f6sea2rw": {
+        "id": "pane-1785063258159-f6sea2rw",
+        "tabId": "tab-1785063258159-7lia8tt3u",
+        "type": "terminal",
+        "name": "Terminal",
+        "isNew": true,
+        "cwd": "/Users/wufan/Code/mini-krow",
+        "cwdConfirmed": false
+      }
+    },
+    "activeTabIds": {
+      "cfb5eef8-0293-4423-9af9-bc2134695ab4": "tab-1785063258159-7lia8tt3u"
+    },
+    "focusedPaneIds": {
+      "tab-1785062897030-nanriu1vb": "pane-1785062897030-mxgytdkmh",
+      "tab-1785062899598-ga5x132ss": "pane-1785062899598-c7cg9r9ca",
+      "tab-1785063256197-nszkydlnb": "pane-1785063256197-ldhjld1ox",
+      "tab-1785063258159-7lia8tt3u": "pane-1785063258159-f6sea2rw"
+    },
+    "tabHistoryStacks": {
+      "cfb5eef8-0293-4423-9af9-bc2134695ab4": [
+        "tab-1785063256197-nszkydlnb",
+        "tab-1785062897030-nanriu1vb",
+        "tab-1785062899598-ga5x132ss"
+      ]
+    }
+  },
+  "themeState": {
+    "activeThemeId": "dark",
+    "customThemes": [],
+    "systemLightThemeId": "light",
+    "systemDarkThemeId": "dark"
+  },
+  "hotkeysState": {
+    "version": 1,
+    "byPlatform": {
+      "darwin": {},
+      "win32": {},
+      "linux": {}
+    }
+  }
+}

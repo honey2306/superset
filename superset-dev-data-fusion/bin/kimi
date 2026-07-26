@@ -1,0 +1,30 @@
+#!/bin/bash
+# Superset agent-wrapper v3
+# Superset wrapper for kimi
+
+find_real_binary() {
+  local name="$1"
+  local IFS=:
+  for dir in $PATH; do
+    [ -z "$dir" ] && continue
+    dir="${dir%/}"
+    case "$dir" in
+      "/Users/wufan/.codex/worktrees/99c0/superset/superset-dev-data-fusion/bin"|"$HOME"/.superset/bin|"$HOME"/.superset-*/bin) continue ;;
+    esac
+    if [ -x "$dir/$name" ] && [ ! -d "$dir/$name" ]; then
+      printf "%s\n" "$dir/$name"
+      return 0
+    fi
+  done
+  return 1
+}
+
+REAL_BIN="$(find_real_binary "kimi")"
+if [ -z "$REAL_BIN" ]; then
+  echo "Superset: kimi not found in PATH. Install it and ensure it is on PATH, then retry." >&2
+  exit 127
+fi
+
+export SUPERSET_AGENT_ID="kimi"
+
+exec "$REAL_BIN" "$@"

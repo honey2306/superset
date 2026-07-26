@@ -39,7 +39,11 @@ async function findRendererTarget(): Promise<CdpTarget> {
 	return page;
 }
 
-function cdpEval(ws: WebSocket, expression: string, awaitPromise = true): Promise<any> {
+function cdpEval(
+	ws: WebSocket,
+	expression: string,
+	awaitPromise = true,
+): Promise<any> {
 	return new Promise((resolve, reject) => {
 		const reqId = Math.floor(Math.random() * 1e6) + 1;
 		const onMsg = (ev: MessageEvent) => {
@@ -50,14 +54,18 @@ function cdpEval(ws: WebSocket, expression: string, awaitPromise = true): Promis
 					if (msg.error) reject(new Error(JSON.stringify(msg.error)));
 					else resolve(msg.result?.result?.value); // returnByValue: value is the parsed result
 				}
-			} catch { /* ignore */ }
+			} catch {
+				/* ignore */
+			}
 		};
 		ws.addEventListener("message", onMsg);
-		ws.send(JSON.stringify({
-			id: reqId,
-			method: "Runtime.evaluate",
-			params: { expression, returnByValue: true, awaitPromise },
-		}));
+		ws.send(
+			JSON.stringify({
+				id: reqId,
+				method: "Runtime.evaluate",
+				params: { expression, returnByValue: true, awaitPromise },
+			}),
+		);
 	});
 }
 
@@ -115,10 +123,18 @@ async function main() {
 	// 1. Sign in + find/create workspace.
 	const v1 = await cdpEval(ws, SETUP);
 	console.log("[poc] setup:", v1);
-	if (!v1?.ok) { console.log("FAIL: could not get a workspace:", v1); ws.close(); process.exit(1); }
+	if (!v1?.ok) {
+		console.log("FAIL: could not get a workspace:", v1);
+		ws.close();
+		process.exit(1);
+	}
 
 	// 2. Navigate to the workspace route (v1 shell).
-	await cdpEval(ws, `location.hash = "#/workspaces/" + ${JSON.stringify(v1.workspaceId)}; "navigated"`, false);
+	await cdpEval(
+		ws,
+		`location.hash = "#/workspaces/" + ${JSON.stringify(v1.workspaceId)}; "navigated"`,
+		false,
+	);
 	await new Promise((r) => setTimeout(r, 3000));
 
 	// 3. Set the PoC flag override.
@@ -134,7 +150,11 @@ async function main() {
 	console.log("[poc] render:", v2);
 
 	const passed = v2?.pocMounted === true && v2?.mosaicPresent === false;
-	console.log(passed ? "PASS: panes engine mounted in v1 shell" : "FAIL: panes not mounted (mosaic or neither)");
+	console.log(
+		passed
+			? "PASS: panes engine mounted in v1 shell"
+			: "FAIL: panes not mounted (mosaic or neither)",
+	);
 	ws.close();
 	process.exit(passed ? 0 : 1);
 }

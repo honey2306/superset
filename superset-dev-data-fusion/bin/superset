@@ -1,0 +1,3 @@
+#!/bin/sh
+# Superset bundled CLI shim v1
+exec '/Users/wufan/.codex/worktrees/99c0/superset/apps/desktop/dist/resources/bin/superset' "$@"
