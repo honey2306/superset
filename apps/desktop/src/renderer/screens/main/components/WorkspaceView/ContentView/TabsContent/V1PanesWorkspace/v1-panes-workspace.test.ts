@@ -13,6 +13,13 @@ const terminalRuntimeStub = {
 	getTitle: () => undefined,
 };
 
+const probeRunningStub = async () => false;
+const closeConfirmLabels = {
+	title: "Close terminal?",
+	description: "A process is still running",
+	confirmLabel: "Close",
+} as const;
+
 /**
  * PoC wiring tests for the v2-panes-in-v1 mount.
  *
@@ -156,6 +163,8 @@ describe("V1PanesWorkspace terminal onAfterClose wiring", () => {
 		const lifecycle = buildV1PanesLifecycleRegistry({
 			terminalRuntime: terminalRuntimeStub,
 			killTerminal,
+			probeRunning: probeRunningStub,
+			closeConfirmLabels,
 		});
 		const pane = {
 			id: "pane-1",
@@ -174,6 +183,8 @@ describe("V1PanesWorkspace terminal onAfterClose wiring", () => {
 		const lifecycle = buildV1PanesLifecycleRegistry({
 			terminalRuntime: terminalRuntimeStub,
 			killTerminal,
+			probeRunning: probeRunningStub,
+			closeConfirmLabels,
 		});
 		// terminalId intentionally differs from pane.id — the identity rule
 		// says paneId (UI identity) ≠ terminalId (backend identity), and the

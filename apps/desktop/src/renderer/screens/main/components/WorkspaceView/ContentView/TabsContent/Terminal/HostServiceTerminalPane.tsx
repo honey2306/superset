@@ -57,12 +57,27 @@ export interface HostServiceTerminalPaneProps {
 	paneId: string;
 	tabId: string;
 	workspaceId: string;
+	/**
+	 * Optional shell command run once on session create (preset launch).
+	 * When provided, forwarded to host-service `createSession` as
+	 * `initialCommand`; when omitted, the session spawns a plain shell.
+	 * Used by the v1-panes mount to launch agent presets.
+	 */
+	initialCommand?: string;
+	/**
+	 * Optional working directory for the session. When provided, takes
+	 * precedence over the v1 tabs store pane's `initialCwd`. Used by the
+	 * v1-panes mount (whose panes do not live in the v1 tabs store).
+	 */
+	initialCwd?: string;
 }
 
 export function HostServiceTerminalPane({
 	paneId,
 	tabId,
 	workspaceId,
+	initialCommand,
+	initialCwd,
 }: HostServiceTerminalPaneProps) {
 	const { t } = useTranslation();
 	const { data: workspaceData } = electronTrpc.workspaces.get.useQuery(
@@ -96,8 +111,10 @@ export function HostServiceTerminalPane({
 	const clearPaneInitialData = useTabsStore(
 		(state) => state.clearPaneInitialData,
 	);
-	const initialCwdRef = useRef(pane?.initialCwd);
-	initialCwdRef.current = pane?.initialCwd;
+	const initialCwdRef = useRef(initialCwd ?? pane?.initialCwd);
+	initialCwdRef.current = initialCwd ?? pane?.initialCwd;
+	const initialCommandRef = useRef(initialCommand);
+	initialCommandRef.current = initialCommand;
 	const { updateCwdFromData } = useTerminalCwd({
 		paneId,
 		initialCwd: pane?.initialCwd,
@@ -192,6 +209,7 @@ export function HostServiceTerminalPane({
 					cols: 80,
 					rows: 24,
 					cwd: initialCwdRef.current,
+					command: initialCommandRef.current,
 					themeType: themeTypeRef.current,
 				});
 				if (cancelled) {

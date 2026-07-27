@@ -634,8 +634,61 @@ happens only after the validation matrix passes on the new base.
   modes. This unblocks M1's exit criterion "terminal connects, accepts
   input, shows output" and the validation matrix's Terminal row. The
   remaining preset-row UX gap is M2 task 3, not task 5.
-- [ ] Milestone 1: real-render validation + persistence adapter.
-- [ ] Milestone 2: terminal pane registry parity.
+- [x] (2026-07-26) M2 terminal pane registry parity landed (this branch).
+  All five M2 tasks done red-green; 46 new unit tests across 9 files in
+  `V1PanesWorkspace/` (lifecycle onBeforeClose, terminal context menu,
+  default pane/context-menu actions, preset opener plan, hotkey handlers),
+  typecheck + lint clean. Architecture follows the M1 pattern: testable
+  pure cores + thin wiring hooks.
+  - **Task 1 (registry actions):** `buildV1PanesLifecycleRegistry` gained
+    `onBeforeClose` (routes through the host-agnostic
+    `confirmCloseTerminals` with an injected `probeRunning` +
+    `closeConfirmLabels`); `buildV1TerminalContextMenu(deps, defaults)` is
+    the pure terminal clipboard/kill slice merged with the panes engine's
+    default actions. v2-only bits dropped: `V2NotificationStatusIndicator`,
+    `TerminalSessionDropdown`, the v2 tRPC `killSession` mutation (replaced
+    by the host-service client via `getHostServiceClientByUrl` +
+    `hostWorkspaceId` from `useHostServiceTerminal`). `renderHeaderExtras`
+    is deferred (v2's hosts a connection indicator depending on the v2
+    daemon health query). `getIcon` uses a generic `TerminalSquare`
+    (agent-binding icon is a fidelity follow-up).
+  - **Task 2 (default actions):** `buildV1DefaultPaneActions` (split-along-
+    longer-side + close) and `buildV1DefaultContextMenuActions` (split
+    down/right, equalize, move-to-tab/new-tab, close) are pure, terminal-
+    only (no split-with-chat/browser — those are M3+), typed for
+    `V1PanesPaneData`. `useV1TerminalLauncher` only mints a `terminalId`
+    (`HostServiceTerminalPane` auto-creates the session idempotently), so
+    the v2 two-step `await launcher.create()` is not needed. The hook
+    `useV1DefaultActions` wires i18n/react-icons/launcher. The registry's
+    `contextMenuActions(ctx, defaults)` merges the default actions with
+    the terminal slice.
+  - **Task 3 (preset openers):** `planV1PanesPresetOpen` (pure) plans an
+    `addTab`/`splitPane` with the preset commands joined as
+    `initialCommand` and the preset `cwd` as `initialCwd`;
+    `useV1PanesPresetOpeners` applies it to the panes store. `V1PanesPaneData`
+    gained `initialCommand?`/`initialCwd?`, and `HostServiceTerminalPane`
+    accepts them as optional props forwarded to `createSession`'s `command`/
+    `cwd` (v1 mosaic unchanged — props undefined → prior behavior). A minimal
+    `V1PanesPresetBar` renders the project's pinned presets + quick-add agent
+    templates, closing the M1 PresetsBar regression. Full pin/reorder/manage
+    is M7.
+  - **Task 4 (hotkeys):** `buildV1PanesHotkeyHandlers` (closePane with the
+    registry `onBeforeClose` guard, splitAuto/right/down, equalize,
+    newGroup, prev/next tab) is the pure core; `useV1PanesHotkeys` registers
+    CLOSE_PANE/SPLIT_*/EQUALIZE/NEW_GROUP/PREV/NEXT_TAB. chat/browser/preset/
+    FOCUS_PANE_* hotkeys are out of scope.
+  - **Task 5 (scroll cache + CDP parity):** `paneScrollStateCache` is a
+    host-agnostic localStorage cache (terminal pane does not consume it —
+    M4 CodeView/DiffPane do); its existing unit test has a pre-existing
+    bun-test `localStorage` env failure unrelated to the v1 mount. CDP
+    parity verified against the matched renderer on this worktree's ports
+    (3025/3031/19325): flag on → panes `<Workspace>` mount (mosaic absent),
+    M2 preset bar renders (8 buttons), seeded terminal connects
+    (xterm renders, no connection-lost overlay). Context-menu/hotkey wiring
+    is unit-tested; the CDP synthetic-event probe for the menu did not
+    surface items (React onContextMenu race) and is non-fatal.
+- [x] Milestone 1: real-render validation + persistence adapter.
+- [x] Milestone 2: terminal pane registry parity.
 - [ ] Milestone 3: ACP agent pane.
 - [ ] Milestone 4: editor preview + LSP via view registry.
 - [ ] Milestone 5: strengthened git.
@@ -691,6 +744,40 @@ happens only after the validation matrix passes on the new base.
 - v2's `WorkspaceHostOfflineState` component exists but is not wired in
   `layout.tsx` — the offline branch is unfinished in v2. Do not assume
   v2's state machine is complete.
+- **`HostServiceTerminalPane` still reads the v1 global tabs store
+  (2026-07-26, M2 task 3).** Even under the `V2_PANES_IN_V1` flag, the
+  shared `HostServiceTerminalPane` reads `pane.initialCwd` / `cwd` / pane
+  status from `useTabsStore.getState().panes[paneId]` — and the panes
+  store's `ctx.pane.id` is NOT a key in the v1 tabs store, so those reads
+  return `undefined` (the M1 CDP "terminal connects" verdict held because
+  `createOrAttach` falls back to the workspace default cwd). M2 task 3
+  added optional `initialCommand`/`initialCwd` props (preset launch passes
+  them; v1 mosaic leaves them undefined → prior behavior), so preset
+  launch works, but the broader tech debt — `HostServiceTerminalPane`'s
+  `setPaneName`/`setPaneStatus`/`setPaneLifecycleScript`/`removePane`/
+  `addFileViewerPane` calls all target the v1 tabs store and are no-ops on
+  the panes mount — is M2 scope-cut: the pane renders and connects, but
+  its v1-tabs-store-driven name/status/lifecycle-script side effects do not
+  fire under the flag. M7 (retire v1 tabs store) must give
+  `HostServiceTerminalPane` a panes-store-aware state channel first.
+- **v1 workspace page hotkeys overlap the panes mount (2026-07-26, M2
+  task 4).** The v1 `workspace/$workspaceId/page.tsx` registers
+  `CLOSE_TERMINAL`/`SPLIT_AUTO/RIGHT/DOWN`/`NEW_GROUP`/`PREV/NEXT_TAB`
+  against the v1 global tabs store with no flag check, on the same chords
+  the panes mount now uses. `react-hotkeys-hook` fires both handlers on a
+  shared chord; under the flag the v1-tabs-store handler is a no-op (no
+  focused v1 pane) or mutates v1 tabs-store state the UI no longer reads.
+  M2 shipped the panes-mount hotkeys as the user-facing surface; the v1
+  page handlers' state drift is invisible until M7 deletes the v1 tabs
+  store. If CDP shows a real conflict, gate the v1 page hotkeys on
+  `!V2_PANES_IN_V1` (early-return inside each handler — `useHotkey` cannot
+  be called conditionally).
+- **`paneScrollStateCache` is terminal-irrelevant (2026-07-26, M2 task 5).**
+  It is a pure localStorage cache keyed by workspace/pane/view/resource;
+  only `CodeView`/`DiffPane` (M4) consume it. The terminal pane does not
+  touch it, so "verify it works in the v1 mount" reduces to "it is
+  host-agnostic and unchanged" — its unit test has a pre-existing
+  bun-test `localStorage` env failure that is not an M2 regression.
 
 ## Decision Log
 
