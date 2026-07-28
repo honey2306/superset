@@ -705,7 +705,36 @@ happens only after the validation matrix passes on the new base.
     alternate tab-navigation bindings, so a chord no longer mutates two
     stores.
   - 68 focused terminal/panes tests and desktop typecheck pass.
+- [x] (2026-07-29) M3-prep: registered the three low-complexity pane kinds
+  (`comment` / `devtools` / `webview`) on the v1-panes registry so the
+  panes engine can render every v1 pane type, not just `terminal`. This is
+  the data-model + registration gate before tackling `file-viewer`/`chat`
+  and the M7 soft-retire.
+  - `V1PanesPaneData` extended from the terminal-only flat shape to a
+    per-kind optional union (`comment` / `devtools` / `browser`), mirroring
+    v1's `Pane` shape. Kept as one flat interface (not a discriminated
+    union) so the single-`TData` `@superset/panes` store generic and all
+    existing terminal wiring stay untouched.
+  - Three content renderers that bypass the mosaic `BasePaneWindow` shell
+    (the panes `<Workspace>` renders its own `PaneHeader`): `comment`
+    reads the full `CommentPaneState` from `ctx.pane.data.comment` (no v1
+    store read); `devtools` reads `data.devtools.targetPaneId`; `webview`
+    reuses `usePersistentWebview` keyed by the panes pane id (live history
+    persistence to the panes store is a documented fidelity follow-up,
+    like the terminal `renderHeaderExtras` connection indicator was in M2).
+  - Title derivation extracted into a pure, i18n-free core
+    (`buildV1PanesNonTerminalRegistry.ts`) the hook composes with labels;
+    mirrors v1 pane-name conventions (`@<authorLogin>` / `DevTools` / page
+    title → URL host → `Browser`).
+  - 19 new tests (8 pure title + 11 multi-kind registry shape) on top of
+    the 45 existing; 64 V1PanesWorkspace tests pass, desktop typecheck +
+    biome clean. Opener routing (notification-controller comment open,
+    browser/devtools opens) into the panes store is the remaining step
+    before these kinds render from a real user action.
 - [ ] Milestone 3: ACP agent pane.
+  - Pre: the v1-panes registry now renders `comment` / `devtools` / `webview`
+    (2026-07-29); `file-viewer` / `chat` remain to be registered before the
+    registry has full v1 pane-kind parity.
 - [ ] Milestone 4: editor preview + LSP via view registry.
 - [ ] Milestone 5: strengthened git.
 - [ ] Milestone 6: mobile remote control.
@@ -713,6 +742,29 @@ happens only after the validation matrix passes on the new base.
 - [ ] Milestone 8: delete v2 workspace shell.
 
 ## Surprises & Discoveries
+
+- **`BasePaneWindow` couples pane content to mosaic window chrome (found
+  2026-07-29, M3-prep).** Every non-terminal v1 pane (`CommentPane`,
+  `BrowserPane`, `DevToolsPane`) wraps its body in `BasePaneWindow`, which
+  binds `MosaicWindow`, the cross-tab drag source, and the split/close/focus
+  handlers into one component. The panes `<Workspace>` already renders its
+  own `PaneHeader` (title/icon/actions) and calls `renderPane(ctx)` for the
+  body only, so the v1 panes cannot be reused as-is under the panes engine.
+  Migration writes a thin content renderer per kind that keeps the body +
+  business logic (webview lifecycle, markdown render, devtools open) and
+  drops the `BasePaneWindow`/`PaneToolbarActions` wrapper. The browser's own
+  navigation toolbar (URL bar, back/forward) is pane content, not window
+  chrome, so it stays in the body.
+- **Panes pane id ≠ v1 pane id, so content cannot read `useTabsStore` by
+  the panes `pane.id` (found 2026-07-29, M3-prep).** The terminal bridge
+  avoided this by keying the host session on `data.terminalId` (the v1 pane
+  id) and never reading the v1 store. The non-terminal renderers follow the
+  same rule: `comment`/`devtools` read their payload from `ctx.pane.data`
+  (seeded by the opener), not the v1 store. `webview` reuses
+  `usePersistentWebview` keyed by the panes pane id, which registers a fresh
+  Electron webview session scoped to the panes pane; mirroring v1's
+  `navigateBrowserHistory` into the panes store is a documented fidelity
+  follow-up, not a blocker for the registration gate.
 
 - **PoC's dev flag override was dead code (2026-07-26, M1 task 1).** The
   PoC CDP script (`cdp-poc-v2-panes.ts:100`) set

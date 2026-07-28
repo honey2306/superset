@@ -4,7 +4,7 @@ import type {
 	PaneRegistry,
 	RendererContext,
 } from "@superset/panes";
-import { TerminalSquare } from "lucide-react";
+import { Globe, MessageSquare, TerminalSquare } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import {
 	LuArrowDownToLine,
@@ -22,6 +22,12 @@ import { HostServiceTerminalPane } from "renderer/screens/main/components/Worksp
 import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
 import { killTerminalForPane } from "renderer/stores/tabs/utils/terminal-cleanup";
 import { buildV1PanesLifecycleRegistry } from "./buildV1PanesLifecycleRegistry";
+import {
+	commentPaneTitle,
+	devtoolsPaneTitle,
+	type NonTerminalPaneTitles,
+	webviewPaneTitle,
+} from "./buildV1PanesNonTerminalRegistry";
 import { buildV1TerminalContextMenu } from "./buildV1TerminalContextMenu";
 import { createV1PanesTerminalPaneBridge } from "./createV1PanesTerminalPaneBridge";
 import type { V1PanesPaneData } from "./types";
@@ -32,6 +38,9 @@ import {
 import { useV1PanesPresetOpeners } from "./useV1PanesPresetOpeners";
 import { useV1PanesWorkspacePaneLayout } from "./useV1PanesWorkspacePaneLayout";
 import { useV1TerminalLauncher } from "./useV1TerminalLauncher";
+import { V1PanesBrowserContent } from "./V1PanesBrowserContent";
+import { V1PanesCommentContent } from "./V1PanesCommentContent";
+import { V1PanesDevToolsContent } from "./V1PanesDevToolsContent";
 
 const MOD_KEY = navigator.platform.toLowerCase().includes("mac")
 	? "⌘"
@@ -137,6 +146,10 @@ function useV1PanesRegistry(
 	);
 
 	return useMemo<PaneRegistry<V1PanesPaneData>>(() => {
+		const nonTerminalLabels: NonTerminalPaneTitles = {
+			devtools: t("v2Workspace.paneRegistry.titleDevTools"),
+			browser: t("v2Workspace.paneRegistry.titleBrowser"),
+		};
 		const lifecycle = buildV1PanesLifecycleRegistry({
 			terminalRuntime: terminalRuntimeRegistry,
 			killTerminal: killTerminalForPane,
@@ -215,7 +228,84 @@ function useV1PanesRegistry(
 			),
 			contextMenuActions: (_ctx, defaults) => buildContextMenu(defaults),
 		};
-		return { terminal };
+
+		// --- comment -----------------------------------------------------------
+		// Self-contained: the full `CommentPaneState` payload lives in the
+		// panes pane `data.comment`, so the renderer reads no v1 store. Title
+		// mirrors v1's pane name (`@<authorLogin>`); the avatar header icon
+		// reuses the comment avatar when present (matches v2's registry).
+		const comment: PaneDefinition<V1PanesPaneData> = {
+			getIcon: (ctx) => {
+				const c = ctx.pane.data.comment;
+				if (c?.avatarUrl) {
+					return (
+						<img src={c.avatarUrl} alt="" className="size-3.5 rounded-full" />
+					);
+				}
+				return <MessageSquare className="size-3.5" />;
+			},
+			getTitle: (pane) => commentPaneTitle(pane.data),
+			renderPane: (ctx) => {
+				const c = ctx.pane.data.comment;
+				if (!c) {
+					return (
+						<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+							No comment selected
+						</div>
+					);
+				}
+				return <V1PanesCommentContent comment={c} />;
+			},
+			contextMenuActions: (_ctx, defaults) =>
+				defaults.map((d) =>
+					d.key === "close-pane"
+						? { ...d, label: t("v2Workspace.paneRegistry.closeComment") }
+						: d,
+				),
+		};
+
+		// --- devtools ----------------------------------------------------------
+		// Self-contained: `data.devtools.targetPaneId` is the only field. The
+		// pane opens the Electron devtools for the inspected browser pane on
+		// mount; no v1 store read is needed. Title is static ("DevTools").
+		const devtools: PaneDefinition<V1PanesPaneData> = {
+			getTitle: () => devtoolsPaneTitle(nonTerminalLabels),
+			renderPane: (ctx) => {
+				const targetPaneId = ctx.pane.data.devtools?.targetPaneId;
+				if (!targetPaneId) {
+					return (
+						<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+							No target pane
+						</div>
+					);
+				}
+				return <V1PanesDevToolsContent targetPaneId={targetPaneId} />;
+			},
+		};
+
+		// --- webview (browser) -------------------------------------------------
+		// The browser navigation toolbar (URL bar, back/forward/reload) is
+		// pane content, not window chrome, so it stays in the body. The
+		// `usePersistentWebview` hook registers a fresh Electron webview
+		// session keyed by the panes pane id; the v1 global tabs store is NOT
+		// consulted (panes pane id != v1 pane id), so navigation history is
+		// scoped to the panes session. Initial url comes from `data.browser`.
+		// Live history persistence to the panes store (mirroring v1's
+		// `navigateBrowserHistory`) is a fidelity follow-up, like the terminal
+		// `renderHeaderExtras` connection indicator was deferred in M2.
+		const webview: PaneDefinition<V1PanesPaneData> = {
+			getIcon: () => <Globe className="size-3.5" />,
+			getTitle: (pane) => webviewPaneTitle(pane.data, nonTerminalLabels),
+			renderPane: (ctx) => <V1PanesBrowserContent paneId={ctx.pane.id} />,
+			contextMenuActions: (_ctx, defaults) =>
+				defaults.map((d) =>
+					d.key === "close-pane"
+						? { ...d, label: t("v2Workspace.paneRegistry.closeBrowser") }
+						: d,
+				),
+		};
+
+		return { terminal, comment, devtools, webview };
 	}, [
 		t,
 		probeRunning,
