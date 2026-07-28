@@ -28,7 +28,10 @@ import type { HostServiceTerminalPaneSnapshot } from "../Terminal/host-service-t
  * unchanged once mounted under the panes engine.
  */
 export interface V1PanesPaneData extends HostServiceTerminalPaneSnapshot {
-	terminalId: string;
+	/** Backend terminal session id for the `terminal` kind. Undefined for
+	 * non-terminal kinds (comment/devtools/webview), whose identity lives
+	 * in their per-kind fields (`comment`/`devtools`/`browser`). */
+	terminalId?: string;
 	status?: PaneStatus;
 	cwdConfirmed?: boolean;
 	/** Shell command run once on session create (preset launch). */

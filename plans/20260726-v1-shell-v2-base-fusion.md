@@ -728,9 +728,31 @@ happens only after the validation matrix passes on the new base.
     title → URL host → `Browser`).
   - 19 new tests (8 pure title + 11 multi-kind registry shape) on top of
     the 45 existing; 64 V1PanesWorkspace tests pass, desktop typecheck +
-    biome clean. Opener routing (notification-controller comment open,
-    browser/devtools opens) into the panes store is the remaining step
-    before these kinds render from a real user action.
+    biome clean. Opener routing for `comment` landed next (see below);
+    `browser`/`devtools` opener routing waits on panes-mode UI entry points
+    (V1PanesPresetBar browser button, V1PanesBrowserContent devtools
+    button) since their v1 openers are unreachable under
+    `V2_PANES_IN_V1` today.
+- [x] (2026-07-29) `comment` opener routing: `ReviewPanel` calls
+  `useTabsStore.openCommentPane`, which now also writes the panes store
+  when a v1-panes store is registered for the workspace.
+  - `V1PanesPaneData.terminalId` relaxed to `terminalId?: string` so
+    non-terminal kinds (`comment`/`devtools`/`webview`) seed `data` without
+    a meaningless terminal id; the terminal lifecycle/context-menu slices
+    coerce `pane.data.terminalId ?? ""` (the terminal kind always has one).
+  - Pure opener `openCommentInPanesStore(store, comment)` ports v1's
+    "reuse-or-add-tab" semantics onto the panes store (finds the first
+    `comment` pane and updates `data.comment` + activates, else `addTab`
+    with one `comment` pane seeded from the payload).
+  - Module-level `v1PanesStoreRegistry` (Map<workspaceId, StoreApi>):
+    `V1PanesWorkspace` registers on mount / unregisters on unmount; the v1
+    store action looks the store up by workspace id and calls the opener
+    when present. The registry is a bridge surface (no React dependency),
+    so the vanilla v1 store can reach the React-scoped panes store without
+    importing hooks/context. When no store is registered (flag off, or
+    the view is not mounted) the v1-only path is unchanged.
+  - 3 opener tests on top of the 67 V1PanesWorkspace tests; tabs store
+    tests (85) and desktop typecheck + biome clean.
 - [ ] Milestone 3: ACP agent pane.
   - Pre: the v1-panes registry now renders `comment` / `devtools` / `webview`
     (2026-07-29); `file-viewer` / `chat` remain to be registered before the

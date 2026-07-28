@@ -82,7 +82,7 @@ export function buildV1PanesLifecycleRegistry(
 	return {
 		getTitle: () => "Terminal",
 		titleSource: (pane) => {
-			const { terminalId } = pane.data;
+			const terminalId = pane.data.terminalId ?? "";
 			const instanceId = pane.id;
 			return {
 				subscribe: (callback) =>
@@ -92,7 +92,7 @@ export function buildV1PanesLifecycleRegistry(
 			};
 		},
 		onBeforeClose: (pane) => {
-			const { terminalId } = pane.data;
+			const terminalId = pane.data.terminalId ?? "";
 			return confirmCloseTerminals([terminalId], probeRunning, {
 				...closeConfirmLabels,
 			});

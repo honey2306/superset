@@ -1,7 +1,12 @@
 import { Workspace } from "@superset/panes";
+import { useEffect } from "react";
 import { useV1PanesHotkeys } from "./useV1PanesHotkeys";
 import { useV1PanesWorkspace } from "./useV1PanesWorkspace";
 import { V1PanesPresetBar } from "./V1PanesPresetBar";
+import {
+	registerV1PanesStore,
+	unregisterV1PanesStore,
+} from "./v1PanesStoreRegistry";
 
 /**
  * Renders a v1 workspace view's tabs through the v2-grade `@superset/panes`
@@ -37,6 +42,15 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 		launcher,
 		addTerminalTab: openers.addTerminalTab,
 	});
+
+	// Register the per-workspace panes store so v1 global tabs store opener
+	// actions (e.g. `openCommentPane` from `ReviewPanel`) can route into the
+	// panes store when this view owns the workspace. Unmount-cleaned so a
+	// stale entry cannot outlive the React tree that owned the store.
+	useEffect(() => {
+		registerV1PanesStore(workspaceId, store);
+		return () => unregisterV1PanesStore(workspaceId, store);
+	}, [workspaceId, store]);
 
 	return (
 		<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

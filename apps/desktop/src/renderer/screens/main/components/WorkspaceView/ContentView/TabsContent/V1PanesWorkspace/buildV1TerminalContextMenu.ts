@@ -94,11 +94,11 @@ export function buildV1TerminalContextMenu(
 				? `${copyPasteShortcutPrefix}C`
 				: undefined,
 			disabled: (ctx) => {
-				const { terminalId } = ctx.pane.data;
+				const terminalId = ctx.pane.data.terminalId ?? "";
 				return !terminalRuntime.getSelection(terminalId, ctx.pane.id);
 			},
 			onSelect: (ctx) => {
-				const { terminalId } = ctx.pane.data;
+				const terminalId = ctx.pane.data.terminalId ?? "";
 				const text = terminalRuntime.getSelection(terminalId, ctx.pane.id);
 				if (text) navigator.clipboard.writeText(text);
 			},
@@ -111,7 +111,7 @@ export function buildV1TerminalContextMenu(
 				? `${copyPasteShortcutPrefix}V`
 				: undefined,
 			onSelect: async (ctx) => {
-				const { terminalId } = ctx.pane.data;
+				const terminalId = ctx.pane.data.terminalId ?? "";
 				try {
 					const text = await navigator.clipboard.readText();
 					if (text) {
@@ -129,7 +129,7 @@ export function buildV1TerminalContextMenu(
 			icon: icons.clear,
 			shortcut: hotkeys.clear,
 			onSelect: (ctx) => {
-				const { terminalId } = ctx.pane.data;
+				const terminalId = ctx.pane.data.terminalId ?? "";
 				terminalRuntime.clear(terminalId, ctx.pane.id);
 			},
 		},
@@ -139,7 +139,7 @@ export function buildV1TerminalContextMenu(
 			icon: icons.scrollToBottom,
 			shortcut: hotkeys.scrollToBottom,
 			onSelect: (ctx) => {
-				const { terminalId } = ctx.pane.data;
+				const terminalId = ctx.pane.data.terminalId ?? "";
 				terminalRuntime.scrollToBottom(terminalId, ctx.pane.id);
 			},
 		},
@@ -155,7 +155,7 @@ export function buildV1TerminalContextMenu(
 		icon: icons.kill,
 		variant: "destructive",
 		onSelect: (ctx) => {
-			const { terminalId } = ctx.pane.data;
+			const terminalId = ctx.pane.data.terminalId ?? "";
 			killSession(terminalId);
 		},
 	};
