@@ -43,10 +43,15 @@ import {
 import { setPaneWorkspaceRunState } from "renderer/stores/tabs/workspace-run";
 import { useTheme } from "renderer/stores/theme/store";
 import { resolveTerminalThemeType } from "renderer/stores/theme/utils";
+import type { PaneStatus } from "shared/tabs-types";
 import { TerminalExitedOverlay } from "./components/TerminalExitedOverlay";
 import { useHostServiceTerminal } from "./hooks/useHostServiceTerminal";
 import { useTerminalCwd } from "./hooks/useTerminalCwd";
 import { useTerminalHotkeys } from "./hooks/useTerminalHotkeys";
+import type {
+	HostServiceTerminalPaneBridge,
+	HostServiceTerminalPaneSnapshot,
+} from "./host-service-terminal-pane-bridge";
 import { isPaneDestroyed } from "./pane-guards";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
 import { TerminalSearch } from "./TerminalSearch";
@@ -57,6 +62,10 @@ export interface HostServiceTerminalPaneProps {
 	paneId: string;
 	tabId: string;
 	workspaceId: string;
+	/** Persisted backend identity supplied by the @superset/panes host. */
+	terminalId?: string;
+	/** Routes pane state/lifecycle writes to a non-legacy UI host. */
+	paneBridge?: HostServiceTerminalPaneBridge;
 	/**
 	 * Optional shell command run once on session create (preset launch).
 	 * When provided, forwarded to host-service `createSession` as
@@ -76,6 +85,8 @@ export function HostServiceTerminalPane({
 	paneId,
 	tabId,
 	workspaceId,
+	terminalId: requestedTerminalId,
+	paneBridge,
 	initialCommand,
 	initialCwd,
 }: HostServiceTerminalPaneProps) {
@@ -97,28 +108,111 @@ export function HostServiceTerminalPane({
 	const [runtimeReady, setRuntimeReady] = useState(false);
 	const [exitCode, setExitCode] = useState<number | null>(null);
 	const [isRestarting, setIsRestarting] = useState(false);
-	const pane = useTabsStore((state) => state.panes[paneId]);
-	const focusedPaneId = useTabsStore((state) => state.focusedPaneIds[tabId]);
-	const setPaneName = useTabsStore((state) => state.setPaneName);
-	const setPaneStatus = useTabsStore((state) => state.setPaneStatus);
-	const setPaneLifecycleScript = useTabsStore(
-		(state) => state.setPaneLifecycleScript,
+	const legacyPane = useTabsStore((state) => state.panes[paneId]);
+	const legacyFocusedPaneId = useTabsStore(
+		(state) => state.focusedPaneIds[tabId],
 	);
-	const removePane = useTabsStore((state) => state.removePane);
 	const addFileViewerPane = useTabsStore((state) => state.addFileViewerPane);
 	const openInBrowserPane = useTabsStore((state) => state.openInBrowserPane);
 	const addBrowserTab = useTabsStore((state) => state.addBrowserTab);
-	const clearPaneInitialData = useTabsStore(
-		(state) => state.clearPaneInitialData,
+	const paneBridgeRef = useRef(paneBridge);
+	paneBridgeRef.current = paneBridge;
+	const paneSnapshot = paneBridge?.getSnapshot() ?? legacyPane ?? null;
+	const getPaneSnapshot = useCallback(
+		(): HostServiceTerminalPaneSnapshot | null =>
+			paneBridgeRef.current?.getSnapshot() ??
+			useTabsStore.getState().panes[paneId] ??
+			null,
+		[paneId],
 	);
-	const initialCwdRef = useRef(initialCwd ?? pane?.initialCwd);
-	initialCwdRef.current = initialCwd ?? pane?.initialCwd;
+	const isCurrentPaneDestroyed = useCallback(
+		() =>
+			paneBridgeRef.current?.isDestroyed() ??
+			isPaneDestroyed(useTabsStore.getState().panes, paneId),
+		[paneId],
+	);
+	const setPaneTitle = useCallback(
+		(title: string) => {
+			const bridge = paneBridgeRef.current;
+			if (bridge) {
+				bridge.setTitle(title);
+			} else {
+				useTabsStore.getState().setPaneName(paneId, title);
+			}
+		},
+		[paneId],
+	);
+	const setPaneStatus = useCallback(
+		(nextStatus: PaneStatus) => {
+			const bridge = paneBridgeRef.current;
+			if (bridge) {
+				bridge.setStatus(nextStatus);
+			} else {
+				useTabsStore.getState().setPaneStatus(paneId, nextStatus);
+			}
+		},
+		[paneId],
+	);
+	const setPaneLifecycleScript = useCallback(
+		(
+			script: NonNullable<HostServiceTerminalPaneSnapshot["lifecycleScript"]>,
+		) => {
+			const bridge = paneBridgeRef.current;
+			if (bridge) {
+				bridge.setLifecycleScript(script);
+			} else {
+				useTabsStore.getState().setPaneLifecycleScript(paneId, script);
+			}
+		},
+		[paneId],
+	);
+	const setWorkspaceRunState = useCallback(
+		(state: "running" | "stopped-by-user" | "stopped-by-exit") => {
+			const bridge = paneBridgeRef.current;
+			if (bridge) {
+				bridge.setWorkspaceRunState(state);
+			} else {
+				setPaneWorkspaceRunState(paneId, state);
+			}
+		},
+		[paneId],
+	);
+	const closePane = useCallback(() => {
+		const bridge = paneBridgeRef.current;
+		if (bridge) {
+			bridge.close();
+		} else {
+			useTabsStore.getState().removePane(paneId);
+		}
+	}, [paneId]);
+	const clearPaneInitialData = useCallback(() => {
+		const bridge = paneBridgeRef.current;
+		if (bridge) {
+			bridge.clearInitialData();
+		} else {
+			useTabsStore.getState().clearPaneInitialData(paneId);
+		}
+	}, [paneId]);
+	const updatePaneCwd = useCallback(
+		(cwd: string | null, confirmed: boolean) => {
+			const bridge = paneBridgeRef.current;
+			if (bridge) {
+				bridge.setCwd(cwd, confirmed);
+			} else {
+				useTabsStore.getState().updatePaneCwd(paneId, cwd, confirmed);
+			}
+		},
+		[paneId],
+	);
+	const initialCwdRef = useRef(initialCwd ?? paneSnapshot?.initialCwd);
+	initialCwdRef.current = initialCwd ?? paneSnapshot?.initialCwd;
 	const initialCommandRef = useRef(initialCommand);
 	initialCommandRef.current = initialCommand;
 	const { updateCwdFromData } = useTerminalCwd({
 		paneId,
-		initialCwd: pane?.initialCwd,
+		initialCwd: initialCwd ?? paneSnapshot?.initialCwd,
 		workspaceCwd: workspaceData?.worktreePath,
+		onCwdChange: updatePaneCwd,
 	});
 
 	const appearance = useTerminalAppearance();
@@ -132,7 +226,8 @@ export function HostServiceTerminalPane({
 	const themeTypeRef = useRef(themeType);
 	themeTypeRef.current = themeType;
 
-	const terminalId = adapter?.getTerminalId(paneId) ?? paneId;
+	const terminalId =
+		adapter?.getTerminalId(paneId) ?? requestedTerminalId ?? paneId;
 	const instanceId = paneId;
 
 	const subscribe = useCallback(
@@ -146,7 +241,7 @@ export function HostServiceTerminalPane({
 		[terminalId, instanceId],
 	);
 	const connectionState = useSyncExternalStore(subscribe, getSnapshot);
-	const isFocused = focusedPaneId === paneId;
+	const isFocused = paneBridge?.isFocused ?? legacyFocusedPaneId === paneId;
 	const agentBindings = useTerminalAgentBindingsAtHost(
 		hostUrl,
 		hostWorkspaceId,
@@ -170,8 +265,8 @@ export function HostServiceTerminalPane({
 			lastEventAt: agentBinding.lastEventAt,
 			lastSeenAt: isFocused ? agentBinding.lastEventAt : undefined,
 		});
-		setPaneStatus(paneId, nextStatus);
-	}, [agentBinding, isFocused, paneId, setPaneStatus]);
+		setPaneStatus(nextStatus);
+	}, [agentBinding, isFocused, setPaneStatus]);
 
 	const handleClear = useCallback(() => {
 		terminalRuntimeRegistry.clear(terminalId, instanceId);
@@ -206,6 +301,7 @@ export function HostServiceTerminalPane({
 				await a.createOrAttach({
 					paneId,
 					tabId,
+					terminalId: requestedTerminalId,
 					cols: 80,
 					rows: 24,
 					cwd: initialCwdRef.current,
@@ -213,7 +309,7 @@ export function HostServiceTerminalPane({
 					themeType: themeTypeRef.current,
 				});
 				if (cancelled) {
-					if (isPaneDestroyed(useTabsStore.getState().panes, paneId)) {
+					if (isCurrentPaneDestroyed()) {
 						await a.kill(paneId);
 					}
 					return;
@@ -234,7 +330,7 @@ export function HostServiceTerminalPane({
 				);
 				terminalRuntimeRegistry.connect(tid, wsUrl, instanceId);
 				xtermRef.current = terminalRuntimeRegistry.getTerminal(tid, instanceId);
-				clearPaneInitialData(paneId);
+				clearPaneInitialData();
 				setRuntimeReady(true);
 			} catch (err) {
 				if (!cancelled) {
@@ -251,7 +347,7 @@ export function HostServiceTerminalPane({
 		return () => {
 			cancelled = true;
 			if (
-				!isPaneDestroyed(useTabsStore.getState().panes, paneId) &&
+				!isCurrentPaneDestroyed() &&
 				posthog.isFeatureEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ===
 					false
 			) {
@@ -263,7 +359,17 @@ export function HostServiceTerminalPane({
 			}
 			xtermRef.current = null;
 		};
-	}, [adapter, enabled, paneId, tabId, instanceId, clearPaneInitialData, t]);
+	}, [
+		adapter,
+		enabled,
+		paneId,
+		tabId,
+		requestedTerminalId,
+		instanceId,
+		clearPaneInitialData,
+		isCurrentPaneDestroyed,
+		t,
+	]);
 
 	// Reconnect when the host URL/token source changes. A visual theme change
 	// updates xterm appearance below and must not tear down a live shell.
@@ -301,18 +407,18 @@ export function HostServiceTerminalPane({
 		return terminalRuntimeRegistry.onExit(
 			terminalId,
 			(info) => {
-				setPaneStatus(paneId, "idle");
-				const livePane = useTabsStore.getState().panes[paneId];
+				setPaneStatus("idle");
+				const livePane = getPaneSnapshot();
 				if (livePane?.workspaceRun) {
-					setPaneWorkspaceRunState(paneId, "stopped-by-exit");
+					setWorkspaceRunState("stopped-by-exit");
 				}
 				if (livePane?.lifecycleScript) {
-					setPaneLifecycleScript(paneId, {
+					setPaneLifecycleScript({
 						...livePane.lifecycleScript,
 						state: info.exitCode === 0 ? "succeeded" : "failed",
 						exitCode: info.exitCode,
 					});
-					setPaneStatus(paneId, info.exitCode === 0 ? "review" : "failed");
+					setPaneStatus(info.exitCode === 0 ? "review" : "failed");
 				}
 				if (
 					info.exitCode === 0 &&
@@ -320,11 +426,11 @@ export function HostServiceTerminalPane({
 					!livePane?.lifecycleScript &&
 					!wasAgentTerminalRef.current
 				) {
-					removePane(paneId);
+					closePane();
 					return;
 				}
 				if (wasAgentTerminalRef.current) {
-					setPaneStatus(paneId, info.exitCode === 0 ? "review" : "failed");
+					setPaneStatus(info.exitCode === 0 ? "review" : "failed");
 				}
 				setExitCode(info.exitCode);
 			},
@@ -334,10 +440,11 @@ export function HostServiceTerminalPane({
 		runtimeReady,
 		terminalId,
 		instanceId,
-		paneId,
-		removePane,
+		closePane,
+		getPaneSnapshot,
 		setPaneStatus,
 		setPaneLifecycleScript,
+		setWorkspaceRunState,
 	]);
 
 	const handleRestart = useCallback(async () => {
@@ -345,10 +452,11 @@ export function HostServiceTerminalPane({
 		setIsRestarting(true);
 		setError(null);
 		try {
-			const currentPane = useTabsStore.getState().panes[paneId];
+			const currentPane = getPaneSnapshot();
 			await adapter.restart({
 				paneId,
 				tabId,
+				terminalId: requestedTerminalId,
 				cols: xtermRef.current?.cols ?? 80,
 				rows: xtermRef.current?.rows ?? 24,
 				cwd: currentPane?.cwd ?? currentPane?.initialCwd,
@@ -381,7 +489,15 @@ export function HostServiceTerminalPane({
 		} finally {
 			setIsRestarting(false);
 		}
-	}, [adapter, instanceId, isRestarting, paneId, tabId]);
+	}, [
+		adapter,
+		getPaneSnapshot,
+		instanceId,
+		isRestarting,
+		paneId,
+		requestedTerminalId,
+		tabId,
+	]);
 
 	// Keep the existing v1 context-menu actions backed by the shared runtime.
 	useEffect(() => {
@@ -424,11 +540,11 @@ export function HostServiceTerminalPane({
 		if (!tid) return;
 		const updateTitle = () => {
 			const title = terminalRuntimeRegistry.getTitle(tid, instanceId);
-			if (title) setPaneName(paneId, title);
+			if (title) setPaneTitle(title);
 		};
 		updateTitle();
 		return terminalRuntimeRegistry.onTitleChange(tid, updateTitle, instanceId);
-	}, [adapter, enabled, paneId, instanceId, runtimeReady, setPaneName]);
+	}, [adapter, enabled, paneId, instanceId, runtimeReady, setPaneTitle]);
 
 	useEffect(() => {
 		if (!isFocused || !runtimeReady) return;

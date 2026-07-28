@@ -1,11 +1,16 @@
 import type { TerminalPreset } from "@superset/local-db/schema/zod";
 import type { WorkspaceStore } from "@superset/panes";
 import { useCallback } from "react";
+import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
+import { launchTerminalAgent } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/host-service-terminal-agent-launcher";
 import type { StoreApi } from "zustand/vanilla";
 import {
 	planV1PanesPresetOpen,
 	type V1PanesPresetTarget,
 } from "./planV1PanesPresetOpen";
+import { resolveV1PanesPresetLaunch } from "./resolveV1PanesPresetLaunch";
 import type { V1PanesPaneData } from "./types";
 
 /**
@@ -18,21 +23,29 @@ import type { V1PanesPaneData } from "./types";
  * launch must route here instead. This closes the M1 PresetsBar regression
  * (flag-on replaced `PresetsBar` wholesale).
  *
- * The hook applies the pure `planV1PanesPresetOpen` to the panes store:
- * `new-tab` → `store.addTab`, `active-tab` → `store.splitPane` (right) in
- * the active tab. The preset's commands become the new terminal's
- * `initialCommand` (host-service `createSession` runs them on spawn) and
- * the preset's `cwd` becomes the session `initialCwd`.
+ * Built-in terminal agents first launch through host-service `agents.run`,
+ * then the pane attaches to that session. Ordinary presets still use
+ * `initialCommand`; unavailable agents fall back to their terminal command
+ * so the compatibility failure stays visible and testable.
  *
  * M2 scope: single-pane terminal launch only. v1's multi-command
  * parallel / sequential / new-tab-per-command execution modes are a
  * fidelity follow-up.
  */
 export function useV1PanesPresetOpeners(
+	workspaceId: string,
 	store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
 ) {
+	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
+		{ id: workspaceId },
+		{ enabled: !!workspaceId, staleTime: 30_000 },
+	);
+	const { hostUrl, hostWorkspaceId } = useHostServiceTerminal({
+		workspaceId,
+		worktreePath: workspace?.worktreePath,
+	});
 	const openPreset = useCallback(
-		(
+		async (
 			preset: Pick<TerminalPreset, "commands" | "cwd" | "name">,
 			options: { target: V1PanesPresetTarget },
 		) => {
@@ -42,6 +55,21 @@ export function useV1PanesPresetOpeners(
 				target: options.target,
 				activeTabId,
 			});
+			const launch = await resolveV1PanesPresetLaunch(
+				plan,
+				async ({ terminalId, agent }) => {
+					if (!hostUrl || !hostWorkspaceId) {
+						throw new Error("Host terminal backend is not ready");
+					}
+					await launchTerminalAgent({
+						client: getHostServiceClientByUrl(hostUrl),
+						workspaceId: hostWorkspaceId,
+						paneId: terminalId,
+						agent,
+						prompt: "",
+					});
+				},
+			);
 			if (plan.kind === "addTab") {
 				state.addTab({
 					titleOverride: plan.titleOverride,
@@ -51,7 +79,7 @@ export function useV1PanesPresetOpeners(
 							titleOverride: plan.titleOverride,
 							data: {
 								terminalId: plan.terminalId,
-								initialCommand: plan.initialCommand,
+								initialCommand: launch.initialCommand,
 								initialCwd: plan.initialCwd,
 							},
 						},
@@ -73,7 +101,7 @@ export function useV1PanesPresetOpeners(
 							titleOverride: plan.titleOverride,
 							data: {
 								terminalId: plan.terminalId,
-								initialCommand: plan.initialCommand,
+								initialCommand: launch.initialCommand,
 								initialCwd: plan.initialCwd,
 							},
 						},
@@ -90,13 +118,13 @@ export function useV1PanesPresetOpeners(
 					titleOverride: plan.titleOverride,
 					data: {
 						terminalId: plan.terminalId,
-						initialCommand: plan.initialCommand,
+						initialCommand: launch.initialCommand,
 						initialCwd: plan.initialCwd,
 					},
 				},
 			});
 		},
-		[store],
+		[hostUrl, hostWorkspaceId, store],
 	);
 
 	const addTerminalTab = useCallback(() => {

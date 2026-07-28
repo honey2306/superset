@@ -1,5 +1,7 @@
 import type { ExternalApp } from "@superset/local-db";
+import { FEATURE_FLAGS } from "@superset/shared/constants";
 import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { useFileOpenMode } from "renderer/hooks/useFileOpenMode";
@@ -81,6 +83,9 @@ export const Route = createFileRoute(
 
 function WorkspacePage() {
 	const { workspaceId } = Route.useParams();
+	const panesInV1Enabled =
+		useFeatureFlagEnabled(FEATURE_FLAGS.V2_PANES_IN_V1) ?? false;
+	const legacyHotkeyOptions = { enabled: !panesInV1Enabled };
 	const { data: workspace } = electronTrpc.workspaces.get.useQuery({
 		id: workspaceId,
 	});
@@ -212,56 +217,94 @@ function WorkspacePage() {
 		[presets, workspaceId, addTab, openPreset],
 	);
 
-	useHotkey("NEW_GROUP", () => addTab(workspaceId));
-	useHotkey("NEW_CHAT", () => addChatTab(workspaceId));
-	useHotkey("REOPEN_TAB", () => {
-		if (!reopenClosedTab(workspaceId)) {
-			addChatTab(workspaceId);
-		}
-	});
-	useHotkey("NEW_BROWSER", () => addBrowserTab(workspaceId));
-	usePresetHotkeys(openTabWithPreset);
+	useHotkey("NEW_GROUP", () => addTab(workspaceId), legacyHotkeyOptions);
+	useHotkey("NEW_CHAT", () => addChatTab(workspaceId), legacyHotkeyOptions);
+	useHotkey(
+		"REOPEN_TAB",
+		() => {
+			if (!reopenClosedTab(workspaceId)) {
+				addChatTab(workspaceId);
+			}
+		},
+		legacyHotkeyOptions,
+	);
+	useHotkey(
+		"NEW_BROWSER",
+		() => addBrowserTab(workspaceId),
+		legacyHotkeyOptions,
+	);
+	usePresetHotkeys(openTabWithPreset, !panesInV1Enabled);
 
-	useHotkey("RUN_WORKSPACE_COMMAND", () => toggleWorkspaceRun());
+	useHotkey(
+		"RUN_WORKSPACE_COMMAND",
+		() => toggleWorkspaceRun(),
+		legacyHotkeyOptions,
+	);
 
-	useHotkey("CLOSE_TERMINAL", () => {
-		if (focusedPaneId) {
-			requestPaneClose(focusedPaneId);
-		}
-	});
-	useHotkey("CLOSE_TAB", () => {
-		if (activeTabId) {
-			requestTabClose(activeTabId);
-		}
-	});
+	useHotkey(
+		"CLOSE_TERMINAL",
+		() => {
+			if (focusedPaneId) {
+				requestPaneClose(focusedPaneId);
+			}
+		},
+		legacyHotkeyOptions,
+	);
+	useHotkey(
+		"CLOSE_TAB",
+		() => {
+			if (activeTabId) {
+				requestTabClose(activeTabId);
+			}
+		},
+		legacyHotkeyOptions,
+	);
 
-	useHotkey("PREV_TAB", () => {
-		if (!activeTabId || tabs.length === 0) return;
-		const index = tabs.findIndex((t) => t.id === activeTabId);
-		const prevIndex = index <= 0 ? tabs.length - 1 : index - 1;
-		setActiveTab(workspaceId, tabs[prevIndex].id);
-	});
+	useHotkey(
+		"PREV_TAB",
+		() => {
+			if (!activeTabId || tabs.length === 0) return;
+			const index = tabs.findIndex((t) => t.id === activeTabId);
+			const prevIndex = index <= 0 ? tabs.length - 1 : index - 1;
+			setActiveTab(workspaceId, tabs[prevIndex].id);
+		},
+		legacyHotkeyOptions,
+	);
 
-	useHotkey("NEXT_TAB", () => {
-		if (!activeTabId || tabs.length === 0) return;
-		const index = tabs.findIndex((t) => t.id === activeTabId);
-		const nextIndex = index >= tabs.length - 1 || index === -1 ? 0 : index + 1;
-		setActiveTab(workspaceId, tabs[nextIndex].id);
-	});
+	useHotkey(
+		"NEXT_TAB",
+		() => {
+			if (!activeTabId || tabs.length === 0) return;
+			const index = tabs.findIndex((t) => t.id === activeTabId);
+			const nextIndex =
+				index >= tabs.length - 1 || index === -1 ? 0 : index + 1;
+			setActiveTab(workspaceId, tabs[nextIndex].id);
+		},
+		legacyHotkeyOptions,
+	);
 
-	useHotkey("PREV_TAB_ALT", () => {
-		if (!activeTabId || tabs.length === 0) return;
-		const index = tabs.findIndex((t) => t.id === activeTabId);
-		const prevIndex = index <= 0 ? tabs.length - 1 : index - 1;
-		setActiveTab(workspaceId, tabs[prevIndex].id);
-	});
+	useHotkey(
+		"PREV_TAB_ALT",
+		() => {
+			if (!activeTabId || tabs.length === 0) return;
+			const index = tabs.findIndex((t) => t.id === activeTabId);
+			const prevIndex = index <= 0 ? tabs.length - 1 : index - 1;
+			setActiveTab(workspaceId, tabs[prevIndex].id);
+		},
+		legacyHotkeyOptions,
+	);
 
-	useHotkey("NEXT_TAB_ALT", () => {
-		if (!activeTabId || tabs.length === 0) return;
-		const index = tabs.findIndex((t) => t.id === activeTabId);
-		const nextIndex = index >= tabs.length - 1 || index === -1 ? 0 : index + 1;
-		setActiveTab(workspaceId, tabs[nextIndex].id);
-	});
+	useHotkey(
+		"NEXT_TAB_ALT",
+		() => {
+			if (!activeTabId || tabs.length === 0) return;
+			const index = tabs.findIndex((t) => t.id === activeTabId);
+			const nextIndex =
+				index >= tabs.length - 1 || index === -1 ? 0 : index + 1;
+			setActiveTab(workspaceId, tabs[nextIndex].id);
+		},
+		legacyHotkeyOptions,
+	);
 
 	const switchToTab = useCallback(
 		(index: number) => {
@@ -273,15 +316,15 @@ function WorkspacePage() {
 		[tabs, workspaceId, setActiveTab],
 	);
 
-	useHotkey("JUMP_TO_TAB_1", () => switchToTab(0));
-	useHotkey("JUMP_TO_TAB_2", () => switchToTab(1));
-	useHotkey("JUMP_TO_TAB_3", () => switchToTab(2));
-	useHotkey("JUMP_TO_TAB_4", () => switchToTab(3));
-	useHotkey("JUMP_TO_TAB_5", () => switchToTab(4));
-	useHotkey("JUMP_TO_TAB_6", () => switchToTab(5));
-	useHotkey("JUMP_TO_TAB_7", () => switchToTab(6));
-	useHotkey("JUMP_TO_TAB_8", () => switchToTab(7));
-	useHotkey("JUMP_TO_TAB_9", () => switchToTab(8));
+	useHotkey("JUMP_TO_TAB_1", () => switchToTab(0), legacyHotkeyOptions);
+	useHotkey("JUMP_TO_TAB_2", () => switchToTab(1), legacyHotkeyOptions);
+	useHotkey("JUMP_TO_TAB_3", () => switchToTab(2), legacyHotkeyOptions);
+	useHotkey("JUMP_TO_TAB_4", () => switchToTab(3), legacyHotkeyOptions);
+	useHotkey("JUMP_TO_TAB_5", () => switchToTab(4), legacyHotkeyOptions);
+	useHotkey("JUMP_TO_TAB_6", () => switchToTab(5), legacyHotkeyOptions);
+	useHotkey("JUMP_TO_TAB_7", () => switchToTab(6), legacyHotkeyOptions);
+	useHotkey("JUMP_TO_TAB_8", () => switchToTab(7), legacyHotkeyOptions);
+	useHotkey("JUMP_TO_TAB_9", () => switchToTab(8), legacyHotkeyOptions);
 
 	// Open in last used app shortcut
 	const projectId = workspace?.projectId;
@@ -363,59 +406,103 @@ function WorkspacePage() {
 	);
 
 	// Pane splitting shortcuts
-	useHotkey("SPLIT_AUTO", () => {
-		if (activeTabId && focusedPaneId && activeTab) {
-			const target = resolveSplitTarget(focusedPaneId, activeTabId, activeTab);
-			if (!target) return;
-			const dimensions = getPaneDimensions(target.paneId);
-			if (dimensions) {
-				splitPaneAuto(activeTabId, target.paneId, dimensions, target.path);
+	useHotkey(
+		"SPLIT_AUTO",
+		() => {
+			if (activeTabId && focusedPaneId && activeTab) {
+				const target = resolveSplitTarget(
+					focusedPaneId,
+					activeTabId,
+					activeTab,
+				);
+				if (!target) return;
+				const dimensions = getPaneDimensions(target.paneId);
+				if (dimensions) {
+					splitPaneAuto(activeTabId, target.paneId, dimensions, target.path);
+				}
 			}
-		}
-	});
+		},
+		legacyHotkeyOptions,
+	);
 
-	useHotkey("SPLIT_RIGHT", () => {
-		if (activeTabId && focusedPaneId && activeTab) {
-			const target = resolveSplitTarget(focusedPaneId, activeTabId, activeTab);
-			if (!target) return;
-			splitPaneVertical(activeTabId, target.paneId, target.path);
-		}
-	});
+	useHotkey(
+		"SPLIT_RIGHT",
+		() => {
+			if (activeTabId && focusedPaneId && activeTab) {
+				const target = resolveSplitTarget(
+					focusedPaneId,
+					activeTabId,
+					activeTab,
+				);
+				if (!target) return;
+				splitPaneVertical(activeTabId, target.paneId, target.path);
+			}
+		},
+		legacyHotkeyOptions,
+	);
 
-	useHotkey("SPLIT_DOWN", () => {
-		if (activeTabId && focusedPaneId && activeTab) {
-			const target = resolveSplitTarget(focusedPaneId, activeTabId, activeTab);
-			if (!target) return;
-			splitPaneHorizontal(activeTabId, target.paneId, target.path);
-		}
-	});
+	useHotkey(
+		"SPLIT_DOWN",
+		() => {
+			if (activeTabId && focusedPaneId && activeTab) {
+				const target = resolveSplitTarget(
+					focusedPaneId,
+					activeTabId,
+					activeTab,
+				);
+				if (!target) return;
+				splitPaneHorizontal(activeTabId, target.paneId, target.path);
+			}
+		},
+		legacyHotkeyOptions,
+	);
 
-	useHotkey("SPLIT_WITH_CHAT", () => {
-		if (activeTabId && focusedPaneId && activeTab) {
-			const target = resolveSplitTarget(focusedPaneId, activeTabId, activeTab);
-			if (!target) return;
-			splitPaneVertical(activeTabId, target.paneId, target.path, {
-				paneType: "chat",
-			});
-		}
-	});
+	useHotkey(
+		"SPLIT_WITH_CHAT",
+		() => {
+			if (activeTabId && focusedPaneId && activeTab) {
+				const target = resolveSplitTarget(
+					focusedPaneId,
+					activeTabId,
+					activeTab,
+				);
+				if (!target) return;
+				splitPaneVertical(activeTabId, target.paneId, target.path, {
+					paneType: "chat",
+				});
+			}
+		},
+		legacyHotkeyOptions,
+	);
 
-	useHotkey("SPLIT_WITH_BROWSER", () => {
-		if (activeTabId && focusedPaneId && activeTab) {
-			const target = resolveSplitTarget(focusedPaneId, activeTabId, activeTab);
-			if (!target) return;
-			splitPaneVertical(activeTabId, target.paneId, target.path, {
-				paneType: "webview",
-			});
-		}
-	});
+	useHotkey(
+		"SPLIT_WITH_BROWSER",
+		() => {
+			if (activeTabId && focusedPaneId && activeTab) {
+				const target = resolveSplitTarget(
+					focusedPaneId,
+					activeTabId,
+					activeTab,
+				);
+				if (!target) return;
+				splitPaneVertical(activeTabId, target.paneId, target.path, {
+					paneType: "webview",
+				});
+			}
+		},
+		legacyHotkeyOptions,
+	);
 
 	const equalizePaneSplits = useTabsStore((s) => s.equalizePaneSplits);
-	useHotkey("EQUALIZE_PANE_SPLITS", () => {
-		if (activeTabId) {
-			equalizePaneSplits(activeTabId);
-		}
-	});
+	useHotkey(
+		"EQUALIZE_PANE_SPLITS",
+		() => {
+			if (activeTabId) {
+				equalizePaneSplits(activeTabId);
+			}
+		},
+		legacyHotkeyOptions,
+	);
 
 	const moveFocusDirectional = useCallback(
 		(dir: FocusDirection) => {
@@ -429,10 +516,26 @@ function WorkspacePage() {
 		},
 		[activeTabId, activeTab?.layout, focusedPaneId, setFocusedPane],
 	);
-	useHotkey("FOCUS_PANE_LEFT", () => moveFocusDirectional("left"));
-	useHotkey("FOCUS_PANE_RIGHT", () => moveFocusDirectional("right"));
-	useHotkey("FOCUS_PANE_UP", () => moveFocusDirectional("up"));
-	useHotkey("FOCUS_PANE_DOWN", () => moveFocusDirectional("down"));
+	useHotkey(
+		"FOCUS_PANE_LEFT",
+		() => moveFocusDirectional("left"),
+		legacyHotkeyOptions,
+	);
+	useHotkey(
+		"FOCUS_PANE_RIGHT",
+		() => moveFocusDirectional("right"),
+		legacyHotkeyOptions,
+	);
+	useHotkey(
+		"FOCUS_PANE_UP",
+		() => moveFocusDirectional("up"),
+		legacyHotkeyOptions,
+	);
+	useHotkey(
+		"FOCUS_PANE_DOWN",
+		() => moveFocusDirectional("down"),
+		legacyHotkeyOptions,
+	);
 
 	const getPreviousWorkspace =
 		electronTrpc.workspaces.getPreviousWorkspace.useQuery(

@@ -67,9 +67,9 @@ export function V1PanesPresetBar({
 								variant="ghost"
 								size="sm"
 								className="h-6 shrink-0 gap-1.5 px-2"
-								onClick={() =>
-									openers.openPreset(preset, { target: "new-tab" })
-								}
+								onClick={() => {
+									void openers.openPreset(preset, { target: "new-tab" });
+								}}
 							>
 								{icon ? (
 									<img src={icon} alt="" className="size-3.5 object-contain" />

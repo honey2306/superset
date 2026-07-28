@@ -7,6 +7,7 @@ export interface UseTerminalCwdOptions {
 	paneId: string;
 	initialCwd: string | null | undefined;
 	workspaceCwd: string | null | undefined;
+	onCwdChange?: (cwd: string | null, confirmed: boolean) => void;
 }
 
 export interface UseTerminalCwdReturn {
@@ -19,10 +20,19 @@ export function useTerminalCwd({
 	paneId,
 	initialCwd,
 	workspaceCwd,
+	onCwdChange,
 }: UseTerminalCwdOptions): UseTerminalCwdReturn {
 	const [terminalCwd, setTerminalCwd] = useState<string | null>(null);
 	const [cwdConfirmed, setCwdConfirmed] = useState(false);
 	const updatePaneCwd = useTabsStore((s) => s.updatePaneCwd);
+	const cwdChangeRef = useRef(
+		(id: string, cwd: string | null, confirmed: boolean) => {
+			updatePaneCwd(id, cwd, confirmed);
+		},
+	);
+	cwdChangeRef.current = onCwdChange
+		? (_id, cwd, confirmed) => onCwdChange(cwd, confirmed)
+		: updatePaneCwd;
 
 	// Seed cwd; OSC-7 will override once the shell reports directory changes
 	useEffect(() => {
@@ -36,7 +46,7 @@ export function useTerminalCwd({
 
 	const debouncedUpdatePaneCwdRef = useRef(
 		debounce((id: string, cwd: string | null, confirmed: boolean) => {
-			updatePaneCwd(id, cwd, confirmed);
+			cwdChangeRef.current(id, cwd, confirmed);
 		}, 150),
 	);
 

@@ -19,7 +19,7 @@ function makePreset(
 }
 
 describe("planV1PanesPresetOpen", () => {
-	test("new-tab target plans an addTab with the preset command as initialCommand", () => {
+	test("new-tab target plans a formal host launch for a built-in agent", () => {
 		const plan = planV1PanesPresetOpen(makePreset(), {
 			target: "new-tab",
 			randomUuid: () => "term-1",
@@ -27,7 +27,9 @@ describe("planV1PanesPresetOpen", () => {
 		expect(plan).toEqual({
 			kind: "addTab",
 			terminalId: "term-1",
-			initialCommand: "claude",
+			agentName: "claude",
+			initialCommand: undefined,
+			fallbackCommand: "claude",
 			initialCwd: "/repo",
 			titleOverride: "claude",
 		});
@@ -44,18 +46,22 @@ describe("planV1PanesPresetOpen", () => {
 			tabId: "tab-1",
 			position: "right",
 			terminalId: "term-2",
-			initialCommand: "claude",
+			agentName: "claude",
+			initialCommand: undefined,
+			fallbackCommand: "claude",
 			initialCwd: "/repo",
 			titleOverride: "claude",
 		});
 	});
 
-	test("multi-command preset joins commands with && as the initialCommand", () => {
+	test("non-agent multi-command preset joins commands as initialCommand", () => {
 		const plan = planV1PanesPresetOpen(
-			makePreset({ commands: ["echo hi", "claude"] }),
+			makePreset({ name: "dev", commands: ["echo hi", "bun run dev"] }),
 			{ target: "new-tab", randomUuid: () => "term-3" },
 		);
-		expect(plan?.initialCommand).toBe("echo hi && claude");
+		expect(plan?.agentName).toBeUndefined();
+		expect(plan?.initialCommand).toBe("echo hi && bun run dev");
+		expect(plan?.fallbackCommand).toBeUndefined();
 	});
 
 	test("empty-commands preset plans a plain terminal with no initialCommand", () => {

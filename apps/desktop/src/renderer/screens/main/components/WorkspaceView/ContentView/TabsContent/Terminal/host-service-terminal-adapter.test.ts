@@ -137,6 +137,53 @@ describe("host-service-terminal-adapter (Milestone 1)", () => {
 		expect(terminalId).toBe("pane-stable");
 	});
 
+	it("binds a panes-engine pane to its persisted backend terminalId", async () => {
+		const { client, calls } = createMockClient();
+		const adapter = createHostServiceTerminalAdapter({
+			hostUrl: "http://127.0.0.1:9999",
+			workspaceId: "ws-panes",
+			getClient: () => client,
+			runtime: createMockRuntime(),
+		});
+
+		const terminalId = await adapter.createOrAttach({
+			paneId: "pane-ui-id",
+			tabId: "tab-1",
+			terminalId: "terminal-backend-id",
+		});
+
+		expect(terminalId).toBe("terminal-backend-id");
+		expect(adapter.getTerminalId("pane-ui-id")).toBe("terminal-backend-id");
+		expect(calls[0]?.input).toMatchObject({
+			terminalId: "terminal-backend-id",
+			workspaceId: "ws-panes",
+		});
+	});
+
+	it("rejects remapping a live pane to a different backend terminal", async () => {
+		const { client } = createMockClient();
+		const adapter = createHostServiceTerminalAdapter({
+			hostUrl: "http://127.0.0.1:9999",
+			workspaceId: "ws-remap",
+			getClient: () => client,
+			runtime: createMockRuntime(),
+		});
+
+		await adapter.createOrAttach({
+			paneId: "pane-remap",
+			tabId: "tab-1",
+			terminalId: "terminal-first",
+		});
+
+		await expect(
+			adapter.createOrAttach({
+				paneId: "pane-remap",
+				tabId: "tab-1",
+				terminalId: "terminal-second",
+			}),
+		).rejects.toThrow("already bound to terminal terminal-first");
+	});
+
 	it("is idempotent: re-attach returns the same terminalId without re-creating", async () => {
 		const { client, createSession } = createMockClient();
 		const adapter = createHostServiceTerminalAdapter({

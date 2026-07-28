@@ -813,3 +813,11 @@ implements non-destructive fd-handoff for live sessions. The combined suite
 therefore reports 17/18 even though every DaemonClient test passes. This plan
 does not silently reinterpret that baseline mismatch as an M3–M5 failure or
 change daemon update policy as part of terminal fusion.
+
+On 2026-07-28 this terminal layer was joined to the feature-flagged
+v1-shell/`@superset/panes` base. The panes host now supplies its persisted
+backend terminal id and an explicit state/lifecycle bridge, while the mosaic
+host retains its existing tabs-store behavior. This preserves all M0–M5 paths
+without making the neutral terminal component depend directly on the panes
+package; details and follow-on milestones live in
+`plans/20260726-v1-shell-v2-base-fusion.md`.

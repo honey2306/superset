@@ -1,5 +1,6 @@
 import type { TerminalPreset } from "@superset/local-db/schema/zod";
 import type { SplitPosition } from "@superset/panes";
+import { AGENT_TYPES, type AgentType } from "@superset/shared/agent-command";
 
 /**
  * Where a preset should open, mirroring v1's `PresetOpenTarget`. M2 only
@@ -21,7 +22,9 @@ export type V1PanesPresetOpenPlan =
 	| {
 			kind: "addTab";
 			terminalId: string;
+			agentName: AgentType | undefined;
 			initialCommand: string | undefined;
+			fallbackCommand: string | undefined;
 			initialCwd: string | undefined;
 			titleOverride: string | undefined;
 	  }
@@ -30,7 +33,9 @@ export type V1PanesPresetOpenPlan =
 			tabId: string;
 			position: SplitPosition;
 			terminalId: string;
+			agentName: AgentType | undefined;
 			initialCommand: string | undefined;
+			fallbackCommand: string | undefined;
 			initialCwd: string | undefined;
 			titleOverride: string | undefined;
 	  };
@@ -38,12 +43,10 @@ export type V1PanesPresetOpenPlan =
 /**
  * Plan how a preset opens into the panes store, without touching the store.
  *
- * Terminal-only and single-pane: a preset's commands are joined with
- * ` && ` and run as the new terminal's `initialCommand` (host-service
- * `createSession` bakes it into the spawn), the preset's `cwd` becomes the
- * session `initialCwd`, and the preset name becomes the pane
- * `titleOverride`. `new-tab` adds a tab; `active-tab` splits into the
- * active tab (falling back to `addTab` when there is no active tab).
+ * Terminal-only and single-pane. Built-in agent presets are identified by
+ * name and routed through the formal host `agents.run` path by the opener;
+ * their command is retained only as a compatibility fallback. Other presets
+ * continue to run their joined commands as the session `initialCommand`.
  *
  * Pure: input → output. The hook (`useV1PanesPresetOpeners`) applies the
  * plan to the panes store; this function is the testable core.
@@ -58,14 +61,20 @@ export function planV1PanesPresetOpen(
 		randomUuid = crypto.randomUUID,
 	} = options;
 	const terminalId = randomUuid();
-	const initialCommand =
+	const command =
 		preset.commands.length > 0 ? preset.commands.join(" && ") : undefined;
+	const normalizedName = preset.name.trim().toLowerCase();
+	const agentName = AGENT_TYPES.find((agent) => agent === normalizedName);
+	const initialCommand = agentName ? undefined : command;
+	const fallbackCommand = agentName ? command : undefined;
 	const initialCwd = preset.cwd || undefined;
 	const titleOverride = preset.name?.trim() || undefined;
 
 	const base = {
 		terminalId,
+		agentName,
 		initialCommand,
+		fallbackCommand,
 		initialCwd,
 		titleOverride,
 	};

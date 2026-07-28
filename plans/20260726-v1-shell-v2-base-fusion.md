@@ -689,6 +689,22 @@ happens only after the validation matrix passes on the new base.
     surface items (React onContextMenu race) and is non-fatal.
 - [x] Milestone 1: real-render validation + persistence adapter.
 - [x] Milestone 2: terminal pane registry parity.
+- [x] (2026-07-28) M0–M5 terminal fusion and v1-shell/v2-panes base joined
+  at the runtime boundary.
+  - `HostServiceTerminalPane` now accepts a UI-host bridge. Mosaic continues
+    to write the legacy tabs store; the panes mount writes title, agent status,
+    cwd, workspace-run/lifecycle state, initial-data cleanup, close, and
+    destruction checks to its per-workspace panes store.
+  - The panes store's persisted `pane.data.terminalId` is now passed through
+    the host adapter as the real backend session identity. The adapter rejects
+    attempts to remap a live UI pane to another terminal, keeping runtime,
+    title source, close probe, and cleanup on one identity.
+  - Terminal agent status is visible in the panes header/icon. Old workspace
+    page tab/layout/preset/run hotkeys are disabled while
+    `V2_PANES_IN_V1` owns the view; panes registers its own primary and
+    alternate tab-navigation bindings, so a chord no longer mutates two
+    stores.
+  - 68 focused terminal/panes tests and desktop typecheck pass.
 - [ ] Milestone 3: ACP agent pane.
 - [ ] Milestone 4: editor preview + LSP via view registry.
 - [ ] Milestone 5: strengthened git.
@@ -744,34 +760,20 @@ happens only after the validation matrix passes on the new base.
 - v2's `WorkspaceHostOfflineState` component exists but is not wired in
   `layout.tsx` — the offline branch is unfinished in v2. Do not assume
   v2's state machine is complete.
-- **`HostServiceTerminalPane` still reads the v1 global tabs store
-  (2026-07-26, M2 task 3).** Even under the `V2_PANES_IN_V1` flag, the
-  shared `HostServiceTerminalPane` reads `pane.initialCwd` / `cwd` / pane
-  status from `useTabsStore.getState().panes[paneId]` — and the panes
-  store's `ctx.pane.id` is NOT a key in the v1 tabs store, so those reads
-  return `undefined` (the M1 CDP "terminal connects" verdict held because
-  `createOrAttach` falls back to the workspace default cwd). M2 task 3
-  added optional `initialCommand`/`initialCwd` props (preset launch passes
-  them; v1 mosaic leaves them undefined → prior behavior), so preset
-  launch works, but the broader tech debt — `HostServiceTerminalPane`'s
-  `setPaneName`/`setPaneStatus`/`setPaneLifecycleScript`/`removePane`/
-  `addFileViewerPane` calls all target the v1 tabs store and are no-ops on
-  the panes mount — is M2 scope-cut: the pane renders and connects, but
-  its v1-tabs-store-driven name/status/lifecycle-script side effects do not
-  fire under the flag. M7 (retire v1 tabs store) must give
-  `HostServiceTerminalPane` a panes-store-aware state channel first.
-- **v1 workspace page hotkeys overlap the panes mount (2026-07-26, M2
-  task 4).** The v1 `workspace/$workspaceId/page.tsx` registers
-  `CLOSE_TERMINAL`/`SPLIT_AUTO/RIGHT/DOWN`/`NEW_GROUP`/`PREV/NEXT_TAB`
-  against the v1 global tabs store with no flag check, on the same chords
-  the panes mount now uses. `react-hotkeys-hook` fires both handlers on a
-  shared chord; under the flag the v1-tabs-store handler is a no-op (no
-  focused v1 pane) or mutates v1 tabs-store state the UI no longer reads.
-  M2 shipped the panes-mount hotkeys as the user-facing surface; the v1
-  page handlers' state drift is invisible until M7 deletes the v1 tabs
-  store. If CDP shows a real conflict, gate the v1 page hotkeys on
-  `!V2_PANES_IN_V1` (early-return inside each handler — `useHotkey` cannot
-  be called conditionally).
+- **The two fusion lines initially disagreed on pane ownership and terminal
+  identity (resolved 2026-07-28).** `HostServiceTerminalPane` used
+  `paneId` as the backend terminal while the panes registry persisted a
+  separate `pane.data.terminalId`; it also wrote lifecycle state only to the
+  hidden v1 tabs store. A UI-host bridge now routes state to the active host,
+  and the explicit terminal id flows through `createOrAttach`. This was a
+  functional merge requirement, not a cosmetic refactor: without it, title
+  subscriptions and running-process probes observed a different session from
+  the rendered terminal.
+- **v1 workspace page hotkeys overlapped the panes mount (resolved
+  2026-07-28).** Both hosts registered the same chords and React Hotkeys could
+  mutate both stores. The legacy registrations now remain mounted (respecting
+  hook ordering) but are disabled under `V2_PANES_IN_V1`; the panes host owns
+  its tab/layout shortcuts while the flag is active.
 - **`paneScrollStateCache` is terminal-irrelevant (2026-07-26, M2 task 5).**
   It is a pure localStorage cache keyed by workspace/pane/view/resource;
   only `CodeView`/`DiffPane` (M4) consume it. The terminal pane does not
@@ -811,7 +813,9 @@ happens only after the validation matrix passes on the new base.
 
 ## Outcomes & Retrospective
 
-(To be filled as milestones land. The terminal fusion M0–M5 outcomes are
-recorded in `plans/20260724-v1-v2-terminal-fusion.md`; this plan builds on
-that base and retires the v1 render layer and the v2 product shell in its
-final milestones.)
+The terminal fusion M0–M5 and the v1-shell/v2-panes M1–M2 base now share one
+runtime contract instead of coexisting as parallel implementations. The
+neutral terminal component has explicit UI-host and backend-identity
+boundaries, which preserves the legacy fallback while making panes mode the
+actual owner of its state. Medium-term ACP/editor/git/mobile milestones remain
+separate; this merge does not silently advance or delete those surfaces.

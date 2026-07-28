@@ -15,6 +15,12 @@ import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 export interface CreateOrAttachOptions {
 	paneId: string;
 	tabId: string;
+	/**
+	 * Explicit backend session identity. The legacy mosaic path omits this and
+	 * keeps paneId === terminalId; the @superset/panes path persists its own
+	 * terminalId in pane data and passes it here.
+	 */
+	terminalId?: string;
 	cols?: number;
 	rows?: number;
 	cwd?: string;
@@ -101,12 +107,23 @@ export function createHostServiceTerminalAdapter(
 		return `${workspaceId}\u0000${paneId}`;
 	}
 
-	function ensureTerminalId(paneId: string): string {
+	function ensureTerminalId(
+		paneId: string,
+		requestedTerminalId?: string,
+	): string {
 		const key = paneKey(paneId);
 		const existing = terminalIdByPaneKey.get(key);
-		if (existing) return existing;
-		terminalIdByPaneKey.set(key, paneId);
-		return paneId;
+		if (existing) {
+			if (requestedTerminalId && requestedTerminalId !== existing) {
+				throw new Error(
+					`Pane ${paneId} is already bound to terminal ${existing}`,
+				);
+			}
+			return existing;
+		}
+		const terminalId = requestedTerminalId ?? paneId;
+		terminalIdByPaneKey.set(key, terminalId);
+		return terminalId;
 	}
 
 	function getClient(): TRPCClient<AppRouter> {
@@ -122,7 +139,7 @@ export function createHostServiceTerminalAdapter(
 	async function createOrAttach(
 		options: CreateOrAttachOptions,
 	): Promise<string> {
-		const terminalId = ensureTerminalId(options.paneId);
+		const terminalId = ensureTerminalId(options.paneId, options.terminalId);
 		if (createdPaneIds.has(options.paneId)) return terminalId;
 
 		let pending = pendingCreates.get(options.paneId);

@@ -23,6 +23,7 @@ import { useHostServiceTerminal } from "renderer/screens/main/components/Workspa
 import { killTerminalForPane } from "renderer/stores/tabs/utils/terminal-cleanup";
 import { buildV1PanesLifecycleRegistry } from "./buildV1PanesLifecycleRegistry";
 import { buildV1TerminalContextMenu } from "./buildV1TerminalContextMenu";
+import { createV1PanesTerminalPaneBridge } from "./createV1PanesTerminalPaneBridge";
 import type { V1PanesPaneData } from "./types";
 import {
 	useV1DefaultContextMenuActions,
@@ -35,6 +36,20 @@ import { useV1TerminalLauncher } from "./useV1TerminalLauncher";
 const MOD_KEY = navigator.platform.toLowerCase().includes("mac")
 	? "⌘"
 	: "Ctrl+";
+
+function terminalStatusClass(status: V1PanesPaneData["status"]): string {
+	switch (status) {
+		case "working":
+			return "text-amber-500";
+		case "review":
+			return "text-emerald-500";
+		case "permission":
+		case "failed":
+			return "text-red-500";
+		default:
+			return "";
+	}
+}
 
 /**
  * v1-panes-in-v1 pane registry. Terminal-only.
@@ -173,14 +188,29 @@ function useV1PanesRegistry(
 			);
 		const terminal: PaneDefinition<V1PanesPaneData> = {
 			...lifecycle,
-			getIcon: () => <TerminalSquare className="size-3.5" />,
+			getIcon: (ctx) => (
+				<TerminalSquare
+					className={`size-3.5 ${terminalStatusClass(ctx.pane.data.status)}`}
+				/>
+			),
+			renderHeaderExtras: (ctx) =>
+				ctx.pane.data.status && ctx.pane.data.status !== "idle" ? (
+					<span
+						className="text-[10px] text-muted-foreground"
+						title={`Terminal status: ${ctx.pane.data.status}`}
+					>
+						{ctx.pane.data.status}
+					</span>
+				) : null,
 			renderPane: (ctx: RendererContext<V1PanesPaneData>) => (
 				<HostServiceTerminalPane
 					paneId={ctx.pane.id}
 					tabId={ctx.tab.id}
 					workspaceId={workspaceId}
+					terminalId={ctx.pane.data.terminalId}
 					initialCommand={ctx.pane.data.initialCommand}
 					initialCwd={ctx.pane.data.initialCwd}
+					paneBridge={createV1PanesTerminalPaneBridge(ctx)}
 				/>
 			),
 			contextMenuActions: (_ctx, defaults) => buildContextMenu(defaults),
@@ -219,7 +249,7 @@ export function useV1PanesWorkspace(workspaceId: string) {
 	const launcher = useV1TerminalLauncher();
 	const paneActions = useV1DefaultPaneActions(launcher);
 	const contextMenuActions = useV1DefaultContextMenuActions(registry, launcher);
-	const openers = useV1PanesPresetOpeners(store);
+	const openers = useV1PanesPresetOpeners(workspaceId, store);
 
 	const addTerminalPane = useCallback(() => {
 		const state = store.getState();

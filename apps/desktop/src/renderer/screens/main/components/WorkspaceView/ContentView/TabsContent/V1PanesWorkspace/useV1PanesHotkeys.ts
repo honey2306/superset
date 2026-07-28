@@ -41,4 +41,6 @@ export function useV1PanesHotkeys({
 	useHotkey("NEW_GROUP", () => handlers.newGroup());
 	useHotkey("PREV_TAB", () => handlers.prevTab());
 	useHotkey("NEXT_TAB", () => handlers.nextTab());
+	useHotkey("PREV_TAB_ALT", () => handlers.prevTab());
+	useHotkey("NEXT_TAB_ALT", () => handlers.nextTab());
 }
