@@ -77,8 +77,14 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 					),
 			[collections, workspaceId],
 		);
+	// `useLiveQuery` can briefly report an empty result while its query changes
+	// between workspace ids. Read the collection cache as a fallback: an
+	// existing cached layout must win over an empty live-query result, otherwise
+	// the seed below creates a new terminal and loses the running session.
 	const localWorkspaceState =
-		localWorkspaceRows.find((row) => row.workspaceId === workspaceId) ?? null;
+		localWorkspaceRows.find((row) => row.workspaceId === workspaceId) ??
+		collections.v2WorkspaceLocalState.get(workspaceId) ??
+		null;
 	const persistedPaneLayout = useMemo<WorkspaceState<V1PanesPaneData>>(
 		() =>
 			localWorkspaceState?.workspaceId === workspaceId
@@ -140,11 +146,18 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 	// tabs store so users keep their open terminal. Gated on strict collection
 	// readiness plus the workspace project id: cached rows render immediately,
 	// but an unresolved query is never treated as absence before writing.
-	// `seededRef` guards against re-seeding across renders once a seed has been
-	// applied for this store.
-	const seededRef = useRef(false);
+	// Seed at most once per workspace. This component stays mounted while v1
+	// workspace ids change, so a boolean ref would incorrectly carry the prior
+	// workspace's seed state across switches.
+	const seededWorkspaceIdRef = useRef<string | null>(null);
 	useEffect(() => {
-		if (!isLayoutReady || seededRef.current || !workspace?.projectId) return;
+		if (
+			!isLayoutReady ||
+			seededWorkspaceIdRef.current === workspaceId ||
+			!workspace?.projectId
+		) {
+			return;
+		}
 		if (persistedPaneLayout.tabs.length > 0) return;
 		const seeded = seedPanesFromV1Tabs({
 			workspaceId,
@@ -152,8 +165,8 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 			persistedPaneLayout,
 		});
 		if (!seeded) return;
-		seededRef.current = true;
-		if (!localWorkspaceState) {
+		seededWorkspaceIdRef.current = workspaceId;
+		if (!collections.v2WorkspaceLocalState.get(workspaceId)) {
 			collections.v2WorkspaceLocalState.insert({
 				workspaceId,
 				createdAt: new Date(),
@@ -174,7 +187,6 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 	}, [
 		collections.v2WorkspaceLocalState,
 		isLayoutReady,
-		localWorkspaceState,
 		persistedPaneLayout,
 		store,
 		workspace?.projectId,
