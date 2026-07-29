@@ -71,7 +71,9 @@ export function seedPanesFromV1Tabs(
 	}
 
 	const sourcePane = findSourceTerminalPane(workspaceId, v1TabsState);
-	const terminalId = sourcePane?.id ?? (randomUuid ?? crypto.randomUUID)();
+	// `crypto.randomUUID` requires its Web Crypto receiver in Electron, so do
+	// not detach it through a nullish-coalesced callback.
+	const terminalId = sourcePane?.id ?? randomUuid?.() ?? crypto.randomUUID();
 
 	const store = createWorkspaceStore<V1PanesPaneData>({
 		initialState: EMPTY_STATE,

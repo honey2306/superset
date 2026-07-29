@@ -1,159 +1,122 @@
+import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
-import { HiOutlineClipboardDocumentList } from "react-icons/hi2";
-import { LuLayers } from "react-icons/lu";
-import { GATED_FEATURES, usePaywall } from "renderer/components/Paywall";
-import { useTranslation } from "renderer/providers/I18nProvider";
-import {
-	tasksSearchFromFilters,
-	useTasksFilterStore,
-} from "renderer/routes/_authenticated/_dashboard/tasks/stores/tasks-filter-state";
+import { LuClock3, LuWorkflow } from "react-icons/lu";
+import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { runV1Migration } from "renderer/lib/v1-migration";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { STROKE_WIDTH } from "../constants";
-import { NewWorkspaceButton } from "./NewWorkspaceButton";
 
 interface WorkspaceSidebarHeaderProps {
 	isCollapsed?: boolean;
 }
 
+/** Top-level navigation for persistent, non-project-specific workspace surfaces. */
 export function WorkspaceSidebarHeader({
 	isCollapsed = false,
 }: WorkspaceSidebarHeaderProps) {
-	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
-	const { gateFeature } = usePaywall();
+	const utils = electronTrpc.useUtils();
+	const { activeHostUrl, activeOrganizationId } = useLocalHostService();
+	const ensureTemporaryWorkspace =
+		electronTrpc.projects.ensureTemporaryWorkspace.useMutation();
+	const isAutomationsOpen = !!matchRoute({ to: "/automations", fuzzy: true });
 
-	const isWorkspacesListOpen = !!matchRoute({ to: "/workspaces" });
-	const isTasksOpen = !!matchRoute({ to: "/tasks", fuzzy: true });
+	const handleAutomationsClick = () => {
+		navigate({ to: "/automations" });
+	};
 
-	const handleWorkspacesClick = () => {
-		if (isWorkspacesListOpen) {
-			// Navigate back to workspace view
-			navigate({ to: "/workspace" });
-		} else {
-			navigate({ to: "/workspaces" });
+	const handleTemporaryWorkspaceClick = async () => {
+		try {
+			const temporary = await ensureTemporaryWorkspace.mutateAsync();
+			if (!activeHostUrl || !activeOrganizationId) {
+				throw new Error("Terminal service is not ready yet");
+			}
+			await runV1Migration({
+				organizationId: activeOrganizationId,
+				hostClient: getHostServiceClientByUrl(activeHostUrl),
+			});
+			await utils.workspaces.getAllGrouped.invalidate();
+			navigate({
+				to: "/workspace/$workspaceId",
+				params: { workspaceId: temporary.workspaceId },
+			});
+		} catch (error) {
+			toast.error("Could not open temporary workspace", {
+				description: error instanceof Error ? error.message : String(error),
+			});
 		}
 	};
 
-	const {
-		tab: lastTab,
-		assignee: lastAssignee,
-		search: lastSearch,
-		typeTab: lastTypeTab,
-		projectFilter: lastProjectFilter,
-		linearProjectFilter: lastLinearProjectFilter,
-	} = useTasksFilterStore();
-
-	const handleTasksClick = () => {
-		gateFeature(GATED_FEATURES.TASKS, () => {
-			navigate({
-				to: "/tasks",
-				search: tasksSearchFromFilters({
-					tab: lastTab,
-					assignee: lastAssignee,
-					search: lastSearch,
-					typeTab: lastTypeTab,
-					projectFilter: lastProjectFilter,
-					linearProjectFilter: lastLinearProjectFilter,
-				}),
-			});
-		});
-	};
+	const itemClassName = (isActive = false) =>
+		cn(
+			"flex items-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground",
+			isCollapsed ? "size-8 justify-center" : "w-full px-2 py-1.5",
+			isActive && "bg-accent text-foreground",
+		);
 
 	if (isCollapsed) {
 		return (
-			<div className="flex flex-col items-center border-b border-border py-2 gap-2">
+			<div className="flex flex-col items-center gap-2 border-b border-border py-2">
 				<Tooltip delayDuration={300}>
 					<TooltipTrigger asChild>
 						<button
+							className={itemClassName(isAutomationsOpen)}
+							onClick={handleAutomationsClick}
 							type="button"
-							onClick={handleWorkspacesClick}
-							className={cn(
-								"flex items-center justify-center size-8 rounded-md transition-colors",
-								isWorkspacesListOpen
-									? "text-foreground bg-accent"
-									: "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-							)}
 						>
-							<LuLayers className="size-4" strokeWidth={STROKE_WIDTH} />
+							<LuWorkflow className="size-4" strokeWidth={STROKE_WIDTH} />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="right">
-						{t("workspace.workspaces")}
-					</TooltipContent>
+					<TooltipContent side="right">Automations</TooltipContent>
 				</Tooltip>
-
 				<Tooltip delayDuration={300}>
 					<TooltipTrigger asChild>
 						<button
+							className={itemClassName()}
+							disabled={ensureTemporaryWorkspace.isPending}
+							onClick={() => void handleTemporaryWorkspaceClick()}
 							type="button"
-							onClick={handleTasksClick}
-							className={cn(
-								"flex items-center justify-center size-8 rounded-md transition-colors",
-								isTasksOpen
-									? "text-foreground bg-accent"
-									: "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-							)}
 						>
-							<HiOutlineClipboardDocumentList
-								className="size-4"
-								strokeWidth={STROKE_WIDTH}
-							/>
+							<LuClock3 className="size-4" strokeWidth={STROKE_WIDTH} />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="right">
-						{t("workspace.tasksAndPrs")}
-					</TooltipContent>
+					<TooltipContent side="right">Temporary workspace</TooltipContent>
 				</Tooltip>
-
-				<NewWorkspaceButton isCollapsed />
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col border-b border-border px-2 pt-2 pb-2">
+		<div className="flex flex-col gap-1 border-b border-border px-2 py-2">
 			<button
+				className={itemClassName(isAutomationsOpen)}
+				onClick={handleAutomationsClick}
 				type="button"
-				onClick={handleWorkspacesClick}
-				className={cn(
-					"flex items-center gap-2 px-2 py-1.5 w-full rounded-md transition-colors",
-					isWorkspacesListOpen
-						? "text-foreground bg-accent"
-						: "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-				)}
 			>
-				<div className="flex items-center justify-center size-5">
-					<LuLayers className="size-4" strokeWidth={STROKE_WIDTH} />
+				<div className="flex size-5 items-center justify-center">
+					<LuWorkflow className="size-4" strokeWidth={STROKE_WIDTH} />
 				</div>
-				<span className="text-sm font-medium flex-1 text-left">
-					{t("workspace.workspaces")}
+				<span className="flex-1 text-left text-sm font-medium">
+					Automations
 				</span>
 			</button>
-
 			<button
+				className={itemClassName()}
+				disabled={ensureTemporaryWorkspace.isPending}
+				onClick={() => void handleTemporaryWorkspaceClick()}
 				type="button"
-				onClick={handleTasksClick}
-				className={cn(
-					"flex items-center gap-2 px-2 py-1.5 w-full rounded-md transition-colors",
-					isTasksOpen
-						? "text-foreground bg-accent"
-						: "text-muted-foreground hover:text-foreground hover:bg-accent/50",
-				)}
 			>
-				<div className="flex items-center justify-center size-5">
-					<HiOutlineClipboardDocumentList
-						className="size-4"
-						strokeWidth={STROKE_WIDTH}
-					/>
+				<div className="flex size-5 items-center justify-center">
+					<LuClock3 className="size-4" strokeWidth={STROKE_WIDTH} />
 				</div>
-				<span className="text-sm font-medium flex-1 text-left">
-					{t("workspace.tasksAndPrs")}
+				<span className="flex-1 text-left text-sm font-medium">
+					Temporary workspace
 				</span>
 			</button>
-
-			<NewWorkspaceButton />
 		</div>
 	);
 }

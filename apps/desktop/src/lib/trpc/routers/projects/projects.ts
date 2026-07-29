@@ -1,5 +1,6 @@
 import { existsSync, statSync } from "node:fs";
 import { access, mkdir, rm } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import {
 	BRANCH_PREFIX_MODES,
@@ -171,6 +172,8 @@ function upsertProject(mainRepoPath: string, defaultBranch: string): Project {
 
 	return project;
 }
+
+const TEMPORARY_WORKSPACE_PATH = join(homedir(), "Superset", "temporary");
 
 async function ensureMainWorkspace(project: Project): Promise<void> {
 	activateProject(project);
@@ -1167,6 +1170,40 @@ export const createProjectsRouter = (getWindow: () => BrowserWindow | null) => {
 					project,
 				};
 			}),
+
+		ensureTemporaryWorkspace: publicProcedure.mutation(async () => {
+			await mkdir(TEMPORARY_WORKSPACE_PATH, { recursive: true });
+
+			try {
+				await getGitRoot(TEMPORARY_WORKSPACE_PATH);
+			} catch (error) {
+				if (!(error instanceof NotGitRepoError)) throw error;
+				const git = await getSimpleGitWithShellPath(TEMPORARY_WORKSPACE_PATH);
+				try {
+					await git.init(["--initial-branch=main"]);
+				} catch {
+					await git.init();
+				}
+			}
+
+			const defaultBranch =
+				(await getCurrentBranch(TEMPORARY_WORKSPACE_PATH)) ?? "main";
+			const project = upsertProject(TEMPORARY_WORKSPACE_PATH, defaultBranch);
+			await ensureMainWorkspace(project);
+			const workspace = getBranchWorkspace(project.id);
+			if (!workspace) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Could not create the temporary workspace",
+				});
+			}
+
+			return {
+				projectId: project.id,
+				workspaceId: workspace.id,
+				path: TEMPORARY_WORKSPACE_PATH,
+			};
+		}),
 
 		initGitAndOpen: publicProcedure
 			.input(z.object({ path: z.string() }))
