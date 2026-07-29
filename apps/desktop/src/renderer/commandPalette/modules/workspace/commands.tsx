@@ -1,14 +1,6 @@
-import {
-	ArchiveIcon,
-	FileIcon,
-	LinkIcon,
-	PlusIcon,
-	Trash2Icon,
-} from "lucide-react";
+import { FileIcon, LinkIcon, PlusIcon } from "lucide-react";
 import { useQuickOpenStore } from "renderer/commandPalette/ui/QuickOpen/quickOpenStore";
-import { useDeleteWorkspaceIntent } from "renderer/stores/delete-workspace-intent";
 import { useNewWorkspaceModalStore } from "renderer/stores/new-workspace-modal";
-import { useRemoveFromSidebarIntent } from "renderer/stores/remove-workspace-from-sidebar-intent";
 import type { Command, CommandProvider } from "../../core/types";
 import { LinkTaskFrame } from "../../ui/LinkTask/LinkTaskFrame";
 
@@ -17,7 +9,6 @@ export const workspaceProvider: CommandProvider = {
 	provide: (context) => {
 		if (!context.workspace) return [];
 		const workspace = context.workspace;
-		const isMain = workspace.workspaceType === "main";
 
 		const commands: Command[] = [
 			{
@@ -50,39 +41,6 @@ export const workspaceProvider: CommandProvider = {
 				renderFrame: () => <LinkTaskFrame workspaceId={workspace.id} />,
 			},
 		];
-
-		if (workspace.projectId) {
-			commands.push({
-				id: `workspace.removeFromSidebar:${workspace.id}`,
-				title: "Remove from sidebar",
-				section: "workspace",
-				icon: ArchiveIcon,
-				keywords: ["hide"],
-				run: () =>
-					useRemoveFromSidebarIntent.getState().request({
-						workspaceId: workspace.id,
-						workspaceName: workspace.name,
-						projectId: workspace.projectId ?? "",
-						isMain,
-					}),
-			});
-		}
-
-		if (!isMain) {
-			commands.push({
-				id: `workspace.delete:${workspace.id}`,
-				title: `Delete ${workspace.name}`,
-				section: "workspace",
-				icon: Trash2Icon,
-				keywords: ["archive", "remove", "close"],
-				hotkeyId: "CLOSE_WORKSPACE",
-				run: () =>
-					useDeleteWorkspaceIntent.getState().request({
-						workspaceId: workspace.id,
-						workspaceName: workspace.name,
-					}),
-			});
-		}
 
 		return commands;
 	},

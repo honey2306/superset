@@ -1,7 +1,6 @@
 import type { SelectAutomationRun } from "@superset/db/schema";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
-import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceStrict } from "date-fns";
 import { useNow } from "renderer/hooks/useNow";
 import {
@@ -27,39 +26,23 @@ function formatAgo(date: Date, now: Date): string {
 }
 
 export function PreviousRunsList({ runs }: PreviousRunsListProps) {
-	const navigate = useNavigate();
 	const now = useNow();
 
 	if (runs.length === 0) {
 		return <p className="text-sm italic text-muted-foreground">No runs yet</p>;
 	}
 
-	const handleOpenRun = (run: SelectAutomationRun) => {
-		if (!run.v2WorkspaceId) return;
-		localStorage.setItem("lastViewedWorkspaceId", run.v2WorkspaceId);
-		navigate({
-			to: "/v2-workspace/$workspaceId",
-			params: { workspaceId: run.v2WorkspaceId },
-			search: {
-				terminalId: run.terminalSessionId ?? undefined,
-			},
-		});
-	};
-
 	return (
 		<ul className="flex flex-col gap-0.5 text-sm">
 			{runs.map((run) => {
-				const clickable = !!run.v2WorkspaceId;
 				const row = (
 					<button
 						type="button"
-						disabled={!clickable}
-						onClick={() => handleOpenRun(run)}
+						disabled
+						onClick={() => {}}
 						className={cn(
 							"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
-							clickable
-								? "cursor-pointer hover:bg-accent/40"
-								: "cursor-default opacity-70",
+							"cursor-default opacity-70",
 						)}
 					>
 						<span

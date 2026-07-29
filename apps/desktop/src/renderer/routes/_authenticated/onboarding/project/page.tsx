@@ -5,23 +5,17 @@ import { toast } from "@superset/ui/sonner";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { LuFolderOpen, LuGitBranch, LuLayoutTemplate } from "react-icons/lu";
-import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { track } from "renderer/lib/analytics";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	useCreateV1Project,
-	useFinalizeProjectSetup,
 	useOpenProject,
 } from "renderer/react-query/projects";
 import { useOpenMainRepoWorkspace } from "renderer/react-query/workspaces";
-import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
 import { TemplateGalleryModal } from "renderer/routes/_authenticated/components/TemplateGalleryModal";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
-import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
 
 export const Route = createFileRoute("/_authenticated/onboarding/project/")({
 	component: OnboardingProjectPage,
@@ -30,20 +24,13 @@ export const Route = createFileRoute("/_authenticated/onboarding/project/")({
 function OnboardingProjectPage() {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
-	const isV2CloudEnabled = useIsV2CloudEnabled();
 	const { refetch: refetchSession } = authClient.useSession();
-	const { waitForHostReady } = useLocalHostService();
-	const openNewWorkspaceModal = useOpenNewWorkspaceModal();
 	const { data: homeDir } = electronTrpc.window.getHomeDir.useQuery();
 	const cloneTargetDir = homeDir ? `${homeDir}/.superset/projects` : null;
 	const [url, setUrl] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [templateOpen, setTemplateOpen] = useState(false);
 
-	const folderImport = useFolderFirstImport({
-		onError: (message) => toast.error(message),
-	});
-	const finalizeSetup = useFinalizeProjectSetup();
 	const openProject = useOpenProject();
 	const createV1Project = useCreateV1Project();
 	const openMainRepoWorkspace = useOpenMainRepoWorkspace();
@@ -57,19 +44,11 @@ function OnboardingProjectPage() {
 			await apiTrpcClient.user.completeOnboarding.mutate();
 			// Reactive refetch (not imperative getSession) so the layout guards'
 			// useSession() sees onboardedAt before we navigate — otherwise the
-			// _authenticated guard bounces /v2-workspaces back to /onboarding.
+			// _authenticated guard bounces /workspaces back to /onboarding.
 			await refetchSession({ query: { disableCookieCache: true } });
 		} catch (error) {
 			console.error("[onboarding] completeOnboarding failed", error);
 			toast.error(t("onboarding.finishFailed"));
-			return;
-		}
-		if (isV2CloudEnabled) {
-			// Land on the dashboard first, then open the modal. Opening it in the
-			// same tick as navigate mounts the Dialog mid-route-transition, which
-			// thrashes Radix's ref composition into a "Maximum update depth" loop.
-			await navigate({ to: "/v2-workspaces", replace: true });
-			openNewWorkspaceModal(projectId);
 			return;
 		}
 		try {
@@ -81,16 +60,6 @@ function OnboardingProjectPage() {
 	};
 
 	const handleOpenFolder = async () => {
-		if (isV2CloudEnabled) {
-			setBusy(true);
-			try {
-				const result = await folderImport.start();
-				if (result) await finish(result.projectId);
-			} finally {
-				setBusy(false);
-			}
-			return;
-		}
 		setBusy(true);
 		try {
 			const picked = await selectDirectory.mutateAsync({
@@ -114,26 +83,11 @@ function OnboardingProjectPage() {
 		if (!trimmed || !cloneTargetDir) return;
 		setBusy(true);
 		try {
-			if (isV2CloudEnabled) {
-				const activeHostUrl = await waitForHostReady();
-				if (!activeHostUrl) {
-					toast.error(t("onboarding.hostNotReady"));
-					return;
-				}
-				const hostService = getHostServiceClientByUrl(activeHostUrl);
-				const created = await hostService.project.create.mutate({
-					name: repoNameFromUrl(trimmed),
-					mode: { kind: "clone", parentDir: cloneTargetDir, url: trimmed },
-				});
-				finalizeSetup(activeHostUrl, created);
-				await finish(created.projectId);
-			} else {
-				const projectId = await createV1Project.cloneFromUrl({
-					url: trimmed,
-					parentDir: cloneTargetDir,
-				});
-				if (projectId) await finish(projectId);
-			}
+			const projectId = await createV1Project.cloneFromUrl({
+				url: trimmed,
+				parentDir: cloneTargetDir,
+			});
+			if (projectId) await finish(projectId);
 		} catch (err) {
 			toast.error(
 				err instanceof Error ? err.message : t("onboarding.cloneFailed"),
@@ -225,16 +179,6 @@ function OnboardingProjectPage() {
 			/>
 		</div>
 	);
-}
-
-function repoNameFromUrl(url: string): string {
-	const lastSegment = url
-		.trim()
-		.replace(/\.git$/, "")
-		.replace(/[/:]+$/, "")
-		.split(/[/:]/)
-		.pop();
-	return lastSegment || "repo";
 }
 
 function ProjectIcon({ icon }: { icon: ReactNode }) {

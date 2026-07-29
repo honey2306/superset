@@ -4,9 +4,7 @@ import { CommandContextProvider } from "./core/ContextProvider";
 import { useFrameStackStore } from "./core/frames";
 import { registerAllModules } from "./modules";
 import { CommandPalette } from "./ui/CommandPalette/CommandPalette";
-import { DeleteWorkspaceMount } from "./ui/DeleteWorkspaceMount/DeleteWorkspaceMount";
 import { FolderImportMount } from "./ui/FolderImportMount/FolderImportMount";
-import { RemoveFromSidebarMount } from "./ui/RemoveFromSidebarMount/RemoveFromSidebarMount";
 import { SetPreferredOpenInAppMount } from "./ui/SetPreferredOpenInAppMount/SetPreferredOpenInAppMount";
 
 export function CommandPaletteHost({ children }: { children?: ReactNode }) {
@@ -19,8 +17,6 @@ export function CommandPaletteHost({ children }: { children?: ReactNode }) {
 		<CommandContextProvider>
 			<CommandPaletteTrigger />
 			<CommandPalette />
-			<DeleteWorkspaceMount />
-			<RemoveFromSidebarMount />
 			<SetPreferredOpenInAppMount />
 			<FolderImportMount />
 			{children}

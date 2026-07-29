@@ -1,5 +1,4 @@
 import { toast } from "@superset/ui/sonner";
-import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { useWorkspaceCreates } from "renderer/stores/workspace-creates";
@@ -39,7 +38,6 @@ export function useBranchPickerController(args: UseBranchPickerControllerArgs) {
 		closeModal,
 	} = args;
 
-	const navigate = useNavigate();
 	const { machineId } = useLocalHostService();
 	const { submit } = useWorkspaceCreates();
 
@@ -86,7 +84,7 @@ export function useBranchPickerController(args: UseBranchPickerControllerArgs) {
 			const snapshotId = crypto.randomUUID();
 			const workspaceName = resolveActionWorkspaceName(branchName);
 			closeModal();
-			const { workspaceId, completed } = submit({
+			submit({
 				hostId: resolvedHostId,
 				snapshot: {
 					id: snapshotId,
@@ -96,28 +94,8 @@ export function useBranchPickerController(args: UseBranchPickerControllerArgs) {
 					...(target.worktreePath ? { worktreePath: target.worktreePath } : {}),
 				},
 			});
-			void navigate({
-				to: "/v2-workspace/$workspaceId",
-				params: { workspaceId },
-			});
-			void completed.then((outcome) => {
-				if (outcome.ok && outcome.workspaceId !== workspaceId) {
-					void navigate({
-						to: "/v2-workspace/$workspaceId",
-						params: { workspaceId: outcome.workspaceId },
-						replace: true,
-					});
-				}
-			});
 		},
-		[
-			projectId,
-			resolvedHostId,
-			resolveActionWorkspaceName,
-			submit,
-			closeModal,
-			navigate,
-		],
+		[projectId, resolvedHostId, resolveActionWorkspaceName, submit, closeModal],
 	);
 
 	const onSelectCompareBaseBranch = useCallback(

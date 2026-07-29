@@ -1,5 +1,5 @@
 import { toast } from "@superset/ui/sonner";
-import { useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { authClient } from "renderer/lib/auth-client";
 import { showWorkspaceAutoNameWarningToast } from "renderer/lib/workspaces/showWorkspaceAutoNameWarningToast";
@@ -26,7 +26,6 @@ export function useSubmitWorkspace(
 	promptContext: NewWorkspacePromptContextApi,
 ) {
 	const navigate = useNavigate();
-	const matchRoute = useMatchRoute();
 	const { closeAndResetDraft, draft } = useDashboardNewWorkspaceDraft();
 	const { submit } = useWorkspaceCreates();
 	const { machineId } = useLocalHostService();
@@ -125,21 +124,6 @@ export function useSubmitWorkspace(
 
 		closeAndResetDraft();
 		const { completed } = submit({ hostId, snapshot });
-		void navigate({
-			to: "/v2-workspace/$workspaceId",
-			params: { workspaceId },
-		}).catch((error) => {
-			console.error("[useSubmitWorkspace] failed to open workspace", error);
-		});
-
-		const isViewingOptimisticWorkspace = () => {
-			const workspaceMatch = matchRoute({
-				to: "/v2-workspace/$workspaceId",
-			});
-			return (
-				workspaceMatch !== false && workspaceMatch.workspaceId === workspaceId
-			);
-		};
 
 		void completed.then((outcome) => {
 			if (!outcome.ok) return;
@@ -152,27 +136,11 @@ export function useSubmitWorkspace(
 					},
 				});
 			}
-
-			// The server can resolve the optimistic workspace to a different
-			// canonical id; follow it only if we're still on the optimistic route.
-			if (outcome.workspaceId === workspaceId) return;
-			if (!isViewingOptimisticWorkspace()) return;
-			void navigate({
-				to: "/v2-workspace/$workspaceId",
-				params: { workspaceId: outcome.workspaceId },
-				replace: true,
-			}).catch((error) => {
-				console.error(
-					"[useSubmitWorkspace] failed to redirect workspace",
-					error,
-				);
-			});
 		});
 	}, [
 		activeOrganizationId,
 		closeAndResetDraft,
 		draft,
-		matchRoute,
 		machineId,
 		navigate,
 		projectId,
