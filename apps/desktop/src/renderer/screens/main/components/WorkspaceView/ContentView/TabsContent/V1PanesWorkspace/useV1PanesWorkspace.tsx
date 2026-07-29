@@ -4,7 +4,7 @@ import type {
 	PaneRegistry,
 	RendererContext,
 } from "@superset/panes";
-import { Globe, MessageSquare, TerminalSquare } from "lucide-react";
+import { FileText, Globe, MessageSquare, TerminalSquare } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import {
 	LuArrowDownToLine,
@@ -41,6 +41,18 @@ import { useV1TerminalLauncher } from "./useV1TerminalLauncher";
 import { V1PanesBrowserContent } from "./V1PanesBrowserContent";
 import { V1PanesCommentContent } from "./V1PanesCommentContent";
 import { V1PanesDevToolsContent } from "./V1PanesDevToolsContent";
+import { V1PanesFileViewerContent } from "./V1PanesFileViewerContent";
+
+export function createBrowserState(
+	url = "about:blank",
+): NonNullable<V1PanesPaneData["browser"]> {
+	return {
+		currentUrl: url,
+		history: [{ url, title: "", timestamp: Date.now() }],
+		historyIndex: 0,
+		isLoading: false,
+	};
+}
 
 const MOD_KEY = navigator.platform.toLowerCase().includes("mac")
 	? "⌘"
@@ -82,12 +94,12 @@ function terminalStatusClass(status: V1PanesPaneData["status"]): string {
  * (`V2NotificationStatusIndicator`), the session dropdown
  * (`TerminalSessionDropdown`, depends on the v2 launcher/provider), and
  * the v2 tRPC killSession mutation (replaced by the host-service client
- * here). `renderPane` renders the M0–M5 neutral `HostServiceTerminalPane`
- * (not v2's `TerminalPane`), so the connection path M1 verified is reused
- * unchanged. `renderHeaderExtras` is deferred (the v2 header extras host a
- * connection indicator that depends on the v2 workspace-client daemon
- * health query); M2 keeps the rich-input entry out of scope until a
- * host-agnostic connection indicator exists.
+ * here). `renderPane` follows v1's terminal backend selection: it uses the
+ * neutral `HostServiceTerminalPane` when its flag is on and the legacy
+ * `Terminal` otherwise. `renderHeaderExtras` is deferred (the v2 header
+ * extras host a connection indicator that depends on the v2
+ * workspace-client daemon health query); M2 keeps the rich-input entry out
+ * of scope until a host-agnostic connection indicator exists.
  */
 function useV1PanesRegistry(
 	workspaceId: string,
@@ -223,10 +235,50 @@ function useV1PanesRegistry(
 					terminalId={ctx.pane.data.terminalId}
 					initialCommand={ctx.pane.data.initialCommand}
 					initialCwd={ctx.pane.data.initialCwd}
+					forceHostService
 					paneBridge={createV1PanesTerminalPaneBridge(ctx)}
 				/>
 			),
 			contextMenuActions: (_ctx, defaults) => buildContextMenu(defaults),
+		};
+
+		// --- file viewer -------------------------------------------------------
+		const fileViewer: PaneDefinition<V1PanesPaneData> = {
+			getIcon: () => <FileText className="size-3.5" />,
+			getTitle: (pane) =>
+				pane.data.fileViewer?.displayName ??
+				pane.data.fileViewer?.filePath.split("/").pop(),
+			renderPane: (ctx) => {
+				const file = ctx.pane.data.fileViewer;
+				if (!file || !workspace?.worktreePath) {
+					return (
+						<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+							File unavailable
+						</div>
+					);
+				}
+				return (
+					<V1PanesFileViewerContent
+						paneId={ctx.pane.id}
+						tabId={ctx.tab.id}
+						worktreePath={workspace.worktreePath}
+						fileViewer={file}
+						onFileViewerChange={(nextFileViewer) =>
+							ctx.actions.updateData({
+								...ctx.pane.data,
+								fileViewer: nextFileViewer,
+							})
+						}
+						onClose={ctx.actions.close}
+					/>
+				);
+			},
+			contextMenuActions: (_ctx, defaults) =>
+				defaults.map((d) =>
+					d.key === "close-pane"
+						? { ...d, label: t("v2Workspace.paneRegistry.closeFile") }
+						: d,
+				),
 		};
 
 		// --- comment -----------------------------------------------------------
@@ -296,7 +348,45 @@ function useV1PanesRegistry(
 		const webview: PaneDefinition<V1PanesPaneData> = {
 			getIcon: () => <Globe className="size-3.5" />,
 			getTitle: (pane) => webviewPaneTitle(pane.data, nonTerminalLabels),
-			renderPane: (ctx) => <V1PanesBrowserContent paneId={ctx.pane.id} />,
+			renderPane: (ctx) => {
+				const browser = ctx.pane.data.browser ?? createBrowserState();
+				return (
+					<V1PanesBrowserContent
+						paneId={ctx.pane.id}
+						tabId={ctx.tab.id}
+						browser={browser}
+						onBrowserChange={(nextBrowser) =>
+							ctx.actions.updateData({
+								...ctx.pane.data,
+								browser: nextBrowser,
+							})
+						}
+						onOpenBrowser={(url) => {
+							ctx.store.getState().addTab({
+								panes: [
+									{
+										kind: "webview",
+										data: { browser: createBrowserState(url) },
+									},
+								],
+							});
+						}}
+						onOpenDevTools={() => {
+							ctx.store.getState().addTab({
+								panes: [
+									{
+										kind: "devtools",
+										data: {
+											devtools: { targetPaneId: ctx.pane.id },
+										},
+									},
+								],
+							});
+						}}
+						onClose={ctx.actions.close}
+					/>
+				);
+			},
 			contextMenuActions: (_ctx, defaults) =>
 				defaults.map((d) =>
 					d.key === "close-pane"
@@ -305,7 +395,13 @@ function useV1PanesRegistry(
 				),
 		};
 
-		return { terminal, comment, devtools, webview };
+		return {
+			terminal,
+			"file-viewer": fileViewer,
+			comment,
+			devtools,
+			webview,
+		};
 	}, [
 		t,
 		probeRunning,
@@ -313,6 +409,7 @@ function useV1PanesRegistry(
 		clearShortcut,
 		scrollToBottomShortcut,
 		workspaceId,
+		workspace?.worktreePath,
 	]);
 }
 

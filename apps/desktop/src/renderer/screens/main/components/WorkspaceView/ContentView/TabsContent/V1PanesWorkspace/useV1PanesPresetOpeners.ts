@@ -1,16 +1,11 @@
 import type { TerminalPreset } from "@superset/local-db/schema/zod";
 import type { WorkspaceStore } from "@superset/panes";
 import { useCallback } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
-import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
-import { launchTerminalAgent } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/host-service-terminal-agent-launcher";
 import type { StoreApi } from "zustand/vanilla";
 import {
 	planV1PanesPresetOpen,
 	type V1PanesPresetTarget,
 } from "./planV1PanesPresetOpen";
-import { resolveV1PanesPresetLaunch } from "./resolveV1PanesPresetLaunch";
 import type { V1PanesPaneData } from "./types";
 
 /**
@@ -23,27 +18,18 @@ import type { V1PanesPaneData } from "./types";
  * launch must route here instead. This closes the M1 PresetsBar regression
  * (flag-on replaced `PresetsBar` wholesale).
  *
- * Built-in terminal agents first launch through host-service `agents.run`,
- * then the pane attaches to that session. Ordinary presets still use
- * `initialCommand`; unavailable agents fall back to their terminal command
- * so the compatibility failure stays visible and testable.
+ * Built-in agents run through the pane's `initialCommand`, just as in v1.
+ * This writes the pane before any terminal I/O so a slow host-service RPC
+ * cannot make a preset click appear to do nothing.
  *
  * M2 scope: single-pane terminal launch only. v1's multi-command
  * parallel / sequential / new-tab-per-command execution modes are a
  * fidelity follow-up.
  */
 export function useV1PanesPresetOpeners(
-	workspaceId: string,
+	_workspaceId: string,
 	store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
 ) {
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId },
-		{ enabled: !!workspaceId, staleTime: 30_000 },
-	);
-	const { hostUrl, hostWorkspaceId } = useHostServiceTerminal({
-		workspaceId,
-		worktreePath: workspace?.worktreePath,
-	});
 	const openPreset = useCallback(
 		async (
 			preset: Pick<TerminalPreset, "commands" | "cwd" | "name">,
@@ -55,21 +41,14 @@ export function useV1PanesPresetOpeners(
 				target: options.target,
 				activeTabId,
 			});
-			const launch = await resolveV1PanesPresetLaunch(
-				plan,
-				async ({ terminalId, agent }) => {
-					if (!hostUrl || !hostWorkspaceId) {
-						throw new Error("Host terminal backend is not ready");
-					}
-					await launchTerminalAgent({
-						client: getHostServiceClientByUrl(hostUrl),
-						workspaceId: hostWorkspaceId,
-						paneId: terminalId,
-						agent,
-						prompt: "",
-					});
-				},
-			);
+			// Add the pane synchronously. Host-side agent launch used to be awaited
+			// before this write, leaving the click inert whenever that RPC stalled.
+			// The terminal runs the same preset command as v1 once it attaches.
+			const launch = {
+				initialCommand: plan.agentName
+					? plan.fallbackCommand
+					: plan.initialCommand,
+			};
 			if (plan.kind === "addTab") {
 				state.addTab({
 					titleOverride: plan.titleOverride,
@@ -124,7 +103,7 @@ export function useV1PanesPresetOpeners(
 				},
 			});
 		},
-		[hostUrl, hostWorkspaceId, store],
+		[store],
 	);
 
 	const addTerminalTab = useCallback(() => {
@@ -138,7 +117,26 @@ export function useV1PanesPresetOpeners(
 		});
 	}, [store]);
 
-	return { openPreset, addTerminalTab };
+	const addBrowserTab = useCallback(() => {
+		const url = "about:blank";
+		store.getState().addTab({
+			panes: [
+				{
+					kind: "webview",
+					data: {
+						browser: {
+							currentUrl: url,
+							history: [{ url, title: "", timestamp: Date.now() }],
+							historyIndex: 0,
+							isLoading: false,
+						},
+					},
+				},
+			],
+		});
+	}, [store]);
+
+	return { openPreset, addTerminalTab, addBrowserTab };
 }
 
 export type V1PanesPresetOpeners = ReturnType<typeof useV1PanesPresetOpeners>;

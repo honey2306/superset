@@ -109,6 +109,35 @@ describe("createPaneLayoutSyncer", () => {
 		expect(writeCalls).toHaveLength(0);
 	});
 
+	test("does not replace a local tab with a stale persisted snapshot", () => {
+		const store = createWorkspaceStore<V1PanesPaneData>();
+		let persisted: WorkspaceState<V1PanesPaneData> = EMPTY_STATE;
+		const syncer = createPaneLayoutSyncer<V1PanesPaneData>({
+			store,
+			readPersisted: () => persisted,
+			writePersisted: () => {},
+			emptyState: EMPTY_STATE,
+		});
+		syncer.startWriteback();
+		syncer.hydrate();
+
+		store.getState().addTab({
+			panes: [{ kind: "terminal", data: { terminalId: "term-1" } }],
+		});
+		// A collection observer can still emit its cached pre-write row here.
+		syncer.hydrate(persisted);
+
+		expect(store.getState().tabs).toHaveLength(1);
+
+		persisted = {
+			version: store.getState().version,
+			tabs: store.getState().tabs,
+			activeTabId: store.getState().activeTabId,
+		};
+		syncer.hydrate(persisted);
+		expect(store.getState().tabs).toHaveLength(1);
+	});
+
 	test("resetSyncMarker prevents the next hydrate from being suppressed as an echo", () => {
 		const store = createWorkspaceStore<V1PanesPaneData>();
 		let readValue: WorkspaceState<V1PanesPaneData> | null = null;

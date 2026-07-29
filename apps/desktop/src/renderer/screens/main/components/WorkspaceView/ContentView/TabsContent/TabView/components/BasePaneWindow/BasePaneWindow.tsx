@@ -41,6 +41,8 @@ interface BasePaneWindowProps {
 	renderToolbar: (handlers: PaneHandlers) => React.ReactElement;
 	children: React.ReactNode;
 	contentClassName?: string;
+	/** Render pane body/toolbar without mosaic chrome (for @superset/panes hosts). */
+	embedded?: boolean;
 }
 
 export function BasePaneWindow({
@@ -53,6 +55,7 @@ export function BasePaneWindow({
 	renderToolbar,
 	children,
 	contentClassName = "w-full h-full overflow-hidden",
+	embedded = false,
 }: BasePaneWindowProps) {
 	const isActive = useTabsStore((s) => s.focusedPaneIds[tabId] === paneId);
 	const workspaceRunState = useTabsStore(
@@ -91,6 +94,26 @@ export function BasePaneWindow({
 	};
 
 	const isRoot = path.length === 0;
+	const content = (
+		// biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: Focus handler for pane
+		<div
+			ref={containerRef}
+			className={contentClassName}
+			style={isDragging || isResizing ? { pointerEvents: "none" } : undefined}
+			onClick={handleFocus}
+		>
+			{children}
+		</div>
+	);
+
+	if (embedded) {
+		return (
+			<div className="flex h-full min-h-0 w-full flex-col">
+				{renderToolbar(handlers)}
+				{content}
+			</div>
+		);
+	}
 
 	return (
 		<MosaicWindow<string>
@@ -110,15 +133,7 @@ export function BasePaneWindow({
 			onDragStart={() => setDragging(paneId, tabId)}
 			onDragEnd={() => clearDragging()}
 		>
-			{/* biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: Focus handler for pane */}
-			<div
-				ref={containerRef}
-				className={contentClassName}
-				style={isDragging || isResizing ? { pointerEvents: "none" } : undefined}
-				onClick={handleFocus}
-			>
-				{children}
-			</div>
+			{content}
 		</MosaicWindow>
 	);
 }

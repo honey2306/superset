@@ -1,7 +1,7 @@
 import { db } from "@superset/db/client";
 import { chatSessions } from "@superset/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
-import { findChatSessionOwner, getDurableStream, requireAuth } from "../lib";
+import { ensureDurableStream, findChatSessionOwner, requireAuth } from "../lib";
 
 function errorMessage(error: unknown): string {
 	if (error instanceof Error) return error.message;
@@ -49,23 +49,10 @@ export async function PUT(
 		return new Response("Not found", { status: 404 });
 	}
 
-	const stream = getDurableStream(sessionId);
-	try {
-		await stream.create({ contentType: "application/json" });
-	} catch (error) {
-		// Idempotent: stream may already exist if caller retries.
-		const message = errorMessage(error).toLowerCase();
-		const isAlreadyExists =
-			message.includes("already exists") || message.includes("409");
-		if (!isAlreadyExists) {
-			console.error("[chat] failed to create stream", {
-				sessionId,
-				organizationId: body.organizationId,
-				error: errorMessage(error),
-			});
-			throw error;
-		}
-	}
+	// Do not make session creation depend on a slow durable-stream provider.
+	// Desktop retries this request during pane mount and Chromium can abort a
+	// long-running fetch even when the API eventually returns 200.
+	void ensureDurableStream(sessionId);
 
 	const baseValues = {
 		id: sessionId,

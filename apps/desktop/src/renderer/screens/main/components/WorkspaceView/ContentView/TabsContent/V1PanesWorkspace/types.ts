@@ -2,6 +2,7 @@ import type {
 	BrowserPaneState,
 	CommentPaneState,
 	DevToolsPaneState,
+	FileViewerState,
 	PaneStatus,
 } from "shared/tabs-types";
 import type { HostServiceTerminalPaneSnapshot } from "../Terminal/host-service-terminal-pane-bridge";
@@ -38,6 +39,9 @@ export interface V1PanesPaneData extends HostServiceTerminalPaneSnapshot {
 	initialCommand?: string;
 	/** Working directory for the session (preset cwd). */
 	initialCwd?: string;
+
+	// --- file viewer pane (kind: "file-viewer") ---
+	fileViewer?: FileViewerState;
 
 	// --- comment pane (kind: "comment") ---
 	comment?: CommentPaneState;

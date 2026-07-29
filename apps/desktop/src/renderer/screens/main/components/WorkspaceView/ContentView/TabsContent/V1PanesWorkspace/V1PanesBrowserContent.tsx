@@ -1,8 +1,8 @@
 import { GlobeIcon } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { TbDeviceDesktop } from "react-icons/tb";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTabsStore } from "renderer/stores/tabs/store";
+import type { BrowserPaneState, Pane } from "shared/tabs-types";
 import { BrowserErrorOverlay } from "../TabView/BrowserPane/components/BrowserErrorOverlay";
 import { BrowserToolbar } from "../TabView/BrowserPane/components/BrowserToolbar";
 import { BrowserOverflowMenu } from "../TabView/BrowserPane/components/BrowserToolbar/components/BrowserOverflowMenu";
@@ -10,31 +10,79 @@ import { DEFAULT_BROWSER_URL } from "../TabView/BrowserPane/constants";
 import { usePersistentWebview } from "../TabView/BrowserPane/hooks/usePersistentWebview";
 
 /**
- * Panes-engine renderer for the v1 `webview` (browser) pane kind.
+ * Panes-engine browser body.
  *
- * Wraps the v1 `BrowserPane` body without the mosaic `BasePaneWindow`
- * shell. The panes `<Workspace>` renders the pane header (title / actions
- * / split+close menu). The browser's own navigation toolbar (URL bar,
- * back/forward/reload) is pane content, not a window-chrome control, so
- * it stays here.
- *
- * The webview lifecycle (`usePersistentWebview`) and the browser state
- * reads still come from the v1 global tabs store (`useTabsStore`), since
- * the host browser registration is keyed by `paneId` into that store.
- * When the panes mount becomes the default (M7) the browser state should
- * move into the panes pane `data`; until then the bridge is a thin read.
+ * Electron webviews are still registered by the mature v1 webview runtime,
+ * which keys its transient DOM/session registry by pane id. This component
+ * creates a non-persisted compatibility record for that runtime, then mirrors
+ * every browser-state mutation straight back into the panes store. Thus the
+ * panes layout remains the persisted source of truth while the webview runtime
+ * can be retired independently of the old mosaic/tabs persistence layer.
  */
-export function V1PanesBrowserContent({ paneId }: { paneId: string }) {
-	const pane = useTabsStore((s) => s.panes[paneId]);
-	const browserState = pane?.browser;
-	const currentUrl = browserState?.currentUrl ?? DEFAULT_BROWSER_URL;
+export function V1PanesBrowserContent({
+	paneId,
+	tabId,
+	browser,
+	onBrowserChange,
+	onOpenBrowser,
+	onOpenDevTools,
+	onClose,
+}: {
+	paneId: string;
+	tabId: string;
+	browser: BrowserPaneState;
+	onBrowserChange: (browser: BrowserPaneState) => void;
+	onOpenBrowser: (url: string) => void;
+	onOpenDevTools: () => void;
+	onClose: () => void;
+}) {
+	const browserState = useTabsStore((s) => s.panes[paneId]?.browser);
+	const initialBrowserRef = useRef(browser);
+	const lastMirroredBrowserRef = useRef<BrowserPaneState | undefined>(
+		undefined,
+	);
+	const currentUrl = browserState?.currentUrl ?? browser.currentUrl;
 	const pageTitle =
-		browserState?.history[browserState.historyIndex]?.title ?? "";
-	const isLoading = browserState?.isLoading ?? false;
-	const loadError = browserState?.error ?? null;
+		browserState?.history[browserState.historyIndex]?.title ??
+		browser.history[browser.historyIndex]?.title ??
+		"";
+	const isLoading = browserState?.isLoading ?? browser.isLoading;
+	const loadError = browserState?.error ?? browser.error ?? null;
 	const isBlankPage = currentUrl === "about:blank";
-	const { mutate: openDevTools } =
-		electronTrpc.browser.openDevTools.useMutation();
+
+	// The legacy webview runtime needs a pane-shaped record, but it must never
+	// survive as a tabs-store layout entry. Remove it on unmount; browser state
+	// has already been mirrored to pane.data and will seed the next mount.
+	useEffect(() => {
+		useTabsStore.setState((state) => {
+			if (state.panes[paneId]) return state;
+			const compatibilityPane: Pane = {
+				id: paneId,
+				tabId,
+				type: "webview",
+				name: "Browser",
+				browser: initialBrowserRef.current,
+			};
+			return {
+				panes: { ...state.panes, [paneId]: compatibilityPane },
+			};
+		});
+
+		return () => {
+			useTabsStore.setState((state) => {
+				if (!state.panes[paneId]) return state;
+				const { [paneId]: _removed, ...panes } = state.panes;
+				return { panes };
+			});
+		};
+	}, [paneId, tabId]);
+
+	useEffect(() => {
+		if (!browserState || lastMirroredBrowserRef.current === browserState)
+			return;
+		lastMirroredBrowserRef.current = browserState;
+		onBrowserChange(browserState);
+	}, [browserState, onBrowserChange]);
 
 	const {
 		containerRef,
@@ -46,12 +94,14 @@ export function V1PanesBrowserContent({ paneId }: { paneId: string }) {
 		canGoForward,
 	} = usePersistentWebview({
 		paneId,
-		initialUrl: currentUrl,
+		initialUrl: browser.currentUrl || DEFAULT_BROWSER_URL,
+		onClosePane: onClose,
+		onOpenInBrowser: onOpenBrowser,
 	});
 
 	const handleOpenDevTools = useCallback(() => {
-		openDevTools({ paneId });
-	}, [openDevTools, paneId]);
+		onOpenDevTools();
+	}, [onOpenDevTools]);
 
 	return (
 		<div className="flex h-full w-full flex-col">

@@ -1,9 +1,8 @@
 import { createWorkspaceStore, type WorkspaceState } from "@superset/panes";
 import type {
-	ChatPaneData,
 	PaneViewerData,
 	TerminalPaneData,
-} from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/types";
+} from "renderer/lib/panes/pane-viewer-data";
 
 const EMPTY_STATE: WorkspaceState<PaneViewerData> = {
 	version: 1,
@@ -23,7 +22,7 @@ interface AppendArgs {
 }
 
 interface PaneLaunch {
-	kind: "terminal" | "chat";
+	kind: "terminal";
 	sessionId: string;
 	label?: string;
 }
@@ -39,9 +38,12 @@ export function appendLaunchesToPaneLayout({
 		label: entry.label,
 	}));
 	const agentLaunches: PaneLaunch[] = agents
-		.filter((entry): entry is Extract<typeof entry, { ok: true }> => entry.ok)
+		.filter(
+			(entry): entry is Extract<typeof entry, { ok: true; kind: "terminal" }> =>
+				entry.ok && entry.kind === "terminal",
+		)
 		.map((entry) => ({
-			kind: entry.kind,
+			kind: "terminal",
 			sessionId: entry.sessionId,
 			label: entry.label,
 		}));
@@ -59,17 +61,12 @@ export function appendLaunchesToPaneLayout({
 		store.getState().addTab({
 			titleOverride: launch.label,
 			panes: [
-				launch.kind === "chat"
-					? {
-							kind: "chat",
-							data: { sessionId: launch.sessionId } satisfies ChatPaneData,
-						}
-					: {
-							kind: "terminal",
-							data: {
-								terminalId: launch.sessionId,
-							} satisfies TerminalPaneData,
-						},
+				{
+					kind: "terminal",
+					data: {
+						terminalId: launch.sessionId,
+					} satisfies TerminalPaneData,
+				},
 			],
 		});
 	}

@@ -11,7 +11,7 @@ import { FilesTab } from "./components/FilesTab";
 import { PRActionHeader } from "./components/PRActionHeader";
 import { SidebarHeader } from "./components/SidebarHeader";
 import { useChangesTab } from "./hooks/useChangesTab";
-import { type OpenChatFn, usePRFlowDispatch } from "./hooks/usePRFlowDispatch";
+import { usePRFlowDispatch } from "./hooks/usePRFlowDispatch";
 import { usePRFlowState } from "./hooks/usePRFlowState";
 import { useReviewTab } from "./hooks/useReviewTab";
 import type { SidebarTabDefinition } from "./types";
@@ -44,7 +44,6 @@ interface WorkspaceSidebarProps {
 		changeKey?: string,
 	) => void;
 	onOpenComment?: (comment: CommentPaneData) => void;
-	onOpenChat?: OpenChatFn;
 	onSearch?: () => void;
 	selectedFilePath?: string;
 	pendingReveal?: PendingReveal | null;
@@ -55,7 +54,6 @@ export function WorkspaceSidebar({
 	onSelectFile,
 	onSelectDiffFile,
 	onOpenComment,
-	onOpenChat,
 	onSearch,
 	selectedFilePath,
 	pendingReveal,
@@ -127,9 +125,7 @@ export function WorkspaceSidebar({
 	});
 
 	const { flowState, onRetry } = usePRFlowState(workspaceId);
-	const dispatch = usePRFlowDispatch({
-		onOpenChat: onOpenChat ?? (() => {}),
-	});
+	const dispatch = usePRFlowDispatch();
 
 	const filesTab: SidebarTabDefinition = {
 		id: "files",

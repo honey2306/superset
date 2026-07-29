@@ -4,6 +4,7 @@ import { getFileOpenMode } from "renderer/hooks/useFileOpenMode";
 import { posthog } from "renderer/lib/posthog";
 import { trpcTabsStorage } from "renderer/lib/trpc-storage";
 import { openCommentInPanesStore } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/V1PanesWorkspace/openCommentInPanesStore";
+import { openFileViewerInPanesStore } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/V1PanesWorkspace/openFileViewerInPanesStore";
 import { getV1PanesStore } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/V1PanesWorkspace/v1PanesStoreRegistry";
 import { deleteDocumentBuffer } from "renderer/stores/editor-state/editorBufferRegistry";
 import { useEditorDocumentsStore } from "renderer/stores/editor-state/useEditorDocumentsStore";
@@ -33,10 +34,9 @@ import {
 	applyFileViewerOpenOptionsToPane,
 	buildMultiPaneLayout,
 	type CreatePaneOptions,
+	cleanLayout,
 	createBrowserPane,
 	createBrowserTabWithPane,
-	createChatPane,
-	createChatTabWithPane,
 	createCommentTabWithPane,
 	createDevToolsPane,
 	createFileViewerPane,
@@ -128,6 +128,65 @@ const normalizePersistedChatPane = (pane: TabsState["panes"][string]): void => {
 		launchConfig: legacyChatState?.launchConfig ?? null,
 	};
 	delete legacyPane.chatMastra;
+};
+
+/**
+ * Drop persisted chat panes after the chat feature was removed.
+ *
+ * Chat panes no longer render (no registry entry / no `Pane.chat` shape),
+ * so a persisted chat pane would either show "Unknown pane kind" (v2 panes)
+ * or fall through to the terminal renderer keyed by the chat pane id (v1
+ * mosaic). To avoid dead/broken panes on load, the v10 migration drops any
+ * pane whose type is `chat` (or the legacy `chat-mastra`) and repairs every
+ * tab's Mosaic layout with `cleanLayout`. Tabs whose layout becomes empty
+ * are dropped; `closedTabsStack` entries are pruned of chat panes (and
+ * dropped if left empty) so "reopen closed tab" can't resurrect chat.
+ */
+const stripChatPanes = (state: TabsState): void => {
+	if (!state.panes) return;
+
+	const chatPaneIds = new Set(
+		Object.entries(state.panes)
+			.filter(([, pane]) => {
+				const type = (pane as { type: string }).type;
+				return type === "chat" || type === "chat-mastra";
+			})
+			.map(([id]) => id),
+	);
+	if (chatPaneIds.size === 0) return;
+
+	const nextPanes: TabsState["panes"] = {};
+	for (const [id, pane] of Object.entries(state.panes)) {
+		if (!chatPaneIds.has(id)) nextPanes[id] = pane;
+	}
+	state.panes = nextPanes;
+
+	if (state.tabs) {
+		const survivingTabs = state.tabs.filter((tab) => {
+			const cleaned = cleanLayout(tab.layout, new Set(Object.keys(nextPanes)));
+			if (!cleaned) return false;
+			tab.layout = cleaned;
+			return true;
+		});
+		state.tabs = survivingTabs;
+	}
+
+	if (state.activeTabIds) {
+		for (const [workspaceId, tabId] of Object.entries(state.activeTabIds)) {
+			if (tabId && !state.tabs.some((t) => t.id === tabId)) {
+				state.activeTabIds[workspaceId] = null;
+			}
+		}
+	}
+
+	if (state.closedTabsStack) {
+		state.closedTabsStack = state.closedTabsStack
+			.map((entry) => ({
+				...entry,
+				panes: entry.panes.filter((p) => !chatPaneIds.has(p.id)),
+			}))
+			.filter((entry) => entry.panes.length > 0);
+	}
 };
 
 const deriveTabName = (
@@ -240,46 +299,6 @@ export const useTabsStore = create<TabsStore>()(
 
 					posthog.capture("panel_opened", {
 						panel_type: "terminal",
-						workspace_id: workspaceId,
-						pane_id: pane.id,
-					});
-
-					return { tabId: tab.id, paneId: pane.id };
-				},
-
-				addChatTab: (workspaceId: string, options) => {
-					const state = get();
-
-					const { tab, pane } = createChatTabWithPane(workspaceId, options);
-
-					const currentActiveId = state.activeTabIds[workspaceId];
-					const historyStack = state.tabHistoryStacks[workspaceId] || [];
-					const newHistoryStack = currentActiveId
-						? [
-								currentActiveId,
-								...historyStack.filter((id) => id !== currentActiveId),
-							]
-						: historyStack;
-
-					set({
-						tabs: [...state.tabs, tab],
-						panes: { ...state.panes, [pane.id]: pane },
-						activeTabIds: {
-							...state.activeTabIds,
-							[workspaceId]: tab.id,
-						},
-						focusedPaneIds: {
-							...state.focusedPaneIds,
-							[tab.id]: pane.id,
-						},
-						tabHistoryStacks: {
-							...state.tabHistoryStacks,
-							[workspaceId]: newHistoryStack,
-						},
-					});
-
-					posthog.capture("panel_opened", {
-						panel_type: "chat",
 						workspace_id: workspaceId,
 						pane_id: pane.id,
 					});
@@ -631,43 +650,6 @@ export const useTabsStore = create<TabsStore>()(
 
 					return newPane.id;
 				},
-				addChatPane: (tabId, options) => {
-					const state = get();
-					const tab = state.tabs.find((t) => t.id === tabId);
-					if (!tab) return "";
-
-					const newPane = createChatPane(tabId, options);
-
-					const newLayout: MosaicNode<string> = {
-						direction: "row",
-						first: tab.layout,
-						second: newPane.id,
-						splitPercentage: 50,
-					};
-
-					const newPanes = { ...state.panes, [newPane.id]: newPane };
-					const tabName = deriveTabName(newPanes, tabId);
-
-					set({
-						tabs: state.tabs.map((t) =>
-							t.id === tabId ? { ...t, layout: newLayout, name: tabName } : t,
-						),
-						panes: newPanes,
-						focusedPaneIds: {
-							...state.focusedPaneIds,
-							[tabId]: newPane.id,
-						},
-					});
-
-					posthog.capture("panel_opened", {
-						panel_type: "chat",
-						workspace_id: tab.workspaceId,
-						pane_id: newPane.id,
-					});
-
-					return newPane.id;
-				},
-
 				addPanesToTab: (
 					tabId: string,
 					options: AddTabWithMultiplePanesOptions,
@@ -723,6 +705,11 @@ export const useTabsStore = create<TabsStore>()(
 					workspaceId: string,
 					options: AddFileViewerPaneOptions,
 				) => {
+					const panesStore = getV1PanesStore(workspaceId);
+					if (panesStore) {
+						return openFileViewerInPanesStore(panesStore, options);
+					}
+
 					if (options.openInNewTab === undefined) {
 						options = {
 							...options,
@@ -1430,17 +1417,10 @@ export const useTabsStore = create<TabsStore>()(
 
 					const paneType = options?.paneType ?? "terminal";
 					const newPane =
-						paneType === "chat"
-							? createChatPane(tabId)
-							: paneType === "webview"
-								? createBrowserPane(tabId)
-								: createPane(tabId, "terminal", options);
-					const panelType =
-						paneType === "chat"
-							? "chat"
-							: paneType === "webview"
-								? "browser"
-								: "terminal";
+						paneType === "webview"
+							? createBrowserPane(tabId)
+							: createPane(tabId, "terminal", options);
+					const panelType = paneType === "webview" ? "browser" : "terminal";
 
 					let newLayout: MosaicNode<string>;
 					if (path && path.length > 0) {
@@ -1499,17 +1479,10 @@ export const useTabsStore = create<TabsStore>()(
 
 					const paneType = options?.paneType ?? "terminal";
 					const newPane =
-						paneType === "chat"
-							? createChatPane(tabId)
-							: paneType === "webview"
-								? createBrowserPane(tabId)
-								: createPane(tabId, "terminal", options);
-					const panelType =
-						paneType === "chat"
-							? "chat"
-							: paneType === "webview"
-								? "browser"
-								: "terminal";
+						paneType === "webview"
+							? createBrowserPane(tabId)
+							: createPane(tabId, "terminal", options);
+					const panelType = paneType === "webview" ? "browser" : "terminal";
 
 					let newLayout: MosaicNode<string>;
 					if (path && path.length > 0) {
@@ -2188,44 +2161,6 @@ export const useTabsStore = create<TabsStore>()(
 					return true;
 				},
 
-				// Chat operations
-				switchChatSession: (paneId, sessionId) => {
-					const state = get();
-					const pane = state.panes[paneId];
-					if (!pane || pane.type !== "chat") return;
-
-					set({
-						panes: {
-							...state.panes,
-							[paneId]: {
-								...pane,
-								chat: {
-									...pane.chat,
-									sessionId,
-								},
-							},
-						},
-					});
-				},
-				setChatLaunchConfig: (paneId, launchConfig) => {
-					const state = get();
-					const pane = state.panes[paneId];
-					if (!pane || pane.type !== "chat") return;
-					const sessionId = pane.chat?.sessionId ?? null;
-					set({
-						panes: {
-							...state.panes,
-							[paneId]: {
-								...pane,
-								chat: {
-									sessionId,
-									launchConfig: launchConfig ?? null,
-								},
-							},
-						},
-					});
-				},
-
 				// Query helpers
 				getTabsByWorkspace: (workspaceId) => {
 					return get().tabs.filter((t) => t.workspaceId === workspaceId);
@@ -2257,7 +2192,7 @@ export const useTabsStore = create<TabsStore>()(
 			}),
 			{
 				name: "tabs-storage",
-				version: 9,
+				version: 10,
 				storage: trpcTabsStorage,
 				migrate: (persistedState, version) => {
 					const state = persistedState as TabsState;
@@ -2300,6 +2235,9 @@ export const useTabsStore = create<TabsStore>()(
 						for (const pane of Object.values(state.panes)) {
 							normalizePersistedChatPane(pane);
 						}
+					}
+					if (version < 10) {
+						stripChatPanes(state);
 					}
 					return state;
 				},

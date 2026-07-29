@@ -2449,6 +2449,8 @@ export const enUSMessages = {
 	"v2Workspace.terminalPane.richInputWithHotkey": "Rich input ({hotkey})",
 	"v2Workspace.terminalRichInput.hotkeyToHide": "{hotkey} to hide",
 	"v2Workspace.terminalRichInput.placeholder": "Ask to make changes",
+	"terminal.richInput.hotkeyToHide": "{hotkey} to hide",
+	"terminal.richInput.placeholder": "Ask to make changes",
 	"v2Workspace.dirtyTab.saveTitle":
 		"Do you want to save the changes you made to {name}?",
 	"v2Workspace.dirtyTab.saveTitleMany":
@@ -5372,6 +5374,8 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"v2Workspace.terminalPane.richInputWithHotkey": "富文本输入 ({hotkey})",
 	"v2Workspace.terminalRichInput.hotkeyToHide": "{hotkey} 以隐藏",
 	"v2Workspace.terminalRichInput.placeholder": "提出修改需求",
+	"terminal.richInput.hotkeyToHide": "{hotkey} 以隐藏",
+	"terminal.richInput.placeholder": "提出修改需求",
 	"v2Workspace.dirtyTab.saveTitle": "是否要保存对“{name}”所做的更改？",
 	"v2Workspace.dirtyTab.saveTitleMany": "是否要保存 {count} 个文件的更改？",
 	"v2Workspace.dirtyTab.saveDesc": "如果不保存，你的更改将会丢失。",

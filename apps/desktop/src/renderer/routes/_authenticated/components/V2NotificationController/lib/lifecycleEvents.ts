@@ -3,9 +3,9 @@ import type {
 	AgentLifecyclePayload,
 	TerminalLifecyclePayload,
 } from "@superset/workspace-client";
+import type { PaneViewerData } from "renderer/lib/panes/pane-viewer-data";
 import { playRingtone } from "renderer/lib/ringtones/play";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
-import type { PaneViewerData } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/types";
 import { useRingtoneStore } from "renderer/stores/ringtone";
 import { useV2NotificationStore } from "renderer/stores/v2-notifications";
 import { getV2NativeNotificationContent } from "./notificationContent";

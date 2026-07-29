@@ -38,7 +38,6 @@ import {
 } from "../../state/fileDocumentStore";
 import type {
 	BrowserPaneData,
-	ChatPaneData,
 	CommentPaneData,
 	DevtoolsPaneData,
 	FilePaneData,
@@ -47,8 +46,6 @@ import type {
 } from "../../types";
 import type { TerminalLauncher } from "../useV2TerminalLauncher";
 import { BrowserPane, BrowserPaneToolbar } from "./components/BrowserPane";
-import { ChatPane } from "./components/ChatPane";
-import { ChatPaneTitle } from "./components/ChatPane/components/ChatPaneTitle";
 import { CommentPane } from "./components/CommentPane";
 import { CommentPaneHeaderExtras } from "./components/CommentPane/components/CommentPaneHeaderExtras";
 import { CommentPaneTitle } from "./components/CommentPane/components/CommentPaneTitle";
@@ -511,35 +508,6 @@ export function usePaneRegistry({
 					defaults.map((d) =>
 						d.key === "close-pane"
 							? { ...d, label: t("v2Workspace.paneRegistry.closeBrowser") }
-							: d,
-					),
-			},
-			chat: {
-				getIcon: () => <MessageSquare className="size-3.5" />,
-				getTitle: () => t("v2Workspace.paneRegistry.titleChat"),
-				renderTitle: (ctx: RendererContext<PaneViewerData>) => (
-					<ChatPaneTitle context={ctx} workspaceId={workspaceId} />
-				),
-				renderPane: (ctx: RendererContext<PaneViewerData>) => {
-					const data = ctx.pane.data as ChatPaneData;
-					return (
-						<ChatPane
-							workspaceId={workspaceId}
-							sessionId={data.sessionId}
-							onSessionIdChange={(id) =>
-								ctx.actions.updateData({ ...data, sessionId: id })
-							}
-							initialLaunchConfig={data.launchConfig ?? null}
-							onConsumeLaunchConfig={() =>
-								ctx.actions.updateData({ ...data, launchConfig: null })
-							}
-						/>
-					);
-				},
-				contextMenuActions: (_ctx, defaults) =>
-					defaults.map((d) =>
-						d.key === "close-pane"
-							? { ...d, label: t("v2Workspace.paneRegistry.closeChat") }
 							: d,
 					),
 			},

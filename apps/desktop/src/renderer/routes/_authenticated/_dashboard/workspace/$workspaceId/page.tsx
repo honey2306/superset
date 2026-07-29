@@ -57,6 +57,29 @@ export const Route = createFileRoute(
 	validateSearch: (search: Record<string, unknown>): WorkspaceSearchParams => ({
 		tabId: typeof search.tabId === "string" ? search.tabId : undefined,
 		paneId: typeof search.paneId === "string" ? search.paneId : undefined,
+		terminalId:
+			typeof search.terminalId === "string" && search.terminalId.length > 0
+				? search.terminalId
+				: undefined,
+		focusRequestId:
+			typeof search.focusRequestId === "string" &&
+			search.focusRequestId.length > 0
+				? search.focusRequestId
+				: undefined,
+		openUrl:
+			typeof search.openUrl === "string" && search.openUrl.length > 0
+				? search.openUrl
+				: undefined,
+		openUrlTarget:
+			search.openUrlTarget === "current-tab" ||
+			search.openUrlTarget === "new-tab"
+				? search.openUrlTarget
+				: undefined,
+		openUrlRequestId:
+			typeof search.openUrlRequestId === "string" &&
+			search.openUrlRequestId.length > 0
+				? search.openUrlRequestId
+				: undefined,
 	}),
 	loader: async ({ params, context }) => {
 		const queryKey = [
@@ -161,7 +184,6 @@ function WorkspacePage() {
 		splitPaneHorizontal,
 		openPreset,
 	} = useTabsWithPresets(workspace?.projectId);
-	const addChatTab = useTabsStore((s) => s.addChatTab);
 	const reopenClosedTab = useTabsStore((s) => s.reopenClosedTab);
 	const addBrowserTab = useTabsStore((s) => s.addBrowserTab);
 	const setActiveTab = useTabsStore((s) => s.setActiveTab);
@@ -218,13 +240,10 @@ function WorkspacePage() {
 	);
 
 	useHotkey("NEW_GROUP", () => addTab(workspaceId), legacyHotkeyOptions);
-	useHotkey("NEW_CHAT", () => addChatTab(workspaceId), legacyHotkeyOptions);
 	useHotkey(
 		"REOPEN_TAB",
 		() => {
-			if (!reopenClosedTab(workspaceId)) {
-				addChatTab(workspaceId);
-			}
+			reopenClosedTab(workspaceId);
 		},
 		legacyHotkeyOptions,
 	);
@@ -460,17 +479,7 @@ function WorkspacePage() {
 	useHotkey(
 		"SPLIT_WITH_CHAT",
 		() => {
-			if (activeTabId && focusedPaneId && activeTab) {
-				const target = resolveSplitTarget(
-					focusedPaneId,
-					activeTabId,
-					activeTab,
-				);
-				if (!target) return;
-				splitPaneVertical(activeTabId, target.paneId, target.path, {
-					paneType: "chat",
-				});
-			}
+			// Chat panes were removed; the split-with-chat hotkey is a no-op now.
 		},
 		legacyHotkeyOptions,
 	);

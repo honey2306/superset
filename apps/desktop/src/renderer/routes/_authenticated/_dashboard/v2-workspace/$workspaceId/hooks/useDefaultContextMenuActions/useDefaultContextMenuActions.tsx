@@ -9,7 +9,6 @@ import {
 	LuColumns2,
 	LuEqual,
 	LuGlobe,
-	LuMessageSquare,
 	LuMoveRight,
 	LuPlus,
 	LuRows2,
@@ -19,7 +18,6 @@ import { useHotkeyDisplay } from "renderer/hotkeys";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import type {
 	BrowserPaneData,
-	ChatPaneData,
 	PaneViewerData,
 	TerminalPaneData,
 } from "../../types";
@@ -35,7 +33,6 @@ export function useDefaultContextMenuActions({
 	const { t } = useTranslation();
 	const splitDownShortcut = useHotkeyDisplay("SPLIT_DOWN").text;
 	const splitRightShortcut = useHotkeyDisplay("SPLIT_RIGHT").text;
-	const splitWithChatShortcut = useHotkeyDisplay("SPLIT_WITH_CHAT").text;
 	const splitWithBrowserShortcut = useHotkeyDisplay("SPLIT_WITH_BROWSER").text;
 	const equalizePaneSplitsShortcut = useHotkeyDisplay(
 		"EQUALIZE_PANE_SPLITS",
@@ -69,21 +66,6 @@ export function useDefaultContextMenuActions({
 					ctx.actions.split("right", {
 						kind: "terminal",
 						data: { terminalId } as TerminalPaneData,
-					});
-				},
-			},
-			{
-				key: "split-with-chat",
-				label: t("v2Workspace.context.splitWithChat"),
-				icon: <LuMessageSquare />,
-				shortcut:
-					splitWithChatShortcut !== "Unassigned"
-						? splitWithChatShortcut
-						: undefined,
-				onSelect: (ctx) => {
-					ctx.actions.split("right", {
-						kind: "chat",
-						data: { sessionId: null } as ChatPaneData,
 					});
 				},
 			},
@@ -163,7 +145,6 @@ export function useDefaultContextMenuActions({
 			t,
 			splitDownShortcut,
 			splitRightShortcut,
-			splitWithChatShortcut,
 			splitWithBrowserShortcut,
 			equalizePaneSplitsShortcut,
 			closePaneShortcut,

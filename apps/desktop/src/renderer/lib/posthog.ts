@@ -61,9 +61,11 @@ export function initPostHog() {
 			(k) => window.localStorage.getItem(k),
 			DEV_FLAG_OVERRIDE_PREFIX,
 		);
-		if (Object.keys(overrides).length > 0) {
-			posthogFull.featureFlags.override(overrides);
-		}
+		// Always replace the override map. Skipping the empty case leaves a
+		// previous in-memory override enabled after its localStorage key is
+		// removed, which makes flag-off validation (and normal dev toggling)
+		// impossible until the Electron process restarts.
+		posthogFull.featureFlags.override(overrides);
 	}
 
 	// Relay socket health (event bus / workspace "disconnected" surface). At

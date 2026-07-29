@@ -47,7 +47,6 @@ import type { V2WorkspaceUrlOpenTarget } from "./utils/openUrlInV2Workspace";
 
 interface WorkspaceSearch {
 	terminalId?: string;
-	chatSessionId?: string;
 	focusRequestId?: string;
 	openUrl?: string;
 	openUrlTarget?: V2WorkspaceUrlOpenTarget;
@@ -71,7 +70,6 @@ export const Route = createFileRoute(
 	component: V2WorkspacePage,
 	validateSearch: (raw: Record<string, unknown>): WorkspaceSearch => ({
 		terminalId: parseNonEmptyString(raw.terminalId),
-		chatSessionId: parseNonEmptyString(raw.chatSessionId),
 		focusRequestId: parseNonEmptyString(raw.focusRequestId),
 		openUrl: parseNonEmptyString(raw.openUrl),
 		openUrlTarget: parseOpenUrlTarget(raw.openUrlTarget),
@@ -110,7 +108,6 @@ function V2WorkspacePage() {
 function V2WorkspaceContent() {
 	const {
 		terminalId,
-		chatSessionId,
 		focusRequestId,
 		openUrl,
 		openUrlTarget,
@@ -150,7 +147,6 @@ function V2WorkspaceContent() {
 		store,
 		workspaceId,
 		terminalId,
-		chatSessionId,
 		focusRequestId,
 	});
 	useCreatePendingMigratedTerminals({ workspaceId, isLayoutReady });
@@ -185,18 +181,13 @@ function V2WorkspaceContent() {
 		paneRegistry,
 		launcher,
 	});
-	const {
-		openDiffPane,
-		addTerminalTab,
-		addChatTab,
-		addBrowserTab,
-		openCommentPane,
-	} = useWorkspacePaneOpeners({
-		store,
-		launcher,
-		newTabPresets,
-		executePreset,
-	});
+	const { openDiffPane, addTerminalTab, addBrowserTab, openCommentPane } =
+		useWorkspacePaneOpeners({
+			store,
+			launcher,
+			newTabPresets,
+			executePreset,
+		});
 
 	const quickOpenOpen = useQuickOpenStore(
 		(s) => s.open && s.target?.workspaceId === workspaceId,
@@ -311,7 +302,6 @@ function V2WorkspaceContent() {
 							renderAddTabMenu={() => (
 								<AddTabMenu
 									onAddTerminal={addTerminalTab}
-									onAddChat={addChatTab}
 									onAddBrowser={addBrowserTab}
 									showPresetsBar={showPresetsBar}
 									onToggleShowPresetsBar={setShowPresetsBar}
@@ -331,7 +321,6 @@ function V2WorkspaceContent() {
 							renderEmptyState={() => (
 								<WorkspaceEmptyState
 									onOpenBrowser={addBrowserTab}
-									onOpenChat={addChatTab}
 									onOpenQuickOpen={handleQuickOpen}
 									onOpenTerminal={addTerminalTab}
 								/>

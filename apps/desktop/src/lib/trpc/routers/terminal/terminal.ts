@@ -425,6 +425,24 @@ export const createTerminalRouter = () => {
 				return terminal.getSession(paneId);
 			}),
 
+		/** List terminal sessions owned by a workspace. Drives deep-link
+		 *  ownership checks (e.g. `?terminalId=...` from automation runs) so a
+		 *  cross-workspace link is rejected before focusing a pane. */
+		listSessionsForWorkspace: publicProcedure
+			.input(z.object({ workspaceId: z.string() }))
+			.query(async ({ input }) => {
+				const { sessions } = await terminal.management.listSessions();
+				return {
+					sessions: sessions
+						.filter((s) => s.workspaceId === input.workspaceId)
+						.map((s) => ({
+							sessionId: s.sessionId,
+							workspaceId: s.workspaceId,
+							isAlive: s.isAlive,
+						})),
+				};
+			}),
+
 		getWorkspaceCwd: publicProcedure
 			.input(z.string())
 			.query(({ input: workspaceId }) => {

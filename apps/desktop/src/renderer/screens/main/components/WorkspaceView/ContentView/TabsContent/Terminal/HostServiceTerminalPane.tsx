@@ -25,6 +25,7 @@ import {
 } from "react";
 import { useTerminalAgentBindingsAtHost } from "renderer/hooks/host-service/useTerminalAgentBindings";
 import { deriveTerminalAgentStatus } from "renderer/hooks/host-service/useTerminalAgentStatuses/deriveTerminalAgentStatus";
+import { useHotkey } from "renderer/hotkeys";
 import { useTerminalFilePolicy } from "renderer/lib/clickPolicy/policies/useTerminalFilePolicy";
 import { useTerminalUrlPolicy } from "renderer/lib/clickPolicy/policies/useTerminalUrlPolicy";
 import { electronTrpc } from "renderer/lib/electron-trpc";
@@ -53,6 +54,11 @@ import type {
 	HostServiceTerminalPaneSnapshot,
 } from "./host-service-terminal-pane-bridge";
 import { isPaneDestroyed } from "./pane-guards";
+import {
+	TerminalRichInput,
+	terminalRichInputOpenStore,
+	useTerminalRichInputOpen,
+} from "./RichInput";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
 import { TerminalSearch } from "./TerminalSearch";
 import { registerV1HostTerminalBackend } from "./v1-host-terminal-backend";
@@ -79,6 +85,8 @@ export interface HostServiceTerminalPaneProps {
 	 * v1-panes mount (whose panes do not live in the v1 tabs store).
 	 */
 	initialCwd?: string;
+	/** Bypass the v1 host-terminal rollout flag for a v2 panes host. */
+	forceHostService?: boolean;
 }
 
 export function HostServiceTerminalPane({
@@ -89,6 +97,7 @@ export function HostServiceTerminalPane({
 	paneBridge,
 	initialCommand,
 	initialCwd,
+	forceHostService,
 }: HostServiceTerminalPaneProps) {
 	const { t } = useTranslation();
 	const { data: workspaceData } = electronTrpc.workspaces.get.useQuery(
@@ -99,6 +108,7 @@ export function HostServiceTerminalPane({
 		useHostServiceTerminal({
 			workspaceId,
 			worktreePath: workspaceData?.worktreePath,
+			forceEnabled: forceHostService,
 		});
 	const filePolicy = useTerminalFilePolicy();
 	const urlPolicy = useTerminalUrlPolicy();
@@ -276,6 +286,13 @@ export function HostServiceTerminalPane({
 		onClear: handleClear,
 		xtermRef,
 	});
+
+	const isRichInputOpen = useTerminalRichInputOpen();
+	useHotkey(
+		"TOGGLE_TERMINAL_RICH_INPUT",
+		() => terminalRichInputOpenStore.toggle(),
+		{ enabled: isFocused, preventDefault: true },
+	);
 
 	// Create the host-service session, then mount + connect the runtime.
 	useEffect(() => {
@@ -643,26 +660,35 @@ export function HostServiceTerminalPane({
 		: null;
 
 	return (
-		<div className="relative h-full w-full overflow-hidden">
-			<TerminalSearch
-				searchAddon={searchAddon}
-				isOpen={isSearchOpen}
-				onClose={() => setIsSearchOpen(false)}
-			/>
-			<div ref={containerRef} className="h-full w-full" />
-			<ScrollToBottomButton terminal={terminal} />
-			{exitCode !== null && (
-				<TerminalExitedOverlay
-					exitCode={exitCode}
-					isRestarting={isRestarting}
-					onRestart={() => void handleRestart()}
+		<div className="flex h-full w-full flex-col overflow-hidden">
+			<div className="relative min-h-0 flex-1 w-full overflow-hidden">
+				<TerminalSearch
+					searchAddon={searchAddon}
+					isOpen={isSearchOpen}
+					onClose={() => setIsSearchOpen(false)}
 				/>
-			)}
-			{connectionState === "closed" && exitCode === null && (
-				<div className="pointer-events-none absolute right-2 bottom-2 rounded bg-background/80 px-2 py-1 text-xs text-muted-foreground">
-					{t("terminal.connectionLostReconnecting")}
-				</div>
-			)}
+				<div ref={containerRef} className="h-full w-full" />
+				<ScrollToBottomButton terminal={terminal} />
+				{exitCode !== null && (
+					<TerminalExitedOverlay
+						exitCode={exitCode}
+						isRestarting={isRestarting}
+						onRestart={() => void handleRestart()}
+					/>
+				)}
+				{connectionState === "closed" && exitCode === null && (
+					<div className="pointer-events-none absolute right-2 bottom-2 rounded bg-background/80 px-2 py-1 text-xs text-muted-foreground">
+						{t("terminal.connectionLostReconnecting")}
+					</div>
+				)}
+			</div>
+			<TerminalRichInput
+				workspaceId={workspaceId}
+				terminalId={terminalId}
+				terminalInstanceId={instanceId}
+				isOpen={isRichInputOpen}
+				onClose={() => terminalRichInputOpenStore.close()}
+			/>
 		</div>
 	);
 }

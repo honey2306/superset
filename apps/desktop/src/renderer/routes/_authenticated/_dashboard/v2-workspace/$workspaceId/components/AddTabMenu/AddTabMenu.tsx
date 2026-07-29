@@ -4,13 +4,12 @@ import {
 	DropdownMenuSeparator,
 } from "@superset/ui/dropdown-menu";
 import { BsTerminalPlus } from "react-icons/bs";
-import { TbMessageCirclePlus, TbWorld } from "react-icons/tb";
+import { TbWorld } from "react-icons/tb";
 import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
 import { useTranslation } from "renderer/providers/I18nProvider";
 
 interface AddTabMenuProps {
 	onAddTerminal: () => void;
-	onAddChat: () => void;
 	onAddBrowser: () => void;
 	showPresetsBar: boolean;
 	onToggleShowPresetsBar: (enabled: boolean) => void;
@@ -18,7 +17,6 @@ interface AddTabMenuProps {
 
 export function AddTabMenu({
 	onAddTerminal,
-	onAddChat,
 	onAddBrowser,
 	showPresetsBar,
 	onToggleShowPresetsBar,
@@ -30,11 +28,6 @@ export function AddTabMenu({
 				<BsTerminalPlus className="size-4" />
 				<span>{t("v2Workspace.addTab.terminal")}</span>
 				<HotkeyMenuShortcut hotkeyId="NEW_GROUP" />
-			</DropdownMenuItem>
-			<DropdownMenuItem className="gap-2" onClick={onAddChat}>
-				<TbMessageCirclePlus className="size-4" />
-				<span>{t("v2Workspace.addTab.chat")}</span>
-				<HotkeyMenuShortcut hotkeyId="NEW_CHAT" />
 			</DropdownMenuItem>
 			<DropdownMenuItem className="gap-2" onClick={onAddBrowser}>
 				<TbWorld className="size-4" />

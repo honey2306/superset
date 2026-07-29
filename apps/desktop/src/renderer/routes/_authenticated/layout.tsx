@@ -123,7 +123,6 @@ function AuthenticatedLayout() {
 									focusRequestId: crypto.randomUUID(),
 								}
 							: {
-									chatSessionId: source.id,
 									focusRequestId: crypto.randomUUID(),
 								},
 				});

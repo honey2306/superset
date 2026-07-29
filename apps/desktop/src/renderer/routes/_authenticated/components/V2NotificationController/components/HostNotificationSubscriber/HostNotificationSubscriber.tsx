@@ -7,7 +7,7 @@ import { getEventBus } from "@superset/workspace-client";
 import { useEffect, useEffectEvent, useMemo } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
-import type { PaneViewerData } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/types";
+import type { PaneViewerData } from "renderer/lib/panes/pane-viewer-data";
 import {
 	handleV2AgentLifecycleEvent,
 	handleV2TerminalLifecycleEvent,

@@ -12,6 +12,35 @@ const EMPTY_STATE: WorkspaceState<PaneViewerData> = {
 	activeTabId: null,
 };
 
+/**
+ * The chat pane kind was removed. Drop any persisted chat panes from a
+ * hydrated layout so they don't reappear as dead "Unknown pane kind: chat"
+ * panes. Tabs left with no panes are dropped; the active tab id is cleared if
+ * it no longer exists.
+ */
+function stripChatPanes(
+	state: WorkspaceState<PaneViewerData>,
+): WorkspaceState<PaneViewerData> {
+	let changed = false;
+	const tabs = state.tabs
+		.map((tab) => {
+			const paneEntries = Object.entries(tab.panes);
+			if (!paneEntries.some(([, pane]) => pane.kind === "chat")) return tab;
+			changed = true;
+			const nextPanes = Object.fromEntries(
+				paneEntries.filter(([, pane]) => pane.kind !== "chat"),
+			);
+			return { ...tab, panes: nextPanes };
+		})
+		.filter((tab) => Object.keys(tab.panes).length > 0);
+	if (!changed) return state;
+	const activeTabId =
+		state.activeTabId && tabs.some((t) => t.id === state.activeTabId)
+			? state.activeTabId
+			: null;
+	return { ...state, tabs, activeTabId };
+}
+
 function getSnapshot(state: WorkspaceState<PaneViewerData>): string {
 	return JSON.stringify(state);
 }
@@ -54,9 +83,11 @@ export function useV2WorkspacePaneLayout() {
 	const persistedPaneLayout = useMemo(
 		() =>
 			localWorkspaceState?.workspaceId === workspaceId
-				? ((localWorkspaceState.paneLayout as
-						| WorkspaceState<PaneViewerData>
-						| undefined) ?? EMPTY_STATE)
+				? stripChatPanes(
+						(localWorkspaceState.paneLayout as
+							| WorkspaceState<PaneViewerData>
+							| undefined) ?? EMPTY_STATE,
+					)
 				: EMPTY_STATE,
 		[localWorkspaceState, workspaceId],
 	);

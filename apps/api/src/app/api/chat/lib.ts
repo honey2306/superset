@@ -63,11 +63,40 @@ export function streamUrl(sessionId: string) {
 	return `${env.DURABLE_STREAMS_URL}/sessions/${sessionId}`;
 }
 
-export function getDurableStream(sessionId: string) {
+export function getDurableStream(sessionId: string, signal?: AbortSignal) {
 	return new DurableStream({
 		url: streamUrl(sessionId),
 		headers: { Authorization: `Bearer ${env.DURABLE_STREAMS_SECRET}` },
+		signal,
 	});
+}
+
+const STREAM_CREATE_TIMEOUT_MS = 5_000;
+
+/**
+ * Best-effort stream provisioning. A degraded durable-stream backend must not
+ * keep the session-record request open long enough for desktop fetch to abort.
+ * Stream read/write routes can retry provisioning when they encounter a 404.
+ */
+export async function ensureDurableStream(sessionId: string): Promise<boolean> {
+	const stream = getDurableStream(
+		sessionId,
+		AbortSignal.timeout(STREAM_CREATE_TIMEOUT_MS),
+	);
+	try {
+		await stream.create({ contentType: "application/json" });
+		return true;
+	} catch (error) {
+		const message = error instanceof Error ? error.message.toLowerCase() : "";
+		if (message.includes("already exists") || message.includes("409")) {
+			return true;
+		}
+		console.warn("[chat] durable stream provisioning deferred", {
+			sessionId,
+			error: error instanceof Error ? error.message : String(error),
+		});
+		return false;
+	}
 }
 
 export async function appendToStream(sessionId: string, event: string) {

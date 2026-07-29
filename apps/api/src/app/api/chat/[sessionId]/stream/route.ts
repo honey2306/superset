@@ -3,6 +3,7 @@ import { chatSessions } from "@superset/db/schema";
 import { and, eq } from "drizzle-orm";
 import { env } from "@/env";
 import {
+	ensureDurableStream,
 	loadOwnedChatSession,
 	PRODUCER_RESPONSE_HEADERS,
 	PROTOCOL_QUERY_PARAMS,
@@ -36,13 +37,20 @@ export async function GET(
 		if (value !== null) upstream.searchParams.set(param, value);
 	}
 
-	const response = await fetch(upstream.toString(), {
+	const upstreamHeaders = {
+		Authorization: `Bearer ${env.DURABLE_STREAMS_SECRET}`,
+		Accept: request.headers.get("accept") ?? "*/*",
+	};
+	let response = await fetch(upstream.toString(), {
 		method: "GET",
-		headers: {
-			Authorization: `Bearer ${env.DURABLE_STREAMS_SECRET}`,
-			Accept: request.headers.get("accept") ?? "*/*",
-		},
+		headers: upstreamHeaders,
 	});
+	if (response.status === 404 && (await ensureDurableStream(sessionId))) {
+		response = await fetch(upstream.toString(), {
+			method: "GET",
+			headers: upstreamHeaders,
+		});
+	}
 
 	if (!response.ok) {
 		if (response.status === 404) {

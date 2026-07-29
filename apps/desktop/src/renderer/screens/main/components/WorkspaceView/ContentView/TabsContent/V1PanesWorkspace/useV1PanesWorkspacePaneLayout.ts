@@ -2,6 +2,7 @@ import { createWorkspaceStore, type WorkspaceState } from "@superset/panes";
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useEffect, useMemo, useRef } from "react";
+import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import {
@@ -36,9 +37,9 @@ const EMPTY_STATE: WorkspaceState<V1PanesPaneData> = {
  *   layout changes (the syncer's snapshot guard skips no-ops and prevents
  *   echoing back to the collection).
  * - Writeback: `syncer.startWriteback()` subscribes to the store and
- *   writes the `{version,tabs,activeTabId}` projection back to the row
- *   only when it already exists (mirroring v2 — row creation/healing is
- *   the seed migration's job, not the writeback's).
+ *   writes the `{version,tabs,activeTabId}` projection back to the existing
+ *   row. The first seed creates a row atomically with its initial layout,
+ *   after strict collection readiness confirms one is absent.
  * - Workspace switch: `syncer.resetSyncMarker()` on workspaceId change so
  *   the new workspace hydrates from its own row without suppression.
  *
@@ -62,6 +63,10 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 	);
 	const { store } = workspaceRuntime;
 
+	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
+		{ id: workspaceId },
+		{ enabled: Boolean(workspaceId) },
+	);
 	const { data: localWorkspaceRows = [], isReady: isLayoutReady } =
 		useLiveQuery(
 			(query) =>
@@ -107,9 +112,13 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 	}
 	const syncer = syncerRef.current;
 
+	// The live query is cache-first and can deliver the row after this hook
+	// mounts. Re-hydrate for every layout snapshot; otherwise the initial
+	// empty cache value leaves a remounted workspace at "No tabs open" even
+	// after its persisted panes arrive.
 	useEffect(() => {
-		syncer.hydrate();
-	}, [syncer]);
+		syncer.hydrate(persistedPaneLayout);
+	}, [syncer, persistedPaneLayout]);
 
 	useEffect(() => {
 		syncer.resetSyncMarker();
@@ -124,15 +133,14 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 
 	// One-time v1→v2 seed: on first flag-on, when persistence has no layout
 	// for this workspace yet, derive an initial layout from the v1 global
-	// tabs store so users keep their open terminal. Gated on `isLayoutReady`
-	// (cache-first: wait for the collection before deciding "no row" — an
-	// unresolved live query is not proof of absence). Writeback persists the
-	// seeded layout only if the row already exists; row creation is out of
-	// M1 scope (see plan). `seededRef` guards against re-seeding across
-	// renders once a seed has been applied for this store.
+	// tabs store so users keep their open terminal. Gated on strict collection
+	// readiness plus the workspace project id: cached rows render immediately,
+	// but an unresolved query is never treated as absence before writing.
+	// `seededRef` guards against re-seeding across renders once a seed has been
+	// applied for this store.
 	const seededRef = useRef(false);
 	useEffect(() => {
-		if (!isLayoutReady || seededRef.current) return;
+		if (!isLayoutReady || seededRef.current || !workspace?.projectId) return;
 		if (persistedPaneLayout.tabs.length > 0) return;
 		const seeded = seedPanesFromV1Tabs({
 			workspaceId,
@@ -141,8 +149,33 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 		});
 		if (!seeded) return;
 		seededRef.current = true;
+		if (!localWorkspaceState) {
+			collections.v2WorkspaceLocalState.insert({
+				workspaceId,
+				createdAt: new Date(),
+				sidebarState: {
+					projectId: workspace.projectId,
+					tabOrder: 0,
+					sectionId: null,
+					changesFilter: { kind: "all" },
+					activeTab: "changes",
+					isHidden: false,
+				},
+				paneLayout: seeded,
+				viewedFiles: [],
+				recentlyViewedFiles: [],
+			});
+		}
 		store.getState().replaceState(seeded);
-	}, [isLayoutReady, persistedPaneLayout, store, workspaceId]);
+	}, [
+		collections.v2WorkspaceLocalState,
+		isLayoutReady,
+		localWorkspaceState,
+		persistedPaneLayout,
+		store,
+		workspace?.projectId,
+		workspaceId,
+	]);
 
 	return { store, isLayoutReady };
 }

@@ -59,6 +59,12 @@ function buildRegistry(): Record<string, PaneDefinition<V1PanesPaneData>> {
 				return ctx.pane.data.terminalId as unknown as React.ReactNode;
 			},
 		},
+		"file-viewer": {
+			getTitle: (pane) => pane.data.fileViewer?.filePath,
+			renderPane: (ctx) =>
+				(ctx.pane.data.fileViewer?.filePath ??
+					"no-file") as unknown as React.ReactNode,
+		},
 		comment: {
 			getTitle: (pane) => commentPaneTitle(pane.data),
 			renderPane: (ctx) =>
@@ -187,17 +193,19 @@ describe("V1PanesWorkspace PoC wiring", () => {
 });
 
 describe("V1PanesWorkspace multi-kind registry", () => {
-	// The M3 gate: the panes registry must register every v1 pane kind, not
-	// just terminal, so opening a comment/devtools/webview pane under
-	// `V2_PANES_IN_V1` renders instead of "Unknown pane kind". This locks
+	// The M3 gate: the panes registry must register every migrated v1 pane
+	// kind, not just terminal, so opening a file/chat/comment/devtools/webview
+	// pane under `V2_PANES_IN_V1` renders instead of "Unknown pane kind". This
+	// locks
 	// the registry SHAPE (which kinds exist) and the title delegation; the
 	// per-kind title derivation is covered by
 	// `buildV1PanesNonTerminalRegistry.test.ts`.
-	test("the registry registers all four v1 pane kinds", () => {
+	test("the registry registers all migrated v1 pane kinds", () => {
 		const registry = buildRegistry();
 		expect(Object.keys(registry).sort()).toEqual([
 			"comment",
 			"devtools",
+			"file-viewer",
 			"terminal",
 			"webview",
 		]);

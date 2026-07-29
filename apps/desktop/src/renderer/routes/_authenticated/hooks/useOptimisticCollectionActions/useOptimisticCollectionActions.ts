@@ -1,7 +1,6 @@
 import type { TaskPriority, V2UsersHostRole } from "@superset/db/enums";
 import { toast } from "@superset/ui/sonner";
 import { useCallback, useMemo } from "react";
-import { isDesktopChatDevMode } from "renderer/lib/dev-chat";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
@@ -110,11 +109,6 @@ export function useOptimisticCollectionActions() {
 			failureTitle: string,
 			mutation: () => PersistableTransaction,
 		) => runMutation("optimistic.v2Workspaces", failureTitle, mutation);
-
-		const runChatSessionMutation = (
-			failureTitle: string,
-			mutation: () => PersistableTransaction,
-		) => runMutation("optimistic.chatSessions", failureTitle, mutation);
 
 		const runUsersHostsMutation = (
 			failureTitle: string,
@@ -252,15 +246,6 @@ export function useOptimisticCollectionActions() {
 						trackWorkspaceTransaction(workspaceId, transaction);
 					}
 					return transaction;
-				},
-			},
-			chatSessions: {
-				deleteSession: (sessionId: string) => {
-					if (isDesktopChatDevMode()) return null;
-
-					return runChatSessionMutation("Failed to delete chat session", () =>
-						collections.chatSessions.delete(sessionId),
-					);
 				},
 			},
 			v2Hosts: {

@@ -20,7 +20,6 @@ import {
 	type FileViewerState,
 } from "shared/tabs-types";
 import type {
-	AddChatTabOptions,
 	AddFileViewerPaneOptions,
 	FileViewerReuseScope,
 	Pane,
@@ -28,15 +27,6 @@ import type {
 	Tab,
 	TabsState,
 } from "./types";
-
-/**
- * Canonical initial name for freshly created chat panes/tabs.
- * Kept as a module-level constant so callers (e.g. ChatPane title
- * normalization) can compare against this value without relying on
- * a locale-aware translation key. The localized display title is
- * resolved separately via `t("chat.pane.newChat")`.
- */
-export const NEW_CHAT_PANE_NAME = "New Chat";
 
 export const resolveFileViewerMode = ({
 	filePath,
@@ -252,25 +242,6 @@ export const createFileViewerPane = (
 	};
 };
 
-export const createChatPane = (
-	tabId: string,
-	options?: AddChatTabOptions,
-): Pane => {
-	const id = generateId("pane");
-	const sessionId = crypto.randomUUID();
-
-	return {
-		id,
-		tabId,
-		type: "chat",
-		name: NEW_CHAT_PANE_NAME,
-		chat: {
-			sessionId,
-			launchConfig: options?.launchConfig ?? null,
-		},
-	};
-};
-
 /**
  * Options for creating a browser pane
  */
@@ -342,24 +313,6 @@ export const createBrowserTabWithPane = (
 	const tab: Tab = {
 		id: tabId,
 		name: `Browser ${workspaceTabs.filter((t) => t.name.startsWith("Browser")).length + 1}`,
-		workspaceId,
-		layout: pane.id,
-		createdAt: Date.now(),
-	};
-
-	return { tab, pane };
-};
-
-export const createChatTabWithPane = (
-	workspaceId: string,
-	options?: AddChatTabOptions,
-): { tab: Tab; pane: Pane } => {
-	const tabId = generateId("tab");
-	const pane = createChatPane(tabId, options);
-
-	const tab: Tab = {
-		id: tabId,
-		name: NEW_CHAT_PANE_NAME,
 		workspaceId,
 		layout: pane.id,
 		createdAt: Date.now(),

@@ -1,16 +1,27 @@
 import { useCallback } from "react";
-import type { ChatPaneData } from "../../../../types";
 import { buildPRContext } from "../../components/PRActionHeader/utils/buildPRContext";
 import type { PRFlowState } from "../../components/PRActionHeader/utils/getPRFlowState";
 
 /**
- * Opens a chat pane (or reuses one later — see plan phase 7) pre-populated
- * with a slash command and a synthesized `pr-context.md` attachment.
- *
- * For the MVP, `onOpenChat` always creates a new chat tab. The V2 workspace
- * page wires this up by calling `store.getState().addTab({ kind: "chat", ... })`.
+ * Builds a PR-creation launch payload (prompt + synthesized `pr-context.md`
+ * attachment). The chat pane that used to consume this payload has been
+ * removed, so `usePRFlowDispatch` is currently a no-op dispatcher kept only
+ * to preserve the PRActionHeader contract while the Create-PR button stays
+ * gated off (`CREATE_PR_BUTTON_ENABLED = false`). When PR creation is
+ * re-enabled it should target a terminal agent or a new surface, not chat.
  */
-export type OpenChatFn = (launchConfig: ChatPaneData["launchConfig"]) => void;
+export interface ChatLaunchPayload {
+	initialPrompt?: string;
+	initialFiles?: Array<{
+		data: string;
+		mediaType: string;
+		filename?: string;
+	}>;
+	model?: string;
+	taskSlug?: string;
+}
+
+export type OpenChatFn = (launchConfig: ChatLaunchPayload) => void;
 
 export interface PRFlowDispatchArgs {
 	state: PRFlowState;
@@ -20,17 +31,17 @@ export interface PRFlowDispatchArgs {
 export type PRFlowDispatch = (args: PRFlowDispatchArgs) => void;
 
 interface UsePRFlowDispatchOptions {
-	onOpenChat: OpenChatFn;
+	onOpenChat?: OpenChatFn;
 }
 
 export function usePRFlowDispatch({
 	onOpenChat,
-}: UsePRFlowDispatchOptions): PRFlowDispatch {
+}: UsePRFlowDispatchOptions = {}): PRFlowDispatch {
 	return useCallback(
 		({ state, draft }: PRFlowDispatchArgs) => {
 			const plan = planDispatch(state, { draft: draft === true });
 			if (!plan) return;
-
+			if (!onOpenChat) return;
 			onOpenChat({
 				initialPrompt: plan.prompt,
 				initialFiles: [plan.attachment],

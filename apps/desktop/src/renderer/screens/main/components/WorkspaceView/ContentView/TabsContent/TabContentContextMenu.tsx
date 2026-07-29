@@ -32,7 +32,6 @@ interface TabContentContextMenuProps {
 	children: ReactNode;
 	onSplitHorizontal: PaneContextMenuActions["onSplitHorizontal"];
 	onSplitVertical: PaneContextMenuActions["onSplitVertical"];
-	onSplitWithNewChat?: PaneContextMenuActions["onSplitWithNewChat"];
 	onSplitWithNewBrowser?: PaneContextMenuActions["onSplitWithNewBrowser"];
 	onEqualizePaneSplits?: PaneContextMenuActions["onEqualizePaneSplits"];
 	onClosePane: PaneContextMenuActions["onClosePane"];
@@ -52,7 +51,6 @@ export function TabContentContextMenu({
 	children,
 	onSplitHorizontal,
 	onSplitVertical,
-	onSplitWithNewChat,
 	onSplitWithNewBrowser,
 	onEqualizePaneSplits,
 	onClosePane,
@@ -160,7 +158,6 @@ export function TabContentContextMenu({
 					actions={{
 						onSplitHorizontal,
 						onSplitVertical,
-						onSplitWithNewChat,
 						onSplitWithNewBrowser,
 						onEqualizePaneSplits,
 						onClosePane,

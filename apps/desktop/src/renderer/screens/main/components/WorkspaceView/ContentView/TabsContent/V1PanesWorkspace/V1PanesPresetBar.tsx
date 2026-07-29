@@ -1,3 +1,4 @@
+import type { WorkspaceStore } from "@superset/panes";
 import {
 	AGENT_PRESET_COMMANDS,
 	AGENT_PRESET_DESCRIPTIONS,
@@ -12,13 +13,17 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { LuPlus } from "react-icons/lu";
+import { TbWorld } from "react-icons/tb";
 import {
 	getPresetIcon,
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { usePresets } from "renderer/react-query/presets";
+import type { StoreApi } from "zustand/vanilla";
+import type { V1PanesPaneData } from "./types";
 import type { V1PanesPresetOpeners } from "./useV1PanesPresetOpeners";
+import { V1PanesWorkspaceRunButton } from "./V1PanesWorkspaceRunButton";
 
 /**
  * A minimal agent-preset launch bar for the v1-panes mount.
@@ -40,9 +45,11 @@ import type { V1PanesPresetOpeners } from "./useV1PanesPresetOpeners";
 export function V1PanesPresetBar({
 	workspaceId,
 	openers,
+	store,
 }: {
 	workspaceId: string;
 	openers: V1PanesPresetOpeners;
+	store: StoreApi<WorkspaceStore<V1PanesPaneData>>;
 }) {
 	const isDark = useIsDarkTheme();
 	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
@@ -68,7 +75,11 @@ export function V1PanesPresetBar({
 								size="sm"
 								className="h-6 shrink-0 gap-1.5 px-2"
 								onClick={() => {
-									void openers.openPreset(preset, { target: "new-tab" });
+									void openers
+										.openPreset(preset, { target: "new-tab" })
+										.catch((error: unknown) =>
+											console.error("[v1-panes] preset open failed", error),
+										);
 								}}
 							>
 								{icon ? (
@@ -85,6 +96,22 @@ export function V1PanesPresetBar({
 					</Tooltip>
 				);
 			})}
+
+			<Tooltip delayDuration={1000}>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-6 shrink-0"
+						onClick={openers.addBrowserTab}
+					>
+						<TbWorld className="size-3.5" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent side="bottom" showArrow={false}>
+					Open browser
+				</TooltipContent>
+			</Tooltip>
 
 			{/* Quick-add agent templates (claude/amp/codex/…): create the preset
 			     on first click, then it appears in the pinned row above. */}
@@ -128,6 +155,13 @@ export function V1PanesPresetBar({
 					})}
 				</DropdownMenuContent>
 			</DropdownMenu>
+			<div className="ml-auto flex shrink-0 items-center gap-1">
+				<V1PanesWorkspaceRunButton
+					store={store}
+					workspaceId={workspaceId}
+					worktreePath={workspace?.worktreePath}
+				/>
+			</div>
 		</div>
 	);
 }

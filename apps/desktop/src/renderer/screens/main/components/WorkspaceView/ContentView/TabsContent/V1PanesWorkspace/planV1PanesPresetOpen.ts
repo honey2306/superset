@@ -58,7 +58,7 @@ export function planV1PanesPresetOpen(
 	const {
 		target,
 		activeTabId = null,
-		randomUuid = crypto.randomUUID,
+		randomUuid = () => crypto.randomUUID(),
 	} = options;
 	const terminalId = randomUuid();
 	const command =

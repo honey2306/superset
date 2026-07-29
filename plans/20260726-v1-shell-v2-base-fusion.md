@@ -539,6 +539,27 @@ happens only after the validation matrix passes on the new base.
 
 ## Progress
 
+### Active execution order
+
+1. **Pane-parity gate (next):** finish `file-viewer` and `chat` registration,
+   make browser state/history panes-store-owned, and route every flag-on pane
+   opener (browser, devtools, file, chat, comment) to the registered panes
+   store. Restore the full preset-bar behavior or explicitly retain it behind
+   the same panes-store seam.
+2. **Flag-on acceptance gate:** exercise creation, split, close, restore,
+   workspace/route switch, and remount for every pane kind with real desktop
+   input. Flag-off must continue to prove the mosaic fallback unchanged.
+3. **ACP agent pane:** only after chat has a panes-native data/lifecycle seam;
+   terminal CLI remains the default and ACP must fall back to a terminal.
+4. **Editor/LSP, changeset/git, and mobile:** execute M4, M5, then M6 in that
+   order, each on the panes-native host.
+5. **Destructive cutover last:** M7 retires mosaic/global tabs only after the
+   parity and acceptance gates pass; M8 deletes the v2 workspace shell only
+   after v1-shell deep-link redirects and shared-import extraction are proven.
+
+The terminal-only plan (`20260724-v1-v2-terminal-fusion.md`) is a completed
+M0–M5 runtime record and is superseded for all active work by this plan.
+
 - [x] (2026-07-26) Decision: v1 UI shell + v2 internal base (option D),
   rejecting option A (re-implement v2 mechanisms in v1), option B (adopt v2
   shell, discards preferred v1 UI), and option C (dual products).
@@ -728,11 +749,18 @@ happens only after the validation matrix passes on the new base.
     title → URL host → `Browser`).
   - 19 new tests (8 pure title + 11 multi-kind registry shape) on top of
     the 45 existing; 64 V1PanesWorkspace tests pass, desktop typecheck +
-    biome clean. Opener routing for `comment` landed next (see below);
-    `browser`/`devtools` opener routing waits on panes-mode UI entry points
-    (V1PanesPresetBar browser button, V1PanesBrowserContent devtools
-    button) since their v1 openers are unreachable under
-    `V2_PANES_IN_V1` today.
+    biome clean. Opener routing for `comment` landed next (see below).
+- [x] (2026-07-29) Browser panes are now reachable and panes-store-backed
+  under `V2_PANES_IN_V1`.
+  - `V1PanesPresetBar` exposes an Open browser button that adds a `webview`
+    pane directly to the panes store. Browser new-window/context-menu requests
+    also open a panes-store browser tab instead of writing the hidden mosaic
+    layout.
+  - The mature Electron webview runtime still receives a temporary, unpersisted
+    v1 tabs-store compatibility record keyed by the panes pane id. Browser
+    history/loading/error state is mirrored back to `pane.data.browser`, so the
+    panes layout remains the persisted owner and the compatibility runtime can
+    be removed independently during M7.
 - [x] (2026-07-29) `comment` opener routing: `ReviewPanel` calls
   `useTabsStore.openCommentPane`, which now also writes the panes store
   when a v1-panes store is registered for the workspace.
@@ -754,9 +782,34 @@ happens only after the validation matrix passes on the new base.
   - 3 opener tests on top of the 67 V1PanesWorkspace tests; tabs store
     tests (85) and desktop typecheck + biome clean.
 - [ ] Milestone 3: ACP agent pane.
-  - Pre: the v1-panes registry now renders `comment` / `devtools` / `webview`
-    (2026-07-29); `file-viewer` / `chat` remain to be registered before the
-    registry has full v1 pane-kind parity.
+  - Pre: the v1-panes registry now renders `chat` / `comment` / `devtools` /
+    `webview` (2026-07-29). Chat uses an unpersisted compatibility record for
+    the existing session/controller runtime while mirroring `ChatPaneState`
+    to panes `data`, so the panes layout remains the persisted owner.
+- [x] (2026-07-29) File viewer is registered and routed through the panes
+  store under `V2_PANES_IN_V1`.
+  - `addFileViewerPane` detects a mounted v1-panes store and uses the new
+    pure `openFileViewerInPanesStore` bridge, preserving matching unpinned
+    preview reuse or splitting beside the active pane without writing the
+    hidden mosaic layout.
+  - The existing document/session editor runtime receives a temporary
+    compatibility pane keyed by the panes pane id. `FileViewerState` mirrors
+    into panes `data`; `BasePaneWindow` now supports an embedded mode so its
+    file toolbar/body render without MosaicWindow chrome.
+- [x] (2026-07-29) CDP lifecycle validation exposed and fixed two parity
+  defects before cutover:
+  - The registry used the property name `fileViewer` rather than the persisted
+    pane kind `file-viewer`, producing `Unknown pane kind: file-viewer` from a
+    real Files-sidebar click. The registry now uses the exact kind key.
+  - First flag-on seeded a panes store without creating its
+    `v2WorkspaceLocalState` row; writeback deliberately skipped missing rows,
+    so a reload discarded newly opened panes. Once cache readiness confirms
+    absence, the v1 panes layout now creates its local row atomically with the
+    seed. A real Files click → wait → renderer reload retained `.gitignore`.
+  - Removing the local panes flag originally left PostHog's previous in-memory
+    override active because `initPostHog` skipped `featureFlags.override({})`.
+    It now always replaces the map; CDP flag-off showed the v1 mosaic/xterm
+    fallback, and flag-on returned to the panes host.
 - [ ] Milestone 4: editor preview + LSP via view registry.
 - [ ] Milestone 5: strengthened git.
 - [ ] Milestone 6: mobile remote control.
@@ -893,3 +946,83 @@ neutral terminal component has explicit UI-host and backend-identity
 boundaries, which preserves the legacy fallback while making panes mode the
 actual owner of its state. Medium-term ACP/editor/git/mobile milestones remain
 separate; this merge does not silently advance or delete those surfaces.
+
+---
+
+## Cutover investigation (2026-07-29): real scope of "delete v2-workspace route"
+
+A full read of both workspace routes revealed a **blocking structural fact**
+the original phase-2 plan understated. Documenting it here so future agents
+do not re-derive it.
+
+### The two `/workspace/$id` routes are NOT the same product
+
+| | v1-shell `/workspace/$workspaceId` | v2 `/v2-workspace/$workspaceId` |
+|---|---|---|
+| backend | `electronTrpc.workspaces.get` → **local-db sqlite** (`workspaces`/`worktrees`/`projects` tables) | `useHostWorkspaces` + `workspaceTrpc` → **host-service** (`workspace.list` over WS, relay, `collections.v2Workspaces` Electric) |
+| data model | v1 local-db `Workspace` row (has `worktree.gitStatus`, `type`, `projectId`) | `HostWorkspaceItem` (host-served, id/branch/name/projectId, no local gitStatus row) |
+| create/error states | `WorkspaceInitializingView` (v1 init store: `useIsWorkspaceInitializing`/`hasFailed`/`hasIncompleteInit`) | `WorkspaceCreatingState` + `WorkspaceCreateErrorState` + `WorkspaceHostIncompatibleState` + `WorkspaceNotFoundState` (host-workspace lifecycle) |
+| providers mounted | none | `WorkspaceProvider` + `WorkspaceGitStatusProvider` + `FileDocumentStoreProvider` + `WorkspaceTrpcProvider` (v2 route tree) |
+| pane data type | `V1PanesPaneData` (flat, kind `terminal`/`file-viewer`/`comment`/`devtools`/`webview`, `browser: BrowserPaneState`) | `PaneViewerData` (discriminated union, kind `terminal`/`browser`/…, `BrowserPaneData { url }`) |
+| deep-link consumer | `useV1PanesDeepLinkConsumer` (2a, newly added) | `useConsumeAutomationRunLink` + `useConsumeOpenUrlRequest` |
+
+### `versionMismatch` gate is the real v1/v2 fork
+
+`_dashboard/layout.tsx:72`:
+```
+versionMismatch = (isV2CloudEnabled && onV1WorkspaceRoute) ||
+                  (!isV2CloudEnabled && onV2WorkspaceRoute)
+```
+Renders `<CrossVersionMismatchState />` ("Pick a workspace") instead of
+`<Outlet/>`. This is what stops a v2 user (dev default + v2-only) from landing
+on `/workspace/$id` — NOT the `V2_PANES_IN_V1` flag.
+
+### `V2_PANES_IN_V1` flag's actual scope
+
+It only toggles, **inside the v1-shell `/workspace/$id` route**, whether a
+v1 local-db workspace renders via the v2 panes engine (`V1PanesWorkspace`)
+or the v1 mosaic (`TabsContent`). It was never designed to route v2
+host-workspaces through `/workspace/$id`.
+
+### The bridge exists but is incomplete
+
+`runV1Migration` (`renderer/lib/v1-migration/`) registers v1 local-db
+projects/workspaces **into** host-service (`adoptV1Workspace`), so a v1
+workspace gains a host-service twin. But:
+- the v1 route still reads from local-db, not host-service
+- `gateComplete` (D4/D5) is meant to eventually flip `useIsV2CloudEnabled`
+  onto the host-service backend, but that flip + the continuity wiring
+  (`lastActiveWorkspaceId → v2 route`, sidebar seeding) is **open work**
+  (`plans/20260716-v1-to-v2-auto-migration.md` unchecked items)
+
+### Conclusion: cutover ≠ "flip flag + rewrite nav"
+
+"Delete v2-workspace route, make v1-shell the only UI" requires first
+**converging the two workspace backends** — mounting the v2 providers
+(`WorkspaceProvider`/`WorkspaceTrpcProvider`/`WorkspaceGitStatusProvider`)
+in the v1 route tree and routing the host-service create/error states
+through `/workspace/$id`. That is the D2/D4/D5 auto-migration work, a
+separate, larger effort than this terminal+panes fusion plan.
+
+The terminal/panes fusion (M0–M5, phase 0/1/2a) stands on its own and is
+unblocked: it improves the v1 workspace view regardless of which backend
+eventually wins. Phase 2b (nav rewrite) is **blocked on the backend
+convergence**; doing it standalone would route v2 users into
+`<CrossVersionMismatchState />`.
+
+### What is safe to ship now (independent, no UX regression)
+
+- Phase 0 (TerminalRichInput neutral module) ✅
+- Phase 1 (4 shared symbols → neutral) ✅
+- Phase 2a (`/workspace/$id` accepts v2 deep-link params + V1PanesWorkspace
+  consumes them when `V2_PANES_IN_V1` is on) ✅ — typecheck 35/35, lint clean,
+  tests green. Only fires when the panes engine already owns the view, so
+  it changes no current user's behavior.
+
+### What is NOT safe standalone
+
+- Phase 2b nav rewrite → blocked on backend convergence (see above)
+- Phase 2c flag flip / `versionMismatch` removal → UX regression for v2 users
+- Phase 3 route deletion → blocked on 2b/2c
+
+Date/Author: 2026-07-29 / Codex

@@ -1,8 +1,8 @@
 import type { WorkspaceState } from "@superset/panes";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useEffect, useRef } from "react";
-import { browserRuntimeRegistry } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/BrowserPane/browserRuntimeRegistry";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { destroyPersistentWebview } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/TabView/BrowserPane/hooks/usePersistentWebview";
 import {
 	extractPaneLocations,
 	extractWorkspaceIds,
@@ -77,7 +77,7 @@ export function useGlobalBrowserLifecycle() {
 			if (pending.timer) continue;
 			if (currentWorkspaceIds.has(pending.workspaceId)) {
 				pendingDestruction.current.delete(browserId);
-				browserRuntimeRegistry.destroy(browserId);
+				destroyPersistentWebview(browserId);
 			}
 		}
 
@@ -104,7 +104,7 @@ export function useGlobalBrowserLifecycle() {
 
 				if (freshWorkspaceIds.has(workspaceId)) {
 					pendingDestruction.current.delete(browserId);
-					browserRuntimeRegistry.destroy(browserId);
+					destroyPersistentWebview(browserId);
 					return;
 				}
 

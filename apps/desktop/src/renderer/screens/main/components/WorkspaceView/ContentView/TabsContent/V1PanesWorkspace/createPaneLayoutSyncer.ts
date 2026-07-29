@@ -56,7 +56,7 @@ export interface CreatePaneLayoutSyncerOptions<TData> {
  * dependencies, so the sync behavior is unit-testable.
  */
 export interface PaneLayoutSyncer {
-	hydrate: () => void;
+	hydrate: (persistedLayout?: unknown) => void;
 	startWriteback: () => () => void;
 	resetSyncMarker: () => void;
 }
@@ -66,12 +66,27 @@ export function createPaneLayoutSyncer<TData>(
 ): PaneLayoutSyncer {
 	const { store, readPersisted, writePersisted, emptyState } = options;
 	let lastSyncedSnapshot = getSnapshot(emptyState);
+	// TanStack DB can emit the pre-write cached row before the optimistic
+	// collection update is observed. Keep a local mutation authoritative until
+	// the matching persisted snapshot acknowledges it, rather than replacing a
+	// just-created tab with that stale row.
+	let pendingWriteSnapshot: string | null = null;
 	let writebackStarted = false;
 
 	return {
-		hydrate: () => {
-			const persisted = readPersisted() ?? emptyState;
+		hydrate: (persistedLayout) => {
+			const persisted =
+				(persistedLayout as WorkspaceState<TData> | undefined) ??
+				readPersisted() ??
+				emptyState;
 			const nextSnapshot = getSnapshot(persisted);
+			if (pendingWriteSnapshot) {
+				if (nextSnapshot === pendingWriteSnapshot) {
+					pendingWriteSnapshot = null;
+					lastSyncedSnapshot = nextSnapshot;
+				}
+				return;
+			}
 			if (nextSnapshot === lastSyncedSnapshot) return;
 			lastSyncedSnapshot = nextSnapshot;
 			store.getState().replaceState(persisted);
@@ -88,6 +103,7 @@ export function createPaneLayoutSyncer<TData>(
 				const nextSnapshot = getSnapshot(nextWorkspaceState);
 				if (nextSnapshot === lastSyncedSnapshot) return;
 				lastSyncedSnapshot = nextSnapshot;
+				pendingWriteSnapshot = nextSnapshot;
 				writePersisted(nextWorkspaceState);
 			});
 			return () => {
@@ -97,6 +113,7 @@ export function createPaneLayoutSyncer<TData>(
 		},
 		resetSyncMarker: () => {
 			lastSyncedSnapshot = getSnapshot(emptyState);
+			pendingWriteSnapshot = null;
 		},
 	};
 }

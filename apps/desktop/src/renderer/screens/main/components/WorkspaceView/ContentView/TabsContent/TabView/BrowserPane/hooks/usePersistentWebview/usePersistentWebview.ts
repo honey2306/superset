@@ -91,11 +91,20 @@ function sanitizeUrl(url: string): string {
 interface UsePersistentWebviewOptions {
 	paneId: string;
 	initialUrl: string;
+	/**
+	 * Panes-engine hosts keep layout state outside the legacy tabs store. These
+	 * callbacks let their host own close and newly-opened browser panes while
+	 * this hook continues to manage the Electron webview lifecycle.
+	 */
+	onClosePane?: () => void;
+	onOpenInBrowser?: (url: string) => void;
 }
 
 export function usePersistentWebview({
 	paneId,
 	initialUrl,
+	onClosePane,
+	onOpenInBrowser,
 }: UsePersistentWebviewOptions) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const isHistoryNavigation = useRef(false);
@@ -120,6 +129,10 @@ export function usePersistentWebview({
 		{ paneId },
 		{
 			onData: ({ url }: { url: string }) => {
+				if (onOpenInBrowser) {
+					onOpenInBrowser(url);
+					return;
+				}
 				const state = useTabsStore.getState();
 				const pane = state.panes[paneId];
 				if (!pane) return;
@@ -136,6 +149,10 @@ export function usePersistentWebview({
 		{
 			onData: ({ action, url }: { action: string; url: string }) => {
 				if (action === "open-in-split") {
+					if (onOpenInBrowser) {
+						onOpenInBrowser(url);
+						return;
+					}
 					const state = useTabsStore.getState();
 					const pane = state.panes[paneId];
 					if (!pane) return;
@@ -151,6 +168,10 @@ export function usePersistentWebview({
 		{ paneId },
 		{
 			onData: () => {
+				if (onClosePane) {
+					onClosePane();
+					return;
+				}
 				requestPaneClose(paneId);
 			},
 		},

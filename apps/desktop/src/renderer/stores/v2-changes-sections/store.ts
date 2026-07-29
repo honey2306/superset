@@ -1,4 +1,4 @@
-import type { DiffFileSource } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useChangeset";
+import type { DiffFileSource } from "renderer/lib/changes/diff-file-source";
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 

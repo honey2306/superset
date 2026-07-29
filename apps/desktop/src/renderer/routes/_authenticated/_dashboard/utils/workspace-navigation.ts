@@ -3,14 +3,26 @@ import type {
 	UseNavigateResult,
 } from "@tanstack/react-router";
 
+/**
+ * Search params accepted by the v1-shell workspace route
+ * (`/workspace/$workspaceId`). Combines the legacy tab/pane activation
+ * params with the deep-link params the panes engine consumes
+ * (terminal focus + open-URL requests from automation runs and
+ * notifications) so the unified route can serve every entry point the
+ * v2-workspace route used to handle.
+ */
 export interface WorkspaceSearchParams {
 	tabId?: string;
 	paneId?: string;
+	terminalId?: string;
+	focusRequestId?: string;
+	openUrl?: string;
+	openUrlTarget?: "current-tab" | "new-tab";
+	openUrlRequestId?: string;
 }
 
 export interface V2WorkspaceSearchParams {
 	terminalId?: string;
-	chatSessionId?: string;
 	focusRequestId?: string;
 	openUrl?: string;
 	openUrlTarget?: "current-tab" | "new-tab";

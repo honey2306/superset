@@ -24,6 +24,8 @@ import {
 export interface UseHostServiceTerminalOptions {
 	workspaceId: string;
 	worktreePath?: string;
+	/** A v2 panes host owns host-service terminals independently of v1's flag. */
+	forceEnabled?: boolean;
 }
 
 export interface UseHostServiceTerminalResult {
@@ -37,9 +39,11 @@ export interface UseHostServiceTerminalResult {
 export function useHostServiceTerminal({
 	workspaceId,
 	worktreePath,
+	forceEnabled = false,
 }: UseHostServiceTerminalOptions): UseHostServiceTerminalResult {
-	const flagEnabled =
+	const hostTerminalFlagEnabled =
 		useFeatureFlagEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ?? false;
+	const flagEnabled = forceEnabled || hostTerminalFlagEnabled;
 	const { activeHostUrl, waitForHostReady } = useLocalHostService();
 	const [resolvedHostUrl, setResolvedHostUrl] = useState<string | null>(
 		activeHostUrl,

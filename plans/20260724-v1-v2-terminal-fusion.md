@@ -1,5 +1,11 @@
 # V1/V2 Desktop Fusion Plan
 
+> **Superseded for active implementation by**
+> [`20260726-v1-shell-v2-base-fusion.md`](./20260726-v1-shell-v2-base-fusion.md).
+> This document remains the completed M0–M5 terminal-runtime record; its
+> former M6/M7 deletion path must not be executed independently of the
+> pane-parity and cutover gates in the canonical plan.
+
 This ExecPlan is a living document. Keep `Progress`, `Surprises & Discoveries`,
 `Decision Log`, and `Outcomes & Retrospective` updated as implementation
 proceeds.

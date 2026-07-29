@@ -376,6 +376,7 @@ export function useChatDisplay(options: UseChatDisplayOptions) {
 		...displayState,
 		messages,
 		isConversationLoading,
+		assistantError: latestAssistantErrorMessage,
 		error:
 			runtimeErrorMessage ??
 			latestAssistantErrorMessage ??

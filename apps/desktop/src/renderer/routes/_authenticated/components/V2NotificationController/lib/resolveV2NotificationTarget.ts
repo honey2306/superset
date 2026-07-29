@@ -3,7 +3,7 @@ import type { AgentLifecyclePayload } from "@superset/workspace-client";
 import type {
 	PaneViewerData,
 	TerminalPaneData,
-} from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/types";
+} from "renderer/lib/panes/pane-viewer-data";
 
 export interface V2NotificationTarget {
 	workspaceId: string;

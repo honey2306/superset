@@ -78,6 +78,8 @@ interface FileViewerPaneProps {
 	availableTabs: Tab[];
 	onMoveToTab: (targetTabId: string) => void;
 	onMoveToNewTab: () => void;
+	embedded?: boolean;
+	onRequestClose?: (paneId: string) => void;
 }
 
 function getUnsavedDialogCopy(intent: EditorPendingIntent | null) {
@@ -126,6 +128,8 @@ export function FileViewerPane({
 	availableTabs,
 	onMoveToTab,
 	onMoveToNewTab,
+	embedded,
+	onRequestClose,
 }: FileViewerPaneProps) {
 	const { workspaceId } = useParams({ strict: false });
 	const normalizedWorkspaceId = workspaceId ?? worktreePath;
@@ -599,6 +603,7 @@ export function FileViewerPane({
 				splitPaneAuto={splitPaneAuto}
 				removePane={removePane}
 				setFocusedPane={setFocusedPane}
+				embedded={embedded}
 				renderToolbar={() => <div className="h-full w-full" />}
 			>
 				<div className="flex items-center justify-center h-full text-muted-foreground">
@@ -615,8 +620,9 @@ export function FileViewerPane({
 				path={path}
 				tabId={tabId}
 				splitPaneAuto={splitPaneAuto}
-				removePane={requestPaneClose}
+				removePane={onRequestClose ?? requestPaneClose}
 				setFocusedPane={setFocusedPane}
+				embedded={embedded}
 				contentClassName="w-full h-full overflow-hidden bg-background"
 				renderToolbar={(handlers) => (
 					<div className="flex h-full w-full">
@@ -696,16 +702,11 @@ export function FileViewerPane({
 							onSwitchToRawAtLocation={handleSwitchToRawAtLocation}
 							onSplitHorizontal={() => splitPaneHorizontal(tabId, paneId, path)}
 							onSplitVertical={() => splitPaneVertical(tabId, paneId, path)}
-							onSplitWithNewChat={() =>
-								splitPaneVertical(tabId, paneId, path, {
-									paneType: "chat",
-								})
-							}
 							onSplitWithNewBrowser={() =>
 								splitPaneVertical(tabId, paneId, path, { paneType: "webview" })
 							}
 							onEqualizePaneSplits={() => equalizePaneSplits(tabId)}
-							onClosePane={() => requestPaneClose(paneId)}
+							onClosePane={() => (onRequestClose ?? requestPaneClose)(paneId)}
 							currentTabId={tabId}
 							availableTabs={availableTabs}
 							onMoveToTab={onMoveToTab}

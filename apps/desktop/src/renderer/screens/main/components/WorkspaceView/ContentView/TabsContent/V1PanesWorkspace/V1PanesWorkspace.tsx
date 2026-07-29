@@ -1,5 +1,6 @@
 import { Workspace } from "@superset/panes";
 import { useEffect } from "react";
+import { useV1PanesDeepLinkConsumer } from "./useV1PanesDeepLinkConsumer";
 import { useV1PanesHotkeys } from "./useV1PanesHotkeys";
 import { useV1PanesWorkspace } from "./useV1PanesWorkspace";
 import { V1PanesPresetBar } from "./V1PanesPresetBar";
@@ -43,6 +44,10 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 		addTerminalTab: openers.addTerminalTab,
 	});
 
+	// Consume deep-link search params (terminalId / openUrl / …) into the
+	// panes store. No-op for params that are absent.
+	useV1PanesDeepLinkConsumer({ store, workspaceId });
+
 	// Register the per-workspace panes store so v1 global tabs store opener
 	// actions (e.g. `openCommentPane` from `ReviewPanel`) can route into the
 	// panes store when this view owns the workspace. Unmount-cleaned so a
@@ -54,12 +59,19 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 
 	return (
 		<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-			<V1PanesPresetBar workspaceId={workspaceId} openers={openers} />
 			<Workspace
+				className="flex-1"
 				store={store}
 				registry={registry}
 				paneActions={paneActions}
 				contextMenuActions={contextMenuActions}
+				renderBelowTabBar={() => (
+					<V1PanesPresetBar
+						openers={openers}
+						store={store}
+						workspaceId={workspaceId}
+					/>
+				)}
 			/>
 		</div>
 	);
