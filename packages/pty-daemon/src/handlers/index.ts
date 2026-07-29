@@ -1,5 +1,6 @@
 export type { Conn, HandlerCtx, SessionWirer } from "./handlers.ts";
 export {
+	handleClearBuffer,
 	handleClose,
 	handleInput,
 	handleList,

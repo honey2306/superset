@@ -15,6 +15,7 @@ import {
 	setHostServiceSecret,
 } from "renderer/lib/host-service-auth";
 import type { HostServiceAvailabilityStatus } from "renderer/lib/host-service-unavailable";
+import { useRunV1MigrationOnBoot } from "renderer/lib/v1-migration/useRunV1MigrationOnBoot";
 import { MOCK_ORG_ID } from "shared/constants";
 
 interface LocalHostServiceContextValue {
@@ -182,6 +183,17 @@ export function LocalHostServiceProvider({
 		processStatus?.status,
 		waitForHostReady,
 	]);
+
+	// D2 boot trigger: register v1 projects/workspaces into the local
+	// host service once it's up, so host-backed surfaces (e.g. the
+	// V1_HOST_SERVICE_TERMINAL path) can resolve them. Idempotent + does
+	// not flip v2. See useRunV1MigrationOnBoot + plans/20260716-v1-to-v2-
+	// auto-migration.md. Runs even when value is null (no host yet) — the
+	// hook guards on hostUrl/org being present.
+	useRunV1MigrationOnBoot(
+		value?.activeHostUrl ?? null,
+		value?.activeOrganizationId ?? null,
+	);
 
 	if (!value) return null;
 

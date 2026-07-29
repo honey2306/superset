@@ -1,5 +1,7 @@
+import { getEventBus } from "@superset/workspace-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
+import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useWorkspaceEvent } from "../useWorkspaceEvent";
 import { useWorkspaceHostUrl } from "../useWorkspaceHostUrl";
@@ -67,4 +69,63 @@ export function useTerminalAgentBinding(
 ): TerminalAgentBinding | undefined {
 	const bindings = useTerminalAgentBindings(workspaceId);
 	return bindings.get(terminalId);
+}
+
+/**
+ * Explicit-host variant for the fused v1 workspace, whose renderer workspace
+ * UUID intentionally differs from the host-owned workspace UUID.
+ */
+export function useTerminalAgentBindingsAtHost(
+	hostUrl: string | null,
+	hostWorkspaceId: string | null,
+): Map<string, TerminalAgentBinding> {
+	const queryClient = useQueryClient();
+	const queryKey = useMemo(
+		() =>
+			[
+				"terminal-agent-bindings",
+				hostUrl,
+				hostWorkspaceId,
+				"explicit-host",
+			] as const,
+		[hostUrl, hostWorkspaceId],
+	);
+	const { data } = useQuery({
+		queryKey,
+		enabled: Boolean(hostUrl && hostWorkspaceId),
+		queryFn: () => {
+			if (!hostUrl || !hostWorkspaceId) return [] as TerminalAgentBindings;
+			return getHostServiceClientByUrl(
+				hostUrl,
+			).terminalAgents.listByWorkspace.query({
+				workspaceId: hostWorkspaceId,
+			});
+		},
+		staleTime: 30_000,
+	});
+
+	useEffect(() => {
+		if (!hostUrl || !hostWorkspaceId) return;
+		const bus = getEventBus(hostUrl, () => getHostServiceWsToken(hostUrl));
+		const invalidate = () => {
+			void queryClient.invalidateQueries({ queryKey });
+		};
+		const removeAgent = bus.on("agent:lifecycle", hostWorkspaceId, invalidate);
+		const removeTerminal = bus.on(
+			"terminal:lifecycle",
+			hostWorkspaceId,
+			invalidate,
+		);
+		const release = bus.retain();
+		return () => {
+			removeAgent();
+			removeTerminal();
+			release();
+		};
+	}, [hostUrl, hostWorkspaceId, queryClient, queryKey]);
+
+	return useMemo(
+		() => new Map((data ?? []).map((binding) => [binding.terminalId, binding])),
+		[data],
+	);
 }

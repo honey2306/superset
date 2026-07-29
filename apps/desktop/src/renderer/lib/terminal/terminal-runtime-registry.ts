@@ -29,9 +29,11 @@ import {
 	createTransport,
 	disposeTransport,
 	reconnect,
+	sendClearScrollback,
 	sendDispose,
 	sendInput,
 	sendResize,
+	type TerminalExitInfo,
 	type TerminalLogEntry,
 	type TerminalTransport,
 } from "./terminal-ws-transport";
@@ -439,6 +441,8 @@ class TerminalRuntimeRegistryImpl {
 	clear(terminalId: string, instanceId?: string): void {
 		const entry = this.getEntry(terminalId, instanceId);
 		entry?.runtime?.terminal.clear();
+		if (entry) sendClearScrollback(entry.transport);
+		clearPersistedRuntimeState(terminalId);
 	}
 
 	scrollToBottom(terminalId: string, instanceId?: string): void {
@@ -456,6 +460,34 @@ class TerminalRuntimeRegistryImpl {
 		const entry = this.getEntry(terminalId, instanceId);
 		if (!entry) return;
 		sendInput(entry.transport, data);
+	}
+
+	/** Send explicit dimensions through the active WebSocket transport. */
+	resize(
+		terminalId: string,
+		cols: number,
+		rows: number,
+		instanceId?: string,
+	): void {
+		const entry = this.getEntry(terminalId, instanceId);
+		if (!entry) return;
+		sendResize(entry.transport, cols, rows);
+	}
+
+	/**
+	 * Drop renderer state without sending the WebSocket `dispose` command.
+	 * The caller owns backend termination through a stronger API (usually tRPC).
+	 */
+	discard(terminalId: string, instanceId?: string): void {
+		const entries = instanceId
+			? [this.getEntry(terminalId, instanceId)].filter(
+					(entry): entry is RegistryEntry => Boolean(entry),
+				)
+			: this.getEntries(terminalId);
+		for (const entry of entries) {
+			this.disposeEntry(entry);
+		}
+		clearPersistedRuntimeState(terminalId);
 	}
 
 	findNext(terminalId: string, query: string, instanceId?: string): boolean {
@@ -521,6 +553,13 @@ class TerminalRuntimeRegistryImpl {
 		return this.getEntry(terminalId, instanceId)?.transport.title;
 	}
 
+	getExitInfo(
+		terminalId: string,
+		instanceId?: string,
+	): TerminalExitInfo | null {
+		return this.getEntry(terminalId, instanceId)?.transport.exitInfo ?? null;
+	}
+
 	getLogs(
 		terminalId: string,
 		instanceId?: string,
@@ -570,6 +609,32 @@ class TerminalRuntimeRegistryImpl {
 		entry.transport.titleListeners.add(listener);
 		return () => {
 			entry.transport.titleListeners.delete(listener);
+		};
+	}
+
+	onExit(
+		terminalId: string,
+		listener: (info: TerminalExitInfo) => void,
+		instanceId = terminalId,
+	): () => void {
+		const entry = this.getOrCreateEntry(terminalId, instanceId);
+		entry.transport.exitListeners.add(listener);
+		const existing = entry.transport.exitInfo;
+		if (existing) listener(existing);
+		return () => {
+			entry.transport.exitListeners.delete(listener);
+		};
+	}
+
+	onData(
+		terminalId: string,
+		listener: (data: Uint8Array) => void,
+		instanceId = terminalId,
+	): () => void {
+		const entry = this.getOrCreateEntry(terminalId, instanceId);
+		entry.transport.dataListeners.add(listener);
+		return () => {
+			entry.transport.dataListeners.delete(listener);
 		};
 	}
 

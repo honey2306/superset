@@ -49,6 +49,14 @@ const baseAgentLaunchSchema = z.object({
 
 export const terminalLaunchConfigSchema = z.object({
 	command: z.string().min(1),
+	hostAgent: z
+		.object({
+			agent: z.string().min(1),
+			prompt: z.string(),
+			model: z.string().min(1).optional(),
+			effort: z.string().min(1).optional(),
+		})
+		.optional(),
 	name: z.string().min(1).optional(),
 	paneId: z.string().min(1).optional(),
 	taskPromptContent: z.string().min(1).optional(),

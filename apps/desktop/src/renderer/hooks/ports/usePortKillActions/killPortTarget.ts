@@ -4,6 +4,8 @@ export type PortKillResult = { success: boolean; error?: string };
 
 export interface PortKillTarget {
 	workspaceId: string;
+	/** Backend workspace id when the visible workspace uses a different id. */
+	killWorkspaceId?: string;
 	terminalId: string;
 	port: number;
 	hostUrl?: string | null;
@@ -25,7 +27,7 @@ export async function killPortTarget(
 	localKill?: LocalPortKill,
 ): Promise<PortKillResult> {
 	const payload = {
-		workspaceId: target.workspaceId,
+		workspaceId: target.killWorkspaceId ?? target.workspaceId,
 		terminalId: target.terminalId,
 		port: target.port,
 	};

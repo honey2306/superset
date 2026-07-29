@@ -3,6 +3,8 @@ import { updateTree } from "react-mosaic-component";
 import { getFileOpenMode } from "renderer/hooks/useFileOpenMode";
 import { posthog } from "renderer/lib/posthog";
 import { trpcTabsStorage } from "renderer/lib/trpc-storage";
+import { openCommentInPanesStore } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/V1PanesWorkspace/openCommentInPanesStore";
+import { getV1PanesStore } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/V1PanesWorkspace/v1PanesStoreRegistry";
 import { deleteDocumentBuffer } from "renderer/stores/editor-state/editorBufferRegistry";
 import { useEditorDocumentsStore } from "renderer/stores/editor-state/useEditorDocumentsStore";
 import { useEditorSessionsStore } from "renderer/stores/editor-state/useEditorSessionsStore";
@@ -1199,6 +1201,18 @@ export const useTabsStore = create<TabsStore>()(
 						};
 					});
 				},
+				setPaneLifecycleScript: (paneId, lifecycleScript) => {
+					set((state) => {
+						const pane = state.panes[paneId];
+						if (!pane) return state;
+						return {
+							panes: {
+								...state.panes,
+								[paneId]: { ...pane, lifecycleScript },
+							},
+						};
+					});
+				},
 				setPaneAutoTitle: (paneId, title) => {
 					set((state) => {
 						const pane = state.panes[paneId];
@@ -1605,6 +1619,18 @@ export const useTabsStore = create<TabsStore>()(
 
 				// Comment operations
 				openCommentPane: (workspaceId: string, comment: CommentPaneData) => {
+					// Route into the panes store when `V2_PANES_IN_V1` owns the view:
+					// the panes engine renders from its per-workspace store, so the
+					// ReviewPanel open must seed `data.comment` there. The v1 store
+					// write below still runs (kept as the non-panes fallback and to
+					// preserve the v1 pane for the M7 cleanup); when no panes store is
+					// registered (flag off, or the workspace view is not mounted)
+					// the v1-only path is unchanged.
+					const panesStore = getV1PanesStore(workspaceId);
+					if (panesStore) {
+						openCommentInPanesStore(panesStore, comment);
+					}
+
 					const state = get();
 
 					// Reuse an existing comment pane in this workspace if one exists

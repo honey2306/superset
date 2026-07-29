@@ -5,6 +5,7 @@ export type {
 	UpgradeNakMessage,
 } from "./handoff.ts";
 export type {
+	ClearBufferMessage,
 	ClientMessage,
 	ClosedMessage,
 	CloseMessage,

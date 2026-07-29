@@ -47,6 +47,10 @@ describe("buildPromptAgentLaunchRequest", () => {
 			terminal: {
 				command:
 					"codex --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust",
+				hostAgent: {
+					agent: "codex",
+					prompt: "",
+				},
 			},
 		});
 	});
@@ -182,6 +186,10 @@ describe("buildTaskAgentLaunchRequest", () => {
 		expect(request).toMatchObject({
 			kind: "terminal",
 			terminal: {
+				hostAgent: {
+					agent: "codex",
+					prompt: "Implement demo-task",
+				},
 				taskPromptContent: "Implement demo-task",
 				taskPromptFileName: "task-demo-task.md",
 				autoExecute: false,

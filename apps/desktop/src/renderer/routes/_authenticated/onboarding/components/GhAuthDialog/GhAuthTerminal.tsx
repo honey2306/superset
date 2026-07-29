@@ -1,12 +1,12 @@
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef } from "react";
+import { useTerminalAppearance } from "renderer/lib/terminal/appearance/useTerminalAppearance";
 import {
 	attachToContainer,
 	createRuntime,
 	disposeRuntime,
 } from "renderer/lib/terminal/terminal-runtime";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
-import { useTerminalAppearance } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/TerminalPane/hooks/useTerminalAppearance";
 
 const GH_AUTH_COMMAND =
 	"gh auth login --hostname github.com --git-protocol https --web";

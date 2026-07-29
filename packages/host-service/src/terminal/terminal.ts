@@ -60,6 +60,7 @@ interface DaemonPty {
 	pid: number;
 	write(data: string): void;
 	resize(cols: number, rows: number): void;
+	clearBuffer(): void;
 	kill(signal?: NodeJS.Signals): Promise<void>;
 	onData(cb: (data: string) => void): PtyDataDisposer;
 	onExit(
@@ -83,6 +84,9 @@ function makeDaemonPty(
 			} catch {
 				// Daemon may have disconnected; surface via the next op.
 			}
+		},
+		clearBuffer() {
+			daemon.clearBuffer(sessionId);
 		},
 		kill(signal) {
 			return daemon.close(sessionId, toDaemonSignal(signal));
@@ -148,6 +152,7 @@ function getHostAgentHookUrl(): string {
 type TerminalClientMessage =
 	| { type: "input"; data: string }
 	| { type: "resize"; cols: number; rows: number }
+	| { type: "clear-scrollback" }
 	| { type: "dispose" };
 
 // PTY output bytes travel as binary WebSocket frames — the renderer pipes
@@ -168,6 +173,11 @@ const MAX_BUFFER_BYTES = 64 * 1024;
 const SESSION_RESTORED_NOTICE = new TextEncoder().encode(
 	"\r\n\x1b[90m─── Session Contents Restored ───\x1b[0m\r\n\r\n",
 );
+// A serialized xterm can retain bracketed-paste from the previous shell. When
+// cold restore has to spawn a replacement shell, reset that client-side mode
+// before replaying the new shell's output; any fresh DECSET 2004 emitted by
+// the replacement shell appears later in the replay buffer and wins.
+const SESSION_RESTORED_MODE_RESET = new TextEncoder().encode("\x1b[?2004l");
 // Cap on a single renderer socket's unflushed WebSocket send buffer. With no
 // ACK flow control, a renderer that stops draining (slow paint, pinned main
 // thread, dead tab) would let this buffer grow without bound → host OOM (the
@@ -519,6 +529,34 @@ export function writeInputToSession({
 	return { success: true };
 }
 
+/**
+ * Cross-route fallback for sessions created by a separately bundled router
+ * graph. Ownership is validated by the tRPC caller before reaching here.
+ */
+export async function writeInputToDaemonSession(
+	terminalId: string,
+	data: string,
+): Promise<{ success: true } | { error: string }> {
+	const daemon = await getDaemonClient();
+	const live = (await daemon.list()).some(
+		(session) => session.id === terminalId && session.alive,
+	);
+	if (!live) return { error: "Terminal session not found or not alive" };
+	daemon.input(terminalId, Buffer.from(data, "utf8"));
+	return { success: true };
+}
+
+export async function daemonSessionHasRunningProcess(
+	terminalId: string,
+): Promise<boolean> {
+	const daemon = await getDaemonClient();
+	const live = (await daemon.list()).find(
+		(session) => session.id === terminalId && session.alive,
+	);
+	if (!live) return false;
+	return hasRunningForegroundProcess(live.pid);
+}
+
 function sendMessage(
 	socket: { send: (data: string) => void; readyState: number },
 	message: TerminalServerMessage,
@@ -625,21 +663,36 @@ export function replayBuffer(session: TerminalSession, socket: TerminalSocket) {
 	// sendBytes below no-ops on a non-open socket — bail before clearing the
 	// buffer/notice so the next attach can still replay them.
 	if (socket.readyState !== SOCKET_OPEN) return;
-	// Preamble first, then the restored notice, then FIFO. Mode-setting
+	// Cold-restore reset first, then preamble, restored notice, and FIFO.
+	// Mode-setting
 	// escapes (kitty keyboard, bracketed paste, focus, …) are typically
 	// emitted once at startup and broadcast away rather than buffered, so a
 	// fresh xterm needs them re-asserted on every attach — even when the
 	// FIFO is empty.
 	const preamble = session.modeTracker.buildPreamble();
 	const notice = session.restoredNoticePending ? SESSION_RESTORED_NOTICE : null;
+	const modeReset = notice ? SESSION_RESTORED_MODE_RESET : null;
 	let bufferTotal = 0;
 	for (const b of session.buffer) bufferTotal += b.byteLength;
 	const preambleLen = preamble?.byteLength ?? 0;
 	const noticeLen = notice?.byteLength ?? 0;
-	if (preambleLen === 0 && noticeLen === 0 && bufferTotal === 0) return;
+	const modeResetLen = modeReset?.byteLength ?? 0;
+	if (
+		modeResetLen === 0 &&
+		preambleLen === 0 &&
+		noticeLen === 0 &&
+		bufferTotal === 0
+	)
+		return;
 
-	const combined = new Uint8Array(preambleLen + noticeLen + bufferTotal);
+	const combined = new Uint8Array(
+		modeResetLen + preambleLen + noticeLen + bufferTotal,
+	);
 	let offset = 0;
+	if (modeReset) {
+		combined.set(modeReset, offset);
+		offset += modeReset.byteLength;
+	}
 	if (preamble) {
 		combined.set(preamble, offset);
 		offset += preamble.byteLength;
@@ -1561,6 +1614,14 @@ export function registerWorkspaceTerminalRoute({
 
 					if (message.type === "dispose") {
 						disposeSession(terminalId ?? "", db);
+						return;
+					}
+
+					if (message.type === "clear-scrollback") {
+						session.buffer = [];
+						session.bufferBytes = 0;
+						session.restoredNoticePending = false;
+						session.pty.clearBuffer();
 						return;
 					}
 

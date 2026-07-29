@@ -1,3 +1,5 @@
+import { FEATURE_FLAGS } from "@superset/shared/constants";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useEffect, useRef } from "react";
 import type { MosaicBranch } from "react-mosaic-component";
 import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
@@ -11,6 +13,7 @@ import { useTerminalCallbacksStore } from "renderer/stores/tabs/terminal-callbac
 import type { SplitPaneOptions, Tab } from "renderer/stores/tabs/types";
 import { TabContentContextMenu } from "../TabContentContextMenu";
 import { Terminal } from "../Terminal";
+import { HostServiceTerminalPane } from "../Terminal/HostServiceTerminalPane";
 import { BasePaneWindow, PaneTitle, PaneToolbarActions } from "./components";
 
 interface TabPaneProps {
@@ -62,6 +65,8 @@ export function TabPane({
 	const workspaceRun = useTabsStore((s) => s.panes[paneId]?.workspaceRun);
 	const setPaneName = useTabsStore((s) => s.setPaneName);
 	const setPaneStatus = useTabsStore((s) => s.setPaneStatus);
+	const hostServiceTerminalEnabled =
+		useFeatureFlagEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ?? false;
 	const equalizePaneSplits = useTabsStore((s) => s.equalizePaneSplits);
 
 	const terminalContainerRef = useRef<HTMLDivElement>(null);
@@ -149,7 +154,15 @@ export function TabPane({
 				closeLabel="Close Terminal"
 			>
 				<div ref={terminalContainerRef} className="w-full h-full">
-					<Terminal paneId={paneId} tabId={tabId} workspaceId={workspaceId} />
+					{hostServiceTerminalEnabled ? (
+						<HostServiceTerminalPane
+							paneId={paneId}
+							tabId={tabId}
+							workspaceId={workspaceId}
+						/>
+					) : (
+						<Terminal paneId={paneId} tabId={tabId} workspaceId={workspaceId} />
+					)}
 				</div>
 			</TabContentContextMenu>
 		</BasePaneWindow>

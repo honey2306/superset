@@ -159,6 +159,11 @@ export interface Pane {
 		state: "running" | "stopped-by-user" | "stopped-by-exit";
 		command?: string;
 	};
+	lifecycleScript?: {
+		kind: "setup" | "teardown";
+		state: "running" | "succeeded" | "failed";
+		exitCode?: number;
+	};
 }
 
 export type WorkspaceRunState = NonNullable<Pane["workspaceRun"]>["state"];

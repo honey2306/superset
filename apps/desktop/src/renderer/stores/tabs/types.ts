@@ -151,6 +151,10 @@ export interface TabsStore extends TabsState {
 			command?: string;
 		} | null,
 	) => void;
+	setPaneLifecycleScript: (
+		paneId: string,
+		lifecycleScript: Pane["lifecycleScript"],
+	) => void;
 	setPaneAutoTitle: (paneId: string, title: string) => void;
 	clearWorkspaceAttentionStatus: (workspaceId: string) => void;
 	resetWorkspaceStatus: (workspaceId: string) => void;

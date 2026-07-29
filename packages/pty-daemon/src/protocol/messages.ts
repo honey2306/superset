@@ -64,6 +64,11 @@ export interface ResizeMessage {
 	rows: number;
 }
 
+export interface ClearBufferMessage {
+	type: "clear-buffer";
+	id: string;
+}
+
 export interface CloseMessage {
 	type: "close";
 	id: string;
@@ -154,6 +159,7 @@ export type ClientMessage =
 	| OpenMessage
 	| InputMessage
 	| ResizeMessage
+	| ClearBufferMessage
 	| CloseMessage
 	| ListMessage
 	| SubscribeMessage

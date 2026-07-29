@@ -45,6 +45,9 @@ export interface SubscribeCallbacks {
 interface SessionCallbacks {
 	output: Set<(chunk: Buffer) => void>;
 	exit: Set<(info: ExitInfo) => void>;
+	history: Buffer[];
+	historyBytes: number;
+	lastExit: ExitInfo | null;
 }
 
 export interface DaemonClientOptions {
@@ -65,6 +68,7 @@ const LIST_TIMEOUT_MS = 5_000;
 // await successor adopt-ack, then reply. The Server uses 5s for the ack
 // alone; 15s here covers spawn + ack + reply round-trip with margin.
 const PREPARE_UPGRADE_TIMEOUT_MS = 15_000;
+const LOCAL_REPLAY_BYTES = 64 * 1024;
 
 export class DaemonClient {
 	private readonly opts: DaemonClientOptions;
@@ -186,6 +190,10 @@ export class DaemonClient {
 		this.send({ type: "resize", id, cols, rows });
 	}
 
+	clearBuffer(id: string): void {
+		this.send({ type: "clear-buffer", id });
+	}
+
 	/**
 	 * Subscribe to a session's output + exit stream. Returns an unsubscribe
 	 * function. With `replay: true` the daemon sends its current ring buffer
@@ -200,29 +208,31 @@ export class DaemonClient {
 		let entry = this.callbacks.get(id);
 		const wasFirst = !entry;
 		if (!entry) {
-			entry = { output: new Set(), exit: new Set() };
+			entry = {
+				output: new Set(),
+				exit: new Set(),
+				history: [],
+				historyBytes: 0,
+				lastExit: null,
+			};
 			this.callbacks.set(id, entry);
 		}
 		entry.output.add(cb.onOutput);
 		entry.exit.add(cb.onExit);
 		// Only the first subscribe per session id sends the wire `subscribe`.
 		// Subsequent local callbacks just register into the existing entry.
-		// The daemon's ring buffer is delivered once, on the first subscribe
-		// — so `replay: true` only makes sense on a fresh subscription.
-		// Loud-fail the surprising case where a later subscriber asks for
-		// replay; the caller needs to replay from a server-side cache
-		// instead (see terminal.ts replayBuffer).
-		if (!wasFirst && opts.replay) {
-			throw new Error(
-				`subscribe(${id}): replay is not available on a second subscribe; the daemon's buffer was already consumed.`,
-			);
-		}
 		if (wasFirst) {
 			this.send({
 				type: "subscribe",
 				id,
 				replay: opts.replay,
 			});
+		} else if (opts.replay) {
+			// The daemon emits its ring buffer only once, but desktop bundles can
+			// attach a second local route graph to a router-created session.
+			// Replay the byte-safe client cache instead of failing that attach.
+			for (const chunk of entry.history) cb.onOutput(chunk);
+			if (entry.lastExit) cb.onExit(entry.lastExit);
 		}
 		return () => {
 			const e = this.callbacks.get(id);
@@ -430,7 +440,18 @@ export class DaemonClient {
 						frame.payload.byteOffset,
 						frame.payload.byteLength,
 					);
-					for (const cb of this.callbacks.get(msg.id)?.output ?? []) {
+					const entry = this.callbacks.get(msg.id);
+					if (!entry) continue;
+					entry.history.push(buf);
+					entry.historyBytes += buf.byteLength;
+					while (
+						entry.historyBytes > LOCAL_REPLAY_BYTES &&
+						entry.history.length > 1
+					) {
+						const removed = entry.history.shift();
+						entry.historyBytes -= removed?.byteLength ?? 0;
+					}
+					for (const cb of entry.output) {
 						cb(buf);
 					}
 				}
@@ -438,7 +459,10 @@ export class DaemonClient {
 			}
 			if (msg.type === "exit" && this.callbacks.has(msg.id)) {
 				const info: ExitInfo = { code: msg.code, signal: msg.signal };
-				for (const cb of this.callbacks.get(msg.id)?.exit ?? []) {
+				const entry = this.callbacks.get(msg.id);
+				if (!entry) continue;
+				entry.lastExit = info;
+				for (const cb of entry.exit) {
 					cb(info);
 				}
 				continue;

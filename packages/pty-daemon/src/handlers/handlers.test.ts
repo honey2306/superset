@@ -4,6 +4,7 @@ import type { ServerMessage } from "../protocol/index.ts";
 import { SessionStore } from "../SessionStore/index.ts";
 import type { Conn, HandlerCtx } from "./handlers.ts";
 import {
+	handleClearBuffer,
 	handleClose,
 	handleInput,
 	handleList,
@@ -158,6 +159,24 @@ describe("handlers", () => {
 		).toBeUndefined();
 		expect(states[0]?.cols).toBe(100);
 		expect(states[0]?.rows).toBe(30);
+	});
+
+	test("clear-buffer drops replay bytes without killing the session", () => {
+		const ctx = makeCtx();
+		handleOpen(ctx, {
+			type: "open",
+			id: "s0",
+			meta: { shell: "/bin/sh", argv: [], cols: 80, rows: 24 },
+		});
+		const session = ctx.store.get("s0");
+		if (!session) throw new Error("no session");
+		ctx.store.appendOutput(session, Buffer.from("old output"));
+
+		expect(
+			handleClearBuffer(ctx, { type: "clear-buffer", id: "s0" }),
+		).toBeUndefined();
+		expect(ctx.store.snapshotBuffer(session).byteLength).toBe(0);
+		expect(session.exited).toBe(false);
 	});
 
 	test("close kills and disposes the pty before replying closed", () => {

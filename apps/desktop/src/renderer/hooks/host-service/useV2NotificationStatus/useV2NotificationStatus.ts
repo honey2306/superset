@@ -120,11 +120,24 @@ export function useV2AttentionWorkspaceCount(): number {
 	const [cacheVersion, setCacheVersion] = useState(0);
 
 	useEffect(() => {
-		return queryClient.getQueryCache().subscribe((event) => {
+		let disposed = false;
+		const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
 			if (event.query.queryKey[0] === "terminal-agent-bindings") {
-				setCacheVersion((version) => version + 1);
+				// React Query can publish an observer-added event while a terminal
+				// pane is rendering its useQuery call. Defer the badge refresh so
+				// this subscriber never updates DockBadgeController during another
+				// component's render.
+				queueMicrotask(() => {
+					if (!disposed) {
+						setCacheVersion((version) => version + 1);
+					}
+				});
 			}
 		});
+		return () => {
+			disposed = true;
+			unsubscribe();
+		};
 	}, [queryClient]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: cacheVersion re-reads the query cache

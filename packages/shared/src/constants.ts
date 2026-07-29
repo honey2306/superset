@@ -127,6 +127,23 @@ export const FEATURE_FLAGS = {
 	 * it to reach users who cross the threshold later.
 	 */
 	HIRING_BANNER: "hiring-banner",
+	/**
+	 * Routes v1 terminal panes through the v2-grade host-service/pty-daemon
+	 * byte-safe backend instead of the legacy Electron IPC terminal-host
+	 * path. When enabled, v1 Terminal panes create host-service sessions
+	 * and connect via WebSocket transport, fixing mojibake on split UTF-8
+	 * chunks. See plans/20260724-v1-v2-terminal-fusion.md.
+	 */
+	V1_HOST_SERVICE_TERMINAL: "v1-host-service-terminal",
+	/**
+	 * PoC: render a v1 workspace view's tabs through the v2-grade
+	 * `@superset/panes` engine instead of the v1 mosaic + global tabs store.
+	 * When enabled, the active workspace view mounts a `@superset/panes`
+	 * `<Workspace>` with a minimal terminal-only registry reusing the M0–M5
+	 * neutral terminal layer. Validates that the panes backend can run inside
+	 * the v1 UI shell before committing to a full fusion (option D).
+	 */
+	V2_PANES_IN_V1: "v2-panes-in-v1",
 } as const;
 
 // Terminal identity presented to shell programs via TERM_PROGRAM. kitty:

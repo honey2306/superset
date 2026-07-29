@@ -1,5 +1,8 @@
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { invalidateFileSaveQueries } from "renderer/lib/invalidate-file-save-queries";
+import { confirmCloseTerminals } from "renderer/lib/terminal/confirm-close-terminals";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { getV1HostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/v1-host-terminal-backend";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import type { AddFileViewerPaneOptions } from "renderer/stores/tabs/types";
 import { resolveFileViewerMode } from "renderer/stores/tabs/utils";
@@ -544,6 +547,35 @@ export function requestPaneClose(paneId: string): boolean {
 		return true;
 	}
 
+	if (pane.type === "terminal") {
+		const tab = useTabsStore
+			.getState()
+			.tabs.find((candidate) => candidate.id === pane.tabId);
+		const backend = tab ? getV1HostTerminalBackend(tab.workspaceId) : null;
+		if (backend) {
+			void confirmCloseTerminals(
+				[paneId],
+				async (terminalId) => {
+					const result = await getHostServiceClientByUrl(
+						backend.hostUrl,
+					).terminal.hasRunningProcess.query({
+						terminalId,
+						workspaceId: backend.hostWorkspaceId,
+					});
+					return result.running;
+				},
+				{
+					title: "Close terminal?",
+					description: "A process is still running in this terminal.",
+					confirmLabel: "Close terminal",
+				},
+			).then((confirmed) => {
+				if (confirmed) useTabsStore.getState().removePane(paneId);
+			});
+			return false;
+		}
+	}
+
 	if (pane.type !== "file-viewer") {
 		useTabsStore.getState().removePane(paneId);
 		return true;
@@ -601,19 +633,46 @@ export function requestTabClose(tabId: string): boolean {
 	}
 
 	const dirtyDocs = collectDirtyTabDocuments(tabId);
-	if (dirtyDocs.length === 0) {
-		useTabsStore.getState().removeTab(tabId);
-		return true;
+	if (dirtyDocs.length > 0) {
+		useEditorSessionsStore.getState().setPendingTabClose({
+			workspaceId: tab.workspaceId,
+			tabId,
+			paneIds: dirtyDocs.map((entry) => entry.paneId),
+			documentKeys: dirtyDocs.map((entry) => entry.documentKey),
+			isSaving: false,
+		});
+		return false;
 	}
 
-	useEditorSessionsStore.getState().setPendingTabClose({
-		workspaceId: tab.workspaceId,
-		tabId,
-		paneIds: dirtyDocs.map((entry) => entry.paneId),
-		documentKeys: dirtyDocs.map((entry) => entry.documentKey),
-		isSaving: false,
-	});
-	return false;
+	const terminalIds = Object.values(useTabsStore.getState().panes)
+		.filter((pane) => pane.tabId === tabId && pane.type === "terminal")
+		.map((pane) => pane.id);
+	const backend = getV1HostTerminalBackend(tab.workspaceId);
+	if (backend && terminalIds.length > 0) {
+		void confirmCloseTerminals(
+			terminalIds,
+			async (terminalId) => {
+				const result = await getHostServiceClientByUrl(
+					backend.hostUrl,
+				).terminal.hasRunningProcess.query({
+					terminalId,
+					workspaceId: backend.hostWorkspaceId,
+				});
+				return result.running;
+			},
+			{
+				title: "Close tab?",
+				description: "One or more terminal processes are still running.",
+				confirmLabel: "Close tab",
+			},
+		).then((confirmed) => {
+			if (confirmed) useTabsStore.getState().removeTab(tabId);
+		});
+		return false;
+	}
+
+	useTabsStore.getState().removeTab(tabId);
+	return true;
 }
 
 export function cancelPendingIntent(paneId: string): void {
