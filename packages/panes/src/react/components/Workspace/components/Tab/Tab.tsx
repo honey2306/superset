@@ -157,6 +157,7 @@ function LayoutNodeView<TData>({
 
 		return (
 			<Pane
+				key={pane.id}
 				store={store}
 				tab={tab}
 				pane={pane}
