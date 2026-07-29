@@ -89,28 +89,32 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 		[localWorkspaceState, workspaceId],
 	);
 
-	// The syncer owns the replaceState/subscribe contract + echo guard.
-	// Keep a ref so the effects close over a stable instance per store. The
-	// read source is also held in a ref so the syncer can stay a singleton
-	// across renders (keeping its subscribe listener attached) while still
-	// reading the latest persisted layout on each hydrate.
+	// The syncer owns the replaceState/subscribe contract + echo guard. A route
+	// switch replaces `store`, so the ref must be scoped to its workspace rather
+	// than retained for the component's entire lifetime.
 	const persistedRef = useRef<WorkspaceState<V1PanesPaneData>>(EMPTY_STATE);
 	persistedRef.current = persistedPaneLayout;
-	const syncerRef = useRef<PaneLayoutSyncer | null>(null);
-	if (syncerRef.current === null) {
-		syncerRef.current = createPaneLayoutSyncer<V1PanesPaneData>({
-			store,
-			readPersisted: () => persistedRef.current,
-			writePersisted: (next) => {
-				if (!collections.v2WorkspaceLocalState.get(workspaceId)) return;
-				collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
-					draft.paneLayout = next;
-				});
-			},
-			emptyState: EMPTY_STATE,
-		});
+	const syncerRef = useRef<{
+		workspaceId: string;
+		syncer: PaneLayoutSyncer;
+	} | null>(null);
+	if (syncerRef.current?.workspaceId !== workspaceId) {
+		syncerRef.current = {
+			workspaceId,
+			syncer: createPaneLayoutSyncer<V1PanesPaneData>({
+				store,
+				readPersisted: () => persistedRef.current,
+				writePersisted: (next) => {
+					if (!collections.v2WorkspaceLocalState.get(workspaceId)) return;
+					collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
+						draft.paneLayout = next;
+					});
+				},
+				emptyState: EMPTY_STATE,
+			}),
+		};
 	}
-	const syncer = syncerRef.current;
+	const syncer = syncerRef.current.syncer;
 
 	// The live query is cache-first and can deliver the row after this hook
 	// mounts. Re-hydrate for every layout snapshot; otherwise the initial

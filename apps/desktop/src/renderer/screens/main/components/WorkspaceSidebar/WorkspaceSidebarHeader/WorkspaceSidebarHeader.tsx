@@ -1,7 +1,7 @@
 import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
-import { useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { LuClock3, LuWorkflow } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
@@ -19,13 +19,18 @@ export function WorkspaceSidebarHeader({
 	isCollapsed = false,
 }: WorkspaceSidebarHeaderProps) {
 	const { t } = useTranslation();
+	const { workspaceId } = useParams({ strict: false });
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
 	const utils = electronTrpc.useUtils();
 	const { activeHostUrl, activeOrganizationId } = useLocalHostService();
 	const ensureTemporaryWorkspace =
 		electronTrpc.projects.ensureTemporaryWorkspace.useMutation();
+	const { data: temporaryWorkspace } =
+		electronTrpc.projects.getTemporaryWorkspace.useQuery();
 	const isAutomationsOpen = !!matchRoute({ to: "/automations", fuzzy: true });
+	const isTemporaryWorkspaceOpen =
+		workspaceId === temporaryWorkspace?.workspaceId;
 
 	const handleAutomationsClick = () => {
 		navigate({ to: "/automations" });
@@ -80,7 +85,7 @@ export function WorkspaceSidebarHeader({
 				<Tooltip delayDuration={300}>
 					<TooltipTrigger asChild>
 						<button
-							className={itemClassName()}
+							className={itemClassName(isTemporaryWorkspaceOpen)}
 							disabled={ensureTemporaryWorkspace.isPending}
 							onClick={() => void handleTemporaryWorkspaceClick()}
 							type="button"
@@ -111,7 +116,7 @@ export function WorkspaceSidebarHeader({
 				</span>
 			</button>
 			<button
-				className={itemClassName()}
+				className={itemClassName(isTemporaryWorkspaceOpen)}
 				disabled={ensureTemporaryWorkspace.isPending}
 				onClick={() => void handleTemporaryWorkspaceClick()}
 				type="button"

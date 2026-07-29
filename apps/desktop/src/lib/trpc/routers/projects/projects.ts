@@ -1171,6 +1171,18 @@ export const createProjectsRouter = (getWindow: () => BrowserWindow | null) => {
 				};
 			}),
 
+		getTemporaryWorkspace: publicProcedure.query(() => {
+			const project = localDb
+				.select()
+				.from(projects)
+				.where(eq(projects.mainRepoPath, TEMPORARY_WORKSPACE_PATH))
+				.get();
+			if (!project) return null;
+
+			const workspace = getBranchWorkspace(project.id);
+			return workspace ? { workspaceId: workspace.id } : null;
+		}),
+
 		ensureTemporaryWorkspace: publicProcedure.mutation(async () => {
 			await mkdir(TEMPORARY_WORKSPACE_PATH, { recursive: true });
 
