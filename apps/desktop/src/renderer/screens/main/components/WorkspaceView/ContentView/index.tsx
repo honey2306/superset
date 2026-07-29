@@ -1,7 +1,5 @@
 import type { ExternalApp } from "@superset/local-db";
-import { FEATURE_FLAGS } from "@superset/shared/constants";
 import { useParams } from "@tanstack/react-router";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useSidebarStore } from "renderer/stores/sidebar-state";
 import { SidebarControl } from "../../SidebarControl";
@@ -26,8 +24,6 @@ export function ContentView({
 	const isSidebarOpen = useSidebarStore((s) => s.isSidebarOpen);
 	const { showPresetsBar, toggleShowPresetsBar } = useShowPresetsBar();
 	const { workspaceId } = useParams({ strict: false });
-	const panesInV1Enabled =
-		useFeatureFlagEnabled(FEATURE_FLAGS.V2_PANES_IN_V1) ?? false;
 
 	electronTrpc.menu.subscribe.useSubscription(undefined, {
 		onData: (event) => {
@@ -37,10 +33,7 @@ export function ContentView({
 		},
 	});
 
-	// When the panes engine owns the view, it renders its own tab bar and
-	// pane area. The v1 GroupStrip + PresetsBar + TabsContent shell (which
-	// would otherwise double-render a tab bar) is replaced wholesale.
-	if (panesInV1Enabled && workspaceId) {
+	if (workspaceId) {
 		return <V1PanesWorkspace workspaceId={workspaceId} />;
 	}
 

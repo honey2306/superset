@@ -114,7 +114,7 @@ function AuthenticatedLayout() {
 				localStorage.setItem("lastViewedWorkspaceId", event.data.workspaceId);
 				const source = event.data.source;
 				void navigate({
-					to: "/v2-workspace/$workspaceId",
+					to: "/workspace/$workspaceId",
 					params: { workspaceId: event.data.workspaceId },
 					search:
 						source.type === "terminal"

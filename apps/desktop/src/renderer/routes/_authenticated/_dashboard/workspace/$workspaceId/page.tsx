@@ -1,7 +1,5 @@
 import type { ExternalApp } from "@superset/local-db";
-import { FEATURE_FLAGS } from "@superset/shared/constants";
 import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { useFileOpenMode } from "renderer/hooks/useFileOpenMode";
@@ -106,9 +104,7 @@ export const Route = createFileRoute(
 
 function WorkspacePage() {
 	const { workspaceId } = Route.useParams();
-	const panesInV1Enabled =
-		useFeatureFlagEnabled(FEATURE_FLAGS.V2_PANES_IN_V1) ?? false;
-	const legacyHotkeyOptions = { enabled: !panesInV1Enabled };
+	const legacyHotkeyOptions = { enabled: false };
 	const { data: workspace } = electronTrpc.workspaces.get.useQuery({
 		id: workspaceId,
 	});
@@ -252,7 +248,7 @@ function WorkspacePage() {
 		() => addBrowserTab(workspaceId),
 		legacyHotkeyOptions,
 	);
-	usePresetHotkeys(openTabWithPreset, !panesInV1Enabled);
+	usePresetHotkeys(openTabWithPreset, false);
 
 	useHotkey(
 		"RUN_WORKSPACE_COMMAND",
