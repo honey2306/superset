@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
 import {
 	projects,
 	settings,
@@ -22,6 +24,8 @@ import { computeVisualOrder } from "../utils/visual-order";
 import { getWorkspacePath } from "../utils/worktree";
 
 type WorktreePathMap = Map<string, string>;
+
+const TEMPORARY_WORKSPACE_PATH = join(homedir(), "Superset", "temporary");
 
 function getTerminalPresetsForWorkspaceRun() {
 	const row = localDb.select().from(settings).get();
@@ -194,11 +198,14 @@ export const createQueryProcedures = () => {
 				tabOrder: number;
 			};
 
+			// The temporary workspace is opened exclusively from the sidebar's
+			// dedicated entry, not mixed into the user's project list.
 			const activeProjects = localDb
 				.select()
 				.from(projects)
 				.where(isNotNull(projects.tabOrder))
-				.all();
+				.all()
+				.filter((project) => project.mainRepoPath !== TEMPORARY_WORKSPACE_PATH);
 
 			const allWorktrees = localDb.select().from(worktrees).all();
 			const worktreePathMap: WorktreePathMap = new Map(

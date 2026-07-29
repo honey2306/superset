@@ -6,6 +6,7 @@ import { LuClock3, LuWorkflow } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { runV1Migration } from "renderer/lib/v1-migration";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { STROKE_WIDTH } from "../constants";
 
@@ -17,6 +18,7 @@ interface WorkspaceSidebarHeaderProps {
 export function WorkspaceSidebarHeader({
 	isCollapsed = false,
 }: WorkspaceSidebarHeaderProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
 	const utils = electronTrpc.useUtils();
@@ -71,7 +73,9 @@ export function WorkspaceSidebarHeader({
 							<LuWorkflow className="size-4" strokeWidth={STROKE_WIDTH} />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="right">Automations</TooltipContent>
+					<TooltipContent side="right">
+						{t("workspace.automations")}
+					</TooltipContent>
 				</Tooltip>
 				<Tooltip delayDuration={300}>
 					<TooltipTrigger asChild>
@@ -84,7 +88,9 @@ export function WorkspaceSidebarHeader({
 							<LuClock3 className="size-4" strokeWidth={STROKE_WIDTH} />
 						</button>
 					</TooltipTrigger>
-					<TooltipContent side="right">Temporary workspace</TooltipContent>
+					<TooltipContent side="right">
+						{t("workspace.temporaryWorkspace")}
+					</TooltipContent>
 				</Tooltip>
 			</div>
 		);
@@ -101,7 +107,7 @@ export function WorkspaceSidebarHeader({
 					<LuWorkflow className="size-4" strokeWidth={STROKE_WIDTH} />
 				</div>
 				<span className="flex-1 text-left text-sm font-medium">
-					Automations
+					{t("workspace.automations")}
 				</span>
 			</button>
 			<button
@@ -114,7 +120,7 @@ export function WorkspaceSidebarHeader({
 					<LuClock3 className="size-4" strokeWidth={STROKE_WIDTH} />
 				</div>
 				<span className="flex-1 text-left text-sm font-medium">
-					Temporary workspace
+					{t("workspace.temporaryWorkspace")}
 				</span>
 			</button>
 		</div>
