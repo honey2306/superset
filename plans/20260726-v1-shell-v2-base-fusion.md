@@ -1026,3 +1026,61 @@ convergence**; doing it standalone would route v2 users into
 - Phase 3 route deletion → blocked on 2b/2c
 
 Date/Author: 2026-07-29 / Codex
+
+---
+
+## Cutover complete (2026-07-30)
+
+The v1/v2 fork is collapsed. v1-shell + panes engine is the sole product
+surface. Shipped across three commits on `codex/v1-v2-terminal-fusion-plan`:
+
+1. `feat(desktop): fuse v2 terminal/panes into v1 shell, remove chat` (521a4d6ae)
+   — M0–M5 terminal backend fusion, M1 v1 shell + v2 panes base, phase 0/1/2a,
+   chat removal, 4 shared symbols → neutral, deep-link consumption.
+2. `refactor(desktop): force v1-shell + panes as sole surface (flag/cohort off)`
+   (c1a581399) — `V2_PANES_IN_V1` flag removed from `ContentView` (always
+   `V1PanesWorkspace`), `useIsV2CloudEnabled` → always false, legacy hotkey
+   options hardcoded off, FOCUS_V2 nav redirect → `/workspace/$id`.
+3. `refactor(desktop): remove v2-workspace route tree + v2 sidebar/dashboard
+   surface` — deleted the entire `v2-workspace/` route tree (369 files),
+   `v2-workspaces/` list page, `DashboardSidebar/` component tree,
+   `CrossVersionMismatchState`, `useDevSeedV2Sidebar`,
+   `DeleteWorkspaceMount`/`RemoveFromSidebarMount` + intent stores,
+   `OpenInWorkspaceV2`, `navigateToV2Workspace`/`V2WorkspaceSearchParams`.
+   Folded v2 forks in `_dashboard/layout.tsx`, `TopBar.tsx`,
+   `ResourceConsumption`, `ContextProvider`, `WorkspaceListFrame`,
+   `RecentlyViewedFrame`, `PropertiesSidebar`, `PreviousRunsList`,
+   `onboarding/project`, `useSubmitWorkspace`/`useBranchPickerController`.
+
+### State
+- ① `V2_PANES_IN_V1` flag: gone (ContentView always renders V1PanesWorkspace;
+  only stale comments + the `legacyHotkeyOptions = { enabled: false }` const
+  remain).
+- ② `useIsV2CloudEnabled`: always `false`; 21 consumer sites take the v1 branch.
+- ③④ v2-workspace route tree + v2 sidebar/dashboard surface: deleted.
+- ⑤ `runV1Migration` adopt registration: kept (terminal backend hard-depends
+  on `resolveHostWorkspaceId` → host.db workspace row). The flip/gate plumbing
+  is already gone — `useRunV1MigrationOnBoot` only registers, never flips.
+  `migrateSettings`/`migratePresets`/`migrateTerminals` stages remain
+  idempotent-and-no-op-ish (preset/terminal targets are never supplied on boot);
+  deep removal is deferred (low value, model differences).
+- ⑥ nav `/v2-workspace/$id`: gone with the route + the `navigateToV2Workspace`
+  helper.
+
+### Deferred (final cleanup, not blocking)
+- 21 `useIsV2CloudEnabled` fork sites in settings pages still carry dead v2
+  branches (run-time harmless: hook is always false). Folding them requires
+  per-file v1/v2 settings-model reconciliation (host.db settings vs electron
+  settings row), deferred.
+- `runV1Migration` `migrateSettings`/`migratePresets`/`migrateTerminals` +
+  `presets.ts`/`terminals.ts`/`settings.ts` modules: idempotent, not gating
+  anything, deferred.
+- PostHog `V2_PANES_IN_V1` flag registration/override plumbing in `posthog.ts`:
+  generic dev tool, only a stale comment references the flag.
+
+### Verification
+- typecheck 35/35, lint clean.
+- tests: 4168 pass / 132 fail / 20 errors — failures are host-service / PTY
+  / relay / git / font / shell-wrapper environment tests, pre-existing in the
+  worktree; no new failures introduced by the cutover.
+- CDP UI verification pending (user).
