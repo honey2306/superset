@@ -56,6 +56,14 @@ export function Workspace<TData>({
 	}, [draggedTabId, activeTabId, tabs, activeTab]);
 
 	const previousPanesRef = useRef<Map<string, Pane<TData>>>(new Map());
+	const previousStoreRef = useRef(store);
+	// A workspace switch supplies a different store. Its panes did not close;
+	// they merely belong to the previous workspace and must not run
+	// `onAfterClose` (which can kill an otherwise live terminal session).
+	if (previousStoreRef.current !== store) {
+		previousStoreRef.current = store;
+		previousPanesRef.current = new Map();
+	}
 	useEffect(() => {
 		const current = new Map<string, Pane<TData>>();
 		for (const tab of tabs) {

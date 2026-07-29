@@ -364,6 +364,7 @@ export function HostServiceTerminalPane({
 		return () => {
 			cancelled = true;
 			if (
+				!forceHostService &&
 				!isCurrentPaneDestroyed() &&
 				posthog.isFeatureEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ===
 					false
@@ -386,6 +387,7 @@ export function HostServiceTerminalPane({
 		clearPaneInitialData,
 		isCurrentPaneDestroyed,
 		t,
+		forceHostService,
 	]);
 
 	// Reconnect when the host URL/token source changes. A visual theme change
