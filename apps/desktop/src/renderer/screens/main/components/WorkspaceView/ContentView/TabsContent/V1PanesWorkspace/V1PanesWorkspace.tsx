@@ -65,6 +65,7 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 				registry={registry}
 				paneActions={paneActions}
 				contextMenuActions={contextMenuActions}
+				onAddTab={openers.addTerminalTab}
 				renderBelowTabBar={() => (
 					<V1PanesPresetBar
 						openers={openers}

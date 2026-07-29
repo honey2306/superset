@@ -105,6 +105,8 @@ export interface WorkspaceProps<TData> {
 	renderTabIcon?: (tab: Tab<TData>) => ReactNode;
 	renderEmptyState?: () => ReactNode;
 	renderAddTabMenu?: () => ReactNode;
+	/** Invoked when the tab-bar add button is clicked without a custom menu. */
+	onAddTab?: () => void;
 	/** Rendered at the trailing (right) edge of the tab bar row. */
 	renderTabBarTrailing?: () => ReactNode;
 	renderBelowTabBar?: () => ReactNode;
