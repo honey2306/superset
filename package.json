@@ -20,7 +20,7 @@
 	"packageManager": "bun@1.3.14",
 	"private": true,
 	"scripts": {
-		"dev": "turbo run dev --filter=@superset/desktop",
+		"dev": "turbo run dev --filter=@superset/api --filter=@superset/desktop",
 		"dev:all": "turbo dev --concurrency=15",
 		"dev:desktop": "turbo run dev --filter=@superset/desktop",
 		"build": "turbo build --filter=@superset/desktop",
