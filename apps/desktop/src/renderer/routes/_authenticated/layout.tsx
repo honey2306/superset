@@ -40,7 +40,6 @@ import { MOCK_ORG_ID, NOTIFICATION_EVENTS } from "shared/constants";
 import { AgentHooks } from "./components/AgentHooks";
 import { DockBadgeController } from "./components/DockBadgeController";
 import { FileMenuListener } from "./components/FileMenuListener";
-import { GlobalBrowserLifecycle } from "./components/GlobalBrowserLifecycle";
 import { TeardownLogsDialog } from "./components/TeardownLogsDialog";
 import { V2NotificationController } from "./components/V2NotificationController";
 import { createPierreWorker } from "./lib/pierreWorker";
@@ -303,7 +302,7 @@ function AuthenticatedLayout() {
 	return (
 		<DndProvider manager={dragDropManager}>
 			<CollectionsProvider>
-				<GlobalBrowserLifecycle />
+				{/* GlobalBrowserLifecycle removed with internal browser feature */}
 				<LocalHostServiceProvider>
 					<HostWorkspacesProvider>
 						<DeletingWorkspacesProvider>

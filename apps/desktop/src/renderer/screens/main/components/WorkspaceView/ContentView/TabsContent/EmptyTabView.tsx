@@ -4,14 +4,12 @@ import { useCallback, useMemo } from "react";
 import type { IconType } from "react-icons";
 import { BsTerminalPlus } from "react-icons/bs";
 import { LuExternalLink, LuSearch, LuTrash2 } from "react-icons/lu";
-import { TbWorld } from "react-icons/tb";
 import { getAppOption } from "renderer/components/OpenInExternalDropdown";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { DeleteWorkspaceDialog } from "renderer/screens/main/components/WorkspaceSidebar/WorkspaceListItem/components/DeleteWorkspaceDialog/DeleteWorkspaceDialog";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTabsWithPresets } from "renderer/stores/tabs/useTabsWithPresets";
 import { useTheme } from "renderer/stores/theme";
 import supersetEmptyStateWordmark from "./assets/superset-empty-state-wordmark.svg";
@@ -39,7 +37,6 @@ export function EmptyTabView({
 	const { workspaceId } = useParams({
 		from: "/_authenticated/_dashboard/workspace/$workspaceId/",
 	});
-	const addBrowserTab = useTabsStore((s) => s.addBrowserTab);
 	const activeTheme = useTheme();
 	const { t } = useTranslation();
 
@@ -52,17 +49,12 @@ export function EmptyTabView({
 
 	const { keys: newGroupDisplay } = useHotkeyDisplay("NEW_GROUP");
 	const { keys: quickOpenDisplay } = useHotkeyDisplay("QUICK_OPEN");
-	const { keys: newBrowserDisplay } = useHotkeyDisplay("NEW_BROWSER");
 	const { keys: openInAppDisplay } = useHotkeyDisplay("OPEN_IN_APP");
 	const resolvedExternalApp: ExternalApp = defaultExternalApp ?? "cursor";
 
 	const handleShowTerminal = useCallback(() => {
 		addTab(workspaceId);
 	}, [addTab, workspaceId]);
-
-	const handleOpenBrowser = useCallback(() => {
-		addBrowserTab(workspaceId);
-	}, [addBrowserTab, workspaceId]);
 
 	const openInActionLabel = useMemo(() => {
 		const appOption = getAppOption(resolvedExternalApp);
@@ -81,13 +73,7 @@ export function EmptyTabView({
 			},
 		];
 
-		baseActions.push({
-			id: "open-browser",
-			label: t("workspace.openBrowser"),
-			display: newBrowserDisplay,
-			icon: TbWorld,
-			onClick: handleOpenBrowser,
-		});
+		// Browser action removed
 
 		if (openInActionLabel) {
 			baseActions.push({
@@ -109,16 +95,14 @@ export function EmptyTabView({
 
 		return baseActions;
 	}, [
-		handleOpenBrowser,
-		handleShowTerminal,
-		newBrowserDisplay,
-		newGroupDisplay,
 		openInActionLabel,
 		onOpenInApp,
 		onOpenQuickOpen,
 		openInAppDisplay,
 		quickOpenDisplay,
 		t,
+		handleShowTerminal,
+		newGroupDisplay,
 	]);
 
 	return (

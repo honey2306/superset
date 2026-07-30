@@ -5,7 +5,6 @@ import { LuExternalLink, LuLoaderCircle, LuX } from "react-icons/lu";
 import { useV2UserPreferences } from "renderer/hooks/useV2UserPreferences";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import { STROKE_WIDTH } from "../../../constants";
 import { useKillPort } from "../../hooks/useKillPort";
 import type { V1WorkspacePort } from "../../hooks/usePortsData";
@@ -16,8 +15,6 @@ interface MergedPortBadgeProps {
 
 export function MergedPortBadge({ port }: MergedPortBadgeProps) {
 	const navigate = useNavigate();
-	const openInBrowserPane = useTabsStore((s) => s.openInBrowserPane);
-	const addBrowserTab = useTabsStore((s) => s.addBrowserTab);
 	const { preferences } = useV2UserPreferences();
 	const openUrl = electronTrpc.external.openUrl.useMutation();
 	const { isPending, killPort } = useKillPort();
@@ -29,18 +26,7 @@ export function MergedPortBadge({ port }: MergedPortBadgeProps) {
 	const handleOpenInBrowser = () => {
 		if (openUrl.isPending) return;
 		const url = `http://localhost:${port.port}`;
-
-		if (preferences.portOpenAction === "pane") {
-			navigateToWorkspace(port.workspaceId, navigate);
-			openInBrowserPane(port.workspaceId, url);
-			return;
-		}
-		if (preferences.portOpenAction === "newTab") {
-			navigateToWorkspace(port.workspaceId, navigate);
-			addBrowserTab(port.workspaceId, url);
-			return;
-		}
-
+		// Internal browser removed - always open externally
 		openUrl.mutate(url);
 	};
 

@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useMemo } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTheme } from "renderer/stores";
 import { useTabsStore } from "renderer/stores/tabs/store";
@@ -50,19 +49,13 @@ export function MessagePartsRenderer({
 }: MessagePartsRendererProps): React.ReactNode[] {
 	const { t } = useTranslation();
 	const theme = useTheme();
-	const { data: openLinksInApp } =
-		electronTrpc.settings.getOpenLinksInApp.useQuery();
-	const openInBrowserPane = useTabsStore((s) => s.openInBrowserPane);
 	const addFileViewerPane = useTabsStore((store) => store.addFileViewerPane);
 
-	const handleLinkClick = useCallback(
-		(e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-			if (openLinksInApp && workspaceId) {
-				e.preventDefault();
-				openInBrowserPane(workspaceId, href);
-			}
+	const _handleLinkClick = useCallback(
+		(_e: React.MouseEvent<HTMLAnchorElement>, _href: string) => {
+			// Internal browser removed - links always open externally
 		},
-		[openLinksInApp, workspaceId, openInBrowserPane],
+		[],
 	);
 	const openFileInPane = useCallback(
 		(filePath: string) => {
@@ -78,25 +71,9 @@ export function MessagePartsRenderer({
 	);
 
 	const components = useMemo(() => {
-		if (!openLinksInApp || !workspaceId) return undefined;
-		return {
-			a: ({
-				href,
-				children,
-				...props
-			}: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-				<a
-					{...props}
-					href={href}
-					onClick={(e) => {
-						if (href) handleLinkClick(e, href);
-					}}
-				>
-					{children}
-				</a>
-			),
-		};
-	}, [openLinksInApp, workspaceId, handleLinkClick]);
+		// Internal browser removed - no custom link handling
+		return undefined;
+	}, []);
 	const mermaidConfig = useMemo(
 		() => ({
 			config: {

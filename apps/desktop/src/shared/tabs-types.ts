@@ -8,12 +8,7 @@ import type { ChangeCategory } from "./changes-types";
 /**
  * Pane types that can be displayed within a tab
  */
-export type PaneType =
-	| "terminal"
-	| "webview"
-	| "file-viewer"
-	| "devtools"
-	| "comment";
+export type PaneType = "terminal" | "file-viewer" | "comment";
 
 /**
  * Pane status for agent lifecycle indicators
@@ -149,8 +144,6 @@ export interface Pane {
 	cwd?: string | null; // Current working directory
 	cwdConfirmed?: boolean; // True if cwd confirmed via OSC-7, false if seeded
 	fileViewer?: FileViewerState; // For file-viewer panes
-	browser?: BrowserPaneState; // For browser (webview) panes
-	devtools?: DevToolsPaneState; // For devtools panes
 	comment?: CommentPaneState; // For comment panes
 	workspaceRun?: {
 		workspaceId: string;
@@ -165,51 +158,6 @@ export interface Pane {
 }
 
 export type WorkspaceRunState = NonNullable<Pane["workspaceRun"]>["state"];
-
-/**
- * Single entry in the browser pane's navigation history
- */
-export interface BrowserHistoryEntry {
-	url: string;
-	title: string;
-	timestamp: number;
-	faviconUrl?: string;
-}
-
-/**
- * Named viewport size preset for responsive testing
- */
-export interface ViewportPreset {
-	name: string;
-	width: number;
-	height: number;
-}
-
-/**
- * Browser pane-specific properties
- */
-export interface BrowserLoadError {
-	code: number;
-	description: string;
-	url: string;
-}
-
-export interface BrowserPaneState {
-	currentUrl: string;
-	history: BrowserHistoryEntry[];
-	historyIndex: number;
-	isLoading: boolean;
-	error?: BrowserLoadError | null;
-	viewport?: ViewportPreset | null;
-}
-
-/**
- * DevTools pane-specific properties
- */
-export interface DevToolsPaneState {
-	/** The pane ID of the browser pane being inspected */
-	targetPaneId: string;
-}
 
 /**
  * Comment pane-specific properties (PR review / conversation comment viewer)

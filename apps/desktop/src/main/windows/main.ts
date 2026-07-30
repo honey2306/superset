@@ -16,7 +16,6 @@ import type { AgentLifecycleEvent } from "shared/notification-types";
 import { createIPCHandler } from "trpc-electron/main";
 import { productName } from "~/package.json";
 import { appState } from "../lib/app-state";
-import { browserManager } from "../lib/browser/browser-manager";
 import { attachEditContextMenu } from "../lib/edit-context-menu";
 import { createApplicationMenu } from "../lib/menu";
 import { playNotificationSound } from "../lib/notification-sound";
@@ -361,7 +360,7 @@ export async function MainWindow() {
 		});
 		persistedZoomLevel = zoomLevel;
 
-		browserManager.unregisterAll();
+		// browserManager removed with internal browser feature
 		server.close();
 		notificationManager.dispose();
 		notificationsEmitter.removeAllListeners();

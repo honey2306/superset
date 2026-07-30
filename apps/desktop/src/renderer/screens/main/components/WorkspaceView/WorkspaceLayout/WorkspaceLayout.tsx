@@ -9,7 +9,6 @@ import {
 import { ResizablePanel } from "../../ResizablePanel";
 import { ChangesContent, ScrollProvider } from "../ChangesContent";
 import { ContentView } from "../ContentView";
-import { useBrowserLifecycle } from "../hooks/useBrowserLifecycle";
 import { RightSidebar } from "../RightSidebar";
 
 interface WorkspaceLayoutProps {
@@ -23,7 +22,7 @@ export function WorkspaceLayout({
 	onOpenInApp,
 	onOpenQuickOpen,
 }: WorkspaceLayoutProps) {
-	useBrowserLifecycle();
+	// useBrowserLifecycle removed with internal browser feature
 	const isSidebarOpen = useSidebarStore((s) => s.isSidebarOpen);
 	const sidebarWidth = useSidebarStore((s) => s.sidebarWidth);
 	const setSidebarWidth = useSidebarStore((s) => s.setSidebarWidth);

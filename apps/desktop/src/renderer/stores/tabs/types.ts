@@ -3,13 +3,11 @@ import type { ChangeCategory, FileStatus } from "shared/changes-types";
 import type {
 	BaseTab,
 	BaseTabsState,
-	BrowserLoadError,
 	CommentPaneState,
 	FileViewerMode,
 	Pane,
 	PaneStatus,
 	PaneType,
-	ViewportPreset,
 } from "shared/tabs-types";
 
 // Re-export shared types
@@ -208,30 +206,7 @@ export interface TabsStore extends TabsState {
 		comment: CommentPaneData,
 	) => { tabId: string; paneId: string };
 
-	// Browser operations
-	addBrowserTab: (
-		workspaceId: string,
-		url?: string,
-	) => { tabId: string; paneId: string };
-	openInBrowserPane: (workspaceId: string, url: string) => void;
-	updateBrowserUrl: (
-		paneId: string,
-		url: string,
-		title: string,
-		faviconUrl?: string,
-	) => void;
-	navigateBrowserHistory: (
-		paneId: string,
-		direction: "back" | "forward",
-	) => string | null;
-	updateBrowserLoading: (paneId: string, isLoading: boolean) => void;
-	setBrowserError: (paneId: string, error: BrowserLoadError | null) => void;
-	setBrowserViewport: (paneId: string, viewport: ViewportPreset | null) => void;
-	openDevToolsPane: (
-		tabId: string,
-		browserPaneId: string,
-		path?: MosaicBranch[],
-	) => string | null;
+	// Browser operations removed for single-user setup
 
 	// Reopen operations
 	/** Reopen the last closed tab for a workspace. Returns true if a tab was reopened. */

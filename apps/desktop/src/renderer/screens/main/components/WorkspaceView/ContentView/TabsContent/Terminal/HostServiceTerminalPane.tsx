@@ -123,8 +123,6 @@ export function HostServiceTerminalPane({
 		(state) => state.focusedPaneIds[tabId],
 	);
 	const addFileViewerPane = useTabsStore((state) => state.addFileViewerPane);
-	const openInBrowserPane = useTabsStore((state) => state.openInBrowserPane);
-	const addBrowserTab = useTabsStore((state) => state.addBrowserTab);
 	const paneBridgeRef = useRef(paneBridge);
 	paneBridgeRef.current = paneBridge;
 	const paneSnapshot = paneBridge?.getSnapshot() ?? legacyPane ?? null;
@@ -612,13 +610,8 @@ export function HostServiceTerminalPane({
 					const action = urlPolicy.getAction(event);
 					if (!action) return;
 					event.preventDefault();
-					if (action === "external") {
-						void electronTrpcClient.external.openUrl.mutate(url);
-					} else if (action === "newTab") {
-						addBrowserTab(workspaceId, url);
-					} else {
-						openInBrowserPane(workspaceId, url);
-					}
+					// Internal browser removed - always open externally
+					void electronTrpcClient.external.openUrl.mutate(url);
 				},
 			},
 			instanceId,
@@ -634,8 +627,6 @@ export function HostServiceTerminalPane({
 		workspaceId,
 		workspaceData?.projectId,
 		addFileViewerPane,
-		addBrowserTab,
-		openInBrowserPane,
 	]);
 
 	if (status === "starting") {

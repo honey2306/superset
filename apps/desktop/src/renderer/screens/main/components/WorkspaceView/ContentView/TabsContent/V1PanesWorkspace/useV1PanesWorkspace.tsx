@@ -4,7 +4,7 @@ import type {
 	PaneRegistry,
 	RendererContext,
 } from "@superset/panes";
-import { FileText, Globe, MessageSquare, TerminalSquare } from "lucide-react";
+import { FileText, MessageSquare, TerminalSquare } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import {
 	LuArrowDownToLine,
@@ -25,12 +25,7 @@ import { killTerminalForPane } from "renderer/stores/tabs/utils/terminal-cleanup
 import { isImageFile, isMarkdownFile } from "shared/file-types";
 import type { FileViewerMode } from "shared/tabs-types";
 import { buildV1PanesLifecycleRegistry } from "./buildV1PanesLifecycleRegistry";
-import {
-	commentPaneTitle,
-	devtoolsPaneTitle,
-	type NonTerminalPaneTitles,
-	webviewPaneTitle,
-} from "./buildV1PanesNonTerminalRegistry";
+import { commentPaneTitle } from "./buildV1PanesNonTerminalRegistry";
 import { buildV1TerminalContextMenu } from "./buildV1TerminalContextMenu";
 import { createV1PanesTerminalPaneBridge } from "./createV1PanesTerminalPaneBridge";
 import { FileViewerPaneHeaderExtras } from "./FileViewerPaneHeaderExtras";
@@ -43,21 +38,8 @@ import {
 import { useV1PanesPresetOpeners } from "./useV1PanesPresetOpeners";
 import { useV1PanesWorkspacePaneLayout } from "./useV1PanesWorkspacePaneLayout";
 import { useV1TerminalLauncher } from "./useV1TerminalLauncher";
-import { V1PanesBrowserContent } from "./V1PanesBrowserContent";
 import { V1PanesCommentContent } from "./V1PanesCommentContent";
-import { V1PanesDevToolsContent } from "./V1PanesDevToolsContent";
 import { V1PanesFileViewerContent } from "./V1PanesFileViewerContent";
-
-export function createBrowserState(
-	url = "about:blank",
-): NonNullable<V1PanesPaneData["browser"]> {
-	return {
-		currentUrl: url,
-		history: [{ url, title: "", timestamp: Date.now() }],
-		historyIndex: 0,
-		isLoading: false,
-	};
-}
 
 const MOD_KEY = navigator.platform.toLowerCase().includes("mac")
 	? "⌘"
@@ -163,10 +145,7 @@ function useV1PanesRegistry(
 	);
 
 	return useMemo<PaneRegistry<V1PanesPaneData>>(() => {
-		const nonTerminalLabels: NonTerminalPaneTitles = {
-			devtools: t("v2Workspace.paneRegistry.titleDevTools"),
-			browser: t("v2Workspace.paneRegistry.titleBrowser"),
-		};
+		// NonTerminalPaneTitles no longer needed
 		const lifecycle = buildV1PanesLifecycleRegistry({
 			terminalRuntime: terminalRuntimeRegistry,
 			killTerminal: killTerminalForPane,
@@ -359,91 +338,13 @@ function useV1PanesRegistry(
 				),
 		};
 
-		// --- devtools ----------------------------------------------------------
-		// Self-contained: `data.devtools.targetPaneId` is the only field. The
-		// pane opens the Electron devtools for the inspected browser pane on
-		// mount; no v1 store read is needed. Title is static ("DevTools").
-		const devtools: PaneDefinition<V1PanesPaneData> = {
-			getTitle: () => devtoolsPaneTitle(nonTerminalLabels),
-			renderPane: (ctx) => {
-				const targetPaneId = ctx.pane.data.devtools?.targetPaneId;
-				if (!targetPaneId) {
-					return (
-						<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-							No target pane
-						</div>
-					);
-				}
-				return <V1PanesDevToolsContent targetPaneId={targetPaneId} />;
-			},
-		};
-
-		// --- webview (browser) -------------------------------------------------
-		// The browser navigation toolbar (URL bar, back/forward/reload) is
-		// pane content, not window chrome, so it stays in the body. The
-		// `usePersistentWebview` hook registers a fresh Electron webview
-		// session keyed by the panes pane id; the v1 global tabs store is NOT
-		// consulted (panes pane id != v1 pane id), so navigation history is
-		// scoped to the panes session. Initial url comes from `data.browser`.
-		// Live history persistence to the panes store (mirroring v1's
-		// `navigateBrowserHistory`) is a fidelity follow-up, like the terminal
-		// `renderHeaderExtras` connection indicator was deferred in M2.
-		const webview: PaneDefinition<V1PanesPaneData> = {
-			getIcon: () => <Globe className="size-3.5" />,
-			getTitle: (pane) => webviewPaneTitle(pane.data, nonTerminalLabels),
-			renderPane: (ctx) => {
-				const browser = ctx.pane.data.browser ?? createBrowserState();
-				return (
-					<V1PanesBrowserContent
-						paneId={ctx.pane.id}
-						tabId={ctx.tab.id}
-						browser={browser}
-						onBrowserChange={(nextBrowser) =>
-							ctx.actions.updateData({
-								...ctx.pane.data,
-								browser: nextBrowser,
-							})
-						}
-						onOpenBrowser={(url) => {
-							ctx.store.getState().addTab({
-								panes: [
-									{
-										kind: "webview",
-										data: { browser: createBrowserState(url) },
-									},
-								],
-							});
-						}}
-						onOpenDevTools={() => {
-							ctx.store.getState().addTab({
-								panes: [
-									{
-										kind: "devtools",
-										data: {
-											devtools: { targetPaneId: ctx.pane.id },
-										},
-									},
-								],
-							});
-						}}
-						onClose={ctx.actions.close}
-					/>
-				);
-			},
-			contextMenuActions: (_ctx, defaults) =>
-				defaults.map((d) =>
-					d.key === "close-pane"
-						? { ...d, label: t("v2Workspace.paneRegistry.closeBrowser") }
-						: d,
-				),
-		};
+		// devtools and webview removed with internal browser feature
 
 		return {
 			terminal,
 			"file-viewer": fileViewer,
 			comment,
-			devtools,
-			webview,
+			// devtools and webview removed with internal browser feature
 		};
 	}, [
 		t,

@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import type { StoreApi } from "zustand/vanilla";
 import type { V1PanesPaneData } from "./types";
-import { createBrowserState } from "./useV1PanesWorkspace";
 
 /**
  * Route API for the v1-shell workspace route. Used by `V1PanesWorkspace`
@@ -60,22 +59,13 @@ function focusOrAddTerminalPane(
 	});
 }
 
-/** Open `url` as a webview pane in the current or a new tab. */
+/** Open `url` as a webview pane - removed with internal browser feature. */
 function openUrlInWorkspace(
-	store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
-	target: "current-tab" | "new-tab",
-	url: string,
+	_store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
+	_target: "current-tab" | "new-tab",
+	_url: string,
 ): void {
-	const pane = {
-		kind: "webview",
-		data: { browser: createBrowserState(url) },
-	};
-	const state = store.getState();
-	if (target === "new-tab") {
-		state.addTab({ panes: [pane] });
-		return;
-	}
-	state.openPane({ pane });
+	// Browser feature removed
 }
 
 /**

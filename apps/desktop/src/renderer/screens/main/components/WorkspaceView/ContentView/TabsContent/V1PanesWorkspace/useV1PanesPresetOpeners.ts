@@ -117,24 +117,8 @@ export function useV1PanesPresetOpeners(
 		});
 	}, [store]);
 
-	const addBrowserTab = useCallback(() => {
-		const url = "about:blank";
-		store.getState().addTab({
-			panes: [
-				{
-					kind: "webview",
-					data: {
-						browser: {
-							currentUrl: url,
-							history: [{ url, title: "", timestamp: Date.now() }],
-							historyIndex: 0,
-							isLoading: false,
-						},
-					},
-				},
-			],
-		});
-	}, [store]);
+	// addBrowserTab removed with internal browser feature
+	const addBrowserTab = useCallback(() => {}, []);
 
 	return { openPreset, addTerminalTab, addBrowserTab };
 }

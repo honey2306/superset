@@ -140,16 +140,11 @@ export const Terminal = memo(function Terminal({
 		projectId: workspaceData?.projectId,
 	});
 
-	// URL click handler - opens in app browser or system browser based on setting
-	const { data: openLinksInApp } =
-		electronTrpc.settings.getOpenLinksInApp.useQuery();
-	const openInBrowserPane = useTabsStore((s) => s.openInBrowserPane);
+	// URL click handler - internal browser removed
 	const handleUrlClickRef = useRef<((url: string) => void) | undefined>(
 		undefined,
 	);
-	handleUrlClickRef.current = openLinksInApp
-		? (url: string) => openInBrowserPane(workspaceId, url)
-		: undefined;
+	// Always undefined now
 
 	// Refs for stream event handlers (populated after useTerminalStream)
 	// These allow flushPendingEvents to call the handlers via refs

@@ -3,8 +3,7 @@ import { router } from "..";
 import { createAnalyticsRouter } from "./analytics";
 import { createAuthRouter } from "./auth";
 import { createAutoUpdateRouter } from "./auto-update";
-import { createBrowserRouter } from "./browser/browser";
-import { createBrowserHistoryRouter } from "./browser-history";
+
 import { createCacheRouter } from "./cache";
 import { createChangesRouter } from "./changes";
 import { createChatServiceRouter } from "./chat-service";
@@ -33,8 +32,6 @@ export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
 	return router({
 		chatService: createChatServiceRouter(),
 		analytics: createAnalyticsRouter(),
-		browser: createBrowserRouter(),
-		browserHistory: createBrowserHistoryRouter(),
 		auth: createAuthRouter(),
 		autoUpdate: createAutoUpdateRouter(),
 		cache: createCacheRouter(),

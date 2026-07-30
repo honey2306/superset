@@ -181,7 +181,6 @@ function WorkspacePage() {
 		openPreset,
 	} = useTabsWithPresets(workspace?.projectId);
 	const reopenClosedTab = useTabsStore((s) => s.reopenClosedTab);
-	const addBrowserTab = useTabsStore((s) => s.addBrowserTab);
 	const setActiveTab = useTabsStore((s) => s.setActiveTab);
 	const setFocusedPane = useTabsStore((s) => s.setFocusedPane);
 	const toggleSidebar = useSidebarStore((s) => s.toggleSidebar);
@@ -243,11 +242,7 @@ function WorkspacePage() {
 		},
 		legacyHotkeyOptions,
 	);
-	useHotkey(
-		"NEW_BROWSER",
-		() => addBrowserTab(workspaceId),
-		legacyHotkeyOptions,
-	);
+	// NEW_BROWSER hotkey removed with internal browser feature
 	usePresetHotkeys(openTabWithPreset, false);
 
 	useHotkey(

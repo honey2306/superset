@@ -33,7 +33,7 @@ export function GroupStrip() {
 	const panes = useTabsStore((s) => s.panes);
 	const activeTabIds = useTabsStore((s) => s.activeTabIds);
 	const tabHistoryStacks = useTabsStore((s) => s.tabHistoryStacks);
-	const addBrowserTab = useTabsStore((s) => s.addBrowserTab);
+	// Browser add removed
 	const renameTab = useTabsStore((s) => s.renameTab);
 	const setActiveTab = useTabsStore((s) => s.setActiveTab);
 	const movePaneToTab = useTabsStore((s) => s.movePaneToTab);
@@ -117,10 +117,8 @@ export function GroupStrip() {
 		addTab(activeWorkspaceId);
 	};
 
-	const handleAddBrowser = () => {
-		if (!activeWorkspaceId) return;
-		addBrowserTab(activeWorkspaceId);
-	};
+	// handleAddBrowser removed with internal browser feature
+	const handleAddBrowser = () => {};
 
 	const handleOpenPreset = useCallback(
 		(preset: TerminalPreset) => {

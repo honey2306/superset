@@ -19,10 +19,10 @@ import {
 	getPaneIdSetForTab,
 } from "renderer/stores/tabs/utils";
 import { useTheme } from "renderer/stores/theme";
-import { BrowserPane } from "./BrowserPane";
+
 import { CommentPane } from "./CommentPane";
 import { MosaicSplitOverlay } from "./components";
-import { DevToolsPane } from "./DevToolsPane";
+
 import { FileViewerPane } from "./FileViewerPane";
 import { TabPane } from "./TabPane";
 
@@ -80,7 +80,7 @@ export function TabView({ tab }: TabViewProps) {
 				result[paneId] = {
 					tabId: pane.tabId,
 					type: pane.type,
-					devtools: pane.devtools,
+					// devtools field removed
 				};
 			}
 		}
@@ -197,34 +197,7 @@ export function TabView({ tab }: TabViewProps) {
 				);
 			}
 
-			// Route browser panes to BrowserPane component
-			if (paneInfo.type === "webview") {
-				return (
-					<BrowserPane
-						paneId={paneId}
-						path={path}
-						tabId={tab.id}
-						splitPaneAuto={splitPaneAuto}
-						removePane={removePane}
-						setFocusedPane={setFocusedPane}
-					/>
-				);
-			}
-
-			// Route devtools panes
-			if (paneInfo.type === "devtools" && paneInfo.devtools) {
-				return (
-					<DevToolsPane
-						paneId={paneId}
-						path={path}
-						tabId={tab.id}
-						targetPaneId={paneInfo.devtools.targetPaneId}
-						splitPaneAuto={splitPaneAuto}
-						removePane={removePane}
-						setFocusedPane={setFocusedPane}
-					/>
-				);
-			}
+			// Browser and devtools panes removed for single-user setup
 
 			// Route comment panes
 			if (paneInfo.type === "comment") {

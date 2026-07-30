@@ -2,12 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import type { PaneDefinition, RendererContext } from "@superset/panes";
 import { createWorkspaceStore } from "@superset/panes";
 import { buildV1PanesLifecycleRegistry } from "./buildV1PanesLifecycleRegistry";
-import {
-	commentPaneTitle,
-	devtoolsPaneTitle,
-	type NonTerminalPaneTitles,
-	webviewPaneTitle,
-} from "./buildV1PanesNonTerminalRegistry";
+import { commentPaneTitle } from "./buildV1PanesNonTerminalRegistry";
 import type { V1PanesPaneData } from "./types";
 
 // Stub `terminalRuntimeRegistry` for the lifecycle registry tests below.
@@ -71,25 +66,9 @@ function buildRegistry(): Record<string, PaneDefinition<V1PanesPaneData>> {
 				(ctx.pane.data.comment?.authorLogin ??
 					"no-comment") as unknown as React.ReactNode,
 		},
-		devtools: {
-			getTitle: () => devtoolsPaneTitle(nonTerminalLabels),
-			renderPane: (ctx) =>
-				(ctx.pane.data.devtools?.targetPaneId ??
-					"no-target") as unknown as React.ReactNode,
-		},
-		webview: {
-			getTitle: (pane) => webviewPaneTitle(pane.data, nonTerminalLabels),
-			renderPane: (ctx) =>
-				(ctx.pane.data.browser?.currentUrl ??
-					"no-url") as unknown as React.ReactNode,
-		},
+		// devtools and webview removed
 	};
 }
-
-const nonTerminalLabels: NonTerminalPaneTitles = {
-	devtools: "DevTools",
-	browser: "Browser",
-};
 
 describe("V1PanesWorkspace PoC wiring", () => {
 	test("a panes store can be created and seeded with one terminal tab", () => {
@@ -242,33 +221,7 @@ describe("V1PanesWorkspace multi-kind registry", () => {
 		expect(def.getTitle?.(pane)).toBe("@octocat");
 	});
 
-	test("devtools getTitle delegates to devtoolsPaneTitle", () => {
-		const def = buildRegistry().devtools;
-		const pane = {
-			id: "p",
-			kind: "devtools",
-			data: { terminalId: "t" },
-		} as never;
-		expect(def.getTitle?.(pane)).toBe("DevTools");
-	});
-
-	test("webview getTitle delegates to webviewPaneTitle", () => {
-		const def = buildRegistry().webview;
-		const pane = {
-			id: "p",
-			kind: "webview",
-			data: {
-				terminalId: "t",
-				browser: {
-					currentUrl: "https://example.com",
-					history: [],
-					historyIndex: 0,
-					isLoading: false,
-				},
-			},
-		} as never;
-		expect(def.getTitle?.(pane)).toBe("example.com");
-	});
+	// devtools and webview tests removed
 });
 
 describe("V1PanesWorkspace terminal onAfterClose wiring", () => {

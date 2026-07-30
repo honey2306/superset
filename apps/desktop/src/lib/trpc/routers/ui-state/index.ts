@@ -26,7 +26,7 @@ const fileViewerStateSchema = z.object({
 const paneSchema = z.object({
 	id: z.string(),
 	tabId: z.string(),
-	type: z.enum(["terminal", "webview", "file-viewer", "devtools"]),
+	type: z.enum(["terminal", "file-viewer"]),
 	name: z.string(),
 	isNew: z.boolean().optional(),
 	status: z.enum(["idle", "working", "permission", "review"]).optional(),
@@ -35,34 +35,7 @@ const paneSchema = z.object({
 	cwd: z.string().nullable().optional(),
 	cwdConfirmed: z.boolean().optional(),
 	fileViewer: fileViewerStateSchema.optional(),
-	browser: z
-		.object({
-			currentUrl: z.string(),
-			history: z.array(
-				z.object({
-					url: z.string(),
-					title: z.string(),
-					timestamp: z.number(),
-					faviconUrl: z.string().optional(),
-				}),
-			),
-			historyIndex: z.number(),
-			isLoading: z.boolean(),
-			viewport: z
-				.object({
-					name: z.string(),
-					width: z.number(),
-					height: z.number(),
-				})
-				.nullable()
-				.optional(),
-		})
-		.optional(),
-	devtools: z
-		.object({
-			targetPaneId: z.string(),
-		})
-		.optional(),
+	// browser and devtools fields removed
 	workspaceRun: z
 		.object({
 			workspaceId: z.string(),

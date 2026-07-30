@@ -14,7 +14,6 @@ import {
 } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal";
 import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
-import { destroyPersistentWebview } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/TabView/BrowserPane/hooks/usePersistentWebview";
 import { PROJECT_CUSTOM_COLORS } from "shared/constants/project-colors";
 import {
 	createEmptyPaneLayout,
@@ -181,8 +180,8 @@ function cleanupWorkspacePaneRuntimes(rows: PaneLifecycleRow[]): void {
 	for (const terminalId of extractPaneIds(rows, getTerminalRuntimeId)) {
 		terminalRuntimeRegistry.release(terminalId);
 	}
-	for (const browserId of extractPaneIds(rows, getBrowserRuntimeId)) {
-		destroyPersistentWebview(browserId);
+	for (const _browserId of extractPaneIds(rows, getBrowserRuntimeId)) {
+		// destroyPersistentWebview removed with internal browser feature
 	}
 }
 
