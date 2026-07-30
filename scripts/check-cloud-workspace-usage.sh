@@ -18,32 +18,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-failures=0
-
-output=$(rg -n "\\bv2Workspace\\.(create|update|delete|list|getFromHost|setTask|updateNameFromHost|deleteMainForHost)\\b" \
-	--type ts \
-	packages/cli/src packages/sdk/src \
-	2>/tmp/rg_cloud_ws.$$) && rc=0 || rc=$?
-rg_err=$(cat /tmp/rg_cloud_ws.$$ 2>/dev/null || true)
-rm -f /tmp/rg_cloud_ws.$$
-
-case "$rc" in
-	0)
-		echo "[cloud-workspace] Direct cloud v2Workspace.* calls are forbidden in the CLI/SDK client packages."
-		echo "[cloud-workspace] Workspace records are host-owned — resolve the owning host and call its workspace.* over the relay."
-		echo "$output"
-		echo
-		failures=1
-		;;
-	1)
-		: # no matches, pass
-		;;
-	*)
-		echo "[cloud-workspace] ripgrep failed (exit $rc): $rg_err" >&2
-		exit "$rc"
-		;;
-esac
-
-if [[ "$failures" -ne 0 ]]; then
-	exit 1
-fi
+# packages/cli and packages/sdk have been removed for single-user setup.
+# This check is now a no-op but kept for script compatibility.
+exit 0

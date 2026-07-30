@@ -625,7 +625,9 @@ export function FileViewerPane({
 				embedded={embedded}
 				contentClassName="w-full h-full overflow-hidden bg-background"
 				renderToolbar={(handlers) =>
-					embedded ? null : (
+					embedded ? (
+						<div className="h-full w-full" />
+					) : (
 						<div className="flex h-full w-full">
 							<FileViewerToolbar
 								fileName={fileName}

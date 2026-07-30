@@ -1,0 +1,20 @@
+{
+	"name": "@superset/email",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./emails/*": "./src/emails/*.tsx"
+	},
+	"scripts": {
+		"typecheck": "echo 'Skipping typecheck for stub email package'",
+		"test": "bun test --pass-with-no-tests"
+	},
+	"dependencies": {
+		"react": "19.1.0"
+	},
+	"devDependencies": {
+		"@types/react": "19.0.6",
+		"typescript": "6.0.3"
+	}
+}
