@@ -1,3 +1,3 @@
 export const DEFAULT_CODE_EDITOR_FONT_FAMILY =
-	"ui-monospace, Menlo, Consolas, Liberation Mono, monospace";
-export const DEFAULT_CODE_EDITOR_FONT_SIZE = 13;
+	'"JetBrains Mono", "Berkeley Mono", "Geist Mono", "Commit Mono", ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+export const DEFAULT_CODE_EDITOR_FONT_SIZE = 14;

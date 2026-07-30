@@ -428,15 +428,6 @@ export const HOTKEYS_REGISTRY = {
 		label: "Reopen Closed Tab",
 		category: "Terminal",
 	},
-	NEW_BROWSER: {
-		key: {
-			mac: L("meta+shift+b"),
-			windows: L("ctrl+shift+alt+b"),
-			linux: L("ctrl+shift+alt+b"),
-		},
-		label: "New Browser",
-		category: "Terminal",
-	},
 	CLOSE_TERMINAL: {
 		key: {
 			mac: L("meta+w"),

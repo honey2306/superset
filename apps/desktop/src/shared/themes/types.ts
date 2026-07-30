@@ -229,17 +229,34 @@ export interface EditorColors {
 export interface EditorSyntaxColors {
 	plainText: string;
 	comment: string;
+	commentDoc?: string;
 	keyword: string;
 	string: string;
+	stringEscape?: string;
+	stringRegex?: string;
+	stringSpecial?: string;
 	number: string;
+	boolean?: string;
 	functionCall: string;
 	variableName: string;
+	variableParameter?: string;
+	variableSpecial?: string;
 	typeName: string;
 	className: string;
 	constant: string;
 	regexp: string;
 	tagName: string;
 	attributeName: string;
+	property?: string;
+	operator?: string;
+	punctuation?: string;
+	punctuationBracket?: string;
+	punctuationDelimiter?: string;
+	punctuationSpecial?: string;
+	constructor?: string;
+	namespace?: string;
+	enum?: string;
+	label?: string;
 	invalid: string;
 }
 

@@ -13,7 +13,6 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { LuPlus } from "react-icons/lu";
-import { TbWorld } from "react-icons/tb";
 import {
 	getPresetIcon,
 	useIsDarkTheme,
@@ -96,22 +95,6 @@ export function V1PanesPresetBar({
 					</Tooltip>
 				);
 			})}
-
-			<Tooltip delayDuration={1000}>
-				<TooltipTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-6 shrink-0"
-						onClick={openers.addBrowserTab}
-					>
-						<TbWorld className="size-3.5" />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent side="bottom" showArrow={false}>
-					Open browser
-				</TooltipContent>
-			</Tooltip>
 
 			{/* Quick-add agent templates (claude/amp/codex/…): create the preset
 			     on first click, then it appears in the pinned row above. */}
