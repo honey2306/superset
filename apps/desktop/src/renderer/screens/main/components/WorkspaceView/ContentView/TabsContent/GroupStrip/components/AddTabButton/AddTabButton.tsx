@@ -11,7 +11,6 @@ import {
 import { BsTerminalPlus } from "react-icons/bs";
 import { HiMiniChevronDown } from "react-icons/hi2";
 import { LuPlus } from "react-icons/lu";
-import { TbWorld } from "react-icons/tb";
 import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
 import { NewTabDropZone } from "../../NewTabDropZone";
 import { PresetsSubmenu } from "./components/PresetsSubmenu";
@@ -23,7 +22,7 @@ interface AddTabButtonProps {
 	onDropToNewTab: (paneId: string) => void;
 	isLastPaneInTab: (paneId: string) => boolean;
 	onAddTerminal: () => void;
-	onAddBrowser: () => void;
+	// onAddBrowser removed - internal browser feature removed
 	onOpenPreset: (preset: TerminalPreset) => void;
 	onConfigurePresets: () => void;
 	onToggleShowPresetsBar: (enabled: boolean) => void;
@@ -37,7 +36,6 @@ export function AddTabButton({
 	onDropToNewTab,
 	isLastPaneInTab,
 	onAddTerminal,
-	onAddBrowser,
 	onOpenPreset,
 	onConfigurePresets,
 	onToggleShowPresetsBar,
@@ -54,19 +52,11 @@ export function AddTabButton({
 						<>
 							<Button
 								variant="ghost"
-								className="h-7 rounded-r-none pl-2 pr-1.5 gap-1 text-xs border border-border/60 bg-muted/30 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+								className="h-7 rounded-l-none pl-2 pr-1.5 gap-1 text-xs border border-border/60 bg-muted/30 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
 								onClick={onAddTerminal}
 							>
 								<BsTerminalPlus className="size-3.5" />
 								Terminal
-							</Button>
-							<Button
-								variant="ghost"
-								className="h-7 rounded-none border border-l-0 border-border/60 bg-muted/30 px-1.5 gap-1 text-xs text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-								onClick={onAddBrowser}
-							>
-								<TbWorld className="size-3.5" />
-								Browser
 							</Button>
 							<DropdownMenuTrigger asChild>
 								<Button
@@ -97,11 +87,6 @@ export function AddTabButton({
 								<BsTerminalPlus className="size-4" />
 								<span>Terminal</span>
 								<HotkeyMenuShortcut hotkeyId="NEW_GROUP" />
-							</DropdownMenuItem>
-							<DropdownMenuItem onClick={onAddBrowser} className="gap-2">
-								<TbWorld className="size-4" />
-								<span>Browser</span>
-								<HotkeyMenuShortcut hotkeyId="NEW_BROWSER" />
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
 						</>

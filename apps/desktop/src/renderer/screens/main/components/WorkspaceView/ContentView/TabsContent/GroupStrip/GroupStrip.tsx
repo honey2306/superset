@@ -117,9 +117,6 @@ export function GroupStrip() {
 		addTab(activeWorkspaceId);
 	};
 
-	// handleAddBrowser removed with internal browser feature
-	const handleAddBrowser = () => {};
-
 	const handleOpenPreset = useCallback(
 		(preset: TerminalPreset) => {
 			if (!activeWorkspaceId) return;
@@ -210,7 +207,6 @@ export function GroupStrip() {
 			onDropToNewTab={movePaneToNewTab}
 			isLastPaneInTab={checkIsLastPaneInTab}
 			onAddTerminal={handleAddGroup}
-			onAddBrowser={handleAddBrowser}
 			onOpenPreset={handleOpenPreset}
 			onConfigurePresets={handleOpenPresetsSettings}
 			onToggleShowPresetsBar={(enabled) =>
