@@ -20,7 +20,11 @@ import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { HostServiceTerminalPane } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/HostServiceTerminalPane";
 import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
+import { useChangesStore } from "renderer/stores/changes";
+import { buildEditorDocumentKey } from "renderer/stores/editor-state/types";
+import { useEditorDocumentsStore } from "renderer/stores/editor-state/useEditorDocumentsStore";
 import { killTerminalForPane } from "renderer/stores/tabs/utils/terminal-cleanup";
+import { isImageFile, isMarkdownFile } from "shared/file-types";
 import { buildV1PanesLifecycleRegistry } from "./buildV1PanesLifecycleRegistry";
 import {
 	commentPaneTitle,
@@ -42,6 +46,9 @@ import { V1PanesBrowserContent } from "./V1PanesBrowserContent";
 import { V1PanesCommentContent } from "./V1PanesCommentContent";
 import { V1PanesDevToolsContent } from "./V1PanesDevToolsContent";
 import { V1PanesFileViewerContent } from "./V1PanesFileViewerContent";
+import { FileViewerPaneHeaderExtras } from "./FileViewerPaneHeaderExtras";
+import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
+import { requestViewModeChange } from "renderer/stores/editor-state/editorCoordinator";
 
 export function createBrowserState(
 	url = "about:blank",
@@ -248,6 +255,69 @@ function useV1PanesRegistry(
 			getTitle: (pane) =>
 				pane.data.fileViewer?.displayName ??
 				pane.data.fileViewer?.filePath.split("/").pop(),
+			renderTitle: (ctx) => {
+				const file = ctx.pane.data.fileViewer;
+				if (!file || !workspaceId) return null;
+
+				const documentKey = buildEditorDocumentKey({
+					workspaceId,
+					filePath: file.filePath,
+					diffCategory: file.diffCategory,
+					commitHash: file.commitHash,
+					oldPath: file.oldPath,
+				});
+				const isDirty =
+					useEditorDocumentsStore.getState().documents[documentKey]?.dirty ??
+					false;
+				const fileName = file.displayName ?? file.filePath.split("/").pop();
+				const { copyToClipboard, copied } = useCopyToClipboard(1500);
+
+				return (
+					<Tooltip open={copied ? true : undefined}>
+						<TooltipTrigger asChild>
+							<button
+								type="button"
+								onClick={() => copyToClipboard(file.filePath)}
+								className={cn(
+									"flex min-w-0 items-center gap-2 truncate text-xs transition-colors",
+									ctx.isActive
+										? "text-foreground hover:text-foreground"
+										: "text-muted-foreground hover:text-foreground",
+									!file.isPinned && "italic",
+								)}
+							>
+								<FileText className="size-3.5 shrink-0" />
+								{isDirty && <span className="text-amber-500">●</span>}
+								<span className="truncate">{fileName}</span>
+							</button>
+						</TooltipTrigger>
+						<TooltipContent side="bottom" showArrow={false}>
+							{copied ? "Copied!" : "Click to copy path"}
+						</TooltipContent>
+					</Tooltip>
+				);
+			},
+			renderHeaderExtras: (ctx) => {
+				const file = ctx.pane.data.fileViewer;
+				if (!file) return null;
+
+				const hasRenderedMode =
+					isMarkdownFile(file.filePath) || isImageFile(file.filePath);
+				const hasDiff = !!file.diffCategory;
+
+				return (
+					<FileViewerPaneHeaderExtras
+						paneId={ctx.pane.id}
+						viewMode={file.viewMode ?? "raw"}
+						isPinned={file.isPinned ?? false}
+						hasRenderedMode={hasRenderedMode}
+						hasDiff={hasDiff}
+						onViewModeChange={(value) =>
+							void requestViewModeChange(ctx.pane.id, value as any)
+						}
+					/>
+				);
+			},
 			renderPane: (ctx) => {
 				const file = ctx.pane.data.fileViewer;
 				if (!file || !workspace?.worktreePath) {

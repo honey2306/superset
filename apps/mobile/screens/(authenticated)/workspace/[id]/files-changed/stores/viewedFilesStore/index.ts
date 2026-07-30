@@ -1,1 +1,0 @@
-export { useViewedFilesStore } from "./viewedFilesStore";

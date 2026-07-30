@@ -1,1 +1,0 @@
-export { languageForPath } from "./languageForPath";

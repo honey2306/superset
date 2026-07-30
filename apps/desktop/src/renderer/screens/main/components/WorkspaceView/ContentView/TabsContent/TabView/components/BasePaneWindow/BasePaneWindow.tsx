@@ -107,10 +107,13 @@ export function BasePaneWindow({
 	);
 
 	if (embedded) {
+		const toolbar = renderToolbar(handlers);
 		return (
 			<div className="flex h-full min-h-0 w-full flex-col">
-				{renderToolbar(handlers)}
-				{content}
+				{toolbar && (
+					<div className="h-7 shrink-0 overflow-hidden">{toolbar}</div>
+				)}
+				<div className="flex min-h-0 flex-1 overflow-hidden">{content}</div>
 			</div>
 		);
 	}

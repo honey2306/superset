@@ -624,28 +624,30 @@ export function FileViewerPane({
 				setFocusedPane={setFocusedPane}
 				embedded={embedded}
 				contentClassName="w-full h-full overflow-hidden bg-background"
-				renderToolbar={(handlers) => (
-					<div className="flex h-full w-full">
-						<FileViewerToolbar
-							fileName={fileName}
-							filePath={filePath}
-							isDirty={isDirty}
-							viewMode={viewMode}
-							isPinned={isPinned}
-							hasRenderedMode={hasRenderedMode}
-							hasDiff={hasDiff}
-							splitOrientation={handlers.splitOrientation}
-							diffViewMode={diffViewMode}
-							hideUnchangedRegions={hideUnchangedRegions}
-							onViewModeChange={handleViewModeChange}
-							onDiffViewModeChange={setDiffViewMode}
-							onToggleHideUnchangedRegions={toggleHideUnchangedRegions}
-							onSplitPane={handlers.onSplitPane}
-							onPin={handlePin}
-							onClosePane={handlers.onClosePane}
-						/>
-					</div>
-				)}
+				renderToolbar={(handlers) =>
+					embedded ? null : (
+						<div className="flex h-full w-full">
+							<FileViewerToolbar
+								fileName={fileName}
+								filePath={filePath}
+								isDirty={isDirty}
+								viewMode={viewMode}
+								isPinned={isPinned}
+								hasRenderedMode={hasRenderedMode}
+								hasDiff={hasDiff}
+								splitOrientation={handlers.splitOrientation}
+								diffViewMode={diffViewMode}
+								hideUnchangedRegions={hideUnchangedRegions}
+								onViewModeChange={handleViewModeChange}
+								onDiffViewModeChange={setDiffViewMode}
+								onToggleHideUnchangedRegions={toggleHideUnchangedRegions}
+								onSplitPane={handlers.onSplitPane}
+								onPin={handlePin}
+								onClosePane={handlers.onClosePane}
+							/>
+						</div>
+					)
+				}
 			>
 				<div className="flex h-full min-h-0 flex-col">
 					{hasExternalDiskChange && (

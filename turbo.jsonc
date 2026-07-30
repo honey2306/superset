@@ -1,30 +1,10 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	"ui": "tui",
-	"globalEnv": [
-		"DATABASE_URL",
-		"DATABASE_URL_UNPOOLED",
-		"BLOB_READ_WRITE_TOKEN",
-		"NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-		"NEXT_PUBLIC_CLERK_SIGN_IN_URL",
-		"NEXT_PUBLIC_CLERK_SIGN_UP_URL",
-		"NEXT_PUBLIC_API_URL",
-		"NEXT_PUBLIC_WEB_URL",
-		"NEXT_PUBLIC_MARKETING_URL",
-		"NEXT_PUBLIC_DOCS_URL",
-		"NEXT_PUBLIC_ADMIN_URL",
-		"NEXT_PUBLIC_ELECTRIC_URL",
-		"POSTHOG_API_KEY",
-		"POSTHOG_PROJECT_ID",
-		"KV_REST_API_URL",
-		"KV_REST_API_TOKEN"
-	],
+	"globalEnv": [],
 	"globalPassThroughEnv": [
 		"NODE_ENV",
 		"CI",
-		"VERCEL",
-		"VERCEL_ENV",
-		"VERCEL_URL",
 		"npm_lifecycle_event",
 		"RENDERER_REMOTE_DEBUG_PORT",
 		"SUPERSET_PTY_DAEMON_ADOPT_IN_DEV"
@@ -43,10 +23,6 @@
 			]
 		},
 		"dev": {
-			"cache": false,
-			"persistent": true
-		},
-		"//#dev:caddy": {
 			"cache": false,
 			"persistent": true
 		},
