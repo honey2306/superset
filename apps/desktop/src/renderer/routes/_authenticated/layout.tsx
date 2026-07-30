@@ -18,6 +18,7 @@ import { useDelayElapsed } from "renderer/hooks/useDelayElapsed";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { useOnlineStatus } from "renderer/hooks/useOnlineStatus";
 import { useSignOut } from "renderer/hooks/useSignOut";
+import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient, getAuthToken } from "renderer/lib/auth-client";
 import { dragDropManager } from "renderer/lib/dnd";
 import { electronTrpc } from "renderer/lib/electron-trpc";
@@ -89,8 +90,38 @@ function AuthenticatedLayout() {
 	);
 	const signOut = useSignOut();
 	const [isSigningOut, setIsSigningOut] = useState(false);
+	const [isCreatingOrg, setIsCreatingOrg] = useState(false);
 
 	useAgentHookListener();
+
+	// Single-user setup: auto-create personal org if missing
+	const activeOrganizationId = _activeOrganizationId;
+	useEffect(() => {
+		if (!session?.user || activeOrganizationId || isCreatingOrg) return;
+
+		// User logged in but has no org — create one automatically
+		setIsCreatingOrg(true);
+		const userId = session.user.id;
+		const slug = `${userId.slice(0, 8)}-team`;
+
+		apiTrpcClient.organization.create
+			.mutate({
+				name: "My Workspace",
+				slug,
+			})
+			.then((org) => {
+				return authClient.organization.setActive({
+					organizationId: org.id,
+				});
+			})
+			.then(() => {
+				return refetch();
+			})
+			.catch((error) => {
+				console.error("Failed to create personal org:", error);
+				setIsCreatingOrg(false);
+			});
+	}, [session?.user, activeOrganizationId, isCreatingOrg, refetch]);
 
 	// Seed the parked-terminal eviction cap from settings (SUPER-1545).
 	const { data: parkedRuntimeCap } =
@@ -252,8 +283,14 @@ function AuthenticatedLayout() {
 		return signInRedirect;
 	}
 
-	// Single-user setup: activeOrganizationId check removed
-	// Auth creates a default org for each user automatically
+	if (!activeOrganizationId) {
+		return (
+			<div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-background">
+				<Spinner />
+				<p className="text-sm text-muted-foreground">Loading...</p>
+			</div>
+		);
+	}
 
 	if (
 		session?.user &&
