@@ -125,3 +125,38 @@ export const authClient = createAuthClient({
 		},
 	},
 });
+
+// Single-user local setup: mock useSession to always return a valid local user
+const MOCK_SESSION = {
+	session: {
+		id: "local-session",
+		userId: "local-user",
+		createdAt: new Date(),
+		updatedAt: new Date(),
+		expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+		token: "local-token",
+		ipAddress: "127.0.0.1",
+		userAgent: "Superset Desktop",
+	},
+	user: {
+		id: "local-user",
+		email: "local@superset.local",
+		name: "Local User",
+		emailVerified: true,
+		image: null,
+		createdAt: new Date(),
+		updatedAt: new Date(),
+		activeOrganizationId: "local-org",
+	},
+};
+
+const _originalUseSession = authClient.useSession;
+authClient.useSession = function mockUseSession() {
+	return {
+		data: MOCK_SESSION,
+		isPending: false,
+		isLoading: false,
+		error: null,
+		refetch: async () => ({ data: MOCK_SESSION }),
+	} as any;
+};
