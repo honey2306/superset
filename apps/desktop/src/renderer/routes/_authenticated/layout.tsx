@@ -54,9 +54,6 @@ export const Route = createFileRoute("/_authenticated")({
 
 // Hoisted for stable props identity — <Navigate> re-navigates every re-render otherwise (react error #185 loop, #5729)
 const signInRedirect = <Navigate to="/sign-in" replace />;
-const createOrganizationRedirect = (
-	<Navigate to="/create-organization" replace />
-);
 const onboardingRedirect = <Navigate to="/onboarding" replace />;
 
 const SESSION_PENDING_TIMEOUT_MS = 15_000;
@@ -79,7 +76,7 @@ function AuthenticatedLayout() {
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 
 	const isSignedIn = env.SKIP_ENV_VALIDATION || !!session?.user;
-	const activeOrganizationId = env.SKIP_ENV_VALIDATION
+	const _activeOrganizationId = env.SKIP_ENV_VALIDATION
 		? MOCK_ORG_ID
 		: session?.session?.activeOrganizationId;
 
@@ -255,9 +252,8 @@ function AuthenticatedLayout() {
 		return signInRedirect;
 	}
 
-	if (!activeOrganizationId) {
-		return createOrganizationRedirect;
-	}
+	// Single-user setup: activeOrganizationId check removed
+	// Auth creates a default org for each user automatically
 
 	if (
 		session?.user &&

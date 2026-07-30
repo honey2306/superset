@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
+// Note: "organization", "teams", "billing" retained in the union so legacy
+// search-index entries still type-check; their UI pages are removed and they
+// are filtered out of the visible sidebar / active section resolvers.
 export type SettingsSection =
 	| "account"
 	| "organization"

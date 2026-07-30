@@ -1535,11 +1535,22 @@ export function getSettingsItems(
 
 export const SETTINGS_ITEMS = getSettingsItems();
 
+// Sections whose UI pages have been removed for single-user setup.
+// Their search-index entries are kept for type stability but filtered from
+// user-visible search results.
+const HIDDEN_SECTIONS = new Set<SettingsSection>([
+	"organization",
+	"teams",
+	"billing",
+]);
+
 export function searchSettings(
 	query: string,
 	locale: Locale = DEFAULT_LOCALE,
 ): SettingsItem[] {
-	const items = getSettingsItems(locale);
+	const items = getSettingsItems(locale).filter(
+		(item) => !HIDDEN_SECTIONS.has(item.section),
+	);
 	if (!query.trim()) return items;
 
 	const q = query.toLowerCase();

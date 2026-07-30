@@ -4,11 +4,9 @@ import { useMemo } from "react";
 import {
 	HiOutlineBeaker,
 	HiOutlineBell,
-	HiOutlineBuildingOffice2,
 	HiOutlineCommandLine,
 	HiOutlineComputerDesktop,
 	HiOutlineCpuChip,
-	HiOutlineCreditCard,
 	HiOutlineFolder,
 	HiOutlineKey,
 	HiOutlineLink,
@@ -18,7 +16,6 @@ import {
 	HiOutlineShieldCheck,
 	HiOutlineSparkles,
 	HiOutlineUser,
-	HiOutlineUserGroup,
 } from "react-icons/hi2";
 import { LuBrain, LuGitBranch, LuKeyboard } from "react-icons/lu";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
@@ -36,8 +33,6 @@ interface GeneralSettingsProps {
 
 type SettingsRoute =
 	| "/settings/account"
-	| "/settings/organization"
-	| "/settings/teams"
 	| "/settings/appearance"
 	| "/settings/ringtones"
 	| "/settings/keyboard"
@@ -49,7 +44,6 @@ type SettingsRoute =
 	| "/settings/models"
 	| "/settings/experimental"
 	| "/settings/integrations"
-	| "/settings/billing"
 	| "/settings/api-keys"
 	| "/settings/security"
 	| "/settings/permissions"
@@ -144,18 +138,6 @@ const SECTION_GROUPS: SectionGroup[] = [
 		labelKey: "settings.group.organization",
 		items: [
 			{
-				id: "/settings/organization",
-				section: "organization",
-				labelKey: "settings.group.organization",
-				icon: <HiOutlineBuildingOffice2 className="h-4 w-4" />,
-			},
-			{
-				id: "/settings/teams",
-				section: "teams",
-				labelKey: "settings.teams",
-				icon: <HiOutlineUserGroup className="h-4 w-4" />,
-			},
-			{
 				id: "/settings/projects",
 				section: "project",
 				labelKey: "settings.projects",
@@ -172,12 +154,6 @@ const SECTION_GROUPS: SectionGroup[] = [
 				section: "integrations",
 				labelKey: "settings.integrations",
 				icon: <HiOutlinePuzzlePiece className="h-4 w-4" />,
-			},
-			{
-				id: "/settings/billing",
-				section: "billing",
-				labelKey: "settings.billing",
-				icon: <HiOutlineCreditCard className="h-4 w-4" />,
 			},
 			{
 				id: "/settings/api-keys",

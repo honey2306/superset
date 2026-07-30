@@ -16,7 +16,7 @@ type PaywallOptions = {
 let showPaywallFn: ((options: PaywallOptions) => void) | null = null;
 
 export const Paywall = () => {
-	const navigate = useNavigate();
+	const _navigate = useNavigate();
 	const [paywallOptions, setPaywallOptions] = useState<PaywallOptions | null>(
 		null,
 	);
@@ -117,7 +117,8 @@ export const Paywall = () => {
 			time_spent_ms: timeSpent,
 		});
 		setIsOpen(false);
-		navigate({ to: "/settings/billing/plans" });
+		// Billing removed for single-user setup
+		// navigate({ to: "/settings/billing/plans" });
 	};
 
 	return (

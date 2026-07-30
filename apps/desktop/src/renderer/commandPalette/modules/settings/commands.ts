@@ -2,9 +2,7 @@ import {
 	BeakerIcon,
 	BellIcon,
 	BookmarkIcon,
-	BuildingIcon,
 	CpuIcon,
-	CreditCardIcon,
 	FileTextIcon,
 	FolderIcon,
 	GitBranchIcon,
@@ -18,7 +16,6 @@ import {
 	SlidersIcon,
 	TerminalIcon,
 	UserIcon,
-	UsersIcon,
 	WrenchIcon,
 } from "lucide-react";
 import type { Command } from "../../core/types";
@@ -77,13 +74,7 @@ const TABS: SettingsTab[] = [
 		path: "/settings/integrations",
 		icon: LinkIcon,
 	},
-	{
-		id: "organization",
-		title: "Organization",
-		path: "/settings/organization",
-		icon: BuildingIcon,
-	},
-	{ id: "teams", title: "Teams", path: "/settings/teams", icon: UsersIcon },
+	// Organization, Teams, and Billing removed for single-user setup
 	{
 		id: "keyboard",
 		title: "Keyboard shortcuts",
@@ -111,12 +102,7 @@ const TABS: SettingsTab[] = [
 		path: "/settings/ringtones",
 		icon: BellIcon,
 	},
-	{
-		id: "billing",
-		title: "Billing",
-		path: "/settings/billing",
-		icon: CreditCardIcon,
-	},
+	// Billing removed for single-user setup
 	{
 		id: "security",
 		title: "Security",
