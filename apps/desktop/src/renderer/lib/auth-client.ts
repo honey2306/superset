@@ -127,10 +127,11 @@ export const authClient = createAuthClient({
 });
 
 // Single-user local setup: mock useSession to always return a valid local user
+// Use the real user from the database to avoid org membership errors
 const MOCK_SESSION = {
 	session: {
 		id: "local-session",
-		userId: "local-user",
+		userId: "ea4695ed-43bc-4b31-85a1-9e67deefa301",
 		createdAt: new Date(),
 		updatedAt: new Date(),
 		expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
@@ -139,14 +140,14 @@ const MOCK_SESSION = {
 		userAgent: "Superset Desktop",
 	},
 	user: {
-		id: "local-user",
-		email: "local@superset.local",
-		name: "Local User",
+		id: "ea4695ed-43bc-4b31-85a1-9e67deefa301",
+		email: "admin@local.test",
+		name: "Local Admin",
 		emailVerified: true,
 		image: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),
-		activeOrganizationId: "local-org",
+		activeOrganizationId: "1887f807-99db-49c0-9568-fc085a2fd36a",
 	},
 };
 
