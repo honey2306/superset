@@ -1,4 +1,10 @@
+import {
+	DEV_EMAIL,
+	DEV_NAME,
+	DEV_PASSWORD,
+} from "@superset/shared/dev-credentials";
 import { type ReactNode, useEffect, useState } from "react";
+import { env } from "renderer/env.renderer";
 import {
 	authClient,
 	getAuthToken,
@@ -10,9 +16,71 @@ import { electronTrpc } from "../../lib/electron-trpc";
 
 const HYDRATION_TIMEOUT_MS = 15_000;
 
+/**
+ * Single-user setup: auto sign-in with dev credentials.
+ * If dev account doesn't exist, create it first.
+ */
+async function performAutoLogin(): Promise<{
+	token: string;
+	expiresAt: string;
+} | null> {
+	const postAuth = async (path: string, body: Record<string, unknown>) => {
+		const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			credentials: "omit",
+			body: JSON.stringify(body),
+		});
+		const data = (await response.json().catch(() => ({}))) as {
+			token?: string;
+			code?: string;
+			message?: string;
+		};
+		return { ok: response.ok, status: response.status, data };
+	};
+
+	try {
+		let result = await postAuth("/api/auth/sign-in/email", {
+			email: DEV_EMAIL,
+			password: DEV_PASSWORD,
+		});
+
+		// Account doesn't exist yet - create it
+		if (!result.ok && result.data.code === "INVALID_EMAIL_OR_PASSWORD") {
+			const signUp = await postAuth("/api/auth/sign-up/email", {
+				email: DEV_EMAIL,
+				password: DEV_PASSWORD,
+				name: DEV_NAME,
+			});
+			if (!signUp.ok) {
+				console.error("[AuthProvider] auto sign-up failed:", signUp.data);
+				return null;
+			}
+			result = await postAuth("/api/auth/sign-in/email", {
+				email: DEV_EMAIL,
+				password: DEV_PASSWORD,
+			});
+		}
+
+		if (!result.ok || !result.data.token) {
+			console.error("[AuthProvider] auto sign-in failed:", result.data);
+			return null;
+		}
+
+		const expiresAt = new Date(
+			Date.now() + 1000 * 60 * 60 * 24 * 30,
+		).toISOString();
+		return { token: result.data.token, expiresAt };
+	} catch (error) {
+		console.error("[AuthProvider] auto sign-in error:", error);
+		return null;
+	}
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [isHydrated, setIsHydrated] = useState(false);
 	const { refetch: refetchSession } = authClient.useSession();
+	const persistToken = electronTrpc.auth.persistToken.useMutation();
 
 	const { data: storedToken, isSuccess } =
 		electronTrpc.auth.getStoredToken.useQuery(undefined, {
@@ -47,19 +115,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 
 		async function hydrate() {
-			if (storedToken?.token && storedToken?.expiresAt) {
-				const isExpired = new Date(storedToken.expiresAt) < new Date();
-				if (!isExpired) {
-					setAuthToken(storedToken.token);
-					// A hung session fetch must not hold boot on the splash forever —
-					// proceed after a bound; the routes show session-pending UI (#5729).
-					await Promise.race([
-						fetchSessionAndJwt(storedToken.token),
-						new Promise((resolve) =>
-							window.setTimeout(resolve, HYDRATION_TIMEOUT_MS),
-						),
-					]);
+			let tokenToUse = storedToken?.token ?? null;
+			let expiresAt = storedToken?.expiresAt ?? null;
+
+			// Check if stored token is expired
+			const isExpired =
+				tokenToUse && expiresAt && new Date(expiresAt) < new Date();
+
+			// Single-user setup: if no token or expired, auto sign-in
+			if (!tokenToUse || isExpired) {
+				console.log("[AuthProvider] No valid token - performing auto sign-in");
+				const autoLoginResult = await performAutoLogin();
+				if (autoLoginResult) {
+					tokenToUse = autoLoginResult.token;
+					expiresAt = autoLoginResult.expiresAt;
+					try {
+						await persistToken.mutateAsync({
+							token: tokenToUse,
+							expiresAt,
+						});
+					} catch (err) {
+						console.warn(
+							"[AuthProvider] Failed to persist auto-login token",
+							err,
+						);
+					}
 				}
+			}
+
+			if (tokenToUse) {
+				setAuthToken(tokenToUse);
+				// A hung session fetch must not hold boot on the splash forever —
+				// proceed after a bound; the routes show session-pending UI (#5729).
+				await Promise.race([
+					fetchSessionAndJwt(tokenToUse),
+					new Promise((resolve) =>
+						window.setTimeout(resolve, HYDRATION_TIMEOUT_MS),
+					),
+				]);
 			}
 			if (!cancelled) {
 				setIsHydrated(true);
@@ -70,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		return () => {
 			cancelled = true;
 		};
-	}, [storedToken, isSuccess, isHydrated, refetchSession]);
+	}, [storedToken, isSuccess, isHydrated, refetchSession, persistToken]);
 
 	electronTrpc.auth.onTokenChanged.useSubscription(undefined, {
 		onData: async (data) => {
