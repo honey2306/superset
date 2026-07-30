@@ -24,7 +24,11 @@ async function performAutoLogin(): Promise<{
 	token: string;
 	expiresAt: string;
 } | null> {
+	console.log("[AuthProvider] performAutoLogin started");
+	console.log("[AuthProvider] API URL:", env.NEXT_PUBLIC_API_URL);
+
 	const postAuth = async (path: string, body: Record<string, unknown>) => {
+		console.log(`[AuthProvider] POST ${path}`);
 		const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -36,6 +40,11 @@ async function performAutoLogin(): Promise<{
 			code?: string;
 			message?: string;
 		};
+		console.log(`[AuthProvider] POST ${path} response:`, {
+			ok: response.ok,
+			status: response.status,
+			code: data.code,
+		});
 		return { ok: response.ok, status: response.status, data };
 	};
 
@@ -47,6 +56,7 @@ async function performAutoLogin(): Promise<{
 
 		// Account doesn't exist yet - create it
 		if (!result.ok && result.data.code === "INVALID_EMAIL_OR_PASSWORD") {
+			console.log("[AuthProvider] Account doesn't exist, creating...");
 			const signUp = await postAuth("/api/auth/sign-up/email", {
 				email: DEV_EMAIL,
 				password: DEV_PASSWORD,
@@ -56,6 +66,7 @@ async function performAutoLogin(): Promise<{
 				console.error("[AuthProvider] auto sign-up failed:", signUp.data);
 				return null;
 			}
+			console.log("[AuthProvider] Account created, signing in...");
 			result = await postAuth("/api/auth/sign-in/email", {
 				email: DEV_EMAIL,
 				password: DEV_PASSWORD,
@@ -70,6 +81,10 @@ async function performAutoLogin(): Promise<{
 		const expiresAt = new Date(
 			Date.now() + 1000 * 60 * 60 * 24 * 30,
 		).toISOString();
+		console.log(
+			"[AuthProvider] Auto sign-in successful, token:",
+			`${result.data.token.substring(0, 20)}...`,
+		);
 		return { token: result.data.token, expiresAt };
 	} catch (error) {
 		console.error("[AuthProvider] auto sign-in error:", error);
@@ -115,12 +130,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		}
 
 		async function hydrate() {
+			console.log("[AuthProvider] hydrate started, storedToken:", {
+				hasToken: !!storedToken?.token,
+				expiresAt: storedToken?.expiresAt,
+			});
+
 			let tokenToUse = storedToken?.token ?? null;
 			let expiresAt = storedToken?.expiresAt ?? null;
 
 			// Check if stored token is expired
 			const isExpired =
 				tokenToUse && expiresAt && new Date(expiresAt) < new Date();
+
+			console.log("[AuthProvider] Token check:", {
+				hasToken: !!tokenToUse,
+				isExpired,
+			});
 
 			// Single-user setup: if no token or expired, auto sign-in
 			if (!tokenToUse || isExpired) {
@@ -129,21 +154,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				if (autoLoginResult) {
 					tokenToUse = autoLoginResult.token;
 					expiresAt = autoLoginResult.expiresAt;
+					console.log("[AuthProvider] Persisting auto-login token...");
 					try {
 						await persistToken.mutateAsync({
 							token: tokenToUse,
 							expiresAt,
 						});
+						console.log("[AuthProvider] Token persisted successfully");
 					} catch (err) {
 						console.warn(
 							"[AuthProvider] Failed to persist auto-login token",
 							err,
 						);
 					}
+				} else {
+					console.error(
+						"[AuthProvider] Auto-login failed, will show sign-in page",
+					);
 				}
 			}
 
 			if (tokenToUse) {
+				console.log(
+					"[AuthProvider] Setting auth token and fetching session...",
+				);
 				setAuthToken(tokenToUse);
 				// A hung session fetch must not hold boot on the splash forever —
 				// proceed after a bound; the routes show session-pending UI (#5729).
@@ -155,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				]);
 			}
 			if (!cancelled) {
+				console.log("[AuthProvider] Hydration complete");
 				setIsHydrated(true);
 			}
 		}
