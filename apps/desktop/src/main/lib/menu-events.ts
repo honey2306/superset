@@ -6,8 +6,7 @@ export type SettingsSection =
 	| "keyboard"
 	| "behavior"
 	| "git"
-	| "terminal"
-	| "integrations";
+	| "terminal";
 
 export interface OpenSettingsEvent {
 	section?: SettingsSection;

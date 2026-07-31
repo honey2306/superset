@@ -1,10 +1,4 @@
-import {
-	index,
-	integer,
-	primaryKey,
-	sqliteTable,
-	text,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { v4 as uuidv4 } from "uuid";
 
 import type {
@@ -230,47 +224,11 @@ export const settings = sqliteTable("settings", {
 	editorFontSize: integer("editor_font_size"),
 	showResourceMonitor: integer("show_resource_monitor", { mode: "boolean" }),
 	worktreeBaseDir: text("worktree_base_dir"),
-	openLinksInApp: integer("open_links_in_app", { mode: "boolean" }),
 	defaultEditor: text("default_editor").$type<ExternalApp>(),
-	exposeHostServiceViaRelay: integer("expose_host_service_via_relay", {
-		mode: "boolean",
-	}),
 });
 
 export type InsertSettings = typeof settings.$inferInsert;
 export type SelectSettings = typeof settings.$inferSelect;
-
-export type V1MigrationKind =
-	| "project"
-	| "workspace"
-	| "preset"
-	| "settings"
-	| "terminal";
-export type V1MigrationStatus = "success" | "linked" | "error" | "skipped";
-
-export const v1MigrationState = sqliteTable(
-	"v1_migration_state",
-	{
-		v1Id: text("v1_id").notNull(),
-		kind: text("kind").notNull().$type<V1MigrationKind>(),
-		v2Id: text("v2_id"),
-		organizationId: text("organization_id").notNull(),
-		status: text("status").notNull().$type<V1MigrationStatus>(),
-		reason: text("reason"),
-		migratedAt: integer("migrated_at")
-			.notNull()
-			.$defaultFn(() => Date.now()),
-	},
-	(table) => [
-		primaryKey({
-			columns: [table.organizationId, table.v1Id, table.kind],
-		}),
-		index("v1_migration_state_v2_id_idx").on(table.v2Id),
-	],
-);
-
-export type InsertV1MigrationState = typeof v1MigrationState.$inferInsert;
-export type SelectV1MigrationState = typeof v1MigrationState.$inferSelect;
 
 // =============================================================================
 // Synced tables - mirrored from cloud Postgres via Electric SQL

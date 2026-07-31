@@ -116,6 +116,12 @@ export const terminalPresetSchema = z.object({
 	applyOnWorkspaceCreated: z.boolean().optional(),
 	applyOnNewTab: z.boolean().optional(),
 	executionMode: z.enum(EXECUTION_MODES).optional(),
+	/**
+	 * User-uploaded custom icon stored as a `data:image/*` URI. Only used when
+	 * the preset name does not match a built-in icon. Built-in icons always win
+	 * to keep visual identity consistent across the app.
+	 */
+	icon: z.string().optional(),
 });
 
 export type TerminalPreset = z.infer<typeof terminalPresetSchema>;

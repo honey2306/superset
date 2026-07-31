@@ -1799,6 +1799,21 @@ describe("agent-wrappers pi", () => {
 		expect(content).toContain("export default function");
 	});
 
+	it("activates the pi extension unless every Superset terminal identity is missing", () => {
+		const content = getPiExtensionContent();
+		const gate = content.match(
+			/if \(\s*(!process\.env\.SUPERSET_[A-Z_]+)\s*&&\s*(!process\.env\.SUPERSET_[A-Z_]+)\s*&&\s*(!process\.env\.SUPERSET_[A-Z_]+)\s*\)\s*return;/,
+		);
+
+		expect(gate?.slice(1).sort()).toEqual(
+			[
+				"!process.env.SUPERSET_TERMINAL_ID",
+				"!process.env.SUPERSET_TAB_ID",
+				"!process.env.SUPERSET_PANE_ID",
+			].sort(),
+		);
+	});
+
 	it("installs the pi extension into the global ~/.pi/agent/extensions directory", () => {
 		const extensionPath = getPiExtensionPath();
 		expect(extensionPath).toBe(

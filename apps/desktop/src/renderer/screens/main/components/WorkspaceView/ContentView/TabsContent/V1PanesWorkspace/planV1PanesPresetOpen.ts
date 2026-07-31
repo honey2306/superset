@@ -8,12 +8,13 @@ import { AGENT_TYPES, type AgentType } from "@superset/shared/agent-command";
  * split-pane); the multi-command parallel/sequential execution modes are
  * a fidelity follow-up.
  */
-export type V1PanesPresetTarget = "new-tab" | "active-tab";
+export type V1PanesPresetTarget = "new-tab" | "active-tab" | "current-pane";
 
 export interface V1PanesPresetOpenOptions {
 	target: V1PanesPresetTarget;
 	/** Active tab id, or null when there is no active tab (forces addTab). */
 	activeTabId?: string | null;
+	activePaneId?: string | null;
 	/** UUID generator for the new terminal id. Injected for deterministic tests. */
 	randomUuid?: () => string;
 }
@@ -21,6 +22,17 @@ export interface V1PanesPresetOpenOptions {
 export type V1PanesPresetOpenPlan =
 	| {
 			kind: "addTab";
+			terminalId: string;
+			agentName: AgentType | undefined;
+			initialCommand: string | undefined;
+			fallbackCommand: string | undefined;
+			initialCwd: string | undefined;
+			titleOverride: string | undefined;
+	  }
+	| {
+			kind: "replacePane";
+			tabId: string;
+			paneId: string;
 			terminalId: string;
 			agentName: AgentType | undefined;
 			initialCommand: string | undefined;
@@ -58,6 +70,7 @@ export function planV1PanesPresetOpen(
 	const {
 		target,
 		activeTabId = null,
+		activePaneId = null,
 		randomUuid = () => crypto.randomUUID(),
 	} = options;
 	const terminalId = randomUuid();
@@ -78,6 +91,15 @@ export function planV1PanesPresetOpen(
 		initialCwd,
 		titleOverride,
 	};
+
+	if (target === "current-pane" && activeTabId && activePaneId) {
+		return {
+			kind: "replacePane",
+			tabId: activeTabId,
+			paneId: activePaneId,
+			...base,
+		};
+	}
 
 	if (target === "active-tab" && activeTabId) {
 		return {

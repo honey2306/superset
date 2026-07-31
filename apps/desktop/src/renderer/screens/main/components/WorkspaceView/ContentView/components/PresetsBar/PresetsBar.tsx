@@ -19,6 +19,7 @@ import { HiMiniCog6Tooth, HiMiniCommandLine } from "react-icons/hi2";
 import { LuCirclePlus, LuPin } from "react-icons/lu";
 import {
 	getPresetIcon,
+	resolvePresetIcon,
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
 import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
@@ -362,7 +363,9 @@ export function PresetsBar() {
 				</Tooltip>
 				<DropdownMenuContent align="start" className="w-56">
 					{managedPresets.map((item) => {
-						const icon = getPresetIcon(item.iconName, isDark);
+						const icon = item.preset
+							? resolvePresetIcon(item.preset.name, item.preset.icon, isDark)
+							: getPresetIcon(item.iconName, isDark);
 						const isPinned = item.preset
 							? isPresetPinnedToBar(item.preset.pinnedToBar)
 							: false;

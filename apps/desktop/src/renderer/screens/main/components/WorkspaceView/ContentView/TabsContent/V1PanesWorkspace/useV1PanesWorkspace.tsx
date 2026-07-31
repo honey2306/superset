@@ -18,11 +18,12 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
 import { HostServiceTerminalPane } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/HostServiceTerminalPane";
 import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
 import { requestViewModeChange } from "renderer/stores/editor-state/editorCoordinator";
 import { killTerminalForPane } from "renderer/stores/tabs/utils/terminal-cleanup";
-import { isImageFile, isMarkdownFile } from "shared/file-types";
+import { isHtmlFile, isImageFile, isMarkdownFile } from "shared/file-types";
 import type { FileViewerMode } from "shared/tabs-types";
 import { buildV1PanesLifecycleRegistry } from "./buildV1PanesLifecycleRegistry";
 import { commentPaneTitle } from "./buildV1PanesNonTerminalRegistry";
@@ -202,15 +203,12 @@ function useV1PanesRegistry(
 					className={`size-3.5 ${terminalStatusClass(ctx.pane.data.status)}`}
 				/>
 			),
-			renderHeaderExtras: (ctx) =>
-				ctx.pane.data.status && ctx.pane.data.status !== "idle" ? (
-					<span
-						className="text-[10px] text-muted-foreground"
-						title={`Terminal status: ${ctx.pane.data.status}`}
-					>
-						{ctx.pane.data.status}
-					</span>
-				) : null,
+			renderHeaderExtras: (ctx) => {
+				const status = ctx.pane.data.status;
+				return status && status !== "idle" ? (
+					<StatusIndicator status={status} />
+				) : null;
+			},
 			renderPane: (ctx: RendererContext<V1PanesPaneData>) => (
 				<HostServiceTerminalPane
 					paneId={ctx.pane.id}
@@ -254,7 +252,9 @@ function useV1PanesRegistry(
 				if (!file) return null;
 
 				const hasRenderedMode =
-					isMarkdownFile(file.filePath) || isImageFile(file.filePath);
+					isMarkdownFile(file.filePath) ||
+					isImageFile(file.filePath) ||
+					isHtmlFile(file.filePath);
 				const hasDiff = !!file.diffCategory;
 
 				return (

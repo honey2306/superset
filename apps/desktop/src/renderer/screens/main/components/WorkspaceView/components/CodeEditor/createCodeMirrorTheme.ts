@@ -104,6 +104,13 @@ export function createCodeMirrorTheme(
 				borderRadius: "4px",
 				padding: "4px 12px",
 			},
+			".cm-indent-markers .cm-indent-marker": {
+				borderLeft: `1px solid ${editorTheme.colors.border}`,
+				opacity: "0.3",
+			},
+			".cm-indent-markers .cm-indent-marker.cm-indent-marker-active": {
+				opacity: "0.6",
+			},
 		},
 		{
 			dark: theme.type === "dark",

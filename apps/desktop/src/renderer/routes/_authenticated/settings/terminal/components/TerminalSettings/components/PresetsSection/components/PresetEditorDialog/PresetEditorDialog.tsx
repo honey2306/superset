@@ -25,6 +25,7 @@ import { Link } from "@tanstack/react-router";
 import { ExternalLink, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { HiExclamationTriangle, HiOutlineFolderOpen } from "react-icons/hi2";
+import { useIsDarkTheme } from "renderer/assets/app-icons/preset-icons";
 import { V2_AGENT_CONFIGS_QUERY_KEY } from "renderer/hooks/useV2AgentConfigs";
 import {
 	findLinkedAgent,
@@ -48,6 +49,7 @@ import {
 import { CommandsEditor } from "../../../PresetRow/components/CommandsEditor";
 import type { AutoApplyField } from "../../constants";
 import type { PresetProjectOption } from "../../preset-project-options";
+import { PresetIconField } from "./components/PresetIconField";
 import { ProjectTargetingField } from "./components/ProjectTargetingField";
 
 interface PresetWithAgent extends TerminalPreset {
@@ -71,6 +73,7 @@ interface PresetEditorDialogProps {
 	onFieldChange: (column: PresetColumnKey, value: string) => void;
 	onFieldBlur: (column: PresetColumnKey) => void;
 	onProjectIdsChange: (projectIds: string[] | null) => void;
+	onIconChange: (icon: string | undefined) => void;
 	onDirectorySelect: (path: string) => void;
 	onCommandsChange: (commands: string[]) => void;
 	onCommandsBlur: () => void;
@@ -193,6 +196,7 @@ export function PresetEditorDialog({
 	onFieldChange,
 	onFieldBlur,
 	onProjectIdsChange,
+	onIconChange,
 	onDirectorySelect,
 	onCommandsChange,
 	onCommandsBlur,
@@ -206,6 +210,7 @@ export function PresetEditorDialog({
 	isNewTab,
 }: PresetEditorDialogProps) {
 	const { t } = useTranslation();
+	const isDark = useIsDarkTheme();
 	const linkedAgent = useMemo(() => {
 		const presetAgentId = (preset as PresetWithAgent | null)?.agentId;
 		return findLinkedAgent(agents, presetAgentId);
@@ -433,6 +438,18 @@ export function PresetEditorDialog({
 											onChange={(e) => onFieldChange("name", e.target.value)}
 											onBlur={() => onFieldBlur("name")}
 											placeholder={t("terminal.presetNamePlaceholder")}
+										/>
+									</DialogRow>
+
+									<DialogRow
+										label={t("terminal.presetIcon")}
+										hint={t("terminal.presetIconHint")}
+										stacked
+									>
+										<PresetIconField
+											preset={preset}
+											isDark={isDark}
+											onChange={onIconChange}
 										/>
 									</DialogRow>
 

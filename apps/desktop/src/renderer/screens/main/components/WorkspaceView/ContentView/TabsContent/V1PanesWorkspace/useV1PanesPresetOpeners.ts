@@ -26,83 +26,74 @@ import type { V1PanesPaneData } from "./types";
  * parallel / sequential / new-tab-per-command execution modes are a
  * fidelity follow-up.
  */
+export async function openV1PanesPreset(
+	store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
+	preset: Pick<TerminalPreset, "commands" | "cwd" | "name">,
+	options: { target: V1PanesPresetTarget },
+) {
+	const state = store.getState();
+	const activeTabId = state.activeTabId;
+	const activePaneId = state.getActivePane()?.pane.id ?? null;
+	const plan = planV1PanesPresetOpen(preset, {
+		target: options.target,
+		activeTabId,
+		activePaneId,
+	});
+	const initialCommand = plan.agentName
+		? plan.fallbackCommand
+		: plan.initialCommand;
+	const newPane = {
+		kind: "terminal",
+		titleOverride: plan.titleOverride,
+		data: {
+			terminalId: plan.terminalId,
+			initialCommand,
+			initialCwd: plan.initialCwd,
+		},
+	};
+	if (plan.kind === "addTab") {
+		state.addTab({
+			titleOverride: plan.titleOverride,
+			panes: [newPane],
+		});
+		return;
+	}
+	if (plan.kind === "replacePane") {
+		state.replacePane({
+			tabId: plan.tabId,
+			paneId: plan.paneId,
+			newPane,
+		});
+		return;
+	}
+	const activeTab = state.getActiveTab();
+	const sourcePaneId =
+		state.getActivePane(plan.tabId)?.pane.id ??
+		(activeTab ? Object.values(activeTab.panes)[0]?.id : undefined);
+	if (!sourcePaneId) {
+		state.addTab({
+			titleOverride: plan.titleOverride,
+			panes: [newPane],
+		});
+		return;
+	}
+	state.splitPane({
+		tabId: plan.tabId,
+		paneId: sourcePaneId,
+		position: plan.position,
+		newPane,
+	});
+}
+
 export function useV1PanesPresetOpeners(
 	_workspaceId: string,
 	store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
 ) {
 	const openPreset = useCallback(
-		async (
+		(
 			preset: Pick<TerminalPreset, "commands" | "cwd" | "name">,
 			options: { target: V1PanesPresetTarget },
-		) => {
-			const state = store.getState();
-			const activeTabId = state.activeTabId;
-			const plan = planV1PanesPresetOpen(preset, {
-				target: options.target,
-				activeTabId,
-			});
-			// Add the pane synchronously. Host-side agent launch used to be awaited
-			// before this write, leaving the click inert whenever that RPC stalled.
-			// The terminal runs the same preset command as v1 once it attaches.
-			const launch = {
-				initialCommand: plan.agentName
-					? plan.fallbackCommand
-					: plan.initialCommand,
-			};
-			if (plan.kind === "addTab") {
-				state.addTab({
-					titleOverride: plan.titleOverride,
-					panes: [
-						{
-							kind: "terminal",
-							titleOverride: plan.titleOverride,
-							data: {
-								terminalId: plan.terminalId,
-								initialCommand: launch.initialCommand,
-								initialCwd: plan.initialCwd,
-							},
-						},
-					],
-				});
-				return;
-			}
-			const activeTab = state.getActiveTab();
-			const sourcePaneId =
-				state.getActivePane(plan.tabId)?.pane.id ??
-				(activeTab ? Object.values(activeTab.panes)[0]?.id : undefined);
-			if (!sourcePaneId) {
-				// No pane to split from — fall back to adding a tab.
-				state.addTab({
-					titleOverride: plan.titleOverride,
-					panes: [
-						{
-							kind: "terminal",
-							titleOverride: plan.titleOverride,
-							data: {
-								terminalId: plan.terminalId,
-								initialCommand: launch.initialCommand,
-								initialCwd: plan.initialCwd,
-							},
-						},
-					],
-				});
-				return;
-			}
-			state.splitPane({
-				tabId: plan.tabId,
-				paneId: sourcePaneId,
-				position: plan.position,
-				newPane: {
-					kind: "terminal",
-					titleOverride: plan.titleOverride,
-					data: {
-						terminalId: plan.terminalId,
-						initialCommand: launch.initialCommand,
-						initialCwd: plan.initialCwd,
-					},
-				},
-			});
-		},
+		) => openV1PanesPreset(store, preset, options),
 		[store],
 	);
 

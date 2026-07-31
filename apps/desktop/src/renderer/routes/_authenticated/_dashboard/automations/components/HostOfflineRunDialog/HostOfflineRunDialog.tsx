@@ -8,12 +8,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@superset/ui/dialog";
-import { Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { LuTriangleAlert } from "react-icons/lu";
-import { GATED_FEATURES, usePaywall } from "renderer/components/Paywall";
-import { ExposeViaRelayConfirmDialog } from "renderer/routes/_authenticated/components/ExposeViaRelayConfirmDialog";
-import { useEnableRelayAccess } from "../../hooks/useEnableRelayAccess";
 import { useRelayHostTarget } from "../../hooks/useRelayHostTarget";
 
 interface HostOfflineRunDialogProps {
@@ -33,15 +28,6 @@ export function HostOfflineRunDialog({
 	onOpenChange,
 }: HostOfflineRunDialogProps) {
 	const { isLocal, remoteHost } = useRelayHostTarget(hostId);
-	const { gateFeature } = usePaywall();
-	const [confirmOpen, setConfirmOpen] = useState(false);
-	const { enableRelay, isPending } = useEnableRelayAccess();
-
-	const handleConfirm = () => {
-		setConfirmOpen(false);
-		onOpenChange(false);
-		enableRelay();
-	};
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -80,40 +66,9 @@ export function HostOfflineRunDialog({
 
 				<DialogFooter>
 					<DialogClose asChild>
-						<Button variant="ghost">{isLocal ? "Cancel" : "Close"}</Button>
+						<Button variant="ghost">Close</Button>
 					</DialogClose>
-					{isLocal ? (
-						<Button
-							disabled={isPending}
-							onClick={() =>
-								gateFeature(GATED_FEATURES.REMOTE_WORKSPACES, () =>
-									setConfirmOpen(true),
-								)
-							}
-						>
-							Enable relay access…
-						</Button>
-					) : (
-						hostId && (
-							<Button asChild>
-								<Link
-									to="/settings/hosts/$hostId"
-									params={{ hostId }}
-									onClick={() => onOpenChange(false)}
-								>
-									Host settings
-								</Link>
-							</Button>
-						)
-					)}
 				</DialogFooter>
-
-				<ExposeViaRelayConfirmDialog
-					open={confirmOpen}
-					targetEnabled
-					onOpenChange={setConfirmOpen}
-					onConfirm={handleConfirm}
-				/>
 			</DialogContent>
 		</Dialog>
 	);

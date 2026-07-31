@@ -29,7 +29,6 @@ import { InitGitDialog } from "renderer/react-query/projects/InitGitDialog";
 import { DaemonAutoUpdateFailureDialog } from "renderer/routes/_authenticated/components/DaemonAutoUpdateFailureDialog";
 import { DashboardNewWorkspaceModal } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal";
 import { DiffThemeSync } from "renderer/routes/_authenticated/components/DiffThemeSync";
-import { V1ImportModal } from "renderer/routes/_authenticated/components/V1ImportModal";
 import { WorkspaceInitEffects } from "renderer/screens/main/components/WorkspaceInitEffects";
 import { useSettingsStore } from "renderer/stores/settings-state";
 import { useTabsStore } from "renderer/stores/tabs/store";
@@ -211,8 +210,8 @@ function AuthenticatedLayout() {
 	electronTrpc.menu.subscribe.useSubscription(undefined, {
 		onData: (event) => {
 			if (event.type === "open-settings") {
-				const section = event.data.section || "account";
-				navigate({ to: `/settings/${section}` as "/settings/account" });
+				const section = event.data.section || "appearance";
+				navigate({ to: `/settings/${section}` as "/settings/appearance" });
 			} else if (event.type === "open-workspace") {
 				navigate({ to: `/workspace/${event.data.workspaceId}` });
 			}
@@ -317,7 +316,6 @@ function AuthenticatedLayout() {
 								<DockBadgeController />
 								<DaemonAutoUpdateFailureDialog />
 								<Outlet />
-								<V1ImportModal />
 								<WorkspaceInitEffects />
 								{isV2CloudEnabled ? (
 									<DashboardNewWorkspaceModal />

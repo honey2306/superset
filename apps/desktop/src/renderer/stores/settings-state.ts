@@ -1,30 +1,16 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
-// Note: "organization", "teams", "billing" retained in the union so legacy
-// search-index entries still type-check; their UI pages are removed and they
-// are filtered out of the visible sidebar / active section resolvers.
 export type SettingsSection =
-	| "account"
-	| "organization"
-	| "teams"
 	| "appearance"
 	| "ringtones"
 	| "keyboard"
 	| "behavior"
 	| "git"
-	| "agents"
 	| "terminal"
-	| "links"
 	| "models"
-	| "experimental"
-	| "integrations"
-	| "billing"
-	| "apikeys"
 	| "permissions"
-	| "security"
-	| "project"
-	| "hosts";
+	| "project";
 
 interface SettingsState {
 	activeSection: SettingsSection;
@@ -44,7 +30,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
 	devtools(
 		(set) => ({
-			activeSection: "account",
+			activeSection: "appearance",
 			activeProjectId: null,
 			searchQuery: "",
 			isOpen: false,
@@ -63,7 +49,7 @@ export const useSettingsStore = create<SettingsState>()(
 			openSettings: (section) =>
 				set({
 					isOpen: true,
-					activeSection: section ?? "account",
+					activeSection: section ?? "appearance",
 				}),
 
 			closeSettings: () =>

@@ -19,7 +19,6 @@ export const enUSMessages = {
 	"settings.group.editorWorkflow": "Editor & Workflow",
 	"settings.group.organization": "Organization",
 	"settings.group.system": "System",
-	"settings.account": "Account",
 	"settings.appearance": "Appearance",
 	"settings.notifications": "Notifications",
 	"settings.general": "General",
@@ -27,21 +26,11 @@ export const enUSMessages = {
 	"settings.gitWorktrees": "Git & Worktrees",
 	"settings.agents": "Agents",
 	"settings.terminal": "Terminal",
-	"settings.links": "Links",
 	"settings.models": "Models",
 	"settings.teams": "Teams",
 	"settings.projects": "Projects",
-	"settings.hosts": "Hosts",
-	"settings.integrations": "Integrations",
 	"settings.billing": "Billing",
-	"settings.apiKeys": "API Keys",
-	"settings.security": "Security",
 	"settings.permissions": "Permissions",
-	"settings.experimental": "Experimental",
-	"settingsSearch.account_profile.title": "Profile",
-	"settingsSearch.account_profile.description": "Your profile information",
-	"settingsSearch.account_signout.title": "Sign Out",
-	"settingsSearch.account_signout.description": "Sign out of your account",
 	"settingsSearch.organization_logo.title": "Organization Logo",
 	"settingsSearch.organization_logo.description":
 		"Upload and manage your organization's logo",
@@ -106,10 +95,6 @@ export const enUSMessages = {
 	"settingsSearch.git_worktree_location.title": "Worktree location",
 	"settingsSearch.git_worktree_location.description":
 		"User-level base directory where new worktrees are created",
-	"settingsSearch.behavior_open_links_in_app.title":
-		"Open links in the in-app browser",
-	"settingsSearch.behavior_open_links_in_app.description":
-		"Open links from chat and terminal in the in-app browser instead of your default browser",
 	"settingsSearch.agents_enabled.title": "Enabled agents",
 	"settingsSearch.agents_enabled.description":
 		"Control which agents appear in workspace launchers",
@@ -134,47 +119,12 @@ export const enUSMessages = {
 	"settingsSearch.terminal_link_behavior.title": "Link Behavior",
 	"settingsSearch.terminal_link_behavior.description":
 		"How to open links from terminal",
-	"settingsSearch.links_file.title": "File links",
-	"settingsSearch.links_file.description":
-		"How file paths open when clicked in terminals, chat, and tasks",
-	"settingsSearch.links_url.title": "URL links",
-	"settingsSearch.links_url.description":
-		"How URLs open when clicked in terminals, chat, and tasks",
-	"settingsSearch.links_sidebar_file.title": "Sidebar file rows",
-	"settingsSearch.links_sidebar_file.description":
-		"How file rows in the file tree, changes list, and diff header open when clicked",
-	"settingsSearch.links_port.title": "Ports",
-	"settingsSearch.links_port.description":
-		"How detected-port badges in the sidebar open when clicked (in-app or system browser)",
 	"settingsSearch.models_anthropic.title": "Anthropic Model Auth",
 	"settingsSearch.models_anthropic.description":
 		"Connect Anthropic for workspace naming and small model tasks",
 	"settingsSearch.models_openai.title": "OpenAI Model Auth",
 	"settingsSearch.models_openai.description":
 		"Connect OpenAI for supported model tasks",
-	"settingsSearch.experimental_superset_v2.title":
-		"Try Superset Version 2 (Early Access)",
-	"settingsSearch.experimental_superset_v2.description":
-		"Switch between Superset V1 and the new V2 experience",
-	"settingsSearch.experimental_v1_migration.title": "V1 to V2 Migration",
-	"settingsSearch.experimental_v1_migration.description":
-		"Rerun the V1 to V2 data migration",
-	"settingsSearch.experimental_inline_workspace_ports.title":
-		"Inline workspace ports",
-	"settingsSearch.experimental_inline_workspace_ports.description":
-		"Show detected ports under each workspace in the sidebar instead of a single panel at the bottom",
-	"settingsSearch.experimental_workspace_agents.title": "Workspace agents",
-	"settingsSearch.experimental_workspace_agents.description":
-		"Show running agents under each workspace in the sidebar, with their live status",
-	"settingsSearch.integrations_linear.title": "Linear",
-	"settingsSearch.integrations_linear.description":
-		"Sync issues bidirectionally with Linear",
-	"settingsSearch.integrations_github.title": "GitHub",
-	"settingsSearch.integrations_github.description":
-		"Connect repos and sync pull requests",
-	"settingsSearch.integrations_slack.title": "Slack",
-	"settingsSearch.integrations_slack.description":
-		"Manage tasks from Slack conversations",
 	"settingsSearch.billing_overview.title": "Current plan",
 	"settingsSearch.billing_overview.description":
 		"View your current subscription and usage",
@@ -201,12 +151,6 @@ export const enUSMessages = {
 	"settingsSearch.project_env_vars.title": "Environment Variables",
 	"settingsSearch.project_env_vars.description":
 		"Manage environment variables and secrets for cloud sandboxes",
-	"settingsSearch.api_keys_list.title": "API Keys",
-	"settingsSearch.api_keys_list.description":
-		"Manage API keys for MCP server access",
-	"settingsSearch.api_keys_generate.title": "Generate API Key",
-	"settingsSearch.api_keys_generate.description":
-		"Create new API keys for external integrations",
 	"settingsSearch.permissions_full_disk_access.title": "Full Disk Access",
 	"settingsSearch.permissions_full_disk_access.description":
 		"Persistent access to Documents, Downloads, Desktop, and iCloud from terminal sessions",
@@ -222,25 +166,6 @@ export const enUSMessages = {
 	"settingsSearch.permissions_local_network.title": "Local Network",
 	"settingsSearch.permissions_local_network.description":
 		"Discover and connect to development servers on your network",
-	"settingsSearch.security_expose_host_service_via_relay.title":
-		"Allow remote workspaces to access this device via relay",
-	"settingsSearch.security_expose_host_service_via_relay.description":
-		"Controls whether remote workspaces can reach your local host service through the Superset relay",
-	"settingsSearch.host_members.title": "Host members",
-	"settingsSearch.host_members.description":
-		"View who has access to a host in your organization",
-	"settingsSearch.host_worktree_location.title": "Worktree location",
-	"settingsSearch.host_worktree_location.description":
-		"Default location for new worktree workspaces on this host",
-	"settingsSearch.host_invite_member.title": "Grant access to a host",
-	"settingsSearch.host_invite_member.description":
-		"Add an organization member to a host",
-	"settingsSearch.host_member_role.title": "Host member role",
-	"settingsSearch.host_member_role.description":
-		"Change a member's role on a host (owner or member)",
-	"settingsSearch.host_delete.title": "Delete host",
-	"settingsSearch.host_delete.description":
-		"Remove a host and its synced workspace records from the organization",
 	"agents.description": "Configure terminal agents available on this device.",
 	"agents.add": "Add agent",
 	"agents.custom": "Custom agent…",
@@ -483,9 +408,6 @@ export const enUSMessages = {
 	"behavior.newTab": "New tab",
 	"behavior.resourceMonitor": "Resource monitor",
 	"behavior.resourceMonitorHint": "Show CPU and memory usage in the top bar",
-	"behavior.openLinksInApp": "Open links in the in-app browser",
-	"behavior.openLinksInAppHint":
-		"Open links from chat and terminal in the in-app browser instead of your default browser",
 	"git.description":
 		"Branch behavior for new workspaces on this device. Projects can override the prefix individually.",
 	"git.branchPrefix": "Branch prefix",
@@ -580,20 +502,6 @@ export const enUSMessages = {
 	"security.servicesRestarted": "Restarted {count} host services",
 	"security.settingSaved": "Setting saved",
 	"security.settingUpdateFailed": "Failed to update setting",
-	"experimental.description": "Try early access features and previews.",
-	"experimental.tryV2": "Try Superset v2",
-	"experimental.tryV2Description": "Use the new workspace experience.",
-	"experimental.importV1": "Import from v1",
-	"experimental.importV1Description":
-		"Bring v1 projects, workspaces, and terminal presets over to v2. Each item is imported individually and can be retried.",
-	"experimental.v2Required": "Available when v2 is enabled.",
-	"experimental.openImporter": "Open importer",
-	"experimental.inlinePorts": "Inline workspace ports",
-	"experimental.inlinePortsDescription":
-		"Show detected ports under each workspace in the sidebar instead of a single panel at the bottom.",
-	"experimental.workspaceAgents": "Workspace agents",
-	"experimental.workspaceAgentsDescription":
-		"Show running agents under each workspace in the sidebar, with their live status.",
 	"integrations.description":
 		"Connect external services to sync data with your organization.",
 	"integrations.descriptionNoOrganization":
@@ -1432,9 +1340,6 @@ export const enUSMessages = {
 	"links.sidebarRows": "Sidebar file rows",
 	"links.sidebarRowsDescription":
 		"Applies to the file tree, changes list, and diff header.",
-	"links.portsDescription":
-		"Where detected-port badges in the sidebar open when clicked.",
-	"links.onClick": "On click",
 	"links.fileLinks": "File links",
 	"links.fileLinksDescription":
 		"Applies to file paths in terminals, chat tool calls, and task markdown.",
@@ -1493,6 +1398,14 @@ export const enUSMessages = {
 	"terminal.linkedAgentMissing":
 		"The linked agent is missing or disabled. Showing the snapshot.",
 	"terminal.presetNamePlaceholder": "e.g. Dev server",
+	"terminal.presetIcon": "Icon",
+	"terminal.presetIconHint": "Custom icon for this preset.",
+	"terminal.usingBuiltInIcon": "Using built-in icon",
+	"terminal.builtInIconHint": "The name '{name}' matches a built-in icon.",
+	"terminal.customIcon": "Custom icon uploaded",
+	"terminal.customIconHint": "Click to replace or remove this custom icon.",
+	"terminal.noIcon": "No custom icon",
+	"terminal.uploadIconHint": "Click to upload a custom icon.",
 	"terminal.presetDescription": "Description",
 	"terminal.presetDescriptionHint":
 		"Optional context shown in the presets list.",
@@ -1993,7 +1906,6 @@ export const enUSMessages = {
 	"v2Workspace.context.splitHorizontal": "Split Horizontally",
 	"v2Workspace.context.splitVertical": "Split Vertically",
 	"v2Workspace.context.splitWithChat": "Split with New Chat",
-	"v2Workspace.context.splitWithBrowser": "Split with New Browser",
 	"v2Workspace.context.equalize": "Equalize Pane Splits",
 	"v2Workspace.context.moveToTab": "Move to Tab",
 	"v2Workspace.context.newTab": "New Tab",
@@ -3103,7 +3015,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"settings.group.editorWorkflow": "编辑器与工作流",
 	"settings.group.organization": "组织",
 	"settings.group.system": "系统",
-	"settings.account": "账户",
 	"settings.appearance": "外观",
 	"settings.notifications": "通知",
 	"settings.general": "通用",
@@ -3111,21 +3022,11 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"settings.gitWorktrees": "Git 与工作树",
 	"settings.agents": "智能体",
 	"settings.terminal": "终端",
-	"settings.links": "链接",
 	"settings.models": "模型",
 	"settings.teams": "团队",
 	"settings.projects": "项目",
-	"settings.hosts": "主机",
-	"settings.integrations": "集成",
 	"settings.billing": "账单",
-	"settings.apiKeys": "API 密钥",
-	"settings.security": "安全",
 	"settings.permissions": "权限",
-	"settings.experimental": "实验性功能",
-	"settingsSearch.account_profile.title": "个人资料",
-	"settingsSearch.account_profile.description": "个人资料相关设置。",
-	"settingsSearch.account_signout.title": "退出登录",
-	"settingsSearch.account_signout.description": "退出登录相关设置。",
 	"settingsSearch.organization_logo.title": "组织徽标",
 	"settingsSearch.organization_logo.description": "组织徽标相关设置。",
 	"settingsSearch.organization_name.title": "组织名称",
@@ -3172,9 +3073,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"settingsSearch.behavior_resource_monitor.description": "资源监控相关设置。",
 	"settingsSearch.git_worktree_location.title": "工作树位置",
 	"settingsSearch.git_worktree_location.description": "工作树位置相关设置。",
-	"settingsSearch.behavior_open_links_in_app.title": "在应用内浏览器中打开链接",
-	"settingsSearch.behavior_open_links_in_app.description":
-		"在应用内浏览器中打开链接相关设置。",
 	"settingsSearch.agents_enabled.title": "已启用的智能体",
 	"settingsSearch.agents_enabled.description": "已启用的智能体相关设置。",
 	"settingsSearch.agents_commands.title": "智能体命令",
@@ -3192,38 +3090,10 @@ export const zhCNMessages: Record<MessageKey, string> = {
 		"后台终端内存相关设置。",
 	"settingsSearch.terminal_link_behavior.title": "链接行为",
 	"settingsSearch.terminal_link_behavior.description": "链接行为相关设置。",
-	"settingsSearch.links_file.title": "文件链接",
-	"settingsSearch.links_file.description": "文件链接相关设置。",
-	"settingsSearch.links_url.title": "URL 链接",
-	"settingsSearch.links_url.description": "URL 链接相关设置。",
-	"settingsSearch.links_sidebar_file.title": "侧栏文件行",
-	"settingsSearch.links_sidebar_file.description": "侧栏文件行相关设置。",
-	"settingsSearch.links_port.title": "端口",
-	"settingsSearch.links_port.description": "端口相关设置。",
 	"settingsSearch.models_anthropic.title": "Anthropic 模型认证",
 	"settingsSearch.models_anthropic.description": "Anthropic 模型认证相关设置。",
 	"settingsSearch.models_openai.title": "OpenAI 模型认证",
 	"settingsSearch.models_openai.description": "OpenAI 模型认证相关设置。",
-	"settingsSearch.experimental_superset_v2.title":
-		"试用 Superset V2（抢先体验）",
-	"settingsSearch.experimental_superset_v2.description":
-		"试用 Superset V2（抢先体验）相关设置。",
-	"settingsSearch.experimental_v1_migration.title": "V1 到 V2 迁移",
-	"settingsSearch.experimental_v1_migration.description":
-		"V1 到 V2 迁移相关设置。",
-	"settingsSearch.experimental_inline_workspace_ports.title":
-		"在工作区内显示端口",
-	"settingsSearch.experimental_inline_workspace_ports.description":
-		"在工作区内显示端口相关设置。",
-	"settingsSearch.experimental_workspace_agents.title": "工作区智能体",
-	"settingsSearch.experimental_workspace_agents.description":
-		"工作区智能体相关设置。",
-	"settingsSearch.integrations_linear.title": "Linear",
-	"settingsSearch.integrations_linear.description": "Linear相关设置。",
-	"settingsSearch.integrations_github.title": "GitHub",
-	"settingsSearch.integrations_github.description": "GitHub相关设置。",
-	"settingsSearch.integrations_slack.title": "Slack",
-	"settingsSearch.integrations_slack.description": "Slack相关设置。",
 	"settingsSearch.billing_overview.title": "当前套餐",
 	"settingsSearch.billing_overview.description": "当前套餐相关设置。",
 	"settingsSearch.billing_plans.title": "全部套餐",
@@ -3245,10 +3115,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"settingsSearch.project_import_worktrees.description": "导入工作树相关设置。",
 	"settingsSearch.project_env_vars.title": "环境变量",
 	"settingsSearch.project_env_vars.description": "环境变量相关设置。",
-	"settingsSearch.api_keys_list.title": "API 密钥",
-	"settingsSearch.api_keys_list.description": "API 密钥相关设置。",
-	"settingsSearch.api_keys_generate.title": "生成 API 密钥",
-	"settingsSearch.api_keys_generate.description": "生成 API 密钥相关设置。",
 	"settingsSearch.permissions_full_disk_access.title": "完全磁盘访问权限",
 	"settingsSearch.permissions_full_disk_access.description":
 		"完全磁盘访问权限相关设置。",
@@ -3260,20 +3126,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"settingsSearch.permissions_apple_events.description": "自动化相关设置。",
 	"settingsSearch.permissions_local_network.title": "本地网络",
 	"settingsSearch.permissions_local_network.description": "本地网络相关设置。",
-	"settingsSearch.security_expose_host_service_via_relay.title":
-		"允许远程工作区通过中继访问此设备",
-	"settingsSearch.security_expose_host_service_via_relay.description":
-		"允许远程工作区通过中继访问此设备相关设置。",
-	"settingsSearch.host_members.title": "主机成员",
-	"settingsSearch.host_members.description": "主机成员相关设置。",
-	"settingsSearch.host_worktree_location.title": "工作树位置",
-	"settingsSearch.host_worktree_location.description": "工作树位置相关设置。",
-	"settingsSearch.host_invite_member.title": "授予主机访问权限",
-	"settingsSearch.host_invite_member.description": "授予主机访问权限相关设置。",
-	"settingsSearch.host_member_role.title": "主机成员角色",
-	"settingsSearch.host_member_role.description": "主机成员角色相关设置。",
-	"settingsSearch.host_delete.title": "删除主机",
-	"settingsSearch.host_delete.description": "删除主机相关设置。",
 	"agents.description": "配置此设备可用的终端智能体。",
 	"agents.add": "添加智能体",
 	"agents.custom": "自定义智能体…",
@@ -3505,9 +3357,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"behavior.newTab": "新建标签页",
 	"behavior.resourceMonitor": "资源监视器",
 	"behavior.resourceMonitorHint": "在顶部栏显示 CPU 和内存使用情况",
-	"behavior.openLinksInApp": "在应用内浏览器中打开链接",
-	"behavior.openLinksInAppHint":
-		"在应用内浏览器而不是默认浏览器中打开聊天和终端中的链接",
 	"git.description": "配置此设备上新工作区的分支行为。项目可以单独覆盖该前缀。",
 	"git.branchPrefix": "分支前缀",
 	"git.branchPrefixHint": "将新分支归到一个文件夹下。",
@@ -3595,20 +3444,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"security.servicesRestarted": "已重启 {count} 个主机服务",
 	"security.settingSaved": "设置已保存",
 	"security.settingUpdateFailed": "设置更新失败",
-	"experimental.description": "试用抢先体验功能和预览功能。",
-	"experimental.tryV2": "试用 Superset v2",
-	"experimental.tryV2Description": "使用全新的工作区体验。",
-	"experimental.importV1": "从 v1 导入",
-	"experimental.importV1Description":
-		"将 v1 的项目、工作区和终端预设迁移到 v2。每项内容会单独导入，失败后可重试。",
-	"experimental.v2Required": "启用 v2 后可用。",
-	"experimental.openImporter": "打开导入工具",
-	"experimental.inlinePorts": "在工作区内显示端口",
-	"experimental.inlinePortsDescription":
-		"在侧栏中每个工作区下方显示检测到的端口，而不是统一显示在底部面板。",
-	"experimental.workspaceAgents": "工作区智能体",
-	"experimental.workspaceAgentsDescription":
-		"在侧栏中每个工作区下方显示正在运行的智能体及其实时状态。",
 	"integrations.description": "连接外部服务，与组织同步数据。",
 	"integrations.descriptionNoOrganization": "连接外部服务以同步数据。",
 	"integrations.organizationRequired": "你需要加入组织才能使用集成功能。",
@@ -4403,8 +4238,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
 		"控制普通点击或配合修饰键点击文件和 URL 时执行的操作。每一行将一种修饰键组合绑定到一个操作。",
 	"links.sidebarRows": "侧栏文件行",
 	"links.sidebarRowsDescription": "应用于文件树、更改列表和 Diff 标题栏。",
-	"links.portsDescription": "设置点击侧栏中检测到的端口徽标时的打开位置。",
-	"links.onClick": "点击时",
 	"links.fileLinks": "文件链接",
 	"links.fileLinksDescription":
 		"应用于 Terminal、聊天工具调用和任务 Markdown 中的文件路径。",
@@ -4461,6 +4294,14 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"terminal.linkedAgentMissing":
 		"关联的智能体缺失或已禁用，当前显示保存的快照。",
 	"terminal.presetNamePlaceholder": "例如：开发服务器",
+	"terminal.presetIcon": "图标",
+	"terminal.presetIconHint": "该预设的自定义图标。",
+	"terminal.usingBuiltInIcon": "使用内置图标",
+	"terminal.builtInIconHint": "名称 '{name}' 匹配内置图标。",
+	"terminal.customIcon": "已上传自定义图标",
+	"terminal.customIconHint": "点击替换或删除该自定义图标。",
+	"terminal.noIcon": "无自定义图标",
+	"terminal.uploadIconHint": "点击上传自定义图标。",
 	"terminal.presetDescription": "说明",
 	"terminal.presetDescriptionHint": "显示在预设列表中的可选说明。",
 	"terminal.optional": "可选",
@@ -4931,7 +4772,6 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"v2Workspace.context.splitHorizontal": "水平拆分",
 	"v2Workspace.context.splitVertical": "垂直拆分",
 	"v2Workspace.context.splitWithChat": "拆分并新建 Chat",
-	"v2Workspace.context.splitWithBrowser": "拆分并新建浏览器",
 	"v2Workspace.context.equalize": "均分窗格",
 	"v2Workspace.context.moveToTab": "移动到标签页",
 	"v2Workspace.context.newTab": "新建标签页",

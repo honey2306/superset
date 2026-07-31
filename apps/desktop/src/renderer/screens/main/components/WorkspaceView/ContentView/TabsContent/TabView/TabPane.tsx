@@ -134,9 +134,6 @@ export function TabPane({
 			<TabContentContextMenu
 				onSplitHorizontal={() => splitPaneHorizontal(tabId, paneId, path)}
 				onSplitVertical={() => splitPaneVertical(tabId, paneId, path)}
-				onSplitWithNewBrowser={() =>
-					splitPaneVertical(tabId, paneId, path, { paneType: "webview" })
-				}
 				onEqualizePaneSplits={() => equalizePaneSplits(tabId)}
 				onClosePane={() => removePane(paneId)}
 				onClearTerminal={handleClearTerminal}

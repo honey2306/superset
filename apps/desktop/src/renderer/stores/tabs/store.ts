@@ -1857,6 +1857,18 @@ export const useTabsStore = create<TabsStore>()(
 									state: "stopped-by-exit",
 								};
 							}
+							// Repair viewMode if a prior bug persisted an invalid value
+							// (e.g. "" from a Radix ToggleGroup deselect). Anything not
+							// in the enum trips tRPC's zod schema on the next flush and
+							// blocks all further UI-state persistence.
+							if (
+								pane.fileViewer &&
+								pane.fileViewer.viewMode !== "rendered" &&
+								pane.fileViewer.viewMode !== "raw" &&
+								pane.fileViewer.viewMode !== "diff"
+							) {
+								pane.fileViewer.viewMode = "raw";
+							}
 						}
 					}
 

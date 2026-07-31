@@ -72,6 +72,9 @@ const IMAGE_MIME_TYPE_EXTENSIONS: Record<string, string> = {
 /** Markdown extensions */
 const MARKDOWN_EXTENSIONS = new Set(["md", "markdown", "mdx"]);
 
+/** HTML extensions */
+const HTML_EXTENSIONS = new Set(["html", "htm"]);
+
 /**
  * Checks if a file is an image based on extension
  */
@@ -144,8 +147,17 @@ export function isMarkdownFile(filePath: string): boolean {
 }
 
 /**
- * Checks if a file supports rendered preview (markdown or image)
+ * Checks if a file is HTML based on extension
+ */
+export function isHtmlFile(filePath: string): boolean {
+	return HTML_EXTENSIONS.has(getFileExtension(filePath));
+}
+
+/**
+ * Checks if a file supports rendered preview (markdown, image, or HTML)
  */
 export function hasRenderedPreview(filePath: string): boolean {
-	return isMarkdownFile(filePath) || isImageFile(filePath);
+	return (
+		isMarkdownFile(filePath) || isImageFile(filePath) || isHtmlFile(filePath)
+	);
 }

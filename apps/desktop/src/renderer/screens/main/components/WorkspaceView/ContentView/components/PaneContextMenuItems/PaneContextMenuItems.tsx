@@ -9,7 +9,6 @@ import {
 import {
 	LuColumns2,
 	LuEqual,
-	LuGlobe,
 	LuMoveRight,
 	LuPlus,
 	LuRows2,
@@ -22,7 +21,6 @@ import type { Tab } from "renderer/stores/tabs/types";
 export interface PaneContextMenuActions {
 	onSplitHorizontal: () => void;
 	onSplitVertical: () => void;
-	onSplitWithNewBrowser?: () => void;
 	onEqualizePaneSplits?: () => void;
 	onClosePane: () => void;
 	currentTabId: string;
@@ -43,7 +41,6 @@ export function PaneContextMenuItems({
 	const { t } = useTranslation();
 	const splitDownShortcut = useHotkeyDisplay("SPLIT_DOWN").text;
 	const splitRightShortcut = useHotkeyDisplay("SPLIT_RIGHT").text;
-	const splitWithBrowserShortcut = useHotkeyDisplay("SPLIT_WITH_BROWSER").text;
 	const equalizePaneSplitsShortcut = useHotkeyDisplay(
 		"EQUALIZE_PANE_SPLITS",
 	).text;
@@ -67,13 +64,6 @@ export function PaneContextMenuItems({
 				{t("v2Workspace.context.splitVertical")}
 				{renderShortcut(splitRightShortcut)}
 			</ContextMenuItem>
-			{actions.onSplitWithNewBrowser && (
-				<ContextMenuItem onSelect={actions.onSplitWithNewBrowser}>
-					<LuGlobe className="size-4" />
-					{t("v2Workspace.context.splitWithBrowser")}
-					{renderShortcut(splitWithBrowserShortcut)}
-				</ContextMenuItem>
-			)}
 			{actions.onEqualizePaneSplits && (
 				<ContextMenuItem onSelect={actions.onEqualizePaneSplits}>
 					<LuEqual className="size-4" />

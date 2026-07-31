@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { createWorkspaceStore, type RendererContext } from "@superset/panes";
-import { createV1PanesTerminalPaneBridge } from "./createV1PanesTerminalPaneBridge";
+import {
+	createV1PanesTerminalPaneBridge,
+	getV1PanesTabStatus,
+	syncV1PanesTerminalStatuses,
+} from "./createV1PanesTerminalPaneBridge";
 import type { V1PanesPaneData } from "./types";
 
 function makeContext(): RendererContext<V1PanesPaneData> {
@@ -88,5 +92,86 @@ describe("createV1PanesTerminalPaneBridge", () => {
 		expect(bridge.isDestroyed()).toBe(false);
 		bridge.close();
 		expect(bridge.isDestroyed()).toBe(true);
+	});
+
+	test("syncs terminal statuses across inactive tabs without replacing pane data", () => {
+		const context = makeContext();
+		context.store.getState().addTab({
+			id: "tab-2",
+			panes: [
+				{
+					id: "pane-2",
+					kind: "terminal",
+					data: {
+						terminalId: "terminal-2",
+						initialCommand: "claude",
+						initialCwd: "/other",
+					},
+				},
+			],
+		});
+		context.store.getState().setActiveTab("tab-1");
+		let updates = 0;
+		const unsubscribe = context.store.subscribe(() => {
+			updates += 1;
+		});
+
+		syncV1PanesTerminalStatuses(
+			context.store,
+			new Map([
+				["terminal-1", "working"],
+				["terminal-2", "permission"],
+			]),
+		);
+
+		expect(context.store.getState().getPane("pane-1")?.pane.data).toMatchObject(
+			{
+				terminalId: "terminal-1",
+				initialCommand: "codex",
+				initialCwd: "/repo",
+				status: "working",
+			},
+		);
+		expect(context.store.getState().getPane("pane-2")?.pane.data).toMatchObject(
+			{
+				terminalId: "terminal-2",
+				initialCommand: "claude",
+				initialCwd: "/other",
+				status: "permission",
+			},
+		);
+		expect(updates).toBe(2);
+
+		syncV1PanesTerminalStatuses(
+			context.store,
+			new Map([
+				["terminal-1", "working"],
+				["terminal-2", "permission"],
+			]),
+		);
+		expect(updates).toBe(2);
+		unsubscribe();
+	});
+
+	test("aggregates the highest terminal pane status for a tab", () => {
+		const context = makeContext();
+		const tab = context.store.getState().getTab("tab-1");
+		if (!tab) throw new Error("fixture setup failed");
+		tab.panes["pane-2"] = {
+			id: "pane-2",
+			kind: "terminal",
+			data: { terminalId: "terminal-2", status: "failed" },
+		};
+		tab.panes["pane-3"] = {
+			id: "pane-3",
+			kind: "terminal",
+			data: { terminalId: "terminal-3", status: "permission" },
+		};
+
+		expect(getV1PanesTabStatus(tab)).toBe("permission");
+		tab.panes["pane-3"].data.status = "idle";
+		expect(getV1PanesTabStatus(tab)).toBe("failed");
+		tab.panes["pane-2"].data.status = "idle";
+		expect(getV1PanesTabStatus(tab)).toBeNull();
 	});
 });

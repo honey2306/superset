@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import {
 	getV2NotificationSourceKey,
 	getV2NotificationSourcesForPane,
@@ -14,9 +15,12 @@ import {
 import {
 	type TerminalAgentBinding,
 	useTerminalAgentBindings,
+	useTerminalAgentBindingsAtHost,
 } from "../useTerminalAgentBindings";
 import {
 	deriveTerminalAgentStatus,
+	markTerminalAgentBindingsSeen,
+	settleClearedTerminalAgentBindings,
 	useTerminalAgentStatuses,
 } from "../useTerminalAgentStatuses";
 
@@ -97,11 +101,68 @@ export function useMarkWorkspaceTerminalsSeen(workspaceId: string): () => void {
 		(state) => state.markTerminalSeen,
 	);
 	return useCallback(() => {
-		// Host-clock only: "seen through the binding's last event".
-		for (const binding of bindings.values()) {
-			markTerminalSeen(binding.terminalId, binding.lastEventAt);
-		}
+		markTerminalAgentBindingsSeen(bindings, markTerminalSeen);
 	}, [bindings, markTerminalSeen]);
+}
+
+export function useMarkWorkspaceTerminalsSeenAtHost(
+	hostUrl: string | null,
+	hostWorkspaceId: string | null,
+): () => void {
+	const bindings = useTerminalAgentBindingsAtHost(hostUrl, hostWorkspaceId);
+	const markTerminalSeen = useV2NotificationStore(
+		(state) => state.markTerminalSeen,
+	);
+	return useCallback(() => {
+		markTerminalAgentBindingsSeen(bindings, markTerminalSeen);
+	}, [bindings, markTerminalSeen]);
+}
+
+export function useClearWorkspaceTerminalStatusesAtHost(
+	hostUrl: string | null,
+	hostWorkspaceId: string | null,
+): () => Promise<void> {
+	const bindings = useTerminalAgentBindingsAtHost(hostUrl, hostWorkspaceId);
+	const markTerminalSeen = useV2NotificationStore(
+		(state) => state.markTerminalSeen,
+	);
+	const queryClient = useQueryClient();
+	const queryKey = useMemo(
+		() =>
+			[
+				"terminal-agent-bindings",
+				hostUrl,
+				hostWorkspaceId,
+				"explicit-host",
+			] as const,
+		[hostUrl, hostWorkspaceId],
+	);
+	return useCallback(async () => {
+		if (!hostUrl || !hostWorkspaceId) return;
+		await getHostServiceClientByUrl(
+			hostUrl,
+		).terminalAgents.clearWorkspaceStatuses.mutate({
+			workspaceId: hostWorkspaceId,
+		});
+		await settleClearedTerminalAgentBindings({
+			bindings,
+			markTerminalSeen,
+			refresh: () => queryClient.refetchQueries({ queryKey, exact: true }),
+			readRefreshedBindings: () =>
+				new Map(
+					(
+						queryClient.getQueryData<TerminalAgentBinding[]>(queryKey) ?? []
+					).map((binding) => [binding.terminalId, binding]),
+				),
+		});
+	}, [
+		bindings,
+		hostUrl,
+		hostWorkspaceId,
+		markTerminalSeen,
+		queryClient,
+		queryKey,
+	]);
 }
 
 /**

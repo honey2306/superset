@@ -15,7 +15,7 @@ import { CodeEditor } from "renderer/screens/main/components/WorkspaceView/compo
 import type { Tab } from "renderer/stores/tabs/types";
 import type { DiffViewMode } from "shared/changes-types";
 import { detectLanguage } from "shared/detect-language";
-import { isImageFile } from "shared/file-types";
+import { isHtmlFile, isImageFile } from "shared/file-types";
 import type { FileViewerMode } from "shared/tabs-types";
 import { useScrollToFirstDiffChange } from "../../hooks/useScrollToFirstDiffChange";
 import { DiffScrollbarDecorations } from "../DiffScrollbarDecorations";
@@ -121,7 +121,6 @@ interface FileViewerContentProps {
 	onSwitchToRawAtLocation: (line: number, column: number) => void;
 	onSplitHorizontal: () => void;
 	onSplitVertical: () => void;
-	onSplitWithNewBrowser?: () => void;
 	onEqualizePaneSplits?: () => void;
 	onClosePane: () => void;
 	currentTabId: string;
@@ -155,7 +154,6 @@ export function FileViewerContent({
 	onSwitchToRawAtLocation,
 	onSplitHorizontal,
 	onSplitVertical,
-	onSplitWithNewBrowser,
 	onEqualizePaneSplits,
 	onClosePane,
 	currentTabId,
@@ -298,7 +296,6 @@ export function FileViewerContent({
 				getSelectionLines={getDiffSelectionLines}
 				onSplitHorizontal={onSplitHorizontal}
 				onSplitVertical={onSplitVertical}
-				onSplitWithNewBrowser={onSplitWithNewBrowser}
 				onEqualizePaneSplits={onEqualizePaneSplits}
 				onClosePane={onClosePane}
 				currentTabId={currentTabId}
@@ -436,6 +433,18 @@ export function FileViewerContent({
 		);
 	}
 
+	if (viewMode === "rendered" && isHtmlFile(filePath)) {
+		return (
+			<iframe
+				key={filePath}
+				srcDoc={renderedContent}
+				sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+				className="h-full w-full border-0 bg-white"
+				title={filePath.split("/").pop() || "HTML Preview"}
+			/>
+		);
+	}
+
 	if (viewMode === "rendered") {
 		return (
 			<div className="relative h-full">
@@ -470,7 +479,6 @@ export function FileViewerContent({
 			filePath={filePath}
 			onSplitHorizontal={onSplitHorizontal}
 			onSplitVertical={onSplitVertical}
-			onSplitWithNewBrowser={onSplitWithNewBrowser}
 			onEqualizePaneSplits={onEqualizePaneSplits}
 			onClosePane={onClosePane}
 			currentTabId={currentTabId}

@@ -1,8 +1,14 @@
 import { useMemo } from "react";
 import { useV2NotificationStore } from "renderer/stores/v2-notifications";
-import type { PaneStatus } from "shared/tabs-types";
-import { useTerminalAgentBindings } from "../useTerminalAgentBindings";
-import { deriveTerminalAgentStatus } from "./deriveTerminalAgentStatus";
+import type { ActivePaneStatus, PaneStatus } from "shared/tabs-types";
+import {
+	useTerminalAgentBindings,
+	useTerminalAgentBindingsAtHost,
+} from "../useTerminalAgentBindings";
+import {
+	deriveTerminalAgentStatuses,
+	getHighestTerminalAgentStatus,
+} from "./deriveTerminalAgentStatus";
 
 /**
  * Map of `terminalId → derived agent status` for a workspace. Runtime state
@@ -19,18 +25,36 @@ export function useTerminalAgentStatuses(
 		(state) => state.terminalSeenAt,
 	);
 
-	return useMemo(() => {
-		const map = new Map<string, PaneStatus>();
-		for (const binding of bindings.values()) {
-			map.set(
-				binding.terminalId,
-				deriveTerminalAgentStatus({
-					lastEventType: binding.lastEventType,
-					lastEventAt: binding.lastEventAt,
-					lastSeenAt: terminalSeenAt[binding.terminalId],
-				}),
-			);
-		}
-		return map;
-	}, [bindings, terminalSeenAt]);
+	return useMemo(
+		() => deriveTerminalAgentStatuses(bindings, terminalSeenAt),
+		[bindings, terminalSeenAt],
+	);
+}
+
+export function useTerminalAgentStatusesAtHost(
+	hostUrl: string | null,
+	hostWorkspaceId: string | null,
+): Map<string, PaneStatus> {
+	const bindings = useTerminalAgentBindingsAtHost(hostUrl, hostWorkspaceId);
+	const terminalSeenAt = useV2NotificationStore(
+		(state) => state.terminalSeenAt,
+	);
+	return useMemo(
+		() => deriveTerminalAgentStatuses(bindings, terminalSeenAt),
+		[bindings, terminalSeenAt],
+	);
+}
+
+export function useHighestTerminalAgentStatusAtHost(
+	hostUrl: string | null,
+	hostWorkspaceId: string | null,
+): ActivePaneStatus | null {
+	const bindings = useTerminalAgentBindingsAtHost(hostUrl, hostWorkspaceId);
+	const terminalSeenAt = useV2NotificationStore(
+		(state) => state.terminalSeenAt,
+	);
+	return useMemo(
+		() => getHighestTerminalAgentStatus(bindings, terminalSeenAt),
+		[bindings, terminalSeenAt],
+	);
 }

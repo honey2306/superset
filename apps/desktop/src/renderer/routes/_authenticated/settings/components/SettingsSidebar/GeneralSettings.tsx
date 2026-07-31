@@ -2,20 +2,12 @@ import { cn } from "@superset/ui/utils";
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
-	HiOutlineBeaker,
 	HiOutlineBell,
 	HiOutlineCommandLine,
-	HiOutlineComputerDesktop,
-	HiOutlineCpuChip,
 	HiOutlineFolder,
-	HiOutlineKey,
-	HiOutlineLink,
-	HiOutlineLockClosed,
 	HiOutlinePaintBrush,
-	HiOutlinePuzzlePiece,
 	HiOutlineShieldCheck,
 	HiOutlineSparkles,
-	HiOutlineUser,
 } from "react-icons/hi2";
 import { LuBrain, LuGitBranch, LuKeyboard } from "react-icons/lu";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
@@ -32,23 +24,15 @@ interface GeneralSettingsProps {
 }
 
 type SettingsRoute =
-	| "/settings/account"
 	| "/settings/appearance"
 	| "/settings/ringtones"
 	| "/settings/keyboard"
 	| "/settings/behavior"
 	| "/settings/git"
-	| "/settings/agents"
 	| "/settings/terminal"
-	| "/settings/links"
 	| "/settings/models"
-	| "/settings/experimental"
-	| "/settings/integrations"
-	| "/settings/api-keys"
-	| "/settings/security"
 	| "/settings/permissions"
-	| "/settings/projects"
-	| "/settings/hosts";
+	| "/settings/projects";
 
 interface SectionItem {
 	id: SettingsRoute;
@@ -67,12 +51,6 @@ const SECTION_GROUPS: SectionGroup[] = [
 	{
 		labelKey: "settings.group.personal",
 		items: [
-			{
-				id: "/settings/account",
-				section: "account",
-				labelKey: "settings.account",
-				icon: <HiOutlineUser className="h-4 w-4" />,
-			},
 			{
 				id: "/settings/appearance",
 				section: "appearance",
@@ -109,22 +87,10 @@ const SECTION_GROUPS: SectionGroup[] = [
 				icon: <LuGitBranch className="h-4 w-4" />,
 			},
 			{
-				id: "/settings/agents",
-				section: "agents",
-				labelKey: "settings.agents",
-				icon: <HiOutlineCpuChip className="h-4 w-4" />,
-			},
-			{
 				id: "/settings/terminal",
 				section: "terminal",
 				labelKey: "settings.terminal",
 				icon: <HiOutlineCommandLine className="h-4 w-4" />,
-			},
-			{
-				id: "/settings/links",
-				section: "links",
-				labelKey: "settings.links",
-				icon: <HiOutlineLink className="h-4 w-4" />,
 			},
 			{
 				id: "/settings/models",
@@ -143,47 +109,17 @@ const SECTION_GROUPS: SectionGroup[] = [
 				labelKey: "settings.projects",
 				icon: <HiOutlineFolder className="h-4 w-4" />,
 			},
-			{
-				id: "/settings/hosts",
-				section: "hosts",
-				labelKey: "settings.hosts",
-				icon: <HiOutlineComputerDesktop className="h-4 w-4" />,
-			},
-			{
-				id: "/settings/integrations",
-				section: "integrations",
-				labelKey: "settings.integrations",
-				icon: <HiOutlinePuzzlePiece className="h-4 w-4" />,
-			},
-			{
-				id: "/settings/api-keys",
-				section: "apikeys",
-				labelKey: "settings.apiKeys",
-				icon: <HiOutlineKey className="h-4 w-4" />,
-			},
 		],
 	},
 	{
 		labelKey: "settings.group.system",
 		items: [
 			{
-				id: "/settings/security",
-				section: "security",
-				labelKey: "settings.security",
-				icon: <HiOutlineLockClosed className="h-4 w-4" />,
-			},
-			{
 				id: "/settings/permissions",
 				section: "permissions",
 				labelKey: "settings.permissions",
 				icon: <HiOutlineShieldCheck className="h-4 w-4" />,
 				macOnly: true,
-			},
-			{
-				id: "/settings/experimental",
-				section: "experimental",
-				labelKey: "settings.experimental",
-				icon: <HiOutlineBeaker className="h-4 w-4" />,
 			},
 		],
 	},

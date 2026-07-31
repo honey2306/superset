@@ -1,9 +1,38 @@
-import type { RendererContext } from "@superset/panes";
+import type { RendererContext, Tab, WorkspaceStore } from "@superset/panes";
+import { getHighestPriorityStatus, type PaneStatus } from "shared/tabs-types";
+import type { StoreApi } from "zustand/vanilla";
 import type {
 	HostServiceTerminalPaneBridge,
 	HostServiceTerminalPaneSnapshot,
 } from "../Terminal/host-service-terminal-pane-bridge";
 import type { V1PanesPaneData } from "./types";
+
+export function syncV1PanesTerminalStatuses(
+	store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
+	statuses: ReadonlyMap<string, PaneStatus>,
+): void {
+	for (const tab of store.getState().tabs) {
+		for (const pane of Object.values(tab.panes)) {
+			if (pane.kind !== "terminal" || !pane.data.terminalId) continue;
+			const status = statuses.get(pane.data.terminalId) ?? "idle";
+			if (pane.data.status === status) continue;
+			store.getState().setPaneData({
+				paneId: pane.id,
+				data: { ...pane.data, status },
+			});
+		}
+	}
+}
+
+export function getV1PanesTabStatus(
+	tab: Tab<V1PanesPaneData>,
+): ReturnType<typeof getHighestPriorityStatus> {
+	return getHighestPriorityStatus(
+		Object.values(tab.panes).map((pane) =>
+			pane.kind === "terminal" ? pane.data.status : undefined,
+		),
+	);
+}
 
 export function createV1PanesTerminalPaneBridge(
 	context: RendererContext<V1PanesPaneData>,

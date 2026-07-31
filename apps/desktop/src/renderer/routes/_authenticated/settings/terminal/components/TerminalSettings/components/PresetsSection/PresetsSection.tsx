@@ -478,6 +478,24 @@ export function PresetsSection({
 		[editingPreset, handleToggleWorkspaceRun],
 	);
 
+	const handleEditorIconChange = useCallback(
+		(icon: string | undefined) => {
+			if (!editingPreset || editingRowIndex < 0) return;
+
+			setLocalPresets((prev) =>
+				prev.map((preset, index) =>
+					index === editingRowIndex ? { ...preset, icon } : preset,
+				),
+			);
+
+			updatePreset.mutate({
+				id: editingPreset.id,
+				patch: { icon },
+			});
+		},
+		[editingPreset, editingRowIndex, updatePreset],
+	);
+
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center justify-between">
@@ -537,6 +555,7 @@ export function PresetsSection({
 				onFieldChange={handleEditorFieldChange}
 				onFieldBlur={handleEditorFieldBlur}
 				onProjectIdsChange={handleEditorProjectIdsChange}
+				onIconChange={handleEditorIconChange}
 				onDirectorySelect={handleEditorDirectorySelect}
 				onCommandsChange={handleEditorCommandsChange}
 				onCommandsBlur={handleEditorCommandsBlur}

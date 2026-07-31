@@ -60,7 +60,7 @@ function DashboardLayout() {
 	} = useWorkspaceSidebarStore();
 
 	// Global hotkeys for dashboard
-	useHotkey("OPEN_SETTINGS", () => navigate({ to: "/settings/account" }));
+	useHotkey("OPEN_SETTINGS", () => navigate({ to: "/settings/appearance" }));
 	useHotkey("SHOW_HOTKEYS", () => navigate({ to: "/settings/keyboard" }));
 	useHotkey("TOGGLE_WORKSPACE_SIDEBAR", () => {
 		if (!isWorkspaceSidebarOpen) {

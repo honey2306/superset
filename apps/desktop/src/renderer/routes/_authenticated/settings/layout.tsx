@@ -28,45 +28,32 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 const SECTION_ORDER: SettingsSection[] = [
-	"account",
 	"appearance",
 	"ringtones",
 	"keyboard",
 	"behavior",
 	"git",
 	"terminal",
-	"links",
 	"models",
 	"project",
-	"integrations",
-	"apikeys",
 	"permissions",
-	"hosts",
-	"experimental",
 ];
 
 function getSectionFromPath(pathname: string): SettingsSection | null {
-	if (pathname.includes("/settings/account")) return "account";
 	if (pathname.includes("/settings/appearance")) return "appearance";
 	if (pathname.includes("/settings/ringtones")) return "ringtones";
 	if (pathname.includes("/settings/keyboard")) return "keyboard";
 	if (pathname.includes("/settings/behavior")) return "behavior";
 	if (pathname.includes("/settings/git")) return "git";
 	if (pathname.includes("/settings/terminal")) return "terminal";
-	if (pathname.includes("/settings/links")) return "links";
 	if (pathname.includes("/settings/models")) return "models";
-	if (pathname.includes("/settings/experimental")) return "experimental";
-	if (pathname.includes("/settings/integrations")) return "integrations";
 	if (pathname.includes("/settings/permissions")) return "permissions";
-	if (pathname.includes("/settings/hosts")) return "hosts";
 	if (pathname.includes("/settings/project")) return "project";
 	return null;
 }
 
 function getPathFromSection(section: SettingsSection): string {
 	switch (section) {
-		case "account":
-			return "/settings/account";
 		case "appearance":
 			return "/settings/appearance";
 		case "ringtones":
@@ -79,22 +66,14 @@ function getPathFromSection(section: SettingsSection): string {
 			return "/settings/git";
 		case "terminal":
 			return "/settings/terminal";
-		case "links":
-			return "/settings/links";
 		case "models":
 			return "/settings/models";
-		case "experimental":
-			return "/settings/experimental";
-		case "integrations":
-			return "/settings/integrations";
 		case "permissions":
 			return "/settings/permissions";
-		case "hosts":
-			return "/settings/hosts";
 		case "project":
 			return "/settings/projects";
 		default:
-			return "/settings/account";
+			return "/settings/appearance";
 	}
 }
 
@@ -122,7 +101,6 @@ function SettingsLayout() {
 		if (!currentSection) return;
 
 		if (currentSection === "project") return;
-		if (currentSection === "hosts") return;
 
 		const matchCounts = getMatchCountBySection(normalizedSearchQuery, locale);
 		const currentHasMatches = (matchCounts[currentSection] ?? 0) > 0;
@@ -161,10 +139,7 @@ function SettingsLayout() {
 		[navigate, location.pathname, originRoute],
 	);
 
-	const usesInnerSidebar =
-		location.pathname.startsWith("/settings/projects") ||
-		location.pathname.startsWith("/settings/hosts") ||
-		location.pathname.startsWith("/settings/agents");
+	const usesInnerSidebar = location.pathname.startsWith("/settings/projects");
 
 	return (
 		<div className="flex flex-col h-screen w-screen bg-tertiary">

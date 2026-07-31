@@ -21,6 +21,7 @@ import {
 	useOpenNewProjectModal,
 	useOpenTemplateGalleryModal,
 } from "renderer/stores/add-repository-modal";
+import { SettingsButton } from "../SettingsButton";
 import { STROKE_WIDTH } from "./constants";
 
 interface WorkspaceSidebarFooterProps {
@@ -120,6 +121,7 @@ export function WorkspaceSidebarFooter({
 						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
+				<SettingsButton />
 			</div>
 		);
 	}
@@ -131,11 +133,11 @@ export function WorkspaceSidebarFooter({
 					<Button
 						variant="ghost"
 						size="sm"
-						className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+						className="flex-1 min-w-0 justify-start gap-2 text-muted-foreground hover:text-foreground"
 						disabled={isLoading}
 					>
 						<LuFolderPlus className="w-4 h-4" strokeWidth={STROKE_WIDTH} />
-						<span>{t("workspace.addRepository")}</span>
+						<span className="truncate">{t("workspace.addRepository")}</span>
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent side="top" align="start">
@@ -154,6 +156,7 @@ export function WorkspaceSidebarFooter({
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<UpdatesPill />
+			<SettingsButton />
 		</div>
 	);
 }

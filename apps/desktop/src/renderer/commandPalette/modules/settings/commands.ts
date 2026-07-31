@@ -1,22 +1,15 @@
 import {
-	BeakerIcon,
 	BellIcon,
-	BookmarkIcon,
 	CpuIcon,
 	FileTextIcon,
 	FolderIcon,
 	GitBranchIcon,
 	KeyboardIcon,
-	KeyRoundIcon,
-	LinkIcon,
 	type LucideIcon,
 	PaletteIcon,
-	ServerIcon,
 	ShieldIcon,
 	SlidersIcon,
 	TerminalIcon,
-	UserIcon,
-	WrenchIcon,
 } from "lucide-react";
 import type { Command } from "../../core/types";
 
@@ -29,12 +22,6 @@ interface SettingsTab {
 }
 
 const TABS: SettingsTab[] = [
-	{
-		id: "account",
-		title: "Account",
-		path: "/settings/account",
-		icon: UserIcon,
-	},
 	{
 		id: "appearance",
 		title: "Appearance",
@@ -62,18 +49,6 @@ const TABS: SettingsTab[] = [
 		icon: TerminalIcon,
 	},
 	{ id: "git", title: "Git", path: "/settings/git", icon: GitBranchIcon },
-	{
-		id: "experimental",
-		title: "Experimental",
-		path: "/settings/experimental",
-		icon: BeakerIcon,
-	},
-	{
-		id: "integrations",
-		title: "Integrations",
-		path: "/settings/integrations",
-		icon: LinkIcon,
-	},
 	// Organization, Teams, and Billing removed for single-user setup
 	{
 		id: "keyboard",
@@ -82,14 +57,12 @@ const TABS: SettingsTab[] = [
 		icon: KeyboardIcon,
 		keywords: ["hotkeys", "shortcuts"],
 	},
-	{ id: "links", title: "Links", path: "/settings/links", icon: BookmarkIcon },
 	{
 		id: "permissions",
 		title: "Permissions",
 		path: "/settings/permissions",
 		icon: ShieldIcon,
 	},
-	{ id: "hosts", title: "Hosts", path: "/settings/hosts", icon: ServerIcon },
 	{
 		id: "projects",
 		title: "Projects",
@@ -104,24 +77,10 @@ const TABS: SettingsTab[] = [
 	},
 	// Billing removed for single-user setup
 	{
-		id: "security",
-		title: "Security",
-		path: "/settings/security",
-		icon: KeyRoundIcon,
-	},
-	{ id: "agents", title: "Agents", path: "/settings/agents", icon: WrenchIcon },
-	{
 		id: "presets",
 		title: "Presets",
 		path: "/settings/presets",
 		icon: FileTextIcon,
-	},
-	{
-		id: "api-keys",
-		title: "API keys",
-		path: "/settings/api-keys",
-		icon: KeyRoundIcon,
-		keywords: ["token"],
 	},
 ];
 

@@ -17,7 +17,6 @@ interface DiffViewerContextMenuProps {
 	getSelectionLines: () => EditorSelectionLines | null;
 	onSplitHorizontal: () => void;
 	onSplitVertical: () => void;
-	onSplitWithNewBrowser?: () => void;
 	onEqualizePaneSplits?: () => void;
 	onClosePane: () => void;
 	currentTabId: string;
@@ -52,7 +51,6 @@ export function DiffViewerContextMenu({
 	getSelectionLines,
 	onSplitHorizontal,
 	onSplitVertical,
-	onSplitWithNewBrowser,
 	onEqualizePaneSplits,
 	onClosePane,
 	currentTabId,
@@ -127,7 +125,6 @@ export function DiffViewerContextMenu({
 			paneActions={{
 				onSplitHorizontal,
 				onSplitVertical,
-				onSplitWithNewBrowser,
 				onEqualizePaneSplits,
 				onClosePane,
 				currentTabId,

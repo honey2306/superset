@@ -8,7 +8,7 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { HiMiniCog6Tooth, HiMiniCommandLine } from "react-icons/hi2";
 import {
-	getPresetIcon,
+	resolvePresetIcon,
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
 import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
@@ -36,7 +36,11 @@ export function PresetsSubmenu({
 			<DropdownMenuSubContent className="w-56">
 				{presets.length > 0 ? (
 					presets.map((preset, index) => {
-						const presetIcon = getPresetIcon(preset.name, isDark);
+						const presetIcon = resolvePresetIcon(
+							preset.name,
+							preset.icon,
+							isDark,
+						);
 						const hotkeyId = PRESET_HOTKEY_IDS[index];
 						return (
 							<DropdownMenuItem

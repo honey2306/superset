@@ -12,14 +12,12 @@ import type React from "react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusPromptOnPane } from "renderer/components/Chat/ChatInterface/hooks/useFocusPromptOnPane";
-import { useHotkeyDisplay } from "renderer/hotkeys";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import type { SlashCommand } from "../../hooks/useSlashCommands";
 import type { ModelOption, PermissionMode } from "../../types";
 import { TiptapPromptEditor } from "../TiptapPromptEditor";
 import { ChatComposerControls } from "./components/ChatComposerControls";
 import { ChatInputDropZone } from "./components/ChatInputDropZone";
-import { ChatShortcuts } from "./components/ChatShortcuts";
 import { FileDropOverlay } from "./components/FileDropOverlay";
 import { LinkedIssues } from "./components/LinkedIssues";
 import { QuestionInputOverlay } from "./components/QuestionInputOverlay";
@@ -106,8 +104,6 @@ export function ChatInputFooter({
 	const [linkedIssues, setLinkedIssues] = useState<LinkedIssue[]>([]);
 	const inputRootRef = useRef<HTMLDivElement>(null);
 	const errorMessage = getErrorMessage(error);
-	const focusShortcutText = useHotkeyDisplay("FOCUS_CHAT_INPUT").text;
-	const showFocusHint = focusShortcutText !== "Unassigned";
 
 	const removeLinkedIssue = useCallback((slug: string) => {
 		setLinkedIssues((prev) => prev.filter((issue) => issue.slug !== slug));
@@ -196,7 +192,6 @@ export function ChatInputFooter({
 								maxFileSize={10 * 1024 * 1024}
 								globalDrop
 							>
-								<ChatShortcuts isFocused={isFocused} />
 								<FileDropOverlay visible={dragType === "files"} />
 								<PromptInputAttachments>
 									{renderAttachment ??
@@ -213,9 +208,6 @@ export function ChatInputFooter({
 									slashCommands={slashCommands}
 									availableModels={availableModels}
 									placeholder={t("chatInput.placeholder")}
-									focusShortcutText={
-										showFocusHint ? focusShortcutText : undefined
-									}
 								/>
 								<ChatComposerControls
 									availableModels={availableModels}

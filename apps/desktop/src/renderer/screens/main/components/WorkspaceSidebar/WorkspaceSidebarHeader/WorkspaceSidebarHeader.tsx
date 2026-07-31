@@ -4,10 +4,7 @@ import { cn } from "@superset/ui/utils";
 import { useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { LuClock3, LuWorkflow } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { runV1Migration } from "renderer/lib/v1-migration";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { STROKE_WIDTH } from "../constants";
 
 interface WorkspaceSidebarHeaderProps {
@@ -23,7 +20,6 @@ export function WorkspaceSidebarHeader({
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
 	const utils = electronTrpc.useUtils();
-	const { activeHostUrl, activeOrganizationId } = useLocalHostService();
 	const ensureTemporaryWorkspace =
 		electronTrpc.projects.ensureTemporaryWorkspace.useMutation();
 	const { data: temporaryWorkspace } =
@@ -39,13 +35,6 @@ export function WorkspaceSidebarHeader({
 	const handleTemporaryWorkspaceClick = async () => {
 		try {
 			const temporary = await ensureTemporaryWorkspace.mutateAsync();
-			if (!activeHostUrl || !activeOrganizationId) {
-				throw new Error("Terminal service is not ready yet");
-			}
-			await runV1Migration({
-				organizationId: activeOrganizationId,
-				hostClient: getHostServiceClientByUrl(activeHostUrl),
-			});
 			await utils.workspaces.getAllGrouped.invalidate();
 			navigate({
 				to: "/workspace/$workspaceId",

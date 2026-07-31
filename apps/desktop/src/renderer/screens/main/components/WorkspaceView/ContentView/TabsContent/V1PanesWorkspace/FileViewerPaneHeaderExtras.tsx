@@ -45,7 +45,12 @@ export function FileViewerPaneHeaderExtras({
 			<ToggleGroup
 				type="single"
 				value={viewMode}
-				onValueChange={onViewModeChange}
+				onValueChange={(value) => {
+					// Radix ToggleGroup (type="single") fires "" when the active item is
+					// clicked again to deselect. viewMode must always be one of the enum
+					// values ("rendered" | "raw" | "diff") or tRPC persistence rejects it.
+					if (value) onViewModeChange(value);
+				}}
 				size="sm"
 				className="h-5 bg-muted/50 rounded-md"
 			>

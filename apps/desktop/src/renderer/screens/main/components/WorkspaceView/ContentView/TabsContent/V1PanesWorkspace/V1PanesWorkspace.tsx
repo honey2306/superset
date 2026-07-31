@@ -1,5 +1,13 @@
 import { Workspace } from "@superset/panes";
 import { useEffect } from "react";
+import { useTerminalAgentStatusesAtHost } from "renderer/hooks/host-service/useTerminalAgentStatuses";
+import { electronTrpc } from "renderer/lib/electron-trpc";
+import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
+import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
+import {
+	getV1PanesTabStatus,
+	syncV1PanesTerminalStatuses,
+} from "./createV1PanesTerminalPaneBridge";
 import { useV1PanesDeepLinkConsumer } from "./useV1PanesDeepLinkConsumer";
 import { useV1PanesHotkeys } from "./useV1PanesHotkeys";
 import { useV1PanesWorkspace } from "./useV1PanesWorkspace";
@@ -36,6 +44,23 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 		contextMenuActions,
 		openers,
 	} = useV1PanesWorkspace(workspaceId);
+	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
+		{ id: workspaceId },
+		{ enabled: Boolean(workspaceId) },
+	);
+	const { hostUrl, hostWorkspaceId } = useHostServiceTerminal({
+		workspaceId,
+		worktreePath: workspace?.worktreePath,
+		forceEnabled: true,
+	});
+	const terminalStatuses = useTerminalAgentStatusesAtHost(
+		hostUrl,
+		hostWorkspaceId,
+	);
+
+	useEffect(() => {
+		syncV1PanesTerminalStatuses(store, terminalStatuses);
+	}, [store, terminalStatuses]);
 
 	useV1PanesHotkeys({
 		store,
@@ -66,6 +91,10 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 				paneActions={paneActions}
 				contextMenuActions={contextMenuActions}
 				onAddTab={openers.addTerminalTab}
+				renderTabAccessory={(tab) => {
+					const status = getV1PanesTabStatus(tab);
+					return status ? <StatusIndicator status={status} /> : null;
+				}}
 				renderBelowTabBar={() => (
 					<V1PanesPresetBar
 						openers={openers}

@@ -22,6 +22,7 @@ import {
 	keymap,
 	lineNumbers,
 } from "@codemirror/view";
+import { indentationMarkers } from "@replit/codemirror-indentation-markers";
 import { cn } from "@superset/ui/utils";
 import { useQuery } from "@tanstack/react-query";
 import { type MutableRefObject, useEffect, useRef } from "react";
@@ -226,7 +227,19 @@ export function CodeEditor({
 				bracketMatching(),
 				highlightActiveLine(),
 				highlightSelectionMatches(),
-				EditorView.lineWrapping,
+				indentationMarkers({
+					highlightActiveBlock: true,
+					hideFirstIndent: false,
+					markerType: "fullScope",
+					thickness: 1,
+					activeThickness: 2,
+					colors: {
+						light: "rgba(0, 0, 0, 0.12)",
+						dark: "rgba(255, 255, 255, 0.12)",
+						activeLight: "rgba(0, 0, 0, 0.35)",
+						activeDark: "rgba(255, 255, 255, 0.35)",
+					},
+				}),
 				editableCompartment.of([
 					EditorState.readOnly.of(readOnly),
 					EditorView.editable.of(!readOnly),

@@ -83,36 +83,38 @@ export function FileViewerToolbar({
 				</Tooltip>
 			</div>
 			<div className="flex items-center gap-1">
-				<ToggleGroup
-					type="single"
-					value={viewMode}
-					onValueChange={onViewModeChange}
-					size="sm"
-					className="h-5 bg-muted/50 rounded-md"
-				>
-					{hasRenderedMode && (
-						<ToggleGroupItem
-							value="rendered"
-							className="h-5 px-1.5 text-[10px] text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
-						>
-							Rendered
-						</ToggleGroupItem>
-					)}
-					<ToggleGroupItem
-						value="raw"
-						className="h-5 px-1.5 text-[10px] text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+				{(hasRenderedMode || hasDiff) && (
+					<ToggleGroup
+						type="single"
+						value={viewMode}
+						onValueChange={onViewModeChange}
+						size="sm"
+						className="h-5 bg-muted/50 rounded-md"
 					>
-						Raw
-					</ToggleGroupItem>
-					{hasDiff && (
+						{hasRenderedMode && (
+							<ToggleGroupItem
+								value="rendered"
+								className="h-5 px-1.5 text-[10px] text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+							>
+								Rendered
+							</ToggleGroupItem>
+						)}
 						<ToggleGroupItem
-							value="diff"
+							value="raw"
 							className="h-5 px-1.5 text-[10px] text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
 						>
-							Changes
+							Raw
 						</ToggleGroupItem>
-					)}
-				</ToggleGroup>
+						{hasDiff && (
+							<ToggleGroupItem
+								value="diff"
+								className="h-5 px-1.5 text-[10px] text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+							>
+								Changes
+							</ToggleGroupItem>
+						)}
+					</ToggleGroup>
+				)}
 				{viewMode === "diff" && (
 					<>
 						<Tooltip>

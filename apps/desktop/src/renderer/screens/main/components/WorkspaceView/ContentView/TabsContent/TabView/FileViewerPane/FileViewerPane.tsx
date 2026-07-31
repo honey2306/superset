@@ -38,7 +38,7 @@ import {
 	retargetAbsolutePath,
 	toAbsoluteWorkspacePath,
 } from "shared/absolute-paths";
-import { isImageFile, isMarkdownFile } from "shared/file-types";
+import { isHtmlFile, isImageFile, isMarkdownFile } from "shared/file-types";
 import type { FileViewerMode } from "shared/tabs-types";
 import type { CodeEditorAdapter } from "../../../components";
 import { BasePaneWindow } from "../components";
@@ -588,7 +588,8 @@ export function FileViewerPane({
 
 		return "";
 	}, [currentDocumentContent, documentKey, rawFileData]);
-	const hasRenderedMode = isMarkdownFile(filePath) || isImageFile(filePath);
+	const hasRenderedMode =
+		isMarkdownFile(filePath) || isImageFile(filePath) || isHtmlFile(filePath);
 	const hasDiff = !!diffCategory;
 	const unsavedDialogCopy = getUnsavedDialogCopy(
 		session?.pendingIntent ?? null,
@@ -706,9 +707,6 @@ export function FileViewerPane({
 							onSwitchToRawAtLocation={handleSwitchToRawAtLocation}
 							onSplitHorizontal={() => splitPaneHorizontal(tabId, paneId, path)}
 							onSplitVertical={() => splitPaneVertical(tabId, paneId, path)}
-							onSplitWithNewBrowser={() =>
-								splitPaneVertical(tabId, paneId, path, { paneType: "webview" })
-							}
 							onEqualizePaneSplits={() => equalizePaneSplits(tabId)}
 							onClosePane={() => (onRequestClose ?? requestPaneClose)(paneId)}
 							currentTabId={tabId}

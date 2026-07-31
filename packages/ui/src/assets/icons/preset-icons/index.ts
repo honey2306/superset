@@ -63,6 +63,34 @@ export function getPresetIcon(
 	return isDark ? iconSet.dark : iconSet.light;
 }
 
+/**
+ * Resolves the icon for a preset, respecting the priority:
+ *   1. Built-in icon matched by preset name (highest priority)
+ *   2. User-uploaded custom `data:` URI icon
+ *   3. undefined (caller shows a fallback)
+ *
+ * Built-in wins to keep visual identity consistent — if someone renames
+ * their preset to `claude`, we always show the Claude icon regardless of
+ * any previously uploaded custom image.
+ */
+export function resolvePresetIcon(
+	presetName: string,
+	customIcon: string | undefined,
+	isDark: boolean,
+): string | undefined {
+	const builtIn = getPresetIcon(presetName, isDark);
+	if (builtIn && !isDataImageUri(presetName)) return builtIn;
+	if (customIcon && isDataImageUri(customIcon)) return customIcon;
+	return builtIn;
+}
+
+/** True when the preset name matches a known built-in icon key. */
+export function hasBuiltInPresetIcon(presetName: string): boolean {
+	if (isDataImageUri(presetName)) return false;
+	const normalized = presetName.toLowerCase().trim();
+	return normalized in PRESET_ICONS;
+}
+
 export {
 	ampIcon,
 	claudeIcon,

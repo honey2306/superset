@@ -10,12 +10,12 @@
  *   pi `before_agent_start`  → Claude `UserPromptSubmit`  → Superset `Start`
  *   pi `tool_execution_end`  → Claude `PostToolUse`       → progress signal
  *   pi `agent_end`           → Claude `Stop`              → completion / chime
- *   pi `session_end`         → Claude `SessionEnd`        → pane icon detach
  *   pi `session_shutdown`    → Claude `Stop`              → cleanup on quit/reload
  *
- * Activates only when running inside a v2 Superset terminal (detected via
- * SUPERSET_TERMINAL_ID). Outside Superset it's a complete no-op. If notify.sh
- * is missing it's also a no-op (Superset uninstalled / never installed).
+ * Activates inside any Superset terminal (v1 or v2). v1 terminals inject
+ * SUPERSET_TAB_ID/PANE_ID; v2 injects SUPERSET_TERMINAL_ID. Without either
+ * we stay a complete no-op — matching the AMP plugin's gate so v1 terminals
+ * don't silently no-op. If notify.sh is missing it's also a no-op.
  *
  * Hook dispatch is fire-and-forget: failures to spawn or curl never
  * affect the agent loop. notify.sh has its own connect/max timeouts.
@@ -28,8 +28,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 export default function (pi: ExtensionAPI) {
-	// Only activate inside a v2 Superset terminal.
-	if (!process.env.SUPERSET_TERMINAL_ID) return;
+	if (
+		!process.env.SUPERSET_TERMINAL_ID &&
+		!process.env.SUPERSET_TAB_ID &&
+		!process.env.SUPERSET_PANE_ID
+	)
+		return;
 
 	const supersetHome =
 		process.env.SUPERSET_HOME_DIR || join(homedir(), ".superset");
@@ -67,17 +71,12 @@ export default function (pi: ExtensionAPI) {
 	// that's a niche regression; on >=0.38.0 the gate works precisely.
 	const skip = (ctx: { hasUI?: boolean }) => ctx.hasUI === false;
 
-	// Earliest signal pi is alive in this terminal — pi-mono fires
-	// `session_start` once per session before any prompt arrives, which lets
-	// the host bind the pane icon before the user types.
+	// Earliest signal pi is alive in this terminal — pi fires `session_start`
+	// once per session before any prompt arrives, which lets the host bind the
+	// pane icon before the user types.
 	pi.on("session_start", (_event, ctx) => {
 		if (skip(ctx)) return;
 		fire("SessionStart");
-	});
-
-	pi.on("session_end", (_event, ctx) => {
-		if (skip(ctx)) return;
-		fire("SessionEnd");
 	});
 
 	pi.on("before_agent_start", (_event, ctx) => {

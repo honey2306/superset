@@ -467,32 +467,6 @@ function WorkspacePage() {
 		legacyHotkeyOptions,
 	);
 
-	useHotkey(
-		"SPLIT_WITH_CHAT",
-		() => {
-			// Chat panes were removed; the split-with-chat hotkey is a no-op now.
-		},
-		legacyHotkeyOptions,
-	);
-
-	useHotkey(
-		"SPLIT_WITH_BROWSER",
-		() => {
-			if (activeTabId && focusedPaneId && activeTab) {
-				const target = resolveSplitTarget(
-					focusedPaneId,
-					activeTabId,
-					activeTab,
-				);
-				if (!target) return;
-				splitPaneVertical(activeTabId, target.paneId, target.path, {
-					paneType: "webview",
-				});
-			}
-		},
-		legacyHotkeyOptions,
-	);
-
 	const equalizePaneSplits = useTabsStore((s) => s.equalizePaneSplits);
 	useHotkey(
 		"EQUALIZE_PANE_SPLITS",

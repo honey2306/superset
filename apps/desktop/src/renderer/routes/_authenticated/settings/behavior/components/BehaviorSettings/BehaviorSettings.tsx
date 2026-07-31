@@ -34,10 +34,6 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 		SETTING_ITEM_ID.BEHAVIOR_RESOURCE_MONITOR,
 		visibleItems,
 	);
-	const showOpenLinksInApp = isItemVisible(
-		SETTING_ITEM_ID.BEHAVIOR_OPEN_LINKS_IN_APP,
-		visibleItems,
-	);
 
 	const utils = electronTrpc.useUtils();
 
@@ -105,27 +101,6 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 				utils.settings.getShowResourceMonitor.invalidate();
 			},
 		});
-
-	const { data: openLinksInApp, isLoading: isOpenLinksInAppLoading } =
-		electronTrpc.settings.getOpenLinksInApp.useQuery();
-	const setOpenLinksInApp = electronTrpc.settings.setOpenLinksInApp.useMutation(
-		{
-			onMutate: async ({ enabled }) => {
-				await utils.settings.getOpenLinksInApp.cancel();
-				const previous = utils.settings.getOpenLinksInApp.getData();
-				utils.settings.getOpenLinksInApp.setData(undefined, enabled);
-				return { previous };
-			},
-			onError: (_err, _vars, context) => {
-				if (context?.previous !== undefined) {
-					utils.settings.getOpenLinksInApp.setData(undefined, context.previous);
-				}
-			},
-			onSettled: () => {
-				utils.settings.getOpenLinksInApp.invalidate();
-			},
-		},
-	);
 
 	return (
 		<div className="p-6 max-w-4xl w-full">
@@ -205,30 +180,6 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 							disabled={
 								isResourceMonitorLoading || setShowResourceMonitor.isPending
 							}
-						/>
-					</div>
-				)}
-
-				{showOpenLinksInApp && (
-					<div className="flex items-center justify-between">
-						<div className="space-y-0.5">
-							<Label
-								htmlFor="open-links-in-app"
-								className="text-sm font-medium"
-							>
-								{t("behavior.openLinksInApp")}
-							</Label>
-							<p className="text-xs text-muted-foreground">
-								{t("behavior.openLinksInAppHint")}
-							</p>
-						</div>
-						<Switch
-							id="open-links-in-app"
-							checked={openLinksInApp ?? false}
-							onCheckedChange={(enabled) =>
-								setOpenLinksInApp.mutate({ enabled })
-							}
-							disabled={isOpenLinksInAppLoading || setOpenLinksInApp.isPending}
 						/>
 					</div>
 				)}

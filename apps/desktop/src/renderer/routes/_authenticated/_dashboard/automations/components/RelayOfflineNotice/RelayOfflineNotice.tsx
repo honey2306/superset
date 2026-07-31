@@ -1,11 +1,5 @@
-import { Button } from "@superset/ui/button";
 import { cn } from "@superset/ui/utils";
-import { Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { LuTriangleAlert } from "react-icons/lu";
-import { GATED_FEATURES, usePaywall } from "renderer/components/Paywall";
-import { ExposeViaRelayConfirmDialog } from "renderer/routes/_authenticated/components/ExposeViaRelayConfirmDialog";
-import { useEnableRelayAccess } from "../../hooks/useEnableRelayAccess";
 import { useRelayHostTarget } from "../../hooks/useRelayHostTarget";
 
 interface RelayOfflineNoticeProps {
@@ -33,9 +27,6 @@ export function RelayOfflineNotice({
 	className,
 }: RelayOfflineNoticeProps) {
 	const { isLocal, remoteHost, localHostIsOnline } = useRelayHostTarget(hostId);
-	const { gateFeature } = usePaywall();
-	const [confirmOpen, setConfirmOpen] = useState(false);
-	const { enableRelay, isPending } = useEnableRelayAccess();
 
 	if (isLocal) {
 		if (localHostIsOnline !== false) return null;
@@ -48,28 +39,6 @@ export function RelayOfflineNotice({
 						runs will be skipped.
 					</span>
 				</div>
-				<Button
-					variant="outline"
-					size="sm"
-					className="ml-auto h-7 shrink-0 border-amber-500/40 bg-amber-500/10 px-2.5 text-xs text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
-					disabled={isPending}
-					onClick={() =>
-						gateFeature(GATED_FEATURES.REMOTE_WORKSPACES, () =>
-							setConfirmOpen(true),
-						)
-					}
-				>
-					Enable relay access…
-				</Button>
-				<ExposeViaRelayConfirmDialog
-					open={confirmOpen}
-					targetEnabled
-					onOpenChange={setConfirmOpen}
-					onConfirm={() => {
-						setConfirmOpen(false);
-						enableRelay();
-					}}
-				/>
 			</div>
 		);
 	}
@@ -81,16 +50,8 @@ export function RelayOfflineNotice({
 				{ICON}
 				<span>
 					<span className="font-medium">{remoteHost.name}</span> isn't connected
-					to the Superset relay, so its runs will be skipped. Check its{" "}
-					<Link
-						to="/settings/hosts/$hostId"
-						params={{ hostId }}
-						className="font-medium underline underline-offset-2"
-					>
-						host settings
-					</Link>
-					, and make sure relay access is on in Settings &gt; Security on that
-					device.
+					to the Superset relay, so its runs will be skipped. Make sure relay
+					access is enabled on that device.
 				</span>
 			</div>
 		</div>

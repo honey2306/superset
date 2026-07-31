@@ -16,7 +16,7 @@ export const navigationProvider: CommandProvider = {
 				icon: SettingsIcon,
 				hotkeyId: "OPEN_SETTINGS",
 				children: settingsTabCommands,
-				run: (ctx) => ctx.navigate("/settings/account"),
+				run: (ctx) => ctx.navigate("/settings/appearance"),
 			},
 			{
 				id: "nav.recentlyViewed",

@@ -53,7 +53,6 @@ export interface AddTabOptions {
 
 export interface SplitPaneOptions {
 	initialCwd?: string;
-	paneType?: "terminal" | "webview";
 }
 
 export interface AddTabWithMultiplePanesOptions {

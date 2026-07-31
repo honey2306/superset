@@ -10,7 +10,7 @@ import {
 import { useEffect, useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { HiMiniCommandLine } from "react-icons/hi2";
-import { getPresetIcon } from "renderer/assets/app-icons/preset-icons";
+import { resolvePresetIcon } from "renderer/assets/app-icons/preset-icons";
 import type { HotkeyId } from "renderer/hotkeys";
 import { HotkeyTooltip } from "renderer/hotkeys";
 
@@ -48,7 +48,7 @@ export function PresetBarItem({
 	onPersistReorder,
 }: PresetBarItemProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
-	const icon = getPresetIcon(preset.name, isDark);
+	const icon = resolvePresetIcon(preset.name, preset.icon, isDark);
 
 	const [{ isDragging }, drag] = useDrag(
 		() => ({

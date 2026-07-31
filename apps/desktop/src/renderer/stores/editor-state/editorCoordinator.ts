@@ -515,6 +515,13 @@ export function requestViewModeChange(
 	paneId: string,
 	nextMode: import("shared/tabs-types").FileViewerMode,
 ): boolean {
+	// Defense in depth: reject anything that isn't a valid FileViewerMode. Radix
+	// ToggleGroup can emit "" on deselect, and a bad value here corrupts the
+	// persisted state (tRPC then rejects every subsequent flush).
+	if (nextMode !== "rendered" && nextMode !== "raw" && nextMode !== "diff") {
+		return true;
+	}
+
 	const pane = useTabsStore.getState().panes[paneId];
 	if (!pane?.fileViewer || pane.fileViewer.viewMode === nextMode) {
 		return true;

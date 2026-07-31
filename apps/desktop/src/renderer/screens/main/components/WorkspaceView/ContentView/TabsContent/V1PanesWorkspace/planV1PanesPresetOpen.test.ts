@@ -54,6 +54,26 @@ describe("planV1PanesPresetOpen", () => {
 		});
 	});
 
+	test("current-pane target plans replacement of the active pane", () => {
+		const plan = planV1PanesPresetOpen(makePreset(), {
+			target: "current-pane",
+			activeTabId: "tab-1",
+			activePaneId: "pane-1",
+			randomUuid: () => "term-current",
+		});
+		expect(plan).toEqual({
+			kind: "replacePane",
+			tabId: "tab-1",
+			paneId: "pane-1",
+			terminalId: "term-current",
+			agentName: "claude",
+			initialCommand: undefined,
+			fallbackCommand: "claude",
+			initialCwd: "/repo",
+			titleOverride: "claude",
+		});
+	});
+
 	test("non-agent multi-command preset joins commands as initialCommand", () => {
 		const plan = planV1PanesPresetOpen(
 			makePreset({ name: "dev", commands: ["echo hi", "bun run dev"] }),

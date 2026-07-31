@@ -27,7 +27,6 @@ import {
 	pollHealthCheck,
 } from "./host-service-utils";
 import { localDb } from "./local-db";
-import { getRelayUrl } from "./relay-url";
 import { HOOK_PROTOCOL_VERSION } from "./terminal/env";
 
 export type HostServiceStatus = "starting" | "running" | "stopped";
@@ -645,7 +644,6 @@ export class HostServiceCoordinator extends EventEmitter {
 	): Promise<Record<string, string>> {
 		const organizationDir = manifestDir(organizationId);
 		const row = localDb.select().from(settings).get();
-		const exposeViaRelay = row?.exposeHostServiceViaRelay ?? false;
 
 		const childEnv = await getProcessEnvWithShellPath({
 			...(process.env as Record<string, string>),
@@ -680,18 +678,9 @@ export class HostServiceCoordinator extends EventEmitter {
 			HOST_PARENT_PID: String(process.pid),
 		});
 
-		// `getProcessEnvWithShellPath` merges in the user's interactive shell env,
-		// which in dev has `RELAY_URL` set. Enforce the toggle *after* that merge
-		// so the child definitely doesn't see a relay URL when disabled. The
-		// effective URL comes from the PostHog `relay-url-override` flag with
-		// `env.RELAY_URL` as fallback (see main/lib/relay-url) so we can A/B-test
-		// alternate relay deployments per-user.
-		const effectiveRelayUrl = await getRelayUrl();
-		if (exposeViaRelay && effectiveRelayUrl) {
-			childEnv.RELAY_URL = effectiveRelayUrl;
-		} else {
-			delete childEnv.RELAY_URL;
-		}
+		// Relay exposure is intentionally disabled in the local-only desktop.
+		// Remove any inherited shell value without affecting the loopback host.
+		delete childEnv.RELAY_URL;
 
 		return childEnv;
 	}
