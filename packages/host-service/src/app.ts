@@ -37,6 +37,7 @@ import {
 	type ExecGh,
 } from "./trpc/router/workspace-creation/utils/exec-gh";
 import type { ApiClient } from "./types";
+import { runCatalogIdentityBackfill, WorkspaceCatalog } from "./workspace-catalog";
 
 export interface CreateAppOptions {
 	config: {
@@ -177,6 +178,18 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	const eventBus = new EventBus({ db, filesystem, gitWatcher });
 	eventBus.start();
 
+	// Workspace Catalog Module (M1) — the sole normal writer of identity
+	// and display columns. Constructed AFTER EventBus so catalog wake pings
+	// have somewhere to fan out. The synchronous identity backfill runs
+	// BEFORE tRPC routes accept requests so legacy rows always have a
+	// canonical key by the time a caller queries `snapshot`.
+	const catalog = new WorkspaceCatalog({ db, eventBus });
+	try {
+		runCatalogIdentityBackfill({ db, catalog });
+	} catch (err) {
+		console.warn("[host-service] catalog identity backfill failed:", err);
+	}
+
 	const terminalAgentPersistence = new SqliteTerminalAgentBindingPersistence(
 		db,
 	);
@@ -264,6 +277,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 					execGh,
 					api,
 					db,
+					catalog,
 					runtime,
 					eventBus,
 					terminalAgentStore,

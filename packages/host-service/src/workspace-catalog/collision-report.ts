@@ -34,6 +34,14 @@ export interface IdentityCollisionReport {
  * detectable purely from what is already in the DB.
  */
 export function canonicalizePath(rawPath: string): string {
+	return normalizeCatalogPathString(rawPath);
+}
+
+/**
+ * Internal string-only normalization shared by `canonicalizePath` and the
+ * canonical-path resolver (which realpaths first, then re-normalizes).
+ */
+export function normalizeCatalogPathString(rawPath: string): string {
 	const trimmed = rawPath.trim();
 	if (trimmed.length <= 1) return trimmed;
 	const last = trimmed[trimmed.length - 1];

@@ -106,6 +106,17 @@ export interface ProjectChangedMessage {
 	occurredAt: number;
 }
 
+/**
+ * Wake-up ping for the Workspace Catalog change stream (M1). The revision
+ * is the highest committed row in `catalog_changes`; consumers replay from
+ * their last cursor by calling `workspaceCatalog.changes`. The event is not
+ * the durable payload — dropped events are healed on the next call.
+ */
+export interface CatalogChangedMessage {
+	type: "catalog:changed";
+	revision: number;
+}
+
 export interface EventBusErrorMessage {
 	type: "error";
 	message: string;
@@ -119,6 +130,7 @@ export type ServerMessage =
 	| PortChangedMessage
 	| WorkspaceChangedMessage
 	| ProjectChangedMessage
+	| CatalogChangedMessage
 	| EventBusErrorMessage;
 
 // ── Client → Server ────────────────────────────────────────────────

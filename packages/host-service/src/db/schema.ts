@@ -80,13 +80,31 @@ export const projects = sqliteTable(
 		// Empty string means "not yet backfilled" — the startup sweep targets
 		// these rows (name from cloud legacy row if reachable, else basename).
 		name: text().notNull().default(""),
+		// Distinguishes long-lived repository Projects from the singleton
+		// temporary Project. `kind='temporary'` combined with a fixed
+		// `singleton_key` (currently only "default") lets the Provisioning
+		// Module route `ProjectTarget.temporary` requests to the one row.
+		kind: text().notNull().default("repository"),
+		singletonKey: text("singleton_key"),
+		// Canonicalized `repoPath` — the per-host identity key. Nullable so
+		// the M1 migration does not fail on legacy duplicates; the backfill
+		// fills it lazily and records a conflict when it cannot.
+		canonicalRepoPath: text("canonical_repo_path"),
 		// 0 means "predates local ownership"; write paths always set it.
 		updatedAt: integer("updated_at").notNull().default(0),
 		createdAt: integer("created_at")
 			.notNull()
 			.$defaultFn(() => Date.now()),
 	},
-	(table) => [index("projects_repo_path_idx").on(table.repoPath)],
+	(table) => [
+		index("projects_repo_path_idx").on(table.repoPath),
+		uniqueIndex("projects_canonical_repo_path_unique").on(
+			table.canonicalRepoPath,
+		),
+		uniqueIndex("projects_singleton_key_unique")
+			.on(table.singletonKey)
+			.where(sql`singleton_key IS NOT NULL`),
+	],
 );
 
 /**
@@ -198,6 +216,9 @@ export const workspaces = sqliteTable(
 		type: text().$type<"main" | "worktree">().notNull().default("worktree"),
 		taskId: text("task_id"),
 		createdByUserId: text("created_by_user_id"),
+		// Canonicalized `worktreePath` — the per-host identity key.
+		// Nullable during migration; new writes always set it.
+		canonicalWorktreePath: text("canonical_worktree_path"),
 		createdAt: integer("created_at")
 			.notNull()
 			.$defaultFn(() => Date.now()),
@@ -218,8 +239,56 @@ export const workspaces = sqliteTable(
 		uniqueIndex("workspaces_one_main_per_project")
 			.on(table.projectId)
 			.where(sql`type = 'main'`),
+		uniqueIndex("workspaces_canonical_worktree_path_unique")
+			.on(table.canonicalWorktreePath)
+			.where(sql`canonical_worktree_path IS NOT NULL`),
 	],
 );
+
+/**
+ * Records identity collisions the M1 backfill (and future normal writes)
+ * refused to auto-resolve. Rows are diagnostic — never delete the losing
+ * entity; only fill the winner's canonical column and leave the loser's
+ * null with a row here.
+ */
+export const catalogIdentityConflicts = sqliteTable(
+	"catalog_identity_conflicts",
+	{
+		id: text().primaryKey(),
+		entityType: text("entity_type").notNull().$type<"project" | "workspace">(),
+		entityId: text("entity_id").notNull(),
+		canonicalKey: text("canonical_key").notNull(),
+		conflictingId: text("conflicting_id").notNull(),
+		reason: text().notNull(),
+		detectedAt: integer("detected_at").notNull(),
+		resolvedAt: integer("resolved_at"),
+	},
+	(table) => [
+		uniqueIndex("catalog_identity_conflicts_unique").on(
+			table.entityType,
+			table.entityId,
+			table.canonicalKey,
+		),
+	],
+);
+
+/**
+ * Append-only journal of every Workspace Catalog mutation. Written in the
+ * same SQLite transaction as the entity row so a `catalog:changed`
+ * broadcast can never race the corresponding data change. `snapshot_json`
+ * is `null` for delete events.
+ */
+export const catalogChanges = sqliteTable("catalog_changes", {
+	revision: integer().primaryKey({ autoIncrement: true }),
+	schemaVersion: integer("schema_version").notNull().default(1),
+	entityType: text("entity_type").notNull().$type<"project" | "workspace">(),
+	entityId: text("entity_id").notNull(),
+	eventType: text("event_type")
+		.notNull()
+		.$type<"created" | "updated" | "deleted">(),
+	snapshotJson: text("snapshot_json"),
+	occurredAt: integer("occurred_at").notNull(),
+});
 
 /**
  * Registry of ACP agent sessions (docs/acp-sessions.md). One row per

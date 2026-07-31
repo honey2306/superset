@@ -208,6 +208,16 @@ export class EventBus {
 	}
 
 	/**
+	 * Wake-up ping for the Workspace Catalog change stream. Consumers use the
+	 * carried `revision` as the high-water mark to detect gaps and replay
+	 * via `workspaceCatalog.changes`. Never carries the row payload — the
+	 * durable log in `catalog_changes` is authoritative.
+	 */
+	broadcastCatalogChanged(revision: number): void {
+		this.broadcast({ type: "catalog:changed", revision });
+	}
+
+	/**
 	 * Fan out port add/remove events discovered by the host-service scanner.
 	 * Renderer clients use this to patch their host snapshot immediately while
 	 * keeping a slow refetch as a reconnect fallback.
