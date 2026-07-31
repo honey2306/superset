@@ -70,7 +70,7 @@ export async function resolveHostWorkspaceId(
 	client: TRPCClient<AppRouter>,
 	v1WorkspaceId: string,
 	worktreePath: string,
-): Promise<string | null> {
+): Promise<string> {
 	const hostWorkspaces = await client.workspace.list.query();
 	const exactId = hostWorkspaces.find(
 		(workspace) => workspace.id === v1WorkspaceId,
@@ -84,14 +84,9 @@ export async function resolveHostWorkspaceId(
 	);
 	if (matchingPath) return matchingPath.id;
 
-	// Workspace not found in host-service. This can happen when a workspace
-	// was created in v1 desktop but hasn't been synced to host-service yet.
-	// Return null to signal the caller to fall back to the v1 terminal backend.
-	console.warn(
-		`[resolveHostWorkspaceId] Workspace ${v1WorkspaceId} not found in host-service (${hostWorkspaces.length} workspaces available), falling back to v1 terminal`,
-		{ worktreePath },
+	throw new Error(
+		`Workspace ${v1WorkspaceId} is not registered with the local host service`,
 	);
-	return null;
 }
 
 // Adapter instances are recreated when a pane remounts or the local host URL
