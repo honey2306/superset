@@ -44,6 +44,7 @@ import {
 import { setPaneWorkspaceRunState } from "renderer/stores/tabs/workspace-run";
 import { useTheme } from "renderer/stores/theme/store";
 import { resolveTerminalThemeType } from "renderer/stores/theme/utils";
+import { useV2NotificationStore } from "renderer/stores/v2-notifications";
 import type { PaneStatus } from "shared/tabs-types";
 import { TerminalExitedOverlay } from "./components/TerminalExitedOverlay";
 import { useHostServiceTerminal } from "./hooks/useHostServiceTerminal";
@@ -255,6 +256,9 @@ export function HostServiceTerminalPane({
 		hostWorkspaceId,
 	);
 	const agentBinding = agentBindings.get(terminalId);
+	const terminalSeenAt = useV2NotificationStore(
+		(state) => state.terminalSeenAt[terminalId],
+	);
 	const wasAgentTerminalRef = useRef(false);
 
 	useEffect(() => {
@@ -271,10 +275,10 @@ export function HostServiceTerminalPane({
 		const nextStatus = deriveTerminalAgentStatus({
 			lastEventType: agentBinding.lastEventType,
 			lastEventAt: agentBinding.lastEventAt,
-			lastSeenAt: isFocused ? agentBinding.lastEventAt : undefined,
+			lastSeenAt: terminalSeenAt,
 		});
 		setPaneStatus(nextStatus);
-	}, [agentBinding, isFocused, setPaneStatus]);
+	}, [agentBinding, setPaneStatus, terminalSeenAt]);
 
 	const handleClear = useCallback(() => {
 		terminalRuntimeRegistry.clear(terminalId, instanceId);

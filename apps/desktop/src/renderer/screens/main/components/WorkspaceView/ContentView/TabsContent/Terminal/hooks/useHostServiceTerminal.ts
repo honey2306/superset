@@ -51,6 +51,7 @@ export function useHostServiceTerminal({
 	const [hostUnavailable, setHostUnavailable] = useState(false);
 	const [hostWorkspaceId, setHostWorkspaceId] = useState<string | null>(null);
 	const [workspaceUnavailable, setWorkspaceUnavailable] = useState(false);
+	const [workspaceNotRegistered, setWorkspaceNotRegistered] = useState(false);
 
 	useEffect(() => {
 		if (!flagEnabled) {
@@ -80,19 +81,27 @@ export function useHostServiceTerminal({
 		if (!flagEnabled || !resolvedHostUrl || !worktreePath) {
 			setHostWorkspaceId(null);
 			setWorkspaceUnavailable(false);
+			setWorkspaceNotRegistered(false);
 			return;
 		}
 
 		let cancelled = false;
 		setHostWorkspaceId(null);
 		setWorkspaceUnavailable(false);
+		setWorkspaceNotRegistered(false);
 		void resolveHostWorkspaceId(
 			getHostServiceClientByUrl(resolvedHostUrl),
 			workspaceId,
 			worktreePath,
 		)
 			.then((resolvedWorkspaceId) => {
-				if (!cancelled) setHostWorkspaceId(resolvedWorkspaceId);
+				if (cancelled) return;
+				if (resolvedWorkspaceId === null) {
+					// Workspace not registered with host-service — fall back to v1 terminal
+					setWorkspaceNotRegistered(true);
+				} else {
+					setHostWorkspaceId(resolvedWorkspaceId);
+				}
 			})
 			.catch(() => {
 				if (!cancelled) setWorkspaceUnavailable(true);
@@ -113,11 +122,13 @@ export function useHostServiceTerminal({
 
 	const status: UseHostServiceTerminalResult["status"] = !flagEnabled
 		? "disabled"
-		: adapter
-			? "ready"
-			: hostUnavailable || workspaceUnavailable
-				? "unavailable"
-				: "starting";
+		: workspaceNotRegistered
+			? "disabled"
+			: adapter
+				? "ready"
+				: hostUnavailable || workspaceUnavailable
+					? "unavailable"
+					: "starting";
 
 	return {
 		enabled: status === "ready",

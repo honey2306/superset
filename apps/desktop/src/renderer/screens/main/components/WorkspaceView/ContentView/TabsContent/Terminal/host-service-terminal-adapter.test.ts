@@ -78,7 +78,7 @@ describe("host-service-terminal-adapter (Milestone 1)", () => {
 		).resolves.toBe("host-workspace");
 	});
 
-	it("rejects when the v1 worktree is not registered with host-service", async () => {
+	it("returns null when the v1 worktree is not registered with host-service", async () => {
 		const client = {
 			workspace: {
 				list: {
@@ -89,7 +89,7 @@ describe("host-service-terminal-adapter (Milestone 1)", () => {
 
 		await expect(
 			resolveHostWorkspaceId(client, "v1-workspace", "/missing"),
-		).rejects.toThrow("not registered with the local host service");
+		).resolves.toBeNull();
 	});
 
 	it("creates a host-service terminal session and maps paneId to terminalId", async () => {
