@@ -1,8 +1,31 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useHotkey } from "renderer/hotkeys";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
+import type {
+	SidebarSection,
+	SidebarWorkspace,
+} from "renderer/screens/main/components/WorkspaceSidebar/types";
+
+type SidebarGroup = {
+	project: {
+		id: string;
+		name: string;
+		color: string;
+		githubOwner: string | null;
+		mainRepoPath: string;
+		hideImage: boolean;
+		iconUrl: string | null;
+	};
+	workspaces: SidebarWorkspace[];
+	sections: SidebarSection[];
+	topLevelItems: Array<{
+		id: string;
+		kind: "workspace" | "section";
+		tabOrder: number;
+	}>;
+};
 
 /**
  * Shared hook for workspace keyboard shortcuts.
@@ -11,9 +34,48 @@ import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/u
  * Handles ⌘1-9 workspace switching shortcuts (global).
  */
 export function useWorkspaceShortcuts() {
-	const { data: groups = [] } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
+	const { projects, workspaces } = useWorkspaceCatalog();
 	const navigate = useNavigate();
+
+	const groups = useMemo<SidebarGroup[]>(() => {
+		return projects.flatMap((project) => {
+			const projectWorkspaces = workspaces
+				.filter((workspace) => workspace.projectId === project.id)
+				.sort((a, b) => a.updatedAt - b.updatedAt)
+				.map(
+					(workspace, index): SidebarWorkspace => ({
+						id: workspace.id,
+						projectId: workspace.projectId,
+						worktreePath: workspace.worktreePath,
+						type: workspace.type === "main" ? "branch" : "worktree",
+						branch: workspace.branch,
+						name: workspace.name,
+						tabOrder: index,
+						isUnread: false,
+					}),
+				);
+			return [
+				{
+					project: {
+						id: project.id,
+						name: project.name,
+						color: "hsl(var(--primary))",
+						githubOwner: project.repoOwner,
+						mainRepoPath: project.repoPath,
+						hideImage: false,
+						iconUrl: null,
+					},
+					workspaces: projectWorkspaces,
+					sections: [],
+					topLevelItems: projectWorkspaces.map((workspace) => ({
+						id: workspace.id,
+						kind: "workspace" as const,
+						tabOrder: workspace.tabOrder,
+					})),
+				},
+			];
+		});
+	}, [projects, workspaces]);
 
 	const allWorkspaces = groups.flatMap((group) => {
 		const topLevelWorkspacesById = new Map(
