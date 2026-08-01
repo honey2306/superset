@@ -213,6 +213,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 			api,
 			db,
 			eventBus,
+			catalog,
 			organizationId: config.organizationId,
 		}).catch((err) => {
 			console.warn("[host-service] project backfill failed:", err);
@@ -221,6 +222,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 			api,
 			db,
 			eventBus,
+			catalog,
 			organizationId: config.organizationId,
 		}).catch((err) => {
 			console.warn("[host-service] workspace backfill failed:", err);
@@ -232,6 +234,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 			db,
 			git,
 			eventBus,
+			catalog,
 		}).catch((err) => {
 			console.warn("[host-service] main-workspace sweep failed:", err);
 		});

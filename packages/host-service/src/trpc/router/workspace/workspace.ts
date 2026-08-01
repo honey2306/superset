@@ -102,7 +102,7 @@ export const workspaceRouter = router({
 				return toCloudShape(current, ctx.organizationId);
 			}
 			const updated = updateLocalWorkspace(
-				{ db: ctx.db, eventBus: ctx.eventBus },
+				{ db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog },
 				input.id,
 				patch,
 			);

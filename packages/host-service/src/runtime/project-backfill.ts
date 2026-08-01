@@ -8,11 +8,13 @@ import {
 	getLocalProject,
 } from "../projects/local-project-store";
 import type { ApiClient } from "../types";
+import type { WorkspaceCatalog } from "../workspace-catalog";
 
 export interface ProjectBackfillContext {
 	api: ApiClient;
 	db: HostDb;
 	eventBus: EventBus;
+	catalog: WorkspaceCatalog;
 	organizationId: string;
 }
 
@@ -65,12 +67,17 @@ export async function runProjectBackfill(
 
 		// CAS on the empty-name sentinel: a rename that landed while the
 		// cloud lookup was in flight must not be clobbered by a stale name.
+		// The CAS still uses a raw update to guarantee atomic check + set;
+		// on a successful change we then broadcast a Catalog "updated"
+		// change so the projection stays consistent.
 		const result = ctx.db
 			.update(projects)
 			.set({ name, updatedAt: Date.now() })
 			.where(and(eq(projects.id, row.id), eq(projects.name, "")))
 			.run();
 		if (result.changes === 0) continue;
+		// Force a Catalog-tracked update to emit a change row.
+		ctx.catalog.updateProject(row.id, { name });
 		const updated = getLocalProject(ctx.db, row.id);
 		if (updated) emitProjectChanged(ctx.eventBus, "updated", updated);
 		filled++;

@@ -399,7 +399,7 @@ export async function applyAiWorkspaceRename(
 	if (patch.name === undefined && patch.branch === undefined) return;
 
 	const updated = updateLocalWorkspace(
-		{ db: ctx.db, eventBus: ctx.eventBus },
+		{ db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog },
 		workspaceId,
 		patch,
 	);

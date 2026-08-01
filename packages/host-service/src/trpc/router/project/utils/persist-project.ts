@@ -1,5 +1,4 @@
 import { basename } from "node:path";
-import { projects } from "../../../../db/schema";
 import {
 	emitProjectChanged,
 	getLocalProject,
@@ -11,6 +10,12 @@ export interface ProjectIdentityFields {
 	name?: string;
 }
 
+/**
+ * Upsert the host-owned project row. Since M1 identity/display writes go
+ * through the Workspace Catalog so the row insert and its
+ * `catalog_changes` entry commit in one SQLite transaction. Existing
+ * projects use `updateProject`; new ones use `createProject`.
+ */
 export function persistLocalProject(
 	ctx: HostServiceContext,
 	projectId: string,
@@ -26,18 +31,17 @@ export function persistLocalProject(
 		repoUrl: resolved.parsed?.url ?? null,
 		remoteName: resolved.remoteName,
 	};
-	const identityFields = {
-		name: identity?.name ?? existing?.name ?? basename(resolved.repoPath),
-		updatedAt: Date.now(),
-	};
-	ctx.db
-		.insert(projects)
-		.values({ id: projectId, ...repoFields, ...identityFields })
-		.onConflictDoUpdate({
-			target: projects.id,
-			set: { ...repoFields, ...identityFields },
-		})
-		.run();
+	const name = identity?.name ?? existing?.name ?? basename(resolved.repoPath);
+
+	if (existing) {
+		ctx.catalog.updateProject(projectId, { ...repoFields, name });
+	} else {
+		ctx.catalog.createProject({
+			id: projectId,
+			...repoFields,
+			name,
+		});
+	}
 	const row = getLocalProject(ctx.db, projectId);
 	if (row) {
 		emitProjectChanged(ctx.eventBus, existing ? "updated" : "created", row);

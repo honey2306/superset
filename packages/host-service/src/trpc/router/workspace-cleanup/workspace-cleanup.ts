@@ -342,7 +342,7 @@ async function runDestroy(
 	// delete is best-effort legacy cleanup for rows mirrored before
 	// workspaces went fully local.
 	deleteLocalWorkspace(
-		{ db: ctx.db, eventBus: ctx.eventBus },
+		{ db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog },
 		input.workspaceId,
 	);
 	let cloudDeleted = false;

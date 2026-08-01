@@ -66,7 +66,7 @@ export const projectRouter = router({
 		)
 		.mutation(({ ctx, input }) => {
 			const row = updateLocalProject(
-				{ db: ctx.db, eventBus: ctx.eventBus },
+				{ db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog },
 				input.projectId,
 				{ name: input.name },
 			);
@@ -708,11 +708,15 @@ export const projectRouter = router({
 			}
 
 			try {
-				// Per-row so each deletion broadcasts.
+				// Route both cascade deletes and the project delete through
+				// the Catalog so the journal reflects one atomic clear.
 				for (const ws of localWorkspaces) {
-					deleteLocalWorkspace({ db: ctx.db, eventBus: ctx.eventBus }, ws.id);
+					deleteLocalWorkspace(
+						{ db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog },
+						ws.id,
+					);
 				}
-				ctx.db.delete(projects).where(eq(projects.id, input.projectId)).run();
+				ctx.catalog.deleteProject(input.projectId);
 				emitProjectChanged(ctx.eventBus, "deleted", input.projectId);
 			} catch (err) {
 				throw new TRPCError({

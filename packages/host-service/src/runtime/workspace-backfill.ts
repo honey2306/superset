@@ -3,11 +3,13 @@ import type { HostDb } from "../db";
 import { workspaces } from "../db/schema";
 import type { EventBus } from "../events";
 import type { ApiClient } from "../types";
+import type { WorkspaceCatalog } from "../workspace-catalog";
 
 export interface WorkspaceBackfillContext {
 	api: ApiClient;
 	db: HostDb;
 	eventBus: EventBus;
+	catalog: WorkspaceCatalog;
 	organizationId: string;
 }
 
@@ -64,12 +66,18 @@ export async function runWorkspaceBackfill(
 		// No cloud counterpart (or wrong-org null): leave it alone, never delete.
 		if (!cloud) continue;
 
+		// Route the display/identity backfill through the Catalog so the
+		// change journal reflects it. `createdAt` and `updatedAt` timestamps
+		// still need a direct update (the Catalog owns lifecycle timestamps
+		// on new rows only).
+		ctx.catalog.updateWorkspace(row.id, {
+			name: cloud.name,
+			type: cloud.type,
+			taskId: cloud.taskId,
+		});
 		ctx.db
 			.update(workspaces)
 			.set({
-				name: cloud.name,
-				type: cloud.type,
-				taskId: cloud.taskId,
 				createdByUserId: cloud.createdByUserId,
 				createdAt: cloud.createdAt.getTime(),
 				updatedAt: cloud.updatedAt.getTime(),

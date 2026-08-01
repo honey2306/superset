@@ -20,7 +20,7 @@ import {
 } from "../../../workspaces/local-workspace-store";
 import { protectedProcedure, router } from "../../index";
 import { type AgentRunResult, runAgentInWorkspace } from "../agents";
-import { ensureMainWorkspace } from "../project/utils/ensure-main-workspace";
+import { ensureMainWorkspaceStrict } from "../project/utils/ensure-main-workspace";
 import { getHostWorktreeBaseDir } from "../settings/worktree-location";
 import { adoptExistingWorktree } from "../workspace-creation/shared/adopt-existing-worktree";
 import {
@@ -525,7 +525,10 @@ export const workspacesRouter = router({
 			// naming — so those can't produce a fallback warning.
 			let autoNameFellBack = false;
 
-			await ensureMainWorkspace(ctx, input.projectId, localProject.repoPath);
+			// Strict since M1: a create operation may not continue after
+			// failing to establish the main workspace. The startup sweep no
+			// longer papers over this — it exists for legacy rows only.
+			await ensureMainWorkspaceStrict(ctx, input.projectId, localProject.repoPath);
 
 			const git = await ctx.git(localProject.repoPath);
 			const worktreeBaseDir =

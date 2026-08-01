@@ -5,12 +5,20 @@ import type { HostDb } from "../db";
 import { workspaces } from "../db/schema";
 import type { EventBus } from "../events";
 import type { WorkspaceSnapshot } from "../events/types";
+import type { WorkspaceCatalog } from "../workspace-catalog";
 
 export type HostWorkspaceRow = typeof workspaces.$inferSelect;
 
 export interface WorkspaceStoreContext {
 	db: HostDb;
 	eventBus: EventBus;
+	/**
+	 * When present (production / tRPC ctx), every insert/update/delete is
+	 * routed through the Catalog so identity + change journal stay
+	 * transactional. Optional for narrow legacy call sites that still
+	 * seed rows directly during tests.
+	 */
+	catalog?: WorkspaceCatalog;
 }
 
 /**
@@ -89,7 +97,10 @@ export interface InsertLocalWorkspaceValues {
 
 /**
  * Insert a fully-populated local workspace row (host mints the id when the
- * caller didn't) and broadcast `workspace:changed`.
+ * caller didn't) and broadcast `workspace:changed`. When the store context
+ * carries a Catalog, the insert AND its `catalog_changes` row commit in
+ * one SQLite transaction; otherwise (legacy test callers) falls back to
+ * the direct drizzle insert.
  */
 export function insertLocalWorkspace(
 	ctx: WorkspaceStoreContext,
@@ -97,9 +108,9 @@ export function insertLocalWorkspace(
 ): HostWorkspaceRow {
 	const now = Date.now();
 	const id = values.id ?? randomUUID();
-	ctx.db
-		.insert(workspaces)
-		.values({
+	let row: HostWorkspaceRow;
+	if (ctx.catalog) {
+		row = ctx.catalog.createWorkspace({
 			id,
 			projectId: values.projectId,
 			worktreePath: values.worktreePath,
@@ -108,12 +119,27 @@ export function insertLocalWorkspace(
 			type: values.type ?? "worktree",
 			taskId: values.taskId ?? null,
 			createdByUserId: values.createdByUserId ?? null,
-			createdAt: now,
-			updatedAt: now,
-		})
-		.run();
-	const row = getLocalWorkspace(ctx.db, id);
-	if (!row) throw new Error(`Workspace insert readback failed: ${id}`);
+		});
+	} else {
+		ctx.db
+			.insert(workspaces)
+			.values({
+				id,
+				projectId: values.projectId,
+				worktreePath: values.worktreePath,
+				branch: values.branch,
+				name: values.name,
+				type: values.type ?? "worktree",
+				taskId: values.taskId ?? null,
+				createdByUserId: values.createdByUserId ?? null,
+				createdAt: now,
+				updatedAt: now,
+			})
+			.run();
+		const readback = getLocalWorkspace(ctx.db, id);
+		if (!readback) throw new Error(`Workspace insert readback failed: ${id}`);
+		row = readback;
+	}
 	emitWorkspaceChanged(ctx.eventBus, "created", row);
 	return row;
 }
@@ -134,15 +160,17 @@ export function updateLocalWorkspace(
 ): HostWorkspaceRow | undefined {
 	const existing = getLocalWorkspace(ctx.db, id);
 	if (!existing) return undefined;
-	ctx.db
-		.update(workspaces)
-		.set({
-			...patch,
-			updatedAt: Date.now(),
-		})
-		.where(eq(workspaces.id, id))
-		.run();
-	const row = getLocalWorkspace(ctx.db, id);
+	let row: HostWorkspaceRow | undefined;
+	if (ctx.catalog) {
+		row = ctx.catalog.updateWorkspace(id, patch);
+	} else {
+		ctx.db
+			.update(workspaces)
+			.set({ ...patch, updatedAt: Date.now() })
+			.where(eq(workspaces.id, id))
+			.run();
+		row = getLocalWorkspace(ctx.db, id);
+	}
 	if (row) emitWorkspaceChanged(ctx.eventBus, "updated", row);
 	return row;
 }
@@ -153,7 +181,11 @@ export function deleteLocalWorkspace(
 	id: string,
 ): void {
 	const existing = getLocalWorkspace(ctx.db, id);
-	ctx.db.delete(workspaces).where(eq(workspaces.id, id)).run();
+	if (ctx.catalog) {
+		ctx.catalog.deleteWorkspace(id);
+	} else {
+		ctx.db.delete(workspaces).where(eq(workspaces.id, id)).run();
+	}
 	if (existing) {
 		ctx.eventBus.broadcastWorkspaceChanged({
 			workspaceId: id,

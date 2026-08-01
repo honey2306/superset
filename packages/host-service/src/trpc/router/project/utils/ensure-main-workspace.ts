@@ -9,7 +9,7 @@ import {
 
 export type EnsureMainWorkspaceContext = Pick<
 	HostServiceContext,
-	"db" | "git" | "eventBus"
+	"db" | "git" | "eventBus" | "catalog"
 >;
 
 async function getCurrentBranchName(
@@ -73,7 +73,7 @@ export async function ensureMainWorkspaceStrict(
 		});
 	}
 
-	const store = { db: ctx.db, eventBus: ctx.eventBus };
+	const store = { db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog };
 
 	const existing = ctx.db.query.workspaces
 		.findFirst({

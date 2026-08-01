@@ -4,12 +4,19 @@ import type { HostDb } from "../db";
 import { projects } from "../db/schema";
 import type { EventBus } from "../events";
 import type { ProjectSnapshot } from "../events/types";
+import type { WorkspaceCatalog } from "../workspace-catalog";
 
 export type HostProjectRow = typeof projects.$inferSelect;
 
 export interface ProjectStoreContext {
 	db: HostDb;
 	eventBus: EventBus;
+	/**
+	 * When present, mutations flow through the Catalog so the entity write
+	 * and `catalog_changes` row commit together. Legacy tests that seed
+	 * rows directly may omit it.
+	 */
+	catalog?: WorkspaceCatalog;
 }
 
 export function toProjectSnapshot(row: HostProjectRow): ProjectSnapshot {
@@ -64,12 +71,17 @@ export function updateLocalProject(
 ): HostProjectRow | undefined {
 	const existing = getLocalProject(ctx.db, id);
 	if (!existing) return undefined;
-	ctx.db
-		.update(projects)
-		.set({ ...patch, updatedAt: Date.now() })
-		.where(eq(projects.id, id))
-		.run();
-	const row = getLocalProject(ctx.db, id);
+	let row: HostProjectRow | undefined;
+	if (ctx.catalog) {
+		row = ctx.catalog.updateProject(id, patch);
+	} else {
+		ctx.db
+			.update(projects)
+			.set({ ...patch, updatedAt: Date.now() })
+			.where(eq(projects.id, id))
+			.run();
+		row = getLocalProject(ctx.db, id);
+	}
 	if (!row) return undefined;
 	emitProjectChanged(ctx.eventBus, "updated", row);
 	return row;
