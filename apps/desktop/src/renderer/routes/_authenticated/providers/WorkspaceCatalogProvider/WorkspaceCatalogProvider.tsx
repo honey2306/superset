@@ -15,7 +15,7 @@ import {
 } from "react";
 import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { useLocalHostService } from "../LocalHostServiceProvider";
+import { useMaybeLocalHostService } from "../LocalHostServiceProvider";
 import {
 	applyChanges,
 	emptyProjection,
@@ -73,7 +73,7 @@ export function WorkspaceCatalogProvider({
 	children,
 	initialState,
 }: WorkspaceCatalogProviderProps) {
-	const { activeHostUrl } = useLocalHostService();
+	const activeHostUrl = useMaybeLocalHostService()?.activeHostUrl ?? null;
 	const [state, setState] = useState<ProjectionState>(
 		initialState ?? emptyProjection(),
 	);

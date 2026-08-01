@@ -201,3 +201,13 @@ export function useLocalHostService(): LocalHostServiceContextValue {
 	}
 	return context;
 }
+
+/**
+ * Non-throwing variant. Returns null when there is no
+ * LocalHostServiceProvider above — useful for providers that render in
+ * both real UI and unit-test wrappers, so tests can supply an
+ * `initialState` and skip network subscription paths.
+ */
+export function useMaybeLocalHostService(): LocalHostServiceContextValue | null {
+	return useContext(LocalHostServiceContext);
+}
