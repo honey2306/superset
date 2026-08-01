@@ -33,6 +33,17 @@ export interface TestHostOptions {
 	apiOverrides?: FakeApiOverrides;
 	githubToken?: string | null;
 	/**
+	 * Caller-owned SQLite path. Enables restart scenarios: create one
+	 * host, `stop()` it (keeps the db file), then boot a second host
+	 * against the same path to simulate a process bounce.
+	 */
+	dbPath?: string;
+	/**
+	 * `dispose()` deletes the sqlite temp dir by default. Set to false
+	 * when the caller wants to reboot against the same file (see `dbPath`).
+	 */
+	removeDbOnDispose?: boolean;
+	/**
 	 * Fake-runtime overrides typed as `unknown` so tests only need to
 	 * implement the methods they exercise — the real surfaces (Octokit,
 	 * ChatRuntimeManager, ChatService) are far too large to stub fully.
@@ -50,6 +61,12 @@ export interface TestHost {
 	api: CreateAppResult["api"];
 	db: HostDb;
 	dispose: () => Promise<void>;
+	/**
+	 * Stop the host without deleting the sqlite file — allows the caller
+	 * to boot a fresh TestHost against the same `dbPath` and observe
+	 * boot-time behavior (resume sweep, backfill, catalog snapshot).
+	 */
+	stop: () => Promise<void>;
 	psk: string;
 	dbPath: string;
 	apiCalls: Array<{ path: string; input: unknown }>;
@@ -80,8 +97,16 @@ export async function createTestHost(
 	options: TestHostOptions = {},
 ): Promise<TestHost> {
 	const psk = options.psk ?? "test-psk-secret";
-	const dataDir = mkdtempSync(join(tmpdir(), "host-service-test-db-"));
-	const dbPath = join(dataDir, "host.db");
+	// When the caller pins a dbPath (restart scenario), reuse it; otherwise
+	// mint a fresh temp dir. `dataDir` is what dispose() may remove.
+	const callerOwnsDb = options.dbPath !== undefined;
+	const dataDir = callerOwnsDb
+		? // Use the file's directory but never nuke it — we honor
+			// removeDbOnDispose only when we minted the dir ourselves.
+			join(options.dbPath!, "..")
+		: mkdtempSync(join(tmpdir(), "host-service-test-db-"));
+	const dbPath = options.dbPath ?? join(dataDir, "host.db");
+	const removeDbOnDispose = options.removeDbOnDispose ?? !callerOwnsDb;
 
 	const sqlite = new BunDatabase(dbPath, { create: true, readwrite: true });
 	sqlite.exec("PRAGMA journal_mode = WAL");
@@ -155,10 +180,7 @@ export async function createTestHost(
 	const trpc = buildClient(true);
 	const unauthenticatedTrpc = buildClient(false);
 
-	const dispose = async (): Promise<void> => {
-		// Run sqlite + temp-dir cleanup in a finally so a thrown
-		// `result.dispose()` can't leak the bun:sqlite handle or leave
-		// `host-service-test-db-*` directories behind for later runs.
+	const stop = async (): Promise<void> => {
 		try {
 			await result.dispose();
 		} finally {
@@ -167,6 +189,15 @@ export async function createTestHost(
 			} catch {
 				// best-effort
 			}
+		}
+	};
+
+	const dispose = async (): Promise<void> => {
+		// Run sqlite + temp-dir cleanup in a finally so a thrown
+		// `result.dispose()` can't leak the bun:sqlite handle or leave
+		// `host-service-test-db-*` directories behind for later runs.
+		await stop();
+		if (removeDbOnDispose) {
 			try {
 				rmSync(dataDir, { recursive: true, force: true });
 			} catch {
@@ -180,6 +211,7 @@ export async function createTestHost(
 		api: fakeApi.client,
 		db: db as unknown as HostDb,
 		dispose,
+		stop,
 		psk,
 		dbPath,
 		apiCalls: fakeApi.calls,

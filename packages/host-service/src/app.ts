@@ -43,6 +43,7 @@ import {
 } from "./workspace-catalog";
 import {
 	createProductionRunner,
+	runProvisioningResumeSweep,
 	WorkspaceProvisioning,
 } from "./workspace-provisioning";
 
@@ -251,6 +252,20 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		pullRequests: pullRequestRuntime,
 		workspaceProvisioning,
 	};
+
+	// Resume sweep: any operation left `queued`/`running` from a previous
+	// process is orphaned. Mark them failed(retryable=true) and release
+	// their identity leases before tRPC accepts new requests. Synchronous
+	// so a `begin` immediately after boot never inherits a stale lease.
+	try {
+		runProvisioningResumeSweep({
+			db,
+			journal: workspaceProvisioning.journal,
+			eventBus,
+		});
+	} catch (err) {
+		console.warn("[host-service] provisioning resume sweep failed:", err);
+	}
 
 	// Startup sweeps run in the background so they don't block server
 	// startup. Ordering matters: the backfills fill identity fields on

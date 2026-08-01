@@ -225,7 +225,10 @@ function redactSensitive(request: ProvisionWorkspaceRequest): unknown {
 
 export class ProvisioningInputError extends Error {
 	constructor(
-		public readonly code: "INVALID_SOURCE" | "IDEMPOTENCY_CONFLICT",
+		public readonly code:
+			| "INVALID_SOURCE"
+			| "IDEMPOTENCY_CONFLICT"
+			| "RESOURCE_BUSY",
 		message: string,
 	) {
 		super(message);

@@ -1,4 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import type { HostDb } from "../db";
+import { workspaceOperationArtifacts } from "../db/schema";
 import type { EventBus } from "../events";
 import type { WorkspaceCatalog } from "../workspace-catalog";
 import {
@@ -6,6 +9,11 @@ import {
 	ProvisioningInputError,
 	stableJson,
 } from "./canonical-request";
+import {
+	acquireLeases,
+	deriveNaturalLockKeys,
+	releaseOperationLocks,
+} from "./leases";
 import { OperationJournal } from "./operation-journal";
 import type {
 	InitialLaunchResult,
@@ -27,6 +35,20 @@ export interface ProvisioningRunnerOutcome {
 	disposition: "created" | "adopted" | "reused" | "repaired";
 	launches: InitialLaunchResult[];
 	warnings: Array<{ code: string; message: string }>;
+	/**
+	 * Filesystem/git/terminal artifacts the runner touched. Written to
+	 * `workspace_operation_artifacts` before final commit and consulted
+	 * by compensation on failure — only ownership='created' rows may be
+	 * removed by rollback.
+	 */
+	artifacts?: RunnerArtifact[];
+}
+
+export interface RunnerArtifact {
+	kind: "repo-dir" | "worktree" | "branch" | "terminal";
+	identity: string;
+	ownership: "created" | "adopted";
+	expectedHeadSha?: string;
 }
 
 /**
@@ -106,6 +128,45 @@ export class WorkspaceProvisioning {
 		});
 		this.broadcast(operationId);
 
+		// Claim natural-identity leases before any git/filesystem work.
+		// A conflict here means a different active operation is already
+		// touching the same identity — reject synchronously without
+		// letting the saga leave partial state behind.
+		let leases: ReturnType<typeof acquireLeases>;
+		try {
+			leases = acquireLeases({
+				db: this.deps.db,
+				operationId,
+				keys: deriveNaturalLockKeys(request),
+			});
+		} catch (err) {
+			// Fold RESOURCE_BUSY into the operation row so the caller sees a
+			// failed operation instead of a bare throw — the id is already
+			// minted and the client can distinguish this from a hard error.
+			if (
+				err instanceof ProvisioningInputError &&
+				err.code === "RESOURCE_BUSY"
+			) {
+				this.journal.patch(operationId, {
+					state: "failed",
+					stage: null,
+					failureCode: "RESOURCE_BUSY",
+					failureClass: "conflict",
+					failureRetryable: 1,
+					failureMessage: err.message,
+					cleanupState: "not-needed",
+					completedAt: Date.now(),
+					launchPayloadJson: null,
+				});
+				this.broadcast(operationId);
+				return {
+					operationId,
+					operation: this.getRequired(operationId),
+				};
+			}
+			throw err;
+		}
+
 		// Run the saga synchronously — M2 MVP does not defer to a resume
 		// worker. Recovery of an interrupted operation happens on the next
 		// `begin` with the same idempotency key or `get`.
@@ -118,6 +179,13 @@ export class WorkspaceProvisioning {
 				journal: this.journal,
 				broadcast: () => this.broadcast(operationId),
 			});
+			// Record artifacts BEFORE marking succeeded so compensation on a
+			// crash right here still knows what to look at. Journalled ids
+			// have no FK back to Catalog, so a later Workspace delete does
+			// not erase this receipt.
+			if (outcome.artifacts?.length) {
+				recordArtifacts(this.deps.db, operationId, outcome.artifacts);
+			}
 			this.journal.patch(operationId, {
 				state: "succeeded",
 				stage: null,
@@ -133,6 +201,7 @@ export class WorkspaceProvisioning {
 				}),
 			});
 			this.broadcast(operationId);
+			leases.release();
 			return {
 				operationId,
 				operation: this.getRequired(operationId),
@@ -150,6 +219,7 @@ export class WorkspaceProvisioning {
 				completedAt: Date.now(),
 			});
 			this.broadcast(operationId);
+			leases.release();
 			return {
 				operationId,
 				operation: this.getRequired(operationId),
@@ -239,15 +309,16 @@ function classifyFailure(err: unknown): WorkspaceOperationFailure {
 	if (err instanceof ProvisioningInputError) {
 		return {
 			code: err.code,
-			class: err.code === "IDEMPOTENCY_CONFLICT" ? "conflict" : "precondition",
-			retryable: false,
+			class:
+				err.code === "IDEMPOTENCY_CONFLICT" || err.code === "RESOURCE_BUSY"
+					? "conflict"
+					: "precondition",
+			retryable: err.code === "RESOURCE_BUSY",
 			message: err.message,
 			cleanup: "not-needed",
 		};
 	}
 	const message = err instanceof Error ? err.message : String(err);
-	// The runner surfaces well-formed failure codes; when it just throws
-	// (unmapped), classify as transient/retryable so the client can retry.
 	return {
 		code: "TERMINAL_UNAVAILABLE",
 		class: "transient",
@@ -255,4 +326,73 @@ function classifyFailure(err: unknown): WorkspaceOperationFailure {
 		message,
 		cleanup: "pending",
 	};
+}
+
+function recordArtifacts(
+	db: HostDb,
+	operationId: string,
+	artifacts: RunnerArtifact[],
+): void {
+	const now = Date.now();
+	for (const a of artifacts) {
+		db.insert(workspaceOperationArtifacts)
+			.values({
+				id: randomUUID(),
+				operationId,
+				kind: a.kind,
+				identity: a.identity,
+				ownership: a.ownership,
+				expectedHeadSha: a.expectedHeadSha ?? null,
+				cleanupState: "not-needed",
+				createdAt: now,
+				updatedAt: now,
+			})
+			.onConflictDoNothing()
+			.run();
+	}
+}
+
+/**
+ * Boot-time resume sweep. Every operation left in `queued` or `running`
+ * from a previous host process is dead — the runtime that owned its
+ * in-memory saga is gone. Mark them `failed` with `RESOURCE_BUSY`
+ * (retryable) and release any lock rows they held, so a client that
+ * calls `begin` again with the same idempotency key gets a fresh
+ * operation to work with. Compensation of any partial artifacts is left
+ * for the next full-saga resume-worker landing; MVP simply unblocks
+ * identity so the user isn't stuck.
+ */
+export function runProvisioningResumeSweep(deps: {
+	db: HostDb;
+	journal: OperationJournal;
+	eventBus: EventBus | null;
+}): void {
+	const orphans = deps.db.query.workspaceOperations
+		.findMany({
+			where: (op, { or, eq }) => or(eq(op.state, "queued"), eq(op.state, "running")),
+		})
+		.sync();
+	if (orphans.length === 0) return;
+	for (const op of orphans) {
+		releaseOperationLocks(deps.db, op.id);
+		deps.journal.patch(op.id, {
+			state: "failed",
+			stage: null,
+			failureCode: "COMPENSATION_INCOMPLETE",
+			failureClass: "transient",
+			failureRetryable: 1,
+			failureMessage: "Host restarted while operation was in flight",
+			cleanupState: "pending",
+			completedAt: Date.now(),
+			launchPayloadJson: null,
+		});
+		if (deps.eventBus) {
+			deps.eventBus.broadcastWorkspaceOperationChanged(
+				deps.journal.toWireOperation(deps.journal.get(op.id)!),
+			);
+		}
+	}
+	console.warn(
+		`[workspace-provisioning] resume sweep marked ${orphans.length} orphan operation(s) as failed(retryable=true)`,
+	);
 }
