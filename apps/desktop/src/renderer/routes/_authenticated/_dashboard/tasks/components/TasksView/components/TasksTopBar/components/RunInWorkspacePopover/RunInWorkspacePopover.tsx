@@ -26,8 +26,11 @@ import { AgentSelect } from "renderer/components/AgentSelect";
 import { useAgentLaunchPreferences } from "renderer/hooks/useAgentLaunchPreferences";
 import { launchAgentSession } from "renderer/lib/agent-session-orchestrator";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { useCreateWorkspace } from "renderer/react-query/workspaces";
 import { ProjectThumbnail } from "renderer/screens/main/components/WorkspaceSidebar/ProjectSection/ProjectThumbnail";
+import {
+	useWorkspaceLaunch,
+	useWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 import { deriveBranchName } from "../../../../../../$taskId/utils/deriveBranchName";
 import type { TaskWithStatus } from "../../../../hooks/useTasksTable";
 
@@ -58,7 +61,8 @@ export function RunInWorkspacePopover({
 }: RunInWorkspacePopoverProps) {
 	const { data: recentProjects = [] } =
 		electronTrpc.projects.getRecents.useQuery();
-	const createWorkspace = useCreateWorkspace({ skipNavigation: true });
+	const provisioningAdapter = useWorkspaceProvisioningAdapter();
+	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
 	const terminalCreateOrAttach =
 		electronTrpc.terminal.createOrAttach.useMutation();
 	const terminalWrite = electronTrpc.terminal.write.useMutation();
@@ -171,19 +175,47 @@ export function RunInWorkspacePopover({
 					"pending-workspace",
 				);
 
-				const result = await createWorkspace.mutateAsyncWithPendingSetup(
-					{
-						projectId: effectiveProjectId,
-						name: task.title,
-						branchName,
+				if (!provisioningAdapter) {
+					throw new Error("Workspace host is not available");
+				}
+				const terminalAgent =
+					launchRequestTemplate?.kind === "terminal"
+						? launchRequestTemplate.terminal.hostAgent
+						: undefined;
+				const operation = await workspaceLaunch.begin({
+					adapter: provisioningAdapter,
+					request: {
+						idempotencyKey: `task-workspace:${task.id}:${effectiveProjectId}:${branchName}`,
+						project: { kind: "existing", projectId: effectiveProjectId },
+						source: {
+							kind: "branch",
+							name: { kind: "explicit", value: branchName },
+							from: { kind: "default" },
+						},
+						display: { name: task.title, taskId: task.id },
+						initialSessions: terminalAgent
+							? [
+									{
+										key: "task-agent",
+										kind: "agent",
+										agent: terminalAgent.agent,
+										prompt: terminalAgent.prompt,
+										requirement: "required",
+									},
+								]
+							: undefined,
 					},
-					{ agentLaunchRequest: launchRequestTemplate ?? undefined },
-				);
+				});
+				if (operation.state === "failed" || !operation.workspaceId) {
+					throw new Error(
+						operation.failure?.message ?? "Workspace provisioning failed",
+					);
+				}
 
-				if (result.wasExisting && launchRequestTemplate) {
+				if (launchRequestTemplate?.kind === "chat") {
 					const launchRequest: AgentLaunchRequest = {
 						...launchRequestTemplate,
-						workspaceId: result.workspace.id,
+						workspaceId: operation.workspaceId,
 					};
 					const launchResult = await launchAgentSession(launchRequest, {
 						source: "open-in-workspace",
