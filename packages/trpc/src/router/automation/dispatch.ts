@@ -269,7 +269,12 @@ async function recordSkipped(
  * bounded poll on `get` is still added for the day the resume worker
  * lands and `begin` can return with `state='running'`.
  */
-async function createWorkspaceOnHost(args: {
+/**
+ * Exported for testing only — see
+ * `dispatch-provisioning.contract.test.ts`. Production callers use
+ * `dispatchAutomation` which owns the full run-row lifecycle.
+ */
+export async function createWorkspaceOnHost(args: {
 	relayUrl: string;
 	hostId: string;
 	jwt: string;

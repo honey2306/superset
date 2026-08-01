@@ -93,6 +93,68 @@ describe("workspaceProvisioning recovery + leases (M2)", () => {
 		expect(row?.launchPayloadJson).toBeNull();
 	});
 
+	test("host restart preserves workspaceId + marks TERMINAL_UNAVAILABLE for post-commit orphans", async () => {
+		const dbPath = makeDbPath();
+
+		// First host: seed an orphan whose Catalog commit already
+		// happened (catalog_committed_at is set + workspaceId is filled).
+		// The correct sweep semantic is to preserve workspaceId so the
+		// renderer can navigate, and code the failure as
+		// TERMINAL_UNAVAILABLE with cleanup=not-needed (user-visible
+		// terminals are never removed by compensation).
+		const first = await createTestHost({ dbPath, removeDbOnDispose: false });
+		cleanup.push(async () => first.dispose());
+		const repo = await createGitFixture();
+		cleanup.push(async () => repo.dispose());
+		const { id: projectId } = seedProject(first, { repoPath: repo.repoPath });
+		const { id: workspaceId } = seedWorkspace(first, {
+			projectId,
+			worktreePath: repo.repoPath,
+			branch: "main",
+			type: "main",
+		});
+		const orphanId = randomUUID();
+		const now = Date.now();
+		first.db
+			.insert(workspaceOperations)
+			.values({
+				id: orphanId,
+				idempotencyKey: `postcommit-orphan:${orphanId}`,
+				requestHash: "hash",
+				requestJson: "{}",
+				launchPayloadJson: "{}",
+				requestedByMachineId: null,
+				state: "running",
+				stage: "starting-runtime",
+				revision: 6,
+				projectId,
+				workspaceId,
+				catalogCommittedAt: now - 1000,
+				createdAt: now,
+				updatedAt: now,
+			})
+			.run();
+		await first.stop();
+
+		const second = await createTestHost({
+			dbPath,
+			removeDbOnDispose: true,
+		});
+		cleanup.push(async () => second.dispose());
+
+		const row = second.db
+			.select()
+			.from(workspaceOperations)
+			.where(eq(workspaceOperations.id, orphanId))
+			.get();
+		expect(row?.state).toBe("failed");
+		expect(row?.failureCode).toBe("TERMINAL_UNAVAILABLE");
+		expect(row?.failureRetryable).toBe(1);
+		expect(row?.cleanupState).toBe("not-needed");
+		expect(row?.workspaceId).toBe(workspaceId);
+		expect(row?.launchPayloadJson).toBeNull();
+	});
+
 	test("two operations against the same natural identity lock return RESOURCE_BUSY on the second (locks stay claimed while first runs)", async () => {
 		// We can't easily race two real `begin` calls that both stall
 		// mid-runner, so simulate the pre-condition directly: manually

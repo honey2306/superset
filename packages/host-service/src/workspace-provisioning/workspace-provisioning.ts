@@ -592,6 +592,26 @@ function recordArtifacts(
  * for the next full-saga resume-worker landing; MVP simply unblocks
  * identity so the user isn't stuck.
  */
+/**
+ * Boot-time resume sweep. Distinguishes two flavors of orphan:
+ *
+ *   1. Pre-commit orphan (catalog_committed_at IS NULL) — the previous
+ *      process died before Catalog materialization. Any partial fs/git
+ *      artifacts are stale; queue compensation as `pending`, clear
+ *      identity leases, and mark the operation failed(retryable=true)
+ *      with `COMPENSATION_INCOMPLETE`.
+ *
+ *   2. Post-commit orphan (catalog_committed_at IS NOT NULL) — the
+ *      Workspace itself is real and routable; only Terminal Runtime
+ *      never got to finish. Preserve `workspaceId` so the renderer
+ *      can navigate immediately, mark the operation failed(retryable=
+ *      true) with `TERMINAL_UNAVAILABLE`, and leave the identity lease
+ *      released so a retry can adopt the journaled terminal ids.
+ *
+ * Both flavors ship `launchPayloadJson=null` — the payload is only
+ * kept while the operation might resume; a boot-time crash counts as
+ * a final failure until the user or client explicitly re-issues begin.
+ */
 export function runProvisioningResumeSweep(deps: {
 	db: HostDb;
 	journal: OperationJournal;
@@ -604,19 +624,41 @@ export function runProvisioningResumeSweep(deps: {
 		})
 		.sync();
 	if (orphans.length === 0) return;
+	let preCommit = 0;
+	let postCommit = 0;
 	for (const op of orphans) {
 		releaseOperationLocks(deps.db, op.id);
-		deps.journal.patch(op.id, {
-			state: "failed",
-			stage: null,
-			failureCode: "COMPENSATION_INCOMPLETE",
-			failureClass: "transient",
-			failureRetryable: 1,
-			failureMessage: "Host restarted while operation was in flight",
-			cleanupState: "pending",
-			completedAt: Date.now(),
-			launchPayloadJson: null,
-		});
+		const isPostCommit = op.catalogCommittedAt !== null;
+		if (isPostCommit) {
+			postCommit++;
+			deps.journal.patch(op.id, {
+				state: "failed",
+				stage: null,
+				failureCode: "TERMINAL_UNAVAILABLE",
+				failureClass: "transient",
+				failureRetryable: 1,
+				failureMessage:
+					"Host restarted while starting the initial workspace sessions",
+				// Terminal sessions are user-visible; execplan §Commit and
+				// compensation forbids removing them from compensation.
+				cleanupState: "not-needed",
+				completedAt: Date.now(),
+				launchPayloadJson: null,
+			});
+		} else {
+			preCommit++;
+			deps.journal.patch(op.id, {
+				state: "failed",
+				stage: null,
+				failureCode: "COMPENSATION_INCOMPLETE",
+				failureClass: "transient",
+				failureRetryable: 1,
+				failureMessage: "Host restarted while operation was in flight",
+				cleanupState: "pending",
+				completedAt: Date.now(),
+				launchPayloadJson: null,
+			});
+		}
 		if (deps.eventBus) {
 			const refreshed = deps.journal.get(op.id);
 			if (refreshed) {
@@ -627,6 +669,6 @@ export function runProvisioningResumeSweep(deps: {
 		}
 	}
 	console.warn(
-		`[workspace-provisioning] resume sweep marked ${orphans.length} orphan operation(s) as failed(retryable=true)`,
+		`[workspace-provisioning] resume sweep: ${preCommit} pre-commit + ${postCommit} post-commit orphan(s) marked failed(retryable=true)`,
 	);
 }

@@ -87,6 +87,30 @@
 ### 首批 renderer 消费点迁移
 - `EmptyTabView.tsx`：`electronTrpc.workspaces.get` → `useCatalogWorkspace`。附带把 host schema `type: "main" | "worktree"` 映射为 v1 shell 语义 `"branch" | "worktree"`（DeleteWorkspaceDialog 只认后者），代码内注释说明两个术语指同一件事
 
+### 第五轮：workspaceCatalog tRPC 边界测试
+- 新 `workspace-catalog-trpc.integration.test.ts` 5 场景：empty snapshot / legacy backfill / changes 严格 forward-only / pagination hasMore / deleteProject cascade 顺序
+
+## ✅ 已完成（第六轮：M2 sources 抽取 + resume 精细化 + automation contract）
+
+### sources/ 目录抽取
+- `sources/{existing-project,project-materializers,setup-existing,temporary,index,types}.ts`：把 production-runner 的 118 行大 switch 拆成 execplan §File map 列出的 handler 集合；每个 handler 独占一个文件，便于未来把 git 算法从 `caller.workspaces.*` 委托改成模块内直接调用
+- `production-runner.ts` 缩减为 dispatch + type wiring；行为无变化
+
+### resume sweep 精细化
+- `runProvisioningResumeSweep` 区分 pre-commit vs post-commit 孤儿：
+  - **pre-commit**（catalog_committed_at IS NULL）：`COMPENSATION_INCOMPLETE` + cleanupState=pending，识别为需要补偿的 saga
+  - **post-commit**（catalog_committed_at IS NOT NULL）：`TERMINAL_UNAVAILABLE` + cleanupState=not-needed，保留 workspaceId 让 renderer 立即可导航；user-visible terminals 禁止被 compensation 清除
+- 新 recovery 测试覆盖 post-commit 分支
+
+### automation dispatch contract test
+- 新 `dispatch-provisioning.contract.test.ts` 3 场景：拦截 `relayMutation` 出去的 fetch 请求验证:
+  1. succeeded operation → 返回 { workspaceId, branchName }
+  2. failed operation → 抛 failure message
+  3. 请求路径是 `workspaceProvisioning.begin` 而非 legacy `workspaces.create`
+- `createWorkspaceOnHost` 导出（附注释仅测试用），保持 dispatchAutomation 私有
+
+108 pass / 1 skip / 0 fail 跨 17 文件；typecheck 干净；lint exit 0。
+
 ### Appendix A 剩余大部分暂不动的原因
 逐个抽样 5 个高价值候选后发现 Appendix A 里"能纯 identity 迁移"的比例低于最初估计。**保留不动**的调用点分类：
 - **useWorkspaceShortcuts / WorkspaceListFrame / ProjectsSettingsSidebar / ProjectsSettingsPage**：读的是 `workspaces.getAllGrouped`，除 identity 外还带 v1 shell 的 section/group order + project color 展示元数据；catalog projection 不该承担这些
@@ -117,8 +141,8 @@
   ```
 
 ### M2 深度剩余
-- `sources/` 子目录 6 个 handler（temporary/branch/worktree/pull-request/existing-project/project-materializers）：目前 production-runner 直接委托给旧 tRPC caller，未把 git 算法搬入模块内
-- Full resume worker：目前 boot sweep 只把 orphan 标 failed(retryable)，未按 `workspace_operation_steps` checkpoint 从中断处继续；正式实现需先落 sources/ handler，再让 `begin` 从最新 `stage` 的 step 里 short-circuit
+- **Full resume worker 从 step checkpoint 恢复**：目前 sweep 只把 pre-commit / post-commit 孤儿分别 failed(retryable=true)；真正 resume worker 应能在 boot 时从 `workspace_operation_steps` 最新 stage 继续 saga（不是让客户端手动重试）。等 sources/ handler 拥有直接 git 算法（脱离 caller 委托）之后再做
+- **sources/ handler 内嵌 git 算法**：目前仍通过 `appRouter.createCaller(ctx)` 委托 `workspaces.create` 等；下一步是把 git worktree/PR/branch 算法从 tRPC procedure 抽入 sources 内，让 procedure 变成 provisioning-only 兼容层
 
 ### M5 端到端证据
 - 12 项 CDP acceptance journey 未执行（需 desktop 真实 dev instance + AGENTS.md 的 CDP 匹配流程）
