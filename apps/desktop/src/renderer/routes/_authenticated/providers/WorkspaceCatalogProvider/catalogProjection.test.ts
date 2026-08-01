@@ -7,7 +7,9 @@ import {
 	makeHighWaterMark,
 } from "./catalogProjection";
 
-const projSnapshot = (id: string): WorkspaceCatalogSnapshot["projects"][number] => ({
+const projSnapshot = (
+	id: string,
+): WorkspaceCatalogSnapshot["projects"][number] => ({
 	id,
 	kind: "repository",
 	singletonKey: null,
@@ -25,7 +27,10 @@ const projSnapshot = (id: string): WorkspaceCatalogSnapshot["projects"][number] 
 	updatedAt: 1,
 });
 
-const wsSnapshot = (id: string, projectId: string): WorkspaceCatalogSnapshot["workspaces"][number] => ({
+const wsSnapshot = (
+	id: string,
+	projectId: string,
+): WorkspaceCatalogSnapshot["workspaces"][number] => ({
 	id,
 	projectId,
 	name: id,

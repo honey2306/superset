@@ -89,7 +89,10 @@ export interface ProjectChangedPayload {
 	occurredAt: number;
 }
 
-type CatalogChangedMessage = Extract<ServerMessage, { type: "catalog:changed" }>;
+type CatalogChangedMessage = Extract<
+	ServerMessage,
+	{ type: "catalog:changed" }
+>;
 
 /**
  * Wake-up ping for the M1 Workspace Catalog change stream. `revision` is

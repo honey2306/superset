@@ -58,7 +58,10 @@ function validateCompatibility(request: ProvisionWorkspaceRequest): void {
 			keys.add(intent.key);
 		}
 	}
-	if (request.idempotencyKey.length < 1 || request.idempotencyKey.length > 200) {
+	if (
+		request.idempotencyKey.length < 1 ||
+		request.idempotencyKey.length > 200
+	) {
 		throw new ProvisioningInputError(
 			"INVALID_SOURCE",
 			"idempotencyKey must be 1..200 characters",
@@ -102,7 +105,9 @@ function normalizeProject(target: ProvisionWorkspaceRequest["project"]) {
 					target.mode.kind === "clone"
 						? {
 								kind: "clone" as const,
-								parentDirectory: canonicalizeHostPath(target.mode.parentDirectory),
+								parentDirectory: canonicalizeHostPath(
+									target.mode.parentDirectory,
+								),
 							}
 						: {
 								kind: "import" as const,

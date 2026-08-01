@@ -37,8 +37,10 @@ import {
 	type ExecGh,
 } from "./trpc/router/workspace-creation/utils/exec-gh";
 import type { ApiClient, HostServiceRuntime } from "./types";
-import type { HostServiceContext } from "./types";
-import { runCatalogIdentityBackfill, WorkspaceCatalog } from "./workspace-catalog";
+import {
+	runCatalogIdentityBackfill,
+	WorkspaceCatalog,
+} from "./workspace-catalog";
 import {
 	createProductionRunner,
 	WorkspaceProvisioning,
@@ -212,32 +214,33 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	// delegate to the existing tRPC mutations that still own git
 	// materialization. Must be constructed AFTER catalog/eventBus/db/
 	// terminalAgentStore because the runner captures them.
-	const workspaceProvisioning: WorkspaceProvisioning = new WorkspaceProvisioning({
-		db,
-		catalog,
-		eventBus,
-		runner: async (ctxArgs) => {
-			const productionRunner = createProductionRunner({
-				appRouter,
-				ctxFactory: () => ({
-					git,
-					credentials: providers.credentials,
-					github,
-					execGh,
-					api,
-					db,
-					catalog,
-					runtime,
-					eventBus,
-					terminalAgentStore,
-					organizationId: config.organizationId,
-					isAuthenticated: true,
-					clientMachineId: undefined,
-				}),
-			});
-			return productionRunner(ctxArgs);
-		},
-	});
+	const workspaceProvisioning: WorkspaceProvisioning =
+		new WorkspaceProvisioning({
+			db,
+			catalog,
+			eventBus,
+			runner: async (ctxArgs) => {
+				const productionRunner = createProductionRunner({
+					appRouter,
+					ctxFactory: () => ({
+						git,
+						credentials: providers.credentials,
+						github,
+						execGh,
+						api,
+						db,
+						catalog,
+						runtime,
+						eventBus,
+						terminalAgentStore,
+						organizationId: config.organizationId,
+						isAuthenticated: true,
+						clientMachineId: undefined,
+					}),
+				});
+				return productionRunner(ctxArgs);
+			},
+		});
 
 	runtime = {
 		acpSessions,

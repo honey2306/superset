@@ -528,7 +528,11 @@ export const workspacesRouter = router({
 			// Strict since M1: a create operation may not continue after
 			// failing to establish the main workspace. The startup sweep no
 			// longer papers over this — it exists for legacy rows only.
-			await ensureMainWorkspaceStrict(ctx, input.projectId, localProject.repoPath);
+			await ensureMainWorkspaceStrict(
+				ctx,
+				input.projectId,
+				localProject.repoPath,
+			);
 
 			const git = await ctx.git(localProject.repoPath);
 			const worktreeBaseDir =

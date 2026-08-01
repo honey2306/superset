@@ -20,8 +20,8 @@ export type {
 	WorkspaceSource,
 } from "./types";
 export {
-	WorkspaceProvisioning,
 	type ProvisioningRunner,
 	type ProvisioningRunnerContext,
 	type ProvisioningRunnerOutcome,
+	WorkspaceProvisioning,
 } from "./workspace-provisioning";

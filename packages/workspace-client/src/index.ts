@@ -16,17 +16,6 @@ export {
 	type WorkspaceSnapshotPayload,
 } from "./lib/eventBus";
 export {
-	createInMemoryProvisioningAdapter,
-	createTrpcProvisioningAdapter,
-	extractAttachableLaunches,
-	type InitialLaunchResult,
-	type ProvisioningAdapter,
-	type ProvisioningAdapterFactoryDeps,
-	type ProvisionWorkspaceRequest,
-	type WorkspaceOperation,
-	type WorkspaceOperationState,
-} from "./lib/workspaceProvisioning";
-export {
 	primeRelayAffinity,
 	type RelayAffinityProbe,
 } from "./lib/primeRelayAffinity";
@@ -37,6 +26,17 @@ export {
 	type RelaySocketTelemetryEvent,
 	setRelaySocketTelemetry,
 } from "./lib/relaySocket";
+export {
+	createInMemoryProvisioningAdapter,
+	createTrpcProvisioningAdapter,
+	extractAttachableLaunches,
+	type InitialLaunchResult,
+	type ProvisioningAdapter,
+	type ProvisioningAdapterFactoryDeps,
+	type ProvisionWorkspaceRequest,
+	type WorkspaceOperation,
+	type WorkspaceOperationState,
+} from "./lib/workspaceProvisioning";
 export {
 	useMaybeWorkspaceClient,
 	useWorkspaceClient,

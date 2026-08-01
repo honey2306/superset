@@ -6,10 +6,10 @@ export {
 	type ProjectionState,
 } from "./catalogProjection";
 export {
+	type ProjectProjection,
+	type UseWorkspaceCatalogValue,
 	useWorkspaceCatalog,
 	useWorkspaceProjection,
 	WorkspaceCatalogProvider,
-	type ProjectProjection,
-	type UseWorkspaceCatalogValue,
 	type WorkspaceProjection,
 } from "./WorkspaceCatalogProvider";

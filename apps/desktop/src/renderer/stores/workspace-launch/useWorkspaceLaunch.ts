@@ -1,10 +1,10 @@
-import { useEffect, useMemo } from "react";
 import type { ProvisioningAdapter } from "@superset/workspace-client";
+import { useEffect, useMemo } from "react";
 import {
 	selectOperationsByState,
 	selectPendingOperation,
-	type WorkspaceLaunchState,
 	useWorkspaceLaunchStore,
+	type WorkspaceLaunchState,
 } from "./workspaceLaunchStore";
 
 export interface UseWorkspaceLaunchApi {
@@ -19,18 +19,16 @@ export interface UseWorkspaceLaunchApi {
 	retry: (
 		adapter: ProvisioningAdapter,
 		operationId: string,
-	) => ReturnType<
-		ReturnType<typeof useWorkspaceLaunchStore.getState>["retry"]
-	>;
+	) => ReturnType<ReturnType<typeof useWorkspaceLaunchStore.getState>["retry"]>;
 	cancel: (
 		adapter: ProvisioningAdapter,
 		operationId: string,
 	) => ReturnType<
 		ReturnType<typeof useWorkspaceLaunchStore.getState>["cancel"]
 	>;
-	pending: (idempotencyKey: string) => ReturnType<
-		typeof selectPendingOperation
-	>;
+	pending: (
+		idempotencyKey: string,
+	) => ReturnType<typeof selectPendingOperation>;
 	byState: (
 		state: Parameters<typeof selectOperationsByState>[1],
 	) => ReturnType<typeof selectOperationsByState>;
@@ -48,10 +46,11 @@ export function useWorkspaceLaunch(
 ): UseWorkspaceLaunchApi {
 	const store = useWorkspaceLaunchStore();
 	const state = useWorkspaceLaunchStore(
-		(s) => ({
-			operations: s.operations,
-			pendingByKey: s.pendingByKey,
-		}) as WorkspaceLaunchState,
+		(s) =>
+			({
+				operations: s.operations,
+				pendingByKey: s.pendingByKey,
+			}) as WorkspaceLaunchState,
 	);
 
 	useEffect(() => {
@@ -70,8 +69,10 @@ export function useWorkspaceLaunch(
 			begin: ({ adapter: begunAdapter, request }) =>
 				store.begin({ adapter: begunAdapter, request }),
 			retry: (adapterArg, operationId) => store.retry(adapterArg, operationId),
-			cancel: (adapterArg, operationId) => store.cancel(adapterArg, operationId),
-			pending: (idempotencyKey) => selectPendingOperation(state, idempotencyKey),
+			cancel: (adapterArg, operationId) =>
+				store.cancel(adapterArg, operationId),
+			pending: (idempotencyKey) =>
+				selectPendingOperation(state, idempotencyKey),
 			byState: (target) => selectOperationsByState(state, target),
 		}),
 		[store, state],

@@ -2,7 +2,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { LuExternalLink, LuLoaderCircle, LuX } from "react-icons/lu";
-import { useV2UserPreferences } from "renderer/hooks/useV2UserPreferences";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { STROKE_WIDTH } from "../../../constants";
@@ -15,7 +14,6 @@ interface MergedPortBadgeProps {
 
 export function MergedPortBadge({ port }: MergedPortBadgeProps) {
 	const navigate = useNavigate();
-	const { preferences } = useV2UserPreferences();
 	const openUrl = electronTrpc.external.openUrl.useMutation();
 	const { isPending, killPort } = useKillPort();
 

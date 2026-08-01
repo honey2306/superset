@@ -1,9 +1,6 @@
 import type { AppRouter } from "../trpc/router/router";
 import type { HostServiceContext } from "../types";
-import type {
-	InitialLaunchResult,
-	ProvisionWorkspaceRequest,
-} from "./types";
+import type { InitialLaunchResult, ProvisionWorkspaceRequest } from "./types";
 import type {
 	ProvisioningRunner,
 	ProvisioningRunnerOutcome,
@@ -51,7 +48,14 @@ async function runOne(
 	switch (request.project.kind) {
 		case "existing": {
 			const projectId = request.project.projectId;
-			return runSourceAgainstExisting(projectId, request, ctx, caller, launches, warnings);
+			return runSourceAgainstExisting(
+				projectId,
+				request,
+				ctx,
+				caller,
+				launches,
+				warnings,
+			);
 		}
 		case "setup-existing": {
 			const setup = await caller.project.setup({
@@ -154,13 +158,20 @@ async function runOne(
 			// temporary source handler under `sources/temporary.ts`.
 			const existing = ctx.db.query.projects
 				.findFirst({
-					where: (row, { eq }) => eq(row.singletonKey, request.project.kind === "temporary" ? request.project.singletonKey : "default"),
+					where: (row, { eq }) =>
+						eq(
+							row.singletonKey,
+							request.project.kind === "temporary"
+								? request.project.singletonKey
+								: "default",
+						),
 				})
 				.sync();
 			if (existing) {
 				const main = ctx.db.query.workspaces
 					.findFirst({
-						where: (w, { and, eq }) => and(eq(w.projectId, existing.id), eq(w.type, "main")),
+						where: (w, { and, eq }) =>
+							and(eq(w.projectId, existing.id), eq(w.type, "main")),
 					})
 					.sync();
 				return {
@@ -171,7 +182,9 @@ async function runOne(
 					warnings,
 				};
 			}
-			throw new Error("temporary provisioning not yet materialized (M2 MVP scaffold)");
+			throw new Error(
+				"temporary provisioning not yet materialized (M2 MVP scaffold)",
+			);
 		}
 	}
 }
@@ -189,7 +202,8 @@ async function runSourceAgainstExisting(
 		case "main": {
 			const row = ctx.db.query.workspaces
 				.findFirst({
-					where: (w, { and, eq }) => and(eq(w.projectId, projectId), eq(w.type, "main")),
+					where: (w, { and, eq }) =>
+						and(eq(w.projectId, projectId), eq(w.type, "main")),
 				})
 				.sync();
 			if (!row) throw new Error("PROJECT_NOT_FOUND: no main workspace");

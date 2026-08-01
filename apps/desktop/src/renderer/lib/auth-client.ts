@@ -159,5 +159,5 @@ authClient.useSession = function mockUseSession() {
 		isLoading: false,
 		error: null,
 		refetch: async () => ({ data: MOCK_SESSION }),
-	} as any;
+	} as ReturnType<typeof authClient.useSession>;
 };

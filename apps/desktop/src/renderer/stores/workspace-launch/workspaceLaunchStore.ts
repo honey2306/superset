@@ -29,9 +29,7 @@ export interface LaunchOptions {
 export interface WorkspaceLaunchStoreApi {
 	subscribe(adapter: ProvisioningAdapter): () => void;
 	begin(options: LaunchOptions): Promise<WorkspaceOperation>;
-	reconcile(
-		adapter: ProvisioningAdapter,
-	): Promise<WorkspaceOperation[]>;
+	reconcile(adapter: ProvisioningAdapter): Promise<WorkspaceOperation[]>;
 	retry(
 		adapter: ProvisioningAdapter,
 		operationId: string,

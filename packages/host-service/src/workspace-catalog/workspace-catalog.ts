@@ -12,10 +12,10 @@ import {
 import type { EventBus } from "../events";
 import { canonicalizeHostPath } from "./canonical-path";
 import {
-	CHANGES_PAGE_DEFAULT_LIMIT,
-	CHANGES_PAGE_MAX_LIMIT,
 	type CatalogEntityType,
 	type CatalogEventType,
+	CHANGES_PAGE_DEFAULT_LIMIT,
+	CHANGES_PAGE_MAX_LIMIT,
 	type ProjectSnapshotShape,
 	type WorkspaceCatalogChange,
 	type WorkspaceCatalogChangePage,
@@ -145,7 +145,14 @@ export class WorkspaceCatalog {
 			if (!inserted) {
 				throw new Error(`Catalog project insert readback failed: ${id}`);
 			}
-			writeChange(tx, "project", id, "created", toProjectSnapshot(inserted), now);
+			writeChange(
+				tx,
+				"project",
+				id,
+				"created",
+				toProjectSnapshot(inserted),
+				now,
+			);
 			return inserted;
 		});
 		this.wake();
@@ -382,19 +389,21 @@ export class WorkspaceCatalog {
 			.all();
 
 		const hasMore = rows.length > bounded;
-		const changes = rows.slice(0, bounded).map<WorkspaceCatalogChange>((row) => ({
-			schemaVersion: 1,
-			revision: row.revision,
-			entityType: row.entityType,
-			entityId: row.entityId,
-			eventType: row.eventType,
-			snapshot: row.snapshotJson
-				? (JSON.parse(row.snapshotJson) as
-						| ProjectSnapshotShape
-						| WorkspaceSnapshotShape)
-				: null,
-			occurredAt: row.occurredAt,
-		}));
+		const changes = rows
+			.slice(0, bounded)
+			.map<WorkspaceCatalogChange>((row) => ({
+				schemaVersion: 1,
+				revision: row.revision,
+				entityType: row.entityType,
+				entityId: row.entityId,
+				eventType: row.eventType,
+				snapshot: row.snapshotJson
+					? (JSON.parse(row.snapshotJson) as
+							| ProjectSnapshotShape
+							| WorkspaceSnapshotShape)
+					: null,
+				occurredAt: row.occurredAt,
+			}));
 
 		const nextRevision =
 			changes.length > 0
@@ -502,7 +511,9 @@ export function toProjectSnapshot(row: ProjectRow): ProjectSnapshotShape {
 		repoUrl: row.repoUrl,
 		remoteName: row.remoteName,
 		worktreeBaseDir: row.worktreeBaseDir,
-		branchPrefixMode: (row.branchPrefixMode as ProjectSnapshotShape["branchPrefixMode"]) ?? null,
+		branchPrefixMode:
+			(row.branchPrefixMode as ProjectSnapshotShape["branchPrefixMode"]) ??
+			null,
 		branchPrefixCustom: row.branchPrefixCustom,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt || row.createdAt,

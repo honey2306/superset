@@ -62,7 +62,7 @@ describe("useWorkspaceLaunchStore", () => {
 			updatedAt: 0,
 		});
 		await useWorkspaceLaunchStore.getState().reconcile(adapter);
-		expect(useWorkspaceLaunchStore.getState().operations["hydrated"]).toBeTruthy();
+		expect(useWorkspaceLaunchStore.getState().operations.hydrated).toBeTruthy();
 	});
 
 	test("cancel transitions state to cancelled and updates projection", async () => {
