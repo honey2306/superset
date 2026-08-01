@@ -16,13 +16,13 @@ import { LuCpu, LuGitBranch, LuHistory } from "react-icons/lu";
 import { usePresetIcon } from "renderer/assets/app-icons/preset-icons";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
 	StatusIcon,
 	type StatusType,
 } from "renderer/routes/_authenticated/_dashboard/tasks/components/TasksView/components/shared/StatusIcon";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
+import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import {
 	type RecentlyViewedEntry,
 	useRecentlyViewed,
@@ -233,15 +233,18 @@ export function HistoryDropdown() {
 	const collections = useCollections();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 
-	const { data: groups } = electronTrpc.workspaces.getAllGrouped.useQuery();
-	const workspaceData = (groups ?? []).flatMap((group) =>
-		group.workspaces.map((ws) => ({
-			id: ws.id,
-			projectName: group.project.name,
-			projectColor: group.project.color,
-			branch: ws.branch ?? ws.name,
-		})),
+	const { projects: catalogProjects, workspaces: catalogWorkspaces } =
+		useWorkspaceCatalog();
+	const catalogProjectNames = new Map(
+		catalogProjects.map((project) => [project.id, project.name]),
 	);
+	const workspaceData = catalogWorkspaces.map((workspace) => ({
+		id: workspace.id,
+		projectName:
+			catalogProjectNames.get(workspace.projectId) ?? workspace.projectId,
+		projectColor: "hsl(var(--primary))",
+		branch: workspace.branch || workspace.name,
+	}));
 
 	const { workspaces: hostWorkspaces } = useHostWorkspaces();
 	// Projects are fully local — identity comes from the host fan-out.

@@ -7,7 +7,7 @@ import {
 import { useState } from "react";
 import { CommandPaletteHost } from "renderer/commandPalette";
 import { useHotkey } from "renderer/hotkeys";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import { ResizablePanel } from "renderer/screens/main/components/ResizablePanel";
 import { WorkspaceSidebar } from "renderer/screens/main/components/WorkspaceSidebar";
 import { DeleteWorkspaceDialog } from "renderer/screens/main/components/WorkspaceSidebar/WorkspaceListItem/components";
@@ -43,10 +43,13 @@ function DashboardLayout() {
 	const currentWorkspaceId =
 		currentWorkspaceMatch !== false ? currentWorkspaceMatch.workspaceId : null;
 
-	const { data: currentWorkspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: currentWorkspaceId ?? "" },
-		{ enabled: !!currentWorkspaceId },
+	const { projects, workspaces } = useWorkspaceCatalog();
+	const currentWorkspace = workspaces.find(
+		(workspace) => workspace.id === currentWorkspaceId,
 	);
+	const currentProject = currentWorkspace
+		? projects.find((project) => project.id === currentWorkspace.projectId)
+		: undefined;
 
 	const {
 		isOpen: isWorkspaceSidebarOpen,
@@ -82,7 +85,8 @@ function DashboardLayout() {
 				setDeleteTarget({
 					workspaceId: currentWorkspaceId,
 					workspaceName: currentWorkspace.name,
-					workspaceType: currentWorkspace.type,
+					workspaceType:
+						currentWorkspace.type === "main" ? "branch" : "worktree",
 				});
 			}
 		},
@@ -108,7 +112,7 @@ function DashboardLayout() {
 			<WorkspaceSidebar
 				isCollapsed={isWorkspaceSidebarCollapsed()}
 				activeProjectId={currentWorkspace?.projectId ?? null}
-				activeProjectName={currentWorkspace?.project?.name ?? null}
+				activeProjectName={currentProject?.name ?? null}
 			/>
 		</ResizablePanel>
 	);

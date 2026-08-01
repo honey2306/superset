@@ -5,6 +5,7 @@ import { useOnlineStatus } from "renderer/hooks/useOnlineStatus";
 import { useZoomFactor } from "renderer/hooks/useZoomFactor";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useWorkspaceProjection } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import { NavigationControls } from "../NavigationControls";
 import { SidebarToggle } from "../SidebarToggle";
 import { OpenInMenuButton } from "./components/OpenInMenuButton";
@@ -16,10 +17,7 @@ export function TopBar() {
 	const { t } = useTranslation();
 	const { data: platform } = electronTrpc.window.getPlatform.useQuery();
 	const { workspaceId } = useParams({ strict: false });
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId ?? "" },
-		{ enabled: !!workspaceId },
-	);
+	const workspace = useWorkspaceProjection(workspaceId ?? "");
 	const isOnline = useOnlineStatus();
 	const zoomFactor = useZoomFactor();
 	// Default to Mac layout while loading to avoid overlap with traffic lights
@@ -58,8 +56,8 @@ export function TopBar() {
 				{workspace?.worktreePath ? (
 					<OpenInMenuButton
 						worktreePath={workspace.worktreePath}
-						branch={workspace.worktree?.branch}
-						projectId={workspace.project?.id}
+						branch={workspace.branch}
+						projectId={workspace.projectId}
 					/>
 				) : null}
 				<OrganizationDropdown />

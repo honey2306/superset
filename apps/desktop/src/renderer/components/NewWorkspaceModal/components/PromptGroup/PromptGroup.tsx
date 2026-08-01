@@ -60,6 +60,7 @@ import { formatRelativeTime } from "renderer/lib/formatRelativeTime";
 import { resolveEffectiveWorkspaceBaseBranch } from "renderer/lib/workspaceBaseBranch";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import { ProjectThumbnail } from "renderer/screens/main/components/WorkspaceSidebar/ProjectSection/ProjectThumbnail";
 import {
 	useClearPendingWorkspace,
@@ -662,19 +663,19 @@ function PromptGroupInner({
 		return set;
 	}, [externalWorktrees, trackedWorktrees]);
 
-	// Fetch active workspaces for this project
-	const { data: activeWorkspaces = [] } =
-		electronTrpc.workspaces.getAll.useQuery();
+	// Active workspace identity comes from the Catalog projection so branch
+	// suggestions converge with the sidebar and navigation surfaces.
+	const { workspaces: catalogWorkspaces } = useWorkspaceCatalog();
 
 	const activeWorkspacesByBranch = useMemo(() => {
 		const map = new Map<string, string>(); // branch → workspaceId
-		for (const ws of activeWorkspaces) {
-			if (ws.projectId === projectId && !ws.deletingAt) {
+		for (const ws of catalogWorkspaces) {
+			if (ws.projectId === projectId) {
 				map.set(ws.branch, ws.id);
 			}
 		}
 		return map;
-	}, [activeWorkspaces, projectId]);
+	}, [catalogWorkspaces, projectId]);
 
 	// Resolve openable worktrees (no active workspace)
 	const openableWorktrees = useMemo(
