@@ -100,12 +100,11 @@ export async function createTestHost(
 	// When the caller pins a dbPath (restart scenario), reuse it; otherwise
 	// mint a fresh temp dir. `dataDir` is what dispose() may remove.
 	const callerOwnsDb = options.dbPath !== undefined;
-	const dataDir = callerOwnsDb
-		? // Use the file's directory but never nuke it — we honor
-			// removeDbOnDispose only when we minted the dir ourselves.
-			join(options.dbPath!, "..")
-		: mkdtempSync(join(tmpdir(), "host-service-test-db-"));
-	const dbPath = options.dbPath ?? join(dataDir, "host.db");
+	const dbPath =
+		options.dbPath ??
+		join(mkdtempSync(join(tmpdir(), "host-service-test-db-")), "host.db");
+	// Only nuke the containing dir if we minted it ourselves.
+	const dataDir = join(dbPath, "..");
 	const removeDbOnDispose = options.removeDbOnDispose ?? !callerOwnsDb;
 
 	const sqlite = new BunDatabase(dbPath, { create: true, readwrite: true });

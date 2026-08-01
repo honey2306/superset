@@ -46,6 +46,7 @@ import { CollectionsProvider } from "./providers/CollectionsProvider";
 import { DeletingWorkspacesProvider } from "./providers/DeletingWorkspacesProvider";
 import { HostWorkspacesProvider } from "./providers/HostWorkspacesProvider";
 import { LocalHostServiceProvider } from "./providers/LocalHostServiceProvider";
+import { WorkspaceCatalogProvider } from "./providers/WorkspaceCatalogProvider";
 
 export const Route = createFileRoute("/_authenticated")({
 	component: AuthenticatedLayout,
@@ -303,31 +304,37 @@ function AuthenticatedLayout() {
 			<CollectionsProvider>
 				{/* GlobalBrowserLifecycle removed with internal browser feature */}
 				<LocalHostServiceProvider>
-					<HostWorkspacesProvider>
-						<DeletingWorkspacesProvider>
-							<WorkerPoolContextProvider
-								poolOptions={{ workerFactory: createPierreWorker, poolSize: 8 }}
-								highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
-							>
-								<DiffThemeSync />
-								<AgentHooks />
-								<FileMenuListener />
-								<V2NotificationController />
-								<DockBadgeController />
-								<DaemonAutoUpdateFailureDialog />
-								<Outlet />
-								<WorkspaceInitEffects />
-								{isV2CloudEnabled ? (
-									<DashboardNewWorkspaceModal />
-								) : (
-									<NewWorkspaceModal />
-								)}
-								<InitGitDialog />
-								<TeardownLogsDialog />
-								<Paywall />
-							</WorkerPoolContextProvider>
-						</DeletingWorkspacesProvider>
-					</HostWorkspacesProvider>
+					<WorkspaceCatalogProvider>
+						<HostWorkspacesProvider>
+							{" "}
+							<DeletingWorkspacesProvider>
+								<WorkerPoolContextProvider
+									poolOptions={{
+										workerFactory: createPierreWorker,
+										poolSize: 8,
+									}}
+									highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
+								>
+									<DiffThemeSync />
+									<AgentHooks />
+									<FileMenuListener />
+									<V2NotificationController />
+									<DockBadgeController />
+									<DaemonAutoUpdateFailureDialog />
+									<Outlet />
+									<WorkspaceInitEffects />
+									{isV2CloudEnabled ? (
+										<DashboardNewWorkspaceModal />
+									) : (
+										<NewWorkspaceModal />
+									)}
+									<InitGitDialog />
+									<TeardownLogsDialog />
+									<Paywall />
+								</WorkerPoolContextProvider>
+							</DeletingWorkspacesProvider>
+						</HostWorkspacesProvider>
+					</WorkspaceCatalogProvider>
 				</LocalHostServiceProvider>
 			</CollectionsProvider>
 		</DndProvider>

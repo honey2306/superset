@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import type { HostDb } from "../db";
-import {
-	workspaceOperationLocks as locksTable,
-} from "../db/schema";
+import { workspaceOperationLocks as locksTable } from "../db/schema";
 import { canonicalizeHostPath } from "../workspace-catalog/canonical-path";
 import { ProvisioningInputError } from "./canonical-request";
 import type { ProvisionWorkspaceRequest } from "./types";
@@ -142,10 +140,7 @@ export function acquireLeases(args: {
 				args.db
 					.delete(locksTable)
 					.where(
-						and(
-							eq(locksTable.lockKey, key),
-							eq(locksTable.leaseOwner, owner),
-						),
+						and(eq(locksTable.lockKey, key), eq(locksTable.leaseOwner, owner)),
 					)
 					.run();
 			}
@@ -157,11 +152,6 @@ export function acquireLeases(args: {
  * Release every lock row owned by an operation, regardless of key or
  * lease owner. Used on final cleanup and by the boot-time resume sweep.
  */
-export function releaseOperationLocks(
-	db: HostDb,
-	operationId: string,
-): void {
-	db.delete(locksTable)
-		.where(eq(locksTable.operationId, operationId))
-		.run();
+export function releaseOperationLocks(db: HostDb, operationId: string): void {
+	db.delete(locksTable).where(eq(locksTable.operationId, operationId)).run();
 }

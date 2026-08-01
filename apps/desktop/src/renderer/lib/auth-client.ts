@@ -153,11 +153,16 @@ const MOCK_SESSION = {
 
 const _originalUseSession = authClient.useSession;
 authClient.useSession = function mockUseSession() {
-	return {
+	const session = {
 		data: MOCK_SESSION,
 		isPending: false,
 		isLoading: false,
 		error: null,
 		refetch: async () => ({ data: MOCK_SESSION }),
-	} as ReturnType<typeof authClient.useSession>;
+	};
+	// Dev-only single-user mock (.superset/setup.local.sh) — the real
+	// BetterFetch<> generics from better-auth don't line up with this
+	// shape and re-implementing them would only serve this dev bypass.
+	// biome-ignore lint/suspicious/noExplicitAny: dev bypass, see comment above
+	return session as any;
 };

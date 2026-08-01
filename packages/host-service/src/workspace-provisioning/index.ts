@@ -25,10 +25,10 @@ export type {
 	WorkspaceSource,
 } from "./types";
 export {
-	runProvisioningResumeSweep,
 	type ProvisioningRunner,
 	type ProvisioningRunnerContext,
 	type ProvisioningRunnerOutcome,
 	type RunnerArtifact,
+	runProvisioningResumeSweep,
 	WorkspaceProvisioning,
 } from "./workspace-provisioning";

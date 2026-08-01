@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { workspaceOperations } from "../../src/db/schema";
 import { cloudFlows } from "../helpers/cloud-fakes";
-import { createTestHost, type TestHost } from "../helpers/createTestHost";
+import { createTestHost } from "../helpers/createTestHost";
 import { createGitFixture } from "../helpers/git-fixture";
 import { seedProject, seedWorkspace } from "../helpers/seed";
 
@@ -132,9 +132,7 @@ describe("workspaceProvisioning recovery + leases (M2)", () => {
 			})
 			.run();
 		// Direct SQL because the lock table type is internal to the module.
-		const { workspaceOperationLocks } = await import(
-			"../../src/db/schema"
-		);
+		const { workspaceOperationLocks } = await import("../../src/db/schema");
 		host.db
 			.insert(workspaceOperationLocks)
 			.values({
@@ -145,16 +143,15 @@ describe("workspaceProvisioning recovery + leases (M2)", () => {
 			})
 			.run();
 
-		const outcome =
-			await host.trpc.workspaceProvisioning.begin.mutate({
-				idempotencyKey: `busy:${randomUUID()}`,
-				project: { kind: "existing", projectId },
-				source: {
-					kind: "branch",
-					name: { kind: "explicit", value: "feature/busy" },
-					from: { kind: "default" },
-				},
-			});
+		const outcome = await host.trpc.workspaceProvisioning.begin.mutate({
+			idempotencyKey: `busy:${randomUUID()}`,
+			project: { kind: "existing", projectId },
+			source: {
+				kind: "branch",
+				name: { kind: "explicit", value: "feature/busy" },
+				from: { kind: "default" },
+			},
+		});
 		expect(outcome.operation.state).toBe("failed");
 		expect(outcome.operation.failure?.code).toBe("RESOURCE_BUSY");
 		expect(outcome.operation.failure?.retryable).toBe(true);
@@ -184,9 +181,7 @@ describe("workspaceProvisioning recovery + leases (M2)", () => {
 				from: { kind: "default" },
 			},
 		});
-		const { workspaceOperationLocks } = await import(
-			"../../src/db/schema"
-		);
+		const { workspaceOperationLocks } = await import("../../src/db/schema");
 		const rows = host.db.select().from(workspaceOperationLocks).all();
 		expect(rows).toHaveLength(0);
 	});

@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
 import type { HostDb } from "../db";
 import { workspaceOperationArtifacts } from "../db/schema";
 import type { EventBus } from "../events";
@@ -369,7 +368,8 @@ export function runProvisioningResumeSweep(deps: {
 }): void {
 	const orphans = deps.db.query.workspaceOperations
 		.findMany({
-			where: (op, { or, eq }) => or(eq(op.state, "queued"), eq(op.state, "running")),
+			where: (op, { or, eq }) =>
+				or(eq(op.state, "queued"), eq(op.state, "running")),
 		})
 		.sync();
 	if (orphans.length === 0) return;
@@ -387,9 +387,12 @@ export function runProvisioningResumeSweep(deps: {
 			launchPayloadJson: null,
 		});
 		if (deps.eventBus) {
-			deps.eventBus.broadcastWorkspaceOperationChanged(
-				deps.journal.toWireOperation(deps.journal.get(op.id)!),
-			);
+			const refreshed = deps.journal.get(op.id);
+			if (refreshed) {
+				deps.eventBus.broadcastWorkspaceOperationChanged(
+					deps.journal.toWireOperation(refreshed),
+				);
+			}
 		}
 	}
 	console.warn(
