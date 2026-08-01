@@ -16,6 +16,20 @@ export interface BulkItemError {
 	[key: string]: unknown;
 }
 
+export interface CreateWorktreeInput {
+	projectId: string;
+	name?: string;
+	branchName?: string;
+	compareBaseBranch?: string;
+	sourceWorkspaceId?: string;
+}
+
+export interface CreatedWorktree {
+	workspace: Pick<SelectWorkspace, "id" | "name" | "branch">;
+	worktreePath: string;
+	wasExisting: boolean;
+}
+
 export function buildBulkResult<T>({
 	items,
 	errors,
@@ -44,7 +58,7 @@ export function buildBulkResult<T>({
 // Available mutations and queries passed to tool handlers
 export interface ToolContext {
 	// Mutations
-	createWorktree: ReturnType<typeof electronTrpc.workspaces.create.useMutation>;
+	createWorktree: (input: CreateWorktreeInput) => Promise<CreatedWorktree>;
 	setActive: ReturnType<typeof electronTrpc.workspaces.setActive.useMutation>;
 	deleteWorkspace: ReturnType<
 		typeof electronTrpc.workspaces.delete.useMutation

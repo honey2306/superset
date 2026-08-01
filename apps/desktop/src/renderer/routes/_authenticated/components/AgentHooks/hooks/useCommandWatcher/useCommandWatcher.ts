@@ -1,15 +1,23 @@
 import { FEATURE_FLAGS } from "@superset/shared/constants";
+import type { ProvisionWorkspaceRequest } from "@superset/workspace-client";
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { useCreateWorkspace } from "renderer/react-query/workspaces/useCreateWorkspace";
 import { useDeleteWorkspace } from "renderer/react-query/workspaces/useDeleteWorkspace";
 import { useUpdateWorkspace } from "renderer/react-query/workspaces/useUpdateWorkspace";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider/CollectionsProvider";
-import { executeTool, type ToolContext } from "./tools";
+import {
+	useWorkspaceLaunch,
+	useWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
+import {
+	type CreateWorktreeInput,
+	executeTool,
+	type ToolContext,
+} from "./tools";
 
 const COMMAND_PERSIST_RETRY_MS = 1_000;
 
@@ -39,7 +47,8 @@ export function useCommandWatcher() {
 	);
 	const shouldWatch = !!deviceInfo && !!organizationId && !remoteAgentDisabled;
 
-	const createWorktree = useCreateWorkspace({ skipNavigation: true });
+	const provisioningAdapter = useWorkspaceProvisioningAdapter();
+	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
 	const setActive = electronTrpc.workspaces.setActive.useMutation();
 	const deleteWorkspace = useDeleteWorkspace();
 	const updateWorkspace = useUpdateWorkspace();
@@ -76,6 +85,64 @@ export function useCommandWatcher() {
 		const match = pathname.match(/\/workspace\/([^/]+)/);
 		return match ? match[1] : null;
 	}, []);
+
+	const createWorktree = useCallback(
+		async (input: CreateWorktreeInput) => {
+			if (!provisioningAdapter) {
+				throw new Error("Workspace host is not available");
+			}
+
+			const sourceWorkspace = input.sourceWorkspaceId
+				? workspaces?.find(
+						(workspace) => workspace.id === input.sourceWorkspaceId,
+					)
+				: undefined;
+			const baseBranch = input.compareBaseBranch ?? sourceWorkspace?.branch;
+			const source: ProvisionWorkspaceRequest["source"] = {
+				kind: "branch",
+				name: input.branchName
+					? { kind: "explicit", value: input.branchName }
+					: { kind: "generated", prompt: input.name },
+				from: baseBranch
+					? { kind: "ref", value: baseBranch }
+					: { kind: "default" },
+			};
+			const operation = await workspaceLaunch.begin({
+				adapter: provisioningAdapter,
+				request: {
+					idempotencyKey: `command-workspace:${input.projectId}:${input.branchName ?? input.name ?? "generated"}:${baseBranch ?? "default"}`,
+					project: { kind: "existing", projectId: input.projectId },
+					source,
+					display: input.name ? { name: input.name } : undefined,
+				},
+			});
+			if (operation.state === "failed" || !operation.workspaceId) {
+				throw new Error(
+					operation.failure?.message ?? "Workspace provisioning failed",
+				);
+			}
+
+			const workspace = workspaces?.find(
+				(candidate) => candidate.id === operation.workspaceId,
+			);
+			return {
+				workspace: {
+					id: operation.workspaceId,
+					name: workspace?.name ?? input.name ?? "Workspace",
+					branch: workspace?.branch ?? input.branchName ?? "",
+				},
+				worktreePath:
+					worktreePathByWorkspaceId.get(operation.workspaceId) ?? "",
+				wasExisting: operation.disposition === "reused",
+			};
+		},
+		[
+			provisioningAdapter,
+			workspaceLaunch,
+			workspaces,
+			worktreePathByWorkspaceId,
+		],
+	);
 
 	const toolContext: ToolContext = useMemo(
 		() => ({

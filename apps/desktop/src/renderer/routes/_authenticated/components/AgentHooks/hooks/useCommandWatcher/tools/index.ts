@@ -57,4 +57,8 @@ export async function executeTool(
 	return tool.execute(parsed.data, ctx);
 }
 
-export type { CommandResult, ToolContext } from "./types";
+export type {
+	CommandResult,
+	CreateWorktreeInput,
+	ToolContext,
+} from "./types";

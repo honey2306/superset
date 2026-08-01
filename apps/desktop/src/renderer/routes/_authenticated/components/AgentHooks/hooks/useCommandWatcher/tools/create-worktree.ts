@@ -58,7 +58,7 @@ async function execute(
 				}
 			}
 
-			const result = await ctx.createWorktree.mutateAsync({
+			const result = await ctx.createWorktree({
 				projectId,
 				name: input.name,
 				branchName: input.branchName,
