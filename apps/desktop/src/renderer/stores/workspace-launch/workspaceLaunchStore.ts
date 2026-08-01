@@ -19,6 +19,7 @@ import { create } from "zustand";
 export interface WorkspaceLaunchState {
 	operations: Record<string, WorkspaceOperation>;
 	pendingByKey: Record<string, string>;
+	requestsByOperation: Record<string, ProvisionWorkspaceRequest>;
 }
 
 export interface LaunchOptions {
@@ -49,6 +50,7 @@ export const useWorkspaceLaunchStore = create<WorkspaceLaunchStore>()(
 	(set, get) => ({
 		operations: {},
 		pendingByKey: {},
+		requestsByOperation: {},
 
 		subscribe(adapter) {
 			return adapter.subscribe((operation) => {
@@ -69,6 +71,10 @@ export const useWorkspaceLaunchStore = create<WorkspaceLaunchStore>()(
 			const { operation } = await adapter.begin(request);
 			set((state) => ({
 				operations: { ...state.operations, [operation.id]: operation },
+				requestsByOperation: {
+					...state.requestsByOperation,
+					[operation.id]: request,
+				},
 				pendingByKey: {
 					...state.pendingByKey,
 					[request.idempotencyKey]: operation.id,
@@ -89,6 +95,17 @@ export const useWorkspaceLaunchStore = create<WorkspaceLaunchStore>()(
 
 		async retry(adapter, operationId) {
 			const op = await adapter.act({ operationId, action: "retry" });
+			const request = get().requestsByOperation[operationId];
+			if (op.state === "queued" && request) {
+				const rerun = await adapter.begin(request);
+				set((state) => ({
+					operations: {
+						...state.operations,
+						[rerun.operation.id]: rerun.operation,
+					},
+				}));
+				return rerun.operation;
+			}
 			set((state) => ({
 				operations: { ...state.operations, [op.id]: op },
 			}));
@@ -104,7 +121,7 @@ export const useWorkspaceLaunchStore = create<WorkspaceLaunchStore>()(
 		},
 
 		clear() {
-			set({ operations: {}, pendingByKey: {} });
+			set({ operations: {}, pendingByKey: {}, requestsByOperation: {} });
 		},
 	}),
 );

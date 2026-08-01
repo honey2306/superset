@@ -5,6 +5,7 @@ import { workspaceOperationArtifacts } from "../db/schema";
 import type { EventBus } from "../events";
 import type { GitFactory } from "../runtime/git";
 import type { WorkspaceCatalog } from "../workspace-catalog";
+import { canonicalizeHostPath } from "../workspace-catalog/canonical-path";
 import {
 	canonicalizeProvisionRequest,
 	ProvisioningInputError,
@@ -95,6 +96,10 @@ export interface WorkspaceProvisioningDeps {
  */
 export class WorkspaceProvisioning {
 	readonly journal: OperationJournal;
+	private readonly inFlight = new Map<
+		string,
+		Promise<{ operationId: string; operation: WorkspaceOperation }>
+	>();
 	constructor(private readonly deps: WorkspaceProvisioningDeps) {
 		this.journal = new OperationJournal(deps.db);
 	}
@@ -125,7 +130,12 @@ export class WorkspaceProvisioning {
 					`idempotencyKey ${request.idempotencyKey} already used with a different request`,
 				);
 			}
-			// Same key + same hash → return the running/committed operation.
+			// A queued row is an explicit retry request. Re-run it with the
+			// caller's full request; succeeded/running/failed rows remain
+			// idempotent receipts.
+			if (existing.state === "queued") {
+				return this.runOnce(existing.id, request);
+			}
 			return {
 				operationId: existing.id,
 				operation: this.journal.toWireOperation(existing),
@@ -143,6 +153,33 @@ export class WorkspaceProvisioning {
 			launchPayloadJson: launchPayload,
 			requestedByMachineId: options?.requestedByMachineId,
 		});
+		const journaled = this.journal.get(operationId);
+		if (!journaled || journaled.requestHash !== canonical.hash) {
+			throw new ProvisioningInputError(
+				"IDEMPOTENCY_CONFLICT",
+				`idempotencyKey ${request.idempotencyKey} already used with a different request`,
+			);
+		}
+		return this.runOnce(operationId, request);
+	}
+
+	private runOnce(
+		operationId: string,
+		request: ProvisionWorkspaceRequest,
+	): Promise<{ operationId: string; operation: WorkspaceOperation }> {
+		const previous = this.inFlight.get(operationId);
+		if (previous) return previous;
+		const promise = this.execute(operationId, request).finally(() => {
+			this.inFlight.delete(operationId);
+		});
+		this.inFlight.set(operationId, promise);
+		return promise;
+	}
+
+	private async execute(
+		operationId: string,
+		request: ProvisionWorkspaceRequest,
+	): Promise<{ operationId: string; operation: WorkspaceOperation }> {
 		this.broadcast(operationId);
 
 		// Claim natural-identity leases before any git/filesystem work.
@@ -151,10 +188,26 @@ export class WorkspaceProvisioning {
 		// letting the saga leave partial state behind.
 		let leases: ReturnType<typeof acquireLeases>;
 		try {
+			const lockKeys = deriveNaturalLockKeys(request);
+			const projectId =
+				request.project.kind === "existing" ||
+				request.project.kind === "setup-existing"
+					? request.project.projectId
+					: undefined;
+			if (projectId) {
+				const project = this.deps.db.query.projects
+					.findFirst({
+						where: (row, { eq }) => eq(row.id, projectId),
+					})
+					.sync();
+				if (project) {
+					lockKeys.push(`git-repo:${canonicalizeHostPath(project.repoPath)}`);
+				}
+			}
 			leases = acquireLeases({
 				db: this.deps.db,
 				operationId,
-				keys: deriveNaturalLockKeys(request),
+				keys: lockKeys,
 			});
 		} catch (err) {
 			// Fold RESOURCE_BUSY into the operation row so the caller sees a
@@ -184,9 +237,6 @@ export class WorkspaceProvisioning {
 			throw err;
 		}
 
-		// Run the saga synchronously — M2 MVP does not defer to a resume
-		// worker. Recovery of an interrupted operation happens on the next
-		// `begin` with the same idempotency key or `get`.
 		this.journal.patch(operationId, { state: "running", stage: "resolving" });
 		this.broadcast(operationId);
 		try {
@@ -333,6 +383,19 @@ export class WorkspaceProvisioning {
 	get(operationId: string): WorkspaceOperation | undefined {
 		const row = this.journal.get(operationId);
 		return row ? this.journal.toWireOperation(row) : undefined;
+	}
+
+	/** Resume a journaled operation after a host restart. The request has
+	 * already passed canonical validation before it was persisted; the public
+	 * wrapper is intentionally narrow so only the boot worker can call it. */
+	resume(
+		operationId: string,
+		request: ProvisionWorkspaceRequest,
+	): Promise<{
+		operationId: string;
+		operation: WorkspaceOperation;
+	}> {
+		return this.runOnce(operationId, request);
 	}
 
 	list(args: {
@@ -583,39 +646,31 @@ function recordArtifacts(
 }
 
 /**
- * Boot-time resume sweep. Every operation left in `queued` or `running`
- * from a previous host process is dead — the runtime that owned its
- * in-memory saga is gone. Mark them `failed` with `RESOURCE_BUSY`
- * (retryable) and release any lock rows they held, so a client that
- * calls `begin` again with the same idempotency key gets a fresh
- * operation to work with. Compensation of any partial artifacts is left
- * for the next full-saga resume-worker landing; MVP simply unblocks
- * identity so the user isn't stuck.
- */
-/**
- * Boot-time resume sweep. Distinguishes two flavors of orphan:
+ * Boot-time resume sweep. Reconstructs and re-enters durable requests when
+ * the request and launch payload are valid. Malformed legacy rows are split
+ * into two failure flavors:
  *
  *   1. Pre-commit orphan (catalog_committed_at IS NULL) — the previous
  *      process died before Catalog materialization. Any partial fs/git
- *      artifacts are stale; queue compensation as `pending`, clear
- *      identity leases, and mark the operation failed(retryable=true)
- *      with `COMPENSATION_INCOMPLETE`.
+ *      artifacts are stale; clear identity leases and mark the operation
+ *      failed(retryable=true) with `COMPENSATION_INCOMPLETE`.
  *
  *   2. Post-commit orphan (catalog_committed_at IS NOT NULL) — the
- *      Workspace itself is real and routable; only Terminal Runtime
- *      never got to finish. Preserve `workspaceId` so the renderer
- *      can navigate immediately, mark the operation failed(retryable=
- *      true) with `TERMINAL_UNAVAILABLE`, and leave the identity lease
- *      released so a retry can adopt the journaled terminal ids.
+ *      Workspace itself is real and routable; only Terminal Runtime never
+ *      got to finish. Preserve `workspaceId` and mark the operation failed
+ *      with `TERMINAL_UNAVAILABLE`.
  *
- * Both flavors ship `launchPayloadJson=null` — the payload is only
- * kept while the operation might resume; a boot-time crash counts as
- * a final failure until the user or client explicitly re-issues begin.
+ * Valid requests retain their launch payload while the resumed saga runs;
+ * terminal ids remain journaled so retries adopt rather than duplicate.
  */
 export function runProvisioningResumeSweep(deps: {
 	db: HostDb;
 	journal: OperationJournal;
 	eventBus: EventBus | null;
+	resume?: (
+		operationId: string,
+		request: ProvisionWorkspaceRequest,
+	) => Promise<unknown>;
 }): void {
 	const orphans = deps.db.query.workspaceOperations
 		.findMany({
@@ -628,6 +683,28 @@ export function runProvisioningResumeSweep(deps: {
 	let postCommit = 0;
 	for (const op of orphans) {
 		releaseOperationLocks(deps.db, op.id);
+		const request = deps.journal.readRequest(op);
+		if (request && deps.resume) {
+			// Put the durable state back in the queue before handing it to the
+			// runner. A process crash between this patch and the async call will
+			// be picked up by the next boot rather than being hidden as a failure.
+			deps.journal.patch(op.id, {
+				state: "queued",
+				stage: null,
+				failureCode: null,
+				failureClass: null,
+				failureRetryable: null,
+				failureMessage: null,
+				completedAt: null,
+			});
+			void deps.resume(op.id, request).catch((err) => {
+				console.warn(
+					`[workspace-provisioning] restart resume failed for ${op.id}`,
+					err,
+				);
+			});
+			continue;
+		}
 		const isPostCommit = op.catalogCommittedAt !== null;
 		if (isPostCommit) {
 			postCommit++;

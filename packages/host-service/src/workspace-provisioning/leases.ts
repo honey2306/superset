@@ -8,9 +8,9 @@ import type { ProvisionWorkspaceRequest } from "./types";
 
 /**
  * Natural-identity lock keys derived from a canonical request. See the
- * execplan §Canonicalization for the exact list. `git-repo:*` is
- * omitted here because it is a short-lived critical section owned by
- * individual source handlers, not an identity lease claimed at `begin`.
+ * execplan §Canonicalization for the exact list. Existing-project requests
+ * add a `git-repo:*` key at execution time after resolving the Catalog path;
+ * path-based materializers already have an equivalent `project-path:*` key.
  */
 export function deriveNaturalLockKeys(
 	request: ProvisionWorkspaceRequest,

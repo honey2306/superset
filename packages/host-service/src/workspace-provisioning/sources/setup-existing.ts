@@ -1,3 +1,4 @@
+import type { RunnerArtifact } from "../workspace-provisioning";
 import type { SourceHandler } from "./types";
 
 /**
@@ -9,6 +10,7 @@ import type { SourceHandler } from "./types";
  */
 export const setupExistingHandler: SourceHandler = async ({
 	request,
+	ctx,
 	caller,
 	launches,
 	warnings,
@@ -18,8 +20,12 @@ export const setupExistingHandler: SourceHandler = async ({
 			`setupExistingHandler cannot handle project.kind='${request.project.kind}'`,
 		);
 	}
+	const projectId = request.project.projectId;
+	const alreadyConfigured = ctx.catalog
+		.snapshot()
+		.projects.some((project) => project.id === projectId);
 	const setup = await caller.project.setup({
-		projectId: request.project.projectId,
+		projectId,
 		origin: {
 			repoCloneUrl: request.project.origin.repoUrl ?? null,
 			name: request.project.origin.name,
@@ -40,10 +46,17 @@ export const setupExistingHandler: SourceHandler = async ({
 		throw new Error("project.setup returned no mainWorkspaceId");
 	}
 	return {
-		projectId: request.project.projectId,
+		projectId,
 		workspaceId: setup.mainWorkspaceId,
 		disposition: "created",
 		launches,
 		warnings,
+		artifacts: [
+			{
+				kind: "repo-dir",
+				identity: setup.repoPath,
+				ownership: alreadyConfigured ? "adopted" : "created",
+			},
+		] satisfies RunnerArtifact[],
 	};
 };

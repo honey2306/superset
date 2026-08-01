@@ -4,6 +4,7 @@ import type { HostDb } from "../db";
 import { workspaceOperationSteps, workspaceOperations } from "../db/schema";
 import type {
 	InitialLaunchResult,
+	ProvisionWorkspaceRequest,
 	WorkspaceOperation,
 	WorkspaceOperationFailure,
 	WorkspaceOperationStage,
@@ -42,8 +43,15 @@ export class OperationJournal {
 				createdAt: now,
 				updatedAt: now,
 			})
+			.onConflictDoNothing()
 			.run();
-		return id;
+		const row = this.findByIdempotencyKey(args.idempotencyKey);
+		if (!row) {
+			throw new Error(
+				`Operation journal insert failed for idempotency key ${args.idempotencyKey}`,
+			);
+		}
+		return row.id;
 	}
 
 	findByIdempotencyKey(
@@ -58,6 +66,44 @@ export class OperationJournal {
 		return this.db.query.workspaceOperations
 			.findFirst({ where: eq(workspaceOperations.id, id) })
 			.sync();
+	}
+
+	/** Reconstruct a restart-safe request from the redacted request and the
+	 * separately persisted launch payload. Sensitive command/prompt bodies are
+	 * retained only in launchPayloadJson, while identity fields stay in the
+	 * canonical request record used for idempotency checks. */
+	readRequest(
+		row: typeof workspaceOperations.$inferSelect,
+	): ProvisionWorkspaceRequest | null {
+		if (!row.requestJson) return null;
+		try {
+			const parsed = JSON.parse(row.requestJson) as {
+				project?: unknown;
+				source?: unknown;
+				idempotencyKey?: unknown;
+			};
+			if (
+				typeof parsed.project !== "object" ||
+				parsed.project === null ||
+				typeof parsed.source !== "object" ||
+				parsed.source === null ||
+				typeof parsed.idempotencyKey !== "string"
+			) {
+				return null;
+			}
+			const request = parsed as ProvisionWorkspaceRequest;
+			if (row.launchPayloadJson) {
+				const payload = JSON.parse(row.launchPayloadJson) as {
+					initialSessions?: ProvisionWorkspaceRequest["initialSessions"];
+				};
+				if (payload.initialSessions) {
+					request.initialSessions = payload.initialSessions;
+				}
+			}
+			return request;
+		} catch {
+			return null;
+		}
 	}
 
 	listByMachine(

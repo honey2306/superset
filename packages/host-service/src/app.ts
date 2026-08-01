@@ -221,7 +221,25 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 			db,
 			catalog,
 			eventBus,
-			terminalRuntime: createProductionTerminalRuntime({ db, eventBus }),
+			terminalRuntime: createProductionTerminalRuntime({
+				db,
+				eventBus,
+				ctxFactory: () => ({
+					git,
+					credentials: providers.credentials,
+					github,
+					execGh,
+					api,
+					db,
+					catalog,
+					runtime,
+					eventBus,
+					terminalAgentStore,
+					organizationId: config.organizationId,
+					isAuthenticated: true,
+					clientMachineId: undefined,
+				}),
+			}),
 			gitFactory: git,
 			runner: async (ctxArgs) => {
 				const productionRunner = createProductionRunner({
@@ -257,14 +275,16 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	};
 
 	// Resume sweep: any operation left `queued`/`running` from a previous
-	// process is orphaned. Mark them failed(retryable=true) and release
-	// their identity leases before tRPC accepts new requests. Synchronous
-	// so a `begin` immediately after boot never inherits a stale lease.
+	// process is resumed from its durable request when possible; malformed
+	// legacy rows are marked failed(retryable=true). Identity leases are
+	// released before the runner is re-entered.
 	try {
 		runProvisioningResumeSweep({
 			db,
 			journal: workspaceProvisioning.journal,
 			eventBus,
+			resume: (operationId, request) =>
+				workspaceProvisioning.resume(operationId, request),
 		});
 	} catch (err) {
 		console.warn("[host-service] provisioning resume sweep failed:", err);

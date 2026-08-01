@@ -1,3 +1,4 @@
+import type { RunnerArtifact } from "../workspace-provisioning";
 import type { SourceHandler } from "./types";
 
 /**
@@ -55,6 +56,18 @@ export const existingProjectHandler: SourceHandler = async ({
 				disposition: result.alreadyExists ? "reused" : "created",
 				launches,
 				warnings,
+				artifacts: [
+					{
+						kind: "worktree",
+						identity:
+							ctx.db.query.workspaces
+								.findFirst({
+									where: (w, { eq }) => eq(w.id, result.workspace.id),
+								})
+								.sync()?.worktreePath ?? "",
+						ownership: result.alreadyExists ? "adopted" : "created",
+					},
+				] satisfies RunnerArtifact[],
 			};
 		}
 		case "worktree": {
@@ -70,6 +83,13 @@ export const existingProjectHandler: SourceHandler = async ({
 				disposition: "adopted",
 				launches,
 				warnings,
+				artifacts: [
+					{
+						kind: "worktree",
+						identity: source.path,
+						ownership: "adopted",
+					},
+				] satisfies RunnerArtifact[],
 			};
 		}
 		case "pull-request": {
@@ -85,6 +105,18 @@ export const existingProjectHandler: SourceHandler = async ({
 				disposition: result.alreadyExists ? "reused" : "created",
 				launches,
 				warnings,
+				artifacts: [
+					{
+						kind: "worktree",
+						identity:
+							ctx.db.query.workspaces
+								.findFirst({
+									where: (w, { eq }) => eq(w.id, result.workspace.id),
+								})
+								.sync()?.worktreePath ?? "",
+						ownership: result.alreadyExists ? "adopted" : "created",
+					},
+				] satisfies RunnerArtifact[],
 			};
 		}
 	}

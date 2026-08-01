@@ -25,6 +25,7 @@ const ALLOWLIST = new Set([
 	// Snapshot consumer: shapes project rows for renderer display
 	// (avatar/GitHub link), never for query routing.
 	"projects/local-project-store.ts",
+	"workspace-catalog/workspace-catalog.ts",
 
 	// Resolver itself: mentions field names in JSDoc, no member reads.
 	"trpc/router/workspace-creation/shared/project-helpers.ts",

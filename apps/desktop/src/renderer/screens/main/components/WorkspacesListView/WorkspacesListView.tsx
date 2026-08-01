@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { LuSearch, LuX } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import type { FilterMode, ProjectGroup, WorkspaceItem } from "./types";
 import { WorkspaceRow } from "./WorkspaceRow";
 
@@ -22,11 +23,41 @@ export function WorkspacesListView() {
 	const navigate = useNavigate();
 	const utils = electronTrpc.useUtils();
 
-	// Fetch all data
-	const { data: groups = [] } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
-	const { data: allProjects = [] } =
-		electronTrpc.projects.getRecents.useQuery();
+	const { projects: catalogProjects, workspaces: catalogWorkspaces } =
+		useWorkspaceCatalog();
+	const allProjects = catalogProjects;
+	const groups = useMemo<ProjectGroup[]>(() => {
+		const projectNames = new Map(
+			catalogProjects.map((project) => [project.id, project.name]),
+		);
+		const grouped = new Map<string, ProjectGroup>();
+		for (const workspace of catalogWorkspaces) {
+			const group = grouped.get(workspace.projectId) ?? {
+				projectId: workspace.projectId,
+				projectName:
+					projectNames.get(workspace.projectId) ?? workspace.projectId,
+				workspaces: [],
+			};
+			group.workspaces.push({
+				uniqueId: workspace.id,
+				workspaceId: workspace.id,
+				worktreeId: null,
+				projectId: workspace.projectId,
+				projectName:
+					projectNames.get(workspace.projectId) ?? workspace.projectId,
+				worktreePath: workspace.worktreePath,
+				type: workspace.type === "main" ? "branch" : "worktree",
+				branch: workspace.branch,
+				name: workspace.name,
+				lastOpenedAt: workspace.updatedAt,
+				createdAt: workspace.createdAt,
+				isUnread: false,
+				isOpen: true,
+			});
+			grouped.set(workspace.projectId, group);
+		}
+		return Array.from(grouped.values());
+	}, [catalogProjects, catalogWorkspaces]);
 
 	// Fetch worktrees for all projects
 	const worktreeQueries = electronTrpc.useQueries((t) =>
@@ -56,11 +87,11 @@ export function WorkspacesListView() {
 		for (const group of groups) {
 			for (const ws of group.workspaces) {
 				items.push({
-					uniqueId: ws.id,
-					workspaceId: ws.id,
-					worktreeId: null,
+					uniqueId: ws.uniqueId,
+					workspaceId: ws.workspaceId,
+					worktreeId: ws.worktreeId,
 					projectId: ws.projectId,
-					projectName: group.project.name,
+					projectName: group.projectName,
 					worktreePath: ws.worktreePath,
 					type: ws.type,
 					branch: ws.branch,

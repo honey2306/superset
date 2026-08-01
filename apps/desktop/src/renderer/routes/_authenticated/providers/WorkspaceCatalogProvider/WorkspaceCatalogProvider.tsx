@@ -79,6 +79,8 @@ export function WorkspaceCatalogProvider({
 	);
 	const [isReady, setIsReady] = useState<boolean>(false);
 	const highWaterMarkRef = useRef(makeHighWaterMark());
+	const revisionRef = useRef(state.revision);
+	revisionRef.current = state.revision;
 
 	// Subscribe to catalog:changed BEFORE fetching the snapshot so any
 	// event landing between snapshot request and install is captured on
@@ -98,7 +100,7 @@ export function WorkspaceCatalogProvider({
 
 		const pullChanges = async () => {
 			const client = getHostServiceClientByUrl(activeHostUrl);
-			let cursor = state.revision;
+			let cursor = revisionRef.current;
 			while (true) {
 				const page = await client.workspaceCatalog.changes.query({
 					afterRevision: cursor,
@@ -114,7 +116,7 @@ export function WorkspaceCatalogProvider({
 			off();
 			retain();
 		};
-	}, [activeHostUrl, state.revision]);
+	}, [activeHostUrl]);
 
 	// Snapshot + catch-up loop.
 	useEffect(() => {

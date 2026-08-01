@@ -8,9 +8,9 @@ import { cn } from "@superset/ui/utils";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { LuGitBranch } from "react-icons/lu";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import { useFrameStackStore } from "../../core/frames";
 import { useCommandPaletteQuery } from "../CommandPalette/CommandPalette";
 
@@ -53,34 +53,37 @@ export function WorkspaceListFrame() {
 
 function V1WorkspaceList({ query }: { query: string }) {
 	const { t } = useTranslation();
-	const { data: groups = [] } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
+	const { projects, workspaces } = useWorkspaceCatalog();
 	const currentPath = useLocation({ select: (loc) => loc.pathname });
 	const navigate = useNavigate();
 	const setOpen = useFrameStackStore((s) => s.setOpen);
 
 	const projectGroups = useMemo<V1ProjectGroup[]>(() => {
-		return groups.flatMap((group) => {
-			const workspaces = group.workspaces
-				.map((workspace) => ({
-					id: workspace.id,
-					name: workspace.name,
-					branch: workspace.branch ?? workspace.name,
-					projectName: group.project.name,
-					projectColor: group.project.color,
-				}))
-				.filter((workspace) => matchesQuery(workspace, query));
-
-			if (workspaces.length === 0) return [];
-			return [
-				{
-					projectId: group.project.id,
-					projectName: group.project.name,
-					workspaces,
-				},
-			];
-		});
-	}, [groups, query]);
+		const projectNames = new Map(
+			projects.map((project) => [project.id, project.name]),
+		);
+		const projectGroups = new Map<string, V1ProjectGroup>();
+		for (const workspace of workspaces) {
+			const projectName =
+				projectNames.get(workspace.projectId) ?? workspace.projectId;
+			const item = {
+				id: workspace.id,
+				name: workspace.name,
+				branch: workspace.branch,
+				projectName,
+				projectColor: "hsl(var(--primary))",
+			};
+			if (!matchesQuery(item, query)) continue;
+			const group = projectGroups.get(workspace.projectId) ?? {
+				projectId: workspace.projectId,
+				projectName,
+				workspaces: [],
+			};
+			group.workspaces.push(item);
+			projectGroups.set(workspace.projectId, group);
+		}
+		return Array.from(projectGroups.values());
+	}, [projects, workspaces, query]);
 
 	const handleSelect = (workspaceId: string) => {
 		void navigateToWorkspace(workspaceId, navigate);

@@ -332,4 +332,44 @@ describe("workspaceProvisioning terminal + compensation (M2)", () => {
 		// insert — verify at least one entry exists.
 		expect(fx.db.select().from(catalogChanges).all().length).toBeGreaterThan(0);
 	});
+
+	test("retry re-drives the queued operation and reuses its terminal identity", async () => {
+		fx = boot();
+		const terminal = createInMemoryTerminalRuntime();
+		terminal.failNext(new Error("daemon restart"));
+		const projectId = randomUUID();
+		const workspaceId = randomUUID();
+		const provisioning = new WorkspaceProvisioning({
+			db: fx.db,
+			catalog: fx.catalog,
+			eventBus: null,
+			runner: runnerFromCatalog(fx.catalog, { projectId, workspaceId }),
+			terminalRuntime: terminal,
+		});
+		const request = {
+			idempotencyKey: `retry:${randomUUID()}`,
+			project: { kind: "existing" as const, projectId },
+			source: { kind: "main" as const },
+			initialSessions: [
+				{
+					key: "shell",
+					kind: "shell" as const,
+					requirement: "required" as const,
+				},
+			],
+		};
+		const first = await provisioning.begin(request);
+		expect(first.operation.state).toBe("failed");
+		const queued = provisioning.act({
+			operationId: first.operation.id,
+			action: "retry",
+		});
+		expect(queued.state).toBe("queued");
+
+		const retried = await provisioning.begin(request);
+		expect(retried.operation.state).toBe("succeeded");
+		expect(retried.operation.id).toBe(first.operation.id);
+		expect(terminal.calls).toHaveLength(2);
+		expect(terminal.calls[0]?.terminalId).toBe(terminal.calls[1]?.terminalId);
+	});
 });

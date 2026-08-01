@@ -1,7 +1,7 @@
 import { Spinner } from "@superset/ui/spinner";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useWorkspaceCatalog } from "../../providers/WorkspaceCatalogProvider";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/workspace/")({
 	component: WorkspaceIndexPage,
@@ -17,16 +17,13 @@ function LoadingSpinner() {
 
 function WorkspaceIndexPage() {
 	const navigate = useNavigate();
-	const { data: workspaces, isLoading } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
-
-	const allWorkspaces = workspaces?.flatMap((group) => group.workspaces) ?? [];
-	const hasNoWorkspaces = !isLoading && allWorkspaces.length === 0;
+	const { workspaces, isReady } = useWorkspaceCatalog();
+	const hasNoWorkspaces = isReady && workspaces.length === 0;
 
 	useEffect(() => {
-		if (isLoading || !workspaces) return;
+		if (!isReady) return;
 
-		if (allWorkspaces.length === 0) {
+		if (workspaces.length === 0) {
 			// No workspaces yet: land on the projects list, which has the sidebar
 			// "Add repository" entry points.
 			navigate({ to: "/workspaces", replace: true });
@@ -36,7 +33,7 @@ function WorkspaceIndexPage() {
 		// Try to restore last viewed workspace
 		const lastViewedId = localStorage.getItem("lastViewedWorkspaceId");
 		const targetWorkspace =
-			allWorkspaces.find((w) => w.id === lastViewedId) ?? allWorkspaces[0];
+			workspaces.find((w) => w.id === lastViewedId) ?? workspaces[0];
 
 		if (targetWorkspace) {
 			navigate({
@@ -45,7 +42,7 @@ function WorkspaceIndexPage() {
 				replace: true,
 			});
 		}
-	}, [workspaces, isLoading, navigate, allWorkspaces]);
+	}, [workspaces, isReady, navigate]);
 
 	if (hasNoWorkspaces) {
 		return <LoadingSpinner />;

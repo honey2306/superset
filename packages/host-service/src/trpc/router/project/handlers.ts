@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
-import { projects } from "../../../db/schema";
-import { emitProjectChanged } from "../../../projects/local-project-store";
 import type { HostServiceContext } from "../../../types";
 import { ensureMainWorkspaceStrict } from "./utils/ensure-main-workspace";
 import { persistLocalProject } from "./utils/persist-project";
@@ -75,8 +72,7 @@ async function persistFromResolved(
 	} catch (err) {
 		if (localProjectInserted) {
 			try {
-				ctx.db.delete(projects).where(eq(projects.id, projectId)).run();
-				emitProjectChanged(ctx.eventBus, "deleted", projectId);
+				ctx.catalog.deleteProject(projectId);
 			} catch (cleanupErr) {
 				console.warn("[project.create] local rollback failed", {
 					projectId,

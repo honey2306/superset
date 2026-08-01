@@ -1,3 +1,4 @@
+import type { RunnerArtifact } from "../workspace-provisioning";
 import type { SourceHandler } from "./types";
 
 /**
@@ -54,5 +55,12 @@ export const projectMaterializerHandler: SourceHandler = async ({
 		disposition: "created",
 		launches,
 		warnings,
+		artifacts: [
+			{
+				kind: "repo-dir",
+				identity: created.repoPath,
+				ownership: "created",
+			},
+		] satisfies RunnerArtifact[],
 	};
 };

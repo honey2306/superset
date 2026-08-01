@@ -111,15 +111,9 @@ export const projectRouter = router({
 		)
 		.mutation(({ ctx, input }) => {
 			const worktreeBaseDir = normalizeWorktreeBaseDir(input.path);
-			ctx.db
-				.update(projects)
-				.set({ worktreeBaseDir })
-				.where(eq(projects.id, input.projectId))
-				.run();
-
-			const project = ctx.db.query.projects
-				.findFirst({ where: eq(projects.id, input.projectId) })
-				.sync();
+			const project = ctx.catalog.updateProject(input.projectId, {
+				worktreeBaseDir,
+			});
 			if (!project) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
@@ -146,15 +140,10 @@ export const projectRouter = router({
 			}),
 		)
 		.mutation(({ ctx, input }) => {
-			const updated = ctx.db
-				.update(projects)
-				.set({
-					branchPrefixMode: input.mode,
-					branchPrefixCustom: input.customPrefix ?? null,
-				})
-				.where(eq(projects.id, input.projectId))
-				.returning({ id: projects.id })
-				.get();
+			const updated = ctx.catalog.updateProject(input.projectId, {
+				branchPrefixMode: input.mode,
+				branchPrefixCustom: input.customPrefix ?? null,
+			});
 			if (!updated) {
 				throw new TRPCError({
 					code: "NOT_FOUND",

@@ -1,3 +1,6 @@
+import { mkdir } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { SourceHandler } from "./types";
 
 /**
@@ -36,7 +39,45 @@ export const temporaryHandler: SourceHandler = async ({
 			warnings,
 		};
 	}
-	throw new Error(
-		"temporary provisioning not yet materialized (M2 MVP scaffold)",
-	);
+
+	const repoPath = join(homedir(), "Superset", "temporary");
+	await mkdir(repoPath, { recursive: true });
+	const git = await ctx.git(repoPath);
+	try {
+		await git.raw(["rev-parse", "--show-toplevel"]);
+	} catch {
+		try {
+			await git.raw(["init", "--initial-branch=main"]);
+		} catch {
+			await git.raw(["init"]);
+		}
+	}
+	let branch = "main";
+	try {
+		branch =
+			(await git.raw(["symbolic-ref", "--short", "HEAD"])).trim() || branch;
+	} catch {
+		// An unborn repository still has a stable main-workspace identity.
+	}
+	const project = ctx.catalog.createProject({
+		kind: "temporary",
+		singletonKey,
+		repoPath,
+		name: "Temporary workspace",
+	});
+	const workspace = ctx.catalog.createWorkspace({
+		projectId: project.id,
+		worktreePath: repoPath,
+		branch,
+		type: "main",
+		name: "Temporary workspace",
+	});
+	return {
+		projectId: project.id,
+		workspaceId: workspace.id,
+		disposition: "created",
+		launches,
+		warnings,
+		artifacts: [{ kind: "repo-dir", identity: repoPath, ownership: "adopted" }],
+	};
 };

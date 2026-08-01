@@ -8,7 +8,6 @@ import { cn } from "@superset/ui/utils";
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	type RecentlyViewedEntry,
@@ -19,6 +18,7 @@ import {
 	type StatusType,
 } from "renderer/routes/_authenticated/_dashboard/tasks/components/TasksView/components/shared/StatusIcon";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import { useFrameStackStore } from "../../core/frames";
 
 export function RecentlyViewedFrame() {
@@ -29,15 +29,16 @@ export function RecentlyViewedFrame() {
 	const setOpen = useFrameStackStore((s) => s.setOpen);
 	const navigate = useNavigate();
 
-	const { data: groups } = electronTrpc.workspaces.getAllGrouped.useQuery();
-	const workspaceData = (groups ?? []).flatMap((group) =>
-		group.workspaces.map((ws) => ({
-			id: ws.id,
-			projectName: group.project.name,
-			projectColor: group.project.color,
-			branch: ws.branch ?? ws.name,
-		})),
+	const { projects, workspaces } = useWorkspaceCatalog();
+	const projectNames = new Map(
+		projects.map((project) => [project.id, project.name]),
 	);
+	const workspaceData = workspaces.map((workspace) => ({
+		id: workspace.id,
+		projectName: projectNames.get(workspace.projectId) ?? workspace.projectId,
+		projectColor: "hsl(var(--primary))",
+		branch: workspace.branch || workspace.name,
+	}));
 
 	const { data: taskData } = useLiveQuery(
 		(q) =>

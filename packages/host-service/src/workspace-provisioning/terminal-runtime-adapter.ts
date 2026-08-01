@@ -1,6 +1,11 @@
+import { eq } from "drizzle-orm";
 import type { HostDb } from "../db";
+import { projects, workspaces } from "../db/schema";
 import type { EventBus } from "../events";
 import { createTerminalSessionInternal } from "../terminal/terminal";
+import { runAgentInWorkspace } from "../trpc/router/agents";
+import { resolveInitialCommand } from "../trpc/router/workspace-creation/shared/setup-terminal";
+import type { HostServiceContext } from "../types";
 import type { InitialLaunchResult, InitialSessionIntent } from "./types";
 
 /**
@@ -33,6 +38,7 @@ export interface TerminalRuntimeAdapter {
 export interface ProductionTerminalRuntimeDeps {
 	db: HostDb;
 	eventBus: EventBus;
+	ctxFactory: () => HostServiceContext;
 }
 
 export function createProductionTerminalRuntime(
@@ -41,20 +47,73 @@ export function createProductionTerminalRuntime(
 	return {
 		async startInitialSession(args) {
 			const { intent, terminalId, workspaceId, worktreePath } = args;
+			if (intent.kind === "agent") {
+				const result = await runAgentInWorkspace(deps.ctxFactory(), {
+					workspaceId,
+					agent: intent.agent,
+					prompt: intent.prompt,
+					terminalId,
+					...(intent.attachmentIds
+						? { attachmentIds: intent.attachmentIds }
+						: {}),
+					...(intent.model ? { model: intent.model } : {}),
+					...(intent.effort ? { effort: intent.effort } : {}),
+				});
+				if (result.kind === "chat") {
+					return {
+						key: intent.key,
+						kind: "chat",
+						sessionId: result.sessionId,
+						label: result.label,
+					};
+				}
+				return {
+					key: intent.key,
+					kind: "terminal",
+					sessionId: result.sessionId,
+					role: "agent",
+					label: result.label,
+					attachable: true,
+				};
+			}
+
+			const setupCommand =
+				intent.kind === "setup"
+					? (() => {
+							const workspace = deps.db
+								.select({
+									repoPath: projects.repoPath,
+									projectId: workspaces.projectId,
+								})
+								.from(workspaces)
+								.innerJoin(projects, eq(projects.id, workspaces.projectId))
+								.where(eq(workspaces.id, workspaceId))
+								.get();
+							return workspace
+								? resolveInitialCommand({
+										repoPath: workspace.repoPath,
+										projectId: workspace.projectId,
+										worktreePath,
+									})
+								: null;
+						})()
+					: null;
 			const initialCommand =
-				intent.kind === "command" ? intent.command : undefined;
+				intent.kind === "command"
+					? intent.command
+					: setupCommand?.initialCommand;
 			const label =
 				intent.kind === "shell" || intent.kind === "command"
 					? intent.label
-					: undefined;
+					: intent.kind === "setup"
+						? "Workspace Setup"
+						: undefined;
 			const role: "setup" | "shell" | "command" | "agent" =
-				intent.kind === "agent"
-					? "agent"
-					: intent.kind === "command"
-						? "command"
-						: intent.kind === "setup"
-							? "setup"
-							: "shell";
+				intent.kind === "command"
+					? "command"
+					: intent.kind === "setup"
+						? "setup"
+						: "shell";
 			const result = await createTerminalSessionInternal({
 				terminalId,
 				workspaceId,
