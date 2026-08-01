@@ -36,8 +36,13 @@ import {
 	execGh as defaultExecGh,
 	type ExecGh,
 } from "./trpc/router/workspace-creation/utils/exec-gh";
-import type { ApiClient } from "./types";
+import type { ApiClient, HostServiceRuntime } from "./types";
+import type { HostServiceContext } from "./types";
 import { runCatalogIdentityBackfill, WorkspaceCatalog } from "./workspace-catalog";
+import {
+	createProductionRunner,
+	WorkspaceProvisioning,
+} from "./workspace-provisioning";
 
 export interface CreateAppOptions {
 	config: {
@@ -151,14 +156,11 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 			persistence: new SqliteAcpSessionPersistence(db),
 		});
 
-	const runtime = {
-		acpSessions,
-		acpSessionsEnabled,
-		auth: chatService,
-		chat: chatRuntime,
-		filesystem,
-		pullRequests: pullRequestRuntime,
-	};
+	// `runtime` is populated below once EventBus, Catalog, TerminalAgent
+	// store, and Workspace Provisioning exist. Declared with `let` here
+	// so members declared earlier (like chat) still have a shared shape.
+	// eslint-disable-next-line prefer-const
+	let runtime: HostServiceRuntime;
 	const app = new Hono();
 	const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
@@ -204,6 +206,48 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		);
 	}
 	const terminalAgentStore = new TerminalAgentStore(terminalAgentPersistence);
+
+	// Workspace Provisioning Module (M2) — the durable operation wrapper
+	// around workspace/project creation. Uses appRouter.createCaller to
+	// delegate to the existing tRPC mutations that still own git
+	// materialization. Must be constructed AFTER catalog/eventBus/db/
+	// terminalAgentStore because the runner captures them.
+	const workspaceProvisioning: WorkspaceProvisioning = new WorkspaceProvisioning({
+		db,
+		catalog,
+		eventBus,
+		runner: async (ctxArgs) => {
+			const productionRunner = createProductionRunner({
+				appRouter,
+				ctxFactory: () => ({
+					git,
+					credentials: providers.credentials,
+					github,
+					execGh,
+					api,
+					db,
+					catalog,
+					runtime,
+					eventBus,
+					terminalAgentStore,
+					organizationId: config.organizationId,
+					isAuthenticated: true,
+					clientMachineId: undefined,
+				}),
+			});
+			return productionRunner(ctxArgs);
+		},
+	});
+
+	runtime = {
+		acpSessions,
+		acpSessionsEnabled,
+		auth: chatService,
+		chat: chatRuntime,
+		filesystem,
+		pullRequests: pullRequestRuntime,
+		workspaceProvisioning,
+	};
 
 	// Startup sweeps run in the background so they don't block server
 	// startup. Ordering matters: the backfills fill identity fields on

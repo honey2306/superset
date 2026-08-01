@@ -12,6 +12,7 @@ import type { PullRequestRuntimeManager } from "./runtime/pull-requests";
 import type { TerminalAgentStore } from "./terminal-agents";
 import type { ExecGh } from "./trpc/router/workspace-creation/utils/exec-gh";
 import type { WorkspaceCatalog } from "./workspace-catalog";
+import type { WorkspaceProvisioning } from "./workspace-provisioning";
 
 export type ApiClient = TRPCClient<AppRouter>;
 
@@ -28,6 +29,7 @@ export interface HostServiceRuntime {
 	chat: ChatRuntimeManager;
 	filesystem: WorkspaceFilesystemManager;
 	pullRequests: PullRequestRuntimeManager;
+	workspaceProvisioning: WorkspaceProvisioning;
 }
 
 export interface HostServiceContext {

@@ -290,6 +290,137 @@ export const catalogChanges = sqliteTable("catalog_changes", {
 	occurredAt: integer("occurred_at").notNull(),
 });
 
+// ── M2 Provisioning journal ───────────────────────────────────────────
+
+export type WorkspaceOperationState =
+	| "queued"
+	| "running"
+	| "compensating"
+	| "succeeded"
+	| "failed"
+	| "cancelled";
+
+export type WorkspaceOperationStage =
+	| "resolving"
+	| "materializing"
+	| "cataloging"
+	| "initializing"
+	| "starting-runtime"
+	| "compensating";
+
+/**
+ * Durable per-operation row for the Workspace Provisioning saga. IDs on
+ * this row deliberately carry NO foreign keys — planned IDs must exist
+ * before Catalog rows, and completed receipts must remain interpretable
+ * after the Workspace they minted is later deleted.
+ */
+export const workspaceOperations = sqliteTable(
+	"workspace_operations",
+	{
+		id: text().primaryKey(),
+		idempotencyKey: text("idempotency_key").notNull(),
+		requestHash: text("request_hash").notNull(),
+		requestJson: text("request_json").notNull(),
+		launchPayloadJson: text("launch_payload_json"),
+		requestedByMachineId: text("requested_by_machine_id"),
+		state: text().notNull().$type<WorkspaceOperationState>(),
+		stage: text().$type<WorkspaceOperationStage>(),
+		revision: integer().notNull().default(1),
+		projectId: text("project_id"),
+		workspaceId: text("workspace_id"),
+		plannedProjectId: text("planned_project_id"),
+		plannedWorkspaceId: text("planned_workspace_id"),
+		catalogCommittedAt: integer("catalog_committed_at"),
+		leaseOwner: text("lease_owner"),
+		leaseExpiresAt: integer("lease_expires_at"),
+		cancelRequestedAt: integer("cancel_requested_at"),
+		failureCode: text("failure_code"),
+		failureClass: text("failure_class"),
+		failureRetryable: integer("failure_retryable"),
+		failureMessage: text("failure_message"),
+		cleanupState: text("cleanup_state"),
+		resultJson: text("result_json"),
+		createdAt: integer("created_at").notNull(),
+		updatedAt: integer("updated_at").notNull(),
+		completedAt: integer("completed_at"),
+	},
+	(table) => [
+		uniqueIndex("workspace_operations_idempotency_key_unique").on(
+			table.idempotencyKey,
+		),
+		index("workspace_operations_state_idx").on(table.state),
+		index("workspace_operations_requested_by_machine_idx").on(
+			table.requestedByMachineId,
+		),
+	],
+);
+
+export const workspaceOperationSteps = sqliteTable(
+	"workspace_operation_steps",
+	{
+		operationId: text("operation_id")
+			.notNull()
+			.references(() => workspaceOperations.id, { onDelete: "cascade" }),
+		stepKey: text("step_key").notNull(),
+		status: text().notNull(),
+		attempt: integer().notNull().default(0),
+		inputJson: text("input_json"),
+		outputJson: text("output_json"),
+		startedAt: integer("started_at"),
+		completedAt: integer("completed_at"),
+	},
+	(table) => [
+		uniqueIndex("workspace_operation_steps_pk").on(
+			table.operationId,
+			table.stepKey,
+		),
+	],
+);
+
+export const workspaceOperationArtifacts = sqliteTable(
+	"workspace_operation_artifacts",
+	{
+		id: text().primaryKey(),
+		operationId: text("operation_id")
+			.notNull()
+			.references(() => workspaceOperations.id, { onDelete: "cascade" }),
+		kind: text().notNull(),
+		identity: text().notNull(),
+		ownership: text().notNull(),
+		expectedHeadSha: text("expected_head_sha"),
+		cleanupState: text("cleanup_state").notNull(),
+		createdAt: integer("created_at").notNull(),
+		updatedAt: integer("updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("workspace_operation_artifacts_unique").on(
+			table.operationId,
+			table.kind,
+			table.identity,
+		),
+		index("workspace_operation_artifacts_operation_idx").on(table.operationId),
+	],
+);
+
+/**
+ * Natural-identity leases plus operation leases. `lock_key` is one of the
+ * canonical keys documented in the execplan's canonicalization section
+ * (`project-path:<canonical>`, `project:<id>:branch:<explicit>`, etc.);
+ * short-lived `git-repo:<canonical>` critical-section leases live here
+ * too so the resume worker can inspect held resources on crash recovery.
+ */
+export const workspaceOperationLocks = sqliteTable(
+	"workspace_operation_locks",
+	{
+		lockKey: text("lock_key").primaryKey(),
+		operationId: text("operation_id")
+			.notNull()
+			.references(() => workspaceOperations.id, { onDelete: "cascade" }),
+		leaseOwner: text("lease_owner").notNull(),
+		leaseExpiresAt: integer("lease_expires_at").notNull(),
+	},
+);
+
 /**
  * Registry of ACP agent sessions (docs/acp-sessions.md). One row per
  * session, kept fresh on every state emit. Rows survive host restarts so the

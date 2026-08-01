@@ -23,6 +23,7 @@ import { workspaceRouter } from "./workspace";
 import { workspaceCatalogRouter } from "./workspace-catalog";
 import { workspaceCleanupRouter } from "./workspace-cleanup";
 import { workspaceCreationRouter } from "./workspace-creation";
+import { workspaceProvisioningRouter } from "./workspace-provisioning";
 import { workspacesRouter } from "./workspaces";
 
 export const appRouter = router({
@@ -51,6 +52,7 @@ export const appRouter = router({
 	workspaceCatalog: workspaceCatalogRouter,
 	workspaceCleanup: workspaceCleanupRouter,
 	workspaceCreation: workspaceCreationRouter,
+	workspaceProvisioning: workspaceProvisioningRouter,
 });
 
 export type AppRouter = typeof appRouter;

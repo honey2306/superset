@@ -117,6 +117,20 @@ export interface CatalogChangedMessage {
 	revision: number;
 }
 
+/**
+ * Wake-up + payload for a Workspace Provisioning operation state change
+ * (M2). Carries the current wire-shape operation so the renderer's Launch
+ * Coordinator can update its projection without a separate `get` call.
+ * `revision` is the operation's own monotonically incrementing revision
+ * (not the Catalog revision).
+ */
+export interface WorkspaceOperationChangedMessage {
+	type: "workspace-operation:changed";
+	operationId: string;
+	revision: number;
+	operation: unknown;
+}
+
 export interface EventBusErrorMessage {
 	type: "error";
 	message: string;
@@ -131,6 +145,7 @@ export type ServerMessage =
 	| WorkspaceChangedMessage
 	| ProjectChangedMessage
 	| CatalogChangedMessage
+	| WorkspaceOperationChangedMessage
 	| EventBusErrorMessage;
 
 // ── Client → Server ────────────────────────────────────────────────

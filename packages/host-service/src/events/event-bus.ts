@@ -218,6 +218,24 @@ export class EventBus {
 	}
 
 	/**
+	 * Fan out a Workspace Provisioning operation state change. Unlike the
+	 * catalog wake, this ships the whole current operation snapshot so the
+	 * renderer's Launch Coordinator can update state without a `get`. The
+	 * durable `workspace_operations` row remains authoritative on reconnect.
+	 */
+	broadcastWorkspaceOperationChanged(operation: {
+		id: string;
+		revision: number;
+	}): void {
+		this.broadcast({
+			type: "workspace-operation:changed",
+			operationId: operation.id,
+			revision: operation.revision,
+			operation,
+		});
+	}
+
+	/**
 	 * Fan out port add/remove events discovered by the host-service scanner.
 	 * Renderer clients use this to patch their host snapshot immediately while
 	 * keeping a slow refetch as a reconnect fallback.
