@@ -21,5 +21,12 @@
  *
  * 0.8.0 — v2 terminal creation moved to `terminal.createSession`; the
  * WebSocket route is attach-only by `terminalId`.
+ *
+ * 1.16.0 — Workspace Catalog + Provisioning (workspace-catalog-launch).
+ * New `workspaceCatalog.snapshot/changes` and
+ * `workspaceProvisioning.begin/get/list/act` tRPC namespaces plus the
+ * `catalog:changed` and `workspace-operation:changed` event types.
+ * Older host-services don't expose either; new clients ONLY use these
+ * paths, so upgrade-required is the only supported answer.
  */
-export const MIN_HOST_SERVICE_VERSION = "0.8.0";
+export const MIN_HOST_SERVICE_VERSION = "1.16.0";

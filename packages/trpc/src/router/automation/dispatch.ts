@@ -259,6 +259,16 @@ async function recordSkipped(
 	return row;
 }
 
+/**
+ * Since the M2 Workspace Catalog + Provisioning cutover this dispatches
+ * a durable Provisioning operation instead of the old `workspaces.create`
+ * mutation. Idempotency key is scoped to `<runId>:workspace` so a lost
+ * HTTP response on the relay side recovers the same operation on retry.
+ * The operation runs synchronously in the host today (MVP saga), so we
+ * expect `succeeded` (or a structured failure) in one round-trip; a
+ * bounded poll on `get` is still added for the day the resume worker
+ * lands and `begin` can return with `state='running'`.
+ */
 async function createWorkspaceOnHost(args: {
 	relayUrl: string;
 	hostId: string;
@@ -267,9 +277,6 @@ async function createWorkspaceOnHost(args: {
 	automation: SelectAutomation;
 	runId: string;
 }): Promise<{ workspaceId: string; branchName: string }> {
-	// Full-precision timestamp keeps branch names readable AND collision-free
-	// for anything coarser than 1 second.
-	// e.g. "2026-04-19-17-30-00"
 	const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
 	const baseSlug = slugifyForBranch(args.automation.name, 30);
 	const candidateBranch = sanitizeBranchNameWithMaxLength(
@@ -279,41 +286,56 @@ async function createWorkspaceOnHost(args: {
 	const branchName = deduplicateBranchName(candidateBranch, []);
 	const workspaceName = args.automation.name.slice(0, 100);
 
-	const result = await relayMutation<
+	const idempotencyKey = `automation-run:${args.runId}:workspace`;
+	const first = await relayMutation<
+		Record<string, unknown>,
 		{
-			projectId: string;
-			name: string;
-			branch: string;
-		},
-		{
-			workspace: {
+			operationId: string;
+			operation: {
 				id: string;
-				projectId: string;
-				name: string;
-				branch: string;
+				state:
+					| "queued"
+					| "running"
+					| "compensating"
+					| "succeeded"
+					| "failed"
+					| "cancelled";
+				workspaceId?: string;
+				failure?: { code: string; message: string; retryable: boolean };
 			};
-			terminals: Array<{ terminalId: string; label?: string }>;
-			agents: Array<unknown>;
-			alreadyExists: boolean;
 		}
 	>(
 		{
 			relayUrl: args.relayUrl,
 			hostId: args.hostId,
 			jwt: args.jwt,
-			// Workspace creation does git clone + worktree setup — bigger repos
-			// can comfortably take >25s. Give it real room.
 			timeoutMs: 90_000,
 		},
-		"workspaces.create",
+		"workspaceProvisioning.begin",
 		{
-			projectId: args.projectId,
-			name: workspaceName,
-			branch: branchName,
+			idempotencyKey,
+			project: { kind: "existing", projectId: args.projectId },
+			source: {
+				kind: "branch",
+				name: { kind: "explicit", value: branchName },
+				from: { kind: "default" },
+			},
+			display: { name: workspaceName },
 		},
 	);
 
-	return { workspaceId: result.workspace.id, branchName };
+	// The M2 MVP saga returns a terminal state from `begin` synchronously.
+	// When the resume worker lands and `begin` may return `running`, add
+	// a bounded `workspaceProvisioning.get` poll here (also needs a
+	// relayQuery counterpart of relayMutation).
+	const op = first.operation;
+	if (op.state !== "succeeded" || !op.workspaceId) {
+		const message =
+			op.failure?.message ??
+			`Provisioning operation ended in state ${op.state}`;
+		throw new Error(message);
+	}
+	return { workspaceId: op.workspaceId, branchName };
 }
 
 async function runAgentOnHost(args: {
