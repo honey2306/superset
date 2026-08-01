@@ -1,19 +1,23 @@
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import type { HostDb } from "../db";
 import { workspaceOperationArtifacts } from "../db/schema";
 import type { EventBus } from "../events";
+import type { GitFactory } from "../runtime/git";
 import type { WorkspaceCatalog } from "../workspace-catalog";
 import {
 	canonicalizeProvisionRequest,
 	ProvisioningInputError,
 	stableJson,
 } from "./canonical-request";
+import { compensateOperation } from "./compensation";
 import {
 	acquireLeases,
 	deriveNaturalLockKeys,
 	releaseOperationLocks,
 } from "./leases";
 import { OperationJournal } from "./operation-journal";
+import type { TerminalRuntimeAdapter } from "./terminal-runtime-adapter";
 import type {
 	InitialLaunchResult,
 	ProvisionWorkspaceRequest,
@@ -67,6 +71,20 @@ export interface WorkspaceProvisioningDeps {
 	catalog: WorkspaceCatalog;
 	eventBus: EventBus | null;
 	runner: ProvisioningRunner;
+	/**
+	 * Terminal Runtime Adapter (optional). When absent, `initialSessions`
+	 * requests are silently ignored — the operation still returns
+	 * succeeded with the journaled workspace id. Production wires the
+	 * `createProductionTerminalRuntime` here; tests may swap in
+	 * `createInMemoryTerminalRuntime` to exercise post-commit failure.
+	 */
+	terminalRuntime?: TerminalRuntimeAdapter;
+	/**
+	 * Git factory reused by pre-commit compensation for `worktree` /
+	 * `branch` artifacts. Optional in tests where the fake runner never
+	 * produces those artifact kinds.
+	 */
+	gitFactory?: GitFactory;
 }
 
 /**
@@ -185,18 +203,72 @@ export class WorkspaceProvisioning {
 			if (outcome.artifacts?.length) {
 				recordArtifacts(this.deps.db, operationId, outcome.artifacts);
 			}
+
+			// Catalog commit already happened inside the runner. Journal it
+			// before starting Terminal Runtime so a post-commit terminal
+			// failure still keeps the workspace routable (execplan §Operation
+			// state machine: `workspaceId` is exposed as soon as commit
+			// succeeds, even while initial sessions are starting).
 			this.journal.patch(operationId, {
-				state: "succeeded",
-				stage: null,
+				stage: "starting-runtime",
 				projectId: outcome.projectId,
 				workspaceId: outcome.workspaceId,
 				catalogCommittedAt: Date.now(),
+			});
+			this.broadcast(operationId);
+
+			// Start initial sessions if configured. Failures on required
+			// intents produce a retryable-failed operation with workspaceId
+			// still populated; best-effort failures accumulate as warnings.
+			const {
+				launches: journaledLaunches,
+				warnings: launchWarnings,
+				failure: requiredFailure,
+			} = await this.startInitialSessions(
+				operationId,
+				request,
+				outcome.workspaceId,
+				outcome.artifacts,
+			);
+			const launches = [...outcome.launches, ...journaledLaunches];
+			const warnings = [...outcome.warnings, ...launchWarnings];
+
+			if (requiredFailure) {
+				// Post-commit failure: workspaceId remains populated so the
+				// renderer can navigate to the committed Workspace and offer
+				// retry — do NOT delete the Catalog row.
+				this.journal.patch(operationId, {
+					state: "failed",
+					stage: null,
+					failureCode: requiredFailure.code,
+					failureClass: requiredFailure.class,
+					failureRetryable: requiredFailure.retryable ? 1 : 0,
+					failureMessage: requiredFailure.message,
+					cleanupState: requiredFailure.cleanup,
+					completedAt: Date.now(),
+					resultJson: stableJson({
+						disposition: outcome.disposition,
+						launches,
+						warnings,
+					}),
+				});
+				this.broadcast(operationId);
+				leases.release();
+				return {
+					operationId,
+					operation: this.getRequired(operationId),
+				};
+			}
+
+			this.journal.patch(operationId, {
+				state: "succeeded",
+				stage: null,
 				completedAt: Date.now(),
 				launchPayloadJson: null,
 				resultJson: stableJson({
 					disposition: outcome.disposition,
-					launches: outcome.launches,
-					warnings: outcome.warnings,
+					launches,
+					warnings,
 				}),
 			});
 			this.broadcast(operationId);
@@ -207,6 +279,38 @@ export class WorkspaceProvisioning {
 			};
 		} catch (err) {
 			const failure = classifyFailure(err);
+			// Run compensation on any pre-commit failure (workspaceId still
+			// null in the journal). Post-commit failures are handled by the
+			// separate `required` intent branch above and never reach here.
+			const currentRow = this.journal.get(operationId);
+			let cleanupState = failure.cleanup;
+			if (
+				currentRow &&
+				!currentRow.catalogCommittedAt &&
+				this.deps.gitFactory
+			) {
+				try {
+					const compensationOutcome = await compensateOperation(
+						{
+							db: this.deps.db,
+							git: this.deps.gitFactory,
+							repoRoot: this.resolveRepoRootForOperation(operationId),
+						},
+						operationId,
+					);
+					if (compensationOutcome.state === "incomplete") {
+						cleanupState = "incomplete";
+					} else if (compensationOutcome.state === "complete") {
+						cleanupState = "complete";
+					}
+				} catch (compensationErr) {
+					console.warn(
+						`[workspace-provisioning] compensation threw for ${operationId}:`,
+						compensationErr,
+					);
+					cleanupState = "incomplete";
+				}
+			}
 			this.journal.patch(operationId, {
 				state: "failed",
 				stage: null,
@@ -214,7 +318,7 @@ export class WorkspaceProvisioning {
 				failureClass: failure.class,
 				failureRetryable: failure.retryable ? 1 : 0,
 				failureMessage: failure.message,
-				cleanupState: failure.cleanup,
+				cleanupState,
 				completedAt: Date.now(),
 			});
 			this.broadcast(operationId);
@@ -292,6 +396,133 @@ export class WorkspaceProvisioning {
 		const row = this.journal.get(id);
 		if (!row) throw new Error(`Operation not found: ${id}`);
 		return this.journal.toWireOperation(row);
+	}
+
+	/**
+	 * Drive the Terminal Runtime Adapter after Catalog commit. Journals a
+	 * stable terminal id per intent BEFORE the spawn attempt (so retries
+	 * adopt the same daemon session), records a `terminal` artifact per
+	 * successful spawn, and separates required-intent failure from
+	 * best-effort warnings.
+	 */
+	private async startInitialSessions(
+		operationId: string,
+		request: ProvisionWorkspaceRequest,
+		workspaceId: string,
+		existingArtifacts:
+			| ReadonlyArray<{
+					kind: "repo-dir" | "worktree" | "branch" | "terminal";
+					identity: string;
+					ownership: "created" | "adopted";
+			  }>
+			| undefined,
+	): Promise<{
+		launches: InitialLaunchResult[];
+		warnings: Array<{ code: string; message: string }>;
+		failure?: WorkspaceOperationFailure;
+	}> {
+		const intents = request.initialSessions ?? [];
+		if (intents.length === 0 || !this.deps.terminalRuntime) {
+			return { launches: [], warnings: [] };
+		}
+		const worktreePath = this.resolveWorktreePath(workspaceId);
+		if (!worktreePath) {
+			// Should never happen — the Catalog just committed the row.
+			return {
+				launches: [],
+				warnings: [
+					{
+						code: "WORKSPACE_MISSING",
+						message: `Committed workspace ${workspaceId} not readable in Catalog`,
+					},
+				],
+			};
+		}
+		const launches: InitialLaunchResult[] = [];
+		const warnings: Array<{ code: string; message: string }> = [];
+		let requiredFailure: WorkspaceOperationFailure | undefined;
+
+		for (const intent of intents) {
+			const terminalId = this.journal.ensureTerminalId(operationId, intent.key);
+			try {
+				const result = await this.deps.terminalRuntime.startInitialSession({
+					intent,
+					terminalId,
+					workspaceId,
+					worktreePath,
+				});
+				launches.push(result);
+				this.journal.markStepComplete(operationId, `terminal:${intent.key}`, {
+					sessionId: terminalId,
+				});
+				// Journal a `terminal` artifact — future compensation only
+				// touches ownership='created' rows, so a re-attach on retry
+				// is safe (it never gets removed).
+				recordArtifacts(this.deps.db, operationId, [
+					{
+						kind: "terminal",
+						identity: terminalId,
+						ownership: "created",
+					},
+				]);
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				if (intent.requirement === "required") {
+					requiredFailure = {
+						code: "TERMINAL_UNAVAILABLE",
+						class: "transient",
+						retryable: true,
+						message,
+						cleanup: "pending",
+						workspaceId,
+					};
+					// Required failure short-circuits the remaining intents —
+					// a retry will restart them from the journaled state.
+					break;
+				}
+				warnings.push({
+					code: "TERMINAL_BEST_EFFORT_FAILED",
+					message,
+				});
+			}
+		}
+
+		// Silence the unused-param linter — kept for future compensation
+		// hooks that may cross-check terminal launches against runner
+		// artifacts.
+		void existingArtifacts;
+
+		return { launches, warnings, failure: requiredFailure };
+	}
+
+	private resolveWorktreePath(workspaceId: string): string | null {
+		const row = this.deps.db.query.workspaces
+			.findFirst({
+				where: (w, { eq }) => eq(w.id, workspaceId),
+			})
+			.sync();
+		return row?.worktreePath ?? null;
+	}
+
+	/**
+	 * Best-effort repo root lookup for pre-commit compensation. Falls
+	 * back to `null` when the operation's artifacts are all path-pinned
+	 * (repo-dir / worktree by absolute path) and no git bookkeeping is
+	 * required.
+	 */
+	private resolveRepoRootForOperation(operationId: string): string | undefined {
+		const artifacts = this.deps.db
+			.select()
+			.from(workspaceOperationArtifacts)
+			.where(eq(workspaceOperationArtifacts.operationId, operationId))
+			.all();
+		const repoDir = artifacts.find((a) => a.kind === "repo-dir");
+		if (repoDir) return repoDir.identity;
+		// Worktree artifacts alone don't tell us the parent repo — the
+		// production runner never emits one without the corresponding
+		// `repo-dir` today. Leave undefined and let removeArtifact() take
+		// the filesystem-only path.
+		return undefined;
 	}
 
 	private broadcast(operationId: string): void {

@@ -3,6 +3,11 @@ export {
 	ProvisioningInputError,
 } from "./canonical-request";
 export {
+	type CompensationDeps,
+	type CompensationOutcome,
+	compensateOperation,
+} from "./compensation";
+export {
 	acquireLeases,
 	deriveNaturalLockKeys,
 	releaseOperationLocks,
@@ -12,6 +17,13 @@ export {
 	createProductionRunner,
 	type ProvisioningRunnerAdapters,
 } from "./production-runner";
+export {
+	createInMemoryTerminalRuntime,
+	createProductionTerminalRuntime,
+	type InMemoryTerminalRuntime,
+	type StartInitialSessionArgs,
+	type TerminalRuntimeAdapter,
+} from "./terminal-runtime-adapter";
 export type {
 	InitialLaunchResult,
 	InitialSessionIntent,

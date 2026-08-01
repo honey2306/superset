@@ -43,6 +43,7 @@ import {
 } from "./workspace-catalog";
 import {
 	createProductionRunner,
+	createProductionTerminalRuntime,
 	runProvisioningResumeSweep,
 	WorkspaceProvisioning,
 } from "./workspace-provisioning";
@@ -220,6 +221,8 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 			db,
 			catalog,
 			eventBus,
+			terminalRuntime: createProductionTerminalRuntime({ db, eventBus }),
+			gitFactory: git,
 			runner: async (ctxArgs) => {
 				const productionRunner = createProductionRunner({
 					appRouter,

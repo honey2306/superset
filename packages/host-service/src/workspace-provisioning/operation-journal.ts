@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { HostDb } from "../db";
-import { workspaceOperations } from "../db/schema";
+import { workspaceOperationSteps, workspaceOperations } from "../db/schema";
 import type {
 	InitialLaunchResult,
 	WorkspaceOperation,
@@ -143,5 +143,82 @@ export class OperationJournal {
 			updatedAt: row.updatedAt,
 			completedAt: row.completedAt ?? undefined,
 		};
+	}
+
+	/**
+	 * Journal or replay a per-intent terminal id. On first attempt this
+	 * mints a fresh UUID and writes a step row; on retry it returns the
+	 * previously journaled id so the Terminal Runtime Adapter adopts the
+	 * live daemon session instead of spawning a duplicate.
+	 */
+	ensureTerminalId(operationId: string, intentKey: string): string {
+		const stepKey = `terminal:${intentKey}`;
+		const existing = this.db
+			.select()
+			.from(workspaceOperationSteps)
+			.where(
+				and(
+					eq(workspaceOperationSteps.operationId, operationId),
+					eq(workspaceOperationSteps.stepKey, stepKey),
+				),
+			)
+			.get();
+		if (existing?.inputJson) {
+			try {
+				const parsed = JSON.parse(existing.inputJson) as {
+					terminalId?: unknown;
+				};
+				if (typeof parsed.terminalId === "string" && parsed.terminalId) {
+					return parsed.terminalId;
+				}
+			} catch {
+				// fall through and re-mint
+			}
+		}
+		const terminalId = randomUUID();
+		this.db
+			.insert(workspaceOperationSteps)
+			.values({
+				operationId,
+				stepKey,
+				status: "planned",
+				attempt: (existing?.attempt ?? 0) + 1,
+				inputJson: JSON.stringify({ terminalId }),
+				startedAt: Date.now(),
+			})
+			.onConflictDoUpdate({
+				target: [
+					workspaceOperationSteps.operationId,
+					workspaceOperationSteps.stepKey,
+				],
+				set: {
+					attempt: (existing?.attempt ?? 0) + 1,
+					inputJson: JSON.stringify({ terminalId }),
+					startedAt: Date.now(),
+				},
+			})
+			.run();
+		return terminalId;
+	}
+
+	markStepComplete(
+		operationId: string,
+		stepKey: string,
+		output?: Record<string, unknown>,
+	): void {
+		this.db
+			.update(workspaceOperationSteps)
+			.set({
+				status: "completed",
+				outputJson: output ? JSON.stringify(output) : null,
+				completedAt: Date.now(),
+			})
+			.where(
+				and(
+					eq(workspaceOperationSteps.operationId, operationId),
+					eq(workspaceOperationSteps.stepKey, stepKey),
+				),
+			)
+			.run();
 	}
 }
