@@ -77,6 +77,25 @@
 ### 6 项额外 recovery / terminal / compensation 测试
 - 新 `workspace-provisioning-terminal.integration.test.ts` 6 场景全绿：required/best-effort terminal 失败语义、`ensureTerminalId` 幂等、ownership-based compensation、pre/post-commit 分岔
 
+## ✅ 已完成（第四轮：renderer selector 底座 + 首批消费点迁移）
+
+### Catalog selector hooks
+- `providers/WorkspaceCatalogProvider/selectors.ts`：`useCatalogWorkspaces` / `useCatalogWorkspacesByProject` / `useCatalogWorkspace` / `useCatalogProject` / `useCatalogProjects` / `useCatalogWorkspaceNeighbours`
+- `providers/WorkspaceCatalogProvider/selectors.test.tsx`：happy-dom + `@testing-library/react/pure`；6 描述 / 10 断言全绿覆盖 null-id、identity、by-project 过滤、prev/next 边界
+- `LocalHostServiceProvider` 加 non-throwing `useMaybeLocalHostService`，让 Catalog provider 可无 host context 渲染，方便 renderer 单测注入 `initialState`
+
+### 首批 renderer 消费点迁移
+- `EmptyTabView.tsx`：`electronTrpc.workspaces.get` → `useCatalogWorkspace`。附带把 host schema `type: "main" | "worktree"` 映射为 v1 shell 语义 `"branch" | "worktree"`（DeleteWorkspaceDialog 只认后者），代码内注释说明两个术语指同一件事
+
+### Appendix A 剩余大部分暂不动的原因
+逐个抽样 5 个高价值候选后发现 Appendix A 里"能纯 identity 迁移"的比例低于最初估计。**保留不动**的调用点分类：
+- **useWorkspaceShortcuts / WorkspaceListFrame / ProjectsSettingsSidebar / ProjectsSettingsPage**：读的是 `workspaces.getAllGrouped`，除 identity 外还带 v1 shell 的 section/group order + project color 展示元数据；catalog projection 不该承担这些
+- **`workspace/$workspaceId/page.tsx`**：同时消费 nested `worktree.gitStatus`（v1 shell 特有），迁移会导致 dual-read
+- **WorkspaceListItem / usePortsData / ChangesView / FilesView**：读的是 `getAheadBehind` / `getExternalWorktrees` / git 状态，不是 identity
+- **V1PanesWorkspace 系列**：v1 shell 展示态深度绑定
+
+这批的正确迁移路径是**先把 v1 shell 的展示元数据搬到 renderer collections**（execplan Appendix A 备注 "sidebar/pane/order/unread → renderer presentation collections"），才能拆开 identity 与 presentation。此步骤等 v1 shell 让位时再做。
+
 ## ⚠️ 未完成（需后续 PR，规模较大）
 
 ### M4 完整删除（**不可在 host-service 侧独立完成**）

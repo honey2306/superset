@@ -6,9 +6,9 @@ import { BsTerminalPlus } from "react-icons/bs";
 import { LuExternalLink, LuSearch, LuTrash2 } from "react-icons/lu";
 import { getAppOption } from "renderer/components/OpenInExternalDropdown";
 import { useHotkeyDisplay } from "renderer/hotkeys";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { DeleteWorkspaceDialog } from "renderer/screens/main/components/WorkspaceSidebar/WorkspaceListItem/components/DeleteWorkspaceDialog/DeleteWorkspaceDialog";
 import { useTabsWithPresets } from "renderer/stores/tabs/useTabsWithPresets";
 import { useTheme } from "renderer/stores/theme";
@@ -40,9 +40,11 @@ export function EmptyTabView({
 	const activeTheme = useTheme();
 	const { t } = useTranslation();
 
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery({
-		id: workspaceId,
-	});
+	// Catalog projection is cache-first: returns the row as soon as it's
+	// in the local projection (or after the first snapshot install).
+	// A brief null while the snapshot hasn't loaded is fine here — the
+	// `useTabsWithPresets` hook already tolerates a nullable projectId.
+	const { workspace } = useCatalogWorkspace(workspaceId);
 	const { addTab } = useTabsWithPresets(workspace?.projectId);
 	const { showDeleteDialog, setShowDeleteDialog, handleDeleteClick } =
 		useWorkspaceDeleteHandler();
@@ -146,7 +148,12 @@ export function EmptyTabView({
 				<DeleteWorkspaceDialog
 					workspaceId={workspaceId}
 					workspaceName={workspace.name}
-					workspaceType={workspace.type}
+					// Catalog projection distinguishes main-vs-worktree in
+					// host terms; DeleteWorkspaceDialog reasons in v1 shell
+					// terms where the project's default branch workspace is
+					// called "branch". They're the same thing — map the
+					// host `main` label to the v1 `branch` label.
+					workspaceType={workspace.type === "main" ? "branch" : "worktree"}
 					open={showDeleteDialog}
 					onOpenChange={setShowDeleteDialog}
 				/>
