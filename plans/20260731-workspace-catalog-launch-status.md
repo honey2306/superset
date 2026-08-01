@@ -55,6 +55,28 @@
 - `WorkspaceCatalogProvider.tsx` 从骨架升级为真实数据源：先订阅 `catalog:changed` 记录 high-water mark、拉 `workspaceCatalog.snapshot` 原子安装、追赶到 high-water mark、每 30s healing snapshot refetch（revision 前进才覆盖）
 - 挂到 `_authenticated/layout.tsx` 在 `LocalHostServiceProvider` 内、`HostWorkspacesProvider` 外
 
+## ✅ 已完成（第三轮：M2 深度收官）
+
+### Terminal Runtime Adapter
+- 新 `workspace-provisioning/terminal-runtime-adapter.ts`：
+  - `createProductionTerminalRuntime` 包 `createTerminalSessionInternal`，caller-supplied `terminalId` 让 retry adopt daemon session
+  - `createInMemoryTerminalRuntime` 支持 `failNext(err)` 脚本化测试
+- `OperationJournal` 加 `ensureTerminalId(operationId, intentKey)` + `markStepComplete`：借 `workspace_operation_steps` 表持久化 `<opId, intent>` → terminalId 映射；retry 稳定
+- `WorkspaceProvisioning.begin` 增加 Catalog 提交后 `stage='starting-runtime'` 阶段：
+  * required 失败 → failed(retryable, TERMINAL_UNAVAILABLE)，workspaceId 仍暴露供 renderer 导航
+  * best-effort 失败 → warnings 累积，操作照常 succeeded
+  * 每次 spawn 记 `kind='terminal'` `ownership='created'` artifact
+
+### 真 compensation
+- 新 `workspace-provisioning/compensation.ts` `compensateOperation`：
+  * `ownership='adopted'` 一律 skip
+  * `ownership='created'` 对 `repo-dir` 走 rmSync、`worktree` 走 `git worktree remove --force` + fallback，`branch` 走 `git branch -D` **但只在 journaled head 与当前一致时删**（防误删 diverged 用户工作）
+  * `terminal` 归为 not-needed（post-commit 用户可见，禁止清）
+- begin 失败分支：pre-commit（未 catalogCommittedAt）自动调 `compensateOperation`；结果 state 决定 `cleanupState=complete|incomplete`
+
+### 6 项额外 recovery / terminal / compensation 测试
+- 新 `workspace-provisioning-terminal.integration.test.ts` 6 场景全绿：required/best-effort terminal 失败语义、`ensureTerminalId` 幂等、ownership-based compensation、pre/post-commit 分岔
+
 ## ⚠️ 未完成（需后续 PR，规模较大）
 
 ### M4 完整删除（**不可在 host-service 侧独立完成**）
@@ -77,10 +99,7 @@
 
 ### M2 深度剩余
 - `sources/` 子目录 6 个 handler（temporary/branch/worktree/pull-request/existing-project/project-materializers）：目前 production-runner 直接委托给旧 tRPC caller，未把 git 算法搬入模块内
-- Compensation：目前只 record artifacts，不真正读回来做 rollback；execplan 要求根据 `ownership='created' vs adopted` 决定 fs 层面的清理
-- Full resume worker：目前 begin 是同步 MVP，resume sweep 只把 orphan 标 failed；真正实现应能在 boot 时按 `workspace_operation_steps` 从中断 checkpoint 恢复
-- Terminal Runtime Adapter：`initialSessions` 目前完全不启动 terminal
-- 还差 execplan 中 execplan 中要求的另外 5 项 recovery 测试（`begin` 前后停机、retry 用 journaled terminal id、cancel 前后差异等）
+- Full resume worker：目前 boot sweep 只把 orphan 标 failed(retryable)，未按 `workspace_operation_steps` checkpoint 从中断处继续；正式实现需先落 sources/ handler，再让 `begin` 从最新 `stage` 的 step 里 short-circuit
 
 ### M5 端到端证据
 - 12 项 CDP acceptance journey 未执行（需 desktop 真实 dev instance + AGENTS.md 的 CDP 匹配流程）
