@@ -16,7 +16,9 @@ type EventType =
 	| "terminal:lifecycle"
 	| "port:changed"
 	| "workspace:changed"
-	| "project:changed";
+	| "project:changed"
+	| "catalog:changed"
+	| "workspace-operation:changed";
 
 interface FsEventsPayload {
 	events: FsWatchEvent[];
@@ -87,6 +89,35 @@ export interface ProjectChangedPayload {
 	occurredAt: number;
 }
 
+type CatalogChangedMessage = Extract<ServerMessage, { type: "catalog:changed" }>;
+
+/**
+ * Wake-up ping for the M1 Workspace Catalog change stream. `revision` is
+ * the highest committed row in `catalog_changes`; consumers replay from
+ * their last cursor via `workspaceCatalog.changes` (never rely on this
+ * ping being the source of truth — dropped events are healed by replay).
+ */
+export interface CatalogChangedPayload {
+	revision: CatalogChangedMessage["revision"];
+}
+
+type WorkspaceOperationChangedMessage = Extract<
+	ServerMessage,
+	{ type: "workspace-operation:changed" }
+>;
+
+/**
+ * A Workspace Provisioning operation transitioned to a new state. Carries
+ * the current operation snapshot so the renderer's Launch Coordinator can
+ * update its projection without a separate `get`. On reconnect callers
+ * still call `get` to reconcile — the durable row is authoritative.
+ */
+export interface WorkspaceOperationChangedPayload {
+	operationId: WorkspaceOperationChangedMessage["operationId"];
+	revision: WorkspaceOperationChangedMessage["revision"];
+	operation: WorkspaceOperationChangedMessage["operation"];
+}
+
 type EventListener<T extends EventType> = T extends "fs:events"
 	? (workspaceId: string, payload: FsEventsPayload) => void
 	: T extends "git:changed"
@@ -101,7 +132,14 @@ type EventListener<T extends EventType> = T extends "fs:events"
 						? (workspaceId: string, payload: WorkspaceChangedPayload) => void
 						: T extends "project:changed"
 							? (projectId: string, payload: ProjectChangedPayload) => void
-							: never;
+							: T extends "catalog:changed"
+								? (_scope: "*", payload: CatalogChangedPayload) => void
+								: T extends "workspace-operation:changed"
+									? (
+											operationId: string,
+											payload: WorkspaceOperationChangedPayload,
+										) => void
+									: never;
 
 interface ListenerEntry {
 	type: EventType;
@@ -161,7 +199,9 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 				? message.workspaceId
 				: message.type === "project:changed"
 					? message.projectId
-					: null;
+					: message.type === "workspace-operation:changed"
+						? message.operationId
+						: null;
 
 		if (
 			workspaceId &&
@@ -222,6 +262,19 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 				project: message.project,
 				occurredAt: message.occurredAt,
 			});
+		} else if (message.type === "catalog:changed") {
+			(entry.callback as EventListener<"catalog:changed">)("*", {
+				revision: message.revision,
+			});
+		} else if (message.type === "workspace-operation:changed") {
+			(entry.callback as EventListener<"workspace-operation:changed">)(
+				message.operationId,
+				{
+					operationId: message.operationId,
+					revision: message.revision,
+					operation: message.operation,
+				},
+			);
 		}
 	}
 }

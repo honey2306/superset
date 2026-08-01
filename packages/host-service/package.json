@@ -36,6 +36,14 @@
 			"types": "./src/terminal/env.ts",
 			"default": "./src/terminal/env.ts"
 		},
+		"./workspace-provisioning": {
+			"types": "./src/workspace-provisioning/index.ts",
+			"default": "./src/workspace-provisioning/index.ts"
+		},
+		"./workspace-catalog": {
+			"types": "./src/workspace-catalog/index.ts",
+			"default": "./src/workspace-catalog/index.ts"
+		},
 		"./settings": {
 			"types": "./src/trpc/router/settings/index.ts",
 			"default": "./src/trpc/router/settings/index.ts"

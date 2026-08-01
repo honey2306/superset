@@ -3,6 +3,7 @@ export { useGitChangeEvents } from "./hooks/useGitChangeEvents";
 export {
 	type AgentIdentity,
 	type AgentLifecyclePayload,
+	type CatalogChangedPayload,
 	type EventBusHandle,
 	type GitChangedPayload,
 	getEventBus,
@@ -11,8 +12,20 @@ export {
 	type ProjectSnapshotPayload,
 	type TerminalLifecyclePayload,
 	type WorkspaceChangedPayload,
+	type WorkspaceOperationChangedPayload,
 	type WorkspaceSnapshotPayload,
 } from "./lib/eventBus";
+export {
+	createInMemoryProvisioningAdapter,
+	createTrpcProvisioningAdapter,
+	extractAttachableLaunches,
+	type InitialLaunchResult,
+	type ProvisioningAdapter,
+	type ProvisioningAdapterFactoryDeps,
+	type ProvisionWorkspaceRequest,
+	type WorkspaceOperation,
+	type WorkspaceOperationState,
+} from "./lib/workspaceProvisioning";
 export {
 	primeRelayAffinity,
 	type RelayAffinityProbe,
