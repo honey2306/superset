@@ -16,14 +16,19 @@ import {
 import { Label } from "@superset/ui/label";
 import { toast } from "@superset/ui/sonner";
 import { Switch } from "@superset/ui/switch";
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { HiArrowRight, HiChevronDown } from "react-icons/hi2";
 import { AgentSelect } from "renderer/components/AgentSelect";
 import { useAgentLaunchPreferences } from "renderer/hooks/useAgentLaunchPreferences";
 import { launchAgentSession } from "renderer/lib/agent-session-orchestrator";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { useCreateWorkspace } from "renderer/react-query/workspaces";
+import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { ProjectThumbnail } from "renderer/screens/main/components/WorkspaceSidebar/ProjectSection/ProjectThumbnail";
+import {
+	useWorkspaceLaunch,
+	useWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 import type { TaskWithStatus } from "../../../../../components/TasksView/hooks/useTasksTable";
 import { deriveBranchName } from "../../../../utils/deriveBranchName";
 
@@ -36,7 +41,9 @@ interface OpenInWorkspaceProps {
 export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 	const { data: recentProjects = [] } =
 		electronTrpc.projects.getRecents.useQuery();
-	const createWorkspace = useCreateWorkspace();
+	const provisioningAdapter = useWorkspaceProvisioningAdapter();
+	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
+	const navigate = useNavigate();
 	const terminalCreateOrAttach =
 		electronTrpc.terminal.createOrAttach.useMutation();
 	const terminalWrite = electronTrpc.terminal.write.useMutation();
@@ -118,19 +125,47 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 
 		try {
 			const launchRequestTemplate = buildLaunchRequest("pending-workspace");
-			const result = await createWorkspace.mutateAsyncWithPendingSetup(
-				{
-					projectId,
-					name: task.title,
-					branchName,
+			if (!provisioningAdapter) {
+				throw new Error("Workspace host is not available");
+			}
+			const terminalAgent =
+				launchRequestTemplate?.kind === "terminal"
+					? launchRequestTemplate.terminal.hostAgent
+					: undefined;
+			const operation = await workspaceLaunch.begin({
+				adapter: provisioningAdapter,
+				request: {
+					idempotencyKey: `task-workspace:${task.id}:${projectId}:${branchName}`,
+					project: { kind: "existing", projectId },
+					source: {
+						kind: "branch",
+						name: { kind: "explicit", value: branchName },
+						from: { kind: "default" },
+					},
+					display: { name: task.title, taskId: task.id },
+					initialSessions: terminalAgent
+						? [
+								{
+									key: "task-agent",
+									kind: "agent",
+									agent: terminalAgent.agent,
+									prompt: terminalAgent.prompt,
+									requirement: "required",
+								},
+							]
+						: undefined,
 				},
-				{ agentLaunchRequest: launchRequestTemplate ?? undefined },
-			);
+			});
+			if (operation.state === "failed" || !operation.workspaceId) {
+				throw new Error(
+					operation.failure?.message ?? "Workspace provisioning failed",
+				);
+			}
 
-			if (result.wasExisting && launchRequestTemplate) {
+			if (launchRequestTemplate?.kind === "chat") {
 				const launchRequest: AgentLaunchRequest = {
 					...launchRequestTemplate,
-					workspaceId: result.workspace.id,
+					workspaceId: operation.workspaceId,
 				};
 				const launchResult = await launchAgentSession(launchRequest, {
 					source: "open-in-workspace",
@@ -143,10 +178,15 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 					});
 					return;
 				}
+				void navigateToWorkspace(operation.workspaceId, navigate);
+			} else {
+				void navigateToWorkspace(operation.workspaceId, navigate);
 			}
 
 			toast.success(
-				result.wasExisting ? "Opened existing workspace" : "Workspace created",
+				operation.disposition === "reused"
+					? "Opened existing workspace"
+					: "Workspace created",
 			);
 		} catch (err) {
 			toast.error(
@@ -222,7 +262,7 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 				<Button
 					size="icon"
 					className="h-8 w-8 shrink-0"
-					disabled={!effectiveProjectId || createWorkspace.isPending}
+					disabled={!effectiveProjectId || !provisioningAdapter}
 					onClick={handleOpen}
 				>
 					<HiArrowRight className="w-3.5 h-3.5" />
