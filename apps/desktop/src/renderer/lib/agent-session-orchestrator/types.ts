@@ -27,6 +27,12 @@ export interface AgentLaunchTabsAdapter {
 
 export interface AgentSessionLaunchContext {
 	source?: AgentLaunchSource;
+	/**
+	 * Host URL used for non-React Catalog lookups during launch. File-backed
+	 * prompt/attachment setup must resolve paths from the host Catalog rather
+	 * than the legacy Electron workspace table.
+	 */
+	hostUrl?: string;
 	tabs?: AgentLaunchTabsAdapter;
 	createOrAttach: (input: {
 		paneId: string;

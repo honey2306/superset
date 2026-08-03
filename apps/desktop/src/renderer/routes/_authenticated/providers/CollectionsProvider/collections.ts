@@ -27,7 +27,6 @@ import type {
 	SelectV2Workspace,
 	SelectWorkspace,
 } from "@superset/db/schema";
-import type { AppRouter as HostServiceAppRouter } from "@superset/host-service";
 import type { AppRouter } from "@superset/trpc";
 import { toast } from "@superset/ui/sonner";
 import { BasicIndex } from "@tanstack/db";
@@ -45,7 +44,6 @@ import {
 	localStorageCollectionOptions,
 } from "@tanstack/react-db";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
-import type { inferRouterOutputs } from "@trpc/server";
 import { env } from "renderer/env.renderer";
 import { track } from "renderer/lib/analytics";
 import { getAuthToken, getJwt } from "renderer/lib/auth-client";
@@ -57,8 +55,6 @@ import {
 	type DashboardSidebarSectionRow,
 	dashboardSidebarProjectSchema,
 	dashboardSidebarSectionSchema,
-	type FailedWorkspaceCreateRow,
-	failedWorkspaceCreateSchema,
 	healV2UserPreferences,
 	healWorkspaceLocalState,
 	type V2TerminalPresetRow,
@@ -66,7 +62,6 @@ import {
 	v2TerminalPresetSchema,
 	v2UserPreferencesSchema,
 	type WorkspaceLocalStateRow,
-	type WorkspacesCreateInput,
 	workspaceLocalStateSchema,
 } from "./dashboardSidebarLocal";
 import { evictInactiveOrgs } from "./evictInactiveOrgs";
@@ -81,16 +76,6 @@ export const ELECTRIC_WRITE_SYNC_TIMEOUT_MS = 30_000;
 function electricTxidMatch(txid: unknown) {
 	if (typeof txid !== "number") return undefined;
 	return { txid, timeout: ELECTRIC_WRITE_SYNC_TIMEOUT_MS };
-}
-
-type HostWorkspacesCreateResult =
-	inferRouterOutputs<HostServiceAppRouter>["workspaces"]["create"];
-
-export interface WorkspaceCreateMutationMetadata {
-	hostUrl: string;
-	input: WorkspacesCreateInput;
-	result?: HostWorkspacesCreateResult;
-	[key: string]: unknown;
 }
 
 const persistence = createElectronSQLitePersistence({
@@ -195,13 +180,6 @@ export interface OrgCollections {
 		LocalStorageCollectionUtils,
 		typeof v2UserPreferencesSchema,
 		z.input<typeof v2UserPreferencesSchema>
-	>;
-	failedWorkspaceCreates: Collection<
-		FailedWorkspaceCreateRow,
-		string,
-		LocalStorageCollectionUtils,
-		typeof failedWorkspaceCreateSchema,
-		z.input<typeof failedWorkspaceCreateSchema>
 	>;
 }
 
@@ -459,9 +437,8 @@ function createOrgCollections(organizationId: string): OrgCollections {
 			},
 			getKey: (item) => item.id,
 			// Read-only: workspace records are host-owned now. This collection
-			// is only the R2 read-through fallback for hosts still on pre-R1
-			// builds and is deleted in R3 — writes go through the owning host
-			// (workspaces.create / workspace.update via useHostWorkspaces).
+			// is only a read-through fallback for older host snapshots; writes go
+			// through the owning host and never mutate this collection directly.
 		}),
 	);
 	v2Workspaces.createIndex((workspace) => workspace.hostId, basicIndexConfig);
@@ -829,15 +806,6 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		),
 	);
 
-	const failedWorkspaceCreates = createIndexedCollection(
-		localStorageCollectionOptions({
-			id: `failed_workspace_creates-${organizationId}`,
-			storageKey: `failed-workspace-creates-${organizationId}`,
-			schema: failedWorkspaceCreateSchema,
-			getKey: (item) => item.id,
-		}),
-	);
-
 	return {
 		tasks,
 		taskStatuses,
@@ -866,7 +834,6 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		v2SidebarSections,
 		v2TerminalPresets,
 		v2UserPreferences,
-		failedWorkspaceCreates,
 	};
 }
 

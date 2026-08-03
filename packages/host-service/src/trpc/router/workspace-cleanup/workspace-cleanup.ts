@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { TRPCError } from "@trpc/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { workspaces } from "../../../db/schema";
 import { invalidateLabelCache } from "../../../ports/static-ports";
 import { runTeardown, type TeardownResult } from "../../../runtime/teardown";
 import { disposeSessionsByWorkspaceId } from "../../../terminal/terminal";
@@ -11,6 +13,7 @@ import type {
 	TeardownFailureCause,
 } from "../../error-types";
 import { protectedProcedure, router } from "../../index";
+import { requireLocalProject } from "../workspace-creation/shared/local-project";
 import {
 	normalizeWorktreePath,
 	parseWorktreeList,
@@ -28,6 +31,12 @@ import { isMainWorkspace } from "./is-main-workspace";
  * after restart is safe.
  */
 const destroysInFlight = new Set<string>();
+
+/**
+ * The local catalog is the delete commit point. A legacy cloud mirror must
+ * never keep an offline delete request pending indefinitely after that point.
+ */
+const LEGACY_CLOUD_DELETE_TIMEOUT_MS = 3_000;
 
 /** @internal — exposed for tests to introspect / clear the guard. */
 export const __testDestroysInFlight = destroysInFlight;
@@ -170,6 +179,89 @@ export const workspaceCleanupRouter = router({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => destroyWorkspace(ctx, input)),
+
+	/**
+	 * Remove a live git worktree that no longer has any Workspace row on
+	 * this host — leftover state from v1 sessions or a manual
+	 * `git worktree add`. The Catalog list can offer clean-up without
+	 * inventing a synthetic workspace id.
+	 *
+	 * Contract:
+	 *   - The path MUST NOT match any existing workspace row in `workspaces`.
+	 *     If it does, the caller should use `destroy` instead so terminals
+	 *     and Catalog identity are torn down properly.
+	 *   - The path MUST NOT be the project's canonical main repo path.
+	 *   - `git worktree remove` with `--force --force` handles locked or
+	 *     manually-cleared directories; missing state is idempotent.
+	 */
+	destroyOrphanWorktree: protectedProcedure
+		.input(
+			z.object({
+				projectId: z.string(),
+				worktreePath: z.string().min(1),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const project = requireLocalProject(ctx, input.projectId);
+			const target = normalizeWorktreePath(input.worktreePath);
+
+			if (normalizeWorktreePath(project.repoPath) === target) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Refusing to remove the project's main repository",
+				});
+			}
+
+			const adopted = ctx.db
+				.select({ id: workspaces.id, worktreePath: workspaces.worktreePath })
+				.from(workspaces)
+				.where(eq(workspaces.projectId, input.projectId))
+				.all()
+				.find((row) => normalizeWorktreePath(row.worktreePath) === target);
+			if (adopted) {
+				throw new TRPCError({
+					code: "CONFLICT",
+					message: `Worktree is adopted by workspace ${adopted.id}; use destroy instead`,
+				});
+			}
+
+			let git: Awaited<ReturnType<HostServiceContext["git"]>>;
+			try {
+				git = await ctx.git(project.repoPath);
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: `Failed to open project repo at ${project.repoPath}: ${message}`,
+				});
+			}
+
+			await git
+				.raw(["worktree", "remove", "--force", "--force", target])
+				.catch(() => {});
+
+			let stillRegistered = true;
+			try {
+				stillRegistered = await isRegisteredWorktree(git, input.worktreePath);
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: `Failed to verify worktree removal at ${input.worktreePath}: ${message}`,
+				});
+			}
+			if (stillRegistered) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: `Failed to remove worktree at ${input.worktreePath}`,
+				});
+			}
+
+			return {
+				success: true as const,
+				worktreeStillOnDisk: existsSync(input.worktreePath),
+			};
+		}),
 });
 
 export async function destroyWorkspace(
@@ -347,7 +439,11 @@ async function runDestroy(
 	);
 	let cloudDeleted = false;
 	try {
-		await ctx.api.v2Workspace.delete.mutate({ id: input.workspaceId });
+		await withTimeout(
+			ctx.api.v2Workspace.delete.mutate({ id: input.workspaceId }),
+			LEGACY_CLOUD_DELETE_TIMEOUT_MS,
+			"Legacy cloud cleanup",
+		);
 		cloudDeleted = true;
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
@@ -391,6 +487,27 @@ async function runDestroy(
 		branchDeleted,
 		warnings,
 	};
+}
+
+async function withTimeout<T>(
+	promise: Promise<T>,
+	timeoutMs: number,
+	label: string,
+): Promise<T> {
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timeout = setTimeout(
+					() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+					timeoutMs,
+				);
+			}),
+		]);
+	} finally {
+		if (timeout) clearTimeout(timeout);
+	}
 }
 
 // Authoritative "is this still a worktree git tracks" check — reads git's own

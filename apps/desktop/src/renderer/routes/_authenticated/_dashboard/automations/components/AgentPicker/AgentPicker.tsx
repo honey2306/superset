@@ -83,7 +83,9 @@ export function AgentPicker({
 					);
 				})}
 				<DropdownMenuSeparator />
-				<DropdownMenuItem onSelect={() => navigate({ to: "/settings/agents" })}>
+				<DropdownMenuItem
+					onSelect={() => navigate({ to: "/settings/terminal" })}
+				>
 					<LuSettings className="size-4 shrink-0" />
 					<span className="flex-1">Configure agents…</span>
 				</DropdownMenuItem>

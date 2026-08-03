@@ -20,8 +20,8 @@ import {
 	getPresetIcon,
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { usePresets } from "renderer/react-query/presets";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useStore } from "zustand";
 import type { StoreApi } from "zustand/vanilla";
 import { V1PanesPresetBarItem } from "./components/V1PanesPresetBarItem";
@@ -72,10 +72,7 @@ export function V1PanesPresetBar({
 		store,
 		(state) => state.getActivePane() !== null,
 	);
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId },
-		{ enabled: !!workspaceId },
-	);
+	const { workspace } = useCatalogWorkspace(workspaceId);
 	const { presets, matchedPresets, createPreset, reorderPresets } = usePresets(
 		workspace?.projectId,
 	);

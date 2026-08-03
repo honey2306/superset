@@ -243,7 +243,6 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 			gitFactory: git,
 			runner: async (ctxArgs) => {
 				const productionRunner = createProductionRunner({
-					appRouter,
 					ctxFactory: () => ({
 						git,
 						credentials: providers.credentials,

@@ -8,7 +8,7 @@ import {
 	useLocation,
 	useNavigate,
 } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { DndProvider } from "react-dnd";
 import { HiOutlineWifi } from "react-icons/hi2";
 import { NewWorkspaceModal } from "renderer/components/NewWorkspaceModal";
@@ -23,18 +23,16 @@ import { authClient, getAuthToken } from "renderer/lib/auth-client";
 import { dragDropManager } from "renderer/lib/dnd";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
-import { showWorkspaceAutoNameWarningToast } from "renderer/lib/workspaces/showWorkspaceAutoNameWarningToast";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { InitGitDialog } from "renderer/react-query/projects/InitGitDialog";
+import { GitInitConfirmDialog } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/components/GitInitConfirmDialog";
 import { DaemonAutoUpdateFailureDialog } from "renderer/routes/_authenticated/components/DaemonAutoUpdateFailureDialog";
 import { DashboardNewWorkspaceModal } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal";
 import { DiffThemeSync } from "renderer/routes/_authenticated/components/DiffThemeSync";
-import { WorkspaceInitEffects } from "renderer/screens/main/components/WorkspaceInitEffects";
+import { AgentSessionLaunchEffects } from "renderer/screens/main/components/AgentSessionLaunchEffects";
 import { useSettingsStore } from "renderer/stores/settings-state";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useAgentHookListener } from "renderer/stores/tabs/useAgentHookListener";
 import { setPaneWorkspaceRunState } from "renderer/stores/tabs/workspace-run";
-import { useWorkspaceInitStore } from "renderer/stores/workspace-init";
 import { MOCK_ORG_ID, NOTIFICATION_EVENTS } from "shared/constants";
 import { AgentHooks } from "./components/AgentHooks";
 import { DockBadgeController } from "./components/DockBadgeController";
@@ -71,8 +69,6 @@ function AuthenticatedLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const setOriginRoute = useSettingsStore((s) => s.setOriginRoute);
-	const utils = electronTrpc.useUtils();
-	const shownWorkspaceInitWarningsRef = useRef(new Set<string>());
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 
 	const isSignedIn = env.SKIP_ENV_VALIDATION || !!session?.user;
@@ -178,34 +174,6 @@ function AuthenticatedLayout() {
 			setOriginRoute(location.pathname);
 		}
 	}, [location.pathname, setOriginRoute]);
-
-	// Workspace initialization progress subscription
-	const updateInitProgress = useWorkspaceInitStore((s) => s.updateProgress);
-	electronTrpc.workspaces.onInitProgress.useSubscription(undefined, {
-		onData: (progress) => {
-			updateInitProgress(progress);
-			if (
-				progress.warning &&
-				!shownWorkspaceInitWarningsRef.current.has(progress.workspaceId)
-			) {
-				shownWorkspaceInitWarningsRef.current.add(progress.workspaceId);
-				showWorkspaceAutoNameWarningToast({
-					description: progress.warning,
-					onOpenModelAuthSettings: () => {
-						void navigate({ to: "/settings/models" });
-					},
-				});
-			}
-			if (progress.step === "ready" || progress.step === "failed") {
-				// Invalidate both the grouped list AND the specific workspace
-				utils.workspaces.getAllGrouped.invalidate();
-				utils.workspaces.get.invalidate({ id: progress.workspaceId });
-			}
-		},
-		onError: (error) => {
-			console.error("[workspace-init-subscription] Subscription error:", error);
-		},
-	});
 
 	// Menu navigation subscription
 	electronTrpc.menu.subscribe.useSubscription(undefined, {
@@ -322,13 +290,13 @@ function AuthenticatedLayout() {
 									<DockBadgeController />
 									<DaemonAutoUpdateFailureDialog />
 									<Outlet />
-									<WorkspaceInitEffects />
+									<AgentSessionLaunchEffects />
 									{isV2CloudEnabled ? (
 										<DashboardNewWorkspaceModal />
 									) : (
 										<NewWorkspaceModal />
 									)}
-									<InitGitDialog />
+									<GitInitConfirmDialog />
 									<TeardownLogsDialog />
 									<Paywall />
 								</WorkerPoolContextProvider>

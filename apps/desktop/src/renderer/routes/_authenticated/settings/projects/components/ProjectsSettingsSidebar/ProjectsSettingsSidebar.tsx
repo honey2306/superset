@@ -2,9 +2,9 @@ import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
+import { useCatalogProjects } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import {
 	type SettingsListGroup,
 	SettingsListSidebar,
@@ -27,11 +27,10 @@ export function ProjectsSettingsSidebar({
 }: ProjectsSettingsSidebarProps) {
 	const { t } = useTranslation();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
-	const { data: groups = [] } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
 
 	// Projects are fully local — identity comes from the host fan-out.
 	const { projects: hostProjects } = useHostProjects();
+	const { projects: catalogProjects } = useCatalogProjects();
 	const v2Projects = useMemo(
 		() =>
 			hostProjects.map((project) => ({
@@ -42,6 +41,17 @@ export function ProjectsSettingsSidebar({
 					: null,
 			})),
 		[hostProjects],
+	);
+	const v1Projects = useMemo(
+		() =>
+			catalogProjects.map((project) => ({
+				id: project.id,
+				name: project.name,
+				iconUrl: project.repoOwner
+					? `https://github.com/${project.repoOwner}.png?size=64`
+					: null,
+			})),
+		[catalogProjects],
 	);
 
 	const listGroups = useMemo<Array<SettingsListGroup<ProjectRow>>>(() => {
@@ -55,14 +65,14 @@ export function ProjectsSettingsSidebar({
 			return [{ id: "v2", title: "v2", rows: v2Rows }];
 		}
 
-		const v1Rows: ProjectRow[] = groups.map((g) => ({
+		const v1Rows: ProjectRow[] = v1Projects.map((project) => ({
 			kind: "v1",
-			id: g.project.id,
-			name: g.project.name,
-			iconUrl: g.project.iconUrl,
+			id: project.id,
+			name: project.name,
+			iconUrl: project.iconUrl,
 		}));
 		return [{ id: "v1", title: "v1", rows: v1Rows }];
-	}, [groups, v2Projects, isV2CloudEnabled]);
+	}, [v1Projects, v2Projects, isV2CloudEnabled]);
 
 	return (
 		<SettingsListSidebar

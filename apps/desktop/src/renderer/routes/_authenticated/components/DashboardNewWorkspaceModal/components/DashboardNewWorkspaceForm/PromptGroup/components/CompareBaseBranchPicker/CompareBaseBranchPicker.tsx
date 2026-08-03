@@ -40,9 +40,9 @@ interface CompareBaseBranchPickerProps {
 		branchName: string,
 		source: "local" | "remote-tracking",
 	) => void;
-	// Server's workspaces.create resolves between open-tracked, adopt-foreign-
-	// worktree, and fresh-create. Worktree rows must carry their path so stale
-	// branch labels do not make the server create a new managed worktree.
+	// Provisioning resolves between open-tracked, adopt-foreign-worktree, and
+	// fresh-create. Worktree rows must carry their path so stale branch labels
+	// do not make the server create a new managed worktree.
 	onOpenWorkspace: (target: OpenWorkspaceTarget) => void;
 }
 

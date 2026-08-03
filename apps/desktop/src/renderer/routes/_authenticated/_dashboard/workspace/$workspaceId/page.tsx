@@ -1,23 +1,27 @@
 import type { ExternalApp } from "@superset/local-db";
-import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { useFileOpenMode } from "renderer/hooks/useFileOpenMode";
 import { useHotkey } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { electronTrpcClient as trpcClient } from "renderer/lib/trpc-client";
 import { usePresets } from "renderer/react-query/presets";
 import type { WorkspaceSearchParams } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { usePresetHotkeys } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/usePresetHotkeys";
 import { useWorkspaceRunCommand } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/useWorkspaceRunCommand";
+import type { WorkspaceProjection } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
+import {
+	useCatalogWorkspace,
+	useCatalogWorkspaceNeighbours,
+} from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { NotFound } from "renderer/routes/not-found";
 import { CommandPalette } from "renderer/screens/main/components/CommandPalette";
 import { UnsavedChangesDialog } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/TabView/FileViewerPane/UnsavedChangesDialog";
 import { useWorkspaceFileEventBridge } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import { useWorkspaceRenameReconciliation } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceRenameReconciliation";
-import { WorkspaceInitializingView } from "renderer/screens/main/components/WorkspaceView/WorkspaceInitializingView";
 import { WorkspaceLayout } from "renderer/screens/main/components/WorkspaceView/WorkspaceLayout";
+import { WorkspaceProvisioningOperationView } from "renderer/screens/main/components/WorkspaceView/WorkspaceProvisioningOperationView";
 import { useCreateOrOpenPR, usePRStatus } from "renderer/screens/main/hooks";
 import {
 	cancelPendingTabClose,
@@ -40,10 +44,9 @@ import {
 	resolveActiveTabIdForWorkspace,
 } from "renderer/stores/tabs/utils";
 import {
-	useHasCompletedInitThisSession,
-	useHasWorkspaceFailed,
-	useIsWorkspaceInitializing,
-} from "renderer/stores/workspace-init";
+	useWorkspaceLaunch,
+	useWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 
 const EMPTY_HISTORY_STACK: string[] = [];
 
@@ -79,35 +82,35 @@ export const Route = createFileRoute(
 				? search.openUrlRequestId
 				: undefined,
 	}),
-	loader: async ({ params, context }) => {
-		const queryKey = [
-			["workspaces", "get"],
-			{ input: { id: params.workspaceId }, type: "query" },
-		];
-
-		try {
-			await context.queryClient.ensureQueryData({
-				queryKey,
-				queryFn: () =>
-					trpcClient.workspaces.get.query({ id: params.workspaceId }),
-			});
-		} catch (error) {
-			// If workspace not found, throw notFound() to render 404 page
-			if (error instanceof Error && error.message.includes("not found")) {
-				throw notFound();
-			}
-			// Re-throw other errors
-			throw error;
-		}
-	},
 });
 
 function WorkspacePage() {
 	const { workspaceId } = Route.useParams();
+	const { workspace, isReady } = useCatalogWorkspace(workspaceId);
+
+	if (!isReady) {
+		return (
+			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+				Loading workspace…
+			</div>
+		);
+	}
+
+	if (!workspace) return <NotFound />;
+
+	return (
+		<WorkspacePageContent workspaceId={workspaceId} workspace={workspace} />
+	);
+}
+
+function WorkspacePageContent({
+	workspaceId,
+	workspace,
+}: {
+	workspaceId: string;
+	workspace: WorkspaceProjection;
+}) {
 	const legacyHotkeyOptions = { enabled: false };
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery({
-		id: workspaceId,
-	});
 	useWorkspaceFileEventBridge(
 		workspaceId,
 		workspace?.worktreePath,
@@ -121,6 +124,10 @@ function WorkspacePage() {
 	const navigate = useNavigate();
 	const routeNavigate = Route.useNavigate();
 	const { tabId: searchTabId, paneId: searchPaneId } = Route.useSearch();
+	const provisioningAdapter = useWorkspaceProvisioningAdapter();
+	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
+	const provisioningOperation = workspaceLaunch.forWorkspace(workspaceId);
+	const [isRetryingProvisioning, setIsRetryingProvisioning] = useState(false);
 
 	// Keep the file open mode cache warm for addFileViewerPane
 	useFileOpenMode();
@@ -144,27 +151,24 @@ function WorkspacePage() {
 		routeNavigate({ search: {}, replace: true });
 	}, [searchTabId, searchPaneId, workspaceId, routeNavigate]);
 
-	// Check if workspace is initializing or failed
-	const isInitializing = useIsWorkspaceInitializing(workspaceId);
-	const hasFailed = useHasWorkspaceFailed(workspaceId);
-	// If we witnessed this workspace reach "ready" in the current app session,
-	// never misidentify it as mid-init even if the workspace query momentarily
-	// returns a null gitStatus (happens on the first navigation after create,
-	// because WorkspaceInitEffects clears the progress entry post-setup).
-	const completedThisSession = useHasCompletedInitThisSession(workspaceId);
-
-	// Check for incomplete init after app restart
-	const gitStatus = workspace?.worktree?.gitStatus;
-	const hasIncompleteInit =
-		!completedThisSession &&
-		workspace?.type === "worktree" &&
-		gitStatus === null;
-
-	// Show full-screen initialization view for:
-	// - Actively initializing workspaces (shows progress)
-	// - Failed workspaces (shows error with retry)
-	// - Interrupted workspaces that aren't currently initializing (shows resume option)
-	const showInitView = isInitializing || hasFailed || hasIncompleteInit;
+	// A Catalog workspace is routable as soon as materialization commits. Keep
+	// showing the operation view only for that committed workspace while its
+	// required runtime is starting or retrying.
+	const showProvisioningView =
+		provisioningOperation?.workspaceId === workspaceId &&
+		(provisioningOperation.state === "queued" ||
+			provisioningOperation.state === "running" ||
+			provisioningOperation.state === "failed");
+	const retryProvisioning = useCallback(() => {
+		if (!provisioningAdapter || !provisioningOperation) return;
+		setIsRetryingProvisioning(true);
+		void workspaceLaunch
+			.retry(provisioningAdapter, provisioningOperation.id)
+			.catch((error) => {
+				console.error("[WorkspacePage] Failed to retry provisioning:", error);
+			})
+			.finally(() => setIsRetryingProvisioning(false));
+	}, [provisioningAdapter, provisioningOperation, workspaceLaunch]);
 
 	const allTabs = useTabsStore((s) => s.tabs);
 	const activeTabIdForWorkspace = useTabsStore(
@@ -511,24 +515,17 @@ function WorkspacePage() {
 		legacyHotkeyOptions,
 	);
 
-	const getPreviousWorkspace =
-		electronTrpc.workspaces.getPreviousWorkspace.useQuery(
-			{ id: workspaceId },
-			{ enabled: !!workspaceId },
-		);
+	const { previous: previousWorkspace, next: nextWorkspace } =
+		useCatalogWorkspaceNeighbours(workspaceId);
 	useHotkey("PREV_WORKSPACE", () => {
-		const prevWorkspaceId = getPreviousWorkspace.data;
+		const prevWorkspaceId = previousWorkspace?.id;
 		if (prevWorkspaceId) {
 			navigateToWorkspace(prevWorkspaceId, navigate);
 		}
 	});
 
-	const getNextWorkspace = electronTrpc.workspaces.getNextWorkspace.useQuery(
-		{ id: workspaceId },
-		{ enabled: !!workspaceId },
-	);
 	useHotkey("NEXT_WORKSPACE", () => {
-		const nextWorkspaceId = getNextWorkspace.data;
+		const nextWorkspaceId = nextWorkspace?.id;
 		if (nextWorkspaceId) {
 			navigateToWorkspace(nextWorkspaceId, navigate);
 		}
@@ -537,11 +534,13 @@ function WorkspacePage() {
 	return (
 		<div className="flex-1 h-full flex flex-col overflow-hidden">
 			<div className="flex-1 min-h-0 flex overflow-hidden">
-				{showInitView ? (
-					<WorkspaceInitializingView
+				{showProvisioningView && provisioningOperation ? (
+					<WorkspaceProvisioningOperationView
 						workspaceId={workspaceId}
-						workspaceName={workspace?.name ?? "Workspace"}
-						isInterrupted={hasIncompleteInit && !isInitializing}
+						workspaceName={workspace.name}
+						operation={provisioningOperation}
+						onRetry={retryProvisioning}
+						isRetrying={isRetryingProvisioning}
 					/>
 				) : (
 					<WorkspaceLayout

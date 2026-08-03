@@ -9,17 +9,35 @@ import { track } from "renderer/lib/analytics";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import {
-	useCreateV1Project,
-	useOpenProject,
+	type ProjectSetupResult,
+	useFinalizeProjectSetup,
 } from "renderer/react-query/projects";
 import { useOpenMainRepoWorkspace } from "renderer/react-query/workspaces";
+import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
+import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { TemplateGalleryModal } from "renderer/routes/_authenticated/components/TemplateGalleryModal";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import {
+	beginProjectProvisioning,
+	createWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 
 export const Route = createFileRoute("/_authenticated/onboarding/project/")({
 	component: OnboardingProjectPage,
 });
+
+function deriveProjectNameFromUrl(url: string): string {
+	const trimmed = url
+		.trim()
+		.replace(/[?#].*$/, "")
+		.replace(/[\\/]+$/, "")
+		.replace(/\.git$/i, "");
+	const segments = trimmed.split(/[/:\\]/).filter(Boolean);
+	return segments[segments.length - 1] ?? "";
+}
 
 function OnboardingProjectPage() {
 	const { t } = useTranslation();
@@ -31,14 +49,19 @@ function OnboardingProjectPage() {
 	const [busy, setBusy] = useState(false);
 	const [templateOpen, setTemplateOpen] = useState(false);
 
-	const openProject = useOpenProject();
-	const createV1Project = useCreateV1Project();
+	const hostService = useLocalHostService();
+	const finalizeSetup = useFinalizeProjectSetup();
+	const folderImport = useFolderFirstImport({
+		onError: (message) =>
+			toast.error(t("onboarding.openFolderFailed"), { description: message }),
+	});
 	const openMainRepoWorkspace = useOpenMainRepoWorkspace();
-	const selectDirectory = electronTrpc.window.selectDirectory.useMutation();
 
 	// Adding a project finishes onboarding: mark onboarded, then hand off to the
 	// dashboard's new-workspace modal pre-selected to the project just added.
-	const finish = async (projectId: string) => {
+	const finish = async (
+		result: Pick<ProjectSetupResult, "projectId" | "mainWorkspaceId">,
+	) => {
 		track("onboarding_finished", { outcome: "completed" });
 		try {
 			await apiTrpcClient.user.completeOnboarding.mutate();
@@ -52,7 +75,13 @@ function OnboardingProjectPage() {
 			return;
 		}
 		try {
-			await openMainRepoWorkspace.mutateAsync({ projectId });
+			if (result.mainWorkspaceId) {
+				await navigateToWorkspace(result.mainWorkspaceId, navigate);
+			} else {
+				await openMainRepoWorkspace.mutateAsync({
+					projectId: result.projectId,
+				});
+			}
 		} catch (error) {
 			console.error("[onboarding] open main workspace failed", error);
 			await navigate({ to: "/workspaces", replace: true });
@@ -62,12 +91,8 @@ function OnboardingProjectPage() {
 	const handleOpenFolder = async () => {
 		setBusy(true);
 		try {
-			const picked = await selectDirectory.mutateAsync({
-				title: t("onboarding.openFolder"),
-			});
-			if (picked.canceled || !picked.path) return;
-			const project = await openProject.openFromPath(picked.path);
-			if (project) await finish(project.id);
+			const result = await folderImport.start();
+			if (result) await finish(result);
 		} catch (err) {
 			toast.error(
 				err instanceof Error ? err.message : t("onboarding.openFolderFailed"),
@@ -83,11 +108,28 @@ function OnboardingProjectPage() {
 		if (!trimmed || !cloneTargetDir) return;
 		setBusy(true);
 		try {
-			const projectId = await createV1Project.cloneFromUrl({
-				url: trimmed,
-				parentDir: cloneTargetDir,
+			if (!hostService.activeHostUrl) {
+				showHostServiceUnavailableToast(hostService, t, {
+					action: t("project.cloneRepositoryAction"),
+				});
+				return;
+			}
+			const result = await beginProjectProvisioning({
+				hostUrl: hostService.activeHostUrl,
+				adapter: createWorkspaceProvisioningAdapter(hostService.activeHostUrl),
+				request: {
+					idempotencyKey: `onboarding-clone:${trimmed}:${cloneTargetDir}`,
+					project: {
+						kind: "clone",
+						url: trimmed,
+						parentDirectory: cloneTargetDir,
+						name: deriveProjectNameFromUrl(trimmed),
+					},
+					source: { kind: "main" },
+				},
 			});
-			if (projectId) await finish(projectId);
+			finalizeSetup(hostService.activeHostUrl, result);
+			await finish(result);
 		} catch (err) {
 			toast.error(
 				err instanceof Error ? err.message : t("onboarding.cloneFailed"),
@@ -174,7 +216,7 @@ function OnboardingProjectPage() {
 				onOpenChange={setTemplateOpen}
 				onCreated={(result) => {
 					setTemplateOpen(false);
-					finish(result.projectId);
+					void finish(result);
 				}}
 			/>
 		</div>

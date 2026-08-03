@@ -7,70 +7,89 @@ import {
 	AlertDialogTitle,
 } from "@superset/ui/alert-dialog";
 import { Button } from "@superset/ui/button";
+import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { getWorkspaceCreationBranchesQueryKey } from "renderer/hooks/host-workspaces/useWorkspaceCreationBranches";
 import {
 	disposeHostSessionsForWorktreePath,
 	toastDisposeFailures,
 } from "renderer/lib/dispose-host-sessions";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { useDeleteWorktree } from "renderer/react-query/workspaces/useDeleteWorktree";
-import { deleteWithToast } from "renderer/routes/_authenticated/components/TeardownLogsDialog";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 
 interface DeleteWorktreeDialogProps {
-	worktreeId: string;
-	/** Worktree filesystem path; used to dispose its host-service terminals. */
+	projectId: string;
+	/** Live git worktree path; used to remove it via host. */
 	worktreePath: string;
 	worktreeName: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }
 
+/**
+ * Confirmation for removing an orphan git worktree — one that exists on disk
+ * with no matching Catalog workspace on this host (e.g. left behind by a v1
+ * session, or added manually with `git worktree add`). The host-side
+ * `workspaceCleanup.destroyOrphanWorktree` procedure enforces that the path
+ * really is an orphan before running `git worktree remove --force --force`.
+ */
 export function DeleteWorktreeDialog({
-	worktreeId,
+	projectId,
 	worktreePath,
 	worktreeName,
 	open,
 	onOpenChange,
 }: DeleteWorktreeDialogProps) {
+	const { activeHostUrl } = useLocalHostService();
 	const utils = electronTrpc.useUtils();
-	const deleteWorktree = useDeleteWorktree({
-		onSuccess: (data) => {
-			// Worktree removed — dispose its host-service terminals so backgrounded
-			// sessions don't leak in the daemon.
-			if (data.success) {
-				const retryDispose = () =>
-					disposeHostSessionsForWorktreePath(utils, worktreePath);
-				void retryDispose().then((result) =>
-					toastDisposeFailures(result, retryDispose),
-				);
+	const queryClient = useQueryClient();
+
+	const destroy = useMutation({
+		mutationFn: async () => {
+			if (!activeHostUrl) {
+				throw new Error("Host service is not connected");
 			}
+			return getHostServiceClientByUrl(
+				activeHostUrl,
+			).workspaceCleanup.destroyOrphanWorktree.mutate({
+				projectId,
+				worktreePath,
+			});
+		},
+		onSuccess: async () => {
+			// Best-effort: dispose any host-service terminals that were still
+			// backgrounded against this worktree path.
+			const retryDispose = () =>
+				disposeHostSessionsForWorktreePath(utils, worktreePath);
+			void retryDispose().then((result) =>
+				toastDisposeFailures(result, retryDispose),
+			);
+			await queryClient.invalidateQueries({
+				queryKey: getWorkspaceCreationBranchesQueryKey({
+					projectId,
+					hostUrl: activeHostUrl,
+					filter: "worktree",
+					query: "",
+				}),
+			});
 		},
 	});
 
-	const { data: canDeleteData, isLoading } =
-		electronTrpc.workspaces.canDeleteWorktree.useQuery(
-			{ worktreeId },
-			{
-				enabled: open,
-			},
-		);
-
 	const handleDelete = async () => {
+		const toastId = toast.loading(`Deleting "${worktreeName}"...`);
 		onOpenChange(false);
-
-		await deleteWithToast({
-			name: worktreeName,
-			deleteFn: () => deleteWorktree.mutateAsync({ worktreeId }),
-			forceDeleteFn: () =>
-				deleteWorktree.mutateAsync({ worktreeId, force: true }),
-		});
+		try {
+			await destroy.mutateAsync();
+			toast.success(`Deleted "${worktreeName}"`, { id: toastId });
+		} catch (err) {
+			toast.error(
+				err instanceof Error ? err.message : "Failed to delete worktree",
+				{ id: toastId },
+			);
+		}
 	};
-
-	const canDelete = canDeleteData?.canDelete ?? true;
-	const reason = canDeleteData?.reason;
-	const hasChanges = canDeleteData?.hasChanges ?? false;
-	const hasUnpushedCommits = canDeleteData?.hasUnpushedCommits ?? false;
-	const hasWarnings = hasChanges || hasUnpushedCommits;
 
 	return (
 		<AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -81,31 +100,13 @@ export function DeleteWorktreeDialog({
 					</AlertDialogTitle>
 					<AlertDialogDescription asChild>
 						<div className="text-muted-foreground space-y-1.5">
-							{isLoading ? (
-								"Checking status..."
-							) : !canDelete ? (
-								<span className="text-destructive">{reason}</span>
-							) : (
-								<span className="block">
-									This will permanently delete the worktree and its files from
-									disk.
-								</span>
-							)}
+							<span className="block">
+								This will permanently delete the worktree and its files from
+								disk.
+							</span>
 						</div>
 					</AlertDialogDescription>
 				</AlertDialogHeader>
-
-				{!isLoading && canDelete && hasWarnings && (
-					<div className="px-4 pb-2">
-						<div className="text-sm text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded px-2 py-1.5">
-							{hasChanges && hasUnpushedCommits
-								? "Has uncommitted changes and unpushed commits"
-								: hasChanges
-									? "Has uncommitted changes"
-									: "Has unpushed commits"}
-						</div>
-					</div>
-				)}
 
 				<AlertDialogFooter className="px-4 pb-4 pt-2 flex-row justify-end gap-2">
 					<Button
@@ -123,7 +124,7 @@ export function DeleteWorktreeDialog({
 								size="sm"
 								className="h-7 px-3 text-xs"
 								onClick={handleDelete}
-								disabled={!canDelete || isLoading}
+								disabled={destroy.isPending || !activeHostUrl}
 							>
 								Delete
 							</Button>

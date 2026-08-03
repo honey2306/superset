@@ -18,6 +18,10 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import {
+	beginProjectProvisioning,
+	createWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 
 type SetupMode = "clone" | "import";
 
@@ -108,13 +112,19 @@ export function SetupProjectModal({
 		}
 		setWorking(true);
 		try {
-			const client = getHostServiceClientByUrl(hostUrl);
-			const result = await client.project.setup.mutate({
-				projectId,
-				// Coordinates from the host fan-out: local-first projects created
-				// on another host have no cloud row for the target host to read.
-				origin: { repoCloneUrl, name: projectName },
-				mode: { kind: "clone", parentDir: trimmed },
+			const result = await beginProjectProvisioning({
+				hostUrl,
+				adapter: createWorkspaceProvisioningAdapter(hostUrl),
+				request: {
+					idempotencyKey: `project-setup:${projectId}:clone:${trimmed}`,
+					project: {
+						kind: "setup-existing",
+						projectId,
+						origin: { repoUrl: repoCloneUrl ?? undefined, name: projectName },
+						mode: { kind: "clone", parentDirectory: trimmed },
+					},
+					source: { kind: "main" },
+				},
 			});
 			toast.success(t("project.clonedTo", { path: result.repoPath }));
 			if (result.mainWorkspaceId) {
@@ -158,10 +168,19 @@ export function SetupProjectModal({
 				onOpenChange(false);
 				return;
 			}
-			const result = await client.project.setup.mutate({
-				projectId,
-				origin: { repoCloneUrl, name: projectName },
-				mode: { kind: "import", repoPath: trimmed, allowRelocate: false },
+			const result = await beginProjectProvisioning({
+				hostUrl,
+				adapter: createWorkspaceProvisioningAdapter(hostUrl),
+				request: {
+					idempotencyKey: `project-setup:${projectId}:import:${trimmed}`,
+					project: {
+						kind: "setup-existing",
+						projectId,
+						origin: { repoUrl: repoCloneUrl ?? undefined, name: projectName },
+						mode: { kind: "import", path: trimmed, allowRelocate: false },
+					},
+					source: { kind: "main" },
+				},
 			});
 			toast.success(t("project.setUpAt", { path: result.repoPath }));
 			if (result.mainWorkspaceId) {

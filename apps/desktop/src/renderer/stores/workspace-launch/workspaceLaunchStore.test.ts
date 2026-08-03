@@ -4,6 +4,7 @@ import {
 	type WorkspaceOperation,
 } from "@superset/workspace-client";
 import {
+	selectOperationForWorkspace,
 	selectOperationsByState,
 	selectPendingOperation,
 	useWorkspaceLaunchStore,
@@ -91,5 +92,36 @@ describe("useWorkspaceLaunchStore", () => {
 			request.idempotencyKey,
 		);
 		expect(pending?.id).toBe(op.id);
+	});
+
+	test("selects the newest operation for a committed workspace", () => {
+		useWorkspaceLaunchStore.setState({
+			operations: {
+				older: {
+					id: "older",
+					revision: 1,
+					state: "succeeded",
+					workspaceId: "ws-1",
+					launches: [],
+					warnings: [],
+					createdAt: 1,
+					updatedAt: 1,
+				},
+				newer: {
+					id: "newer",
+					revision: 2,
+					state: "failed",
+					workspaceId: "ws-1",
+					launches: [],
+					warnings: [],
+					createdAt: 2,
+					updatedAt: 2,
+				},
+			},
+		});
+		const state = useWorkspaceLaunchStore.getState();
+
+		expect(selectOperationForWorkspace(state, "ws-1")?.id).toBe("newer");
+		expect(selectOperationForWorkspace(state, "missing")).toBeNull();
 	});
 });

@@ -9,6 +9,7 @@ import {
 	getGitHubStatusQueryPolicy,
 } from "renderer/lib/githubQueryPolicy";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import {
 	checkSummaryIconConfig,
@@ -86,10 +87,7 @@ export function ChangesView({
 	const { t } = useTranslation();
 	const { workspaceId } = useParams({ strict: false });
 	const trpcUtils = electronTrpc.useUtils();
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId ?? "" },
-		{ enabled: !!workspaceId },
-	);
+	const { workspace } = useCatalogWorkspace(workspaceId);
 	const worktreePath = workspace?.worktreePath;
 	const projectId = workspace?.projectId;
 	const activeTab = useChangesStore((s) => s.activeTab);

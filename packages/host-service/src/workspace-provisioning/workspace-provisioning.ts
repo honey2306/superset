@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { HostDb } from "../db";
 import { workspaceOperationArtifacts } from "../db/schema";
@@ -251,7 +250,7 @@ export class WorkspaceProvisioning {
 			// have no FK back to Catalog, so a later Workspace delete does
 			// not erase this receipt.
 			if (outcome.artifacts?.length) {
-				recordArtifacts(this.deps.db, operationId, outcome.artifacts);
+				this.journal.recordArtifacts(operationId, outcome.artifacts);
 			}
 
 			// Catalog commit already happened inside the runner. Journal it
@@ -395,7 +394,92 @@ export class WorkspaceProvisioning {
 		operationId: string;
 		operation: WorkspaceOperation;
 	}> {
+		const row = this.journal.get(operationId);
+		if (!row) {
+			return Promise.reject(new Error(`Operation not found: ${operationId}`));
+		}
+		if (row.catalogCommittedAt !== null && row.workspaceId) {
+			return this.resumePostCommit(operationId, request);
+		}
 		return this.runOnce(operationId, request);
+	}
+
+	private resumePostCommit(
+		operationId: string,
+		request: ProvisionWorkspaceRequest,
+	): Promise<{ operationId: string; operation: WorkspaceOperation }> {
+		const previous = this.inFlight.get(operationId);
+		if (previous) return previous;
+		const promise = this.executePostCommitResume(operationId, request).finally(
+			() => {
+				this.inFlight.delete(operationId);
+			},
+		);
+		this.inFlight.set(operationId, promise);
+		return promise;
+	}
+
+	private async executePostCommitResume(
+		operationId: string,
+		request: ProvisionWorkspaceRequest,
+	): Promise<{ operationId: string; operation: WorkspaceOperation }> {
+		const row = this.journal.get(operationId);
+		if (!row?.workspaceId || row.catalogCommittedAt === null) {
+			return this.runOnce(operationId, request);
+		}
+
+		this.journal.patch(operationId, {
+			state: "running",
+			stage: "starting-runtime",
+			failureCode: null,
+			failureClass: null,
+			failureRetryable: null,
+			failureMessage: null,
+			completedAt: null,
+		});
+		this.broadcast(operationId);
+
+		const previousResult = parseOperationResult(row.resultJson);
+		const runtime = await this.startInitialSessions(
+			operationId,
+			request,
+			row.workspaceId,
+			undefined,
+		);
+		const launches = mergeLaunches(previousResult.launches, runtime.launches);
+		const warnings = [...previousResult.warnings, ...runtime.warnings];
+
+		if (runtime.failure) {
+			this.journal.patch(operationId, {
+				state: "failed",
+				stage: null,
+				failureCode: runtime.failure.code,
+				failureClass: runtime.failure.class,
+				failureRetryable: runtime.failure.retryable ? 1 : 0,
+				failureMessage: runtime.failure.message,
+				cleanupState: "pending",
+				completedAt: Date.now(),
+				resultJson: stableJson({
+					disposition: previousResult.disposition,
+					launches,
+					warnings,
+				}),
+			});
+		} else {
+			this.journal.patch(operationId, {
+				state: "succeeded",
+				stage: null,
+				completedAt: Date.now(),
+				launchPayloadJson: null,
+				resultJson: stableJson({
+					disposition: previousResult.disposition,
+					launches,
+					warnings,
+				}),
+			});
+		}
+		this.broadcast(operationId);
+		return { operationId, operation: this.getRequired(operationId) };
 	}
 
 	list(args: {
@@ -452,6 +536,15 @@ export class WorkspaceProvisioning {
 			completedAt: null,
 		});
 		this.broadcast(args.operationId);
+		const request = this.journal.readRequest(row);
+		if (request) {
+			void this.resume(args.operationId, request).catch((err) => {
+				console.warn(
+					`[workspace-provisioning] retry resume failed for ${args.operationId}`,
+					err,
+				);
+			});
+		}
 		return this.getRequired(args.operationId);
 	}
 
@@ -506,6 +599,29 @@ export class WorkspaceProvisioning {
 		let requiredFailure: WorkspaceOperationFailure | undefined;
 
 		for (const intent of intents) {
+			const completed = this.journal.getCompletedStepOutput<{
+				launch?: InitialLaunchResult;
+				sessionId?: string;
+			}>(operationId, `terminal:${intent.key}`);
+			if (completed) {
+				if (completed.launch) {
+					launches.push(completed.launch);
+				} else if (completed.sessionId) {
+					launches.push({
+						key: intent.key,
+						kind: "terminal",
+						sessionId: completed.sessionId,
+						role: initialSessionRole(intent),
+						...(intent.kind === "shell" || intent.kind === "command"
+							? { label: intent.label }
+							: intent.kind === "setup"
+								? { label: "Workspace Setup" }
+								: {}),
+						attachable: true,
+					});
+				}
+				continue;
+			}
 			const terminalId = this.journal.ensureTerminalId(operationId, intent.key);
 			try {
 				const result = await this.deps.terminalRuntime.startInitialSession({
@@ -516,12 +632,13 @@ export class WorkspaceProvisioning {
 				});
 				launches.push(result);
 				this.journal.markStepComplete(operationId, `terminal:${intent.key}`, {
-					sessionId: terminalId,
+					sessionId: result.sessionId,
+					launch: result,
 				});
 				// Journal a `terminal` artifact — future compensation only
 				// touches ownership='created' rows, so a re-attach on retry
 				// is safe (it never gets removed).
-				recordArtifacts(this.deps.db, operationId, [
+				this.journal.recordArtifacts(operationId, [
 					{
 						kind: "terminal",
 						identity: terminalId,
@@ -598,6 +715,50 @@ export class WorkspaceProvisioning {
 	}
 }
 
+function parseOperationResult(resultJson: string | null): {
+	disposition?: "created" | "adopted" | "reused" | "repaired";
+	launches: InitialLaunchResult[];
+	warnings: Array<{ code: string; message: string }>;
+} {
+	if (!resultJson) return { launches: [], warnings: [] };
+	try {
+		const result = JSON.parse(resultJson) as {
+			disposition?: "created" | "adopted" | "reused" | "repaired";
+			launches?: InitialLaunchResult[];
+			warnings?: Array<{ code: string; message: string }>;
+		};
+		return {
+			disposition: result.disposition,
+			launches: result.launches ?? [],
+			warnings: result.warnings ?? [],
+		};
+	} catch {
+		return { launches: [], warnings: [] };
+	}
+}
+
+function mergeLaunches(
+	...groups: ReadonlyArray<InitialLaunchResult>[]
+): InitialLaunchResult[] {
+	const byKey = new Map<string, InitialLaunchResult>();
+	for (const group of groups) {
+		for (const launch of group) byKey.set(launch.key, launch);
+	}
+	return [...byKey.values()];
+}
+
+function initialSessionRole(
+	intent: NonNullable<ProvisionWorkspaceRequest["initialSessions"]>[number],
+): "setup" | "shell" | "command" | "agent" {
+	return intent.kind === "setup"
+		? "setup"
+		: intent.kind === "command"
+			? "command"
+			: intent.kind === "agent"
+				? "agent"
+				: "shell";
+}
+
 function classifyFailure(err: unknown): WorkspaceOperationFailure {
 	if (err instanceof ProvisioningInputError) {
 		return {
@@ -619,30 +780,6 @@ function classifyFailure(err: unknown): WorkspaceOperationFailure {
 		message,
 		cleanup: "pending",
 	};
-}
-
-function recordArtifacts(
-	db: HostDb,
-	operationId: string,
-	artifacts: RunnerArtifact[],
-): void {
-	const now = Date.now();
-	for (const a of artifacts) {
-		db.insert(workspaceOperationArtifacts)
-			.values({
-				id: randomUUID(),
-				operationId,
-				kind: a.kind,
-				identity: a.identity,
-				ownership: a.ownership,
-				expectedHeadSha: a.expectedHeadSha ?? null,
-				cleanupState: "not-needed",
-				createdAt: now,
-				updatedAt: now,
-			})
-			.onConflictDoNothing()
-			.run();
-	}
 }
 
 /**

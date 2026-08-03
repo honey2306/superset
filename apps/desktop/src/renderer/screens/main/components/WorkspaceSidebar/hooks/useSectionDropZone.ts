@@ -10,6 +10,7 @@ import {
 import type { DragItem } from "../types";
 
 interface UseSectionDropZoneOptions {
+	projectId: string;
 	canAccept: (item: DragItem) => boolean;
 	targetSectionId: string | null;
 	targetRootPlacement?: "top" | "bottom";
@@ -17,6 +18,7 @@ interface UseSectionDropZoneOptions {
 }
 
 export function useSectionDropZone({
+	projectId,
 	canAccept,
 	targetSectionId,
 	targetRootPlacement,
@@ -59,6 +61,7 @@ export function useSectionDropZone({
 			if (item.selectedIds && item.selectedIds.length > 1) {
 				bulkMoveToSection.mutate({
 					workspaceIds: item.selectedIds,
+					projectId,
 					sectionId: targetSectionId,
 					...(targetSectionId === null && targetRootPlacement
 						? { rootPlacement: targetRootPlacement }
@@ -67,6 +70,7 @@ export function useSectionDropZone({
 			} else {
 				moveToSection.mutate({
 					workspaceId: item.id,
+					projectId,
 					sectionId: targetSectionId,
 					...(targetSectionId === null && targetRootPlacement
 						? { rootPlacement: targetRootPlacement }
@@ -78,6 +82,7 @@ export function useSectionDropZone({
 			setIsDragOver(false);
 		},
 		[
+			projectId,
 			canAccept,
 			targetSectionId,
 			targetRootPlacement,

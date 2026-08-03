@@ -1,6 +1,6 @@
 import { useParams } from "@tanstack/react-router";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useGitChangesStatus } from "renderer/screens/main/hooks/useGitChangesStatus";
 import {
 	RightSidebarTab,
@@ -14,10 +14,7 @@ export function ChangesContent() {
 	const isChangesSidebarVisible = useSidebarStore(
 		(s) => s.isSidebarOpen && s.rightSidebarTab === RightSidebarTab.Changes,
 	);
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId ?? "" },
-		{ enabled: !!workspaceId },
-	);
+	const { workspace } = useCatalogWorkspace(workspaceId);
 	const worktreePath = workspace?.worktreePath;
 
 	const { status, isLoading, effectiveBaseBranch } = useGitChangesStatus({

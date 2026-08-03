@@ -1,5 +1,6 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useNewWorkspaceModalDraft } from "../../NewWorkspaceModalDraftContext";
 import { PromptGroup } from "../PromptGroup";
 
@@ -18,17 +19,27 @@ export function NewWorkspaceModalContent({
 	onNewProject,
 }: NewWorkspaceModalContentProps) {
 	const { draft, updateDraft } = useNewWorkspaceModalDraft();
-	const { data: recentProjects = [], isFetched: areRecentProjectsFetched } =
-		electronTrpc.projects.getRecents.useQuery();
-	const utils = electronTrpc.useUtils();
+	const { projects: hostProjects, isReady: areRecentProjectsFetched } =
+		useHostProjects();
+	const queryClient = useQueryClient();
+	const recentProjects = hostProjects.map((project) => ({
+		id: project.projectKey,
+		name: project.name,
+		color: "hsl(var(--primary))",
+		githubOwner: project.repoOwner,
+		iconUrl: null,
+		hideImage: false,
+		mainRepoPath: project.repoPath ?? "",
+		workspaceBaseBranch: null,
+	}));
 
 	// Refetch branches (and other data) when the modal opens to avoid stale data
 	useEffect(() => {
 		if (!isOpen) return;
-		void utils.projects.getBranches.invalidate();
-		void utils.projects.getBranchesLocal.invalidate();
-		void utils.projects.searchBranches.invalidate();
-	}, [isOpen, utils]);
+		void queryClient.invalidateQueries({
+			queryKey: ["host-service", "workspaceCreation", "searchBranches"],
+		});
+	}, [isOpen, queryClient]);
 
 	const appliedPreSelectionRef = useRef<string | null>(null);
 

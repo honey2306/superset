@@ -1,17 +1,10 @@
-import {
-	afterAll,
-	afterEach,
-	beforeAll,
-	describe,
-	expect,
-	test,
-} from "bun:test";
+import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import type { WorkspaceCatalogSnapshot } from "@superset/host-service/workspace-catalog";
 import type { ReactNode } from "react";
+import { ensureHappyDom } from "test-utils/happy-dom-env";
 
 let renderHook: typeof import("@testing-library/react/pure").renderHook;
 let cleanup: typeof import("@testing-library/react/pure").cleanup;
-let unregisterDom: () => void;
 
 let installSnapshot: typeof import("./catalogProjection").installSnapshot;
 let WorkspaceCatalogProvider: typeof import("./WorkspaceCatalogProvider").WorkspaceCatalogProvider;
@@ -65,8 +58,8 @@ const snapshot: WorkspaceCatalogSnapshot = {
 	revision: 10,
 	projects: [project("proj-a"), project("proj-b")],
 	workspaces: [
-		workspace("w1", "proj-a", 1),
 		workspace("w2", "proj-a", 2),
+		workspace("w1", "proj-a", 1),
 		workspace("w3", "proj-a", 3),
 		workspace("w4", "proj-b", 4),
 	],
@@ -83,9 +76,10 @@ const wrapperFactory =
 
 describe("catalog selectors", () => {
 	beforeAll(async () => {
-		const { GlobalRegistrator } = await import("@happy-dom/global-registrator");
-		GlobalRegistrator.register();
-		unregisterDom = () => GlobalRegistrator.unregister();
+		// Register a single process-wide Happy DOM (see ensureHappyDom) and keep
+		// it registered for the whole suite so every DOM-needing test file
+		// shares one stable document.body.
+		await ensureHappyDom();
 		({ renderHook, cleanup } = await import("@testing-library/react/pure"));
 		({ installSnapshot } = await import("./catalogProjection"));
 		({ WorkspaceCatalogProvider } = await import("./WorkspaceCatalogProvider"));
@@ -98,7 +92,6 @@ describe("catalog selectors", () => {
 	});
 
 	afterEach(() => cleanup());
-	afterAll(() => unregisterDom());
 
 	test("useCatalogWorkspace returns null for unknown id", () => {
 		const { result } = renderHook(() => useCatalogWorkspace("nope"), {

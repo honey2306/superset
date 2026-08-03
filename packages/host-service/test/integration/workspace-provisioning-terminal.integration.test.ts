@@ -125,11 +125,15 @@ describe("workspaceProvisioning terminal + compensation (M2)", () => {
 		fx = boot();
 		const terminal = createInMemoryTerminalRuntime();
 		terminal.failNext(new Error("daemon offline"));
+		let runnerCalls = 0;
 		const provisioning = new WorkspaceProvisioning({
 			db: fx.db,
 			catalog: fx.catalog,
 			eventBus: null,
-			runner: runnerFromCatalog(fx.catalog),
+			runner: async (...args) => {
+				runnerCalls += 1;
+				return runnerFromCatalog(fx.catalog)(...args);
+			},
 			terminalRuntime: terminal,
 		});
 
@@ -145,6 +149,22 @@ describe("workspaceProvisioning terminal + compensation (M2)", () => {
 		expect(operation.failure?.retryable).toBe(true);
 		expect(operation.failure?.code).toBe("TERMINAL_UNAVAILABLE");
 		expect(operation.workspaceId).toBeTruthy();
+
+		const retryReceipt = provisioning.act({
+			operationId: operation.id,
+			action: "retry",
+		});
+		expect(["queued", "running", "succeeded"]).toContain(retryReceipt.state);
+		for (let attempt = 0; attempt < 50; attempt += 1) {
+			if (provisioning.get(operation.id)?.state === "succeeded") break;
+			await Bun.sleep(10);
+		}
+		const retried = provisioning.get(operation.id);
+		expect(retried?.state).toBe("succeeded");
+		expect(retried?.workspaceId).toBe(operation.workspaceId);
+		expect(runnerCalls).toBe(1);
+		expect(terminal.calls).toHaveLength(2);
+		expect(terminal.calls[1]?.terminalId).toBe(terminal.calls[0]?.terminalId);
 	});
 
 	test("best-effort initial session failure produces a warning, operation stays succeeded", async () => {
@@ -360,15 +380,18 @@ describe("workspaceProvisioning terminal + compensation (M2)", () => {
 		};
 		const first = await provisioning.begin(request);
 		expect(first.operation.state).toBe("failed");
-		const queued = provisioning.act({
+		const retryReceipt = provisioning.act({
 			operationId: first.operation.id,
 			action: "retry",
 		});
-		expect(queued.state).toBe("queued");
-
-		const retried = await provisioning.begin(request);
-		expect(retried.operation.state).toBe("succeeded");
-		expect(retried.operation.id).toBe(first.operation.id);
+		expect(["queued", "running", "succeeded"]).toContain(retryReceipt.state);
+		for (let attempt = 0; attempt < 50; attempt += 1) {
+			if (provisioning.get(first.operation.id)?.state === "succeeded") break;
+			await Bun.sleep(10);
+		}
+		const retried = provisioning.get(first.operation.id);
+		expect(retried?.state).toBe("succeeded");
+		expect(retried?.id).toBe(first.operation.id);
 		expect(terminal.calls).toHaveLength(2);
 		expect(terminal.calls[0]?.terminalId).toBe(terminal.calls[1]?.terminalId);
 	});

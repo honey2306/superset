@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { ensureHappyDom } from "test-utils/happy-dom-env";
+
+let renderHook: typeof import("@testing-library/react/pure").renderHook;
 
 let rawQueryResult: {
 	data?: {
@@ -19,10 +22,12 @@ const readFileUseQuery = mock(
 );
 const emptyUseQuery = mock(() => ({ data: undefined, isLoading: false }));
 
-mock.module("react", () => ({
-	useMemo: <T>(factory: () => T) => factory(),
-}));
-
+// electron-trpc is stubbed so the hook never hits the real tRPC client. `react`
+// is intentionally NOT mocked here: this hook only uses `useMemo`, so it runs
+// under the real React renderer via `renderHook`. Mocking `react` globally (as
+// this file used to) leaks a fake `react` into the rest of the test process and
+// breaks tests that need the real React context (e.g. react-dnd in
+// V1PanesPresetBarItem).
 mock.module("renderer/lib/electron-trpc", () => ({
 	electronTrpc: {
 		changes: {
@@ -36,15 +41,20 @@ mock.module("renderer/lib/electron-trpc", () => ({
 	},
 }));
 
-const { FILE_CONTENT_GC_TIME_MS, FILE_CONTENT_STALE_TIME_MS, useFileContent } =
-	await import("./useFileContent");
+let FILE_CONTENT_GC_TIME_MS: number;
+let FILE_CONTENT_STALE_TIME_MS: number;
+let useFileContent: typeof import("./useFileContent").useFileContent;
+
+beforeEach(async () => {
+	await ensureHappyDom();
+	({ renderHook } = await import("@testing-library/react/pure"));
+	({ FILE_CONTENT_GC_TIME_MS, FILE_CONTENT_STALE_TIME_MS, useFileContent } =
+		await import("./useFileContent"));
+	rawQueryResult = { isLoading: true };
+	readFileUseQuery.mockClear();
+});
 
 describe("useFileContent", () => {
-	beforeEach(() => {
-		rawQueryResult = { isLoading: true };
-		readFileUseQuery.mockClear();
-	});
-
 	test("keeps exact-workspace cached file content visible during a refresh", () => {
 		rawQueryResult = {
 			data: {
@@ -56,20 +66,22 @@ describe("useFileContent", () => {
 			isLoading: true,
 		};
 
-		const result = useFileContent({
-			workspaceId: "workspace-1",
-			worktreePath: "/worktrees/one",
-			filePath: "/worktrees/one/README.md",
-			viewMode: "raw",
-		});
+		const { result } = renderHook(() =>
+			useFileContent({
+				workspaceId: "workspace-1",
+				worktreePath: "/worktrees/one",
+				filePath: "/worktrees/one/README.md",
+				viewMode: "raw",
+			}),
+		);
 
-		expect(result.rawFileData).toEqual({
+		expect(result.current.rawFileData).toEqual({
 			ok: true,
 			content: "cached content",
 			truncated: false,
 			byteLength: 14,
 		});
-		expect(result.isLoadingRaw).toBe(false);
+		expect(result.current.isLoadingRaw).toBe(false);
 		expect(readFileUseQuery).toHaveBeenNthCalledWith(
 			1,
 			{
@@ -87,14 +99,16 @@ describe("useFileContent", () => {
 	});
 
 	test("shows initial loading only when no cached file data exists", () => {
-		const result = useFileContent({
-			workspaceId: "workspace-2",
-			worktreePath: "/worktrees/two",
-			filePath: "/worktrees/two/README.md",
-			viewMode: "raw",
-		});
+		const { result } = renderHook(() =>
+			useFileContent({
+				workspaceId: "workspace-2",
+				worktreePath: "/worktrees/two",
+				filePath: "/worktrees/two/README.md",
+				viewMode: "raw",
+			}),
+		);
 
-		expect(result.rawFileData).toBeUndefined();
-		expect(result.isLoadingRaw).toBe(true);
+		expect(result.current.rawFileData).toBeUndefined();
+		expect(result.current.isLoadingRaw).toBe(true);
 	});
 });

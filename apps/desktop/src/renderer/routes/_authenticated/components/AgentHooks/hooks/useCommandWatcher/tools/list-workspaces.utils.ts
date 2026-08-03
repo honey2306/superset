@@ -1,4 +1,4 @@
-import type { SelectProject, SelectWorkspace } from "@superset/local-db";
+import type { ProjectToolProjection, WorkspaceToolProjection } from "./types";
 
 export interface ListedWorkspace {
 	id: string;
@@ -10,15 +10,9 @@ export interface ListedWorkspace {
 	type: "worktree" | "branch";
 }
 
-export type WorkspaceListSourceWorkspace = Pick<
-	SelectWorkspace,
-	"id" | "name" | "branch" | "projectId" | "type"
->;
+export type WorkspaceListSourceWorkspace = WorkspaceToolProjection;
 
-export type WorkspaceListSourceProject = Pick<
-	SelectProject,
-	"id" | "mainRepoPath"
->;
+export type WorkspaceListSourceProject = ProjectToolProjection;
 
 export function buildWorkspaceList({
 	workspaces,

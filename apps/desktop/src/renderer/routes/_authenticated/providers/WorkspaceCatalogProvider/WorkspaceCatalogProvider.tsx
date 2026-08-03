@@ -168,7 +168,7 @@ export function WorkspaceCatalogProvider({
 					const client = getHostServiceClientByUrl(activeHostUrl);
 					const snapshot = await client.workspaceCatalog.snapshot.query();
 					setState((prev) =>
-						snapshot.revision >= prev.revision
+						snapshot.revision > prev.revision
 							? installSnapshot(snapshot)
 							: prev,
 					);

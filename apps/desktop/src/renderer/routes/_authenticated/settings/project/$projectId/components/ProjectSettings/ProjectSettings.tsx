@@ -28,9 +28,13 @@ import { toast } from "@superset/ui/sonner";
 import { Switch } from "@superset/ui/switch";
 import { cn } from "@superset/ui/utils";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuImagePlus, LuTrash2 } from "react-icons/lu";
 import { ColorSelector } from "renderer/components/ColorSelector";
+import {
+	useWorkspaceCreationBranches,
+	useWorkspaceCreationWorktrees,
+} from "renderer/hooks/host-workspaces/useWorkspaceCreationBranches";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import {
@@ -94,11 +98,15 @@ export function ProjectSettings({
 	const { data: project } = electronTrpc.projects.get.useQuery({
 		id: projectId,
 	});
-	const { data: branchData, isLoading: isBranchDataLoading } =
-		electronTrpc.projects.getBranches.useQuery(
-			{ projectId },
-			{ enabled: !!projectId },
-		);
+	const {
+		branches,
+		defaultBranch,
+		isLoading: isBranchDataLoading,
+	} = useWorkspaceCreationBranches(projectId);
+	const branchData = useMemo(
+		() => ({ branches, defaultBranch: defaultBranch ?? "" }),
+		[branches, defaultBranch],
+	);
 	const { data: gitAuthor } = electronTrpc.projects.getGitAuthor.useQuery({
 		id: projectId,
 	});
@@ -214,11 +222,8 @@ export function ProjectSettings({
 	const defaultWorktreePath = useDefaultWorktreePath();
 	const globalPath = globalWorktreeBaseDir ?? defaultWorktreePath;
 
-	const { data: externalWorktrees = [], isLoading: isExternalLoading } =
-		electronTrpc.workspaces.getExternalWorktrees.useQuery(
-			{ projectId },
-			{ enabled: !!projectId },
-		);
+	const { worktrees: externalWorktrees, isLoading: isExternalLoading } =
+		useWorkspaceCreationWorktrees(projectId);
 	const importableExternalWorktrees = externalWorktrees.filter(
 		(worktree) => !worktree.hasActiveWorkspace,
 	);

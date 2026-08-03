@@ -113,11 +113,16 @@ export function WorkspaceContextMenu({
 		if (captured.length > 1) {
 			bulkMoveToSection.mutate({
 				workspaceIds: captured,
+				projectId,
 				sectionId: targetSectionId,
 			});
 			selectionStore.getState().clearSelection();
 		} else {
-			moveToSection.mutate({ workspaceId: id, sectionId: targetSectionId });
+			moveToSection.mutate({
+				workspaceId: id,
+				projectId,
+				sectionId: targetSectionId,
+			});
 		}
 	};
 

@@ -2,9 +2,17 @@ import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { LuClock3, LuWorkflow } from "react-icons/lu";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import {
+	useCatalogProjects,
+	useCatalogWorkspaces,
+} from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import {
+	useWorkspaceLaunch,
+	useWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 import { STROKE_WIDTH } from "../constants";
 
 interface WorkspaceSidebarHeaderProps {
@@ -19,31 +27,64 @@ export function WorkspaceSidebarHeader({
 	const { workspaceId } = useParams({ strict: false });
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
-	const utils = electronTrpc.useUtils();
-	const ensureTemporaryWorkspace =
-		electronTrpc.projects.ensureTemporaryWorkspace.useMutation();
-	const { data: temporaryWorkspace } =
-		electronTrpc.projects.getTemporaryWorkspace.useQuery();
+	const adapter = useWorkspaceProvisioningAdapter();
+	const workspaceLaunch = useWorkspaceLaunch(adapter);
+	const { projects } = useCatalogProjects();
+	const { workspaces } = useCatalogWorkspaces();
+	const [isTemporaryWorkspacePending, setIsTemporaryWorkspacePending] =
+		useState(false);
+	const temporaryWorkspace = useMemo(() => {
+		const project = projects.find(
+			(candidate) => candidate.kind === "temporary",
+		);
+		if (!project) return null;
+		return (
+			workspaces.find(
+				(workspace) =>
+					workspace.projectId === project.id && workspace.type === "main",
+			) ?? null
+		);
+	}, [projects, workspaces]);
 	const isAutomationsOpen = !!matchRoute({ to: "/automations", fuzzy: true });
-	const isTemporaryWorkspaceOpen =
-		workspaceId === temporaryWorkspace?.workspaceId;
+	const isTemporaryWorkspaceOpen = workspaceId === temporaryWorkspace?.id;
 
 	const handleAutomationsClick = () => {
 		navigate({ to: "/automations" });
 	};
 
 	const handleTemporaryWorkspaceClick = async () => {
+		if (!adapter) {
+			toast.error("Could not open temporary workspace", {
+				description: "Workspace host is not available",
+			});
+			return;
+		}
+
+		setIsTemporaryWorkspacePending(true);
 		try {
-			const temporary = await ensureTemporaryWorkspace.mutateAsync();
-			await utils.workspaces.getAllGrouped.invalidate();
+			const operation = await workspaceLaunch.begin({
+				adapter,
+				request: {
+					idempotencyKey: "temporary-workspace:default",
+					project: { kind: "temporary", singletonKey: "default" },
+					source: { kind: "main" },
+				},
+			});
+			if (!operation.workspaceId || operation.state === "failed") {
+				throw new Error(
+					operation.failure?.message ?? "Workspace provisioning failed",
+				);
+			}
 			navigate({
 				to: "/workspace/$workspaceId",
-				params: { workspaceId: temporary.workspaceId },
+				params: { workspaceId: operation.workspaceId },
 			});
 		} catch (error) {
 			toast.error("Could not open temporary workspace", {
 				description: error instanceof Error ? error.message : String(error),
 			});
+		} finally {
+			setIsTemporaryWorkspacePending(false);
 		}
 	};
 
@@ -75,7 +116,7 @@ export function WorkspaceSidebarHeader({
 					<TooltipTrigger asChild>
 						<button
 							className={itemClassName(isTemporaryWorkspaceOpen)}
-							disabled={ensureTemporaryWorkspace.isPending}
+							disabled={isTemporaryWorkspacePending}
 							onClick={() => void handleTemporaryWorkspaceClick()}
 							type="button"
 						>
@@ -106,7 +147,7 @@ export function WorkspaceSidebarHeader({
 			</button>
 			<button
 				className={itemClassName(isTemporaryWorkspaceOpen)}
-				disabled={ensureTemporaryWorkspace.isPending}
+				disabled={isTemporaryWorkspacePending}
 				onClick={() => void handleTemporaryWorkspaceClick()}
 				type="button"
 			>

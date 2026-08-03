@@ -173,20 +173,20 @@ describe("V1PanesWorkspace PoC wiring", () => {
 
 describe("V1PanesWorkspace multi-kind registry", () => {
 	// The M3 gate: the panes registry must register every migrated v1 pane
-	// kind, not just terminal, so opening a file/chat/comment/devtools/webview
-	// pane under `V2_PANES_IN_V1` renders instead of "Unknown pane kind". This
-	// locks
+	// kind, not just terminal, so opening a file/chat/comment pane under
+	// `V2_PANES_IN_V1` renders instead of "Unknown pane kind". This locks
 	// the registry SHAPE (which kinds exist) and the title delegation; the
 	// per-kind title derivation is covered by
 	// `buildV1PanesNonTerminalRegistry.test.ts`.
+	//
+	// devtools and webview panes were removed for the single-user setup, so
+	// the registry now carries only the three remaining migrated kinds.
 	test("the registry registers all migrated v1 pane kinds", () => {
 		const registry = buildRegistry();
 		expect(Object.keys(registry).sort()).toEqual([
 			"comment",
-			"devtools",
 			"file-viewer",
 			"terminal",
-			"webview",
 		]);
 	});
 

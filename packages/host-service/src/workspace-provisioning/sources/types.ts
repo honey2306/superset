@@ -3,31 +3,24 @@
  *
  * `sources/` decomposes the production runner's big `switch (project.kind)`
  * into one file per `ProjectTarget × WorkspaceSource` shape. Each handler
- * receives the tRPC caller + host context and returns a
+ * receives the host context and durable journal and returns a
  * `ProvisioningRunnerOutcome`.
  *
  * Split rationale (execplan §Commit and compensation): every source needs
  * its own resolve → materialize → catalog-commit → runtime sequence, and
- * the git algorithms live in different tRPC procedures today. Keeping
- * one file per source lets a future PR replace the `caller.workspaces.*`
- * delegation with direct git calls without shuffling the branch/PR/
- * temporary logic together.
- *
- * Until that PR lands the handlers still delegate through
- * `appRouter.createCaller(ctx)` — the module boundary is what matters.
+ * its Git receipts must be independently resumable.
  */
 
-import type { AppRouter } from "../../trpc/router/router";
 import type { HostServiceContext } from "../../types";
+import type { OperationJournal } from "../operation-journal";
 import type { InitialLaunchResult, ProvisionWorkspaceRequest } from "../types";
 import type { ProvisioningRunnerOutcome } from "../workspace-provisioning";
 
-export type Caller = ReturnType<AppRouter["createCaller"]>;
-
 export interface SourceHandlerContext {
 	request: ProvisionWorkspaceRequest;
+	operationId: string;
+	journal: OperationJournal;
 	ctx: HostServiceContext;
-	caller: Caller;
 	launches: InitialLaunchResult[];
 	warnings: Array<{ code: string; message: string }>;
 }
@@ -35,3 +28,69 @@ export interface SourceHandlerContext {
 export type SourceHandler = (
 	args: SourceHandlerContext,
 ) => Promise<ProvisioningRunnerOutcome>;
+
+export function sourceStepKey(
+	context: SourceHandlerContext,
+	stepName: string,
+): string {
+	return `source:${context.request.project.kind}:${context.request.source.kind}:${stepName}`;
+}
+
+/**
+ * Journal an external source/materializer call separately from the outer
+ * source receipt. If the host dies after the materializer returns
+ * but before the parent operation advances, retry can reuse the returned
+ * identity instead of calling Git/materialization a second time.
+ */
+export async function runSourceStep<T extends object>(
+	context: SourceHandlerContext,
+	stepName: string,
+	input: Record<string, unknown>,
+	work: () => Promise<T>,
+): Promise<T> {
+	const stepKey = `source:${context.request.project.kind}:${context.request.source.kind}:${stepName}`;
+	const completed = context.journal.getCompletedStepOutput<
+		Record<string, unknown>
+	>(context.operationId, stepKey);
+	if (completed) return completed as T;
+
+	context.journal.markStepStarted(context.operationId, stepKey, input);
+	const output = await work();
+	context.journal.markStepComplete(
+		context.operationId,
+		stepKey,
+		output as Record<string, unknown>,
+	);
+	return output;
+}
+
+/**
+ * Like `runSourceStep`, but lets a materializer reconcile a completed receipt
+ * against the external Git/filesystem state before trusting it. A receipt is
+ * only a hint until the resource it describes still exists; this is what
+ * makes a retry after a crash safe in both directions (no duplicate worktree
+ * and no stale receipt pointing at a deleted one).
+ */
+export async function runReconciledSourceStep<T extends object>(
+	context: SourceHandlerContext,
+	stepName: string,
+	input: Record<string, unknown>,
+	isValid: (output: T) => Promise<boolean>,
+	work: () => Promise<T>,
+): Promise<T> {
+	const stepKey = sourceStepKey(context, stepName);
+	const completed = context.journal.getCompletedStepOutput<T>(
+		context.operationId,
+		stepKey,
+	);
+	if (completed && (await isValid(completed))) return completed;
+
+	context.journal.markStepStarted(context.operationId, stepKey, input);
+	const output = await work();
+	context.journal.markStepComplete(
+		context.operationId,
+		stepKey,
+		output as Record<string, unknown>,
+	);
+	return output;
+}

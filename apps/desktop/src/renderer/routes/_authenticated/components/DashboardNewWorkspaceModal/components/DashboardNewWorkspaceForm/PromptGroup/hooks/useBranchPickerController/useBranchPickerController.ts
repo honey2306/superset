@@ -1,7 +1,7 @@
 import { toast } from "@superset/ui/sonner";
 import { useCallback, useState } from "react";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
-import { useWorkspaceCreates } from "renderer/stores/workspace-creates";
+import { useWorkspaceProvisioningSubmission } from "renderer/stores/workspace-launch";
 import type { BaseBranchSource } from "../../../../../DashboardNewWorkspaceDraftContext";
 import {
 	type BranchFilter,
@@ -39,7 +39,7 @@ export function useBranchPickerController(args: UseBranchPickerControllerArgs) {
 	} = args;
 
 	const { machineId } = useLocalHostService();
-	const { submit } = useWorkspaceCreates();
+	const { submit } = useWorkspaceProvisioningSubmission();
 
 	// `null` hostId means "local active machine"; pin to the device's machineId
 	// so workspace lookups (keyed by hostId) hit the right host.
@@ -67,9 +67,9 @@ export function useBranchPickerController(args: UseBranchPickerControllerArgs) {
 		[typedWorkspaceName],
 	);
 
-	// Server's `workspaces.create` resolves all three cases (open tracked,
-	// adopt foreign worktree, fresh create). Navigate to the optimistic id;
-	// a failed create surfaces on the workspace route's error state.
+	// Provisioning resolves all three cases (open tracked, adopt foreign
+	// worktree, fresh create). Navigate to the host-returned canonical id;
+	// a failed operation surfaces on the workspace route's error state.
 	const onOpenWorkspace = useCallback(
 		(target: OpenWorkspaceTarget) => {
 			if (!projectId) {

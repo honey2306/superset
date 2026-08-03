@@ -1,6 +1,7 @@
 import type { ProvisioningAdapter } from "@superset/workspace-client";
 import { useEffect, useMemo } from "react";
 import {
+	selectOperationForWorkspace,
 	selectOperationsByState,
 	selectPendingOperation,
 	useWorkspaceLaunchStore,
@@ -29,6 +30,9 @@ export interface UseWorkspaceLaunchApi {
 	pending: (
 		idempotencyKey: string,
 	) => ReturnType<typeof selectPendingOperation>;
+	forWorkspace: (
+		workspaceId: string,
+	) => ReturnType<typeof selectOperationForWorkspace>;
 	byState: (
 		state: Parameters<typeof selectOperationsByState>[1],
 	) => ReturnType<typeof selectOperationsByState>;
@@ -44,37 +48,41 @@ export interface UseWorkspaceLaunchApi {
 export function useWorkspaceLaunch(
 	adapter: ProvisioningAdapter | null,
 ): UseWorkspaceLaunchApi {
-	const store = useWorkspaceLaunchStore();
-	const state = useWorkspaceLaunchStore(
-		(s) =>
-			({
-				operations: s.operations,
-				pendingByKey: s.pendingByKey,
-			}) as WorkspaceLaunchState,
+	const begin = useWorkspaceLaunchStore((s) => s.begin);
+	const retry = useWorkspaceLaunchStore((s) => s.retry);
+	const cancel = useWorkspaceLaunchStore((s) => s.cancel);
+	const subscribe = useWorkspaceLaunchStore((s) => s.subscribe);
+	const reconcile = useWorkspaceLaunchStore((s) => s.reconcile);
+	const operations = useWorkspaceLaunchStore((s) => s.operations);
+	const pendingByKey = useWorkspaceLaunchStore((s) => s.pendingByKey);
+	const state = useMemo(
+		() => ({ operations, pendingByKey }) as WorkspaceLaunchState,
+		[operations, pendingByKey],
 	);
 
 	useEffect(() => {
 		if (!adapter) return;
-		const unsubscribe = store.subscribe(adapter);
-		void store.reconcile(adapter).catch(() => {
+		const unsubscribe = subscribe(adapter);
+		void reconcile(adapter).catch(() => {
 			// Reconciliation failure is non-fatal — the store already
 			// contains whatever the last successful call filled in, and
 			// the next event delivery will fill in more.
 		});
 		return unsubscribe;
-	}, [adapter, store]);
+	}, [adapter, reconcile, subscribe]);
 
 	return useMemo<UseWorkspaceLaunchApi>(
 		() => ({
 			begin: ({ adapter: begunAdapter, request }) =>
-				store.begin({ adapter: begunAdapter, request }),
-			retry: (adapterArg, operationId) => store.retry(adapterArg, operationId),
-			cancel: (adapterArg, operationId) =>
-				store.cancel(adapterArg, operationId),
+				begin({ adapter: begunAdapter, request }),
+			retry: (adapterArg, operationId) => retry(adapterArg, operationId),
+			cancel: (adapterArg, operationId) => cancel(adapterArg, operationId),
 			pending: (idempotencyKey) =>
 				selectPendingOperation(state, idempotencyKey),
+			forWorkspace: (workspaceId) =>
+				selectOperationForWorkspace(state, workspaceId),
 			byState: (target) => selectOperationsByState(state, target),
 		}),
-		[store, state],
+		[begin, cancel, retry, state],
 	);
 }

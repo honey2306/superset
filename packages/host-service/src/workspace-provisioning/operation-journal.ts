@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import type { HostDb } from "../db";
-import { workspaceOperationSteps, workspaceOperations } from "../db/schema";
+import {
+	workspaceOperationArtifacts,
+	workspaceOperationSteps,
+	workspaceOperations,
+} from "../db/schema";
 import type {
 	InitialLaunchResult,
 	ProvisionWorkspaceRequest,
@@ -10,6 +14,9 @@ import type {
 	WorkspaceOperationStage,
 	WorkspaceOperationState,
 } from "./types";
+import type { RunnerArtifact } from "./workspace-provisioning";
+
+type OperationStep = typeof workspaceOperationSteps.$inferSelect;
 
 /**
  * Read/write the durable Provisioning journal. All state transitions go
@@ -247,6 +254,49 @@ export class OperationJournal {
 		return terminalId;
 	}
 
+	/**
+	 * Mark a non-terminal provisioning step as in flight before invoking its
+	 * external materializer. A `running` row is deliberately retryable: a
+	 * crash before completion leaves the step available for the source handler
+	 * to reconcile, while a completed row lets resume skip work that already
+	 * returned successfully but whose parent operation had not yet advanced.
+	 */
+	markStepStarted(
+		operationId: string,
+		stepKey: string,
+		input?: Record<string, unknown>,
+	): void {
+		const existing = this.getStep(operationId, stepKey);
+		const now = Date.now();
+		this.db
+			.insert(workspaceOperationSteps)
+			.values({
+				operationId,
+				stepKey,
+				status: "running",
+				attempt: (existing?.attempt ?? 0) + 1,
+				inputJson: input ? JSON.stringify(input) : null,
+				outputJson: null,
+				startedAt: now,
+				completedAt: null,
+			})
+			.onConflictDoUpdate({
+				target: [
+					workspaceOperationSteps.operationId,
+					workspaceOperationSteps.stepKey,
+				],
+				set: {
+					status: "running",
+					attempt: (existing?.attempt ?? 0) + 1,
+					inputJson: input ? JSON.stringify(input) : null,
+					outputJson: null,
+					startedAt: now,
+					completedAt: null,
+				},
+			})
+			.run();
+	}
+
 	markStepComplete(
 		operationId: string,
 		stepKey: string,
@@ -266,5 +316,64 @@ export class OperationJournal {
 				),
 			)
 			.run();
+	}
+
+	getStep(operationId: string, stepKey: string): OperationStep | undefined {
+		return this.db
+			.select()
+			.from(workspaceOperationSteps)
+			.where(
+				and(
+					eq(workspaceOperationSteps.operationId, operationId),
+					eq(workspaceOperationSteps.stepKey, stepKey),
+				),
+			)
+			.get();
+	}
+
+	getCompletedStepOutput<T extends object>(
+		operationId: string,
+		stepKey: string,
+	): T | null {
+		const step = this.getStep(operationId, stepKey);
+		if (!step || step.status !== "completed" || !step.outputJson) {
+			return null;
+		}
+		try {
+			return JSON.parse(step.outputJson) as T;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
+	 * Persist ownership as soon as a materializer creates an external
+	 * artifact. The outer runner writes the final outcome too, but a crash
+	 * between `git worktree add`/`git clone` and that outcome must still leave
+	 * compensation enough information to clean up only what this operation
+	 * owns.
+	 */
+	recordArtifacts(
+		operationId: string,
+		artifacts: ReadonlyArray<RunnerArtifact>,
+	): void {
+		const now = Date.now();
+		for (const artifact of artifacts) {
+			this.db
+				.insert(workspaceOperationArtifacts)
+				.values({
+					id: randomUUID(),
+					operationId,
+					kind: artifact.kind,
+					identity: artifact.identity,
+					ownership: artifact.ownership,
+					expectedHeadSha: artifact.expectedHeadSha ?? null,
+					cleanupState: "not-needed",
+					createdAt: now,
+					updatedAt: now,
+				})
+				.onConflictDoNothing()
+				.run();
+		}
 	}
 }

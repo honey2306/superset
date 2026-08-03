@@ -347,7 +347,7 @@ export async function cloneTemplateInto(
 	}
 }
 
-function deriveCloneDirectoryName(repoCloneUrl: string): string {
+export function deriveCloneDirectoryName(repoCloneUrl: string): string {
 	const normalized = repoCloneUrl
 		.trim()
 		.replace(/[?#].*$/, "")

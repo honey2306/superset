@@ -11,7 +11,6 @@ import { Input } from "@superset/ui/input";
 import { Label } from "@superset/ui/label";
 import { toast } from "@superset/ui/sonner";
 import { useEffect, useState } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
 import { useTranslation } from "renderer/providers/I18nProvider";
@@ -35,7 +34,6 @@ export function RenameBranchDialog({
 	const { t } = useTranslation();
 	const [value, setValue] = useState(currentBranchName);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const electronUtils = electronTrpc.useUtils();
 	const hostService = useLocalHostService();
 	const { activeHostUrl } = hostService;
 
@@ -74,11 +72,6 @@ export function RenameBranchDialog({
 		try {
 			await renamePromise;
 			onAfterRename?.(trimmed);
-			void electronUtils.workspaces.getWorktreeInfo.invalidate({
-				workspaceId,
-			});
-			void electronUtils.workspaces.get.invalidate({ id: workspaceId });
-			void electronUtils.workspaces.getAllGrouped.invalidate();
 			onOpenChange(false);
 		} catch {
 			// toast.promise surfaced the error to the user

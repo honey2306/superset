@@ -148,60 +148,6 @@ describe("bug-hunt-2: partial-failure consistency", () => {
 		repo.dispose();
 	});
 
-	test("workspace.create rolls back the worktree when the local insert fails", async () => {
-		// Local-first: the id is minted before insert (client-supplied here),
-		// so a preloaded row with the same id makes the authoritative local
-		// insert hit the PK and throw.
-		const duplicateId = randomUUID();
-		host = await createTestHost({
-			apiOverrides: {
-				"host.ensure.mutate": () => ({ machineId: "m1" }),
-				"v2Workspace.create.mutate": (input: unknown) => {
-					const i = input as { id?: string; branch: string; name: string };
-					return {
-						id: i.id ?? randomUUID(),
-						projectId,
-						branch: i.branch,
-						name: i.name,
-					};
-				},
-			},
-		});
-		host.db
-			.insert(projects)
-			.values({ id: projectId, repoPath: repo.repoPath })
-			.run();
-
-		host.db
-			.insert(workspaces)
-			.values({
-				id: duplicateId,
-				projectId,
-				worktreePath: "/tmp/preload-conflict",
-				branch: "preload",
-			})
-			.run();
-
-		// Pin the rollback: the call must throw AND the worktree must be
-		// cleaned up — a failed local insert is the one create failure that
-		// still rolls back the worktree.
-		await expect(
-			host.trpc.workspaces.create.mutate({
-				projectId,
-				name: "ws",
-				branch: "feature/post-cloud-fail",
-				id: duplicateId,
-			}),
-		).rejects.toBeDefined();
-
-		const expectedWorktree = join(
-			repo.repoPath,
-			".worktrees",
-			"feature/post-cloud-fail",
-		);
-		expect(existsSync(expectedWorktree)).toBe(false);
-	});
-
 	test("workspace.delete with a worktree dir already removed manually still cleans up the row", async () => {
 		const workspaceId = randomUUID();
 		host = await createTestHost({
@@ -320,17 +266,7 @@ describe("bug-hunt-2: input edges", () => {
 		expect(result.baseBranch).toBeNull();
 	});
 
-	test("workspaceCreation.adopt rejects empty/whitespace branch names", async () => {
-		await expect(
-			host.trpc.workspaceCreation.adopt.mutate({
-				projectId,
-				workspaceName: "x",
-				branch: "   ",
-			}),
-		).rejects.toThrow(/branch name is empty/i);
-	});
-
-	test("notifications.hook with eventType only (no terminalId) returns ignored without DB lookup", async () => {
+	test("notifications.hook with eventType only returns ignored without DB lookup", async () => {
 		// Even with a known event type, missing terminalId short-circuits.
 		const result = await host.unauthenticatedTrpc.notifications.hook.mutate({
 			eventType: "Stop",

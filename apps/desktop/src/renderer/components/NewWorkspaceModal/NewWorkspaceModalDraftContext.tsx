@@ -7,10 +7,12 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { useCreateFromPr } from "renderer/react-query/workspaces/useCreateFromPr";
-import { useCreateWorkspace } from "renderer/react-query/workspaces/useCreateWorkspace";
 import { useOpenExternalWorktree } from "renderer/react-query/workspaces/useOpenExternalWorktree";
 import { useOpenTrackedWorktree } from "renderer/react-query/workspaces/useOpenTrackedWorktree";
+import {
+	useWorkspaceCreate,
+	useWorkspaceCreateFromPr,
+} from "renderer/stores/workspace-launch/useWorkspaceCreateActions";
 
 export type LinkedIssue = {
 	slug: string; // "#123" for GitHub, "SUP-123" for internal
@@ -84,8 +86,8 @@ interface NewWorkspaceModalDraftContextValue {
 	resetKey: number;
 	closeModal: () => void;
 	closeAndResetDraft: () => void;
-	createWorkspace: ReturnType<typeof useCreateWorkspace>;
-	createFromPr: ReturnType<typeof useCreateFromPr>;
+	createWorkspace: ReturnType<typeof useWorkspaceCreate>;
+	createFromPr: ReturnType<typeof useWorkspaceCreateFromPr>;
 	openTrackedWorktree: ReturnType<typeof useOpenTrackedWorktree>;
 	openExternalWorktree: ReturnType<typeof useOpenExternalWorktree>;
 	runAsyncAction: <T>(
@@ -107,8 +109,8 @@ export function NewWorkspaceModalDraftProvider({
 	const [state, setState] = useState(buildInitialDraftState);
 
 	// Owned here so onSuccess survives Dialog unmounting content on close.
-	const createWorkspace = useCreateWorkspace();
-	const createFromPr = useCreateFromPr();
+	const createWorkspace = useWorkspaceCreate();
+	const createFromPr = useWorkspaceCreateFromPr();
 	const openTrackedWorktree = useOpenTrackedWorktree();
 	const openExternalWorktree = useOpenExternalWorktree();
 

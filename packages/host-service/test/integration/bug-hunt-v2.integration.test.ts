@@ -75,93 +75,36 @@ describe("bug-hunt-v2: workspaceCleanup.destroy phase ordering", () => {
 	});
 });
 
-describe("bug-hunt-v2: workspaceCreation.adopt cross-project safety", () => {
-	let host: TestHost;
-	let repoA: GitFixture;
-	let repoB: GitFixture;
-	const projectIdA = randomUUID();
-	const projectIdB = randomUUID();
+let host: TestHost;
+const sessionId = randomUUID();
+const workspaceId = randomUUID();
 
-	beforeEach(async () => {
-		host = await createTestHost({
-			apiOverrides: {
-				"host.ensure.mutate": () => ({ machineId: "m1" }),
-				"v2Workspace.create.mutate": (input: unknown) => {
-					const i = input as { branch: string; name: string };
-					return {
-						id: randomUUID(),
-						projectId: projectIdA,
-						branch: i.branch,
-						name: i.name,
-					};
-				},
+const stubChatRuntime = {
+	sendMessage: async () => ({ ok: true, messageId: "m1" }),
+};
+
+beforeEach(async () => {
+	host = await createTestHost({
+		chatRuntime: stubChatRuntime,
+		apiOverrides: {
+			"chat.updateSession.mutate": () => {
+				throw new Error("cloud-down");
 			},
-		});
-		repoA = await createGitFixture();
-		repoB = await createGitFixture();
-		host.db
-			.insert(projects)
-			.values([
-				{ id: projectIdA, repoPath: repoA.repoPath },
-				{ id: projectIdB, repoPath: repoB.repoPath },
-			])
-			.run();
-	});
-
-	afterEach(async () => {
-		await host.dispose();
-		repoA.dispose();
-		repoB.dispose();
-	});
-
-	test("adopt with worktreePath belonging to a different project is rejected", async () => {
-		const { join } = await import("node:path");
-		const worktreeInB = join(repoB.repoPath, ".worktrees", "feature-x");
-		await repoB.git.raw(["worktree", "add", "-b", "feature/x", worktreeInB]);
-
-		await expect(
-			host.trpc.workspaceCreation.adopt.mutate({
-				projectId: projectIdA,
-				workspaceName: "x",
-				branch: "feature/x",
-				worktreePath: worktreeInB,
-			}),
-		).rejects.toThrow();
+		},
 	});
 });
 
-describe("bug-hunt-v2: chat.sendMessage cloud failure must not break the turn", () => {
-	let host: TestHost;
-	const sessionId = randomUUID();
-	const workspaceId = randomUUID();
+afterEach(async () => {
+	await host.dispose();
+});
 
-	const stubChatRuntime = {
-		sendMessage: async () => ({ ok: true, messageId: "m1" }),
-	};
-
-	beforeEach(async () => {
-		host = await createTestHost({
-			chatRuntime: stubChatRuntime,
-			apiOverrides: {
-				"chat.updateSession.mutate": () => {
-					throw new Error("cloud-down");
-				},
-			},
-		});
+test("chat.sendMessage swallows cloud chat.updateSession failures", async () => {
+	// The procedure does `void ctx.api.chat.updateSession.mutate(...).catch(() => {})`
+	// — the user-visible turn must not fail because of a cloud blip.
+	const result = await host.trpc.chat.sendMessage.mutate({
+		sessionId,
+		workspaceId,
+		payload: { content: "hi" },
 	});
-
-	afterEach(async () => {
-		await host.dispose();
-	});
-
-	test("chat.sendMessage swallows cloud chat.updateSession failures", async () => {
-		// The procedure does `void ctx.api.chat.updateSession.mutate(...).catch(() => {})`
-		// — the user-visible turn must not fail because of a cloud blip.
-		const result = await host.trpc.chat.sendMessage.mutate({
-			sessionId,
-			workspaceId,
-			payload: { content: "hi" },
-		});
-		expect(result).toBeDefined();
-	});
+	expect(result).toBeDefined();
 });

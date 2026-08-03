@@ -8,7 +8,7 @@ import {
 	type TrackableWorkspaceTransactionState,
 	useWorkspaceTransactionsStore,
 	type WorkspaceTransactionType,
-} from "renderer/stores/workspace-creates";
+} from "renderer/stores/workspace-launch/workspaceTransactions";
 
 export type PersistableTransaction = {
 	id: string;

@@ -25,10 +25,16 @@ import {
 	LuX,
 } from "react-icons/lu";
 import { ColorSelector } from "renderer/components/ColorSelector";
+import {
+	disposeHostSessionsForWorkspace,
+	toastDisposeFailures,
+} from "renderer/lib/dispose-host-sessions";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useUpdateProject } from "renderer/react-query/projects/useUpdateProject";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
 import { useProjectRename } from "renderer/screens/main/hooks/useProjectRename";
 import { STROKE_WIDTH } from "../constants";
 import { RenameInput } from "../RenameInput";
@@ -67,59 +73,15 @@ export function ProjectHeader({
 	onNewWorkspace,
 }: ProjectHeaderProps) {
 	const { t } = useTranslation();
-	const utils = electronTrpc.useUtils();
+	const electronUtils = electronTrpc.useUtils();
+	const { workspaces: hostWorkspaces } = useHostWorkspaces();
+	const { createSection, removeProjectFromSidebar } =
+		useDashboardSidebarState();
 	const navigate = useNavigate();
 	const params = useParams({ strict: false }) as { workspaceId?: string };
 	const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
+	const [isClosing, setIsClosing] = useState(false);
 	const rename = useProjectRename(projectId, projectName);
-
-	const closeProject = electronTrpc.projects.close.useMutation({
-		onMutate: async ({ id }) => {
-			let shouldNavigate = false;
-
-			if (params.workspaceId) {
-				try {
-					const currentWorkspace = await utils.workspaces.get.fetch({
-						id: params.workspaceId,
-					});
-					shouldNavigate = currentWorkspace?.projectId === id;
-				} catch (error) {
-					console.warn(
-						"[ProjectHeader] Failed to resolve current workspace before closing project",
-						error,
-					);
-				}
-			}
-
-			return { shouldNavigate };
-		},
-		onSuccess: async (data, { id }, context) => {
-			utils.workspaces.getAllGrouped.invalidate();
-			utils.projects.getRecents.invalidate();
-
-			if (context?.shouldNavigate) {
-				const groups = await utils.workspaces.getAllGrouped.fetch();
-				const otherWorkspace = groups
-					.flatMap((group) => group.workspaces)
-					.find((w) => w.projectId !== id);
-
-				if (otherWorkspace) {
-					navigateToWorkspace(otherWorkspace.id, navigate);
-				} else {
-					navigate({ to: "/workspace" });
-				}
-			}
-
-			if (data.terminalWarning) {
-				toast.warning(data.terminalWarning);
-			}
-		},
-		onError: (error) => {
-			toast.error(
-				t("workspace.failedCloseProject", { message: error.message }),
-			);
-		},
-	});
 
 	const openInFinder = electronTrpc.external.openInFinder.useMutation({
 		onError: (error) =>
@@ -130,8 +92,49 @@ export function ProjectHeader({
 		setIsCloseDialogOpen(true);
 	};
 
-	const handleConfirmClose = () => {
-		closeProject.mutate({ id: projectId });
+	const handleConfirmClose = async () => {
+		if (isClosing) return;
+		setIsClosing(true);
+		const shouldNavigate = hostWorkspaces.some(
+			(workspace) =>
+				workspace.id === params.workspaceId &&
+				workspace.projectId === projectId,
+		);
+		const projectWorkspaces = hostWorkspaces.filter(
+			(workspace) => workspace.projectId === projectId,
+		);
+
+		try {
+			await Promise.all(
+				projectWorkspaces.map(async (workspace) => {
+					const dispose = () =>
+						disposeHostSessionsForWorkspace(electronUtils, workspace.id);
+					const result = await dispose();
+					toastDisposeFailures(result, dispose);
+				}),
+			);
+			removeProjectFromSidebar(projectId);
+			setIsCloseDialogOpen(false);
+
+			if (shouldNavigate) {
+				const otherWorkspace = hostWorkspaces.find(
+					(workspace) => workspace.projectId !== projectId,
+				);
+				if (otherWorkspace) {
+					navigateToWorkspace(otherWorkspace.id, navigate);
+				} else {
+					navigate({ to: "/workspace" });
+				}
+			}
+		} catch (error) {
+			toast.error(
+				t("workspace.failedCloseProject", {
+					message: error instanceof Error ? error.message : String(error),
+				}),
+			);
+		} finally {
+			setIsClosing(false);
+		}
 	};
 
 	const handleOpenInFinder = () => {
@@ -155,16 +158,16 @@ export function ProjectHeader({
 		updateProject.mutate({ id: projectId, patch: { hideImage: !hideImage } });
 	};
 
-	const createSection = electronTrpc.workspaces.createSection.useMutation({
-		onSuccess: () => utils.workspaces.getAllGrouped.invalidate(),
-		onError: (error) =>
-			toast.error(
-				t("workspace.failedCreateSection", { message: error.message }),
-			),
-	});
-
 	const handleNewSection = () => {
-		createSection.mutate({ projectId, name: t("workspace.newSection") });
+		try {
+			createSection(projectId, { name: t("workspace.newSection") });
+		} catch (error) {
+			toast.error(
+				t("workspace.failedCreateSection", {
+					message: error instanceof Error ? error.message : String(error),
+				}),
+			);
+		}
 	};
 
 	const colorPickerSubmenu = (
@@ -241,16 +244,14 @@ export function ProjectHeader({
 						<ContextMenuSeparator />
 						<ContextMenuItem
 							onSelect={handleCloseProject}
-							disabled={closeProject.isPending}
+							disabled={isClosing}
 							className="text-destructive focus:text-destructive"
 						>
 							<LuX
 								className="size-4 mr-2 text-destructive"
 								strokeWidth={STROKE_WIDTH}
 							/>
-							{closeProject.isPending
-								? t("workspace.closing")
-								: t("workspace.closeProject")}
+							{isClosing ? t("workspace.closing") : t("workspace.closeProject")}
 						</ContextMenuItem>
 					</ContextMenuContent>
 				</ContextMenu>
@@ -381,16 +382,14 @@ export function ProjectHeader({
 					<ContextMenuSeparator />
 					<ContextMenuItem
 						onSelect={handleCloseProject}
-						disabled={closeProject.isPending}
+						disabled={isClosing}
 						className="text-destructive focus:text-destructive"
 					>
 						<LuX
 							className="size-4 mr-2 text-destructive"
 							strokeWidth={STROKE_WIDTH}
 						/>
-						{closeProject.isPending
-							? t("workspace.closing")
-							: t("workspace.closeProject")}
+						{isClosing ? t("workspace.closing") : t("workspace.closeProject")}
 					</ContextMenuItem>
 				</ContextMenuContent>
 			</ContextMenu>

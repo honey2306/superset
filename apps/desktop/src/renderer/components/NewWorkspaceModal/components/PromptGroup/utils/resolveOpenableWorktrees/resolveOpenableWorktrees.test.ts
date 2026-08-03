@@ -26,7 +26,7 @@ describe("resolveOpenableWorktrees", () => {
 		expect(result.size).toBe(1);
 		expect(result.get("feature/login")).toEqual({
 			type: "tracked",
-			worktreeId: "wt-1",
+			worktreePath: "/repos/project/.worktrees/feature-login",
 		});
 	});
 
@@ -110,7 +110,7 @@ describe("resolveOpenableWorktrees", () => {
 		expect(result.size).toBe(1);
 		expect(result.get("shared-branch")).toEqual({
 			type: "tracked",
-			worktreeId: "wt-tracked",
+			worktreePath: "/repos/project/.worktrees/tracked",
 		});
 	});
 
@@ -135,7 +135,7 @@ describe("resolveOpenableWorktrees", () => {
 		expect(result.size).toBe(2);
 		expect(result.get("feature/a")).toEqual({
 			type: "tracked",
-			worktreeId: "wt-1",
+			worktreePath: "/repos/project/.worktrees/a",
 		});
 		expect(result.get("feature/b")).toEqual({
 			type: "external",

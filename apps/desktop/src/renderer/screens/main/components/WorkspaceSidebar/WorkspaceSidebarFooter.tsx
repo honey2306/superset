@@ -15,8 +15,8 @@ import {
 } from "react-icons/lu";
 import { UpdatesPill } from "renderer/components/UpdatesPill";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useOpenProject } from "renderer/react-query/projects";
 import { useOpenMainRepoWorkspace } from "renderer/react-query/workspaces";
+import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
 import {
 	useOpenNewProjectModal,
 	useOpenTemplateGalleryModal,
@@ -32,33 +32,21 @@ export function WorkspaceSidebarFooter({
 	isCollapsed = false,
 }: WorkspaceSidebarFooterProps) {
 	const { t } = useTranslation();
-	const { openNew, isPending: isOpenPending } = useOpenProject();
 	const openMainRepoWorkspace = useOpenMainRepoWorkspace();
+	const folderImport = useFolderFirstImport({
+		onError: (message) =>
+			toast.error(t("workspace.openFailed"), { description: message }),
+		onMultipleProjects: ({ candidates }) =>
+			toast.error(t("workspace.openFailed"), {
+				description: `Multiple projects use this repository (${candidates.length}). Open the project you want from settings to set it up on this device.`,
+			}),
+	});
 	const openNewProject = useOpenNewProjectModal();
 	const openTemplateGallery = useOpenTemplateGalleryModal();
 
 	const handleOpenProject = async () => {
-		try {
-			const projects = await openNew();
-
-			for (const project of projects) {
-				try {
-					await openMainRepoWorkspace.mutateAsync({
-						projectId: project.id,
-					});
-				} catch (err) {
-					toast.error(t("workspace.openNamedFailed", { name: project.name }), {
-						description:
-							err instanceof Error ? err.message : t("workspace.createFailed"),
-					});
-				}
-			}
-		} catch (error) {
-			toast.error(t("workspace.openFailed"), {
-				description:
-					error instanceof Error ? error.message : t("workspace.unknownError"),
-			});
-		}
+		const result = await folderImport.start();
+		if (result) toast.success(t("project.created"));
 	};
 
 	const openMainWorkspaceForProject = async (projectId: string) => {
@@ -82,7 +70,7 @@ export function WorkspaceSidebarFooter({
 		if (result) await openMainWorkspaceForProject(result.projectId);
 	};
 
-	const isLoading = isOpenPending || openMainRepoWorkspace.isPending;
+	const isLoading = folderImport.isPending || openMainRepoWorkspace.isPending;
 
 	if (isCollapsed) {
 		return (

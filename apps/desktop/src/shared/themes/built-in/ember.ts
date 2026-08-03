@@ -1,4 +1,4 @@
-import type { Theme } from "../types";
+import type { EditorSyntaxColors, Theme } from "../types";
 
 /**
  * Dark theme - Warm dark theme inspired by the Figma start screen design
@@ -106,6 +106,6 @@ export const darkTheme: Theme = {
 	editor: {
 		syntax: {
 			comment: "#a8a5a3",
-		},
+		} as Partial<EditorSyntaxColors>,
 	},
 };

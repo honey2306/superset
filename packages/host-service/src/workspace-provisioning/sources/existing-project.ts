@@ -1,21 +1,14 @@
 import type { RunnerArtifact } from "../workspace-provisioning";
+import { materializeExistingProjectSource } from "./git-materializer";
 import type { SourceHandler } from "./types";
 
 /**
  * `ProjectTarget.existing` — the project row lives in Catalog already.
- * Dispatches on `WorkspaceSource`:
- *   - main       → read back the project's main workspace row
- *   - branch     → delegate to `workspaces.create` with explicit branch
- *   - worktree   → delegate to `workspaceCreation.adopt` with path
- *   - pull-request → delegate to `workspaces.create` with `pr` number
+ * Dispatches on `WorkspaceSource`; Git materialization is direct and
+ * checkpointed in `git-materializer.ts`.
  */
-export const existingProjectHandler: SourceHandler = async ({
-	request,
-	ctx,
-	caller,
-	launches,
-	warnings,
-}) => {
+export const existingProjectHandler: SourceHandler = async (context) => {
+	const { request, ctx, launches, warnings } = context;
 	if (request.project.kind !== "existing") {
 		throw new Error(
 			`existingProjectHandler cannot handle project.kind='${request.project.kind}'`,
@@ -41,82 +34,36 @@ export const existingProjectHandler: SourceHandler = async ({
 			};
 		}
 		case "branch": {
-			const branch =
-				source.name.kind === "explicit" ? source.name.value : undefined;
-			const result = await caller.workspaces.create({
-				projectId,
-				branch,
-				baseBranch: source.from.kind === "ref" ? source.from.value : undefined,
-				taskId: request.display?.taskId,
-				name: request.display?.name,
-			});
+			const result = await materializeExistingProjectSource(context);
 			return {
 				projectId,
-				workspaceId: result.workspace.id,
-				disposition: result.alreadyExists ? "reused" : "created",
+				workspaceId: result.workspaceId,
+				disposition: result.disposition,
 				launches,
 				warnings,
-				artifacts: [
-					{
-						kind: "worktree",
-						identity:
-							ctx.db.query.workspaces
-								.findFirst({
-									where: (w, { eq }) => eq(w.id, result.workspace.id),
-								})
-								.sync()?.worktreePath ?? "",
-						ownership: result.alreadyExists ? "adopted" : "created",
-					},
-				] satisfies RunnerArtifact[],
+				artifacts: result.artifacts satisfies RunnerArtifact[],
 			};
 		}
 		case "worktree": {
-			const result = await caller.workspaceCreation.adopt({
-				projectId,
-				workspaceName: request.display?.name ?? source.path,
-				branch: source.expectedBranch ?? "",
-				worktreePath: source.path,
-			});
+			const result = await materializeExistingProjectSource(context);
 			return {
 				projectId,
-				workspaceId: result.workspace.id,
+				workspaceId: result.workspaceId,
 				disposition: "adopted",
 				launches,
 				warnings,
-				artifacts: [
-					{
-						kind: "worktree",
-						identity: source.path,
-						ownership: "adopted",
-					},
-				] satisfies RunnerArtifact[],
+				artifacts: result.artifacts satisfies RunnerArtifact[],
 			};
 		}
 		case "pull-request": {
-			const result = await caller.workspaces.create({
-				projectId,
-				pr: source.number,
-				taskId: request.display?.taskId,
-				name: request.display?.name,
-			});
+			const result = await materializeExistingProjectSource(context);
 			return {
 				projectId,
-				workspaceId: result.workspace.id,
-				disposition: result.alreadyExists ? "reused" : "created",
+				workspaceId: result.workspaceId,
+				disposition: result.disposition,
 				launches,
 				warnings,
-				artifacts: [
-					{
-						kind: "worktree",
-						identity:
-							ctx.db.query.workspaces
-								.findFirst({
-									where: (w, { eq }) => eq(w.id, result.workspace.id),
-								})
-								.sync()?.worktreePath ?? "",
-						ownership: result.alreadyExists ? "adopted" : "created",
-					},
-				] satisfies RunnerArtifact[],
+				artifacts: result.artifacts satisfies RunnerArtifact[],
 			};
 		}
 	}

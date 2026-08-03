@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { getHostServiceUnavailableMessage } from "renderer/lib/host-service-unavailable";
@@ -10,9 +10,15 @@ import {
 } from "renderer/react-query/projects";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { useRequestGitInitConfirm } from "renderer/stores/git-init-confirm";
+import {
+	beginProjectProvisioning,
+	createWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 
 export interface UseFolderFirstImportResult {
 	start: () => Promise<ProjectSetupResult | null>;
+	startAtPath: (repoPath: string) => Promise<ProjectSetupResult | null>;
+	isPending: boolean;
 }
 
 interface MatchingProject {
@@ -31,107 +37,144 @@ export function useFolderFirstImport(options?: {
 	const selectDirectory = electronTrpc.window.selectDirectory.useMutation();
 	const requestGitInit = useRequestGitInitConfirm();
 	const { onError, onMultipleProjects } = options ?? {};
+	const [isPending, setIsPending] = useState(false);
+
+	const startAtPath = useCallback(
+		async (repoPath: string): Promise<ProjectSetupResult | null> => {
+			setIsPending(true);
+			try {
+				const activeHostUrl = await waitForHostReady();
+				if (!activeHostUrl) {
+					onError?.(
+						getHostServiceUnavailableMessage(hostService, t, {
+							action: t("project.importFolderAction"),
+						}),
+					);
+					return null;
+				}
+
+				const client = getHostServiceClientByUrl(activeHostUrl);
+				const adapter = createWorkspaceProvisioningAdapter(activeHostUrl);
+				const projectName = getBaseName(repoPath);
+				const provision = (
+					request: Parameters<typeof beginProjectProvisioning>[0]["request"],
+				) =>
+					beginProjectProvisioning({
+						hostUrl: activeHostUrl,
+						adapter,
+						request,
+					});
+				let candidates: MatchingProject[];
+				try {
+					const response = await client.project.findByPath.query({ repoPath });
+
+					// Folder isn't a git repo yet: offer to `git init` it, then import
+					// via the create path with init enabled.
+					if ("needsGitInit" in response && response.needsGitInit) {
+						const confirmed = await requestGitInit(repoPath);
+						if (!confirmed) return null;
+						const result = await provision({
+							idempotencyKey: `project-import:${repoPath}:initialize`,
+							project: {
+								kind: "import",
+								path: repoPath,
+								name: projectName,
+								git: "initialize-with-consent",
+							},
+							source: { kind: "main" },
+						});
+						finalizeSetup(activeHostUrl, result);
+						return result;
+					}
+
+					candidates = response.candidates;
+					if (candidates.length === 0 && response.cloudErrors.length > 0) {
+						const first = response.cloudErrors[0];
+						onError?.(
+							`Couldn't reach cloud for ${first.url}: ${first.message}`,
+						);
+						return null;
+					}
+				} catch (err) {
+					onError?.(err instanceof Error ? err.message : String(err));
+					return null;
+				}
+
+				const [only, ...rest] = candidates;
+				if (rest.length > 0) {
+					if (onMultipleProjects) {
+						onMultipleProjects({ candidates });
+					} else {
+						onError?.(
+							`Multiple projects use this repository (${candidates.length}). Open the project you want from settings to set it up on this device.`,
+						);
+					}
+					return null;
+				}
+
+				try {
+					let result: ProjectSetupResult;
+					if (only) {
+						result = await provision({
+							idempotencyKey: `project-setup:${only.id}:${repoPath}`,
+							project: {
+								kind: "setup-existing",
+								projectId: only.id,
+								origin: { name: projectName },
+								mode: { kind: "import", path: repoPath },
+							},
+							source: { kind: "main" },
+						});
+					} else {
+						result = await provision({
+							idempotencyKey: `project-import:${repoPath}`,
+							project: {
+								kind: "import",
+								path: repoPath,
+								name: projectName,
+								git: "require",
+							},
+							source: { kind: "main" },
+						});
+					}
+					finalizeSetup(activeHostUrl, result);
+					return result;
+				} catch (err) {
+					onError?.(err instanceof Error ? err.message : String(err));
+					return null;
+				}
+			} finally {
+				setIsPending(false);
+			}
+		},
+		[
+			waitForHostReady,
+			finalizeSetup,
+			hostService,
+			t,
+			onError,
+			onMultipleProjects,
+			requestGitInit,
+		],
+	);
 
 	const start = useCallback(async (): Promise<ProjectSetupResult | null> => {
 		// Pick the folder first — the native dialog is a local Electron call and
 		// must not wait on the host service. Only the registration below needs it.
-		let repoPath: string;
+		setIsPending(true);
 		try {
 			const picked = await selectDirectory.mutateAsync({
 				title: "Import existing folder",
 			});
 			if (picked.canceled || !picked.path) return null;
-			repoPath = picked.path;
+			return await startAtPath(picked.path);
 		} catch (err) {
 			onError?.(err instanceof Error ? err.message : String(err));
 			return null;
+		} finally {
+			setIsPending(false);
 		}
+	}, [onError, selectDirectory, startAtPath]);
 
-		const activeHostUrl = await waitForHostReady();
-		if (!activeHostUrl) {
-			onError?.(
-				getHostServiceUnavailableMessage(hostService, t, {
-					action: t("project.importFolderAction"),
-				}),
-			);
-			return null;
-		}
-
-		const client = getHostServiceClientByUrl(activeHostUrl);
-		let candidates: MatchingProject[];
-		try {
-			const response = await client.project.findByPath.query({ repoPath });
-
-			// Folder isn't a git repo yet: offer to `git init` it, then import
-			// via the create path with init enabled.
-			if ("needsGitInit" in response && response.needsGitInit) {
-				const confirmed = await requestGitInit(repoPath);
-				if (!confirmed) return null;
-				const result = await client.project.create.mutate({
-					name: getBaseName(repoPath),
-					mode: { kind: "importLocal", repoPath, initIfNeeded: true },
-				});
-				finalizeSetup(activeHostUrl, result);
-				return result;
-			}
-
-			candidates = response.candidates;
-			if (candidates.length === 0 && response.cloudErrors.length > 0) {
-				const first = response.cloudErrors[0];
-				onError?.(`Couldn't reach cloud for ${first.url}: ${first.message}`);
-				return null;
-			}
-		} catch (err) {
-			onError?.(err instanceof Error ? err.message : String(err));
-			return null;
-		}
-
-		const [only, ...rest] = candidates;
-		if (rest.length > 0) {
-			if (onMultipleProjects) {
-				onMultipleProjects({ candidates });
-			} else {
-				onError?.(
-					`Multiple projects use this repository (${candidates.length}). Open the project you want from settings to set it up on this device.`,
-				);
-			}
-			return null;
-		}
-
-		try {
-			let result: ProjectSetupResult;
-			if (only) {
-				const setupResult = await client.project.setup.mutate({
-					projectId: only.id,
-					mode: { kind: "import", repoPath },
-				});
-				result = {
-					projectId: only.id,
-					repoPath: setupResult.repoPath,
-					mainWorkspaceId: setupResult.mainWorkspaceId,
-				};
-			} else {
-				result = await client.project.create.mutate({
-					name: getBaseName(repoPath),
-					mode: { kind: "importLocal", repoPath },
-				});
-			}
-			finalizeSetup(activeHostUrl, result);
-			return result;
-		} catch (err) {
-			onError?.(err instanceof Error ? err.message : String(err));
-			return null;
-		}
-	}, [
-		waitForHostReady,
-		finalizeSetup,
-		hostService,
-		t,
-		onError,
-		onMultipleProjects,
-		requestGitInit,
-		selectDirectory,
-	]);
-
-	return { start };
+	return { start, startAtPath, isPending };
 }

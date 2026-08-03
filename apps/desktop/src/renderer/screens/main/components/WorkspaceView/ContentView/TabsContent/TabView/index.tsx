@@ -8,7 +8,7 @@ import {
 	type MosaicNode,
 } from "react-mosaic-component";
 import { dragDropManager } from "renderer/lib/dnd";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { requestPaneClose } from "renderer/stores/editor-state/editorCoordinator";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import type { Tab } from "renderer/stores/tabs/types";
@@ -44,10 +44,7 @@ export function TabView({ tab }: TabViewProps) {
 	const allPanes = useTabsStore((s) => s.panes);
 
 	// Get workspace path for file viewer panes
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: tab.workspaceId },
-		{ enabled: !!tab.workspaceId },
-	);
+	const { workspace } = useCatalogWorkspace(tab.workspaceId);
 	const { splitPaneAuto, splitPaneHorizontal, splitPaneVertical } =
 		useTabsWithPresets(workspace?.projectId);
 	const worktreePath = workspace?.worktreePath ?? "";

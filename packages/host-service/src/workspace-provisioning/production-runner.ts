@@ -1,5 +1,5 @@
-import type { AppRouter } from "../trpc/router/router";
 import type { HostServiceContext } from "../types";
+import type { OperationJournal } from "./operation-journal";
 import {
 	existingProjectHandler,
 	projectMaterializerHandler,
@@ -10,60 +10,97 @@ import type { InitialLaunchResult, ProvisionWorkspaceRequest } from "./types";
 import type {
 	ProvisioningRunner,
 	ProvisioningRunnerOutcome,
+	RunnerArtifact,
 } from "./workspace-provisioning";
 
-type Caller = ReturnType<AppRouter["createCaller"]>;
-
 /**
- * Production runner for the Provisioning saga. The M2 MVP delegates each
- * `(ProjectTarget, WorkspaceSource)` pair to the existing tRPC mutations
- * (`workspaces.create`, `workspaceCreation.adopt`, `project.create`,
- * `project.setup`) via `appRouter.createCaller(ctx)`. Dispatch happens
- * in this file; per-source logic lives in `./sources/*.ts` so each
- * source can grow its own git materializer without shuffling the
- * others.
- *
- * When M4 deletes the compatibility procedures, each source handler
- * absorbs its git body directly. Until then, the caller layer is the
- * seam.
+ * Production runner for the Provisioning saga. Source handlers receive the
+ * host context directly; legacy tRPC procedures remain adapters for old
+ * clients and are not part of the new provisioning retry path.
  */
 
 export interface ProvisioningRunnerAdapters {
-	appRouter: AppRouter;
 	ctxFactory: () => HostServiceContext;
 }
 
 export function createProductionRunner(
 	adapters: ProvisioningRunnerAdapters,
 ): ProvisioningRunner {
-	return async ({ request }) => {
+	return async ({ request, operationId, journal }) => {
 		const ctx = adapters.ctxFactory();
-		const caller = adapters.appRouter.createCaller(
-			ctx as unknown as Parameters<AppRouter["createCaller"]>[0],
-		);
-		return dispatch(request, ctx, caller);
+		return dispatch(request, operationId, journal, ctx);
 	};
 }
 
 async function dispatch(
 	request: ProvisionWorkspaceRequest,
+	operationId: string,
+	journal: OperationJournal,
 	ctx: HostServiceContext,
-	caller: Caller,
 ): Promise<ProvisioningRunnerOutcome> {
+	const stepKey = `source:${request.project.kind}:${request.source.kind}`;
+	const completed = journal.getCompletedStepOutput<SourceStepOutput>(
+		operationId,
+		stepKey,
+	);
+	if (completed) {
+		return completed;
+	}
+	journal.markStepStarted(operationId, stepKey, {
+		projectKind: request.project.kind,
+		sourceKind: request.source.kind,
+	});
 	const warnings: Array<{ code: string; message: string }> = [];
 	const launches: InitialLaunchResult[] = [];
-	const handlerCtx = { request, ctx, caller, launches, warnings };
-	switch (request.project.kind) {
-		case "existing":
-			return existingProjectHandler(handlerCtx);
-		case "setup-existing":
-			return setupExistingHandler(handlerCtx);
-		case "import":
-		case "clone":
-		case "empty":
-		case "template":
-			return projectMaterializerHandler(handlerCtx);
-		case "temporary":
-			return temporaryHandler(handlerCtx);
-	}
+	const handlerCtx = {
+		request,
+		operationId,
+		journal,
+		ctx,
+		launches,
+		warnings,
+	};
+	const outcome = await (async () => {
+		switch (request.project.kind) {
+			case "existing":
+				return existingProjectHandler(handlerCtx);
+			case "setup-existing":
+				return setupExistingHandler(handlerCtx);
+			case "import":
+			case "clone":
+			case "empty":
+			case "template":
+				return projectMaterializerHandler(handlerCtx);
+			case "temporary":
+				return temporaryHandler(handlerCtx);
+		}
+	})();
+	journal.markStepComplete(
+		operationId,
+		stepKey,
+		serializeSourceOutcome(outcome),
+	);
+	return outcome;
+}
+
+type SourceStepOutput = {
+	projectId: string;
+	workspaceId: string;
+	disposition: "created" | "adopted" | "reused" | "repaired";
+	launches: InitialLaunchResult[];
+	warnings: Array<{ code: string; message: string }>;
+	artifacts?: RunnerArtifact[];
+};
+
+function serializeSourceOutcome(
+	outcome: ProvisioningRunnerOutcome,
+): Record<string, unknown> {
+	return {
+		projectId: outcome.projectId,
+		workspaceId: outcome.workspaceId,
+		disposition: outcome.disposition,
+		launches: outcome.launches,
+		warnings: outcome.warnings,
+		artifacts: outcome.artifacts,
+	};
 }

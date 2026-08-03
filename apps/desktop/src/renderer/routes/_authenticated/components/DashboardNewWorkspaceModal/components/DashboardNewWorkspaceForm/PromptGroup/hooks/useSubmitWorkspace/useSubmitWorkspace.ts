@@ -5,17 +5,17 @@ import { authClient } from "renderer/lib/auth-client";
 import { showWorkspaceAutoNameWarningToast } from "renderer/lib/workspaces/showWorkspaceAutoNameWarningToast";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import type { NewWorkspacePromptContextApi } from "renderer/stores/new-workspace-prompt-context";
-import { useWorkspaceCreates } from "renderer/stores/workspace-creates";
+import { useWorkspaceProvisioningSubmission } from "renderer/stores/workspace-launch";
 import { useDashboardNewWorkspaceDraft } from "../../../../../DashboardNewWorkspaceDraftContext";
 import type { WorkspaceCreateAgent } from "../../types";
 import type { UseUploadAttachmentsApi } from "../useUploadAttachments";
 import { resolveNames } from "./resolveNames";
 
 /**
- * Submits a workspace create against the new `workspaces.create` host
- * procedure. Attachment uploads run optimistically through `useUploadAttachments`
- * — submit only blocks on whatever uploads are still in flight, then dispatches
- * the create with the resulting `attachmentIds` on the agent launch sugar.
+ * Submits a workspace Provisioning operation. Attachment uploads run
+ * optimistically through `useUploadAttachments` — submit only blocks on
+ * whatever uploads are still in flight, then dispatches the operation with the
+ * resulting `attachmentIds` on the agent launch sugar.
  */
 export function useSubmitWorkspace(
 	projectId: string | null,
@@ -27,7 +27,7 @@ export function useSubmitWorkspace(
 ) {
 	const navigate = useNavigate();
 	const { closeAndResetDraft, draft } = useDashboardNewWorkspaceDraft();
-	const { submit } = useWorkspaceCreates();
+	const { submit } = useWorkspaceProvisioningSubmission();
 	const { machineId } = useLocalHostService();
 	const { data: session } = authClient.useSession();
 	const activeOrganizationId = session?.session?.activeOrganizationId;

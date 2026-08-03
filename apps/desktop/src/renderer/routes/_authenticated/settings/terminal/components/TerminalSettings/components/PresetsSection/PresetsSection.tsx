@@ -11,6 +11,7 @@ import { useIsDarkTheme } from "renderer/assets/app-icons/preset-icons";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { usePresets } from "renderer/react-query/presets";
+import { useCatalogProjects } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import type { PresetColumnKey } from "renderer/routes/_authenticated/settings/presets/types";
 import { PresetEditorDialog } from "./components/PresetEditorDialog";
 import { PresetsTable } from "./components/PresetsTable";
@@ -40,8 +41,10 @@ export function PresetsSection({
 }: PresetsSectionProps) {
 	const { t } = useTranslation();
 	const isDark = useIsDarkTheme();
-	const { data: groupedProjects = [] } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
+	const { data: recentProjects = [] } =
+		electronTrpc.projects.getRecents.useQuery();
+	const { projects: catalogProjects, isReady: isCatalogReady } =
+		useCatalogProjects();
 	const {
 		presets: serverPresets,
 		isLoading: isLoadingPresets,
@@ -68,13 +71,21 @@ export function PresetsSection({
 
 	const projectOptions = useMemo<PresetProjectOption[]>(
 		() =>
-			groupedProjects.map((group) => ({
-				id: group.project.id,
-				name: group.project.name,
-				color: group.project.color,
-				mainRepoPath: group.project.mainRepoPath,
-			})),
-		[groupedProjects],
+			recentProjects
+				.filter(
+					(project) =>
+						!isCatalogReady ||
+						catalogProjects.some(
+							(catalogProject) => catalogProject.id === project.id,
+						),
+				)
+				.map((project) => ({
+					id: project.id,
+					name: project.name,
+					color: project.color,
+					mainRepoPath: project.mainRepoPath,
+				})),
+		[recentProjects, catalogProjects, isCatalogReady],
 	);
 	const projectOptionsById = useMemo(
 		() => new Map(projectOptions.map((project) => [project.id, project])),

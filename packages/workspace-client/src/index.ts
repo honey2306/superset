@@ -31,6 +31,7 @@ export {
 	createTrpcProvisioningAdapter,
 	extractAttachableLaunches,
 	type InitialLaunchResult,
+	type InitialSessionIntent,
 	type ProvisioningAdapter,
 	type ProvisioningAdapterFactoryDeps,
 	type ProvisionWorkspaceRequest,

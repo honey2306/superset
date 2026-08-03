@@ -1,19 +1,15 @@
 import { toast } from "@superset/ui/sonner";
 import { useCallback } from "react";
 import { useDrag, useDrop } from "react-dnd";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
 	useMoveWorkspacesToSection,
 	useMoveWorkspaceToSection,
-	useReorderProjectChildren,
-	useReorderWorkspacesInSection,
 } from "renderer/react-query/workspaces";
-import { invalidateWorkspaceQueries } from "renderer/react-query/workspaces/invalidateWorkspaceQueries";
+import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 import { useActiveDragItemStore } from "renderer/stores/active-drag-item";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { SECTION_DND_TYPE } from "../constants";
 import type { DragItem, SectionDragItem } from "../types";
-import { reorderProjectChildrenInCache } from "../utils/reorderProjectChildrenInCache";
 import { WORKSPACE_DND_TYPE } from "./constants";
 
 interface UseWorkspaceDnDOptions {
@@ -29,9 +25,8 @@ export function useWorkspaceDnD({
 	sectionId,
 	index,
 }: UseWorkspaceDnDOptions) {
-	const utils = electronTrpc.useUtils();
-	const reorderProjectChildren = useReorderProjectChildren();
-	const reorderWorkspacesInSection = useReorderWorkspacesInSection();
+	const { reorderProjectChildrenByIndex, reorderWorkspacesInSectionByIndex } =
+		useDashboardSidebarState();
 	const moveToSection = useMoveWorkspaceToSection();
 	const bulkMoveToSection = useMoveWorkspacesToSection();
 	const selectionStore = useWorkspaceSelectionStore;
@@ -39,34 +34,27 @@ export function useWorkspaceDnD({
 	const handleReorder = useCallback(
 		(item: DragItem) => {
 			if (item.originalIndex === item.index) return;
-			const callbacks = {
-				onError: (error: { message: string }) => {
-					void invalidateWorkspaceQueries(utils);
-					toast.error(`Failed to reorder workspace: ${error.message}`);
-				},
-				onSettled: () => invalidateWorkspaceQueries(utils),
-			};
-			if (item.sectionId !== null) {
-				reorderWorkspacesInSection.mutate(
-					{
-						sectionId: item.sectionId,
-						fromIndex: item.originalIndex,
-						toIndex: item.index,
-					},
-					callbacks,
-				);
-			} else {
-				reorderProjectChildren.mutate(
-					{
-						projectId: item.projectId,
-						fromIndex: item.originalIndex,
-						toIndex: item.index,
-					},
-					callbacks,
+			try {
+				if (item.sectionId !== null) {
+					reorderWorkspacesInSectionByIndex(
+						item.sectionId,
+						item.originalIndex,
+						item.index,
+					);
+				} else {
+					reorderProjectChildrenByIndex(
+						item.projectId,
+						item.originalIndex,
+						item.index,
+					);
+				}
+			} catch (error) {
+				toast.error(
+					`Failed to reorder workspace: ${error instanceof Error ? error.message : String(error)}`,
 				);
 			}
 		},
-		[reorderProjectChildren, reorderWorkspacesInSection, utils],
+		[reorderProjectChildrenByIndex, reorderWorkspacesInSectionByIndex],
 	);
 
 	const [{ isDragging }, drag] = useDrag(
@@ -120,9 +108,6 @@ export function useWorkspaceDnD({
 				) {
 					return;
 				}
-				utils.workspaces.getAllGrouped.setData(undefined, (oldData) =>
-					reorderProjectChildrenInCache(oldData, projectId, item.index, index),
-				);
 				item.index = index;
 				return;
 			}
@@ -133,44 +118,22 @@ export function useWorkspaceDnD({
 				item.index === index
 			)
 				return;
-			if (sectionId === null) {
-				utils.workspaces.getAllGrouped.setData(undefined, (oldData) =>
-					reorderProjectChildrenInCache(oldData, projectId, item.index, index),
-				);
-			} else {
-				utils.workspaces.getAllGrouped.setData(undefined, (oldData) => {
-					if (!oldData) return oldData;
-					return oldData.map((group) => {
-						if (group.project.id !== projectId) return group;
-						const sections = group.sections.map((section) => {
-							if (section.id !== sectionId) return section;
-							const workspaces = [...section.workspaces];
-							const [moved] = workspaces.splice(item.index, 1);
-							workspaces.splice(index, 0, moved);
-							return { ...section, workspaces };
-						});
-						return { ...group, sections };
-					});
-				});
-			}
 			item.index = index;
 		},
 		drop: (item: DragItem | SectionDragItem) => {
 			if (item.kind === "section") {
 				if (sectionId !== null || item.projectId !== projectId) return;
-				reorderProjectChildren.mutate(
-					{
+				try {
+					reorderProjectChildrenByIndex(
 						projectId,
-						fromIndex: item.originalIndex,
-						toIndex: item.index,
-					},
-					{
-						onError: (error: { message: string }) => {
-							void invalidateWorkspaceQueries(utils);
-							toast.error(`Failed to reorder project items: ${error.message}`);
-						},
-					},
-				);
+						item.originalIndex,
+						item.index,
+					);
+				} catch (error) {
+					toast.error(
+						`Failed to reorder project items: ${error instanceof Error ? error.message : String(error)}`,
+					);
+				}
 				if (item.originalIndex !== item.index) return { reordered: true };
 				return;
 			}
@@ -182,11 +145,13 @@ export function useWorkspaceDnD({
 				if (item.selectedIds && item.selectedIds.length > 1) {
 					bulkMoveToSection.mutate({
 						workspaceIds: item.selectedIds,
+						projectId,
 						sectionId,
 					});
 				} else {
 					moveToSection.mutate({
 						workspaceId: item.id,
+						projectId,
 						sectionId,
 					});
 				}

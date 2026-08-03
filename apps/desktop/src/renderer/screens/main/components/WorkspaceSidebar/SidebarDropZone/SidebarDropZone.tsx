@@ -4,7 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { LuFolderPlus, LuLoader, LuX } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useOpenProject } from "renderer/react-query/projects";
+import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
+import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 
 interface SidebarDropZoneProps {
 	children: ReactNode;
@@ -17,7 +18,14 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 	const [isDragOver, setIsDragOver] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const { openFromPath, isPending } = useOpenProject();
+	const folderImport = useFolderFirstImport({
+		onError: setError,
+		onMultipleProjects: ({ candidates }) =>
+			setError(
+				`Multiple projects use this repository (${candidates.length}). Open the project you want from settings to set it up on this device.`,
+			),
+	});
+	const { isPending, startAtPath } = folderImport;
 
 	useEffect(() => {
 		if (!error) return;
@@ -97,12 +105,9 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 			}
 
 			try {
-				const project = await openFromPath(filePath);
-				if (project) {
-					navigate({
-						to: "/project/$projectId",
-						params: { projectId: project.id },
-					});
+				const result = await startAtPath(filePath);
+				if (result?.mainWorkspaceId) {
+					await navigateToWorkspace(result.mainWorkspaceId, navigate);
 				}
 			} catch (err) {
 				setError(
@@ -110,7 +115,7 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 				);
 			}
 		},
-		[openFromPath, isPending, navigate, t],
+		[startAtPath, isPending, navigate, t],
 	);
 
 	return (
@@ -154,7 +159,7 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 					</motion.div>
 				)}
 
-				{isPending && !isDragOver && (
+				{folderImport.isPending && !isDragOver && (
 					<motion.div
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}

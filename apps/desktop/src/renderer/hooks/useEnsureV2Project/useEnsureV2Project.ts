@@ -3,6 +3,10 @@ import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { getHostServiceUnavailableMessage } from "renderer/lib/host-service-unavailable";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import {
+	beginProjectProvisioning,
+	createWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 
 export interface EnsureV2ProjectResult {
 	hostUrl: string;
@@ -35,9 +39,19 @@ export function useEnsureV2Project(): (args: {
 			const found = await hostService.project.findByPath.query({ repoPath });
 			const candidate = found.candidates[0];
 			if (candidate) {
-				const setupResult = await hostService.project.setup.mutate({
-					projectId: candidate.id,
-					mode: { kind: "import", repoPath },
+				const setupResult = await beginProjectProvisioning({
+					hostUrl: activeHostUrl,
+					adapter: createWorkspaceProvisioningAdapter(activeHostUrl),
+					request: {
+						idempotencyKey: `project-setup:${candidate.id}:${repoPath}`,
+						project: {
+							kind: "setup-existing",
+							projectId: candidate.id,
+							origin: { name },
+							mode: { kind: "import", path: repoPath },
+						},
+						source: { kind: "main" },
+					},
 				});
 				return {
 					hostUrl: activeHostUrl,
@@ -47,9 +61,19 @@ export function useEnsureV2Project(): (args: {
 				};
 			}
 
-			const created = await hostService.project.create.mutate({
-				name,
-				mode: { kind: "importLocal", repoPath },
+			const created = await beginProjectProvisioning({
+				hostUrl: activeHostUrl,
+				adapter: createWorkspaceProvisioningAdapter(activeHostUrl),
+				request: {
+					idempotencyKey: `project-import:${repoPath}`,
+					project: {
+						kind: "import",
+						path: repoPath,
+						name,
+						git: "require",
+					},
+					source: { kind: "main" },
+				},
 			});
 			return {
 				hostUrl: activeHostUrl,

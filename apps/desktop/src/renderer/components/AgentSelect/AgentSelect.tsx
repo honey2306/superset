@@ -66,7 +66,7 @@ export function AgentSelect<T extends string>({
 	const handleValueChange = (nextValue: string) => {
 		if (nextValue === CONFIGURE_AGENTS_VALUE) {
 			onBeforeConfigureAgents?.();
-			void navigate({ to: "/settings/agents" });
+			void navigate({ to: "/settings/terminal" });
 			return;
 		}
 

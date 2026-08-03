@@ -84,7 +84,7 @@ open apps/desktop/release
 
 ```bash
 bun dev                # Start all dev servers
-bun test               # Run tests
+bun run test           # Run tests (turbo, with each package's preload)
 bun run lint:fix       # Fix lint + format
 bun run typecheck      # Type-check all packages
 bun run build          # Build all packages

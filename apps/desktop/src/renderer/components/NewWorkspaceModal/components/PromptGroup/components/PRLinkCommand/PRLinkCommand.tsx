@@ -8,12 +8,14 @@ import {
 	CommandList,
 } from "@superset/ui/command";
 import { Popover, PopoverAnchor, PopoverContent } from "@superset/ui/popover";
+import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 import type { RefObject } from "react";
 import { useId, useMemo, useState } from "react";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import {
 	PRIcon,
 	type PRState,
@@ -64,6 +66,7 @@ export function PRLinkCommand({
 	anchorRef,
 }: PRLinkCommandProps) {
 	const { t } = useTranslation();
+	const { activeHostUrl } = useLocalHostService();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [showClosed, setShowClosed] = useState(false);
 	const showClosedId = useId();
@@ -101,44 +104,41 @@ export function PRLinkCommand({
 			: parsedPullRequestUrl.prNumber
 		: debouncedTrimmed;
 
-	// Fetch recent PRs for browsing (only when no search query)
-	const { data: recentPRs, isLoading: isLoadingRecent } =
-		electronTrpc.projects.listPullRequests.useQuery(
-			{ projectId: projectId ?? "", includeClosed: showClosed },
-			{ enabled: !!projectId && open && !debouncedTrimmed },
-		);
-
-	// Server-side search when user types (use debounced for RPC)
-	const { data: searchResults, isLoading: isSearching } =
-		electronTrpc.projects.searchPullRequests.useQuery(
-			{
-				projectId: projectId ?? "",
-				query: effectiveQuery,
+	const { data, isFetching, error } = useQuery({
+		queryKey: [
+			"workspaceCreation",
+			"searchPullRequests",
+			projectId,
+			activeHostUrl,
+			effectiveQuery,
+			showClosed,
+		],
+		queryFn: async () => {
+			if (!activeHostUrl || !projectId) return null;
+			return getHostServiceClientByUrl(
+				activeHostUrl,
+			).workspaceCreation.searchPullRequests.query({
+				projectId,
+				query: effectiveQuery || undefined,
+				limit: 30,
 				includeClosed: showClosed,
-			},
-			{
-				enabled:
-					!!projectId && open && !!effectiveQuery && !isCrossRepositoryUrl,
-			},
-		);
+			});
+		},
+		enabled: !!projectId && !!activeHostUrl && open && !isCrossRepositoryUrl,
+		retry: false,
+	});
 
 	const pullRequests = useMemo(() => {
 		if (isCrossRepositoryUrl) {
 			return [];
 		}
-
-		// Use debounced value for mode decision to avoid empty gap
-		if (debouncedTrimmed) {
-			return searchResults ?? [];
-		}
-		return recentPRs ?? [];
-	}, [debouncedTrimmed, isCrossRepositoryUrl, searchResults, recentPRs]);
+		return data?.pullRequests ?? [];
+	}, [data?.pullRequests, isCrossRepositoryUrl]);
 
 	const isLoading = isCrossRepositoryUrl
 		? false
-		: debouncedTrimmed
-			? isSearching || isPendingDebounce
-			: isLoadingRecent;
+		: isFetching || isPendingDebounce;
+	const repoMismatch = data?.repoMismatch ?? null;
 
 	const handleClose = () => {
 		setSearchQuery("");
@@ -193,15 +193,21 @@ export function PRLinkCommand({
 									? debouncedTrimmed
 										? t("workspace.searching")
 										: t("workspace.loadingPullRequests")
-									: isCrossRepositoryUrl
-										? t("workspace.prRepoMismatch", {
-												repository: selectedRepositoryLabel ?? "",
-											})
-										: debouncedTrimmed
-											? t("workspace.noPullRequests")
-											: showClosed
-												? t("workspace.noPullRequests")
-												: t("workspace.noOpenPullRequests")}
+									: error instanceof Error
+										? error.message
+										: repoMismatch
+											? t("workspace.prRepoMismatch", {
+													repository: repoMismatch,
+												})
+											: isCrossRepositoryUrl
+												? t("workspace.prRepoMismatch", {
+														repository: selectedRepositoryLabel ?? "",
+													})
+												: debouncedTrimmed
+													? t("workspace.noPullRequests")
+													: showClosed
+														? t("workspace.noPullRequests")
+														: t("workspace.noOpenPullRequests")}
 							</CommandEmpty>
 						)}
 						{pullRequests.length > 0 && (

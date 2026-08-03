@@ -10,6 +10,7 @@ import {
 } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { usePresets } from "renderer/react-query/presets";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { requestTabClose } from "renderer/stores/editor-state/editorCoordinator";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTabsWithPresets } from "renderer/stores/tabs/useTabsWithPresets";
@@ -42,10 +43,7 @@ export function GroupStrip() {
 	const setPaneStatus = useTabsStore((s) => s.setPaneStatus);
 
 	const navigate = useNavigate();
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: activeWorkspaceId ?? "" },
-		{ enabled: !!activeWorkspaceId },
-	);
+	const { workspace } = useCatalogWorkspace(activeWorkspaceId);
 	const { addTab, openPreset } = useTabsWithPresets(workspace?.projectId);
 	const { matchedPresets: presets } = usePresets(workspace?.projectId);
 

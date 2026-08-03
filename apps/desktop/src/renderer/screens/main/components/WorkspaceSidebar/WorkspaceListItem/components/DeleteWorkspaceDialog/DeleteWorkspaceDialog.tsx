@@ -11,18 +11,22 @@ import { Checkbox } from "@superset/ui/checkbox";
 import { Label } from "@superset/ui/label";
 import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useDestroyWorkspace } from "renderer/hooks/host-service/useDestroyWorkspace/useDestroyWorkspace";
+import {
+	disposeHostSessionsForWorkspace,
+	toastDisposeFailures,
+} from "renderer/lib/dispose-host-sessions";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import {
-	useCloseWorkspace,
-	useDeleteWorkspace,
-} from "renderer/react-query/workspaces";
 import { deleteWithToast } from "renderer/routes/_authenticated/components/TeardownLogsDialog";
+import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { focusPrimaryDialogAction } from "./focus-primary-dialog-action";
-
-const DELETE_STATUS_STALE_TIME_MS = 5_000;
-const TERMINAL_COUNT_STALE_TIME_MS = 1_000;
 
 interface DeleteWorkspaceDialogProps {
 	workspaceId: string;
@@ -40,9 +44,30 @@ export function DeleteWorkspaceDialog({
 	onOpenChange,
 }: DeleteWorkspaceDialogProps) {
 	const { t } = useTranslation();
+	const navigate = useNavigate();
+	const params = useParams({ strict: false });
 	const isBranch = workspaceType === "branch";
-	const deleteWorkspace = useDeleteWorkspace();
-	const closeWorkspace = useCloseWorkspace();
+	const destroyWorkspace = useDestroyWorkspace(workspaceId);
+	const electronUtils = electronTrpc.useUtils();
+	const { hideWorkspaceInSidebar } = useDashboardSidebarState();
+	const { workspaces: hostWorkspaces } = useHostWorkspaces();
+	const { activeHostUrl } = useLocalHostService();
+	const { workspace: catalogWorkspace } = useCatalogWorkspace(workspaceId);
+	const workspaceProjectId =
+		catalogWorkspace?.projectId ??
+		hostWorkspaces.find((workspace) => workspace.id === workspaceId)?.projectId;
+	const ownerHostUrl =
+		destroyWorkspace.hostTarget.status === "ready"
+			? destroyWorkspace.hostTarget.url
+			: destroyWorkspace.hostTarget.status === "not-found"
+				? activeHostUrl
+				: null;
+	const ownerHostReady = ownerHostUrl !== null;
+	const hostInspectQuery = useQuery({
+		queryKey: ["workspace-cleanup-inspect", ownerHostUrl, workspaceId],
+		enabled: open && ownerHostReady,
+		queryFn: () => destroyWorkspace.inspect(),
+	});
 	const setDeleteLocalBranchSetting =
 		electronTrpc.settings.setDeleteLocalBranch.useMutation();
 
@@ -57,56 +82,37 @@ export function DeleteWorkspaceDialog({
 	const deleteLocalBranchChecked =
 		deleteLocalBranch ?? deleteLocalBranchDefault ?? false;
 
-	const { data: gitStatusData, isLoading: isLoadingGitStatus } =
-		electronTrpc.workspaces.canDelete.useQuery(
-			{ id: workspaceId },
-			{
-				enabled: open,
-				staleTime: DELETE_STATUS_STALE_TIME_MS,
-				refetchOnWindowFocus: false,
-			},
-		);
-
-	const { data: terminalCountData } =
-		electronTrpc.workspaces.canDelete.useQuery(
-			{ id: workspaceId, skipGitChecks: true },
-			{
-				enabled: open,
-				refetchInterval: open ? 2000 : false,
-				staleTime: TERMINAL_COUNT_STALE_TIME_MS,
-				refetchOnWindowFocus: false,
-			},
-		);
-
-	const canDeleteData = gitStatusData
-		? {
-				...gitStatusData,
-				activeTerminalCount:
-					terminalCountData?.activeTerminalCount ??
-					gitStatusData.activeTerminalCount,
-			}
-		: terminalCountData;
-	const isLoading = isLoadingGitStatus;
+	const canDeleteData = hostInspectQuery.data;
+	const isLoading = !ownerHostReady || hostInspectQuery.isLoading;
 
 	const handleClose = useCallback(() => {
 		onOpenChange(false);
 
-		toast.promise(closeWorkspace.mutateAsync({ id: workspaceId }), {
-			loading: t("workspace.hiding"),
-			success: (result) => {
-				if (result.terminalWarning) {
-					setTimeout(() => {
-						toast.warning(t("workspace.terminalWarning"), {
-							description: result.terminalWarning,
-						});
-					}, 100);
-				}
-				return t("workspace.hidden");
-			},
-			error: (error) =>
-				error instanceof Error ? error.message : t("workspace.hideFailed"),
-		});
-	}, [onOpenChange, closeWorkspace, workspaceId, t]);
+		if (workspaceProjectId) {
+			hideWorkspaceInSidebar(workspaceId, workspaceProjectId);
+			if (params.workspaceId === workspaceId) {
+				void navigate({ to: "/workspace" });
+			}
+
+			const retryDispose = () =>
+				disposeHostSessionsForWorkspace(electronUtils, workspaceId);
+			void retryDispose().then((result) =>
+				toastDisposeFailures(result, retryDispose),
+			);
+			toast.success(t("workspace.hidden"));
+			return;
+		}
+		toast.error(t("workspace.hideFailed"));
+	}, [
+		electronUtils,
+		hideWorkspaceInSidebar,
+		navigate,
+		onOpenChange,
+		params.workspaceId,
+		t,
+		workspaceId,
+		workspaceProjectId,
+	]);
 
 	const handleDelete = useCallback(async () => {
 		onOpenChange(false);
@@ -115,27 +121,33 @@ export function DeleteWorkspaceDialog({
 			enabled: deleteLocalBranchChecked,
 		});
 
-		await deleteWithToast({
+		const deleteFn = () =>
+			destroyWorkspace.destroy({
+				deleteBranch: deleteLocalBranchChecked,
+				force: false,
+			});
+		const forceDeleteFn = () =>
+			destroyWorkspace.destroy({
+				deleteBranch: deleteLocalBranchChecked,
+				force: true,
+			});
+		const deleted = await deleteWithToast({
 			name: workspaceName,
-			deleteFn: () =>
-				deleteWorkspace.mutateAsync({
-					id: workspaceId,
-					deleteLocalBranch: deleteLocalBranchChecked,
-				}),
-			forceDeleteFn: () =>
-				deleteWorkspace.mutateAsync({
-					id: workspaceId,
-					deleteLocalBranch: deleteLocalBranchChecked,
-					force: true,
-				}),
+			deleteFn,
+			forceDeleteFn,
 		});
+		if (deleted && params.workspaceId === workspaceId) {
+			void navigate({ to: "/workspace" });
+		}
 	}, [
 		onOpenChange,
 		setDeleteLocalBranchSetting,
 		deleteLocalBranchChecked,
 		workspaceName,
-		deleteWorkspace,
 		workspaceId,
+		destroyWorkspace,
+		navigate,
+		params.workspaceId,
 	]);
 
 	const canDelete = canDeleteData?.canDelete ?? true;

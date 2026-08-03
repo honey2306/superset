@@ -20,7 +20,7 @@ Bun + Turbo monorepo: `apps/` (web, marketing, admin, api, desktop, docs, mobile
 
 ## Common Commands
 
-Standard scripts live in the root `package.json` (`bun dev`, `bun test`, `bun run lint:fix`, `bun run typecheck`, ...).
+Standard scripts live in the root `package.json` (`bun dev`, `bun run test`, `bun run lint:fix`, `bun run typecheck`, ...). Use `bun run test` (not bare `bun test`) so Turbo runs each package with its own preload — bare `bun test` mixes every package into one Bun process and produces spurious cross-package failures.
 
 ```bash
 # Releases (desktop + host-service + cli share one version; see scripts/release/README.md)

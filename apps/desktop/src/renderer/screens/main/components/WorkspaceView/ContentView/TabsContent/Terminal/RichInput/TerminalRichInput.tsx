@@ -14,6 +14,7 @@ import { useBinding, useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { prepareTerminalSubmission } from "./prepareTerminalSubmission";
 import { TerminalPaneIcon } from "./TerminalPaneIcon";
 
@@ -73,13 +74,10 @@ function TerminalRichInputInner({
 	const binding = useBinding("TOGGLE_TERMINAL_RICH_INPUT");
 	const hotkeyText = useHotkeyDisplay("TOGGLE_TERMINAL_RICH_INPUT").text;
 
-	// Deduped with the page-level workspaces.get query; provides the cwd the
-	// mention popover uses to shorten paths.
-	const { data: workspaceStatus } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId },
-		{ refetchOnWindowFocus: false, retry: false },
-	);
-	const cwd = workspaceStatus?.worktreePath ?? "";
+	// Catalog projection provides the cwd the mention popover uses to shorten
+	// paths without another Electron Workspace identity query.
+	const { workspace } = useCatalogWorkspace(workspaceId);
+	const cwd = workspace?.worktreePath ?? "";
 
 	const trpcUtils = electronTrpc.useUtils();
 	const searchFiles = useCallback(

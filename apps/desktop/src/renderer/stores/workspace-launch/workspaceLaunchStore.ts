@@ -4,10 +4,10 @@
  * operations. Sits on top of a `ProvisioningAdapter`; production wires the
  * tRPC Adapter, tests inject the in-memory one.
  *
- * This store deliberately does not replace `useWorkspaceCreates` at M3 —
- * that swap lands in M4 once all four callers migrate. What M3 delivers
- * is the machinery: a single Interface every caller can migrate to, with
- * reconciliation on reconnect and idempotent re-invocation.
+ * Dashboard and task callers may translate their local form state into the
+ * request shape, but all canonical creation work goes through this store and
+ * the Provisioning adapter. Reconciliation on reconnect and idempotent
+ * re-invocation are the only durable client responsibilities.
  */
 import type {
 	ProvisioningAdapter,
@@ -143,4 +143,15 @@ export function selectPendingOperation(
 ): WorkspaceOperation | null {
 	const id = state.pendingByKey[idempotencyKey];
 	return id ? (state.operations[id] ?? null) : null;
+}
+
+export function selectOperationForWorkspace(
+	state: WorkspaceLaunchState,
+	workspaceId: string,
+): WorkspaceOperation | null {
+	return (
+		Object.values(state.operations)
+			.filter((operation) => operation.workspaceId === workspaceId)
+			.sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+	);
 }

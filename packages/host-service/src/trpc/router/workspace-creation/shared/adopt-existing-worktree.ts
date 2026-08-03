@@ -39,8 +39,7 @@ export interface AdoptExistingWorktreeArgs {
 export interface AdoptExistingWorktreeResult {
 	workspace: AdoptedWorkspace;
 	/** True when an existing row was reused; false when a new row was
-	 *  created in this call. Used by `workspaces.create` to decide whether
-	 *  to dispatch setup terminal + sugar agents. */
+	 *  created in this call. Used by provisioning to track source ownership. */
 	alreadyExists: boolean;
 }
 

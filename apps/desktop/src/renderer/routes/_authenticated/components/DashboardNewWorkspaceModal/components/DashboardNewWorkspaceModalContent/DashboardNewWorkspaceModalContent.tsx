@@ -35,11 +35,15 @@ export function DashboardNewWorkspaceModalContent({
 			hostProjects.map((project) => ({
 				id: project.projectKey,
 				name: project.name,
+				color: "hsl(var(--primary))",
 				githubOwner: project.repoOwner,
 				githubRepoName: project.repoName,
 				iconUrl: project.repoOwner
 					? `https://github.com/${project.repoOwner}.png?size=64`
 					: null,
+				hideImage: false,
+				mainRepoPath: project.repoPath ?? "",
+				workspaceBaseBranch: null,
 				needsSetup:
 					setUpProjectIds === null
 						? null

@@ -17,11 +17,25 @@ export interface UseCatalogWorkspacesResult {
 	isReady: boolean;
 }
 
+function compareWorkspaces(
+	a: WorkspaceProjection,
+	b: WorkspaceProjection,
+): number {
+	return a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+}
+
 /** All workspaces across every project this host serves. Order stable
  *  by (createdAt, id) inside the projection map iteration. */
 export function useCatalogWorkspaces(): UseCatalogWorkspacesResult {
 	const { workspaces, isReady } = useWorkspaceCatalog();
-	return useMemo(() => ({ workspaces, isReady }), [workspaces, isReady]);
+	const orderedWorkspaces = useMemo(
+		() => [...workspaces].sort(compareWorkspaces),
+		[workspaces],
+	);
+	return useMemo(
+		() => ({ workspaces: orderedWorkspaces, isReady }),
+		[orderedWorkspaces, isReady],
+	);
 }
 
 /** Every workspace belonging to a specific project. */
@@ -31,7 +45,9 @@ export function useCatalogWorkspacesByProject(
 	const { workspaces, isReady } = useWorkspaceCatalog();
 	const filtered = useMemo(() => {
 		if (!projectId) return [];
-		return workspaces.filter((ws) => ws.projectId === projectId);
+		return workspaces
+			.filter((ws) => ws.projectId === projectId)
+			.sort(compareWorkspaces);
 	}, [workspaces, projectId]);
 	return { workspaces: filtered, isReady };
 }
@@ -103,9 +119,9 @@ export function useCatalogWorkspaceNeighbours(
 		if (idx === -1) return { previous: null, next: null };
 		const anchor = workspaces[idx];
 		if (!anchor) return { previous: null, next: null };
-		const sameProject = workspaces.filter(
-			(w) => w.projectId === anchor.projectId,
-		);
+		const sameProject = workspaces
+			.filter((w) => w.projectId === anchor.projectId)
+			.sort(compareWorkspaces);
 		const positionInProject = sameProject.findIndex(
 			(w) => w.id === workspaceId,
 		);

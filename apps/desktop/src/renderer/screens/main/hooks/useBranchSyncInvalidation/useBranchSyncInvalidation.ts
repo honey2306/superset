@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useWorkspaceHostTarget } from "renderer/hooks/host-service/useWorkspaceHostUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 
 export function useBranchSyncInvalidation({
 	gitBranch,
@@ -10,49 +11,32 @@ export function useBranchSyncInvalidation({
 	workspaceBranch: string | undefined;
 	workspaceId: string;
 }) {
-	const utils = electronTrpc.useUtils();
-	const { mutate } = electronTrpc.workspaces.syncBranch.useMutation();
+	const hostTarget = useWorkspaceHostTarget(workspaceId);
+	const hostUrl = hostTarget.status === "ready" ? hostTarget.url : null;
 	const syncingRef = useRef<string | null>(null);
 
 	const doSync = useCallback(
-		(branch: string) => {
-			mutate(
-				{ workspaceId, branch },
-				{
-					onSuccess: (result) => {
-						if (!result.success || !("changed" in result) || !result.changed) {
-							syncingRef.current = null;
-							return;
-						}
-
-						utils.workspaces.getAllGrouped.setData(undefined, (oldData) => {
-							if (!oldData) return oldData;
-							return oldData.map((group) => ({
-								...group,
-								workspaces: group.workspaces.map((ws) =>
-									ws.id === workspaceId ? { ...ws, branch } : ws,
-								),
-								sections: group.sections.map((section) => ({
-									...section,
-									workspaces: section.workspaces.map((ws) =>
-										ws.id === workspaceId ? { ...ws, branch } : ws,
-									),
-								})),
-							}));
-						});
-
-						utils.workspaces.get.invalidate({ id: workspaceId });
-						utils.workspaces.getWorktreeInfo.invalidate({
-							workspaceId,
-						});
-					},
-					onError: () => {
-						syncingRef.current = null;
-					},
-				},
-			);
+		async (branch: string) => {
+			if (!hostUrl) {
+				syncingRef.current = null;
+				return;
+			}
+			try {
+				await getHostServiceClientByUrl(hostUrl).workspace.update.mutate({
+					id: workspaceId,
+					branch,
+				});
+			} catch (error) {
+				console.warn("Failed to sync workspace branch with host", {
+					workspaceId,
+					branch,
+					error,
+				});
+			} finally {
+				syncingRef.current = null;
+			}
 		},
-		[mutate, workspaceId, utils],
+		[hostUrl, workspaceId],
 	);
 
 	useEffect(() => {

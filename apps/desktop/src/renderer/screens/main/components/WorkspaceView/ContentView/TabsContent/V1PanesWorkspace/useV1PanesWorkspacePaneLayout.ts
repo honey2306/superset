@@ -2,8 +2,8 @@ import { createWorkspaceStore, type WorkspaceState } from "@superset/panes";
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useEffect, useMemo, useRef } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import {
 	createPaneLayoutSyncer,
@@ -62,11 +62,8 @@ export function useV1PanesWorkspacePaneLayout(workspaceId: string) {
 		[workspaceId],
 	);
 	const { store } = workspaceRuntime;
+	const { workspace } = useCatalogWorkspace(workspaceId);
 
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId },
-		{ enabled: Boolean(workspaceId) },
-	);
 	const { data: localWorkspaceRows = [], isReady: isLayoutReady } =
 		useLiveQuery(
 			(query) =>

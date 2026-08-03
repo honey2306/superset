@@ -44,8 +44,8 @@ export function markRefetchRemote(projectId: string): void {
 // picker shows everything git would. `checkedOutBranches` disables
 // Checkout when a branch is already in use elsewhere. Prunable entries
 // (dir deleted without `git worktree remove`) are filtered: not valid
-// adoption targets, and `workspaces.create` runs `git worktree prune`
-// before re-adding so the branch is freed.
+// adoption targets; provisioning reconciles prunable entries before creating
+// a replacement worktree.
 export async function listWorktreeBranches(git: GitClient): Promise<{
 	worktreeMap: Map<string, string>;
 	checkedOutBranches: Set<string>;

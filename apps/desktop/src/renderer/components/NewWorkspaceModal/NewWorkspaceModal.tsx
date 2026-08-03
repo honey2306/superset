@@ -13,7 +13,7 @@ import { toast } from "@superset/ui/sonner";
 import { useEffect, useRef } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useOpenProject } from "renderer/react-query/projects";
+import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
 import { useOpenNewProjectModal } from "renderer/stores/add-repository-modal";
 import {
 	useCloseNewWorkspaceModal,
@@ -47,7 +47,10 @@ export function NewWorkspaceModal() {
 	const { t } = useTranslation();
 	const isOpen = useNewWorkspaceModalOpen();
 	const closeModal = useCloseNewWorkspaceModal();
-	const { openNew } = useOpenProject();
+	const folderImport = useFolderFirstImport({
+		onError: (message) =>
+			toast.error(t("workspace.openFailed"), { description: message }),
+	});
 	const openNewProject = useOpenNewProjectModal();
 	const preSelectedProjectId = usePreSelectedProjectId();
 
@@ -56,14 +59,8 @@ export function NewWorkspaceModal() {
 
 	const handleImportRepo = async () => {
 		closeModal();
-		try {
-			await openNew();
-		} catch (error) {
-			toast.error(t("workspace.openFailed"), {
-				description:
-					error instanceof Error ? error.message : t("workspace.unknownError"),
-			});
-		}
+		const result = await folderImport.start();
+		if (result) toast.success(t("project.created"));
 	};
 
 	const handleNewProject = () => {

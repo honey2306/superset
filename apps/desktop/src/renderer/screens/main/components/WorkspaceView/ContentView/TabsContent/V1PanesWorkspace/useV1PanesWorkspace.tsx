@@ -14,10 +14,10 @@ import {
 	LuPower,
 } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
 import { HostServiceTerminalPane } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/HostServiceTerminalPane";
 import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
@@ -93,10 +93,7 @@ function useV1PanesRegistry(
 	workspaceId: string,
 ): PaneRegistry<V1PanesPaneData> {
 	const { t } = useTranslation();
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId },
-		{ enabled: !!workspaceId },
-	);
+	const { workspace } = useCatalogWorkspace(workspaceId);
 	const { hostUrl, hostWorkspaceId } = useHostServiceTerminal({
 		workspaceId,
 		worktreePath: workspace?.worktreePath,

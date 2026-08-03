@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuFile, LuFolder } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import {
@@ -144,14 +145,10 @@ async function restoreExpandedDirectories(
 export function FilesView() {
 	const { t } = useTranslation();
 	const { workspaceId } = useParams({ strict: false });
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId ?? "" },
-		{ enabled: !!workspaceId },
-	);
+	const { workspace } = useCatalogWorkspace(workspaceId);
 	const worktreePath = workspace?.worktreePath;
-
 	const [searchTerm, setSearchTerm] = useState("");
-	const projectId = workspace?.project?.id;
+	const projectId = workspace?.projectId;
 
 	// Refs avoid stale closure in dataLoader callbacks
 	const worktreePathRef = useRef(worktreePath);

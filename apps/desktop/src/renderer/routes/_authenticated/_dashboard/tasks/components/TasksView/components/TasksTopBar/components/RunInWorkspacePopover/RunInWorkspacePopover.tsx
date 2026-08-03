@@ -26,6 +26,7 @@ import { AgentSelect } from "renderer/components/AgentSelect";
 import { useAgentLaunchPreferences } from "renderer/hooks/useAgentLaunchPreferences";
 import { launchAgentSession } from "renderer/lib/agent-session-orchestrator";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { ProjectThumbnail } from "renderer/screens/main/components/WorkspaceSidebar/ProjectSection/ProjectThumbnail";
 import {
 	useWorkspaceLaunch,
@@ -59,6 +60,7 @@ export function RunInWorkspacePopover({
 	tasks,
 	onComplete,
 }: RunInWorkspacePopoverProps) {
+	const { activeHostUrl } = useLocalHostService();
 	const { data: recentProjects = [] } =
 		electronTrpc.projects.getRecents.useQuery();
 	const provisioningAdapter = useWorkspaceProvisioningAdapter();
@@ -219,6 +221,7 @@ export function RunInWorkspacePopover({
 					};
 					const launchResult = await launchAgentSession(launchRequest, {
 						source: "open-in-workspace",
+						hostUrl: activeHostUrl ?? undefined,
 						createOrAttach: (input) =>
 							terminalCreateOrAttach.mutateAsync(input),
 						write: (input) => terminalWrite.mutateAsync(input),

@@ -20,6 +20,7 @@ import type {
 
 export type {
 	InitialLaunchResult,
+	InitialSessionIntent,
 	ProvisionWorkspaceRequest,
 	WorkspaceOperation,
 	WorkspaceOperationState,

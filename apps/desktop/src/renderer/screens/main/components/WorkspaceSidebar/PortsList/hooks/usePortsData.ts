@@ -7,6 +7,7 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useCatalogWorkspaces } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import type { EnrichedPort } from "shared/types";
 
 const PORTS_FALLBACK_REFETCH_INTERVAL_MS = 10_000;
@@ -27,16 +28,7 @@ function normalizePath(path: string): string {
 }
 
 export function usePortsData() {
-	const { data: workspaceGroups } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
-	const allWorkspaces = useMemo(
-		() =>
-			workspaceGroups?.flatMap((group) => [
-				...group.workspaces,
-				...group.sections.flatMap((section) => section.workspaces),
-			]),
-		[workspaceGroups],
-	);
+	const { workspaces: allWorkspaces } = useCatalogWorkspaces();
 	const hostEnabled =
 		useFeatureFlagEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ?? false;
 	const { activeHostUrl } = useLocalHostService();
@@ -60,16 +52,16 @@ export function usePortsData() {
 			[
 				"v1-host-service-ports",
 				activeHostUrl,
-				allWorkspaces?.map((workspace) => workspace.id),
+				allWorkspaces.map((workspace) => workspace.id),
 			] as const,
 		[activeHostUrl, allWorkspaces],
 	);
 	const { data: hostPorts = [] } = useQuery({
 		queryKey: hostQueryKey,
-		enabled: hostEnabled && Boolean(activeHostUrl && allWorkspaces?.length),
+		enabled: hostEnabled && Boolean(activeHostUrl && allWorkspaces.length),
 		refetchInterval: PORTS_FALLBACK_REFETCH_INTERVAL_MS,
 		queryFn: async (): Promise<V1WorkspacePort[]> => {
-			if (!activeHostUrl || !allWorkspaces) return [];
+			if (!activeHostUrl || allWorkspaces.length === 0) return [];
 			const client = getHostServiceClientByUrl(activeHostUrl);
 			const hostWorkspaces = await client.workspace.list.query();
 			const v1ByPath = new Map(
@@ -125,7 +117,6 @@ export function usePortsData() {
 	);
 
 	const workspaceNames = useMemo(() => {
-		if (!allWorkspaces) return {};
 		return allWorkspaces.reduce(
 			(acc, ws) => {
 				acc[ws.id] = ws.name;

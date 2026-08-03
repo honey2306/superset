@@ -1,7 +1,6 @@
-import { existsSync } from "node:fs";
 import type { GitHubStatus } from "@superset/local-db";
-import { workspaces, worktrees } from "@superset/local-db";
-import { and, eq, isNull } from "drizzle-orm";
+import { worktrees } from "@superset/local-db";
+import { eq } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
 import { publicProcedure, router } from "../../..";
@@ -15,7 +14,6 @@ import {
 	fetchDefaultBranch,
 	getAheadBehindCount,
 	getDefaultBranch,
-	listExternalWorktrees,
 	refreshDefaultBranch,
 } from "../utils/git";
 import {
@@ -25,7 +23,6 @@ import {
 	type PullRequestCommentsTarget,
 	resolveReviewThread,
 } from "../utils/github";
-import { selectExternalWorktreesForImport } from "../utils/select-external-worktrees-for-import";
 import { getWorkspacePath } from "../utils/worktree";
 
 const gitHubPRCommentsInputSchema = z.object({
@@ -307,95 +304,6 @@ export const createGitStatusProcedures = () => {
 					gitStatus: worktree.gitStatus ?? null,
 					githubStatus: worktree.githubStatus ?? null,
 				};
-			}),
-
-		getWorktreesByProject: publicProcedure
-			.input(z.object({ projectId: z.string() }))
-			.query(({ input }) => {
-				const projectWorktrees = localDb
-					.select()
-					.from(worktrees)
-					.where(eq(worktrees.projectId, input.projectId))
-					.all();
-
-				return projectWorktrees.map((wt) => {
-					const workspace = localDb
-						.select()
-						.from(workspaces)
-						.where(
-							and(
-								eq(workspaces.worktreeId, wt.id),
-								isNull(workspaces.deletingAt),
-							),
-						)
-						.get();
-					return {
-						...wt,
-						hasActiveWorkspace: workspace !== undefined,
-						existsOnDisk: existsSync(wt.path),
-						workspace: workspace ?? null,
-					};
-				});
-			}),
-
-		getExternalWorktrees: publicProcedure
-			.input(z.object({ projectId: z.string() }))
-			.query(async ({ input }) => {
-				const project = getProject(input.projectId);
-				if (!project) {
-					return [];
-				}
-
-				const allWorktrees = await listExternalWorktrees(project.mainRepoPath);
-				const trackedWorktrees = localDb
-					.select({
-						id: worktrees.id,
-						path: worktrees.path,
-						branch: worktrees.branch,
-					})
-					.from(worktrees)
-					.where(eq(worktrees.projectId, input.projectId))
-					.all();
-				const activeWorkspaceRows = localDb
-					.select({ id: workspaces.id, worktreeId: workspaces.worktreeId })
-					.from(workspaces)
-					.where(
-						and(
-							eq(workspaces.projectId, input.projectId),
-							isNull(workspaces.deletingAt),
-						),
-					)
-					.all();
-				const activeWorktreeIds = new Set(
-					activeWorkspaceRows
-						.map((workspace) => workspace.worktreeId)
-						.filter((worktreeId): worktreeId is string => Boolean(worktreeId)),
-				);
-
-				return selectExternalWorktreesForImport(allWorktrees, {
-					mainRepoPath: project.mainRepoPath,
-				}).map((wt) => {
-					const trackedWorktree =
-						trackedWorktrees.find((worktree) => worktree.path === wt.path) ??
-						null;
-					const activeWorkspace = trackedWorktree
-						? activeWorkspaceRows.find(
-								(workspace) => workspace.worktreeId === trackedWorktree.id,
-							)
-						: null;
-
-					return {
-						path: wt.path,
-						// biome-ignore lint/style/noNonNullAssertion: filtered above
-						branch: wt.branch!,
-						trackedWorktreeId: trackedWorktree?.id ?? null,
-						trackedBranch: trackedWorktree?.branch ?? null,
-						activeWorkspaceId: activeWorkspace?.id ?? null,
-						hasActiveWorkspace: trackedWorktree
-							? activeWorktreeIds.has(trackedWorktree.id)
-							: false,
-					};
-				});
 			}),
 	});
 };

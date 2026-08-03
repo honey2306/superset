@@ -12,16 +12,15 @@ import { Label } from "@superset/ui/label";
 import { toast } from "@superset/ui/sonner";
 import { useEffect, useState } from "react";
 import { LuFolderOpen, LuLoaderCircle } from "react-icons/lu";
-import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import {
-	useCreateV1Project,
-	useFinalizeProjectSetup,
-} from "renderer/react-query/projects";
+import { useFinalizeProjectSetup } from "renderer/react-query/projects";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import {
+	beginProjectProvisioning,
+	createWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 
 interface NewProjectModalProps {
 	open: boolean;
@@ -47,11 +46,9 @@ export function NewProjectModal({
 	onError,
 }: NewProjectModalProps) {
 	const { t } = useTranslation();
-	const isV2CloudEnabled = useIsV2CloudEnabled();
 	const hostService = useLocalHostService();
 	const { activeHostUrl } = hostService;
 	const finalizeSetup = useFinalizeProjectSetup();
-	const createV1Project = useCreateV1Project();
 	const selectDirectory = electronTrpc.window.selectDirectory.useMutation();
 	const { data: homeDir } = electronTrpc.window.getHomeDir.useQuery();
 
@@ -112,17 +109,6 @@ export function NewProjectModal({
 
 		setWorking(true);
 		try {
-			if (!isV2CloudEnabled) {
-				const projectId = await createV1Project.cloneFromUrl({
-					url: trimmedUrl,
-					parentDir: trimmedParent,
-				});
-				if (!projectId) return;
-				onSuccess?.({ projectId });
-				reset();
-				onOpenChange(false);
-				return;
-			}
 			if (!activeHostUrl) {
 				showHostServiceUnavailableToast(hostService, t, {
 					action: t("project.cloneRepositoryAction"),
@@ -134,10 +120,19 @@ export function NewProjectModal({
 				toast.error(t("project.nameRequired"));
 				return;
 			}
-			const client = getHostServiceClientByUrl(activeHostUrl);
-			const result = await client.project.create.mutate({
-				name: trimmedName,
-				mode: { kind: "clone", parentDir: trimmedParent, url: trimmedUrl },
+			const result = await beginProjectProvisioning({
+				hostUrl: activeHostUrl,
+				adapter: createWorkspaceProvisioningAdapter(activeHostUrl),
+				request: {
+					idempotencyKey: `project-clone:${trimmedUrl}:${trimmedParent}:${trimmedName}`,
+					project: {
+						kind: "clone",
+						url: trimmedUrl,
+						parentDirectory: trimmedParent,
+						name: trimmedName,
+					},
+					source: { kind: "main" },
+				},
 			});
 			finalizeSetup(activeHostUrl, result);
 			onSuccess?.({ projectId: result.projectId });
@@ -190,23 +185,21 @@ export function NewProjectModal({
 						/>
 					</div>
 
-					{isV2CloudEnabled && (
-						<div className="flex flex-col gap-1.5">
-							<Label htmlFor="project-name" className="text-xs">
-								{t("project.projectName")}
-							</Label>
-							<Input
-								id="project-name"
-								value={name}
-								onChange={(e) => {
-									setName(e.target.value);
-									setNameTouched(true);
-								}}
-								placeholder={t("project.projectNamePlaceholder")}
-								disabled={working}
-							/>
-						</div>
-					)}
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor="project-name" className="text-xs">
+							{t("project.projectName")}
+						</Label>
+						<Input
+							id="project-name"
+							value={name}
+							onChange={(e) => {
+								setName(e.target.value);
+								setNameTouched(true);
+							}}
+							placeholder={t("project.projectNamePlaceholder")}
+							disabled={working}
+						/>
+					</div>
 
 					<div className="flex flex-col gap-1.5">
 						<Label htmlFor="project-path" className="text-xs">

@@ -1,58 +1,62 @@
 import { useNavigate } from "@tanstack/react-router";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useCallback, useState } from "react";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
-import { useWorkspaceInitStore } from "renderer/stores/workspace-init";
-import type { WorkspaceInitProgress } from "shared/types/workspace-init";
+import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import {
+	useWorkspaceLaunch,
+	useWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
+import { launchesToPaneLayoutInputs } from "renderer/stores/workspace-launch/request";
+import { writeWorkspacePaneLayout } from "renderer/stores/workspace-launch/writeWorkspacePaneLayout";
 
-export function useOpenMainRepoWorkspace(
-	options?: Parameters<
-		typeof electronTrpc.workspaces.openMainRepoWorkspace.useMutation
-	>[0],
-) {
+export function useOpenMainRepoWorkspace() {
 	const navigate = useNavigate();
-	const utils = electronTrpc.useUtils();
-	const addPendingTerminalSetup = useWorkspaceInitStore(
-		(s) => s.addPendingTerminalSetup,
-	);
-	const updateProgress = useWorkspaceInitStore((s) => s.updateProgress);
+	const adapter = useWorkspaceProvisioningAdapter();
+	const workspaceLaunch = useWorkspaceLaunch(adapter);
+	const collections = useCollections();
+	const [isPending, setIsPending] = useState(false);
 
-	return electronTrpc.workspaces.openMainRepoWorkspace.useMutation({
-		...options,
-		onSuccess: async (data, ...rest) => {
-			await utils.workspaces.invalidate();
-
-			if (!data.wasExisting) {
-				let setupData = null;
-				try {
-					setupData = await utils.workspaces.getSetupCommands.fetch({
-						workspaceId: data.workspace.id,
-					});
-				} catch (error) {
-					console.error(
-						"[useOpenMainRepoWorkspace] Failed to fetch setup commands:",
-						error,
+	const mutateAsync = useCallback(
+		async ({ projectId }: { projectId: string }) => {
+			if (!adapter) throw new Error("Workspace host is not available");
+			setIsPending(true);
+			try {
+				const operation = await workspaceLaunch.begin({
+					adapter,
+					request: {
+						idempotencyKey: `main-workspace:${projectId}`,
+						project: { kind: "existing", projectId },
+						source: { kind: "main" },
+						initialSessions: [
+							{ key: "setup", kind: "setup", requirement: "best-effort" },
+						],
+					},
+				});
+				if (!operation.workspaceId) {
+					throw new Error(
+						operation.failure?.message ?? "Workspace provisioning failed",
 					);
 				}
-
-				addPendingTerminalSetup({
-					workspaceId: data.workspace.id,
-					projectId: data.projectId,
-					initialCommands: setupData?.initialCommands ?? null,
-					defaultPresets: setupData?.defaultPresets ?? [],
-				});
-
-				// Branch workspaces skip git init, so mark ready immediately to trigger terminal setup
-				const readyProgress: WorkspaceInitProgress = {
-					workspaceId: data.workspace.id,
-					projectId: data.projectId,
-					step: "ready",
-					message: "Ready",
-				};
-				updateProgress(readyProgress);
+				if (operation.state === "failed") {
+					throw new Error(
+						operation.failure?.message ?? "Workspace setup failed",
+					);
+				}
+				const launchInputs = launchesToPaneLayoutInputs(operation);
+				writeWorkspacePaneLayout(
+					collections,
+					{ id: operation.workspaceId, projectId },
+					launchInputs.terminals,
+					launchInputs.agents,
+				);
+				await navigateToWorkspace(operation.workspaceId, navigate);
+				return operation;
+			} finally {
+				setIsPending(false);
 			}
-
-			navigateToWorkspace(data.workspace.id, navigate);
-			await options?.onSuccess?.(data, ...rest);
 		},
-	});
+		[adapter, collections, navigate, workspaceLaunch],
+	);
+
+	return { isPending, mutateAsync, mutateAsyncWithSetup: mutateAsync };
 }

@@ -24,6 +24,7 @@ import { useAgentLaunchPreferences } from "renderer/hooks/useAgentLaunchPreferen
 import { launchAgentSession } from "renderer/lib/agent-session-orchestrator";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { ProjectThumbnail } from "renderer/screens/main/components/WorkspaceSidebar/ProjectSection/ProjectThumbnail";
 import {
 	useWorkspaceLaunch,
@@ -39,6 +40,7 @@ interface OpenInWorkspaceProps {
 }
 
 export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
+	const { activeHostUrl } = useLocalHostService();
 	const { data: recentProjects = [] } =
 		electronTrpc.projects.getRecents.useQuery();
 	const provisioningAdapter = useWorkspaceProvisioningAdapter();
@@ -169,6 +171,7 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 				};
 				const launchResult = await launchAgentSession(launchRequest, {
 					source: "open-in-workspace",
+					hostUrl: activeHostUrl ?? undefined,
 					createOrAttach: (input) => terminalCreateOrAttach.mutateAsync(input),
 					write: (input) => terminalWrite.mutateAsync(input),
 				});

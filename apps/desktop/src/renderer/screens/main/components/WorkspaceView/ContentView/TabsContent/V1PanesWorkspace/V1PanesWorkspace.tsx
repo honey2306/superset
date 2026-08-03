@@ -1,7 +1,7 @@
 import { Workspace } from "@superset/panes";
 import { useEffect } from "react";
 import { useTerminalAgentStatusesAtHost } from "renderer/hooks/host-service/useTerminalAgentStatuses";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
 import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
 import {
@@ -44,10 +44,7 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 		contextMenuActions,
 		openers,
 	} = useV1PanesWorkspace(workspaceId);
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId },
-		{ enabled: Boolean(workspaceId) },
-	);
+	const { workspace } = useCatalogWorkspace(workspaceId);
 	const { hostUrl, hostWorkspaceId } = useHostServiceTerminal({
 		workspaceId,
 		worktreePath: workspace?.worktreePath,

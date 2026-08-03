@@ -18,7 +18,7 @@ import { Label } from "@superset/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@superset/ui/popover";
 import { toast } from "@superset/ui/sonner";
 import { Textarea } from "@superset/ui/textarea";
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GoGitBranch } from "react-icons/go";
@@ -29,14 +29,19 @@ import {
 	HiChevronRight,
 	HiChevronUpDown,
 } from "react-icons/hi2";
+import { useWorkspaceCreationBranches } from "renderer/hooks/host-workspaces/useWorkspaceCreationBranches";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { formatRelativeTime } from "renderer/lib/formatRelativeTime";
 import { invalidateProjectScriptQueries } from "renderer/lib/project-scripts";
 import { electronTrpcClient as trpcClient } from "renderer/lib/trpc-client";
 import { resolveEffectiveWorkspaceBaseBranch } from "renderer/lib/workspaceBaseBranch";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCreateWorkspace } from "renderer/react-query/workspaces";
+import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { NotFound } from "renderer/routes/not-found";
+import {
+	useWorkspaceLaunch,
+	useWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 import type { SetupAction } from "shared/types/config";
 import { ExternalWorktreesBanner } from "./components/ExternalWorktreesBanner";
 
@@ -116,6 +121,7 @@ function parseConfigContent(content: string | null): {
 function ProjectPage() {
 	const { t } = useTranslation();
 	const { projectId } = Route.useParams();
+	const navigate = useNavigate();
 
 	const relativeTimeLabels = {
 		now: t("time.now"),
@@ -130,12 +136,14 @@ function ProjectPage() {
 		id: projectId,
 	});
 	const {
-		data: branchData,
+		branches,
+		defaultBranch,
 		isLoading: isBranchesLoading,
 		isError: isBranchesError,
-	} = electronTrpc.projects.getBranches.useQuery(
-		{ projectId },
-		{ enabled: !!projectId },
+	} = useWorkspaceCreationBranches(projectId);
+	const branchData = useMemo(
+		() => ({ branches, defaultBranch: defaultBranch ?? "" }),
+		[branches, defaultBranch],
 	);
 	const { data: gitAuthor } = electronTrpc.projects.getGitAuthor.useQuery(
 		{ id: projectId },
@@ -176,8 +184,9 @@ function ProjectPage() {
 
 	const titleInputRef = useRef<HTMLInputElement>(null);
 	const [hasInitializedSetup, setHasInitializedSetup] = useState(false);
-
-	const createWorkspace = useCreateWorkspace();
+	const [isCreating, setIsCreating] = useState(false);
+	const provisioningAdapter = useWorkspaceProvisioningAdapter();
+	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
 
 	const authorPrefix = gitAuthor?.prefix;
 	const generatedBranchName = generateBranchFromTitle({ title, authorPrefix });
@@ -239,24 +248,56 @@ function ProjectPage() {
 
 	const canContinueFromWorkspace = generatedBranchName.length > 0;
 
-	const handleCreateWorkspace = async () => {
+	const handleCreateWorkspace = async (startSetup = false) => {
 		const workspaceName = title.trim() || undefined;
+		if (!provisioningAdapter) {
+			toast.error(t("workspace.createFailed"), {
+				description: "Workspace host is not available",
+			});
+			return;
+		}
+
+		setIsCreating(true);
 
 		try {
-			await createWorkspace.mutateAsync({
-				projectId,
-				name: workspaceName,
-				branchName: generatedBranchName || undefined,
-				compareBaseBranch: compareBaseBranch || undefined,
+			const operation = await workspaceLaunch.begin({
+				adapter: provisioningAdapter,
+				request: {
+					idempotencyKey: `project-workspace:${projectId}:${generatedBranchName}:${effectiveCompareBaseBranch ?? "default"}:${startSetup ? "setup" : "no-setup"}`,
+					project: { kind: "existing", projectId },
+					source: {
+						kind: "branch",
+						name: { kind: "explicit", value: generatedBranchName },
+						from: effectiveCompareBaseBranch
+							? { kind: "ref", value: effectiveCompareBaseBranch }
+							: { kind: "default" },
+					},
+					display: workspaceName ? { name: workspaceName } : undefined,
+					initialSessions: startSetup
+						? [{ key: "setup", kind: "setup", requirement: "required" }]
+						: undefined,
+				},
 			});
+			if (!operation.workspaceId) {
+				throw new Error(
+					operation.failure?.message ?? "Workspace provisioning failed",
+				);
+			}
 
-			toast.success(t("workspace.created"), {
-				description: t("workspace.settingUp"),
-			});
+			if (operation.state === "failed") {
+				toast.error(operation.failure?.message ?? t("workspace.createFailed"));
+			} else {
+				toast.success(t("workspace.created"), {
+					description: t("workspace.settingUp"),
+				});
+			}
+			void navigateToWorkspace(operation.workspaceId, navigate);
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : t("workspace.createFailed"),
 			);
+		} finally {
+			setIsCreating(false);
 		}
 	};
 
@@ -283,7 +324,7 @@ function ProjectPage() {
 				teardown: teardownCommands,
 			});
 
-			await handleCreateWorkspace();
+			await handleCreateWorkspace(true);
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : t("workspace.saveSetupFailed"),
@@ -597,8 +638,7 @@ function ProjectPage() {
 													size="sm"
 													onClick={handleSkipSetupAndCreateWorkspace}
 													disabled={
-														updateConfigMutation.isPending ||
-														createWorkspace.isPending
+														updateConfigMutation.isPending || isCreating
 													}
 												>
 													{t("workspace.skip")}
@@ -682,22 +722,15 @@ function ProjectPage() {
 											<Button
 												variant="outline"
 												onClick={handleSkipSetupAndCreateWorkspace}
-												disabled={
-													updateConfigMutation.isPending ||
-													createWorkspace.isPending
-												}
+												disabled={updateConfigMutation.isPending || isCreating}
 											>
 												{t("workspace.skipForNow")}
 											</Button>
 											<Button
 												onClick={handleSaveAndCreateWorkspace}
-												disabled={
-													updateConfigMutation.isPending ||
-													createWorkspace.isPending
-												}
+												disabled={updateConfigMutation.isPending || isCreating}
 											>
-												{updateConfigMutation.isPending ||
-												createWorkspace.isPending
+												{updateConfigMutation.isPending || isCreating
 													? t("workspace.creating")
 													: setupMode === "checklist"
 														? t("workspace.create")

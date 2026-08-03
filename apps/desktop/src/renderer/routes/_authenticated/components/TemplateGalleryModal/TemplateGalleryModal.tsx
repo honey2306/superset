@@ -7,23 +7,25 @@ import {
 } from "@superset/ui/dialog";
 import { toast } from "@superset/ui/sonner";
 import { useState } from "react";
-import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import {
-	useCreateV1Project,
-	useFinalizeProjectSetup,
-} from "renderer/react-query/projects";
+import { useFinalizeProjectSetup } from "renderer/react-query/projects";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import {
+	beginProjectProvisioning,
+	createWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 import { TemplateCard } from "./components/TemplateCard";
 import { PROJECT_TEMPLATES, type ProjectTemplate } from "./templates";
 
 interface TemplateGalleryModalProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onCreated: (result: { projectId: string }) => void;
+	onCreated: (result: {
+		projectId: string;
+		mainWorkspaceId: string | null;
+	}) => void;
 	onError?: (message: string) => void;
 }
 
@@ -44,11 +46,9 @@ export function TemplateGalleryModal({
 	onError,
 }: TemplateGalleryModalProps) {
 	const { t } = useTranslation();
-	const isV2CloudEnabled = useIsV2CloudEnabled();
 	const hostService = useLocalHostService();
 	const { activeHostUrl } = hostService;
 	const finalizeSetup = useFinalizeProjectSetup();
-	const createV1Project = useCreateV1Project();
 	const { data: homeDir } = electronTrpc.window.getHomeDir.useQuery();
 	const parentDir = homeDir ? `${homeDir}/.superset/projects` : null;
 	const [cloningId, setCloningId] = useState<string | null>(null);
@@ -63,27 +63,31 @@ export function TemplateGalleryModal({
 		}
 		setCloningId(template.id);
 		let createdProjectId: string | null = null;
+		let mainWorkspaceId: string | null = null;
 		try {
-			if (isV2CloudEnabled) {
-				if (!activeHostUrl) {
-					showHostServiceUnavailableToast(hostService, t, {
-						action: t("project.createProjectAction"),
-					});
-					return;
-				}
-				const client = getHostServiceClientByUrl(activeHostUrl);
-				const result = await client.project.create.mutate({
-					name: deriveProjectNameFromUrl(template.repo),
-					mode: { kind: "template", parentDir, url: template.repo },
+			if (!activeHostUrl) {
+				showHostServiceUnavailableToast(hostService, t, {
+					action: t("project.createProjectAction"),
 				});
-				finalizeSetup(activeHostUrl, result);
-				createdProjectId = result.projectId;
-			} else {
-				createdProjectId = await createV1Project.createFromTemplate({
-					repoUrl: template.repo,
-					parentDir,
-				});
+				return;
 			}
+			const result = await beginProjectProvisioning({
+				hostUrl: activeHostUrl,
+				adapter: createWorkspaceProvisioningAdapter(activeHostUrl),
+				request: {
+					idempotencyKey: `project-template:${template.repo}:${parentDir}`,
+					project: {
+						kind: "template",
+						url: template.repo,
+						parentDirectory: parentDir,
+						name: deriveProjectNameFromUrl(template.repo),
+					},
+					source: { kind: "main" },
+				},
+			});
+			finalizeSetup(activeHostUrl, result);
+			createdProjectId = result.projectId;
+			mainWorkspaceId = result.mainWorkspaceId;
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			if (onError) onError(message);
@@ -91,7 +95,8 @@ export function TemplateGalleryModal({
 		} finally {
 			setCloningId(null);
 		}
-		if (createdProjectId) onCreated({ projectId: createdProjectId });
+		if (createdProjectId)
+			onCreated({ projectId: createdProjectId, mainWorkspaceId });
 	};
 
 	const handleOpenChange = (next: boolean) => {

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useUpdateWorkspace } from "renderer/react-query/workspaces/useUpdateWorkspace";
+import { useWorkspaceHostTarget } from "renderer/hooks/host-service/useWorkspaceHostUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 
 export function useWorkspaceRename(
 	workspaceId: string,
@@ -9,7 +11,30 @@ export function useWorkspaceRename(
 	const [isRenaming, setIsRenaming] = useState(false);
 	const [renameValue, setRenameValue] = useState(workspaceName);
 	const inputRef = useRef<HTMLInputElement | null>(null);
-	const updateWorkspace = useUpdateWorkspace();
+	const collections = useCollections();
+	const hostTarget = useWorkspaceHostTarget(workspaceId);
+	const hostUrl = hostTarget.status === "ready" ? hostTarget.url : null;
+
+	const persistWorkspaceName = (name: string) => {
+		if (!hostUrl) {
+			console.warn("Workspace host is unavailable; rename was not persisted", {
+				workspaceId,
+				name,
+			});
+			return;
+		}
+		void getHostServiceClientByUrl(hostUrl).workspace.update.mutate({
+			id: workspaceId,
+			name,
+		});
+	};
+
+	const updateLocalUnnamedState = (isUnnamed: boolean) => {
+		if (!collections.v2WorkspaceLocalState.get(workspaceId)) return;
+		collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
+			draft.isUnnamed = isUnnamed;
+		});
+	};
 
 	useEffect(() => {
 		if (isRenaming && inputRef.current) {
@@ -30,16 +55,12 @@ export function useWorkspaceRename(
 		const isCleared = !trimmedValue;
 
 		if (isCleared) {
-			updateWorkspace.mutate({
-				id: workspaceId,
-				patch: { name: branch, isUnnamed: true },
-			});
+			updateLocalUnnamedState(true);
+			persistWorkspaceName(branch);
 			setRenameValue(branch);
 		} else if (trimmedValue !== workspaceName) {
-			updateWorkspace.mutate({
-				id: workspaceId,
-				patch: { name: trimmedValue },
-			});
+			updateLocalUnnamedState(false);
+			persistWorkspaceName(trimmedValue);
 		} else {
 			setRenameValue(workspaceName);
 		}

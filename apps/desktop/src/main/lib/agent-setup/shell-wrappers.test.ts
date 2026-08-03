@@ -52,6 +52,28 @@ function isZshAvailable(): boolean {
 	}
 }
 
+/**
+ * Write a minimal bash rcfile that does NOT source /etc/profile or user
+ * profiles, isolating the test's PATH fixture from the host.
+ *
+ * The production rcfile (createBashWrapper) sources /etc/profile, which on macOS
+ * runs /usr/libexec/path_helper and rebuilds PATH from /etc/paths +
+ * /etc/paths.d — promoting host-installed binaries (e.g. a real `claude` in
+ * /opt/homebrew/bin) ahead of the test's fixture PATH and breaking the
+ * managed-command `command <name>` fallback assertions below. These fallback
+ * tests only exercise the managed-command prelude (added by
+ * getCommandShellArgs), not profile sourcing, so an isolated rcfile keeps the
+ * fixture PATH intact. The rcfile must still exist so getCommandShellArgs takes
+ * its non-login `bash -c "source rcfile && ..."` branch instead of falling
+ * back to a login shell (which would auto-source /etc/profile anyway).
+ */
+function writeIsolatedBashRcfile(bashDir: string): void {
+	writeFileSync(
+		path.join(bashDir, "rcfile"),
+		"# isolated rcfile: no /etc/profile or user profile sourcing\n",
+	);
+}
+
 describe("shell-wrappers", () => {
 	beforeEach(() => {
 		mkdirSync(TEST_BIN_DIR, { recursive: true });
@@ -334,7 +356,7 @@ echo system
 			ZSH_DIR: TEST_ZSH_DIR,
 			BASH_DIR: TEST_BASH_DIR,
 		};
-		createBashWrapper(fallbackPaths);
+		writeIsolatedBashRcfile(fallbackPaths.BASH_DIR);
 
 		const args = getCommandShellArgs("/bin/bash", "claude", fallbackPaths);
 		const output = execFileSync("bash", args, {
@@ -381,7 +403,7 @@ echo wrapper
 			ZSH_DIR: TEST_ZSH_DIR,
 			BASH_DIR: TEST_BASH_DIR,
 		};
-		createBashWrapper(fallbackPaths);
+		writeIsolatedBashRcfile(fallbackPaths.BASH_DIR);
 
 		const args = getCommandShellArgs("/bin/bash", "claude", fallbackPaths);
 		const output = execFileSync("bash", args, {

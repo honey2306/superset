@@ -2,11 +2,17 @@ import type { FitAddon } from "@xterm/addon-fit";
 import type { SearchAddon } from "@xterm/addon-search";
 import type { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import { eq } from "@tanstack/db";
+import { useLiveQuery } from "@tanstack/react-db";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { useWorkspaceHostTarget } from "renderer/hooks/host-service/useWorkspaceHostUrl";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { sanitizeTerminalFontFamily } from "renderer/lib/terminal/appearance";
 import { buildTerminalCommand } from "renderer/lib/terminal/launch-command";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTerminalTheme } from "renderer/stores/theme";
 import { SessionKilledOverlay } from "./components";
@@ -48,12 +54,27 @@ export const Terminal = memo(function Terminal({
 	const paneInitialCwd = pane?.initialCwd;
 	const clearPaneInitialData = useTabsStore((s) => s.clearPaneInitialData);
 
-	const { data: workspaceData } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId },
-		{ staleTime: 30_000 },
+	const collections = useCollections();
+	const hostTarget = useWorkspaceHostTarget(workspaceId);
+	const { workspace: catalogWorkspace } = useCatalogWorkspace(workspaceId);
+	const { data: workspaceLocalStateRows = [] } = useLiveQuery(
+		(query) =>
+			query
+				.from({ state: collections.v2WorkspaceLocalState })
+				.where(({ state }) => eq(state.workspaceId, workspaceId))
+				.select(({ state }) => ({ isUnnamed: state.isUnnamed })),
+		[collections, workspaceId],
 	);
+	const workspaceLocalState =
+		workspaceLocalStateRows[0] ??
+		collections.v2WorkspaceLocalState.get(workspaceId);
 	const isUnnamedRef = useRef(false);
-	isUnnamedRef.current = workspaceData?.isUnnamed ?? false;
+	// New Provisioning rows persist this presentation marker locally. Older v1
+	// rows predate it, so retain their historical branch/name fallback until
+	// the v1 presentation migration has completed.
+	isUnnamedRef.current =
+		workspaceLocalState?.isUnnamed ??
+		catalogWorkspace?.name === catalogWorkspace?.branch;
 
 	const { data: workspaceRunConfig } =
 		electronTrpc.workspaces.getResolvedRunCommands.useQuery(
@@ -68,22 +89,29 @@ export const Terminal = memo(function Terminal({
 	defaultRestartCommandRef.current =
 		workspaceRunRestartCommand ?? pane?.workspaceRun?.command;
 
-	const utils = electronTrpc.useUtils();
-	const updateWorkspace = electronTrpc.workspaces.update.useMutation({
-		onSuccess: () => {
-			utils.workspaces.getAllGrouped.invalidate();
-			utils.workspaces.get.invalidate({ id: workspaceId });
-		},
-	});
+	const hostWorkspaceUrl =
+		hostTarget.status === "ready" ? hostTarget.url : null;
 
 	const renameUnnamedWorkspaceRef = useRef<(title: string) => void>(() => {});
 	renameUnnamedWorkspaceRef.current = (title: string) => {
 		const cleanedTitle = stripLeadingEmoji(title);
 		if (isUnnamedRef.current && cleanedTitle) {
-			updateWorkspace.mutate({
-				id: workspaceId,
-				patch: { name: cleanedTitle, preserveUnnamedStatus: true },
-			});
+			if (hostWorkspaceUrl) {
+				void getHostServiceClientByUrl(
+					hostWorkspaceUrl,
+				).workspace.update.mutate({
+					id: workspaceId,
+					name: cleanedTitle,
+				});
+				return;
+			}
+			console.warn(
+				"Workspace host is unavailable; terminal rename was skipped",
+				{
+					workspaceId,
+					name: cleanedTitle,
+				},
+			);
 		}
 	};
 	const terminalRef = useRef<HTMLDivElement>(null);
@@ -137,7 +165,7 @@ export const Terminal = memo(function Terminal({
 	// File link click handler
 	const { handleFileLinkClick } = useFileLinkClick({
 		workspaceId,
-		projectId: workspaceData?.projectId,
+		projectId: catalogWorkspace?.projectId,
 	});
 
 	// URL click handler - internal browser removed

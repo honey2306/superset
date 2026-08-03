@@ -3,8 +3,7 @@ import { cn } from "@superset/ui/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
-import { electronTrpc } from "renderer/lib/electron-trpc";
-import { useReorderProjects } from "renderer/react-query/projects";
+import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 import { useWorkspaceSidebarStore } from "renderer/stores";
 import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
 import { useSectionDropZone } from "../hooks";
@@ -69,9 +68,8 @@ export function ProjectSection({
 }: ProjectSectionProps) {
 	const { isProjectCollapsed, toggleProjectCollapsed } =
 		useWorkspaceSidebarStore();
+	const { reorderProjectsByIndex } = useDashboardSidebarState();
 	const openModal = useOpenNewWorkspaceModal();
-	const reorderProjects = useReorderProjects();
-	const utils = electronTrpc.useUtils();
 
 	const isCollapsed = isProjectCollapsed(projectId);
 	const totalWorkspaceCount =
@@ -126,6 +124,7 @@ export function ProjectSection({
 	}, [shortcutBaseIndex, sections, topLevelItems, workspaces]);
 
 	const topUngroupedDropZone = useSectionDropZone({
+		projectId,
 		canAccept: (item) =>
 			item.sectionId !== null && item.projectId === projectId,
 		targetSectionId: null,
@@ -133,6 +132,7 @@ export function ProjectSection({
 	});
 
 	const bottomUngroupedDropZone = useSectionDropZone({
+		projectId,
 		canAccept: (item) =>
 			item.sectionId !== null && item.projectId === projectId,
 		targetSectionId: null,
@@ -163,21 +163,20 @@ export function ProjectSection({
 				if (!item) return;
 				if (monitor.didDrop()) return;
 				if (item.originalIndex !== item.index) {
-					reorderProjects.mutate(
-						{ fromIndex: item.originalIndex, toIndex: item.index },
-						{
-							onError: (error) =>
-								toast.error(`Failed to reorder: ${error.message}`),
-							onSettled: () => utils.workspaces.getAllGrouped.invalidate(),
-						},
-					);
+					try {
+						reorderProjectsByIndex(item.originalIndex, item.index);
+					} catch (error) {
+						toast.error(
+							`Failed to reorder: ${error instanceof Error ? error.message : String(error)}`,
+						);
+					}
 				}
 			},
 			collect: (monitor) => ({
 				isDragging: monitor.isDragging(),
 			}),
 		}),
-		[projectId, index, reorderProjects],
+		[projectId, index, reorderProjectsByIndex],
 	);
 
 	const [, drop] = useDrop({
@@ -188,13 +187,6 @@ export function ProjectSection({
 			originalIndex: number;
 		}) => {
 			if (item.index !== index) {
-				utils.workspaces.getAllGrouped.setData(undefined, (oldData) => {
-					if (!oldData) return oldData;
-					const newGroups = [...oldData];
-					const [moved] = newGroups.splice(item.index, 1);
-					newGroups.splice(index, 0, moved);
-					return newGroups;
-				});
 				item.index = index;
 			}
 		},
@@ -204,14 +196,13 @@ export function ProjectSection({
 			originalIndex: number;
 		}) => {
 			if (item.originalIndex !== item.index) {
-				reorderProjects.mutate(
-					{ fromIndex: item.originalIndex, toIndex: item.index },
-					{
-						onError: (error) =>
-							toast.error(`Failed to reorder: ${error.message}`),
-						onSettled: () => utils.workspaces.getAllGrouped.invalidate(),
-					},
-				);
+				try {
+					reorderProjectsByIndex(item.originalIndex, item.index);
+				} catch (error) {
+					toast.error(
+						`Failed to reorder: ${error instanceof Error ? error.message : String(error)}`,
+					);
+				}
 				return { reordered: true };
 			}
 		},

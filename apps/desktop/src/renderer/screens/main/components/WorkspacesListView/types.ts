@@ -1,10 +1,9 @@
 export interface WorkspaceItem {
-	// Unique identifier - either workspace id or worktree id for closed ones
+	// Unique identifier - either workspace id or a synthetic worktree key
 	uniqueId: string;
-	// If open, this is the workspace id
+	// Populated for Catalog workspaces; null for orphan worktrees (no
+	// active workspace on this host).
 	workspaceId: string | null;
-	// For closed worktrees, this is the worktree id
-	worktreeId: string | null;
 	projectId: string;
 	projectName: string;
 	worktreePath: string;

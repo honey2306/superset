@@ -1,5 +1,6 @@
 import { appState } from "main/lib/app-state";
 import type { TabsState, ThemeState } from "main/lib/app-state/schemas";
+import type { EditorSyntaxColors } from "shared/themes";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
 
@@ -172,7 +173,10 @@ const terminalColorsSchema = z.object({
  */
 const editorThemeSchema = z.object({
 	colors: z.record(z.string(), z.string()).optional(),
-	syntax: z.record(z.string(), z.string()).optional(),
+	syntax: z
+		.record(z.string(), z.string())
+		.transform((value) => value as Partial<EditorSyntaxColors>)
+		.optional(),
 });
 
 /**

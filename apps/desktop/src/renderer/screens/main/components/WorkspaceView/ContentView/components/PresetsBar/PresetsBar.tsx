@@ -23,10 +23,10 @@ import {
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
 import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { usePresets } from "renderer/react-query/presets";
 import { WorkspaceRunButton } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/WorkspaceRunButton";
 import { PRESET_HOTKEY_IDS } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/usePresetHotkeys";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTabsWithPresets } from "renderer/stores/tabs/useTabsWithPresets";
 import { resolveActiveTabIdForWorkspace } from "renderer/stores/tabs/utils";
@@ -130,10 +130,7 @@ export function PresetsBar() {
 	const navigate = useNavigate();
 	const isDark = useIsDarkTheme();
 	const { showPresetsBar, setShowPresetsBar } = useShowPresetsBar();
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId ?? "" },
-		{ enabled: !!workspaceId },
-	);
+	const { workspace } = useCatalogWorkspace(workspaceId);
 	const {
 		presets,
 		matchedPresets,
@@ -466,7 +463,7 @@ export function PresetsBar() {
 			{workspaceId && (
 				<div className="ml-auto flex items-center gap-1 shrink-0">
 					<WorkspaceRunButton
-						projectId={workspace?.projectId ?? workspace?.project?.id}
+						projectId={workspace?.projectId}
 						workspaceId={workspaceId}
 						worktreePath={workspace?.worktreePath}
 					/>

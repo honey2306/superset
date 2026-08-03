@@ -16,15 +16,13 @@ import { useDrag, useDrop } from "react-dnd";
 import { HiChevronRight } from "react-icons/hi2";
 import { LuPalette, LuPencil, LuTrash2 } from "react-icons/lu";
 import { ColorSelector } from "renderer/components/ColorSelector";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useReorderProjectChildren } from "renderer/react-query/workspaces";
+import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 import { PROJECT_COLOR_DEFAULT } from "shared/constants/project-colors";
 import { SECTION_DND_TYPE, STROKE_WIDTH } from "../constants";
 import { useSectionDropZone } from "../hooks";
 import { RenameInput } from "../RenameInput";
 import type { SectionDragItem, SidebarWorkspace } from "../types";
-import { reorderProjectChildrenInCache } from "../utils/reorderProjectChildrenInCache";
 import { WorkspaceList } from "../WorkspaceList";
 import { useSectionMutations } from "./useSectionMutations";
 
@@ -56,7 +54,7 @@ export function WorkspaceSection({
 	orderedWorkspaceIds,
 }: WorkspaceSectionProps) {
 	const { t } = useTranslation();
-	const utils = electronTrpc.useUtils();
+	const { reorderProjectChildrenByIndex } = useDashboardSidebarState();
 	const [isRenaming, setIsRenaming] = useState(false);
 	const [renameValue, setRenameValue] = useState(name);
 	const mutations = useSectionMutations(sectionId);
@@ -69,33 +67,28 @@ export function WorkspaceSection({
 	};
 
 	const dropZone = useSectionDropZone({
+		projectId,
 		canAccept: (item) =>
 			item.projectId === projectId && item.sectionId !== sectionId,
 		targetSectionId: sectionId,
 		onAutoExpand: isCollapsed ? () => mutations.toggle() : undefined,
 	});
 
-	const reorderProjectChildren = useReorderProjectChildren();
-
 	const commitSectionReorder = (item: SectionDragItem) => {
 		if (item.originalIndex === item.index) return;
-		reorderProjectChildren.mutate(
-			{
-				projectId: item.projectId,
-				fromIndex: item.originalIndex,
-				toIndex: item.index,
-			},
-			{
-				onError: (error) => {
-					void utils.workspaces.getAllGrouped.invalidate();
-					toast.error(
-						t("workspace.reorderProjectItemsFailed", {
-							message: error.message,
-						}),
-					);
-				},
-			},
-		);
+		try {
+			reorderProjectChildrenByIndex(
+				item.projectId,
+				item.originalIndex,
+				item.index,
+			);
+		} catch (error) {
+			toast.error(
+				t("workspace.reorderProjectItemsFailed", {
+					message: error instanceof Error ? error.message : String(error),
+				}),
+			);
+		}
 	};
 
 	const [{ isSectionDragging }, sectionDrag] = useDrag(
@@ -115,16 +108,13 @@ export function WorkspaceSection({
 			},
 			collect: (monitor) => ({ isSectionDragging: monitor.isDragging() }),
 		}),
-		[sectionId, projectId, index, reorderProjectChildren],
+		[sectionId, projectId, index, reorderProjectChildrenByIndex],
 	);
 
 	const [, sectionDrop] = useDrop({
 		accept: SECTION_DND_TYPE,
 		hover: (item: SectionDragItem) => {
 			if (item.projectId !== projectId || item.index === index) return;
-			utils.workspaces.getAllGrouped.setData(undefined, (oldData) =>
-				reorderProjectChildrenInCache(oldData, projectId, item.index, index),
-			);
 			item.index = index;
 		},
 		drop: (item: SectionDragItem) => {

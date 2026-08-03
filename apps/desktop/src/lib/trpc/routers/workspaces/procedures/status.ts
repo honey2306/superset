@@ -1,13 +1,9 @@
-import { workspaceSections, workspaces, worktrees } from "@superset/local-db";
-import { and, eq, isNull, not } from "drizzle-orm";
+import { workspaceSections, workspaces } from "@superset/local-db";
+import { and, eq, isNull } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
 import { publicProcedure, router } from "../../..";
-import {
-	getWorkspaceNotDeleting,
-	setLastActiveWorkspace,
-	touchWorkspace,
-} from "../utils/db-helpers";
+import { getWorkspaceNotDeleting } from "../utils/db-helpers";
 import {
 	getProjectChildItems,
 	reorderProjectChildItems,
@@ -116,45 +112,6 @@ export const createStatusProcedures = () => {
 				return { success: true };
 			}),
 
-		update: publicProcedure
-			.input(
-				z.object({
-					id: z.string(),
-					patch: z.object({
-						name: z.string().optional(),
-						preserveUnnamedStatus: z.boolean().optional(),
-						isUnnamed: z.boolean().optional(),
-					}),
-				}),
-			)
-			.mutation(({ input }) => {
-				const workspace = getWorkspaceNotDeleting(input.id);
-				if (!workspace) {
-					throw new Error(
-						`Workspace ${input.id} not found or is being deleted`,
-					);
-				}
-
-				const resolveIsUnnamed = () => {
-					if (input.patch.isUnnamed !== undefined) return input.patch.isUnnamed;
-					if (
-						input.patch.name !== undefined &&
-						!input.patch.preserveUnnamedStatus
-					)
-						return false;
-					return undefined;
-				};
-
-				const isUnnamed = resolveIsUnnamed();
-
-				touchWorkspace(input.id, {
-					...(input.patch.name !== undefined && { name: input.patch.name }),
-					...(isUnnamed !== undefined && { isUnnamed }),
-				});
-
-				return { success: true };
-			}),
-
 		setUnread: publicProcedure
 			.input(z.object({ id: z.string(), isUnread: z.boolean() }))
 			.mutation(({ input }) => {
@@ -172,71 +129,6 @@ export const createStatusProcedures = () => {
 					.run();
 
 				return { success: true, isUnread: input.isUnread };
-			}),
-
-		setActive: publicProcedure
-			.input(z.object({ workspaceId: z.string() }))
-			.mutation(({ input }) => {
-				const workspace = getWorkspaceNotDeleting(input.workspaceId);
-				if (!workspace) {
-					throw new Error(
-						`Workspace ${input.workspaceId} not found or is being deleted`,
-					);
-				}
-
-				setLastActiveWorkspace(input.workspaceId);
-
-				return { success: true, workspaceId: input.workspaceId };
-			}),
-
-		syncBranch: publicProcedure
-			.input(
-				z.object({
-					workspaceId: z.string(),
-					branch: z.string(),
-				}),
-			)
-			.mutation(({ input }) => {
-				const { workspaceId, branch } = input;
-
-				if (
-					!branch ||
-					branch === "HEAD" ||
-					branch.startsWith("[") ||
-					branch.includes(" ")
-				) {
-					return { success: false as const, reason: "invalid-branch" as const };
-				}
-
-				const workspace = getWorkspaceNotDeleting(workspaceId);
-				if (!workspace) {
-					return { success: false as const, reason: "not-found" as const };
-				}
-
-				if (workspace.branch === branch) {
-					return { success: true as const, changed: false as const };
-				}
-
-				localDb
-					.update(workspaces)
-					.set({ branch })
-					.where(eq(workspaces.id, workspaceId))
-					.run();
-
-				if (workspace.worktreeId) {
-					localDb
-						.update(worktrees)
-						.set({ branch })
-						.where(
-							and(
-								eq(worktrees.id, workspace.worktreeId),
-								not(eq(worktrees.branch, branch)),
-							),
-						)
-						.run();
-				}
-
-				return { success: true as const, changed: true as const };
 			}),
 	});
 };

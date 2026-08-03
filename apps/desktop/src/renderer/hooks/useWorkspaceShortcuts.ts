@@ -1,7 +1,10 @@
+import { useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 import { useHotkey } from "renderer/hotkeys";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { isSidebarWorkspaceVisible } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal";
 import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import type {
 	SidebarSection,
@@ -35,25 +38,84 @@ type SidebarGroup = {
  */
 export function useWorkspaceShortcuts() {
 	const { projects, workspaces } = useWorkspaceCatalog();
+	const collections = useCollections();
+	const { data: localWorkspaceRows = [] } = useLiveQuery(
+		(q) => q.from({ rows: collections.v2WorkspaceLocalState }),
+		[collections],
+	);
+	const { data: sectionRows = [] } = useLiveQuery(
+		(q) => q.from({ rows: collections.v2SidebarSections }),
+		[collections],
+	);
 	const navigate = useNavigate();
 
 	const groups = useMemo<SidebarGroup[]>(() => {
+		const localByWorkspaceId = new Map(
+			localWorkspaceRows.map((row) => [row.workspaceId, row]),
+		);
 		return projects.flatMap((project) => {
 			const projectWorkspaces = workspaces
 				.filter((workspace) => workspace.projectId === project.id)
-				.sort((a, b) => a.updatedAt - b.updatedAt)
-				.map(
-					(workspace, index): SidebarWorkspace => ({
+				.filter((workspace) => {
+					const local = localByWorkspaceId.get(workspace.id);
+					return !local || isSidebarWorkspaceVisible(local);
+				})
+				.sort((a, b) => {
+					const left = localByWorkspaceId.get(a.id)?.sidebarState.tabOrder;
+					const right = localByWorkspaceId.get(b.id)?.sidebarState.tabOrder;
+					return (
+						(left ?? Number.MAX_SAFE_INTEGER) -
+							(right ?? Number.MAX_SAFE_INTEGER) || a.updatedAt - b.updatedAt
+					);
+				})
+				.map((workspace, index): SidebarWorkspace => {
+					const local = localByWorkspaceId.get(workspace.id);
+					return {
 						id: workspace.id,
 						projectId: workspace.projectId,
 						worktreePath: workspace.worktreePath,
 						type: workspace.type === "main" ? "branch" : "worktree",
 						branch: workspace.branch,
 						name: workspace.name,
-						tabOrder: index,
-						isUnread: false,
-					}),
-				);
+						tabOrder: local?.sidebarState.tabOrder ?? index + 1,
+						isUnread: local?.sidebarState.isUnread ?? false,
+					};
+				});
+			const projectSections = sectionRows
+				.filter((section) => section.projectId === project.id)
+				.sort((a, b) => a.tabOrder - b.tabOrder)
+				.map((section) => ({
+					id: section.sectionId,
+					projectId: section.projectId,
+					name: section.name,
+					tabOrder: section.tabOrder,
+					isCollapsed: section.isCollapsed,
+					color: section.color,
+					workspaces: projectWorkspaces
+						.filter(
+							(workspace) =>
+								localByWorkspaceId.get(workspace.id)?.sidebarState.sectionId ===
+								section.sectionId,
+						)
+						.sort((a, b) => a.tabOrder - b.tabOrder),
+				}));
+			const topLevelItems = [
+				...projectWorkspaces
+					.filter(
+						(workspace) =>
+							!localByWorkspaceId.get(workspace.id)?.sidebarState.sectionId,
+					)
+					.map((workspace) => ({
+						id: workspace.id,
+						kind: "workspace" as const,
+						tabOrder: workspace.tabOrder,
+					})),
+				...projectSections.map((section) => ({
+					id: section.id,
+					kind: "section" as const,
+					tabOrder: section.tabOrder,
+				})),
+			].sort((a, b) => a.tabOrder - b.tabOrder);
 			return [
 				{
 					project: {
@@ -66,16 +128,12 @@ export function useWorkspaceShortcuts() {
 						iconUrl: null,
 					},
 					workspaces: projectWorkspaces,
-					sections: [],
-					topLevelItems: projectWorkspaces.map((workspace) => ({
-						id: workspace.id,
-						kind: "workspace" as const,
-						tabOrder: workspace.tabOrder,
-					})),
+					sections: projectSections,
+					topLevelItems,
 				},
 			];
 		});
-	}, [projects, workspaces]);
+	}, [localWorkspaceRows, projects, sectionRows, workspaces]);
 
 	const allWorkspaces = groups.flatMap((group) => {
 		const topLevelWorkspacesById = new Map(

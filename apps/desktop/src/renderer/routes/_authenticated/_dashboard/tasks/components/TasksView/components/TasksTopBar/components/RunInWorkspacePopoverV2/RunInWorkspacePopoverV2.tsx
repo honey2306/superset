@@ -24,7 +24,7 @@ import { useSelectedHostProjectIds } from "renderer/routes/_authenticated/compon
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { useV2WorkspaceCreateDefaultsStore } from "renderer/stores/v2-workspace-create-defaults";
-import { useWorkspaceCreates } from "renderer/stores/workspace-creates";
+import { useWorkspaceProvisioningSubmission } from "renderer/stores/workspace-launch";
 import { deriveBranchName } from "../../../../../../$taskId/utils/deriveBranchName";
 import type { TaskWithStatus } from "../../../../hooks/useTasksTable";
 
@@ -57,7 +57,7 @@ export function RunInWorkspacePopoverV2({
 	const { t } = useTranslation();
 	const { machineId, activeHostUrl } = hostService;
 	const { otherHosts } = useWorkspaceHostOptions();
-	const { submit } = useWorkspaceCreates();
+	const { submit } = useWorkspaceProvisioningSubmission();
 
 	const lastHostId = useV2WorkspaceCreateDefaultsStore(
 		(state) => state.lastHostId,

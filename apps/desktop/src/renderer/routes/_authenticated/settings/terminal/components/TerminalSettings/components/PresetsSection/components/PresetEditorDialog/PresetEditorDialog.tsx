@@ -39,6 +39,7 @@ import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { getHostServiceUnavailableMessage } from "renderer/lib/host-service-unavailable";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import type { PresetColumnKey } from "renderer/routes/_authenticated/settings/presets/types";
 import { useSettingsOriginRoute } from "renderer/stores/settings-state";
 import {
@@ -285,10 +286,7 @@ export function PresetEditorDialog({
 		() => getWorkspaceIdFromRoute(originRoute),
 		[originRoute],
 	);
-	const { data: originWorkspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: originWorkspaceId ?? "" },
-		{ enabled: open && !!originWorkspaceId },
-	);
+	const { workspace: originWorkspace } = useCatalogWorkspace(originWorkspaceId);
 	const isAbsolutePath = isAbsoluteFilesystemPath(trimmedCwd);
 	const browseDefaultPath =
 		(originWorkspace?.worktreePath && trimmedCwd
@@ -385,8 +383,7 @@ export function PresetEditorDialog({
 											{t("terminal.command")}
 										</Label>
 										<Link
-											to="/settings/agents/$agentId"
-											params={{ agentId: linkedAgentId }}
+											to="/settings/terminal"
 											onClick={() => onOpenChange(false)}
 											className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
 										>

@@ -96,7 +96,7 @@ export async function deleteWithToast({
 		terminalWarning?: string;
 	}>;
 	forceDeleteFn: () => Promise<{ success: boolean; error?: string }>;
-}) {
+}): Promise<boolean> {
 	const toastId = toast.loading(`Deleting "${name}"...`);
 
 	try {
@@ -114,7 +114,7 @@ export async function deleteWithToast({
 			} else {
 				toast.error(result.error ?? "Failed to delete", { id: toastId });
 			}
-			return;
+			return false;
 		}
 
 		toast.success(`Deleted "${name}"`, { id: toastId });
@@ -126,10 +126,12 @@ export async function deleteWithToast({
 				});
 			}, 100);
 		}
+		return true;
 	} catch (error) {
 		toast.error(error instanceof Error ? error.message : "Failed to delete", {
 			id: toastId,
 		});
+		return false;
 	}
 }
 

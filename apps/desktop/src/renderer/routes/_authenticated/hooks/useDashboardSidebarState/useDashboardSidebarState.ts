@@ -32,6 +32,23 @@ type ProjectTopLevelCollections = Pick<
 	"v2SidebarSections" | "v2WorkspaceLocalState"
 >;
 
+function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+	if (
+		fromIndex < 0 ||
+		fromIndex >= items.length ||
+		toIndex < 0 ||
+		toIndex >= items.length ||
+		fromIndex === toIndex
+	) {
+		return items;
+	}
+	const next = [...items];
+	const [moved] = next.splice(fromIndex, 1);
+	if (moved === undefined) return items;
+	next.splice(toIndex, 0, moved);
+	return next;
+}
+
 function compareProjectTopLevelItems(
 	left: ProjectTopLevelItem,
 	right: ProjectTopLevelItem,
@@ -228,6 +245,20 @@ export function useDashboardSidebarState() {
 		[collections],
 	);
 
+	const reorderProjectsByIndex = useCallback(
+		(fromIndex: number, toIndex: number) => {
+			const rows = Array.from(
+				collections.v2SidebarProjects.state.values(),
+			).sort((left, right) => left.tabOrder - right.tabOrder);
+			for (const [index, row] of moveItem(rows, fromIndex, toIndex).entries()) {
+				collections.v2SidebarProjects.update(row.projectId, (draft) => {
+					draft.tabOrder = index + 1;
+				});
+			}
+		},
+		[collections],
+	);
+
 	const reorderWorkspaces = useCallback(
 		(workspaceIds: string[]) => {
 			workspaceIds.forEach((workspaceId, index) => {
@@ -237,6 +268,39 @@ export function useDashboardSidebarState() {
 					draft.sidebarState.isHidden = false;
 				});
 			});
+		},
+		[collections],
+	);
+
+	const reorderProjectChildrenByIndex = useCallback(
+		(projectId: string, fromIndex: number, toIndex: number) => {
+			const items = getProjectTopLevelItems(collections, projectId);
+			writeProjectTopLevelOrder(
+				collections,
+				projectId,
+				moveItem(items, fromIndex, toIndex),
+			);
+		},
+		[collections],
+	);
+
+	const reorderWorkspacesInSectionByIndex = useCallback(
+		(sectionId: string, fromIndex: number, toIndex: number) => {
+			const rows = Array.from(collections.v2WorkspaceLocalState.state.values())
+				.filter(
+					(item) =>
+						item.sidebarState.sectionId === sectionId &&
+						isSidebarWorkspaceVisible(item),
+				)
+				.sort(
+					(left, right) =>
+						left.sidebarState.tabOrder - right.sidebarState.tabOrder,
+				);
+			for (const [index, row] of moveItem(rows, fromIndex, toIndex).entries()) {
+				collections.v2WorkspaceLocalState.update(row.workspaceId, (draft) => {
+					draft.sidebarState.tabOrder = index + 1;
+				});
+			}
 		},
 		[collections],
 	);
@@ -361,6 +425,31 @@ export function useDashboardSidebarState() {
 		[collections],
 	);
 
+	const setWorkspaceUnread = useCallback(
+		(workspaceId: string, projectId: string, isUnread: boolean) => {
+			const existing = collections.v2WorkspaceLocalState.get(workspaceId);
+			if (existing) {
+				collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
+					draft.sidebarState.isUnread = isUnread;
+				});
+				return;
+			}
+			collections.v2WorkspaceLocalState.insert({
+				workspaceId,
+				createdAt: new Date(),
+				sidebarState: {
+					projectId,
+					tabOrder: 0,
+					sectionId: null,
+					isHidden: false,
+					isUnread,
+				},
+				paneLayout: createEmptyPaneLayout(),
+			});
+		},
+		[collections],
+	);
+
 	const moveWorkspaceToSection = useCallback(
 		(workspaceId: string, projectId: string, sectionId: string | null) => {
 			const existing = collections.v2WorkspaceLocalState.get(workspaceId);
@@ -400,6 +489,47 @@ export function useDashboardSidebarState() {
 			});
 		},
 		[collections],
+	);
+
+	const moveWorkspacesToSection = useCallback(
+		(
+			workspaceIds: string[],
+			projectId: string,
+			sectionId: string | null,
+			rootPlacement: "top" | "bottom" = "top",
+		) => {
+			if (sectionId !== null) {
+				for (const workspaceId of workspaceIds) {
+					moveWorkspaceToSection(workspaceId, projectId, sectionId);
+				}
+				return;
+			}
+
+			const selected = new Set(workspaceIds);
+			const topLevelItems = getProjectTopLevelItems(
+				collections,
+				projectId,
+			).filter((item) => !(item.type === "workspace" && selected.has(item.id)));
+			const workspaceItems = workspaceIds
+				.map((id) => ({ type: "workspace" as const, id, tabOrder: 0 }))
+				.filter((item) => collections.v2WorkspaceLocalState.get(item.id));
+			const insertIndex =
+				rootPlacement === "bottom"
+					? topLevelItems.length
+					: getFirstSectionIndex(topLevelItems);
+			topLevelItems.splice(insertIndex, 0, ...workspaceItems);
+			writeProjectTopLevelOrder(collections, projectId, topLevelItems);
+		},
+		[collections, moveWorkspaceToSection],
+	);
+
+	const createSectionFromWorkspaces = useCallback(
+		(projectId: string, workspaceIds: string[], name = "New Section") => {
+			const sectionId = createSection(projectId, { name });
+			moveWorkspacesToSection(workspaceIds, projectId, sectionId);
+			return sectionId;
+		},
+		[createSection, moveWorkspacesToSection],
 	);
 
 	const deleteSection = useCallback(
@@ -480,19 +610,25 @@ export function useDashboardSidebarState() {
 
 	return {
 		createSection,
+		createSectionFromWorkspaces,
 		deleteSection,
 		ensureProjectInSidebar,
 		ensureWorkspaceInSidebar,
 		hideWorkspaceInSidebar,
 		moveWorkspaceToSection,
 		moveWorkspaceToSectionAtIndex,
+		moveWorkspacesToSection,
 		removeProjectFromSidebar,
 		reorderProjectChildren,
+		reorderProjectChildrenByIndex,
 		removeWorkspaceFromSidebar,
 		reorderProjects,
+		reorderProjectsByIndex,
 		reorderWorkspaces,
+		reorderWorkspacesInSectionByIndex,
 		renameSection,
 		setSectionColor,
+		setWorkspaceUnread,
 		toggleProjectCollapsed,
 		toggleSectionCollapsed,
 	};

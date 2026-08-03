@@ -17,6 +17,7 @@ import { useHoverGitHubStatus } from "renderer/lib/githubQueryPolicy";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 import { WorkspaceRunIndicator } from "renderer/screens/main/components/WorkspaceRunIndicator";
 import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
 import { useBranchSyncInvalidation } from "renderer/screens/main/hooks/useBranchSyncInvalidation";
@@ -110,7 +111,7 @@ export function WorkspaceListItem({
 		(s) => s.clearWorkspaceAttentionStatus,
 	);
 	const resetWorkspaceStatus = useTabsStore((s) => s.resetWorkspaceStatus);
-	const utils = electronTrpc.useUtils();
+	const { setWorkspaceUnread } = useDashboardSidebarState();
 	const isSelected = useWorkspaceSelectionStore((s) => s.selectedIds.has(id));
 	const selectionStore = useWorkspaceSelectionStore;
 	const isMultiDragging = useActiveDragItemStore(
@@ -157,12 +158,6 @@ export function WorkspaceListItem({
 		onError: (error) =>
 			toast.error(`Failed to open in editor: ${error.message}`),
 	});
-	const setUnread = electronTrpc.workspaces.setUnread.useMutation({
-		onSuccess: () => utils.workspaces.getAllGrouped.invalidate(),
-		onError: (error) =>
-			toast.error(`Failed to update unread status: ${error.message}`),
-	});
-
 	const { showDeleteDialog, setShowDeleteDialog, handleDeleteClick } =
 		useWorkspaceDeleteHandler();
 	const { status: localChanges } = useGitChangesStatus({
@@ -487,7 +482,15 @@ export function WorkspaceListItem({
 				onOpenInEditor={handleOpenInEditor}
 				onCopyPath={handleCopyPath}
 				onCopyBranchName={handleCopyBranchName}
-				onSetUnread={(unread) => setUnread.mutate({ id, isUnread: unread })}
+				onSetUnread={(unread) => {
+					try {
+						setWorkspaceUnread(id, projectId, unread);
+					} catch (error) {
+						toast.error(
+							`Failed to update unread status: ${error instanceof Error ? error.message : String(error)}`,
+						);
+					}
+				}}
 				onResetStatus={() => {
 					resetWorkspaceStatus(id);
 					void clearWorkspaceTerminalStatuses();

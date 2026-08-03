@@ -1,18 +1,37 @@
-import { electronTrpc } from "renderer/lib/electron-trpc";
-import { invalidateWorkspaceQueries } from "./invalidateWorkspaceQueries";
+import { useCallback } from "react";
+import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 
-export function useReorderWorkspacesInSection(
-	options?: Parameters<
-		typeof electronTrpc.workspaces.reorderWorkspacesInSection.useMutation
-	>[0],
-) {
-	const utils = electronTrpc.useUtils();
+interface ReorderCallbacks {
+	onError?: (error: Error) => void;
+	onSettled?: () => void;
+	onSuccess?: () => void;
+}
 
-	return electronTrpc.workspaces.reorderWorkspacesInSection.useMutation({
-		...options,
-		onSuccess: async (...args) => {
-			await invalidateWorkspaceQueries(utils);
-			await options?.onSuccess?.(...args);
+export function useReorderWorkspacesInSection() {
+	const { reorderWorkspacesInSectionByIndex } = useDashboardSidebarState();
+
+	const mutate = useCallback(
+		(
+			input: { sectionId: string; fromIndex: number; toIndex: number },
+			callbacks?: ReorderCallbacks,
+		) => {
+			try {
+				reorderWorkspacesInSectionByIndex(
+					input.sectionId,
+					input.fromIndex,
+					input.toIndex,
+				);
+				callbacks?.onSuccess?.();
+			} catch (error) {
+				const normalizedError =
+					error instanceof Error ? error : new Error(String(error));
+				callbacks?.onError?.(normalizedError);
+			} finally {
+				callbacks?.onSettled?.();
+			}
 		},
-	});
+		[reorderWorkspacesInSectionByIndex],
+	);
+
+	return { mutate };
 }

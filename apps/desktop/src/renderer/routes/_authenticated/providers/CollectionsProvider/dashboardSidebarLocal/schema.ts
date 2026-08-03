@@ -1,6 +1,4 @@
-import type { AppRouter } from "@superset/host-service";
 import type { LayoutNode, Tab, WorkspaceState } from "@superset/panes";
-import type { inferRouterInputs } from "@trpc/server";
 import { z } from "zod";
 
 const persistedDateSchema = z
@@ -122,6 +120,10 @@ export const workspaceRunTerminalStateSchema = z.object({
 export const workspaceLocalStateSchema = z.object({
 	workspaceId: z.string().uuid(),
 	createdAt: persistedDateSchema,
+	// Presentation-only marker for the auto-name-on-first-terminal behavior.
+	// It stays optional so pre-Catalog v1 rows can use the compatibility
+	// fallback without being rewritten as an authoritative identity field.
+	isUnnamed: z.boolean().optional(),
 	sidebarState: z.object({
 		projectId: z.string().uuid(),
 		tabOrder: z.number().int().default(0),
@@ -130,6 +132,7 @@ export const workspaceLocalStateSchema = z.object({
 		changesViewMode: z.enum(["folders", "tree"]).default("folders"),
 		activeTab: z.enum(["changes", "files", "review"]).default("changes"),
 		isHidden: z.boolean().default(false),
+		isUnread: z.boolean().default(false),
 	}),
 	paneLayout: paneWorkspaceStateSchema,
 	viewedFiles: z.array(z.string()).default([]),
@@ -168,6 +171,7 @@ const SIDEBAR_STATE_DEFAULTS = {
 	changesViewMode: "folders",
 	activeTab: "changes",
 	isHidden: false,
+	isUnread: false,
 } as const;
 
 const WORKSPACE_LOCAL_STATE_OPTIONAL_DEFAULTS = {
@@ -411,18 +415,3 @@ export function healV2UserPreferences(raw: unknown): V2UserPreferencesRow {
 			: sidebarFileLinks,
 	};
 }
-
-export type WorkspacesCreateInput =
-	inferRouterInputs<AppRouter>["workspaces"]["create"];
-
-export const failedWorkspaceCreateSchema = z.object({
-	id: z.string().uuid(),
-	hostId: z.string(),
-	input: z.custom<WorkspacesCreateInput>(),
-	error: z.string(),
-	failedAt: persistedDateSchema,
-});
-
-export type FailedWorkspaceCreateRow = z.infer<
-	typeof failedWorkspaceCreateSchema
->;

@@ -431,6 +431,77 @@ describe("workspaceCleanup.destroy integration", () => {
 	});
 });
 
+describe("workspaceCleanup.destroyOrphanWorktree integration", () => {
+	test("removes an orphan worktree with no workspace row", async () => {
+		const host = await createTestHost();
+		const repo = await createGitFixture();
+		const { id: projectId } = seedProject(host, { repoPath: repo.repoPath });
+		const worktreePath = join(repo.repoPath, ".worktrees", "orphan");
+		await repo.git.raw(["worktree", "add", "-b", "orphan/one", worktreePath]);
+
+		try {
+			expect(existsSync(worktreePath)).toBe(true);
+			const result =
+				await host.trpc.workspaceCleanup.destroyOrphanWorktree.mutate({
+					projectId,
+					worktreePath,
+				});
+			expect(result.success).toBe(true);
+			expect(result.worktreeStillOnDisk).toBe(false);
+
+			const raw = await repo.git.raw(["worktree", "list", "--porcelain"]);
+			expect(raw).not.toContain(worktreePath);
+		} finally {
+			await host.dispose();
+			repo.dispose();
+		}
+	});
+
+	test("refuses to touch a worktree adopted by a workspace row", async () => {
+		const host = await createTestHost();
+		const repo = await createGitFixture();
+		const { id: projectId } = seedProject(host, { repoPath: repo.repoPath });
+		const worktreePath = join(repo.repoPath, ".worktrees", "adopted");
+		await repo.git.raw(["worktree", "add", "-b", "adopted/one", worktreePath]);
+		seedWorkspace(host, {
+			projectId,
+			worktreePath,
+			branch: "adopted/one",
+		});
+
+		try {
+			await expect(
+				host.trpc.workspaceCleanup.destroyOrphanWorktree.mutate({
+					projectId,
+					worktreePath,
+				}),
+			).rejects.toThrow(/adopted by workspace/);
+			expect(existsSync(worktreePath)).toBe(true);
+		} finally {
+			await host.dispose();
+			repo.dispose();
+		}
+	});
+
+	test("refuses to remove the project's main repo path", async () => {
+		const host = await createTestHost();
+		const repo = await createGitFixture();
+		const { id: projectId } = seedProject(host, { repoPath: repo.repoPath });
+
+		try {
+			await expect(
+				host.trpc.workspaceCleanup.destroyOrphanWorktree.mutate({
+					projectId,
+					worktreePath: repo.repoPath,
+				}),
+			).rejects.toThrow(/main repository/);
+		} finally {
+			await host.dispose();
+			repo.dispose();
+		}
+	});
+});
+
 function createFailingTeardownPtySpawner(
 	writes: string[],
 ): NonNullable<ServerOptions["spawnPty"]> {

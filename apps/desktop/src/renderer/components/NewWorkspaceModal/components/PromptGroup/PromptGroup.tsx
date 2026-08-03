@@ -53,13 +53,16 @@ import { HiCheck, HiChevronUpDown } from "react-icons/hi2";
 import { LuFolderGit, LuFolderOpen, LuGitPullRequest } from "react-icons/lu";
 import { AgentSelect } from "renderer/components/AgentSelect";
 import { LinkedIssuePill } from "renderer/components/Chat/ChatInterface/components/ChatInputFooter/components/LinkedIssuePill";
+import { useWorkspaceCreationBranches } from "renderer/hooks/host-workspaces/useWorkspaceCreationBranches";
 import { useAgentLaunchPreferences } from "renderer/hooks/useAgentLaunchPreferences";
 import { PLATFORM } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { formatRelativeTime } from "renderer/lib/formatRelativeTime";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { resolveEffectiveWorkspaceBaseBranch } from "renderer/lib/workspaceBaseBranch";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import { ProjectThumbnail } from "renderer/screens/main/components/WorkspaceSidebar/ProjectSection/ProjectThumbnail";
 import {
@@ -97,6 +100,8 @@ interface ProjectOption {
 	githubOwner: string | null;
 	iconUrl: string | null;
 	hideImage: boolean | null;
+	mainRepoPath: string;
+	workspaceBaseBranch: string | null;
 }
 
 interface PromptGroupProps {
@@ -615,46 +620,76 @@ function PromptGroupInner({
 	const firstIssueSlug = linkedIssues[0]?.slug ?? null;
 
 	// AI branch name generation (on submit only)
-	const generateBranchNameMutation =
-		electronTrpc.workspaces.generateBranchName.useMutation();
+	const { activeHostUrl } = useLocalHostService();
+	const generateBranchName = useCallback(
+		(input: { prompt: string; projectId: string }) =>
+			activeHostUrl
+				? getHostServiceClientByUrl(
+						activeHostUrl,
+					).workspaces.generateBranchName.mutate(input)
+				: Promise.reject(new Error("Workspace host is unavailable")),
+		[activeHostUrl],
+	);
 	useEffect(() => {
 		if (isNewWorkspaceModalOpen) {
 			submitStartedRef.current = false;
 		}
 	}, [isNewWorkspaceModalOpen]);
 
-	const { data: project } = electronTrpc.projects.get.useQuery(
-		{ id: projectId ?? "" },
-		{ enabled: !!projectId },
-	);
+	const project = selectedProject
+		? {
+				githubOwner: selectedProject.githubOwner,
+				mainRepoPath: selectedProject.mainRepoPath,
+				workspaceBaseBranch: selectedProject.workspaceBaseBranch,
+			}
+		: undefined;
 	const {
-		data: localBranchData,
-		isLoading: isLocalBranchesLoading,
+		branches,
+		defaultBranch,
+		isLoading: isBranchesLoading,
 		isError: isBranchesError,
-	} = electronTrpc.projects.getBranchesLocal.useQuery(
-		{ projectId: projectId ?? "" },
-		{ enabled: !!projectId },
+	} = useWorkspaceCreationBranches(projectId);
+	const hostWorktrees = useMemo(
+		() =>
+			branches.flatMap((branch) =>
+				branch.worktreePath
+					? [
+							{
+								branch: branch.name,
+								path: branch.worktreePath,
+								hasActiveWorkspace: branch.hasWorkspace,
+							},
+						]
+					: [],
+			),
+		[branches],
 	);
-	const { data: remoteBranchData } = electronTrpc.projects.getBranches.useQuery(
-		{ projectId: projectId ?? "" },
-		{ enabled: !!projectId },
+	const branchData = useMemo(
+		() => ({ branches, defaultBranch: defaultBranch ?? "" }),
+		[branches, defaultBranch],
 	);
-	// Show local data immediately (fast, no network), upgrade to remote when available
-	const branchData = remoteBranchData ?? localBranchData;
-	// Only show loading while waiting for the fast local query
-	const isBranchesLoading = isLocalBranchesLoading && !branchData;
-
-	const { data: externalWorktrees = [] } =
-		electronTrpc.workspaces.getExternalWorktrees.useQuery(
-			{ projectId: projectId ?? "" },
-			{ enabled: !!projectId },
-		);
-
-	const { data: trackedWorktrees = [] } =
-		electronTrpc.workspaces.getWorktreesByProject.useQuery(
-			{ projectId: projectId ?? "" },
-			{ enabled: !!projectId },
-		);
+	const trackedWorktrees = useMemo(
+		() =>
+			hostWorktrees.map((worktree, index) => ({
+				id: `host-worktree:${worktree.path}:${index}`,
+				branch: worktree.branch,
+				path: worktree.path,
+				hasActiveWorkspace: worktree.hasActiveWorkspace,
+				existsOnDisk: true,
+			})),
+		[hostWorktrees],
+	);
+	const externalWorktrees = useMemo(
+		() =>
+			hostWorktrees
+				.filter((worktree) => !worktree.hasActiveWorkspace)
+				.map((worktree) => ({
+					path: worktree.path,
+					branch: worktree.branch,
+					hasActiveWorkspace: false,
+				})),
+		[hostWorktrees],
+	);
 
 	const worktreeBranches = useMemo(() => {
 		const set = new Set<string>();
@@ -797,7 +832,7 @@ function PromptGroupInner({
 						});
 
 						const result = await Promise.race([
-							generateBranchNameMutation.mutateAsync({
+							generateBranchName({
 								prompt: trimmedPrompt,
 								projectId,
 							}),
@@ -1064,7 +1099,7 @@ ${sanitizeText(truncatedBody)}`;
 			convertBlobUrlToDataUrl,
 			createFromPr,
 			createWorkspace,
-			generateBranchNameMutation,
+			generateBranchName,
 			linkedIssues,
 			linkedPR,
 			projectId,
@@ -1119,7 +1154,8 @@ ${sanitizeText(truncatedBody)}`;
 			if (action.type === "tracked") {
 				void runAsyncAction(
 					openTrackedWorktree.mutateAsync({
-						worktreeId: action.worktreeId,
+						projectId,
+						worktreePath: action.worktreePath,
 					}),
 					{
 						loading: t("workspace.openingWorktree"),

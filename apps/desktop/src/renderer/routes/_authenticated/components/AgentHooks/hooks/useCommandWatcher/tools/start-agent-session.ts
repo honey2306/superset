@@ -72,6 +72,7 @@ async function execute(
 		const launchResult = hasExplicitPaneTarget
 			? await launchAgentSession(request, {
 					source: "command-watcher",
+					hostUrl: ctx.hostUrl ?? undefined,
 					createOrAttach: (input) =>
 						ctx.terminalCreateOrAttach.mutateAsync(input),
 					write: (input) => ctx.terminalWrite.mutateAsync(input),

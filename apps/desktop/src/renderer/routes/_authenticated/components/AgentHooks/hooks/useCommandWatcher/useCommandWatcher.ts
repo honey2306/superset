@@ -1,14 +1,23 @@
 import { FEATURE_FLAGS } from "@superset/shared/constants";
+import { buildHostRoutingKey } from "@superset/shared/host-routing";
 import type { ProvisionWorkspaceRequest } from "@superset/workspace-client";
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
+import { useNavigate } from "@tanstack/react-router";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useRelayUrl } from "renderer/hooks/useRelayUrl";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { useDeleteWorkspace } from "renderer/react-query/workspaces/useDeleteWorkspace";
-import { useUpdateWorkspace } from "renderer/react-query/workspaces/useUpdateWorkspace";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider/CollectionsProvider";
+import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import {
+	useCatalogProjects,
+	useCatalogWorkspaces,
+} from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import {
 	useWorkspaceLaunch,
 	useWorkspaceProvisioningAdapter,
@@ -29,6 +38,10 @@ interface ResolvedCommandState {
 }
 
 export function useCommandWatcher() {
+	const navigate = useNavigate();
+	const { activeHostUrl, machineId } = useLocalHostService();
+	const relayUrl = useRelayUrl();
+	const { workspaces: hostWorkspaces } = useHostWorkspaces();
 	const { data: deviceInfo } = electronTrpc.auth.getDeviceInfo.useQuery();
 	const { data: session } = authClient.useSession();
 	const collections = useCollections();
@@ -49,35 +62,140 @@ export function useCommandWatcher() {
 
 	const provisioningAdapter = useWorkspaceProvisioningAdapter();
 	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
-	const setActive = electronTrpc.workspaces.setActive.useMutation();
-	const deleteWorkspace = useDeleteWorkspace();
-	const updateWorkspace = useUpdateWorkspace();
+	const setActive = useMemo(
+		() => ({
+			mutateAsync: async ({ workspaceId }: { workspaceId: string }) => {
+				await navigateToWorkspace(workspaceId, navigate);
+				return { success: true as const, workspaceId };
+			},
+		}),
+		[navigate],
+	);
 	const terminalCreateOrAttach =
 		electronTrpc.terminal.createOrAttach.useMutation();
 	const terminalWrite = electronTrpc.terminal.write.useMutation();
 
-	const { data: workspaces, refetch: refetchWorkspaces } =
-		electronTrpc.workspaces.getAll.useQuery();
-	const { data: workspaceGroups } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
-	const { data: projects } = electronTrpc.projects.getRecents.useQuery();
+	const { workspaces: catalogWorkspaces, isReady: workspacesReady } =
+		useCatalogWorkspaces();
+	const { projects: catalogProjects, isReady: projectsReady } =
+		useCatalogProjects();
+	const workspaceHostUrls = useMemo(() => {
+		const urls = new Map<string, string>();
+		for (const workspace of hostWorkspaces) {
+			if (workspace.hostId === machineId) {
+				if (activeHostUrl) urls.set(workspace.id, activeHostUrl);
+				continue;
+			}
+			urls.set(
+				workspace.id,
+				`${relayUrl}/hosts/${buildHostRoutingKey(workspace.organizationId, workspace.hostId)}`,
+			);
+		}
+		return urls;
+	}, [activeHostUrl, hostWorkspaces, machineId, relayUrl]);
+	const workspaces = useMemo(() => {
+		if (!workspacesReady && catalogWorkspaces.length === 0) return undefined;
+		return catalogWorkspaces.map((workspace) => ({
+			id: workspace.id,
+			name: workspace.name,
+			branch: workspace.branch,
+			projectId: workspace.projectId,
+			type:
+				workspace.type === "main" ? ("branch" as const) : ("worktree" as const),
+		}));
+	}, [catalogWorkspaces, workspacesReady]);
+	const mainBranchByProjectId = useMemo(
+		() =>
+			new Map(
+				catalogWorkspaces
+					.filter((workspace) => workspace.type === "main")
+					.map((workspace) => [workspace.projectId, workspace.branch]),
+			),
+		[catalogWorkspaces],
+	);
+	const projects = useMemo(() => {
+		if (!projectsReady && catalogProjects.length === 0) return undefined;
+		return catalogProjects.map((project) => ({
+			id: project.id,
+			name: project.name,
+			mainRepoPath: project.repoPath,
+			defaultBranch: mainBranchByProjectId.get(project.id) ?? null,
+			workspaceBaseBranch: mainBranchByProjectId.get(project.id) ?? null,
+			color: null,
+			lastOpenedAt: null,
+			tabOrder: null,
+		}));
+	}, [catalogProjects, mainBranchByProjectId, projectsReady]);
 	const worktreePathByWorkspaceId = useMemo(() => {
 		const pathByWorkspaceId = new Map<string, string>();
 
-		for (const group of workspaceGroups ?? []) {
-			for (const workspace of group.workspaces) {
+		for (const workspace of catalogWorkspaces) {
+			if (workspace.worktreePath) {
 				pathByWorkspaceId.set(workspace.id, workspace.worktreePath);
-			}
-
-			for (const section of group.sections) {
-				for (const workspace of section.workspaces) {
-					pathByWorkspaceId.set(workspace.id, workspace.worktreePath);
-				}
 			}
 		}
 
 		return pathByWorkspaceId;
-	}, [workspaceGroups]);
+	}, [catalogWorkspaces]);
+	const refetchWorkspaces = useCallback(async () => undefined, []);
+	const hostUrlForWorkspace = useCallback(
+		(workspaceId: string) => {
+			const knownHostUrl = workspaceHostUrls.get(workspaceId);
+			if (knownHostUrl) return knownHostUrl;
+			if (
+				activeHostUrl &&
+				catalogWorkspaces.some((workspace) => workspace.id === workspaceId)
+			) {
+				return activeHostUrl;
+			}
+			return null;
+		},
+		[activeHostUrl, catalogWorkspaces, workspaceHostUrls],
+	);
+	const deleteWorkspace = useMemo(
+		() => ({
+			mutateAsync: async (input: {
+				id: string;
+				deleteLocalBranch?: boolean;
+				force?: boolean;
+			}) => {
+				const hostUrl = hostUrlForWorkspace(input.id);
+				if (!hostUrl) {
+					throw new Error("Workspace host is unavailable");
+				}
+				return getHostServiceClientByUrl(
+					hostUrl,
+				).workspaceCleanup.destroy.mutate({
+					workspaceId: input.id,
+					deleteBranch: input.deleteLocalBranch ?? false,
+					force: input.force ?? false,
+				});
+			},
+		}),
+		[hostUrlForWorkspace],
+	);
+	const updateWorkspace = useMemo(
+		() => ({
+			mutateAsync: async (input: {
+				id: string;
+				patch: {
+					name?: string;
+					branch?: string;
+					taskId?: string | null;
+				};
+			}) => {
+				const hostUrl = hostUrlForWorkspace(input.id);
+				if (!hostUrl) {
+					throw new Error("Workspace host is unavailable");
+				}
+				return getHostServiceClientByUrl(hostUrl).workspace.update.mutate({
+					id: input.id,
+					...input.patch,
+				});
+			},
+		}),
+		[hostUrlForWorkspace],
+	);
 
 	const getCurrentWorkspaceIdFromRoute = useCallback(() => {
 		const hash = window.location.hash;
@@ -146,13 +264,16 @@ export function useCommandWatcher() {
 
 	const toolContext: ToolContext = useMemo(
 		() => ({
+			hostUrl: activeHostUrl,
 			createWorktree,
 			setActive,
 			deleteWorkspace,
 			updateWorkspace,
 			terminalCreateOrAttach,
 			terminalWrite,
-			refetchWorkspaces: async () => refetchWorkspaces(),
+			// Catalog changes arrive through the host event stream. Keep this
+			// compatibility callback for handlers that still await a refresh.
+			refetchWorkspaces,
 			getWorkspaces: () => workspaces,
 			getProjects: () => projects,
 			getActiveWorkspaceId: getCurrentWorkspaceIdFromRoute,
@@ -160,6 +281,7 @@ export function useCommandWatcher() {
 				worktreePathByWorkspaceId.get(workspaceId),
 		}),
 		[
+			activeHostUrl,
 			createWorktree,
 			setActive,
 			deleteWorkspace,

@@ -14,8 +14,31 @@ function joinAbsolutePath(parentAbsolutePath: string, name: string): string {
 	return `${parentAbsolutePath.replace(/[\\/]+$/, "")}${separator}${name}`;
 }
 
+async function resolveWorkspaceWorktreePath(
+	workspaceId: string,
+	context: AgentSessionLaunchContext,
+): Promise<string> {
+	if (!context.hostUrl) {
+		throw new Error(
+			`Host URL is required to resolve workspace path: ${workspaceId}`,
+		);
+	}
+
+	const snapshot = await getHostServiceClientByUrl(
+		context.hostUrl,
+	).workspaceCatalog.snapshot.query();
+	const workspace = snapshot.workspaces.find(
+		(candidate) => candidate.id === workspaceId,
+	);
+	if (!workspace?.worktreePath) {
+		throw new Error(`Workspace path not found in Catalog: ${workspaceId}`);
+	}
+	return workspace.worktreePath;
+}
+
 async function writeTaskPromptFile(
 	workspaceId: string,
+	worktreePath: string,
 	fileName: string,
 	content: string,
 ): Promise<void> {
@@ -25,17 +48,8 @@ async function writeTaskPromptFile(
 	}
 
 	const { electronTrpcClient } = await import("renderer/lib/trpc-client");
-	const workspace = await electronTrpcClient.workspaces.get.query({
-		id: workspaceId,
-	});
-	if (!workspace?.worktreePath) {
-		throw new Error(`Workspace path not found: ${workspaceId}`);
-	}
 
-	const supersetDirectory = joinAbsolutePath(
-		workspace.worktreePath,
-		".superset",
-	);
+	const supersetDirectory = joinAbsolutePath(worktreePath, ".superset");
 	await electronTrpcClient.filesystem.createDirectory.mutate({
 		workspaceId,
 		absolutePath: supersetDirectory,
@@ -56,6 +70,7 @@ const MAX_SINGLE_FILE_BYTES = 50 * 1024 * 1024; // 50MB per file
 
 async function writeAttachmentFiles(
 	workspaceId: string,
+	worktreePath: string,
 	files: Array<{ data: string; mediaType: string; filename?: string }>,
 ): Promise<string[]> {
 	// Enforce attachment count limit
@@ -106,17 +121,11 @@ async function writeAttachmentFiles(
 	}
 
 	const { electronTrpcClient } = await import("renderer/lib/trpc-client");
-	const workspace = await electronTrpcClient.workspaces.get.query({
-		id: workspaceId,
-	});
-	if (!workspace?.worktreePath) {
-		throw new Error(`Workspace path not found: ${workspaceId}`);
-	}
 
 	// `.superset` doesn't exist in a fresh worktree, so this must be
 	// recursive — a plain mkdir ENOENTs and kills the whole agent launch.
 	const attachmentsDirectory = joinAbsolutePath(
-		workspace.worktreePath,
+		worktreePath,
 		".superset/attachments",
 	);
 	await electronTrpcClient.filesystem.createDirectory.mutate({
@@ -199,6 +208,14 @@ export async function launchTerminalAdapter(
 
 	const { workspaceId } = request;
 	const targetPaneId = request.terminal.paneId;
+	const hasTaskPrompt = Boolean(
+		request.terminal.taskPromptContent && request.terminal.taskPromptFileName,
+	);
+	const hasAttachments = Boolean(request.terminal.initialFiles?.length);
+	const workspaceWorktreePath =
+		hasTaskPrompt || hasAttachments
+			? await resolveWorkspaceWorktreePath(workspaceId, context)
+			: null;
 
 	const noExecute = request.terminal.autoExecute === false;
 	const launchInHost = async (paneId: string) => {
@@ -243,6 +260,7 @@ export async function launchTerminalAdapter(
 			) {
 				await writeTaskPromptFile(
 					workspaceId,
+					workspaceWorktreePath as string,
 					request.terminal.taskPromptFileName,
 					request.terminal.taskPromptContent,
 				);
@@ -250,7 +268,11 @@ export async function launchTerminalAdapter(
 
 			// Write attachment files if present
 			if (request.terminal.initialFiles?.length) {
-				await writeAttachmentFiles(workspaceId, request.terminal.initialFiles);
+				await writeAttachmentFiles(
+					workspaceId,
+					workspaceWorktreePath as string,
+					request.terminal.initialFiles,
+				);
 			}
 
 			const hostLaunch = await launchInHost(newPaneId);
@@ -286,6 +308,7 @@ export async function launchTerminalAdapter(
 		) {
 			await writeTaskPromptFile(
 				workspaceId,
+				workspaceWorktreePath as string,
 				request.terminal.taskPromptFileName,
 				request.terminal.taskPromptContent,
 			);
@@ -293,7 +316,11 @@ export async function launchTerminalAdapter(
 
 		// Write attachment files if present
 		if (request.terminal.initialFiles?.length) {
-			await writeAttachmentFiles(workspaceId, request.terminal.initialFiles);
+			await writeAttachmentFiles(
+				workspaceId,
+				workspaceWorktreePath as string,
+				request.terminal.initialFiles,
+			);
 		}
 
 		const hostLaunch = await launchInHost(paneId);

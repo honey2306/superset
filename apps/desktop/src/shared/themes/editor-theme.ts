@@ -1,4 +1,9 @@
-import { type EditorTheme, getTerminalColors, type Theme } from "./types";
+import {
+	type EditorSyntaxColors,
+	type EditorTheme,
+	getTerminalColors,
+	type Theme,
+} from "./types";
 import { withAlpha } from "./utils";
 
 /**
@@ -66,7 +71,7 @@ export function getEditorTheme(theme: Theme): EditorTheme {
 			tagName: terminal?.red ?? theme.ui.chart1,
 			attributeName: terminal?.yellow ?? theme.ui.chart4,
 			invalid: terminal?.brightRed ?? theme.ui.destructive,
-		},
+		} as EditorSyntaxColors,
 	};
 
 	if (!theme.editor) {

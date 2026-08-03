@@ -1,10 +1,22 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type {
 	ChangeCategory,
 	ChangedFile,
 	CommitInfo,
 } from "shared/changes-types";
-import { useOrderedSections } from "./useOrderedSections";
+import { ensureHappyDom } from "test-utils/happy-dom-env";
+
+let renderHook: typeof import("@testing-library/react/pure").renderHook;
+let useOrderedSections: typeof import("./useOrderedSections").useOrderedSections;
+
+// `useOrderedSections` only pulls `t` from `useTranslation` (the tests assert on
+// section counts, not translated labels), so stub the i18n hook and run the
+// real React renderer via `renderHook`. We deliberately do NOT mock `react`
+// globally here — that used to leak a fake `react` into the rest of the test
+// process and break react-dnd's real context in V1PanesPresetBarItem.
+mock.module("renderer/providers/I18nProvider", () => ({
+	useTranslation: () => ({ t: (key: string) => key }),
+}));
 
 const emptyFile = (): ChangedFile => ({
 	path: "src/example.ts",
@@ -62,23 +74,32 @@ const emptyArgs = {
 	isUnstagedActioning: false,
 };
 
+beforeEach(async () => {
+	await ensureHappyDom();
+	({ renderHook } = await import("@testing-library/react/pure"));
+	({ useOrderedSections } = await import("./useOrderedSections"));
+});
+
 describe("useOrderedSections", () => {
 	test("keeps the commits section visible when commit files are lazy-loaded", () => {
-		const sections = useOrderedSections({
-			...emptyArgs,
-			commitsWithFiles: [
-				{
-					hash: "abc123",
-					shortHash: "abc123",
-					message: "feat: lazy commit files",
-					author: "Test User",
-					date: new Date("2026-03-06T12:00:00.000Z"),
-					files: [],
-				},
-			],
-			totalCommitCount: 1,
-		});
+		const { result } = renderHook(() =>
+			useOrderedSections({
+				...emptyArgs,
+				commitsWithFiles: [
+					{
+						hash: "abc123",
+						shortHash: "abc123",
+						message: "feat: lazy commit files",
+						author: "Test User",
+						date: new Date("2026-03-06T12:00:00.000Z"),
+						files: [],
+					},
+				],
+				totalCommitCount: 1,
+			}),
+		);
 
+		const sections = result.current;
 		const committedSection = sections.find(
 			(section) => section.id === "committed",
 		);
@@ -97,25 +118,30 @@ describe("useOrderedSections", () => {
 			files: [],
 		}));
 
-		const sections = useOrderedSections({
-			...emptyArgs,
-			commitsWithFiles,
-			totalCommitCount: 512,
-		});
-
-		expect(sections.find((section) => section.id === "committed")?.count).toBe(
-			512,
+		const { result } = renderHook(() =>
+			useOrderedSections({
+				...emptyArgs,
+				commitsWithFiles,
+				totalCommitCount: 512,
+			}),
 		);
+
+		expect(
+			result.current.find((section) => section.id === "committed")?.count,
+		).toBe(512);
 	});
 
 	test("does not change other section counts", () => {
-		const sections = useOrderedSections({
-			...emptyArgs,
-			againstBaseFiles: [emptyFile()],
-			stagedFiles: [emptyFile(), emptyFile()],
-			unstagedFiles: [emptyFile(), emptyFile(), emptyFile()],
-		});
+		const { result } = renderHook(() =>
+			useOrderedSections({
+				...emptyArgs,
+				againstBaseFiles: [emptyFile()],
+				stagedFiles: [emptyFile(), emptyFile()],
+				unstagedFiles: [emptyFile(), emptyFile(), emptyFile()],
+			}),
+		);
 
+		const sections = result.current;
 		expect(
 			sections.find((section) => section.id === "against-base")?.count,
 		).toBe(1);

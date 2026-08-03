@@ -11,7 +11,6 @@ import {
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { localDb } from "main/lib/local-db";
-import { invalidatePortLabelCache } from "../../ports/label-cache";
 import { computeNextProjectChildTabOrder } from "./project-children-order";
 
 /**
@@ -236,21 +235,6 @@ export function clearWorkspaceDeletingStatus(workspaceId: string): void {
 		.set({ deletingAt: null })
 		.where(eq(workspaces.id, workspaceId))
 		.run();
-}
-
-/**
- * Delete a workspace record from the database.
- */
-export function deleteWorkspace(workspaceId: string): void {
-	localDb.delete(workspaces).where(eq(workspaces.id, workspaceId)).run();
-	invalidatePortLabelCache(workspaceId);
-}
-
-/**
- * Delete a worktree record from the database.
- */
-export function deleteWorktreeRecord(worktreeId: string): void {
-	localDb.delete(worktrees).where(eq(worktrees.id, worktreeId)).run();
 }
 
 /**

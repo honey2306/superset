@@ -1,18 +1,11 @@
-import {
-	afterAll,
-	afterEach,
-	beforeAll,
-	describe,
-	expect,
-	mock,
-	test,
-} from "bun:test";
+import { afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
 import type { TerminalPreset } from "@superset/local-db";
 import type { RenderResult } from "@testing-library/react/pure";
 import { createDragDropManager } from "dnd-core";
 import type { ComponentProps, ComponentType } from "react";
 import type { TestBackendImpl } from "react-dnd-test-backend";
 import { TestBackend } from "react-dnd-test-backend";
+import { ensureHappyDom } from "test-utils/happy-dom-env";
 import type { V1PanesPresetBarItem as V1PanesPresetBarItemComponent } from "./V1PanesPresetBarItem";
 
 type ItemProps = ComponentProps<typeof V1PanesPresetBarItemComponent>;
@@ -24,12 +17,13 @@ let cleanup: typeof import("@testing-library/react/pure").cleanup;
 let fireEvent: typeof import("@testing-library/react/pure").fireEvent;
 let render: typeof import("@testing-library/react/pure").render;
 let screen: typeof import("@testing-library/react/pure").screen;
-let unregisterDom: () => void;
 
 beforeAll(async () => {
-	const { GlobalRegistrator } = await import("@happy-dom/global-registrator");
-	GlobalRegistrator.register();
-	unregisterDom = () => GlobalRegistrator.unregister();
+	// Register a single process-wide Happy DOM (see ensureHappyDom). Never
+	// unregister mid-suite: @testing-library/dom binds `screen` to `document.body`
+	// at import time, so tearing the DOM down between files would leave later
+	// queries pointing at a closed document.
+	await ensureHappyDom();
 	({ act, cleanup, fireEvent, render, screen } = await import(
 		"@testing-library/react/pure"
 	));
@@ -38,7 +32,6 @@ beforeAll(async () => {
 });
 
 afterEach(() => cleanup());
-afterAll(() => unregisterDom());
 
 const preset = (id: string): TerminalPreset =>
 	({ id, name: id, commands: [], cwd: "" }) as TerminalPreset;

@@ -1,18 +1,26 @@
-import { electronTrpc } from "renderer/lib/electron-trpc";
-import { useHandleOpenedWorktree } from "./useHandleOpenedWorktree";
+import { useCallback } from "react";
+import { useWorkspaceCreate } from "renderer/stores/workspace-launch/useWorkspaceCreateActions";
 
-export function useOpenExternalWorktree(
-	options?: Parameters<
-		typeof electronTrpc.workspaces.openExternalWorktree.useMutation
-	>[0],
-) {
-	const handleOpenedWorktree = useHandleOpenedWorktree();
+export function useOpenExternalWorktree() {
+	const createWorkspace = useWorkspaceCreate();
+	const mutateAsync = useCallback(
+		({
+			projectId,
+			worktreePath,
+		}: {
+			projectId: string;
+			worktreePath: string;
+		}) =>
+			createWorkspace.mutateAsyncWithPendingSetup(
+				{
+					id: crypto.randomUUID(),
+					projectId,
+					worktreePath,
+				},
+				{ resolveInitialCommands: () => [] },
+			),
+		[createWorkspace],
+	);
 
-	return electronTrpc.workspaces.openExternalWorktree.useMutation({
-		...options,
-		onSuccess: async (data, ...rest) => {
-			await handleOpenedWorktree(data);
-			await options?.onSuccess?.(data, ...rest);
-		},
-	});
+	return { isPending: createWorkspace.isPending, mutateAsync };
 }

@@ -13,7 +13,7 @@ import { Button } from "@superset/ui/button";
 import { toast } from "@superset/ui/sonner";
 import { motion } from "framer-motion";
 import { GoGitBranch } from "react-icons/go";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useWorkspaceCreationWorktrees } from "renderer/hooks/host-workspaces/useWorkspaceCreationBranches";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useImportAllWorktrees } from "renderer/react-query/workspaces/useImportAllWorktrees";
 
@@ -21,8 +21,8 @@ const MAX_VISIBLE_BRANCHES = 5;
 
 export function ExternalWorktreesBanner({ projectId }: { projectId: string }) {
 	const { t } = useTranslation();
-	const { data: externalWorktrees = [], isLoading } =
-		electronTrpc.workspaces.getExternalWorktrees.useQuery({ projectId });
+	const { worktrees: externalWorktrees, isLoading } =
+		useWorkspaceCreationWorktrees(projectId);
 	const importableWorktrees = externalWorktrees.filter(
 		(worktree) => !worktree.hasActiveWorkspace,
 	);

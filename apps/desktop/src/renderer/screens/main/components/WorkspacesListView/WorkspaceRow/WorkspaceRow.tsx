@@ -185,15 +185,15 @@ export function WorkspaceRow({
 
 	// Determine the delete/close action label based on workspace type and state
 	const isOpenWorkspace = workspace.workspaceId !== null;
-	const isClosedWorktree = !isOpenWorkspace && workspace.worktreeId !== null;
+	const isOrphanWorktree = !isOpenWorkspace && workspace.worktreePath !== "";
 	const actionLabel = isBranch
 		? "Close workspace"
-		: isClosedWorktree
+		: isOrphanWorktree
 			? "Delete worktree"
 			: "Delete workspace";
 
-	// Can delete open workspaces or closed worktrees
-	const canDelete = isOpenWorkspace || isClosedWorktree;
+	// Can delete open workspaces or orphan worktrees
+	const canDelete = isOpenWorkspace || isOrphanWorktree;
 
 	return (
 		<>
@@ -228,10 +228,10 @@ export function WorkspaceRow({
 				/>
 			)}
 
-			{/* Dialog for closed worktrees */}
-			{isClosedWorktree && workspace.worktreeId && (
+			{/* Dialog for orphan worktrees */}
+			{!workspace.workspaceId && workspace.worktreePath && (
 				<DeleteWorktreeDialog
-					worktreeId={workspace.worktreeId}
+					projectId={workspace.projectId}
 					worktreePath={workspace.worktreePath}
 					worktreeName={workspace.name}
 					open={showDeleteDialog}

@@ -28,13 +28,13 @@ import { deriveTerminalAgentStatus } from "renderer/hooks/host-service/useTermin
 import { useHotkey } from "renderer/hotkeys";
 import { useTerminalFilePolicy } from "renderer/lib/clickPolicy/policies/useTerminalFilePolicy";
 import { useTerminalUrlPolicy } from "renderer/lib/clickPolicy/policies/useTerminalUrlPolicy";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { posthog } from "renderer/lib/posthog";
 import { useTerminalAppearance } from "renderer/lib/terminal/appearance/useTerminalAppearance";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import type { ConnectionState } from "renderer/lib/terminal/terminal-ws-transport";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTerminalCallbacksStore } from "renderer/stores/tabs/terminal-callbacks";
 import {
@@ -100,10 +100,7 @@ export function HostServiceTerminalPane({
 	forceHostService,
 }: HostServiceTerminalPaneProps) {
 	const { t } = useTranslation();
-	const { data: workspaceData } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId },
-		{ staleTime: 30_000 },
-	);
+	const { workspace: workspaceData } = useCatalogWorkspace(workspaceId);
 	const { adapter, enabled, status, hostUrl, hostWorkspaceId } =
 		useHostServiceTerminal({
 			workspaceId,

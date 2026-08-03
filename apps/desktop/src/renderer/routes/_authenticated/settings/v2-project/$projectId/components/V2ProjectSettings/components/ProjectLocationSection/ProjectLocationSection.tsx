@@ -19,6 +19,10 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import {
+	beginProjectProvisioning,
+	createWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 import { ClickablePath } from "../../../../../../components/ClickablePath";
 import { SetupProjectModal } from "../SetupProjectModal";
 
@@ -124,10 +128,23 @@ export function ProjectLocationSection({
 		}
 		setIsSubmitting(true);
 		try {
-			const client = getHostServiceClientByUrl(hostUrl);
-			const result = await client.project.setup.mutate({
-				projectId,
-				mode: { kind: "import", repoPath: pendingPath, allowRelocate: true },
+			const result = await beginProjectProvisioning({
+				hostUrl,
+				adapter: createWorkspaceProvisioningAdapter(hostUrl),
+				request: {
+					idempotencyKey: `project-relocate:${projectId}:${pendingPath}`,
+					project: {
+						kind: "setup-existing",
+						projectId,
+						origin: { name: projectName },
+						mode: {
+							kind: "import",
+							path: pendingPath,
+							allowRelocate: true,
+						},
+					},
+					source: { kind: "main" },
+				},
 			});
 			toast.success(t("project.relocated", { path: result.repoPath }));
 			if (result.mainWorkspaceId) {

@@ -1,6 +1,49 @@
-import type { SelectProject, SelectWorkspace } from "@superset/local-db";
 import type { electronTrpc } from "renderer/lib/electron-trpc";
 import type { z } from "zod";
+
+export interface WorkspaceToolProjection {
+	id: string;
+	name: string;
+	branch: string;
+	projectId: string;
+	type: "worktree" | "branch";
+}
+
+export interface ProjectToolProjection {
+	id: string;
+	mainRepoPath: string;
+	name?: string;
+	defaultBranch?: string | null;
+	workspaceBaseBranch?: string | null;
+	color?: string | null;
+	lastOpenedAt?: number | null;
+	tabOrder?: number | null;
+}
+
+export interface SetActiveWorkspaceMutation {
+	mutateAsync: (input: {
+		workspaceId: string;
+	}) => Promise<{ success: true; workspaceId: string }>;
+}
+
+export interface WorkspaceDeleteMutation {
+	mutateAsync: (input: {
+		id: string;
+		deleteLocalBranch?: boolean;
+		force?: boolean;
+	}) => Promise<{ success: boolean; error?: string }>;
+}
+
+export interface WorkspaceUpdateMutation {
+	mutateAsync: (input: {
+		id: string;
+		patch: {
+			name?: string;
+			branch?: string;
+			taskId?: string | null;
+		};
+	}) => Promise<unknown>;
+}
 
 export interface CommandResult<
 	TData extends Record<string, unknown> = Record<string, unknown>,
@@ -25,7 +68,7 @@ export interface CreateWorktreeInput {
 }
 
 export interface CreatedWorktree {
-	workspace: Pick<SelectWorkspace, "id" | "name" | "branch">;
+	workspace: Pick<WorkspaceToolProjection, "id" | "name" | "branch">;
 	worktreePath: string;
 	wasExisting: boolean;
 }
@@ -57,23 +100,20 @@ export function buildBulkResult<T>({
 
 // Available mutations and queries passed to tool handlers
 export interface ToolContext {
+	hostUrl?: string | null;
 	// Mutations
 	createWorktree: (input: CreateWorktreeInput) => Promise<CreatedWorktree>;
-	setActive: ReturnType<typeof electronTrpc.workspaces.setActive.useMutation>;
-	deleteWorkspace: ReturnType<
-		typeof electronTrpc.workspaces.delete.useMutation
-	>;
-	updateWorkspace: ReturnType<
-		typeof electronTrpc.workspaces.update.useMutation
-	>;
+	setActive: SetActiveWorkspaceMutation;
+	deleteWorkspace: WorkspaceDeleteMutation;
+	updateWorkspace: WorkspaceUpdateMutation;
 	terminalCreateOrAttach: ReturnType<
 		typeof electronTrpc.terminal.createOrAttach.useMutation
 	>;
 	terminalWrite: ReturnType<typeof electronTrpc.terminal.write.useMutation>;
 	// Query helpers
 	refetchWorkspaces: () => Promise<unknown>;
-	getWorkspaces: () => SelectWorkspace[] | undefined;
-	getProjects: () => SelectProject[] | undefined;
+	getWorkspaces: () => WorkspaceToolProjection[] | undefined;
+	getProjects: () => ProjectToolProjection[] | undefined;
 	getActiveWorkspaceId: () => string | null;
 	getWorktreePathByWorkspaceId: (workspaceId: string) => string | undefined;
 }

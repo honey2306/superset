@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useCatalogProjects } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 
 export const Route = createFileRoute("/_authenticated/settings/projects/")({
 	component: ProjectsIndexPage,
@@ -14,11 +14,10 @@ function ProjectsIndexPage() {
 	const navigate = useNavigate();
 	const isV2CloudEnabled = useIsV2CloudEnabled();
 
-	const { data: groups = [], isLoading: groupsLoading } =
-		electronTrpc.workspaces.getAllGrouped.useQuery();
-
 	// Projects are fully local — identity comes from the host fan-out.
 	const { projects: hostProjects, isReady } = useHostProjects();
+	const { projects: catalogProjects, isReady: catalogProjectsReady } =
+		useCatalogProjects();
 	const v2Projects = useMemo(
 		() =>
 			hostProjects.map((project) => ({
@@ -36,11 +35,11 @@ function ProjectsIndexPage() {
 			return v2Sorted[0]?.id ?? null;
 		}
 
-		const v1Sorted = groups
-			.map((g) => g.project)
-			.sort((a, b) => a.name.localeCompare(b.name));
+		const v1Sorted = [...catalogProjects].sort((a, b) =>
+			a.name.localeCompare(b.name),
+		);
 		return v1Sorted[0]?.id ?? null;
-	}, [v2Projects, groups, isV2CloudEnabled]);
+	}, [v2Projects, catalogProjects, isV2CloudEnabled]);
 
 	useEffect(() => {
 		if (firstProjectId) {
@@ -54,9 +53,9 @@ function ProjectsIndexPage() {
 
 	const isEmpty = isV2CloudEnabled
 		? v2Projects.length === 0
-		: groups.length === 0;
+		: catalogProjects.length === 0;
 	if (isEmpty) {
-		if (isV2CloudEnabled ? !isReady : groupsLoading) return null;
+		if (isV2CloudEnabled ? !isReady : !catalogProjectsReady) return null;
 		return (
 			<div className="flex items-center justify-center h-full p-6 text-sm text-muted-foreground">
 				{t("projects.none")}

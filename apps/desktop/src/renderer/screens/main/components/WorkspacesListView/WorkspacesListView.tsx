@@ -2,11 +2,18 @@ import { Button } from "@superset/ui/button";
 import { Input } from "@superset/ui/input";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
+import { useQueries } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { LuSearch, LuX } from "react-icons/lu";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import {
+	getWorkspaceCreationBranchesQueryKey,
+	normalizeWorkspaceCreationWorktrees,
+} from "renderer/hooks/host-workspaces/useWorkspaceCreationBranches";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useOpenTrackedWorktree } from "renderer/react-query/workspaces/useOpenTrackedWorktree";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import type { FilterMode, ProjectGroup, WorkspaceItem } from "./types";
 import { WorkspaceRow } from "./WorkspaceRow";
@@ -20,11 +27,14 @@ const FILTER_OPTIONS: { value: FilterMode; label: string }[] = [
 export function WorkspacesListView() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [filterMode, setFilterMode] = useState<FilterMode>("all");
+	const [openingWorktreePath, setOpeningWorktreePath] = useState<string | null>(
+		null,
+	);
 	const navigate = useNavigate();
-	const utils = electronTrpc.useUtils();
 
 	const { projects: catalogProjects, workspaces: catalogWorkspaces } =
 		useWorkspaceCatalog();
+	const { activeHostUrl } = useLocalHostService();
 	const allProjects = catalogProjects;
 	const groups = useMemo<ProjectGroup[]>(() => {
 		const projectNames = new Map(
@@ -41,7 +51,6 @@ export function WorkspacesListView() {
 			group.workspaces.push({
 				uniqueId: workspace.id,
 				workspaceId: workspace.id,
-				worktreeId: null,
 				projectId: workspace.projectId,
 				projectName:
 					projectNames.get(workspace.projectId) ?? workspace.projectId,
@@ -59,25 +68,37 @@ export function WorkspacesListView() {
 		return Array.from(grouped.values());
 	}, [catalogProjects, catalogWorkspaces]);
 
-	// Fetch worktrees for all projects
-	const worktreeQueries = electronTrpc.useQueries((t) =>
-		allProjects.map((project) =>
-			t.workspaces.getWorktreesByProject({ projectId: project.id }),
-		),
-	);
-
-	const openWorktree = electronTrpc.workspaces.openWorktree.useMutation({
-		onSuccess: (data) => {
-			utils.workspaces.getAllGrouped.invalidate();
-			// Navigate to the newly opened workspace
-			if (data.workspace?.id) {
-				navigateToWorkspace(data.workspace.id, navigate);
-			}
-		},
-		onError: (error) => {
-			toast.error(`Failed to open workspace: ${error.message}`);
-		},
+	// Discover orphan worktrees (present on disk, no Catalog workspace)
+	// through the owning host. This is the same source that powers the
+	// project ExternalWorktreesBanner and the New Workspace picker; keeping
+	// them consistent means "Closed" here always matches the picker.
+	const worktreeQueries = useQueries({
+		queries: allProjects.map((project) => ({
+			queryKey: getWorkspaceCreationBranchesQueryKey({
+				projectId: project.id,
+				hostUrl: activeHostUrl,
+				filter: "worktree" as const,
+				query: "",
+			}),
+			enabled: Boolean(activeHostUrl),
+			networkMode: "always" as const,
+			staleTime: 30_000,
+			queryFn: async () => {
+				if (!activeHostUrl) return [];
+				const result = await getHostServiceClientByUrl(
+					activeHostUrl,
+				).workspaceCreation.searchBranches.query({
+					projectId: project.id,
+					filter: "worktree",
+					limit: 200,
+					refresh: true,
+				});
+				return normalizeWorkspaceCreationWorktrees(result.items);
+			},
+		})),
 	});
+
+	const openWorktree = useOpenTrackedWorktree();
 
 	// Combine open workspaces and closed worktrees into a single list
 	const allItems = useMemo<WorkspaceItem[]>(() => {
@@ -89,7 +110,6 @@ export function WorkspacesListView() {
 				items.push({
 					uniqueId: ws.uniqueId,
 					workspaceId: ws.workspaceId,
-					worktreeId: ws.worktreeId,
 					projectId: ws.projectId,
 					projectName: group.projectName,
 					worktreePath: ws.worktreePath,
@@ -104,29 +124,26 @@ export function WorkspacesListView() {
 			}
 		}
 
-		// Add closed worktrees (those without active workspaces)
+		// Add orphan worktrees (present on disk, no active workspace)
 		for (let i = 0; i < allProjects.length; i++) {
 			const project = allProjects[i];
-			const worktrees = worktreeQueries[i]?.data;
+			const orphans = worktreeQueries[i]?.data;
+			if (!project || !orphans) continue;
 
-			if (!worktrees) continue;
-
-			for (const wt of worktrees) {
-				// Skip if this worktree has an active workspace
+			for (const wt of orphans) {
 				if (wt.hasActiveWorkspace) continue;
 
 				items.push({
-					uniqueId: `wt-${wt.id}`,
+					uniqueId: `wt-${project.id}-${wt.path}`,
 					workspaceId: null,
-					worktreeId: wt.id,
 					projectId: project.id,
 					projectName: project.name,
 					worktreePath: wt.path,
 					type: "worktree",
 					branch: wt.branch,
 					name: wt.branch,
-					lastOpenedAt: wt.createdAt,
-					createdAt: wt.createdAt,
+					lastOpenedAt: wt.lastCommitDate || 0,
+					createdAt: wt.lastCommitDate || 0,
 					isUnread: false,
 					isOpen: false,
 				});
@@ -201,8 +218,21 @@ export function WorkspacesListView() {
 	};
 
 	const handleReopen = (item: WorkspaceItem) => {
-		if (item.worktreeId) {
-			openWorktree.mutate({ worktreeId: item.worktreeId });
+		if (!item.workspaceId && item.worktreePath) {
+			setOpeningWorktreePath(item.worktreePath);
+			void openWorktree
+				.mutateAsync({
+					projectId: item.projectId,
+					worktreePath: item.worktreePath,
+				})
+				.catch((error: unknown) => {
+					toast.error(
+						`Failed to open workspace: ${
+							error instanceof Error ? error.message : String(error)
+						}`,
+					);
+				})
+				.finally(() => setOpeningWorktreePath(null));
 		}
 	};
 
@@ -288,7 +318,7 @@ export function WorkspacesListView() {
 								onReopen={() => handleReopen(ws)}
 								isOpening={
 									openWorktree.isPending &&
-									openWorktree.variables?.worktreeId === ws.worktreeId
+									openingWorktreePath === ws.worktreePath
 								}
 							/>
 						))}

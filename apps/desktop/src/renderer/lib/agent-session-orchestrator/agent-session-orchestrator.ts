@@ -4,7 +4,7 @@ import type {
 } from "@superset/shared/agent-launch";
 import { normalizeAgentLaunchRequest } from "@superset/shared/agent-launch";
 import { posthog } from "renderer/lib/posthog";
-import { useWorkspaceInitStore } from "renderer/stores/workspace-init";
+import { useAgentSessionLaunchStore } from "renderer/stores/agent-session-launch";
 import { launchTerminalAdapter } from "./adapters/terminal-adapter";
 import type {
 	AgentLaunchTabsAdapter,
@@ -193,7 +193,7 @@ export function queueAgentSessionLaunch(
 	input: QueueAgentSessionLaunchInput,
 ): AgentLaunchResult {
 	const request = normalizeAgentLaunchRequest(input.request);
-	const store = useWorkspaceInitStore.getState();
+	const store = useAgentSessionLaunchStore.getState();
 	const existing = store.pendingTerminalSetups[request.workspaceId];
 	const projectId = input.projectId ?? existing?.projectId;
 

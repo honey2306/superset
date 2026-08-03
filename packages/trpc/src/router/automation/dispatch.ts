@@ -261,7 +261,8 @@ async function recordSkipped(
 
 /**
  * Since the M2 Workspace Catalog + Provisioning cutover this dispatches
- * a durable Provisioning operation instead of the old `workspaces.create`
+ * a durable Provisioning operation instead of the removed legacy workspace
+ * creation mutation
  * mutation. Idempotency key is scoped to `<runId>:workspace` so a lost
  * HTTP response on the relay side recovers the same operation on retry.
  * The operation runs synchronously in the host today (MVP saga), so we

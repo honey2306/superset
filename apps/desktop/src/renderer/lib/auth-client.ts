@@ -91,7 +91,7 @@ export async function ensureFreshJwt(): Promise<string | null> {
  * Bearer authentication configured via onRequest hook.
  * Server has bearer() plugin enabled to accept bearer tokens.
  */
-export const authClient = createAuthClient({
+const remoteAuthClient = createAuthClient({
 	baseURL: env.NEXT_PUBLIC_API_URL,
 	plugins: [
 		organizationClient({
@@ -126,43 +126,83 @@ export const authClient = createAuthClient({
 	},
 });
 
-// Single-user local setup: mock useSession to always return a valid local user
-// Use the real user from the database to avoid org membership errors
-const MOCK_SESSION = {
+type SessionHookResult = ReturnType<typeof remoteAuthClient.useSession>;
+type SessionData = NonNullable<SessionHookResult["data"]>;
+type ActiveOrganizationHookResult = ReturnType<
+	typeof remoteAuthClient.useActiveOrganization
+>;
+
+const LOCAL_USER_ID = "ea4695ed-43bc-4b31-85a1-9e67deefa301";
+const LOCAL_ORGANIZATION_ID = "1887f807-99db-49c0-9568-fc085a2fd36a";
+const localSession = {
 	session: {
 		id: "local-session",
-		userId: "ea4695ed-43bc-4b31-85a1-9e67deefa301",
+		userId: LOCAL_USER_ID,
 		createdAt: new Date(),
 		updatedAt: new Date(),
-		expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+		expiresAt: new Date("2999-12-31T23:59:59.999Z"),
 		token: "local-token",
 		ipAddress: "127.0.0.1",
 		userAgent: "Superset Desktop",
+		activeOrganizationId: LOCAL_ORGANIZATION_ID,
 	},
 	user: {
-		id: "ea4695ed-43bc-4b31-85a1-9e67deefa301",
+		id: LOCAL_USER_ID,
 		email: "admin@local.test",
 		name: "Local Admin",
 		emailVerified: true,
 		image: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),
-		activeOrganizationId: "1887f807-99db-49c0-9568-fc085a2fd36a",
+		activeOrganizationId: LOCAL_ORGANIZATION_ID,
+		onboardedAt: new Date(),
 	},
-};
+} as unknown as SessionData;
 
-const _originalUseSession = authClient.useSession;
-authClient.useSession = function mockUseSession() {
-	const session = {
-		data: MOCK_SESSION,
-		isPending: false,
-		isLoading: false,
-		error: null,
-		refetch: async () => ({ data: MOCK_SESSION }),
-	};
-	// Dev-only single-user mock (.superset/setup.local.sh) — the real
-	// BetterFetch<> generics from better-auth don't line up with this
-	// shape and re-implementing them would only serve this dev bypass.
-	// biome-ignore lint/suspicious/noExplicitAny: dev bypass, see comment above
-	return session as any;
-};
+const localSessionHookResult = {
+	data: localSession,
+	isPending: false,
+	isRefetching: false,
+	isLoading: false,
+	error: null,
+	refetch: async () => {},
+} as unknown as SessionHookResult;
+
+const localActiveOrganizationHookResult = {
+	data: {
+		id: LOCAL_ORGANIZATION_ID,
+		name: "My Workspace",
+		slug: "local-workspace",
+		logo: null,
+		metadata: null,
+		createdAt: new Date(),
+	},
+	isPending: false,
+	isRefetching: false,
+	isLoading: false,
+	error: null,
+	refetch: async () => {},
+} as unknown as ActiveOrganizationHookResult;
+
+function useLocalSession(): SessionHookResult {
+	return localSessionHookResult;
+}
+
+/**
+ * Superset is a local single-user tool in this fork. Keep the Better Auth
+ * client methods needed by legacy callers, but replace its session hook with
+ * a stable local identity so rendering never depends on remote authentication.
+ *
+ * Better Auth itself returns a dynamic Proxy. Assigning `useSession` directly
+ * does not work because that Proxy's get trap ignores properties written onto
+ * its function target, so the override must live in an outer Proxy.
+ */
+export const authClient = new Proxy(remoteAuthClient, {
+	get(target, property, receiver) {
+		if (property === "useSession") return useLocalSession;
+		if (property === "useActiveOrganization") {
+			return () => localActiveOrganizationHookResult;
+		}
+		return Reflect.get(target, property, receiver);
+	},
+});

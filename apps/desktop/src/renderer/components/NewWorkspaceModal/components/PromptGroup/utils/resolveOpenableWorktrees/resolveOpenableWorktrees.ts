@@ -13,7 +13,7 @@ export interface ExternalWorktree {
 }
 
 export type OpenableWorktreeAction =
-	| { type: "tracked"; worktreeId: string }
+	| { type: "tracked"; worktreePath: string }
 	| { type: "external"; worktreePath: string };
 
 /**
@@ -45,7 +45,7 @@ export function resolveOpenableWorktrees(
 		if (!wt.branch) continue;
 		if (!wt.existsOnDisk) continue;
 		if (wt.hasActiveWorkspace) continue;
-		result.set(wt.branch, { type: "tracked", worktreeId: wt.id });
+		result.set(wt.branch, { type: "tracked", worktreePath: wt.path });
 	}
 
 	return result;

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -114,14 +115,22 @@ describe("setup scripts integration", () => {
 			commands: ["bun dev"],
 		});
 
-		const created = await scenario.host.trpc.workspaces.create.mutate({
-			projectId: scenario.projectId,
-			name: "scripted setup",
-			branch: "scripted-setup",
-		});
+		const created = await scenario.host.trpc.workspaceProvisioning.begin.mutate(
+			{
+				idempotencyKey: `setup-scripts:${randomUUID()}`,
+				project: { kind: "existing", projectId: scenario.projectId },
+				source: {
+					kind: "branch",
+					name: { kind: "explicit", value: "scripted-setup" },
+					from: { kind: "default" },
+				},
+				initialSessions: [
+					{ key: "setup", kind: "setup", requirement: "required" },
+				],
+			},
+		);
 
-		expect(created.terminals).toHaveLength(1);
-		expect(created.terminals[0]?.label).toBe("Workspace Setup");
+		expect(created.operation.workspaceId).toBeTruthy();
 
 		await waitFor(
 			() => writes.includes("echo setup-a && echo setup-b\n"),
@@ -132,7 +141,7 @@ describe("setup scripts integration", () => {
 		const workspaceRow = scenario.host.db
 			.select()
 			.from(workspaces)
-			.where(eq(workspaces.id, created.workspace.id))
+			.where(eq(workspaces.id, created.operation.workspaceId ?? ""))
 			.get();
 		expect(workspaceRow).toBeDefined();
 		if (!workspaceRow) throw new Error("Expected workspace row to exist");

@@ -11,6 +11,7 @@ import {
 } from "react-icons/lu";
 import { HotkeyLabel } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import {
 	RightSidebarTab,
 	SidebarMode,
@@ -73,10 +74,7 @@ function TabButton({
 
 export function RightSidebar() {
 	const { workspaceId } = useParams({ strict: false });
-	const { data: workspace } = electronTrpc.workspaces.get.useQuery(
-		{ id: workspaceId ?? "" },
-		{ enabled: !!workspaceId },
-	);
+	const { workspace } = useCatalogWorkspace(workspaceId);
 	const worktreePath = workspace?.worktreePath;
 	const currentMode = useSidebarStore((s) => s.currentMode);
 	const rightSidebarTab = useSidebarStore((s) => s.rightSidebarTab);
