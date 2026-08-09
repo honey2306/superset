@@ -24,24 +24,24 @@ export function WorkspaceRunIndicator({
 
 	const colorClasses =
 		state === "running"
-			? "bg-emerald-500"
+			? "bg-success-tint"
 			: state === "stopped-by-user"
 				? "bg-muted-foreground/40"
-				: "bg-red-400/50";
+				: "bg-destructive";
 
 	const inlineColorClasses =
 		state === "running"
-			? "bg-emerald-500/15 text-emerald-400"
+			? "bg-success-tint text-success"
 			: state === "stopped-by-user"
 				? "bg-muted-foreground/10 text-muted-foreground/50"
-				: "bg-red-500/15 text-red-400/70";
+				: "bg-destructive text-destructive";
 
 	const toolbarColorClasses =
 		state === "running"
-			? "text-emerald-300"
+			? "text-success"
 			: state === "stopped-by-user"
 				? "text-amber-300"
-				: "text-red-300/70";
+				: "text-destructive";
 
 	if (variant === "circle") {
 		return (

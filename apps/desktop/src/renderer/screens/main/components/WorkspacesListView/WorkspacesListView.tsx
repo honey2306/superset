@@ -241,11 +241,11 @@ export function WorkspacesListView() {
 	const closedCount = allItems.filter((w) => !w.isOpen).length;
 
 	return (
-		<div className="flex-1 flex flex-col bg-card overflow-hidden">
+		<div className="flex-1 flex flex-col bg-surface overflow-hidden">
 			{/* Header */}
 			<div className="flex items-center gap-3 px-4 py-2 border-b border-border/50">
 				{/* Filter toggle */}
-				<div className="flex items-center gap-1 bg-background/50 rounded-md p-0.5">
+				<div className="flex items-center gap-1 bg-background/50 rounded-ds-3 p-0.5">
 					{FILTER_OPTIONS.map((option) => {
 						const count =
 							option.value === "all"
@@ -259,10 +259,10 @@ export function WorkspacesListView() {
 								type="button"
 								onClick={() => setFilterMode(option.value)}
 								className={cn(
-									"px-2 py-1 text-xs rounded-md transition-colors",
+									"px-2 py-1 text-xs rounded-ds-3 transition-colors",
 									filterMode === option.value
-										? "bg-accent text-foreground"
-										: "text-foreground/60 hover:text-foreground",
+										? "bg-accent-tint text-fg"
+										: "text-foreground/60 hover:text-fg",
 								)}
 							>
 								{option.label}
@@ -289,7 +289,7 @@ export function WorkspacesListView() {
 					variant="ghost"
 					size="icon"
 					onClick={() => navigate({ to: "/workspace" })}
-					className="size-7 text-foreground/60 hover:text-foreground shrink-0"
+					className="size-7 text-foreground/60 hover:text-fg shrink-0"
 				>
 					<LuX className="size-4" />
 				</Button>
@@ -301,7 +301,7 @@ export function WorkspacesListView() {
 					<div key={group.projectId}>
 						{/* Project header */}
 						<div className="sticky top-0 bg-card/95 backdrop-blur-sm px-4 py-2 border-b border-border/50">
-							<span className="text-xs font-medium text-foreground/70">
+							<span className="text-xs font-medium text-fg-mute">
 								{group.projectName}
 							</span>
 							<span className="text-xs text-foreground/40 ml-2">

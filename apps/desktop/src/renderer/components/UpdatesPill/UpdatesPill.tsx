@@ -159,11 +159,11 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 						aria-disabled={isBusy}
 						aria-label={tooltip}
 						className={cn(
-							"relative flex size-8 items-center justify-center rounded-md",
+							"relative flex size-8 items-center justify-center rounded-ds-3",
 							"animate-in fade-in duration-300",
 							isBusy
-								? "cursor-default text-muted-foreground"
-								: "hover:bg-accent/50",
+								? "cursor-default text-fg-mute"
+								: "hover:bg-hover",
 						)}
 						style={
 							isDissolving
@@ -177,13 +177,13 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 						{isDownloading ? (
 							<DownloadRing percent={percent} className="size-3.5" />
 						) : isInstalling ? (
-							<span className="font-mono text-xs leading-none text-orange-600 dark:text-orange-300">
+							<span className="font-mono text-xs leading-none text-warning dark:text-warning">
 								{spinnerGlyph}
 							</span>
 						) : isUpdated ? (
 							<LuCircleCheck
 								strokeWidth={STROKE_WIDTH}
-								className="size-4 text-emerald-600 dark:text-emerald-400"
+								className="size-4 text-success dark:text-success"
 							/>
 						) : (
 							<LuCircleArrowUp
@@ -192,7 +192,7 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 									"size-4",
 									isError
 										? "text-destructive"
-										: "text-emerald-600 dark:text-emerald-400",
+										: "text-success dark:text-success",
 								)}
 							/>
 						)}
@@ -202,7 +202,7 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 					side="right"
 					sideOffset={4}
 					showArrow={false}
-					className="rounded-sm border border-border bg-background px-1.5 py-0.5 font-medium text-muted-foreground shadow-sm"
+					className="rounded-sm border border-line bg-background px-1.5 py-0.5 font-medium text-fg-mute shadow-sm"
 				>
 					{tooltip}
 				</TooltipContent>
@@ -224,11 +224,11 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 						isBusy && "cursor-default",
 						(isDownloading || isInstalling || isUpdated) &&
 							"bg-foreground/[0.045] ring-foreground/[0.06]",
-						(isDownloading || isUpdated) && "text-muted-foreground",
-						isInstalling && "text-orange-600 dark:text-orange-300",
+						(isDownloading || isUpdated) && "text-fg-mute",
+						isInstalling && "text-warning dark:text-warning",
 						isReady &&
 							!isInstalling &&
-							"bg-emerald-500/15 ring-emerald-500/25 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-300",
+							"bg-success-tint ring-emerald-500/25 text-success hover:bg-success-tint dark:text-success",
 						isError &&
 							"bg-destructive/10 ring-destructive/25 text-destructive hover:bg-destructive/20",
 					)}
@@ -260,7 +260,7 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 								fill="none"
 								stroke="currentColor"
 								aria-hidden="true"
-								className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400"
+								className="size-3 shrink-0 text-success dark:text-success"
 							>
 								<path
 									d="M4.5 12.5l5 5L20 6.5"
@@ -280,7 +280,7 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 						</>
 					) : isReady ? (
 						<>
-							<span className="size-1.5 shrink-0 rounded-full bg-emerald-500 animate-pulse" />
+							<span className="size-1.5 shrink-0 rounded-full bg-success-tint animate-pulse" />
 							<span>↑ update</span>
 						</>
 					) : (
@@ -295,7 +295,7 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 				side="top"
 				sideOffset={4}
 				showArrow={false}
-				className="rounded-sm border border-border bg-background px-1.5 py-0.5 font-medium text-muted-foreground shadow-sm"
+				className="rounded-sm border border-line bg-background px-1.5 py-0.5 font-medium text-fg-mute shadow-sm"
 			>
 				{tooltip}
 			</TooltipContent>

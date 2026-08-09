@@ -97,12 +97,12 @@ export function WorkspaceRow({
 					>
 						{isBranch ? (
 							<LuFolder
-								className="size-4 text-muted-foreground"
+								className="size-4 text-fg-mute"
 								strokeWidth={STROKE_WIDTH}
 							/>
 						) : (
 							<LuFolderGit2
-								className="size-4 text-muted-foreground"
+								className="size-4 text-fg-mute"
 								strokeWidth={STROKE_WIDTH}
 							/>
 						)}
@@ -112,14 +112,14 @@ export function WorkspaceRow({
 					{isBranch ? (
 						<>
 							<p className="text-xs font-medium">Local workspace</p>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-xs text-fg-mute">
 								Changes are made directly in the main repository
 							</p>
 						</>
 					) : (
 						<>
 							<p className="text-xs font-medium">Worktree workspace</p>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-xs text-fg-mute">
 								Isolated copy for parallel development
 							</p>
 						</>
@@ -130,7 +130,7 @@ export function WorkspaceRow({
 			{/* Workspace/branch name */}
 			<span
 				className={cn(
-					"text-sm truncate text-foreground/80",
+					"text-sm truncate text-fg-mute",
 					!workspace.isOpen && "text-foreground/50",
 				)}
 			>
@@ -140,15 +140,15 @@ export function WorkspaceRow({
 			{/* Unread indicator */}
 			{workspace.isUnread && (
 				<span className="relative flex size-2 shrink-0">
-					<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-					<span className="relative inline-flex size-2 rounded-full bg-red-500" />
+					<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+					<span className="relative inline-flex size-2 rounded-full bg-destructive" />
 				</span>
 			)}
 
 			{/* Diff stats */}
 			{showDiffStats && (
 				<div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
-					<span className="text-emerald-500">+{pr.additions}</span>
+					<span className="text-success">+{pr.additions}</span>
 					<span className="text-destructive-foreground">-{pr.deletions}</span>
 				</div>
 			)}
@@ -170,13 +170,13 @@ export function WorkspaceRow({
 					</>
 				) : workspace.isOpen ? (
 					<>
-						<span className="font-medium text-foreground/80">Switch to</span>
-						<LuArrowRight className="size-3 text-foreground/80" />
+						<span className="font-medium text-fg-mute">Switch to</span>
+						<LuArrowRight className="size-3 text-fg-mute" />
 					</>
 				) : (
 					<>
-						<span className="font-medium text-foreground/80">Reopen</span>
-						<LuArrowRight className="size-3 text-foreground/80" />
+						<span className="font-medium text-fg-mute">Reopen</span>
+						<LuArrowRight className="size-3 text-fg-mute" />
 					</>
 				)}
 			</div>

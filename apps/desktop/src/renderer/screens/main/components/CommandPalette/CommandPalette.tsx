@@ -127,7 +127,7 @@ export function CommandPalette({
 			<DialogPrimitive.Portal>
 				<DialogPrimitive.Overlay className="fixed inset-0 z-50" />
 				<DialogPrimitive.Content
-					className="fixed left-[50%] z-50 w-full max-w-[672px] translate-x-[-50%] overflow-hidden rounded-lg border shadow-lg"
+					className="fixed left-[50%] z-50 w-full max-w-[672px] translate-x-[-50%] overflow-hidden rounded-ds-5 border shadow-lg"
 					style={{ top: `calc(50% - ${MAX_DIALOG_HEIGHT / 2}px)` }}
 				>
 					<DialogPrimitive.Title className="sr-only">
@@ -139,7 +139,7 @@ export function CommandPalette({
 
 					<CommandPrimitive
 						shouldFilter={false}
-						className="bg-popover text-popover-foreground flex h-full w-full flex-col overflow-hidden rounded-md"
+						className="bg-surface-sunk text-fg flex h-full w-full flex-col overflow-hidden rounded-ds-3"
 					>
 						<div className="flex h-12 items-center gap-2 border-b px-3">
 							<SearchIcon className="size-5 shrink-0 opacity-50" />
@@ -148,12 +148,12 @@ export function CommandPalette({
 								placeholder="Search files..."
 								value={query}
 								onValueChange={setQuery}
-								className="flex h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+								className="flex h-12 w-full bg-transparent text-sm outline-none placeholder:text-fg-mute"
 							/>
 							{variant === "v1" && (
 								<button
 									type="button"
-									className="shrink-0 rounded p-1 text-muted-foreground hover:text-foreground"
+									className="shrink-0 rounded p-1 text-fg-mute hover:text-fg"
 									onClick={() => setFiltersOpen((v) => !v)}
 									aria-label={filtersOpen ? "Hide Filters" : "Show Filters"}
 								>
@@ -172,26 +172,26 @@ export function CommandPalette({
 									value={includePattern}
 									onChange={(e) => setIncludePattern(e.target.value)}
 									placeholder="files to include (glob)"
-									className="h-8 rounded border bg-transparent px-2 text-xs outline-none placeholder:text-muted-foreground"
+									className="h-8 rounded border bg-transparent px-2 text-xs outline-none placeholder:text-fg-mute"
 								/>
 								<input
 									value={excludePattern}
 									onChange={(e) => setExcludePattern(e.target.value)}
 									placeholder="files to exclude (glob)"
-									className="h-8 rounded border bg-transparent px-2 text-xs outline-none placeholder:text-muted-foreground"
+									className="h-8 rounded border bg-transparent px-2 text-xs outline-none placeholder:text-fg-mute"
 								/>
 							</div>
 						)}
 
 						<CommandPrimitive.List className="max-h-[400px] overflow-x-hidden overflow-y-auto scroll-py-1 p-1">
 							{showEmptyState && (
-								<CommandPrimitive.Empty className="py-6 text-center text-sm text-muted-foreground">
+								<CommandPrimitive.Empty className="py-6 text-center text-sm text-fg-mute">
 									No files found.
 								</CommandPrimitive.Empty>
 							)}
 
 							{showHeading && (
-								<div className="px-2 pt-2 pb-1 text-muted-foreground text-xs">
+								<div className="px-2 pt-2 pb-1 text-fg-mute text-xs">
 									Recently Viewed
 								</div>
 							)}

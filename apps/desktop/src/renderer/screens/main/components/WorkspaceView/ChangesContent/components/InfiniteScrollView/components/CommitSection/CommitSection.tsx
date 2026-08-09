@@ -32,22 +32,22 @@ export function CommitSection({
 	const files = commitFiles ?? [];
 
 	return (
-		<div className="border-b border-border">
+		<div className="border-b border-line">
 			<button
 				type="button"
 				onClick={() => setIsCommitExpanded(!isCommitExpanded)}
-				className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-accent/50 transition-colors"
+				className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-hover transition-colors"
 			>
 				{isCommitExpanded ? (
-					<LuChevronDown className="size-4 text-muted-foreground" />
+					<LuChevronDown className="size-4 text-fg-mute" />
 				) : (
-					<LuChevronRight className="size-4 text-muted-foreground" />
+					<LuChevronRight className="size-4 text-fg-mute" />
 				)}
-				<span className="text-xs font-mono text-muted-foreground">
+				<span className="text-xs font-mono text-fg-mute">
 					{commit.shortHash}
 				</span>
 				<span className="text-sm truncate flex-1">{commit.message}</span>
-				<span className="text-xs text-muted-foreground">
+				<span className="text-xs text-fg-mute">
 					{commit.files.length} files
 				</span>
 			</button>
