@@ -99,14 +99,14 @@ export function WorkspaceSidebarHeader({
 
 	const itemClassName = (isActive = false) =>
 		cn(
-			"flex items-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground",
+			"flex items-center gap-2 rounded-ds-3 text-fg-mute transition-colors duration-[120ms] hover:bg-hover hover:text-fg",
 			isCollapsed ? "size-8 justify-center" : "w-full px-2 py-1.5",
-			isActive && "bg-accent text-foreground",
+			isActive && "bg-accent-tint text-fg",
 		);
 
 	if (isCollapsed) {
 		return (
-			<div className="flex flex-col items-center gap-2 border-b border-border py-2">
+			<div className="flex flex-col items-center gap-2 border-b border-line py-2">
 				<Tooltip delayDuration={300}>
 					<TooltipTrigger asChild>
 						<button
@@ -154,7 +154,7 @@ export function WorkspaceSidebarHeader({
 	}
 
 	return (
-		<div className="flex flex-col gap-1 border-b border-border px-2 py-2">
+		<div className="flex flex-col gap-1 border-b border-line px-2 py-2">
 			<button
 				className={itemClassName(isAutomationsOpen)}
 				onClick={handleAutomationsClick}
@@ -200,8 +200,8 @@ export function WorkspaceSidebarHeader({
 function TodoAlertDot() {
 	return (
 		<span className="absolute right-0 top-0 flex size-2 -translate-y-0.5 translate-x-0.5">
-			<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-			<span className="relative inline-flex size-2 rounded-full bg-red-500" />
+			<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+			<span className="relative inline-flex size-2 rounded-full bg-destructive" />
 		</span>
 	);
 }
