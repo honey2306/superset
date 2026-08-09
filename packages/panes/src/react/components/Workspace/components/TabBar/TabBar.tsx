@@ -50,7 +50,7 @@ function AddTabButton<_TData>({
 }) {
 	const button = (
 		<Button
-			className="ml-1 size-7 rounded-md bg-transparent px-1 text-muted-foreground/60 shadow-none hover:bg-foreground/10 hover:text-foreground"
+			className="ml-1 size-6 rounded-ds-3 border-0 bg-transparent px-1 text-fg-faint shadow-none hover:bg-hover hover:text-fg"
 			onClick={onAddTab}
 			size="icon"
 			type="button"
@@ -178,7 +178,7 @@ export function TabBar<TData>({
 				// the content below. `drag`: the bar doubles as the Electron
 				// window-drag region (empty areas only — interactive clusters opt out
 				// with `no-drag`).
-				className="drag group/root-tabs flex h-10 min-w-0 shrink-0 items-stretch"
+				className="drag group/root-tabs flex h-[34px] min-w-0 shrink-0 items-stretch"
 			>
 				<div className="no-drag flex h-full w-10 shrink-0 items-center justify-center">
 					<AddTabButton
@@ -204,7 +204,7 @@ export function TabBar<TData>({
 			// underline over that hairline. `drag`: the bar doubles as the
 			// Electron window-drag region (empty areas only — the tabs track and
 			// button clusters opt out with `no-drag`).
-			className="drag group/root-tabs flex h-10 min-w-0 shrink-0 items-stretch border-b border-border"
+			className="drag group/root-tabs flex h-[34px] min-w-0 shrink-0 items-stretch border-b border-line bg-surface"
 		>
 			<OverflowFadeContainer
 				observeChildren
@@ -240,7 +240,7 @@ export function TabBar<TData>({
 					))}
 					{insertLineLeft !== null && (
 						<div
-							className="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-primary opacity-85"
+							className="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-accent-solid opacity-85"
 							style={{ left: insertLineLeft }}
 						/>
 					)}

@@ -122,11 +122,11 @@ export function TabItem<TData>({
 						// TabBar root; the active tab paints a highlight-colored underline
 						// over that hairline via an inset shadow (no layout shift). Inactive
 						// tabs are fully transparent — hover adds a barely-there tint.
-						"group relative flex h-full w-full items-center text-muted-foreground/70 transition-colors",
+						"group relative flex h-full w-full items-center text-fg-mute transition-colors duration-[120ms]",
 						isActive
-							? "text-foreground shadow-[inset_0_-1.5px_0_var(--highlight)]"
-							: "hover:bg-white/[0.03] hover:text-foreground/90",
-						isPaneOver && "bg-primary/5",
+							? "text-fg font-medium shadow-[inset_0_-2px_0_var(--accent-solid)]"
+							: "hover:bg-hover hover:text-fg",
+						isPaneOver && "bg-accent-tint",
 						isDragging && "opacity-30",
 					)}
 					// Select on click, not mousedown: the browser suppresses click after a
@@ -137,7 +137,7 @@ export function TabItem<TData>({
 					{isEditing ? (
 						<div className="flex h-full w-full shrink-0 items-center px-2">
 							<TabRenameInput
-								className="w-full min-w-0 rounded border border-border bg-background px-1 py-0.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+								className="w-full min-w-0 rounded-ds-3 border border-line bg-surface-elev px-1 py-0.5 text-xs text-fg outline-none focus:ring-1 focus:ring-accent-line"
 								maxLength={64}
 								onCancel={stopEditing}
 								onChange={setEditValue}
@@ -182,8 +182,8 @@ export function TabItem<TData>({
 								<Button
 									aria-label="Close tab"
 									className={cn(
-										"pointer-events-none size-5 cursor-pointer text-current opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-										"hover:bg-foreground/10",
+									"pointer-events-none size-[18px] cursor-pointer rounded-ds-2 border-0 text-fg-faint opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+									"hover:bg-hover hover:text-fg",
 									)}
 									onClick={(event) => {
 										event.stopPropagation();
