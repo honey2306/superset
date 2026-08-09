@@ -35,8 +35,8 @@ function ToolbarButton({
 		<button
 			type="button"
 			title={title}
-			className={`flex items-center justify-center size-7 rounded hover:bg-accent/80 ${
-				isActive ? "bg-accent text-accent-foreground" : "text-foreground/80"
+			className={`flex items-center justify-center size-7 rounded hover:bg-accent-tint/80 ${
+				isActive ? "bg-accent-tint text-accent-foreground" : "text-fg-mute"
 			}`}
 			onMouseDown={onMouseDown}
 		>
@@ -95,10 +95,10 @@ function HeadingDropdown({ editor }: { editor: Editor }) {
 			<button
 				type="button"
 				title="Text style"
-				className={`flex items-center gap-0.5 h-7 px-1.5 rounded text-xs font-medium hover:bg-accent/80 ${
+				className={`flex items-center gap-0.5 h-7 px-1.5 rounded text-xs font-medium hover:bg-accent-tint/80 ${
 					currentLevel > 0
-						? "bg-accent text-accent-foreground"
-						: "text-foreground/80"
+						? "bg-accent-tint text-accent-foreground"
+						: "text-fg-mute"
 				}`}
 				onMouseDown={(e) => {
 					e.preventDefault();
@@ -123,7 +123,7 @@ function HeadingDropdown({ editor }: { editor: Editor }) {
 				</svg>
 			</button>
 			{open && (
-				<div className="absolute top-full left-0 mt-1 bg-popover text-popover-foreground border rounded-md shadow-md p-1 w-36 z-50">
+				<div className="absolute top-full left-0 mt-1 bg-surface-sunk text-fg border rounded-ds-3 shadow-md p-1 w-36 z-50">
 					{[
 						{ level: 0, label: "Paragraph" },
 						{ level: 1, label: "Heading 1" },
@@ -133,10 +133,10 @@ function HeadingDropdown({ editor }: { editor: Editor }) {
 						<button
 							type="button"
 							key={item.level}
-							className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${
+							className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent-tint ${
 								(item.level === 0 && currentLevel === 0) ||
 								currentLevel === item.level
-									? "bg-accent/50"
+									? "bg-accent-tint/50"
 									: ""
 							}`}
 							onMouseDown={(e) => handleSelect(item.level, e)}
@@ -200,10 +200,10 @@ function ListDropdown({ editor }: { editor: Editor }) {
 			<button
 				type="button"
 				title="List"
-				className={`flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-accent/80 ${
+				className={`flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-accent-tint/80 ${
 					isAnyListActive
-						? "bg-accent text-accent-foreground"
-						: "text-foreground/80"
+						? "bg-accent-tint text-accent-foreground"
+						: "text-fg-mute"
 				}`}
 				onMouseDown={(e) => {
 					e.preventDefault();
@@ -228,11 +228,11 @@ function ListDropdown({ editor }: { editor: Editor }) {
 				</svg>
 			</button>
 			{open && (
-				<div className="absolute top-full left-0 mt-1 bg-popover text-popover-foreground border rounded-md shadow-md p-1 w-40 z-50">
+				<div className="absolute top-full left-0 mt-1 bg-surface-sunk text-fg border rounded-ds-3 shadow-md p-1 w-40 z-50">
 					<button
 						type="button"
-						className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${
-							editor.isActive("bulletList") ? "bg-accent/50" : ""
+						className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent-tint ${
+							editor.isActive("bulletList") ? "bg-accent-tint/50" : ""
 						}`}
 						onMouseDown={(e) => handleSelect("bullet", e)}
 					>
@@ -241,8 +241,8 @@ function ListDropdown({ editor }: { editor: Editor }) {
 					</button>
 					<button
 						type="button"
-						className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${
-							editor.isActive("orderedList") ? "bg-accent/50" : ""
+						className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent-tint ${
+							editor.isActive("orderedList") ? "bg-accent-tint/50" : ""
 						}`}
 						onMouseDown={(e) => handleSelect("ordered", e)}
 					>
@@ -251,8 +251,8 @@ function ListDropdown({ editor }: { editor: Editor }) {
 					</button>
 					<button
 						type="button"
-						className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${
-							editor.isActive("taskList") ? "bg-accent/50" : ""
+						className={`flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-sm hover:bg-accent-tint ${
+							editor.isActive("taskList") ? "bg-accent-tint/50" : ""
 						}`}
 						onMouseDown={(e) => handleSelect("task", e)}
 					>
@@ -294,8 +294,8 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
 
 	if (showLinkInput) {
 		return (
-			<div className="flex items-center gap-1 bg-popover border rounded-lg shadow-md px-1.5 py-0.5">
-				<HiOutlineLink className="size-3.5 text-muted-foreground shrink-0" />
+			<div className="flex items-center gap-1 bg-surface-sunk border rounded-ds-5 shadow-md px-1.5 py-0.5">
+				<HiOutlineLink className="size-3.5 text-fg-mute shrink-0" />
 				<input
 					ref={linkInputRef}
 					type="url"
@@ -312,14 +312,14 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
 					}}
 					onBlur={cancelLink}
 					placeholder="Enter URL..."
-					className="bg-transparent text-sm outline-none w-48 text-foreground placeholder:text-muted-foreground"
+					className="bg-transparent text-sm outline-none w-48 text-fg placeholder:text-fg-mute"
 				/>
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex items-center gap-0.5 bg-popover border rounded-lg shadow-md px-1 py-0.5">
+		<div className="flex items-center gap-0.5 bg-surface-sunk border rounded-ds-5 shadow-md px-1 py-0.5">
 			<HeadingDropdown editor={editor} />
 
 			<div className="w-px h-4 bg-border mx-0.5" />

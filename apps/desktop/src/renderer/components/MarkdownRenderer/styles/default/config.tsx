@@ -20,12 +20,12 @@ export const defaultConfig: MarkdownStyleConfig = {
 			</div>
 		),
 		th: ({ children }) => (
-			<th className="px-4 py-2 text-left text-sm font-semibold bg-muted align-top">
+			<th className="px-4 py-2 text-left text-sm font-semibold bg-hover align-top">
 				{children}
 			</th>
 		),
 		td: ({ children }) => (
-			<td className="px-4 py-2 text-sm border-t border-border align-top">
+			<td className="px-4 py-2 text-sm border-t border-line align-top">
 				{children}
 			</td>
 		),
@@ -37,7 +37,7 @@ export const defaultConfig: MarkdownStyleConfig = {
 		a: ({ href, children }) => (
 			<a
 				href={href}
-				className="text-primary underline underline-offset-2 hover:text-primary/80"
+				className="text-accent-solid underline underline-offset-2 hover:text-accent-solid/80"
 				target="_blank"
 				rel="noopener noreferrer"
 			>
@@ -48,10 +48,10 @@ export const defaultConfig: MarkdownStyleConfig = {
 			<SafeImage
 				src={src}
 				alt={alt}
-				className="max-w-full h-auto rounded-md my-4"
+				className="max-w-full h-auto rounded-ds-3 my-4"
 			/>
 		),
-		hr: () => <hr className="my-8 border-border" />,
+		hr: () => <hr className="my-8 border-line" />,
 		li: ({ children, className }) => {
 			const isTaskItem = className?.includes("task-list-item");
 			return (

@@ -245,7 +245,7 @@ export function MarkdownEditor({
 			}),
 			Code.configure({
 				HTMLAttributes: {
-					class: "font-mono text-sm px-1 py-0.5 rounded bg-muted",
+					class: "font-mono text-sm px-1 py-0.5 rounded bg-hover",
 				},
 			}),
 			CodeBlockLowlight.extend({
@@ -256,7 +256,7 @@ export function MarkdownEditor({
 				lowlight,
 				HTMLAttributes: {
 					class:
-						"my-3 p-3 rounded-md bg-muted overflow-x-auto font-mono text-sm",
+						"my-3 p-3 rounded-ds-3 bg-hover overflow-x-auto font-mono text-sm",
 				},
 			}),
 			BulletList.configure({
@@ -279,20 +279,20 @@ export function MarkdownEditor({
 			}),
 			Blockquote.configure({
 				HTMLAttributes: {
-					class: "my-3 pl-4 border-l-2 border-border text-muted-foreground",
+					class: "my-3 pl-4 border-l-2 border-line text-fg-mute",
 				},
 			}),
 			HorizontalRule.configure({
-				HTMLAttributes: { class: "my-6 border-none border-t border-border" },
+				HTMLAttributes: { class: "my-6 border-none border-t border-line" },
 			}),
 			HardBreak,
 			History,
 			Link.configure({
 				openOnClick: false,
-				HTMLAttributes: { class: "text-primary underline" },
+				HTMLAttributes: { class: "text-accent-solid underline" },
 			}),
 			LinearImage.configure({
-				HTMLAttributes: { class: "max-w-full h-auto rounded-md my-3" },
+				HTMLAttributes: { class: "max-w-full h-auto rounded-ds-3 my-3" },
 			}),
 			TableKit.configure({
 				table: {
@@ -305,12 +305,12 @@ export function MarkdownEditor({
 				tableHeader: {
 					HTMLAttributes: {
 						class:
-							"bg-muted px-4 py-2 text-left text-sm font-semibold align-top",
+							"bg-hover px-4 py-2 text-left text-sm font-semibold align-top",
 					},
 				},
 				tableCell: {
 					HTMLAttributes: {
-						class: "border-t border-border px-4 py-2 text-sm align-top",
+						class: "border-t border-line px-4 py-2 text-sm align-top",
 					},
 				},
 			}),
@@ -323,7 +323,7 @@ export function MarkdownEditor({
 				},
 				showOnlyCurrent: false,
 				emptyNodeClass:
-					"first:before:text-muted-foreground first:before:float-left first:before:h-0 first:before:pointer-events-none first:before:content-[attr(data-placeholder)]",
+					"first:before:text-fg-mute first:before:float-left first:before:h-0 first:before:pointer-events-none first:before:content-[attr(data-placeholder)]",
 			}),
 			Markdown.configure({
 				html: true,

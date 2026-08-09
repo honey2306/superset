@@ -85,7 +85,7 @@ type WorkspaceCreateAgent = AgentDefinitionId | "none";
 const AGENT_STORAGE_KEY = "lastSelectedWorkspaceCreateAgent";
 
 const PILL_BUTTON_CLASS =
-	"!h-[22px] min-h-0 rounded-md border-[0.5px] border-border bg-foreground/[0.04] shadow-none text-[11px]";
+	"!h-[22px] min-h-0 rounded-ds-3 border-[0.5px] border-line bg-foreground/[0.04] shadow-none text-[11px]";
 
 type ConvertedFile = {
 	data: string;
@@ -194,7 +194,7 @@ function ProjectPickerPill({
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
 				<PromptInputButton
-					className={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-foreground w-auto max-w-[140px]`}
+					className={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-fg w-auto max-w-[140px]`}
 				>
 					{selectedProject && (
 						<ProjectThumbnail
@@ -210,7 +210,7 @@ function ProjectPickerPill({
 					<span className="truncate">
 						{selectedProject?.name ?? t("workspace.selectProject")}
 					</span>
-					<HiChevronUpDown className="size-3 shrink-0 text-muted-foreground" />
+					<HiChevronUpDown className="size-3 shrink-0 text-fg-mute" />
 				</PromptInputButton>
 			</PopoverTrigger>
 			<PopoverContent
@@ -357,11 +357,11 @@ function CompareBaseBranchPickerInline({
 				<button
 					type="button"
 					disabled={isBranchesLoading}
-					className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 min-w-0 max-w-full"
+					className="flex items-center gap-1 text-xs text-fg-mute hover:text-fg transition-colors disabled:opacity-50 min-w-0 max-w-full"
 				>
 					<GoGitBranch className="size-3 shrink-0" />
 					{isBranchesLoading ? (
-						<span className="h-2.5 w-14 rounded-sm bg-muted-foreground/15 animate-pulse" />
+						<span className="h-2.5 w-14 rounded-sm bg-fg-mute/15 animate-pulse" />
 					) : (
 						<span className="font-mono truncate">
 							{effectiveCompareBaseBranch || "..."}
@@ -376,7 +376,7 @@ function CompareBaseBranchPickerInline({
 				onWheel={(event) => event.stopPropagation()}
 			>
 				<Command shouldFilter={false}>
-					<div className="flex items-center gap-0.5 rounded-md bg-muted/40 p-0.5 mx-2 mt-2">
+					<div className="flex items-center gap-0.5 rounded-ds-3 bg-hover/40 p-0.5 mx-2 mt-2">
 						{(["all", "worktrees"] as const).map((value) => {
 							const count =
 								value === "all"
@@ -390,14 +390,14 @@ function CompareBaseBranchPickerInline({
 									className={cn(
 										"flex-1 rounded px-2 py-1 text-xs text-center transition-colors",
 										filterMode === value
-											? "bg-background text-foreground shadow-sm"
-											: "text-muted-foreground hover:text-foreground",
+											? "bg-background text-fg shadow-sm"
+											: "text-fg-mute hover:text-fg",
 									)}
 								>
 									{value === "all"
 										? t("workspace.allBranches")
 										: t("workspace.worktrees")}
-									<span className="ml-1 text-foreground/40">{count}</span>
+									<span className="ml-1 text-fg-faint">{count}</span>
 								</button>
 							);
 						})}
@@ -421,19 +421,19 @@ function CompareBaseBranchPickerInline({
 							let icon: React.ReactNode;
 							if (activeWorkspaceId) {
 								icon = (
-									<GoArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
+									<GoArrowUpRight className="size-3.5 shrink-0 text-fg-mute" />
 								);
 							} else if (openAction) {
 								icon = (
-									<ExternalLinkIcon className="size-3.5 shrink-0 text-muted-foreground" />
+									<ExternalLinkIcon className="size-3.5 shrink-0 text-fg-mute" />
 								);
 							} else if (branch.isLocal) {
 								icon = (
-									<GoGitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+									<GoGitBranch className="size-3.5 shrink-0 text-fg-mute" />
 								);
 							} else {
 								icon = (
-									<GoGlobe className="size-3.5 shrink-0 text-muted-foreground" />
+									<GoGlobe className="size-3.5 shrink-0 text-fg-mute" />
 								);
 							}
 
@@ -462,12 +462,12 @@ function CompareBaseBranchPickerInline({
 										{/* Inline badges */}
 										<span className="flex items-center gap-1.5 shrink-0">
 											{branch.name === defaultBranch && (
-												<span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+												<span className="text-[10px] text-fg-mute bg-hover px-1.5 py-0.5 rounded">
 													{t("workspace.defaultBranch")}
 												</span>
 											)}
 											{isExternal && !activeWorkspaceId && (
-												<span className="text-[10px] text-muted-foreground/60 bg-muted/60 px-1.5 py-0.5 rounded">
+												<span className="text-[10px] text-fg-faint bg-hover/60 px-1.5 py-0.5 rounded">
 													{t("workspace.externalWorktree")}
 												</span>
 											)}
@@ -477,7 +477,7 @@ function CompareBaseBranchPickerInline({
 									{/* Right side: time + buttons */}
 									<span className="flex items-center gap-2 shrink-0">
 										{branch.lastCommitDate > 0 && (
-											<span className="text-[11px] text-muted-foreground/70 group-data-[selected=true]:hidden">
+											<span className="text-[11px] text-fg-mute group-data-[selected=true]:hidden">
 												{formatRelativeTime(
 													branch.lastCommitDate,
 													relativeTimeLabels,
@@ -488,7 +488,7 @@ function CompareBaseBranchPickerInline({
 										{/* Show checkmark for selected base branch when not hovering */}
 										{!hasExistingWorkspace &&
 											effectiveCompareBaseBranch === branch.name && (
-												<HiCheck className="size-4 text-primary group-data-[selected=true]:hidden" />
+												<HiCheck className="size-4 text-accent-solid group-data-[selected=true]:hidden" />
 											)}
 
 										{/* Action buttons - show on hover/select */}
@@ -497,7 +497,7 @@ function CompareBaseBranchPickerInline({
 												<Button
 													size="sm"
 													variant="ghost"
-													className="h-7 px-2.5 text-xs font-medium hover:bg-accent/10 hover:text-accent-foreground"
+													className="h-7 px-2.5 text-xs font-medium hover:bg-accent-tint/10 hover:text-accent-foreground"
 													onClick={(e) => {
 														e.stopPropagation();
 														if (activeWorkspaceId) {
@@ -1241,7 +1241,7 @@ ${sanitizeText(truncatedBody)}`;
 		<div className="p-3 space-y-2">
 			<div className="flex items-center">
 				<Input
-					className="border-none bg-transparent dark:bg-transparent shadow-none text-base font-medium px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 min-w-0 flex-1"
+					className="border-none bg-transparent dark:bg-transparent shadow-none text-base font-medium px-0 h-auto focus-visible:ring-0 placeholder:text-fg-faint min-w-0 flex-1"
 					placeholder={t("workspace.workspaceNameOptional")}
 					value={workspaceName}
 					onChange={(e) =>
@@ -1259,7 +1259,7 @@ ${sanitizeText(truncatedBody)}`;
 				<div className="shrink min-w-0 ml-auto max-w-[50%]">
 					<Input
 						className={cn(
-							"border-none bg-transparent dark:bg-transparent shadow-none text-xs font-mono text-muted-foreground/60 px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/30 focus:text-muted-foreground text-right placeholder:text-right overflow-hidden text-ellipsis",
+							"border-none bg-transparent dark:bg-transparent shadow-none text-xs font-mono text-fg-faint px-0 h-auto focus-visible:ring-0 placeholder:text-fg-faint focus:text-fg-mute text-right placeholder:text-right overflow-hidden text-ellipsis",
 						)}
 						placeholder={t("workspace.branchName")}
 						value={branchName}
@@ -1360,7 +1360,7 @@ ${sanitizeText(truncatedBody)}`;
 							placeholder={t("workspace.noAgent")}
 							onValueChange={setSelectedAgent}
 							onBeforeConfigureAgents={closeModal}
-							triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-foreground w-auto max-w-[160px]`}
+							triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-fg w-auto max-w-[160px]`}
 							iconClassName="size-3 object-contain"
 							allowNone
 							noneLabel={t("workspace.noAgent")}
@@ -1407,7 +1407,7 @@ ${sanitizeText(truncatedBody)}`;
 								void handleCreate();
 							}}
 						>
-							<ArrowUpIcon className="size-3.5 text-muted-foreground" />
+							<ArrowUpIcon className="size-3.5 text-fg-mute" />
 						</PromptInputSubmit>
 					</div>
 				</PromptInputFooter>
@@ -1430,7 +1430,7 @@ ${sanitizeText(truncatedBody)}`;
 								animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
 								exit={{ opacity: 0, x: 8, filter: "blur(4px)" }}
 								transition={{ duration: 0.2, ease: "easeOut" }}
-								className="flex items-center gap-1 text-xs text-muted-foreground"
+								className="flex items-center gap-1 text-xs text-fg-mute"
 							>
 								<LuGitPullRequest className="size-3 shrink-0" />
 								{t("workspace.basedOnPr", { number: linkedPR.prNumber })}
@@ -1463,7 +1463,7 @@ ${sanitizeText(truncatedBody)}`;
 						)}
 					</AnimatePresence>
 				</div>
-				<span className="text-[11px] text-muted-foreground/50">
+				<span className="text-[11px] text-fg-faint">
 					{t("workspace.createShortcut", { shortcut: `${modKey}↵` })}
 				</span>
 			</div>

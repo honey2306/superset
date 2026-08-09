@@ -130,19 +130,19 @@ export function OpenInButton({
 							if (group === "vscode") {
 								if (!showShortcuts) return null;
 								return (
-									<span className="text-xs text-muted-foreground">⌘O</span>
+									<span className="text-xs text-fg-mute">⌘O</span>
 								);
 							}
 							if (!showOpenInShortcut) return null;
 							return (
-								<span className="text-xs text-muted-foreground">
+								<span className="text-xs text-fg-mute">
 									{openInShortcut}
 								</span>
 							);
 						}}
 						copyPathTrailing={
 							showCopyPathShortcut ? (
-								<span className="text-xs text-muted-foreground">
+								<span className="text-xs text-fg-mute">
 									{copyPathShortcut}
 								</span>
 							) : null

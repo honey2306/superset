@@ -41,12 +41,12 @@ export function ConfigFilePreview({
 		<>
 			<div
 				className={cn(
-					"rounded-lg border border-border bg-card overflow-hidden",
+					"rounded-ds-5 border border-line bg-surface overflow-hidden",
 					className,
 				)}
 			>
-				<div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-border">
-					<span className="text-sm text-muted-foreground font-mono truncate">
+				<div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-line">
+					<span className="text-sm text-fg-mute font-mono truncate">
 						{projectName}/{PROJECT_SUPERSET_DIR_NAME}/{CONFIG_FILE_NAME}
 					</span>
 					<OpenInButton
@@ -57,7 +57,7 @@ export function ConfigFilePreview({
 				</div>
 
 				<div className="p-4 bg-background/50">
-					<pre className="text-sm font-mono text-foreground leading-relaxed whitespace-pre-wrap">
+					<pre className="text-sm font-mono text-fg leading-relaxed whitespace-pre-wrap">
 						{displayContent}
 					</pre>
 				</div>

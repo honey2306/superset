@@ -50,11 +50,11 @@ function CopyableDetails({
 			<button
 				type="button"
 				onClick={handleCopy}
-				className="absolute right-1 top-1 z-10 rounded bg-card/80 p-1 text-muted-foreground/70 backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
+				className="absolute right-1 top-1 z-10 rounded bg-surface/80 p-1 text-fg-mute backdrop-blur-sm transition-colors hover:bg-accent-tint hover:text-fg"
 				aria-label={isCopied ? "Copied" : "Copy contents"}
 			>
 				{isCopied ? (
-					<LuCheck className="size-3 text-green-500" />
+					<LuCheck className="size-3 text-success" />
 				) : (
 					<LuCopy className="size-3" />
 				)}

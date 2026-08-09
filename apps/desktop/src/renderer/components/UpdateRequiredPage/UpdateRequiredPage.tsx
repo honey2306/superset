@@ -60,20 +60,20 @@ export function UpdateRequiredPage({
 			<Background />
 			<AppFrame>
 				<div className="flex h-full w-full flex-col items-center justify-center gap-6 bg-background p-8">
-					<div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10">
-						<HiExclamationTriangle className="h-8 w-8 text-amber-500" />
+					<div className="flex h-16 w-16 items-center justify-center rounded-full bg-warning-tint">
+						<HiExclamationTriangle className="h-8 w-8 text-warning" />
 					</div>
 
 					<div className="flex flex-col items-center gap-2 text-center">
 						<h1 className="text-xl font-semibold">
 							{t("updateRequired.title")}
 						</h1>
-						<p className="max-w-md text-muted-foreground">
+						<p className="max-w-md text-fg-mute">
 							{message || t("updateRequired.description")}
 						</p>
 					</div>
 
-					<div className="flex flex-col items-center gap-1 text-sm text-muted-foreground">
+					<div className="flex flex-col items-center gap-1 text-sm text-fg-mute">
 						<span>
 							{t("updateRequired.currentVersion", { version: currentVersion })}
 						</span>
@@ -82,7 +82,7 @@ export function UpdateRequiredPage({
 						</span>
 					</div>
 
-					<p className="text-xs text-muted-foreground/70">
+					<p className="text-xs text-fg-mute">
 						{t("updateRequired.sessionsSafe")}
 					</p>
 

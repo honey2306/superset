@@ -45,7 +45,7 @@ export function LinearImage({ src, alt, title }: LinearImageProps) {
 			src={proxiedSrc}
 			alt={alt}
 			title={title}
-			className="max-w-full h-auto rounded-md my-4"
+			className="max-w-full h-auto rounded-ds-3 my-4"
 			crossOrigin={isLinearImageUrl(src) ? "use-credentials" : undefined}
 		/>
 	);

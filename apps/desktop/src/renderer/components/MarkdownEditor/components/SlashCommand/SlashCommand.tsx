@@ -140,8 +140,8 @@ const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(
 
 		if (items.length === 0) {
 			return (
-				<div className="bg-popover text-popover-foreground rounded-md border p-1 shadow-md">
-					<div className="px-2 py-1.5 text-sm text-muted-foreground">
+				<div className="bg-surface-sunk text-fg rounded-ds-3 border p-1 shadow-md">
+					<div className="px-2 py-1.5 text-sm text-fg-mute">
 						No results
 					</div>
 				</div>
@@ -168,7 +168,7 @@ const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(
 		return (
 			<div
 				ref={containerRef}
-				className="bg-popover text-popover-foreground rounded-md border p-1 shadow-md overflow-hidden max-h-80 overflow-y-auto w-48"
+				className="bg-surface-sunk text-fg rounded-ds-3 border p-1 shadow-md overflow-hidden max-h-80 overflow-y-auto w-48"
 			>
 				{groups.map((group, groupIndex) => (
 					<div key={group.key}>
@@ -186,11 +186,11 @@ const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(
 									onClick={() => command(item)}
 									className={`relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none w-full ${
 										index === selectedIndex
-											? "bg-accent text-accent-foreground"
+											? "bg-accent-tint text-accent-foreground"
 											: ""
 									}`}
 								>
-									<span className="text-muted-foreground shrink-0 w-5 flex items-center justify-center">
+									<span className="text-fg-mute shrink-0 w-5 flex items-center justify-center">
 										{item.icon}
 									</span>
 									<span className="flex-1 text-left">{item.title}</span>
@@ -213,7 +213,7 @@ export const SlashCommand = Extension.create({
 		return {
 			suggestion: {
 				char: "/",
-				decorationClass: "bg-accent/50 rounded px-0.5",
+				decorationClass: "bg-accent-tint/50 rounded px-0.5",
 				command: ({
 					editor,
 					range,

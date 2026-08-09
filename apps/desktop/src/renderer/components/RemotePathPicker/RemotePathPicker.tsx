@@ -162,7 +162,7 @@ export function RemotePathPicker({
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="flex items-center gap-2 border-y border-border px-5 py-2">
+				<div className="flex items-center gap-2 border-y border-line px-5 py-2">
 					<div className="min-w-0 flex-1">
 						{query.data ? (
 							<Breadcrumb>
@@ -191,7 +191,7 @@ export function RemotePathPicker({
 															<button
 																type="button"
 																onClick={() => setCurrentPath(seg.path)}
-																className="truncate hover:text-foreground"
+																className="truncate hover:text-fg"
 															>
 																{seg.label}
 															</button>
@@ -213,7 +213,7 @@ export function RemotePathPicker({
 						onClick={() => query.refetch()}
 						disabled={query.isFetching}
 						aria-label="Refresh"
-						className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+						className="shrink-0 rounded p-1 text-fg-mute transition-colors hover:bg-accent-tint hover:text-fg disabled:opacity-50"
 					>
 						<LuRefreshCw
 							className={cn("size-3.5", query.isFetching && "animate-spin")}
@@ -232,7 +232,7 @@ export function RemotePathPicker({
 							))}
 						</div>
 					) : folders.length === 0 ? (
-						<div className="flex h-72 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+						<div className="flex h-72 flex-col items-center justify-center gap-2 text-sm text-fg-mute">
 							<LuFolder className="size-6 opacity-40" />
 							<span>
 								{query.data?.entries.length === 0
@@ -251,12 +251,12 @@ export function RemotePathPicker({
 										<button
 											type="button"
 											onClick={() => setCurrentPath(childPath)}
-											className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+											className="group flex w-full items-center gap-2 rounded-ds-3 px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent-tint focus-visible:bg-accent-tint focus-visible:outline-none"
 										>
-											<LuFolder className="size-4 shrink-0 text-muted-foreground" />
+											<LuFolder className="size-4 shrink-0 text-fg-mute" />
 											<span className="truncate">{entry.name}</span>
 											{entry.isSymlink && (
-												<LuExternalLink className="ml-auto size-3 shrink-0 text-muted-foreground/60" />
+												<LuExternalLink className="ml-auto size-3 shrink-0 text-fg-faint" />
 											)}
 										</button>
 									</li>
@@ -266,7 +266,7 @@ export function RemotePathPicker({
 					)}
 				</ScrollArea>
 
-				<DialogFooter className="border-t border-border px-5 py-3">
+				<DialogFooter className="border-t border-line px-5 py-3">
 					<Button
 						type="button"
 						variant="ghost"

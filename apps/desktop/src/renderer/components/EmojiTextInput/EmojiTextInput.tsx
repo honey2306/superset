@@ -73,7 +73,7 @@ export function EmojiTextInput({
 			Placeholder.configure({
 				placeholder: placeholder ?? "",
 				emptyNodeClass:
-					"first:before:text-muted-foreground first:before:float-left first:before:h-0 first:before:pointer-events-none first:before:content-[attr(data-placeholder)]",
+					"first:before:text-fg-mute first:before:float-left first:before:h-0 first:before:pointer-events-none first:before:content-[attr(data-placeholder)]",
 			}),
 			EmojiSuggestion,
 			NoLineBreaks.configure({ onEnter }),

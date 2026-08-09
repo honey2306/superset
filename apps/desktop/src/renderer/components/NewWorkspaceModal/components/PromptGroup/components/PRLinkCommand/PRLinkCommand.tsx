@@ -181,7 +181,7 @@ export function PRLinkCommand({
 						/>
 						<label
 							htmlFor={showClosedId}
-							className="cursor-pointer select-none text-xs text-muted-foreground"
+							className="cursor-pointer select-none text-xs text-fg-mute"
 						>
 							{t("workspace.showClosed")}
 						</label>
@@ -233,13 +233,13 @@ export function PRLinkCommand({
 											state={pr.state as PRState}
 											className="size-3.5 shrink-0"
 										/>
-										<span className="shrink-0 font-mono text-xs text-muted-foreground">
+										<span className="shrink-0 font-mono text-xs text-fg-mute">
 											#{pr.prNumber}
 										</span>
 										<span className="min-w-0 flex-1 truncate text-xs">
 											{pr.title}
 										</span>
-										<span className="shrink-0 hidden text-xs text-muted-foreground group-data-[selected=true]:inline">
+										<span className="shrink-0 hidden text-xs text-fg-mute group-data-[selected=true]:inline">
 											{t("workspace.linkAction")} ↵
 										</span>
 									</CommandItem>

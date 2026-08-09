@@ -61,8 +61,8 @@ export const FileMentionList = forwardRef<
 
 	if (items.length === 0) {
 		return (
-			<div className="bg-popover text-popover-foreground rounded-md border p-1 shadow-md">
-				<div className="px-2 py-1.5 text-xs text-muted-foreground">
+			<div className="bg-surface-sunk text-fg rounded-ds-3 border p-1 shadow-md">
+				<div className="px-2 py-1.5 text-xs text-fg-mute">
 					No files found
 				</div>
 			</div>
@@ -72,7 +72,7 @@ export const FileMentionList = forwardRef<
 	return (
 		<div
 			ref={containerRef}
-			className="bg-popover text-popover-foreground rounded-md border p-1 shadow-md max-h-72 overflow-y-auto w-[28rem]"
+			className="bg-surface-sunk text-fg rounded-ds-3 border p-1 shadow-md max-h-72 overflow-y-auto w-[28rem]"
 		>
 			{items.map((item, index) => {
 				const directory = getDirectory(item.relativePath);
@@ -83,7 +83,7 @@ export const FileMentionList = forwardRef<
 						data-index={index}
 						onClick={() => command(item)}
 						className={`relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-hidden select-none w-full ${
-							index === selectedIndex ? "bg-accent text-accent-foreground" : ""
+							index === selectedIndex ? "bg-accent-tint text-accent-foreground" : ""
 						}`}
 					>
 						<FileIcon
@@ -93,7 +93,7 @@ export const FileMentionList = forwardRef<
 						/>
 						<span className="max-w-[14rem] truncate">{item.name}</span>
 						{directory && (
-							<span className="min-w-0 truncate font-mono text-muted-foreground">
+							<span className="min-w-0 truncate font-mono text-fg-mute">
 								{directory}
 							</span>
 						)}
