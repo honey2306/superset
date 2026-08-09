@@ -247,7 +247,6 @@ export const HOTKEYS_REGISTRY = {
 		category: "Workspace",
 		description: "Open existing PR or create a new one on GitHub",
 	},
-
 	// Layout
 	TOGGLE_SIDEBAR: {
 		key: {
@@ -662,6 +661,16 @@ export const HOTKEYS_REGISTRY = {
 		label: "Open Command Palette",
 		category: "Help",
 		description: "Open the global command palette",
+	},
+	CHECK_RESOURCES: {
+		key: {
+			mac: L("meta+shift+u"),
+			windows: L("ctrl+shift+alt+u"),
+			linux: L("ctrl+shift+alt+u"),
+		},
+		label: "Check Resources",
+		category: "Help",
+		description: "Open the resource usage view in the command palette",
 	},
 } as const satisfies Record<string, HotkeyRegistryDefinition>;
 

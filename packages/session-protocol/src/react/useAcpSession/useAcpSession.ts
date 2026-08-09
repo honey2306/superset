@@ -31,8 +31,13 @@ export interface UseAcpSessionOptions {
 	streamUrl: string | (() => string | Promise<string>);
 	/** Injectable for tests / non-global WebSocket environments. */
 	createWebSocket?: (url: string) => WebSocketLike;
-	/** Page size for getMessages catch-up and loadOlder pages (default 50). */
+	/** Page size used while fetching the complete message history (default 200). */
 	pageSize?: number;
+	/**
+	 * The caller just requested this session id and the host may still be
+	 * starting its adapter. During this bounded period, a 404 is expected.
+	 */
+	initiallyLaunching?: boolean;
 }
 
 export interface AcpSessionActions {
@@ -45,26 +50,114 @@ export interface AcpSessionActions {
 	): Promise<RespondToPermissionResult>;
 	setMode(modeId: string): Promise<void>;
 	setConfigOption(configId: string, value: string | boolean): Promise<void>;
-	/** Full resync: re-fetch state + newest messages, resubscribe. */
+	/** Full resync: re-fetch state + complete message history, resubscribe. */
 	refresh(): Promise<void>;
+
+	/** Append a follow-up prompt to the host-managed queue. */
+	enqueue(blocks: ContentBlock[]): Promise<{ queueId: string }>;
+	/**
+	 * Cancel the current turn (if any) and immediately run this prompt.
+	 * Idle sessions behave like `prompt`.
+	 */
+	sendNow(blocks: ContentBlock[]): Promise<PromptAccepted>;
+	removeQueued(queueId: string): Promise<void>;
+	/** Full reorder — pass every current queueId in the intended order. */
+	reorderQueue(orderedIds: string[]): Promise<void>;
+	editQueued(queueId: string, blocks: ContentBlock[]): Promise<void>;
+	clearQueue(): Promise<void>;
 }
 
 export interface UseAcpSessionResult {
 	/** Live session-scoped state (status, pending permissions, modes...). */
 	state: SessionScopedState | null;
-	/** Folded, render-ready timeline of the loaded pages + live updates. */
+	/** Folded, render-ready timeline of the complete history + live updates. */
 	timeline: FoldedTimeline;
 	streamStatus: StreamStatus;
 	/** True during the initial (or refresh) resync round-trip. */
 	isLoading: boolean;
-	/** True while the journal holds older pages loadOlder hasn't fetched. */
-	hasOlder: boolean;
-	/** True while a loadOlder page is in flight. */
-	isLoadingOlder: boolean;
+	/** Whether the current session transport is live, retrying, or exhausted. */
+	availability: "live" | "retrying" | "unavailable";
 	error: Error | null;
 	actions: AcpSessionActions;
-	/** Prepend the next older history page (no-op when none/in flight). */
-	loadOlder: () => void;
+}
+
+/** Three retries at 250ms, 500ms, and 1000ms keep restart recovery bounded. */
+const MAX_RESYNC_RETRIES = 3;
+const RESYNC_RETRY_BASE_DELAY_MS = 250;
+export const INITIAL_LAUNCH_NOT_FOUND_RETRY_WINDOW_MS = 30_000;
+
+function isNotFoundError(cause: unknown): boolean {
+	if (!(cause instanceof Error)) return false;
+	const message = cause.message.toLowerCase();
+	return (
+		message.includes("not found") || message.includes("unknown acp session")
+	);
+}
+
+export function shouldRetryInitialLaunchNotFound({
+	initiallyLaunching,
+	cause,
+	elapsedMs,
+}: {
+	initiallyLaunching: boolean;
+	cause: unknown;
+	elapsedMs: number;
+}): boolean {
+	return (
+		initiallyLaunching &&
+		isNotFoundError(cause) &&
+		elapsedMs < INITIAL_LAUNCH_NOT_FOUND_RETRY_WINDOW_MS
+	);
+}
+
+/**
+ * Message pages contain historical update frames, while state is a current
+ * snapshot. Re-applying the snapshot after every page refold prevents an old
+ * available_commands_update from replacing the active command catalog.
+ */
+export function overlayAuthoritativeState(
+	timeline: FoldedTimeline,
+	state: SessionScopedState | null,
+): FoldedTimeline {
+	if (state === null) return timeline;
+	return {
+		...timeline,
+		// The fetched/live state is a full snapshot. Keep every control-plane
+		// field in sync with it: adapters may return refreshed mode/config
+		// catalogs in set_* responses without a matching incremental update.
+		meta: {
+			...timeline.meta,
+			currentMode: state.currentMode,
+			configOptions: state.configOptions,
+			availableCommands: state.availableCommands,
+		},
+		state,
+	};
+}
+
+export async function fetchCompleteMessageHistory(
+	api: Pick<AcpSessionsApi, "getMessages">,
+	sessionId: string,
+	pageSize = 200,
+): Promise<SessionUpdateEnvelope[]> {
+	let cursor: string | undefined;
+	const seenCursors = new Set<string>();
+	let items: SessionUpdateEnvelope[] = [];
+
+	do {
+		const page = await api.getMessages({ sessionId, cursor, limit: pageSize });
+		items = [...page.items, ...items];
+		if (page.nextCursor === null) break;
+		if (seenCursors.has(page.nextCursor)) {
+			throw new Error(
+				`getMessages returned a repeated cursor: ${page.nextCursor}`,
+			);
+		}
+		seenCursors.add(page.nextCursor);
+		cursor = page.nextCursor;
+	} while (cursor !== undefined);
+
+	return items;
 }
 
 /**
@@ -77,6 +170,8 @@ export function useAcpSession(
 	options: UseAcpSessionOptions,
 ): UseAcpSessionResult {
 	const { sessionId, pageSize } = options;
+	const initiallyLaunchingRef = useRef(options.initiallyLaunching ?? false);
+	initiallyLaunchingRef.current = options.initiallyLaunching ?? false;
 
 	// Latest transport without making it an effect dependency: callers often
 	// build `api`/`streamUrl`/`createWebSocket` inline, and identity churn
@@ -94,127 +189,153 @@ export function useAcpSession(
 	const [timeline, setTimeline] = useState<FoldedTimeline>(emptyTimeline);
 	const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
 	const [isLoading, setIsLoading] = useState(true);
-	const [hasOlder, setHasOlder] = useState(false);
-	const [isLoadingOlder, setIsLoadingOlder] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
+	const [availability, setAvailability] = useState<
+		"live" | "retrying" | "unavailable"
+	>("live");
 
 	// Fold target between renders; epoch guards resync races (a stale resync
 	// or a stale subscription's callbacks must not clobber a newer one).
 	const timelineRef = useRef<FoldedTimeline>(timeline);
-	// Every envelope folded so far, in seq order — loadOlder prepends a page
-	// and refolds from scratch (folding is pure and cheap at journal scale).
+	const authoritativeStateRef = useRef<SessionScopedState | null>(null);
+	// Every historical and live envelope folded so far, in sequence order.
 	const envelopesRef = useRef<SessionUpdateEnvelope[]>([]);
-	// getMessages cursor for the next OLDER page; null = fully paged back.
-	const olderCursorRef = useRef<string | null>(null);
-	const loadingOlderRef = useRef(false);
 	const epochRef = useRef(0);
 	const subscriptionRef = useRef<SessionSubscription | null>(null);
+	const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const launchStartedAtRef = useRef<number | null>(
+		options.initiallyLaunching ? Date.now() : null,
+	);
 
-	const resync = useCallback(async (): Promise<void> => {
-		const epoch = ++epochRef.current;
-		subscriptionRef.current?.close();
-		subscriptionRef.current = null;
-		// Invalidate any older-page request from the previous epoch immediately.
-		// Its stale finally block is intentionally ignored, so leaving these set
-		// would permanently block loadOlder when this resync fails.
-		loadingOlderRef.current = false;
-		setIsLoadingOlder(false);
-		setIsLoading(true);
-		setError(null);
-		try {
-			const api = apiRef.current;
-			const state = await api.get({ sessionId });
-			if (epoch !== epochRef.current) return;
-			// Publish passive `offline` state before the live history read tries to
-			// resurrect it. If session/load fails, the UI can explain that this is a
-			// resumable registry row (and keep its composer disabled) alongside the
-			// actual load error instead of looking like a brand-new empty thread.
-			setFetchedState(state);
-			const page = await api.getMessages({ sessionId, limit: pageSize });
-			if (epoch !== epochRef.current) return;
-
-			envelopesRef.current = [...page.items];
-			olderCursorRef.current = page.nextCursor;
-			loadingOlderRef.current = false;
-			const seeded = foldEnvelopes(emptyTimeline(), page.items);
-			timelineRef.current = seeded;
-			setTimeline(seeded);
-			setHasOlder(page.nextCursor !== null);
-			setIsLoadingOlder(false);
-			setIsLoading(false);
-
-			// Empty journal page but a non-zero server cursor (e.g. evicted
-			// journal): subscribe from the server's seq to avoid a reset loop.
-			const since = seeded.lastSeq > 0 ? seeded.lastSeq : state.lastSeq;
-			subscriptionRef.current = subscribeToSession({
-				streamUrl: () => {
-					const current = streamUrlRef.current;
-					return typeof current === "function" ? current() : current;
-				},
-				since,
-				createWebSocket: createWebSocketRef.current,
-				onEnvelope: (envelope) => {
-					if (epoch !== epochRef.current) return;
-					if (envelope.frame.kind === "state") {
-						// State frames are full snapshots and last-wins in fold —
-						// superseded ones only bloat this refold buffer (they arrive on
-						// every status/permission transition for the lifetime of the
-						// mount), so keep just the newest.
-						envelopesRef.current = envelopesRef.current.filter(
-							(buffered) => buffered.frame.kind !== "state",
-						);
-					}
-					envelopesRef.current.push(envelope);
-					timelineRef.current = foldEnvelope(timelineRef.current, envelope);
-					setTimeline(timelineRef.current);
-				},
-				onStatus: (status) => {
-					if (epoch !== epochRef.current) return;
-					setStreamStatus(status);
-				},
-				onReset: () => {
-					if (epoch !== epochRef.current) return;
-					void resync();
-				},
-			});
-		} catch (cause) {
-			if (epoch !== epochRef.current) return;
-			setIsLoading(false);
-			setError(cause instanceof Error ? cause : new Error(String(cause)));
+	const clearRetryTimer = useCallback(() => {
+		if (retryTimerRef.current !== null) {
+			clearTimeout(retryTimerRef.current);
+			retryTimerRef.current = null;
 		}
-	}, [sessionId, pageSize]);
+	}, []);
 
-	const loadOlder = useCallback(() => {
-		const cursor = olderCursorRef.current;
-		if (cursor === null || loadingOlderRef.current) return;
-		const epoch = epochRef.current;
-		loadingOlderRef.current = true;
-		setIsLoadingOlder(true);
-		apiRef.current
-			.getMessages({ sessionId, cursor, limit: pageSize })
-			.then((page) => {
+	const resync = useCallback(
+		async function resync(retryAttempt = 0): Promise<void> {
+			const epoch = ++epochRef.current;
+			if (retryAttempt === 0) clearRetryTimer();
+			subscriptionRef.current?.close();
+			subscriptionRef.current = null;
+			setIsLoading(true);
+			try {
+				const api = apiRef.current;
+				const state = await api.get({ sessionId });
 				if (epoch !== epochRef.current) return;
-				envelopesRef.current = [...page.items, ...envelopesRef.current];
-				olderCursorRef.current = page.nextCursor;
-				timelineRef.current = foldEnvelopes(
-					emptyTimeline(),
-					envelopesRef.current,
+				// Publish passive `offline` state before the live history read tries to
+				// resurrect it. If session/load fails, the UI can explain that this is a
+				// resumable registry row (and keep its composer disabled) alongside the
+				// actual load error instead of looking like a brand-new empty thread.
+				setFetchedState(state);
+				authoritativeStateRef.current = state;
+				const history = await fetchCompleteMessageHistory(
+					api,
+					sessionId,
+					pageSize,
 				);
-				setTimeline(timelineRef.current);
-				setHasOlder(page.nextCursor !== null);
-			})
-			.catch((cause) => {
-				// Older history stays available for the next scroll attempt; the
-				// live thread is unaffected, so don't surface a blocking error —
-				// but leave a trace so a dead scrollback is diagnosable.
-				console.warn(`[acp-session] loadOlder failed (${sessionId})`, cause);
-			})
-			.finally(() => {
 				if (epoch !== epochRef.current) return;
-				loadingOlderRef.current = false;
-				setIsLoadingOlder(false);
-			});
-	}, [sessionId, pageSize]);
+
+				envelopesRef.current = history;
+				// Historical pages can carry a stale available_commands_update. The
+				// just-fetched state snapshot is current and must win. Seed it before
+				// folding too: some adapters replay message snapshots without journaling
+				// a state frame, and their harness identity determines chunk semantics.
+				const seeded = overlayAuthoritativeState(
+					foldEnvelopes(
+						overlayAuthoritativeState(emptyTimeline(), state),
+						history,
+					),
+					state,
+				);
+				timelineRef.current = seeded;
+				setTimeline(seeded);
+				setIsLoading(false);
+				setError(null);
+				setAvailability("live");
+
+				// Empty journal page but a non-zero server cursor (e.g. evicted
+				// journal): subscribe from the server's seq to avoid a reset loop.
+				const since = seeded.lastSeq > 0 ? seeded.lastSeq : state.lastSeq;
+				subscriptionRef.current = subscribeToSession({
+					streamUrl: () => {
+						const current = streamUrlRef.current;
+						return typeof current === "function" ? current() : current;
+					},
+					since,
+					epoch: state.epoch,
+					createWebSocket: createWebSocketRef.current,
+					onEnvelope: (envelope) => {
+						if (epoch !== epochRef.current) return;
+						if (envelope.frame.kind === "state") {
+							authoritativeStateRef.current = envelope.frame.state;
+						} else if (
+							envelope.frame.kind === "update" &&
+							envelope.frame.update.sessionUpdate ===
+								"available_commands_update" &&
+							authoritativeStateRef.current !== null
+						) {
+							authoritativeStateRef.current = {
+								...authoritativeStateRef.current,
+								availableCommands: envelope.frame.update.availableCommands,
+							};
+						}
+						if (envelope.frame.kind === "state") {
+							// State frames are full snapshots and last-wins in fold —
+							// superseded ones only bloat this refold buffer (they arrive on
+							// every status/permission transition for the lifetime of the
+							// mount), so keep just the newest.
+							envelopesRef.current = envelopesRef.current.filter(
+								(buffered) => buffered.frame.kind !== "state",
+							);
+						}
+						envelopesRef.current.push(envelope);
+						timelineRef.current = overlayAuthoritativeState(
+							foldEnvelope(timelineRef.current, envelope),
+							authoritativeStateRef.current,
+						);
+						setTimeline(timelineRef.current);
+					},
+					onStatus: (status) => {
+						if (epoch !== epochRef.current) return;
+						setStreamStatus(status);
+					},
+					onReset: () => {
+						if (epoch !== epochRef.current) return;
+						void resync();
+					},
+				});
+			} catch (cause) {
+				if (epoch !== epochRef.current) return;
+				setIsLoading(false);
+				setError(cause instanceof Error ? cause : new Error(String(cause)));
+				const retryInitialLaunchNotFound = shouldRetryInitialLaunchNotFound({
+					initiallyLaunching: initiallyLaunchingRef.current,
+					cause,
+					elapsedMs:
+						launchStartedAtRef.current === null
+							? Number.POSITIVE_INFINITY
+							: Date.now() - launchStartedAtRef.current,
+				});
+				if (retryAttempt >= MAX_RESYNC_RETRIES && !retryInitialLaunchNotFound) {
+					setAvailability("unavailable");
+					return;
+				}
+				setAvailability("retrying");
+				const delay = retryInitialLaunchNotFound
+					? 1_000
+					: RESYNC_RETRY_BASE_DELAY_MS * 2 ** retryAttempt;
+				retryTimerRef.current = setTimeout(() => {
+					retryTimerRef.current = null;
+					if (epoch !== epochRef.current) return;
+					void resync(retryAttempt + 1);
+				}, delay);
+			}
+		},
+		[sessionId, pageSize, clearRetryTimer],
+	);
 
 	// The session currently reflected by the rendered state/timeline. When the
 	// route swaps sessionIds in place, the old session's thread (and its still-
@@ -227,22 +348,25 @@ export function useAcpSession(
 		if (renderedSessionIdRef.current !== sessionId) {
 			renderedSessionIdRef.current = sessionId;
 			envelopesRef.current = [];
-			olderCursorRef.current = null;
-			loadingOlderRef.current = false;
 			timelineRef.current = emptyTimeline();
+			authoritativeStateRef.current = null;
+			clearRetryTimer();
 			setFetchedState(null);
 			setTimeline(timelineRef.current);
-			setHasOlder(false);
-			setIsLoadingOlder(false);
 			setStreamStatus("connecting");
+			setAvailability("live");
+			launchStartedAtRef.current = initiallyLaunchingRef.current
+				? Date.now()
+				: null;
 		}
 		void resync();
 		return () => {
 			epochRef.current += 1;
+			clearRetryTimer();
 			subscriptionRef.current?.close();
 			subscriptionRef.current = null;
 		};
-	}, [sessionId, resync]);
+	}, [sessionId, resync, clearRetryTimer]);
 
 	const actions = useMemo<AcpSessionActions>(
 		() => ({
@@ -254,6 +378,21 @@ export function useAcpSession(
 			setConfigOption: (configId, value) =>
 				apiRef.current.setConfigOption({ sessionId, configId, value }),
 			refresh: () => resync(),
+			enqueue: (blocks) =>
+				apiRef.current.enqueuePrompt({ sessionId, prompt: blocks }),
+			sendNow: (blocks) =>
+				apiRef.current.sendNow({ sessionId, prompt: blocks }),
+			removeQueued: (queueId) =>
+				apiRef.current.removeQueuedPrompt({ sessionId, queueId }),
+			reorderQueue: (orderedIds) =>
+				apiRef.current.reorderQueue({ sessionId, orderedIds }),
+			editQueued: (queueId, blocks) =>
+				apiRef.current.editQueuedPrompt({
+					sessionId,
+					queueId,
+					prompt: blocks,
+				}),
+			clearQueue: () => apiRef.current.clearQueue({ sessionId }),
 		}),
 		[sessionId, resync],
 	);
@@ -264,10 +403,8 @@ export function useAcpSession(
 		timeline,
 		streamStatus,
 		isLoading,
-		hasOlder,
-		isLoadingOlder,
+		availability,
 		error,
 		actions,
-		loadOlder,
 	};
 }

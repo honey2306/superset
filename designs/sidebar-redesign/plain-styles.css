@@ -1,0 +1,588 @@
+/* Plain — 3 版极素侧边栏对比
+   共同底线:只在 active 项目上用一抹主色;只留状态圆点;无 emoji/渐变/monospace 装饰 */
+
+:root {
+	--bg: #1c1d24;
+	--sidebar-bg: #17181e;
+	--fg: #eceef4;
+	--fg-muted: #a8adba;
+	--fg-quiet: #6b7085;
+	--fg-whisper: rgba(107, 112, 133, 0.4);
+	--border: rgba(255, 255, 255, 0.06);
+	--border-soft: rgba(255, 255, 255, 0.03);
+	--hover: rgba(255, 255, 255, 0.03);
+	--primary: #ff79c6;
+	--primary-soft: rgba(255, 121, 198, 0.08);
+	--primary-glow: rgba(255, 121, 198, 0.4);
+	--running: #ff79c6;
+	--attention: #ffb86c;
+	--ready: #50fa7b;
+
+	--font-ui:
+		-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+		"Noto Sans SC", "Segoe UI", system-ui, sans-serif;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	background: var(--bg);
+	color: var(--fg);
+	font-family: var(--font-ui);
+	font-size: 13px;
+	-webkit-font-smoothing: antialiased;
+}
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+button {
+	font: inherit;
+	color: inherit;
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	text-align: left;
+}
+::selection {
+	background: var(--primary);
+	color: #000;
+}
+
+.page {
+	max-width: 1440px;
+	margin: 0 auto;
+	padding: 56px 32px 96px;
+}
+.page-head {
+	margin-bottom: 40px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.eyebrow {
+	font-size: 11px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--fg-quiet);
+}
+.page-title {
+	font-size: 26px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	margin: 0;
+}
+.page-desc {
+	color: var(--fg-muted);
+	font-size: 13px;
+	line-height: 1.65;
+	max-width: 68ch;
+	margin: 0;
+}
+.page-desc strong {
+	color: var(--fg);
+	font-weight: 600;
+}
+
+/* Variant framing */
+.variant {
+	margin-bottom: 60px;
+}
+.variant-head {
+	display: flex;
+	align-items: baseline;
+	gap: 12px;
+	margin-bottom: 6px;
+}
+.variant-badge {
+	font-size: 10.5px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--primary);
+	font-weight: 600;
+}
+.variant-title {
+	font-size: 17px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+.variant-desc {
+	color: var(--fg-muted);
+	font-size: 12.5px;
+	line-height: 1.65;
+	margin: 4px 0 20px;
+	max-width: 76ch;
+}
+
+/* Fake window chrome */
+.app {
+	display: grid;
+	height: 640px;
+	background: var(--bg);
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow:
+		0 24px 60px -24px rgba(0, 0, 0, 0.6),
+		0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+.chrome-bar {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--border);
+	background: rgba(255, 255, 255, 0.015);
+}
+.traffic {
+	display: flex;
+	gap: 6px;
+}
+.traffic span {
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
+}
+.traffic span:nth-child(1) {
+	background: #ec6b60;
+}
+.traffic span:nth-child(2) {
+	background: #f4be4f;
+}
+.traffic span:nth-child(3) {
+	background: #60c554;
+}
+.chrome-addr {
+	flex: 1;
+	text-align: center;
+	color: var(--fg-quiet);
+	font-size: 11px;
+}
+
+.app-body {
+	grid-column: 1 / -1;
+	display: grid;
+	grid-template-columns: 260px 1fr;
+	height: calc(100% - 42px);
+}
+
+/* Right side / main content — kept minimal and identical */
+.main {
+	padding: 32px 40px;
+	background: var(--bg);
+	overflow-y: auto;
+}
+.main-crumb {
+	font-size: 11px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--fg-quiet);
+}
+.main h2 {
+	font-size: 20px;
+	font-weight: 600;
+	margin: 8px 0 4px;
+	letter-spacing: -0.01em;
+}
+.main-branch {
+	color: var(--fg-quiet);
+	font-size: 12px;
+	font-family: -apple-system, monospace;
+}
+.main-panels {
+	margin-top: 28px;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 14px;
+}
+.main-panel {
+	border: 1px solid var(--border-soft);
+	border-radius: 10px;
+	padding: 14px 16px;
+}
+.main-panel h4 {
+	font-size: 11px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--fg-quiet);
+	margin: 0 0 10px;
+	font-weight: 500;
+}
+.main-panel p {
+	color: var(--fg-muted);
+	font-size: 12.5px;
+	line-height: 1.6;
+	margin: 0;
+}
+
+/* Shared sidebar shell */
+.sb {
+	background: var(--sidebar-bg);
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid var(--border);
+	overflow-y: auto;
+}
+
+/* Status dot — used across all 3 variants */
+.dot {
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	flex-shrink: 0;
+}
+.dot.running {
+	background: var(--running);
+	box-shadow: 0 0 6px var(--primary-glow);
+}
+.dot.attention {
+	background: var(--attention);
+}
+.dot.ready {
+	background: var(--ready);
+}
+.dot.idle {
+	background: transparent;
+}
+
+/* ================================================================
+   V1 — Linear / Things (纯文字 + 缩进)
+   ================================================================ */
+.linear-sb {
+	padding: 14px 6px 8px;
+}
+
+.linear-search {
+	margin: 4px 8px 14px;
+	padding: 6px 10px;
+	background: rgba(255, 255, 255, 0.04);
+	border-radius: 6px;
+	color: var(--fg-quiet);
+	font-size: 12.5px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.linear-search-kbd {
+	font-size: 11px;
+	opacity: 0.6;
+}
+
+.linear-project {
+	margin-bottom: 4px;
+}
+.linear-project-head {
+	width: 100%;
+	padding: 6px 10px;
+	border-radius: 5px;
+	color: var(--fg-quiet);
+	font-size: 12px;
+	letter-spacing: 0.02em;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	transition: color 120ms ease;
+	cursor: pointer;
+}
+.linear-project-head:hover {
+	color: var(--fg-muted);
+}
+.linear-project-head.active {
+	color: var(--fg);
+	font-weight: 500;
+}
+.linear-project-count {
+	font-size: 11px;
+	opacity: 0.65;
+	font-variant-numeric: tabular-nums;
+}
+
+.linear-ws-list {
+	padding: 2px 0 6px;
+}
+.linear-ws {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 10px 5px 22px; /* 缩进 */
+	border-radius: 5px;
+	color: var(--fg-muted);
+	font-size: 13px;
+	min-height: 26px;
+	cursor: pointer;
+	transition: background 120ms ease;
+	width: 100%;
+}
+.linear-ws:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+.linear-ws[aria-current="true"] {
+	background: var(--primary-soft);
+	color: var(--fg);
+	font-weight: 500;
+}
+.linear-ws-name {
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ================================================================
+   V2 — Notion (每项一个小图标,块状字,无背景色染色)
+   ================================================================ */
+.notion-sb {
+	padding: 12px 6px 6px;
+}
+
+.notion-search {
+	padding: 6px 10px;
+	margin: 0 4px 10px;
+	border-radius: 6px;
+	color: var(--fg-quiet);
+	font-size: 12.5px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.notion-search:hover {
+	background: var(--hover);
+	color: var(--fg-muted);
+}
+.notion-search-kbd {
+	margin-left: auto;
+	font-size: 11px;
+	opacity: 0.55;
+}
+
+.notion-project {
+	padding: 2px 0;
+}
+.notion-project-head {
+	width: 100%;
+	padding: 5px 8px;
+	border-radius: 5px;
+	color: var(--fg-muted);
+	font-size: 13.5px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	transition: background 120ms ease;
+}
+.notion-project-head:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+.notion-project-head.active {
+	color: var(--fg);
+	font-weight: 600;
+}
+.notion-project-caret {
+	color: var(--fg-quiet);
+	font-size: 9px;
+	width: 10px;
+	display: inline-flex;
+	justify-content: center;
+	transition: transform 120ms ease;
+}
+.notion-project.closed .notion-project-caret {
+	transform: rotate(-90deg);
+}
+.notion-project-icon {
+	width: 14px;
+	height: 14px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--fg-quiet);
+	flex-shrink: 0;
+}
+.notion-project-head.active .notion-project-icon {
+	color: var(--primary);
+}
+.notion-project-name {
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.notion-project-count {
+	font-size: 11px;
+	opacity: 0;
+	transition: opacity 120ms ease;
+	color: var(--fg-quiet);
+	font-variant-numeric: tabular-nums;
+}
+.notion-project:hover .notion-project-count,
+.notion-project-head.active .notion-project-count {
+	opacity: 0.65;
+}
+
+.notion-ws-list {
+	padding: 0 0 4px 26px; /* 图标宽度 + gap 对齐 */
+}
+.notion-ws {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 8px;
+	border-radius: 5px;
+	color: var(--fg-muted);
+	font-size: 13px;
+	min-height: 27px;
+	cursor: pointer;
+	transition: background 120ms ease;
+	width: 100%;
+}
+.notion-ws:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+.notion-ws[aria-current="true"] {
+	background: var(--primary-soft);
+	color: var(--fg);
+	font-weight: 500;
+}
+.notion-ws-name {
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ================================================================
+   V3 — Craft (重头轻尾:项目大,workspace 小)
+   ================================================================ */
+.craft-sb {
+	padding: 20px 14px 12px;
+}
+
+.craft-search {
+	padding: 7px 10px;
+	margin-bottom: 24px;
+	border: 1px solid var(--border);
+	border-radius: 7px;
+	color: var(--fg-quiet);
+	font-size: 12.5px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.craft-search-kbd {
+	font-size: 11px;
+	opacity: 0.6;
+}
+
+.craft-project {
+	margin-bottom: 18px;
+}
+.craft-project-head {
+	width: 100%;
+	padding: 6px 0 8px;
+	color: var(--fg-quiet);
+	font-size: 12px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	font-weight: 500;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+	transition: color 120ms ease;
+	border-bottom: 1px solid var(--border-soft);
+	margin-bottom: 4px;
+}
+.craft-project-head:hover {
+	color: var(--fg-muted);
+}
+.craft-project-head.active {
+	color: var(--fg);
+	font-size: 13px;
+	letter-spacing: -0.005em;
+	text-transform: none;
+	font-weight: 600;
+	padding: 8px 0 10px;
+	border-bottom-color: var(--primary);
+}
+
+.craft-project-count {
+	font-size: 11px;
+	opacity: 0.55;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0;
+	text-transform: none;
+	font-weight: 400;
+}
+
+.craft-ws-list {
+	padding: 2px 0 0;
+}
+.craft-ws {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	color: var(--fg-muted);
+	font-size: 12.5px;
+	min-height: 24px;
+	cursor: pointer;
+	transition: background 120ms ease;
+	width: 100%;
+}
+.craft-ws:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+.craft-ws[aria-current="true"] {
+	background: var(--primary-soft);
+	color: var(--fg);
+	font-weight: 500;
+}
+.craft-ws-name {
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	letter-spacing: -0.005em;
+}
+
+/* ================================================================
+   Notes (below all 3 variants)
+   ================================================================ */
+.notes {
+	margin-top: 20px;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 20px;
+	padding-top: 20px;
+	border-top: 1px solid var(--border);
+}
+.notes-col h3 {
+	font-size: 11px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--fg-quiet);
+	margin: 0 0 10px;
+	font-weight: 500;
+}
+.notes-col p {
+	color: var(--fg-muted);
+	font-size: 12.5px;
+	line-height: 1.7;
+	margin: 0 0 8px;
+}
+.notes-col strong {
+	color: var(--fg);
+	font-weight: 600;
+}

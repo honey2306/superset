@@ -1,6 +1,8 @@
 import { initSentry } from "./lib/sentry";
+import { pruneExpiredTerminalState } from "./lib/terminal/terminal-buffer-gc";
 
 initSentry();
+pruneExpiredTerminalState();
 
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import ReactDom from "react-dom/client";

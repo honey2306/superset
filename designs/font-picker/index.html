@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>现代 SaaS 风中文字体 · Superset DS · v4</title>
+		<link rel="stylesheet" href="../superset-design-system/styles.css" />
+
+		<!-- MiSans (小米) — chunked, mirror stored in ./fonts/misans/ -->
+		<link rel="stylesheet" href="./fonts/misans/MiSans-Regular.css" />
+
+		<style>
+			/* Self-hosted from ./fonts/. No CDN dependency. */
+			@font-face {
+				font-family: "Noto Sans SC";
+				font-style: normal;
+				font-weight: 400;
+				font-display: block;
+				src: url("./fonts/NotoSansSC-CJK.woff2") format("woff2");
+			}
+			@font-face {
+				font-family: "Noto Sans SC";
+				font-style: normal;
+				font-weight: 500;
+				font-display: block;
+				src: url("./fonts/NotoSansSC-500.woff2") format("woff2");
+			}
+			@font-face {
+				font-family: "Noto Sans SC";
+				font-style: normal;
+				font-weight: 700;
+				font-display: block;
+				src: url("./fonts/NotoSansSC-700.woff2") format("woff2");
+			}
+			@font-face {
+				font-family: "Noto Serif SC";
+				font-style: normal;
+				font-weight: 500;
+				font-display: block;
+				src: url("./fonts/NotoSerifSC-CJK.woff2") format("woff2");
+			}
+
+			:root {
+				--stack-system:
+					-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+					system-ui, sans-serif;
+				--stack-notosans:
+					"Noto Sans SC", -apple-system, "PingFang SC", sans-serif;
+				--stack-misans:
+					"MiSans", -apple-system, "PingFang SC", sans-serif;
+				--stack-notoserif:
+					"Noto Serif SC", -apple-system, "Songti SC", serif;
+			}
+
+			body {
+				background: var(--page-bg);
+				color: var(--fg);
+				padding: 32px;
+				max-width: 1360px;
+				margin: 0 auto;
+			}
+
+			.head {
+				display: flex;
+				align-items: flex-end;
+				justify-content: space-between;
+				gap: 24px;
+				flex-wrap: wrap;
+				margin-bottom: 12px;
+			}
+			h1 {
+				font-size: 28px;
+				font-weight: 600;
+				letter-spacing: -0.02em;
+				margin: 0 0 4px;
+			}
+			.desc {
+				color: var(--fg-mute);
+				margin: 0;
+				max-width: 60ch;
+				line-height: 1.6;
+			}
+
+			.load-status {
+				margin: 12px 0 20px;
+				padding: 10px 14px;
+				background: var(--surface-sunk);
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				font-family: "SF Mono", ui-monospace, monospace;
+				font-size: 11px;
+				color: var(--fg-mute);
+				display: flex;
+				flex-wrap: wrap;
+				gap: 14px;
+			}
+			.load-status .pill {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+			}
+			.load-status .dot {
+				width: 8px;
+				height: 8px;
+				border-radius: 999px;
+				background: var(--fg-faint);
+			}
+			.load-status .dot.ok {
+				background: var(--success);
+			}
+			.load-status .dot.fail {
+				background: var(--danger);
+			}
+
+			.grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+				gap: 16px;
+			}
+
+			.card {
+				background: var(--surface-sunk);
+				border: 1px solid var(--line);
+				border-radius: 14px;
+				padding: 20px 22px 22px;
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+			}
+			.card > header {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: 12px;
+				padding-bottom: 10px;
+				border-bottom: 1px dashed var(--line);
+			}
+			.card h2 {
+				font-size: 15px;
+				font-weight: 600;
+				margin: 0;
+			}
+			.card .tag {
+				font-family: "SF Mono", ui-monospace, monospace;
+				font-size: 10.5px;
+				color: var(--fg-faint);
+				padding: 2px 8px;
+				border-radius: 999px;
+				border: 1px solid var(--line);
+			}
+			.card .note {
+				font-size: 11px;
+				color: var(--fg-faint);
+				margin: 0;
+				line-height: 1.5;
+			}
+
+			.samples {
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+			.samples .display {
+				font-size: 30px;
+				font-weight: 600;
+				letter-spacing: -0.02em;
+				line-height: 1.2;
+			}
+			.samples .heading {
+				font-size: 18px;
+				font-weight: 600;
+			}
+			.samples .body {
+				font-size: 13px;
+				line-height: 1.75;
+				color: var(--fg-mute);
+			}
+			.samples .ui {
+				font-size: 12px;
+				color: var(--fg);
+			}
+			.samples .caption {
+				font-size: 10.5px;
+				letter-spacing: 0.14em;
+				text-transform: uppercase;
+				color: var(--fg-faint);
+			}
+
+			.demo-menu {
+				background: var(--surface);
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				padding: 6px;
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+			}
+			.demo-menu .item {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 6px 10px;
+				border-radius: 6px;
+				font-size: 12.5px;
+			}
+			.demo-menu .group {
+				padding: 8px 10px 4px;
+				font-size: 9.5px;
+				letter-spacing: 0.18em;
+				text-transform: uppercase;
+				color: var(--fg-faint);
+			}
+
+			.font-system {
+				font-family: var(--stack-system);
+			}
+			.font-notosans {
+				font-family: var(--stack-notosans);
+			}
+			.font-misans {
+				font-family: var(--stack-misans);
+			}
+			.font-notoserif {
+				font-family: var(--stack-notoserif);
+			}
+
+			.diff-note {
+				margin-top: 32px;
+				padding: 12px 16px;
+				background: color-mix(in oklch, var(--accent) 8%, transparent);
+				border: 1px solid var(--accent-line);
+				border-radius: 10px;
+				font-size: 12px;
+				color: var(--fg-mute);
+				line-height: 1.6;
+			}
+			.diff-note b {
+				color: var(--fg);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="head">
+			<div>
+				<h1>现代 SaaS 风中文字体 · v4</h1>
+				<p class="desc">
+					这次只放"SaaS 现代无衬线"方向的字体,加上一个 serif 对照。全部本地加载,加载状态灯全绿再判断。
+				</p>
+			</div>
+		</div>
+
+		<div class="load-status" id="loadStatus">
+			<span class="pill" data-font="Noto Sans SC">
+				<span class="dot"></span>
+				<span>Noto Sans SC (思源黑体)</span>
+			</span>
+			<span class="pill" data-font="MiSans">
+				<span class="dot"></span>
+				<span>MiSans (小米)</span>
+			</span>
+			<span class="pill" data-font="Noto Serif SC">
+				<span class="dot"></span>
+				<span>Noto Serif SC (对照)</span>
+			</span>
+		</div>
+
+		<div class="grid" id="grid"></div>
+
+		<div class="diff-note">
+			<b>决定后告诉我"选 XX"</b>,我会把 woff2 拷到 <code>apps/desktop/src/resources/public/fonts/</code>,写 <code>@font-face</code>,把字体家族名放到 <code>--font-sans</code> 栈首。app 完全离线可用,不依赖外部 CDN。
+		</div>
+
+		<script>
+			// biome-ignore-all
+			const FONTS = [
+				{
+					key: "system",
+					name: "系统默认",
+					tag: "PingFang · 对照",
+					note: "现在 app 里就是这个字。macOS 自带的 PingFang SC,苹果生态的标配。",
+					cls: "font-system",
+				},
+				{
+					key: "notosans",
+					name: "Noto Sans SC (思源黑体)",
+					tag: "Adobe/Google · SaaS 标配",
+					note: "思源黑体简体子集。开源社区里 SaaS 产品最常用的中文无衬线,比 PingFang 笔画略窄、几何感强一点,现代感更明显。",
+					cls: "font-notosans",
+				},
+				{
+					key: "misans",
+					name: "MiSans (小米)",
+					tag: "小米 · 现代无衬线",
+					note: "小米 HyperOS 用的字体。几何感强、笔画方正、字宽偏窄,比 PingFang 更工程师气质,和 Latin 部分的 SF Pro 搭配得挺融合。",
+					cls: "font-misans",
+				},
+				{
+					key: "notoserif",
+					name: "Noto Serif SC",
+					tag: "对照 · 宋体",
+					note: "宋体衬线,当作反例放这里做对照 —— 你就知道无衬线现代风长什么样。",
+					cls: "font-notoserif",
+				},
+			];
+
+			const SAMPLE = `
+        <div class="display">切换到此分支</div>
+        <div class="heading">分支管理 · Kro</div>
+        <div class="body">
+          把 branch menu 的合并按钮从行内移到右键菜单里,并且加上「从此分支新建…」的入口。要保留 ahead/behind badge。
+        </div>
+        <div class="ui">
+          已切换到 feat/kro-suite · 3 个改动待推送
+        </div>
+        <div class="caption">分支操作 · 同步 · 管理</div>
+      `;
+
+			const MENU = `
+        <div class="group">分支操作</div>
+        <div class="item">→ 切换到此分支</div>
+        <div class="item">⌥ 合并到当前分支</div>
+        <div class="item">+ 从此分支新建…</div>
+        <div class="group">管理</div>
+        <div class="item">✎ 重命名…</div>
+        <div class="item">⧉ 复制分支名</div>
+      `;
+
+			const grid = document.getElementById("grid");
+			for (const f of FONTS) {
+				const card = document.createElement("div");
+				card.className = "card";
+				card.dataset.key = f.key;
+				card.innerHTML = `
+          <header>
+            <h2>${f.name}</h2>
+            <span class="tag">${f.tag}</span>
+          </header>
+          <p class="note">${f.note}</p>
+          <div class="samples ${f.cls}">${SAMPLE}</div>
+          <div class="demo-menu ${f.cls}">${MENU}</div>
+        `;
+				grid.appendChild(card);
+			}
+
+			async function forceLoad(family) {
+				try {
+					await document.fonts.load(`14px "${family}"`, "切换到此分支");
+					await document.fonts.load(`30px "${family}"`, "切换到此分支");
+				} catch (_e) {
+					// ignore
+				}
+			}
+			async function checkLoaded() {
+				const pills = document.querySelectorAll("#loadStatus .pill");
+				await Promise.all(
+					[...pills].map((p) => forceLoad(p.getAttribute("data-font"))),
+				);
+				await document.fonts.ready;
+				for (const pill of pills) {
+					const family = pill.getAttribute("data-font");
+					const loaded = document.fonts.check(
+						`14px "${family}"`,
+						"切换到此分支",
+					);
+					const dot = pill.querySelector(".dot");
+					dot.classList.toggle("ok", loaded);
+					dot.classList.toggle("fail", !loaded);
+					pill.title = loaded ? "✓ loaded" : "✗ not loaded / fallback";
+				}
+			}
+			checkLoaded();
+			setTimeout(checkLoaded, 2000);
+		</script>
+	</body>
+</html>

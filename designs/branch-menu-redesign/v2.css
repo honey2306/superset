@@ -1,0 +1,818 @@
+/* ============================================================
+   Branch Menu v2 — three restrained directions
+   Base tokens come from tokens.css (Dracula default).
+   These overrides quiet the palette down: the "highlight" pink is
+   demoted to an accent that only appears at the ~10–25% tint level,
+   and neutrals do the layout work. All three variants share the same
+   trigger pill so the popover styles read as the real difference.
+   ============================================================ */
+
+:root,
+:root[data-theme="dracula"] {
+	/* Neutralize: keep --highlight (#ff79c6) but only ever use it at low
+	   opacity for tint / rule / dot. Text stays neutral. */
+	--v2-bg: var(--popover);
+	--v2-bg-elev: color-mix(in oklch, var(--popover) 92%, #fff 8%);
+	--v2-text: var(--foreground);
+	--v2-text-mute: color-mix(in oklch, var(--foreground) 55%, transparent);
+	--v2-text-faint: color-mix(in oklch, var(--foreground) 38%, transparent);
+	--v2-line: color-mix(in oklch, var(--foreground) 10%, transparent);
+	--v2-line-strong: color-mix(in oklch, var(--foreground) 18%, transparent);
+	--v2-hover: color-mix(in oklch, var(--foreground) 6%, transparent);
+	--v2-selected: color-mix(in oklch, var(--foreground) 9%, transparent);
+	--v2-accent: var(--highlight);
+	--v2-accent-tint: color-mix(in oklch, var(--highlight) 14%, transparent);
+	--v2-accent-line: color-mix(in oklch, var(--highlight) 55%, transparent);
+
+	--v2-radius: 12px;
+	--v2-radius-row: 6px;
+	--v2-shadow:
+		0 12px 32px -12px rgba(0, 0, 0, 0.55), 0 2px 8px -2px rgba(0, 0, 0, 0.35),
+		0 0 0 1px var(--v2-line);
+}
+
+:root[data-theme="ember"] {
+	--v2-bg: var(--popover);
+	--v2-bg-elev: color-mix(in oklch, var(--popover) 90%, #fff 10%);
+	--v2-text: var(--foreground);
+	--v2-text-mute: color-mix(in oklch, var(--foreground) 55%, transparent);
+	--v2-text-faint: color-mix(in oklch, var(--foreground) 38%, transparent);
+	--v2-line: color-mix(in oklch, var(--foreground) 10%, transparent);
+	--v2-line-strong: color-mix(in oklch, var(--foreground) 20%, transparent);
+	--v2-hover: color-mix(in oklch, var(--foreground) 6%, transparent);
+	--v2-selected: color-mix(in oklch, var(--foreground) 10%, transparent);
+	--v2-accent: var(--highlight);
+	--v2-accent-tint: color-mix(in oklch, var(--highlight) 14%, transparent);
+	--v2-accent-line: color-mix(in oklch, var(--highlight) 50%, transparent);
+}
+
+:root[data-theme="zed"] {
+	--v2-bg: var(--popover);
+	--v2-bg-elev: color-mix(in oklch, var(--popover) 90%, #fff 10%);
+	--v2-text: var(--foreground);
+	--v2-text-mute: color-mix(in oklch, var(--foreground) 55%, transparent);
+	--v2-text-faint: color-mix(in oklch, var(--foreground) 38%, transparent);
+	--v2-line: color-mix(in oklch, var(--foreground) 10%, transparent);
+	--v2-line-strong: color-mix(in oklch, var(--foreground) 20%, transparent);
+	--v2-hover: color-mix(in oklch, var(--foreground) 6%, transparent);
+	--v2-selected: color-mix(in oklch, var(--foreground) 10%, transparent);
+	--v2-accent: var(--highlight);
+	--v2-accent-tint: color-mix(in oklch, var(--highlight) 15%, transparent);
+	--v2-accent-line: color-mix(in oklch, var(--highlight) 55%, transparent);
+}
+
+:root[data-theme="light"] {
+	--v2-bg: var(--popover);
+	--v2-bg-elev: #fafbfd;
+	--v2-text: var(--foreground);
+	--v2-text-mute: color-mix(in oklch, var(--foreground) 55%, #ffffff);
+	--v2-text-faint: color-mix(in oklch, var(--foreground) 38%, #ffffff);
+	--v2-line: color-mix(in oklch, var(--foreground) 12%, transparent);
+	--v2-line-strong: color-mix(in oklch, var(--foreground) 22%, transparent);
+	--v2-hover: color-mix(in oklch, var(--foreground) 4%, transparent);
+	--v2-selected: color-mix(in oklch, var(--foreground) 6%, transparent);
+	--v2-accent: var(--highlight);
+	--v2-accent-tint: color-mix(in oklch, var(--highlight) 10%, transparent);
+	--v2-accent-line: color-mix(in oklch, var(--highlight) 55%, transparent);
+	--v2-shadow:
+		0 12px 32px -12px rgba(20, 20, 40, 0.18),
+		0 2px 6px -2px rgba(20, 20, 40, 0.12), 0 0 0 1px var(--v2-line);
+}
+
+/* ============================================================
+   Page shell (canvas host)
+   ============================================================ */
+.v2-page {
+	min-height: 100vh;
+	padding: 40px 32px 96px;
+}
+
+.v2-head {
+	max-width: 1360px;
+	margin: 0 auto 32px;
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 24px;
+	flex-wrap: wrap;
+}
+.v2-head-titles {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-width: 640px;
+}
+.v2-eyebrow {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 11px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--v2-text-faint);
+}
+.v2-eyebrow::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	background: var(--v2-accent);
+	box-shadow: 0 0 0 3px var(--v2-accent-tint);
+}
+.v2-title {
+	font-size: 28px;
+	font-weight: 600;
+	letter-spacing: -0.02em;
+	margin: 0;
+	color: var(--v2-text);
+}
+.v2-title .sub {
+	color: var(--v2-text-mute);
+	font-weight: 400;
+}
+.v2-desc {
+	color: var(--v2-text-mute);
+	line-height: 1.6;
+	margin: 0;
+	font-size: 13px;
+	max-width: 60ch;
+}
+.v2-theme {
+	display: inline-flex;
+	padding: 3px;
+	gap: 2px;
+	background: var(--v2-bg-elev);
+	border: 1px solid var(--v2-line);
+	border-radius: 999px;
+}
+.v2-theme button {
+	padding: 5px 12px;
+	font-size: 11.5px;
+	font-weight: 500;
+	color: var(--v2-text-mute);
+	background: transparent;
+	border: 0;
+	border-radius: 999px;
+	transition:
+		color 0.12s,
+		background 0.12s;
+	cursor: pointer;
+	letter-spacing: 0.01em;
+}
+.v2-theme button:hover {
+	color: var(--v2-text);
+}
+.v2-theme button.is-active {
+	background: color-mix(in oklch, var(--v2-text) 8%, transparent);
+	color: var(--v2-text);
+}
+
+/* Design canvas grid override — 3 artboards on one row */
+.v2-canvas {
+	max-width: 1440px;
+	margin: 0 auto;
+}
+
+/* ============================================================
+   Shared: trigger pill, popover shell, list rows
+   ============================================================ */
+.bm {
+	width: 320px;
+	background: var(--v2-bg);
+	border-radius: var(--v2-radius);
+	box-shadow: var(--v2-shadow);
+	color: var(--v2-text);
+	font-size: 13px;
+	overflow: hidden;
+	-webkit-font-smoothing: antialiased;
+}
+
+.bm-trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 26px;
+	padding: 0 8px 0 8px;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--v2-text);
+	background: transparent;
+	border: 1px solid var(--v2-line);
+	border-radius: 999px;
+	max-width: 200px;
+	transition:
+		background 0.12s,
+		border-color 0.12s;
+	cursor: pointer;
+}
+.bm-trigger:hover {
+	background: var(--v2-hover);
+	border-color: var(--v2-line-strong);
+}
+.bm-trigger .glyph {
+	width: 12px;
+	height: 12px;
+	color: var(--v2-text-mute);
+	flex: 0 0 auto;
+}
+.bm-trigger .name {
+	font-family:
+		"SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+	font-size: 11.5px;
+	letter-spacing: -0.01em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.bm-trigger .chev {
+	width: 10px;
+	height: 10px;
+	color: var(--v2-text-faint);
+	flex: 0 0 auto;
+	margin-left: 2px;
+}
+
+.bm-mini-tab-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--v2-text-mute);
+	font-size: 11px;
+	padding: 8px 12px 10px;
+	border-bottom: 1px solid var(--v2-line);
+	margin-bottom: 8px;
+}
+.bm-mini-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	border-radius: 6px;
+}
+.bm-mini-tab.is-active {
+	color: var(--v2-text);
+	background: var(--v2-hover);
+}
+
+/* SVG glyphs get sensible defaults */
+.bm svg {
+	shrink: 0;
+	stroke-width: 1.5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+/* ============================================================
+   Variant A — "Editorial hairline"
+   - Search sits flush in the header with only a bottom hairline.
+   - New-branch is a text button (no fill).
+   - Current branch marked by a thin left rule + slight tint (no big pill).
+   - Group label as small caps, generous letter-spacing.
+   ============================================================ */
+.bm.va .a-head {
+	padding: 10px 12px 8px;
+	display: grid;
+	grid-template-columns: 1fr auto auto;
+	align-items: center;
+	gap: 4px;
+	border-bottom: 1px solid var(--v2-line);
+}
+.bm.va .a-search {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 26px;
+}
+.bm.va .a-search .icon {
+	width: 12px;
+	height: 12px;
+	color: var(--v2-text-faint);
+}
+.bm.va .a-search input {
+	flex: 1;
+	background: transparent;
+	border: 0;
+	outline: 0;
+	color: var(--v2-text);
+	font-size: 12.5px;
+	letter-spacing: -0.005em;
+	font-family: inherit;
+}
+.bm.va .a-search input::placeholder {
+	color: var(--v2-text-faint);
+}
+.bm.va .a-icon-btn {
+	width: 22px;
+	height: 22px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--v2-text-mute);
+	border-radius: 6px;
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+	transition:
+		background 0.12s,
+		color 0.12s;
+}
+.bm.va .a-icon-btn:hover {
+	background: var(--v2-hover);
+	color: var(--v2-text);
+}
+.bm.va .a-new {
+	height: 22px;
+	padding: 0 8px 0 6px;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11.5px;
+	color: var(--v2-text-mute);
+	border: 0;
+	background: transparent;
+	border-radius: 6px;
+	cursor: pointer;
+	transition:
+		color 0.12s,
+		background 0.12s;
+}
+.bm.va .a-new:hover {
+	color: var(--v2-text);
+	background: var(--v2-hover);
+}
+.bm.va .a-new svg {
+	width: 11px;
+	height: 11px;
+}
+.bm.va .a-group {
+	padding: 12px 14px 6px;
+	font-size: 10px;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--v2-text-faint);
+	font-weight: 500;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.bm.va .a-group .count {
+	font-family: "SF Mono", ui-monospace, monospace;
+	letter-spacing: 0;
+}
+.bm.va .a-list {
+	padding: 0 6px 8px;
+	max-height: 320px;
+	overflow-y: auto;
+}
+.bm.va .a-row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	height: 32px;
+	padding: 0 10px;
+	border-radius: 6px;
+	color: var(--v2-text);
+	cursor: pointer;
+	transition: background 0.12s;
+}
+.bm.va .a-row:hover {
+	background: var(--v2-hover);
+}
+.bm.va .a-row .dot {
+	flex: 0 0 auto;
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	background: transparent;
+	border: 1.5px solid var(--v2-line-strong);
+}
+.bm.va .a-row .name {
+	font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+	font-size: 12px;
+	letter-spacing: -0.005em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.bm.va .a-row .meta {
+	margin-left: auto;
+	font-size: 10.5px;
+	color: var(--v2-text-faint);
+	opacity: 0;
+	transition: opacity 0.12s;
+}
+.bm.va .a-row:hover .meta {
+	opacity: 1;
+}
+.bm.va .a-row.is-current {
+	background: var(--v2-selected);
+}
+.bm.va .a-row.is-current .dot {
+	background: var(--v2-accent);
+	border-color: transparent;
+	box-shadow: 0 0 0 3px var(--v2-accent-tint);
+}
+.bm.va .a-row.is-current::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 6px;
+	bottom: 6px;
+	width: 2px;
+	border-radius: 2px;
+	background: var(--v2-accent);
+}
+
+/* ============================================================
+   Variant B — "Command surface"
+   - Popover feels like Raycast/Cmd-K: search fills the top, no border-y.
+   - Full-bleed rows, single-line hover (no rounded row), stroked from
+     side to side with breathing hairlines separating groups.
+   - Group label + shortcut hint chip on the right.
+   - Current branch: subtle accent-tinted background bar + check to the right.
+   ============================================================ */
+.bm.vb {
+	padding-bottom: 6px;
+}
+.bm.vb .b-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 14px 10px;
+	border-bottom: 1px solid var(--v2-line);
+}
+.bm.vb .b-head .icon {
+	width: 13px;
+	height: 13px;
+	color: var(--v2-text-faint);
+}
+.bm.vb .b-head input {
+	flex: 1;
+	background: transparent;
+	border: 0;
+	outline: 0;
+	color: var(--v2-text);
+	font-size: 13px;
+	font-weight: 500;
+	letter-spacing: -0.005em;
+}
+.bm.vb .b-head input::placeholder {
+	color: var(--v2-text-faint);
+	font-weight: 400;
+}
+.bm.vb .b-head .kbd {
+	font-family: "SF Mono", ui-monospace, monospace;
+	font-size: 10.5px;
+	color: var(--v2-text-faint);
+	padding: 2px 6px;
+	border-radius: 4px;
+	border: 1px solid var(--v2-line);
+	background: var(--v2-bg-elev);
+}
+.bm.vb .b-group {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 14px 4px;
+	font-size: 10px;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--v2-text-faint);
+	font-weight: 500;
+}
+.bm.vb .b-group .action {
+	font-size: 10.5px;
+	color: var(--v2-text-mute);
+	letter-spacing: 0.02em;
+	text-transform: none;
+	background: transparent;
+	border: 0;
+	padding: 4px 8px;
+	border-radius: 999px;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	cursor: pointer;
+	transition:
+		background 0.12s,
+		color 0.12s;
+}
+.bm.vb .b-group .action:hover {
+	background: var(--v2-hover);
+	color: var(--v2-text);
+}
+.bm.vb .b-group .action svg {
+	width: 10px;
+	height: 10px;
+}
+.bm.vb .b-list {
+	max-height: 320px;
+	overflow-y: auto;
+}
+.bm.vb .b-row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	height: 34px;
+	padding: 0 14px;
+	color: var(--v2-text);
+	cursor: pointer;
+	transition: background 0.12s;
+}
+.bm.vb .b-row:hover {
+	background: var(--v2-hover);
+}
+.bm.vb .b-row .glyph {
+	width: 12px;
+	height: 12px;
+	color: var(--v2-text-faint);
+	flex: 0 0 auto;
+}
+.bm.vb .b-row .name {
+	font-family: "SF Mono", ui-monospace, monospace;
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	letter-spacing: -0.005em;
+}
+.bm.vb .b-row .tag {
+	font-size: 10px;
+	color: var(--v2-text-faint);
+	margin-left: 8px;
+	padding: 1px 5px;
+	border-radius: 3px;
+	border: 1px solid var(--v2-line);
+	letter-spacing: 0.02em;
+}
+.bm.vb .b-row .end {
+	margin-left: auto;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--v2-text-faint);
+	font-size: 10.5px;
+	font-family: "SF Mono", ui-monospace, monospace;
+}
+.bm.vb .b-row.is-current {
+	background: var(--v2-accent-tint);
+}
+.bm.vb .b-row.is-current .glyph,
+.bm.vb .b-row.is-current .check {
+	color: var(--v2-accent);
+}
+.bm.vb .b-sep {
+	height: 1px;
+	background: var(--v2-line);
+	margin: 6px 0 0;
+}
+
+/* ============================================================
+   Variant C — "Silent card"
+   - Trigger pill has no border, just faint tint on rest — quietest resting state.
+   - Popover header is a stack: search on top, then a compact toolbar row
+     (fetch, filter, new) so the search never fights with buttons.
+   - Rows have a soft mono-tone background on hover and a stronger
+     background + tiny "on" chip for the current branch. No colored fills.
+   ============================================================ */
+.bm.vc .c-head {
+	padding: 10px 12px 6px;
+}
+.bm.vc .c-search {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 32px;
+	padding: 0 10px;
+	background: var(--v2-hover);
+	border-radius: 8px;
+	transition:
+		box-shadow 0.14s,
+		background 0.14s;
+}
+.bm.vc .c-search:focus-within {
+	background: color-mix(in oklch, var(--v2-text) 8%, transparent);
+	box-shadow: 0 0 0 1px var(--v2-line-strong);
+}
+.bm.vc .c-search .icon {
+	width: 12px;
+	height: 12px;
+	color: var(--v2-text-faint);
+}
+.bm.vc .c-search input {
+	flex: 1;
+	background: transparent;
+	border: 0;
+	outline: 0;
+	color: var(--v2-text);
+	font-size: 12.5px;
+	letter-spacing: -0.005em;
+}
+.bm.vc .c-search input::placeholder {
+	color: var(--v2-text-faint);
+}
+.bm.vc .c-search .kbd {
+	font-family: "SF Mono", ui-monospace, monospace;
+	font-size: 10px;
+	color: var(--v2-text-faint);
+	padding: 1px 5px;
+	border-radius: 3px;
+	background: var(--v2-bg-elev);
+	border: 1px solid var(--v2-line);
+}
+.bm.vc .c-tools {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 4px 6px;
+}
+.bm.vc .c-tools-l {
+	display: inline-flex;
+	gap: 2px;
+}
+.bm.vc .c-tool {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 24px;
+	padding: 0 8px;
+	font-size: 11px;
+	color: var(--v2-text-mute);
+	background: transparent;
+	border: 0;
+	border-radius: 6px;
+	cursor: pointer;
+	transition:
+		color 0.12s,
+		background 0.12s;
+}
+.bm.vc .c-tool:hover {
+	color: var(--v2-text);
+	background: var(--v2-hover);
+}
+.bm.vc .c-tool svg {
+	width: 11px;
+	height: 11px;
+}
+.bm.vc .c-tool.is-on {
+	color: var(--v2-text);
+	background: var(--v2-hover);
+}
+.bm.vc .c-new {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 24px;
+	padding: 0 10px 0 8px;
+	font-size: 11px;
+	color: var(--v2-text);
+	background: transparent;
+	border: 1px solid var(--v2-line-strong);
+	border-radius: 999px;
+	cursor: pointer;
+	transition:
+		background 0.12s,
+		border-color 0.12s;
+}
+.bm.vc .c-new:hover {
+	background: var(--v2-hover);
+}
+.bm.vc .c-new svg {
+	width: 11px;
+	height: 11px;
+}
+.bm.vc .c-list {
+	max-height: 320px;
+	overflow-y: auto;
+	padding: 4px 6px 8px;
+}
+.bm.vc .c-group {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 10px 8px 6px;
+}
+.bm.vc .c-group .label {
+	font-size: 10px;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--v2-text-faint);
+	font-weight: 500;
+}
+.bm.vc .c-group .rule {
+	flex: 1;
+	height: 1px;
+	background: var(--v2-line);
+}
+.bm.vc .c-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	height: 30px;
+	padding: 0 10px;
+	border-radius: 7px;
+	color: var(--v2-text);
+	cursor: pointer;
+	transition: background 0.12s;
+}
+.bm.vc .c-row:hover {
+	background: var(--v2-hover);
+}
+.bm.vc .c-row .glyph {
+	width: 12px;
+	height: 12px;
+	color: var(--v2-text-faint);
+	flex: 0 0 auto;
+}
+.bm.vc .c-row .name {
+	font-family: "SF Mono", ui-monospace, monospace;
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	letter-spacing: -0.005em;
+}
+.bm.vc .c-row.is-current {
+	background: color-mix(in oklch, var(--v2-text) 6%, transparent);
+}
+.bm.vc .c-row.is-current .glyph {
+	color: var(--v2-text);
+}
+.bm.vc .c-row .end-chip {
+	margin-left: auto;
+	font-size: 9.5px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--v2-accent);
+	padding: 2px 7px;
+	border-radius: 999px;
+	background: var(--v2-accent-tint);
+	font-weight: 600;
+}
+.bm.vc .c-row .end-meta {
+	margin-left: auto;
+	font-size: 10.5px;
+	color: var(--v2-text-faint);
+	font-family: "SF Mono", ui-monospace, monospace;
+	opacity: 0;
+	transition: opacity 0.12s;
+}
+.bm.vc .c-row:hover .end-meta {
+	opacity: 1;
+}
+
+/* ============================================================
+   Trigger row above each artboard so the pill lives in context
+   ============================================================ */
+.bm-context {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px 14px;
+	color: var(--v2-text-mute);
+	font-size: 11px;
+	border-bottom: 1px dashed var(--v2-line);
+	margin-bottom: 20px;
+}
+.bm-context .tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 8px;
+	border-radius: 6px;
+	color: var(--v2-text);
+	background: var(--v2-hover);
+	font-weight: 500;
+	font-size: 11px;
+}
+
+/* Focus-mode-friendly: the artboard body is a static frame,
+   inner list scrolls via .c-list / .a-list / .b-list. */
+.bm-frame {
+	padding: 18px 20px 26px;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 14px;
+	background: linear-gradient(
+		180deg,
+		color-mix(in oklch, var(--v2-bg-elev) 55%, transparent) 0%,
+		transparent 100%
+	);
+	border-radius: 14px;
+}
+
+.bm-frame .caption {
+	font-size: 10.5px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--v2-text-faint);
+	margin-top: 4px;
+}
+
+/* Live theme swap: everything under [data-theme] flips automatically because
+   we only ever use --v2-* / --highlight / --foreground variables. */

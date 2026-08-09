@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { createWorkspaceStore, type RendererContext } from "@superset/panes";
 import {
+	acpSessionStatusToPaneStatus,
 	createV1PanesTerminalPaneBridge,
 	getV1PanesTabStatus,
+	syncV1PanesAcpStatuses,
 	syncV1PanesTerminalStatuses,
 } from "./createV1PanesTerminalPaneBridge";
 import type { V1PanesPaneData } from "./types";
@@ -173,5 +175,68 @@ describe("createV1PanesTerminalPaneBridge", () => {
 		expect(getV1PanesTabStatus(tab)).toBe("failed");
 		tab.panes["pane-2"].data.status = "idle";
 		expect(getV1PanesTabStatus(tab)).toBeNull();
+	});
+
+	test("aggregates ACP session states with terminal pane states", () => {
+		const context = makeContext();
+		const tab = context.store.getState().getTab("tab-1");
+		if (!tab) throw new Error("fixture setup failed");
+		tab.panes.acp = {
+			id: "acp",
+			kind: "acp",
+			data: {
+				acp: {
+					sessionId: "session-1",
+					agentDefinitionId: "codex",
+					status: "awaiting_permission",
+				},
+			},
+		};
+
+		expect(getV1PanesTabStatus(tab)).toBe("permission");
+	});
+
+	test("maps ACP session lifecycle statuses to visual pane statuses", () => {
+		expect(acpSessionStatusToPaneStatus("running")).toBe("working");
+		expect(acpSessionStatusToPaneStatus("awaiting_permission")).toBe(
+			"permission",
+		);
+		expect(acpSessionStatusToPaneStatus("dead")).toBe("failed");
+		expect(acpSessionStatusToPaneStatus("offline")).toBe("idle");
+		expect(acpSessionStatusToPaneStatus("idle")).toBe("idle");
+	});
+
+	test("syncs ACP session statuses into inactive acp panes", () => {
+		const context = makeContext();
+		context.store.getState().addTab({
+			id: "tab-2",
+			panes: [
+				{
+					id: "acp-pane",
+					kind: "acp",
+					data: {
+						acp: {
+							sessionId: "session-a",
+							agentDefinitionId: "codex",
+							status: "running",
+						},
+					},
+				},
+			],
+		});
+
+		syncV1PanesAcpStatuses(
+			context.store,
+			new Map([["session-a", "awaiting_permission"]]),
+		);
+
+		const acpData = context.store.getState().getPane("acp-pane")?.pane.data.acp;
+		expect(acpData?.status).toBe("awaiting_permission");
+
+		// Missing session in the map is a no-op (host may not have reported yet).
+		syncV1PanesAcpStatuses(context.store, new Map());
+		expect(
+			context.store.getState().getPane("acp-pane")?.pane.data.acp?.status,
+		).toBe("awaiting_permission");
 	});
 });

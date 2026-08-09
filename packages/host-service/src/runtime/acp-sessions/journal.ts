@@ -10,6 +10,21 @@ export interface JournalPage {
 	nextBeforeSeq: number | null;
 }
 
+/** Permission requests persisted without a later resolution in the same epoch. */
+export function unresolvedPermissionRequestIds(
+	entries: SessionUpdateEnvelope[],
+): string[] {
+	const unresolved = new Set<string>();
+	for (const { frame } of entries) {
+		if (frame.kind === "permission_requested") {
+			unresolved.add(frame.pending.requestId);
+		} else if (frame.kind === "permission_resolved") {
+			unresolved.delete(frame.requestId);
+		}
+	}
+	return [...unresolved];
+}
+
 /**
  * Per-session ring buffer of update envelopes with a gapless, monotonic seq
  * starting at 1. Envelopes older than `capacity` are evicted; `after` reports
@@ -21,8 +36,20 @@ export class SessionJournal {
 	private size = 0;
 	private nextSeq = 1;
 	private readonly capacity: number;
+	readonly epoch: string;
 
-	constructor(capacity = 5_000) {
+	constructor(
+		options:
+			| { epoch: string; capacity?: number; entries?: SessionUpdateEnvelope[] }
+			| number = {
+			epoch: "legacy",
+		},
+	) {
+		const normalized =
+			typeof options === "number"
+				? { epoch: "legacy", capacity: options }
+				: options;
+		const capacity = normalized.capacity ?? 5_000;
 		if (!Number.isInteger(capacity) || capacity < 1) {
 			throw new Error(
 				`journal capacity must be a positive integer: ${capacity}`,
@@ -30,6 +57,8 @@ export class SessionJournal {
 		}
 		this.capacity = capacity;
 		this.entries = new Array<SessionUpdateEnvelope | undefined>(capacity);
+		this.epoch = normalized.epoch;
+		for (const envelope of normalized.entries ?? []) this.restore(envelope);
 	}
 
 	/** Seq of the newest journaled envelope, or 0 when nothing was journaled. */
@@ -45,6 +74,7 @@ export class SessionJournal {
 	append(sessionId: string, frame: SessionUpdateFrame): SessionUpdateEnvelope {
 		const envelope: SessionUpdateEnvelope = {
 			seq: this.nextSeq,
+			epoch: this.epoch,
 			sessionId,
 			ts: Date.now(),
 			frame,
@@ -60,6 +90,28 @@ export class SessionJournal {
 			this.startIndex = (this.startIndex + 1) % this.capacity;
 		}
 		return envelope;
+	}
+
+	/** Restore a durable row. Never silently skip an invalid row: doing so could
+	 * make the next append reuse a primary key that is still present on disk. */
+	private restore(envelope: SessionUpdateEnvelope): void {
+		if (
+			envelope.epoch !== this.epoch ||
+			envelope.seq !== this.nextSeq ||
+			envelope.seq < 1
+		) {
+			throw new Error(
+				`invalid durable journal sequence: expected ${this.nextSeq} in epoch ${this.epoch}, received ${envelope.seq} in ${envelope.epoch}`,
+			);
+		}
+		this.nextSeq += 1;
+		if (this.size < this.capacity) {
+			this.entries[(this.startIndex + this.size) % this.capacity] = envelope;
+			this.size += 1;
+			return;
+		}
+		this.entries[this.startIndex] = envelope;
+		this.startIndex = (this.startIndex + 1) % this.capacity;
 	}
 
 	/**

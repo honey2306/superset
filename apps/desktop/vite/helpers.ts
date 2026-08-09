@@ -45,6 +45,10 @@ const RESOURCES_TO_COPY = [
 		dest: resolve(__dirname, "..", devPath, "resources/host-migrations"),
 	},
 	{
+		src: resolve(__dirname, "../../../packages/host-service/public/web"),
+		dest: resolve(__dirname, "..", devPath, "resources/web"),
+	},
+	{
 		src: resolve(__dirname, "../src/main/lib/agent-setup/templates"),
 		dest: resolve(__dirname, "..", devPath, "main/templates"),
 	},

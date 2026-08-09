@@ -1,0 +1,1 @@
+export { PairingQrCode } from "./PairingQrCode";

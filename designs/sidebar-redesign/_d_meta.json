@@ -1,0 +1,27 @@
+{
+	"type": "design",
+	"designSystems": [],
+	"primaryDesignSystem": null,
+	"assets": {
+		"Sidebar Redesign · 3 版对比": {
+			"versions": [
+				{
+					"path": "Sidebar Redesign.html",
+					"createdAt": "2026-08-08T03:18:03.598Z",
+					"status": "needs-review"
+				}
+			]
+		},
+		"Sidebar Redesign · 6 版对比": {
+			"versions": [
+				{
+					"path": "Sidebar Redesign.html",
+					"createdAt": "2026-08-08T06:31:17.894Z",
+					"status": "needs-review"
+				}
+			]
+		}
+	},
+	"createdAt": "2026-08-08T03:18:03.598Z",
+	"updatedAt": "2026-08-08T06:31:17.895Z"
+}

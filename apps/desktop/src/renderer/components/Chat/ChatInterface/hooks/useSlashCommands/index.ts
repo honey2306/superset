@@ -1,8 +1,12 @@
 export {
+	type ComposerSlashCommand,
+	filterSlashCommands,
 	getCommandMatchRank,
+	getSlashCommandSelectionBehavior,
 	resolveCommandAction,
+	resolveSlashCommandArgumentOptions,
 	type SlashCommand,
-	shouldSuppressSlashMenuForCommittedCommand,
+	type SlashCommandSelectionBehavior,
 	sortSlashCommandMatches,
 	useSlashCommands,
 } from "./useSlashCommands";

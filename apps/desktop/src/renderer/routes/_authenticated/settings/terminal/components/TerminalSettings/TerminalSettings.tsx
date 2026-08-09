@@ -5,6 +5,7 @@ import {
 	SETTING_ITEM_ID,
 	type SettingItemId,
 } from "../../../utils/settings-search";
+import { AcpPresetLaunchSetting } from "./components/AcpPresetLaunchSetting";
 import { BackgroundTerminalsSetting } from "./components/BackgroundTerminalsSetting";
 import { LinkBehaviorSetting } from "./components/LinkBehaviorSetting";
 import { PresetsSection } from "./components/PresetsSection";
@@ -67,6 +68,10 @@ export function TerminalSettings({
 		SETTING_ITEM_ID.TERMINAL_BACKGROUND_LIMIT,
 		visibleItems,
 	);
+	const showAcpPresetLaunch = isItemVisible(
+		SETTING_ITEM_ID.TERMINAL_ACP_MODE,
+		visibleItems,
+	);
 
 	return (
 		<div className="p-6 max-w-6xl w-full">
@@ -88,6 +93,9 @@ export function TerminalSettings({
 						pendingCreateProjectId={pendingCreateProjectId}
 						onPendingCreateProjectIdChange={onPendingCreateProjectIdChange}
 					/>
+				)}
+				{showAcpPresetLaunch && (
+					<AcpPresetLaunchSetting key="acp-preset-launch" />
 				)}
 				{showLinkBehavior && <LinkBehaviorSetting key="link-behavior" />}
 				{showBackgroundLimit && (

@@ -230,6 +230,9 @@ app.on("before-quit", async (event) => {
 	isQuitting = true;
 	try {
 		stopMemoryTelemetry();
+		if (forceFullCleanup) {
+			await getHostServiceCoordinator().shutdownAcpDaemons(true);
+		}
 		getHostServiceCoordinator().stopAll();
 		if (isDev || forceFullCleanup) {
 			await teardownTerminalHost();
@@ -441,12 +444,17 @@ if (!gotTheLock) {
 			console.error("[main] Failed to install bundled CLI shim:", error);
 		}
 
+		// Respawns can happen long after the original spawn, so read the token at
+		// attempt time instead of retaining one that may have rotated.
+		const hostServiceConfigProvider = async () => {
+			const { token } = await loadToken();
+			if (!token) return null;
+			return { authToken: token, cloudApiUrl: mainEnv.NEXT_PUBLIC_API_URL };
+		};
+		getHostServiceCoordinator().setConfigProvider(hostServiceConfigProvider);
+
 		if (IS_DEV) {
-			getHostServiceCoordinator().enableDevReload(async () => {
-				const { token } = await loadToken();
-				if (!token) return null;
-				return { authToken: token, cloudApiUrl: mainEnv.NEXT_PUBLIC_API_URL };
-			});
+			getHostServiceCoordinator().enableDevReload(hostServiceConfigProvider);
 		}
 
 		await makeAppSetup(() => MainWindow());

@@ -1,0 +1,1800 @@
+{
+  "namespace": "SupersetDesignSystem_91a6da",
+  "components": [
+    {
+      "name": "Badge",
+      "sourcePath": "components/core/Badge/Badge.jsx",
+      "props": [
+        {
+          "name": "tone",
+          "values": [
+            "add",
+            "mod",
+            "del"
+          ]
+        },
+        {
+          "name": "pill",
+          "type": "boolean"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Button",
+      "sourcePath": "components/core/Button/Button.jsx",
+      "props": [
+        {
+          "name": "variant",
+          "values": [
+            "primary",
+            "default",
+            "ghost",
+            "danger"
+          ]
+        },
+        {
+          "name": "size",
+          "values": [
+            "md",
+            "sm"
+          ]
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Chip",
+      "sourcePath": "components/core/Chip/Chip.jsx",
+      "props": [
+        {
+          "name": "tone",
+          "values": [
+            "add",
+            "mod",
+            "del"
+          ]
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Divider",
+      "sourcePath": "components/core/Divider/Divider.jsx",
+      "props": [
+        {
+          "name": "label",
+          "type": "string"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Icon",
+      "sourcePath": "components/core/Icon/Icon.jsx",
+      "props": [
+        {
+          "name": "name",
+          "values": [
+            "branch",
+            "chevron",
+            "search",
+            "plus",
+            "check",
+            "refresh",
+            "push",
+            "pull",
+            "merge",
+            "arrowRight",
+            "edit",
+            "copy",
+            "terminal",
+            "trash",
+            "alert",
+            "file",
+            "cloud",
+            "changes",
+            "max",
+            "x",
+            "sort",
+            "moreH",
+            "spark"
+          ]
+        },
+        {
+          "name": "size",
+          "type": "number"
+        }
+      ]
+    },
+    {
+      "name": "IconButton",
+      "sourcePath": "components/core/IconButton/IconButton.jsx",
+      "props": [
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Kbd",
+      "sourcePath": "components/core/Kbd/Kbd.jsx",
+      "props": [
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Pill",
+      "sourcePath": "components/core/Pill/Pill.jsx",
+      "props": [
+        {
+          "name": "label",
+          "type": "string"
+        },
+        {
+          "name": "open",
+          "type": "boolean"
+        },
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "onClick",
+          "type": "() => void"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Tag",
+      "sourcePath": "components/core/Tag/Tag.jsx",
+      "props": [
+        {
+          "name": "dir",
+          "values": [
+            "up",
+            "down"
+          ]
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ConfirmCard",
+      "sourcePath": "components/feedback/ConfirmCard/ConfirmCard.jsx",
+      "props": [
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "body",
+          "type": "ReactNode"
+        },
+        {
+          "name": "confirmLabel",
+          "type": "string"
+        },
+        {
+          "name": "cancelLabel",
+          "type": "string"
+        },
+        {
+          "name": "danger",
+          "type": "boolean"
+        },
+        {
+          "name": "onConfirm",
+          "type": "() => void"
+        },
+        {
+          "name": "onCancel",
+          "type": "() => void"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Spinner",
+      "sourcePath": "components/feedback/Spinner/Spinner.jsx",
+      "props": [
+        {
+          "name": "size",
+          "type": "number"
+        },
+        {
+          "name": "tone",
+          "values": [
+            "accent",
+            "success",
+            "danger"
+          ]
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Toast",
+      "sourcePath": "components/feedback/Toast/Toast.jsx",
+      "props": [
+        {
+          "name": "tone",
+          "values": [
+            "success",
+            "info",
+            "warn",
+            "error"
+          ]
+        },
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Checkbox",
+      "sourcePath": "components/forms/Checkbox/Checkbox.jsx",
+      "props": [
+        {
+          "name": "checked",
+          "type": "boolean"
+        },
+        {
+          "name": "defaultChecked",
+          "type": "boolean"
+        },
+        {
+          "name": "onChange",
+          "type": "ChangeEventHandler<HTMLInputElement>"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Input",
+      "sourcePath": "components/forms/Input/Input.jsx",
+      "props": [
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "trailing",
+          "type": "ReactNode"
+        },
+        {
+          "name": "transparent",
+          "type": "boolean"
+        },
+        {
+          "name": "inputRef",
+          "type": "Ref<HTMLInputElement>"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Radio",
+      "sourcePath": "components/forms/Radio/Radio.jsx",
+      "props": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "type": "string"
+        },
+        {
+          "name": "checked",
+          "type": "boolean"
+        },
+        {
+          "name": "defaultChecked",
+          "type": "boolean"
+        },
+        {
+          "name": "onChange",
+          "type": "ChangeEventHandler<HTMLInputElement>"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "SegmentedControl",
+      "sourcePath": "components/forms/SegmentedControl/SegmentedControl.jsx",
+      "props": [
+        {
+          "name": "options",
+          "type": "Array<string | SegmentedOption>"
+        },
+        {
+          "name": "value",
+          "type": "string"
+        },
+        {
+          "name": "onChange",
+          "type": "(next: string) => void"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Switch",
+      "sourcePath": "components/forms/Switch/Switch.jsx",
+      "props": [
+        {
+          "name": "checked",
+          "type": "boolean"
+        },
+        {
+          "name": "onChange",
+          "type": "(next: boolean) => void"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "FileRow",
+      "sourcePath": "components/navigation/FileRow/FileRow.jsx",
+      "props": [
+        {
+          "name": "dir",
+          "type": "string"
+        },
+        {
+          "name": "file",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "values": [
+            "A",
+            "M",
+            "D",
+            "R"
+          ]
+        },
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "trailing",
+          "type": "ReactNode"
+        },
+        {
+          "name": "onClick",
+          "type": "() => void"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Tabs",
+      "sourcePath": "components/navigation/Tabs/Tabs.jsx",
+      "props": [
+        {
+          "name": "items",
+          "type": "TabItem[]"
+        },
+        {
+          "name": "value",
+          "type": "string"
+        },
+        {
+          "name": "onChange",
+          "type": "(next: string) => void"
+        },
+        {
+          "name": "trailing",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "WorkspaceItem",
+      "sourcePath": "components/navigation/WorkspaceItem/WorkspaceItem.jsx",
+      "props": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "state",
+          "values": [
+            "running",
+            "ok",
+            "warn",
+            "err",
+            "idle"
+          ]
+        },
+        {
+          "name": "meta",
+          "type": "string"
+        },
+        {
+          "name": "active",
+          "type": "boolean"
+        },
+        {
+          "name": "onClick",
+          "type": "() => void"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ContextMenu",
+      "sourcePath": "components/overlays/ContextMenu/ContextMenu.jsx",
+      "props": [
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        },
+        {
+          "name": "style",
+          "type": "React.CSSProperties"
+        }
+      ]
+    },
+    {
+      "name": "MenuHeading",
+      "sourcePath": "components/overlays/ContextMenu/ContextMenu.jsx",
+      "props": [
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "badge",
+          "type": "ReactNode"
+        }
+      ]
+    },
+    {
+      "name": "MenuSep",
+      "sourcePath": "components/overlays/ContextMenu/ContextMenu.jsx"
+    },
+    {
+      "name": "MenuGroup",
+      "sourcePath": "components/overlays/ContextMenu/ContextMenu.jsx"
+    },
+    {
+      "name": "MenuItem",
+      "sourcePath": "components/overlays/ContextMenu/ContextMenu.jsx",
+      "props": [
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "type": "ReactNode"
+        },
+        {
+          "name": "danger",
+          "type": "boolean"
+        },
+        {
+          "name": "disabled",
+          "type": "boolean"
+        },
+        {
+          "name": "kbd",
+          "type": "ReactNode"
+        },
+        {
+          "name": "tag",
+          "type": "ReactNode"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "onClick",
+          "type": "() => void"
+        }
+      ]
+    },
+    {
+      "name": "Popover",
+      "sourcePath": "components/overlays/Popover/Popover.jsx",
+      "props": [
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        },
+        {
+          "name": "style",
+          "type": "React.CSSProperties"
+        }
+      ]
+    },
+    {
+      "name": "PopoverHeader",
+      "sourcePath": "components/overlays/Popover/Popover.jsx",
+      "props": [
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "placeholder",
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "type": "string"
+        },
+        {
+          "name": "onChange",
+          "type": "(next: string) => void"
+        },
+        {
+          "name": "inputRef",
+          "type": "Ref<HTMLInputElement>"
+        },
+        {
+          "name": "trailing",
+          "type": "ReactNode"
+        }
+      ]
+    },
+    {
+      "name": "PopoverGroup",
+      "sourcePath": "components/overlays/Popover/Popover.jsx",
+      "props": [
+        {
+          "name": "label",
+          "type": "ReactNode"
+        },
+        {
+          "name": "count",
+          "type": "number"
+        },
+        {
+          "name": "action",
+          "type": "ReactNode"
+        }
+      ]
+    },
+    {
+      "name": "PopoverRow",
+      "sourcePath": "components/overlays/Popover/Popover.jsx",
+      "props": [
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "current",
+          "type": "boolean"
+        },
+        {
+          "name": "focused",
+          "type": "boolean"
+        },
+        {
+          "name": "tag",
+          "type": "ReactNode"
+        },
+        {
+          "name": "end",
+          "type": "ReactNode"
+        },
+        {
+          "name": "onClick",
+          "type": "() => void"
+        },
+        {
+          "name": "onContextMenu",
+          "type": "MouseEventHandler<HTMLDivElement>"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "PopoverSep",
+      "sourcePath": "components/overlays/Popover/Popover.jsx"
+    },
+    {
+      "name": "PopoverHint",
+      "sourcePath": "components/overlays/Popover/Popover.jsx"
+    },
+    {
+      "name": "Tooltip",
+      "sourcePath": "components/overlays/Tooltip/Tooltip.jsx",
+      "props": [
+        {
+          "name": "label",
+          "type": "ReactNode"
+        },
+        {
+          "name": "side",
+          "values": [
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "name": "children",
+          "type": "ReactElement"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "startingPoints": [
+    {
+      "name": "ConfirmCard",
+      "path": "components/feedback/ConfirmCard/ConfirmCard.jsx",
+      "previewPath": "components/feedback/ConfirmCard/ConfirmCard.card.html",
+      "kind": "component",
+      "section": "Overlays",
+      "subtitle": "就地确认卡 · 危险动作",
+      "viewport": "340x240"
+    },
+    {
+      "name": "ContextMenu",
+      "path": "components/overlays/ContextMenu/ContextMenu.jsx",
+      "previewPath": "components/overlays/ContextMenu/ContextMenu.card.html",
+      "kind": "component",
+      "section": "Overlays",
+      "subtitle": "右键聚合动作 · heading / group / sep / item",
+      "viewport": "300x360"
+    },
+    {
+      "name": "Popover",
+      "path": "components/overlays/Popover/Popover.jsx",
+      "previewPath": "components/overlays/Popover/Popover.card.html",
+      "kind": "component",
+      "section": "Overlays",
+      "subtitle": "搜索式 popover · 分组行 · 键盘导航",
+      "viewport": "360x460"
+    },
+    {
+      "name": "desktop-app",
+      "path": "ui_kits/desktop-app/Chat.card.html",
+      "previewPath": "ui_kits/desktop-app/Chat.card.html",
+      "kind": "screen",
+      "section": "Screens",
+      "subtitle": "Chat 主界面 · 消息流 · 工具调用 · composer",
+      "viewport": "960x820"
+    },
+    {
+      "name": "desktop-app",
+      "path": "ui_kits/desktop-app/index.html",
+      "previewPath": "ui_kits/desktop-app/index.html",
+      "kind": "screen",
+      "section": "Screens",
+      "subtitle": "Full app shell",
+      "viewport": "1440x900"
+    },
+    {
+      "name": "desktop-app",
+      "path": "ui_kits/desktop-app/WorkspaceSidebar.card.html",
+      "previewPath": "ui_kits/desktop-app/WorkspaceSidebar.card.html",
+      "kind": "screen",
+      "section": "Screens",
+      "subtitle": "Superset 主界面左侧栏 · 项目分组 + workspaces + ports",
+      "viewport": "360x780"
+    }
+  ],
+  "cards": [
+    {
+      "path": "foundations/motion.card.html",
+      "group": "Brand",
+      "viewport": "720x180",
+      "subtitle": "durations & easings",
+      "name": "Motion"
+    },
+    {
+      "path": "foundations/shadow.card.html",
+      "group": "Brand",
+      "viewport": "720x180",
+      "subtitle": "1 → 4, dark-mode calibrated",
+      "name": "Shadow scale"
+    },
+    {
+      "path": "foundations/accent.card.html",
+      "group": "Colors",
+      "viewport": "720x220",
+      "subtitle": "pink / purple / semantic states",
+      "name": "Accent & status"
+    },
+    {
+      "path": "foundations/colors.card.html",
+      "group": "Colors",
+      "viewport": "720x260",
+      "subtitle": "surface / text / accent / status",
+      "name": "Semantic tokens"
+    },
+    {
+      "path": "components/core/Badge/Badge.card.html",
+      "group": "Components",
+      "viewport": "720x100",
+      "subtitle": "A / M / D file status + pill capsule",
+      "name": "Badge"
+    },
+    {
+      "path": "components/core/Button/Button.card.html",
+      "group": "Components",
+      "viewport": "720x200",
+      "subtitle": "primary / default / ghost / danger, 2 sizes",
+      "name": "Button"
+    },
+    {
+      "path": "components/core/Chip/Chip.card.html",
+      "group": "Components",
+      "viewport": "720x100",
+      "subtitle": "count chip with tone dot — add / mod / del",
+      "name": "Chip"
+    },
+    {
+      "path": "components/core/Divider/Divider.card.html",
+      "group": "Components",
+      "viewport": "720x180",
+      "subtitle": "hairline · with-label",
+      "name": "Divider"
+    },
+    {
+      "path": "components/core/Icon/Icon.card.html",
+      "group": "Components",
+      "viewport": "720x260",
+      "subtitle": "23 line icons, 24-viewbox, stroke=currentColor",
+      "name": "Icon set"
+    },
+    {
+      "path": "components/core/IconButton/IconButton.card.html",
+      "group": "Components",
+      "viewport": "720x100",
+      "subtitle": "row of icon-only affordances",
+      "name": "IconButton"
+    },
+    {
+      "path": "components/core/Kbd/Kbd.card.html",
+      "group": "Components",
+      "viewport": "720x100",
+      "subtitle": "keyboard chord glyphs, mono",
+      "name": "Kbd"
+    },
+    {
+      "path": "components/core/Pill/Pill.card.html",
+      "group": "Components",
+      "viewport": "720x120",
+      "subtitle": "branch trigger — closed / open",
+      "name": "Pill"
+    },
+    {
+      "path": "components/core/Tag/Tag.card.html",
+      "group": "Components",
+      "viewport": "720x100",
+      "subtitle": "ahead / behind counters + neutral remote tag",
+      "name": "Tag"
+    },
+    {
+      "path": "components/feedback/ConfirmCard/ConfirmCard.card.html",
+      "group": "Components",
+      "viewport": "720x260",
+      "subtitle": "destructive confirm — Enter/Esc",
+      "name": "ConfirmCard"
+    },
+    {
+      "path": "components/feedback/Spinner/Spinner.card.html",
+      "group": "Components",
+      "viewport": "720x140",
+      "subtitle": "indeterminate · sizes · tones",
+      "name": "Spinner"
+    },
+    {
+      "path": "components/feedback/Toast/Toast.card.html",
+      "group": "Components",
+      "viewport": "720x220",
+      "subtitle": "success / info / warn / error",
+      "name": "Toast"
+    },
+    {
+      "path": "components/forms/Checkbox/Checkbox.card.html",
+      "group": "Components",
+      "viewport": "720x100",
+      "subtitle": "unchecked / checked / disabled",
+      "name": "Checkbox"
+    },
+    {
+      "path": "components/forms/Input/Input.card.html",
+      "group": "Components",
+      "viewport": "720x180",
+      "subtitle": "filled · transparent · with icon + trailing kbd",
+      "name": "Input"
+    },
+    {
+      "path": "components/forms/Radio/Radio.card.html",
+      "group": "Components",
+      "viewport": "720x140",
+      "subtitle": "one-of-many, shared name",
+      "name": "Radio"
+    },
+    {
+      "path": "components/forms/SegmentedControl/SegmentedControl.card.html",
+      "group": "Components",
+      "viewport": "720x100",
+      "subtitle": "pill-track toggle, one active",
+      "name": "SegmentedControl"
+    },
+    {
+      "path": "components/forms/Switch/Switch.card.html",
+      "group": "Components",
+      "viewport": "720x100",
+      "subtitle": "on / off, controlled",
+      "name": "Switch"
+    },
+    {
+      "path": "components/navigation/FileRow/FileRow.card.html",
+      "group": "Components",
+      "viewport": "720x160",
+      "subtitle": "Changes list row: dir muted, filename fg, status badge",
+      "name": "FileRow"
+    },
+    {
+      "path": "components/navigation/Tabs/Tabs.card.html",
+      "group": "Components",
+      "viewport": "720x120",
+      "subtitle": "underline tabs with leading glyph, one active",
+      "name": "Tabs"
+    },
+    {
+      "path": "components/navigation/WorkspaceItem/WorkspaceItem.card.html",
+      "group": "Components",
+      "viewport": "720x180",
+      "subtitle": "sidebar row · state dots · active",
+      "name": "WorkspaceItem"
+    },
+    {
+      "path": "components/overlays/ContextMenu/ContextMenu.card.html",
+      "group": "Components",
+      "viewport": "720x520",
+      "subtitle": "operate on a right-clicked branch",
+      "name": "ContextMenu · branch ops"
+    },
+    {
+      "path": "components/overlays/Popover/Popover.card.html",
+      "group": "Components",
+      "viewport": "720x520",
+      "subtitle": "search + current/focused/normal rows + remote group",
+      "name": "Popover · branch list"
+    },
+    {
+      "path": "components/overlays/Tooltip/Tooltip.card.html",
+      "group": "Components",
+      "viewport": "720x200",
+      "subtitle": "disabled 说明 · 4 侧 side",
+      "name": "Tooltip"
+    },
+    {
+      "path": "ui_kits/desktop-app/Chat.card.html",
+      "group": "Desktop app",
+      "viewport": "960x820",
+      "subtitle": "user + assistant parts · tool calls · exploring group · composer",
+      "name": "Chat 会话主界面"
+    },
+    {
+      "path": "ui_kits/desktop-app/CommandPalette.card.html",
+      "group": "Desktop app",
+      "viewport": "800x560",
+      "subtitle": "全局命令面板 · Workspace actions / Actions / Navigation / Add project",
+      "name": "CommandPalette (⌘⇧K)"
+    },
+    {
+      "path": "ui_kits/desktop-app/index.html",
+      "group": "Desktop app",
+      "viewport": "1440x900",
+      "subtitle": "workspace sidebar · chat · Changes rail",
+      "name": "Superset Desktop · Main view"
+    },
+    {
+      "path": "ui_kits/desktop-app/NewWorkspaceModal.card.html",
+      "group": "Desktop app",
+      "viewport": "640x460",
+      "subtitle": "name + branch · prompt · agent · project + base branch · ⌘↵",
+      "name": "NewWorkspaceModal"
+    },
+    {
+      "path": "ui_kits/desktop-app/Paywall.card.html",
+      "group": "Desktop app",
+      "viewport": "800x560",
+      "subtitle": "双栏 dialog · 5 feature 侧栏 · Pro 徽章 · CTA",
+      "name": "Paywall"
+    },
+    {
+      "path": "ui_kits/desktop-app/UpdatesPill.card.html",
+      "group": "Desktop app",
+      "viewport": "720x180",
+      "subtitle": "downloading / ready / installing / updated / error 5 态",
+      "name": "UpdatesPill"
+    },
+    {
+      "path": "ui_kits/desktop-app/WorkspaceSidebar.card.html",
+      "group": "Desktop app",
+      "viewport": "360x780",
+      "subtitle": "Automations · Todos · TemporaryWorkspace · project sections · ports · footer",
+      "name": "WorkspaceSidebar"
+    },
+    {
+      "path": "foundations/radius.card.html",
+      "group": "Spacing",
+      "viewport": "720x140",
+      "subtitle": "3 → 14 → pill",
+      "name": "Radius scale"
+    },
+    {
+      "path": "foundations/spacing.card.html",
+      "group": "Spacing",
+      "viewport": "720x140",
+      "subtitle": "4-based, with 2/6/10 half-steps",
+      "name": "Spacing scale"
+    },
+    {
+      "path": "foundations/type.card.html",
+      "group": "Type",
+      "viewport": "720x220",
+      "subtitle": "display / heading / body / mono",
+      "name": "Type scale"
+    }
+  ],
+  "globalCssPaths": [
+    "tokens/colors.css",
+    "tokens/typography.css",
+    "tokens/spacing.css",
+    "tokens/radius.css",
+    "tokens/shadow.css",
+    "tokens/motion.css",
+    "tokens/reset.css",
+    "styles.css"
+  ],
+  "tokens": [
+    {
+      "name": "--dracula-bg",
+      "value": "#282a36",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-bg-deep",
+      "value": "#1e1f29",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-surface",
+      "value": "#2d2f3f",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-popover",
+      "value": "#21222c",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-current-line",
+      "value": "#44475a",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-comment",
+      "value": "#6272a4",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-fg",
+      "value": "#f8f8f2",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-pink",
+      "value": "#ff79c6",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-purple",
+      "value": "#bd93f9",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-green",
+      "value": "#50fa7b",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-orange",
+      "value": "#ffb86c",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-red",
+      "value": "#ff5555",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-cyan",
+      "value": "#8be9fd",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--dracula-yellow",
+      "value": "#f1fa8c",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--page-bg",
+      "value": "var(--dracula-bg-deep)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--surface",
+      "value": "var(--dracula-bg)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--surface-elev",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-popover) 92%,\n\t\t#fff 8%\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--surface-sunk",
+      "value": "var(--dracula-popover)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--overlay-scrim",
+      "value": "rgba(0, 0, 0, 0.42)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--fg",
+      "value": "var(--dracula-fg)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--fg-mute",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-fg) 55%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--fg-faint",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-fg) 38%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--fg-inverse",
+      "value": "var(--dracula-bg)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--line",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-fg) 10%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--line-strong",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-fg) 18%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--hover",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-fg) 6%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--selected",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-fg) 10%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--accent",
+      "value": "var(--dracula-pink)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--accent-2",
+      "value": "var(--dracula-purple)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--accent-tint",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-pink) 14%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--accent-line",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-pink) 55%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--accent-glow",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-pink) 55%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--success",
+      "value": "var(--dracula-green)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--warning",
+      "value": "var(--dracula-orange)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--danger",
+      "value": "var(--dracula-red)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--info",
+      "value": "var(--dracula-cyan)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--success-tint",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--success) 12%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--warning-tint",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--warning) 12%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--danger-tint",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--danger) 14%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--info-tint",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--info) 14%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--ring",
+      "value": "color-mix(in oklch, var(--accent) 55%, transparent)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--ring-halo",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--accent) 22%,\n\t\ttransparent\n\t)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "annotation": "color"
+    },
+    {
+      "name": "--font-ui",
+      "value": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"PingFang SC\",\n\t\t\"Noto Sans SC\", \"Segoe UI\", system-ui, sans-serif",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--font-mono",
+      "value": "\"SF Mono\", \"JetBrains Mono\", ui-monospace, Menlo, Consolas, monospace",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--font-display",
+      "value": "var(--font-ui)",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-9",
+      "value": "9.5px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-10",
+      "value": "10.5px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-11",
+      "value": "11px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-12",
+      "value": "12px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-13",
+      "value": "13px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-14",
+      "value": "14px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-16",
+      "value": "16px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-18",
+      "value": "18px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-22",
+      "value": "22px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-28",
+      "value": "28px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fs-36",
+      "value": "36px",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fw-regular",
+      "value": "400",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fw-medium",
+      "value": "500",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fw-semibold",
+      "value": "600",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--fw-bold",
+      "value": "700",
+      "kind": "font",
+      "definedIn": "tokens/typography.css",
+      "annotation": "font"
+    },
+    {
+      "name": "--lh-tight",
+      "value": "1.2",
+      "kind": "other",
+      "definedIn": "tokens/typography.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--lh-snug",
+      "value": "1.35",
+      "kind": "other",
+      "definedIn": "tokens/typography.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--lh-body",
+      "value": "1.55",
+      "kind": "other",
+      "definedIn": "tokens/typography.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--lh-loose",
+      "value": "1.75",
+      "kind": "other",
+      "definedIn": "tokens/typography.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ls-eyebrow",
+      "value": "0.16em",
+      "kind": "other",
+      "definedIn": "tokens/typography.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ls-caps",
+      "value": "0.14em",
+      "kind": "other",
+      "definedIn": "tokens/typography.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ls-title",
+      "value": "-0.02em",
+      "kind": "other",
+      "definedIn": "tokens/typography.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ls-mono",
+      "value": "-0.005em",
+      "kind": "other",
+      "definedIn": "tokens/typography.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--s-1",
+      "value": "2px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-2",
+      "value": "4px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-3",
+      "value": "6px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-4",
+      "value": "8px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-5",
+      "value": "10px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-6",
+      "value": "12px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-7",
+      "value": "14px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-8",
+      "value": "16px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-10",
+      "value": "20px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-12",
+      "value": "24px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-14",
+      "value": "28px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-16",
+      "value": "32px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-20",
+      "value": "40px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-24",
+      "value": "48px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-32",
+      "value": "64px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--s-40",
+      "value": "80px",
+      "kind": "spacing",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--r-1",
+      "value": "3px",
+      "kind": "spacing",
+      "definedIn": "tokens/radius.css"
+    },
+    {
+      "name": "--r-2",
+      "value": "4px",
+      "kind": "spacing",
+      "definedIn": "tokens/radius.css"
+    },
+    {
+      "name": "--r-3",
+      "value": "6px",
+      "kind": "spacing",
+      "definedIn": "tokens/radius.css"
+    },
+    {
+      "name": "--r-4",
+      "value": "8px",
+      "kind": "spacing",
+      "definedIn": "tokens/radius.css"
+    },
+    {
+      "name": "--r-5",
+      "value": "10px",
+      "kind": "spacing",
+      "definedIn": "tokens/radius.css"
+    },
+    {
+      "name": "--r-6",
+      "value": "12px",
+      "kind": "spacing",
+      "definedIn": "tokens/radius.css"
+    },
+    {
+      "name": "--r-7",
+      "value": "14px",
+      "kind": "spacing",
+      "definedIn": "tokens/radius.css"
+    },
+    {
+      "name": "--r-8",
+      "value": "16px",
+      "kind": "spacing",
+      "definedIn": "tokens/radius.css"
+    },
+    {
+      "name": "--r-pill",
+      "value": "999px",
+      "kind": "spacing",
+      "definedIn": "tokens/radius.css"
+    },
+    {
+      "name": "--shadow-1",
+      "value": "0 1px 2px rgba(0, 0, 0, 0.35)",
+      "kind": "shadow",
+      "definedIn": "tokens/shadow.css"
+    },
+    {
+      "name": "--shadow-2",
+      "value": "0 4px 12px -4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3)",
+      "kind": "shadow",
+      "definedIn": "tokens/shadow.css"
+    },
+    {
+      "name": "--shadow-3",
+      "value": "0 12px 32px -12px rgba(0, 0, 0, 0.55), 0 2px 8px -2px rgba(0, 0, 0, 0.35),\n\t\t0 0 0 1px var(--line)",
+      "kind": "shadow",
+      "definedIn": "tokens/shadow.css"
+    },
+    {
+      "name": "--shadow-4",
+      "value": "0 24px 60px -18px rgba(0, 0, 0, 0.62), 0 4px 14px rgba(0, 0, 0, 0.32),\n\t\t0 0 0 1px var(--line)",
+      "kind": "shadow",
+      "definedIn": "tokens/shadow.css"
+    },
+    {
+      "name": "--glow-accent",
+      "value": "0 0 0 3px var(--accent-tint)",
+      "kind": "spacing",
+      "definedIn": "tokens/shadow.css"
+    },
+    {
+      "name": "--glow-ring",
+      "value": "0 0 0 3px var(--ring-halo)",
+      "kind": "spacing",
+      "definedIn": "tokens/shadow.css"
+    },
+    {
+      "name": "--dur-instant",
+      "value": "80ms",
+      "kind": "other",
+      "definedIn": "tokens/motion.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--dur-quick",
+      "value": "120ms",
+      "kind": "other",
+      "definedIn": "tokens/motion.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--dur-base",
+      "value": "180ms",
+      "kind": "other",
+      "definedIn": "tokens/motion.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--dur-slow",
+      "value": "260ms",
+      "kind": "other",
+      "definedIn": "tokens/motion.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.3, 1)",
+      "kind": "other",
+      "definedIn": "tokens/motion.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ease-out",
+      "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+      "kind": "other",
+      "definedIn": "tokens/motion.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ease-in",
+      "value": "cubic-bezier(0.7, 0, 0.84, 0)",
+      "kind": "other",
+      "definedIn": "tokens/motion.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--ease-emphatic",
+      "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+      "kind": "other",
+      "definedIn": "tokens/motion.css",
+      "annotation": "other"
+    }
+  ],
+  "themes": [],
+  "fonts": [],
+  "brandFonts": [],
+  "source": "spa"
+}

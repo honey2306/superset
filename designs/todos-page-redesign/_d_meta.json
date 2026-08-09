@@ -1,0 +1,35 @@
+{
+	"type": "design",
+	"designSystems": [
+		{
+			"name": "Superset Design System",
+			"slug": "superset-design-system",
+			"namespace": "SupersetDesignSystem_91a6da",
+			"dsFolder": "_ds/superset-design-system",
+			"sourcePath": "../../designs/superset-design-system"
+		}
+	],
+	"primaryDesignSystem": "superset-design-system",
+	"createdAt": "2026-08-09T11:59:56.099Z",
+	"updatedAt": "2026-08-09T12:06:47.009Z",
+	"assets": {
+		"TODO 页面重设计 · 4 候选": {
+			"versions": [
+				{
+					"path": "index.html",
+					"createdAt": "2026-08-09T12:06:46.975Z",
+					"status": "needs-review"
+				}
+			]
+		},
+		"TODO 单方向预览": {
+			"versions": [
+				{
+					"path": "preview-single.html",
+					"createdAt": "2026-08-09T12:06:47.009Z",
+					"status": "needs-review"
+				}
+			]
+		}
+	}
+}

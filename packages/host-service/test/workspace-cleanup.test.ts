@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
 	mkdirSync,
 	mkdtempSync,
@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { cleanupGitOps } from "../src/trpc/router/workspace-cleanup/git-ops";
 import { isMainWorkspace } from "../src/trpc/router/workspace-cleanup/is-main-workspace";
 import {
 	__testDestroysInFlight,
@@ -23,6 +24,14 @@ type WorkspaceRow = {
 	type?: "main" | "worktree";
 };
 type ProjectRow = { id: string; repoPath: string };
+
+let activeGit: ReturnType<typeof mock> | undefined;
+const originalCleanupGitOps = { ...cleanupGitOps };
+
+afterEach(() => {
+	Object.assign(cleanupGitOps, originalCleanupGitOps);
+	activeGit = undefined;
+});
 
 interface ContextSpec {
 	workspace?: WorkspaceRow;
@@ -94,6 +103,7 @@ function makeCtx(spec: ContextSpec): HostServiceContext & {
 			}),
 		};
 	});
+	activeGit = git;
 
 	// The delete mock is shared across tables; per destroy, call #1 is the
 	// terminal-sessions sweep and call #2 is the workspace row — the one the
@@ -234,6 +244,26 @@ describe("isMainWorkspace", () => {
 });
 
 describe("workspaceCleanup.inspect", () => {
+	beforeEach(() => {
+		cleanupGitOps.resolveGitEnv = async () => ({});
+		cleanupGitOps.readWorktreeState = async ({ worktreePath }) => {
+			const git = await activeGit?.(worktreePath);
+			if (!git) throw new Error("missing test git");
+			const status = await git.status();
+			let hasUnpushedCommits = false;
+			try {
+				const result = await git.raw([
+					"rev-list",
+					"--count",
+					"HEAD",
+					"--not",
+					"--remotes",
+				]);
+				hasUnpushedCommits = Number.parseInt(result.trim(), 10) > 0;
+			} catch {}
+			return { hasChanges: !status.isClean(), hasUnpushedCommits };
+		};
+	});
 	const wsAndProject = {
 		workspace: {
 			id: "ws-1",
@@ -322,7 +352,32 @@ describe("workspaceCleanup.inspect", () => {
 });
 
 describe("workspaceCleanup.destroy in-flight guard", () => {
-	beforeEach(() => __testDestroysInFlight.clear());
+	beforeEach(() => {
+		__testDestroysInFlight.clear();
+		cleanupGitOps.resolveGitEnv = async () => ({});
+		cleanupGitOps.readWorktreeState = async () => ({
+			hasChanges: false,
+			hasUnpushedCommits: false,
+		});
+		cleanupGitOps.removeWorktree = async ({ repoPath, worktreePath }) => {
+			const git = await activeGit?.(repoPath);
+			if (!git) throw new Error("missing test git");
+			await git
+				.raw(["worktree", "remove", "--force", "--force", worktreePath])
+				.catch(() => {});
+			return {
+				stillRegistered: Boolean((await git.raw(["worktree", "list"]))?.trim()),
+			};
+		};
+		cleanupGitOps.deleteLocalBranch = async ({ repoPath, branch }) => {
+			const git = await activeGit?.(repoPath);
+			if (!git) throw new Error("missing test git");
+			const listed = await git.raw(["branch", "--list", branch]);
+			if (!listed.trim()) return { deleted: false };
+			await git.raw(["branch", "-D", branch]);
+			return { deleted: true };
+		};
+	});
 
 	test("clears the Set on success", async () => {
 		const ctx = makeCtx({});
@@ -412,7 +467,32 @@ describe("workspaceCleanup.destroy in-flight guard", () => {
 });
 
 describe("workspaceCleanup.destroy cleanup ordering", () => {
-	beforeEach(() => __testDestroysInFlight.clear());
+	beforeEach(() => {
+		__testDestroysInFlight.clear();
+		cleanupGitOps.resolveGitEnv = async () => ({});
+		cleanupGitOps.readWorktreeState = async () => ({
+			hasChanges: false,
+			hasUnpushedCommits: false,
+		});
+		cleanupGitOps.removeWorktree = async ({ repoPath, worktreePath }) => {
+			const git = await activeGit?.(repoPath);
+			if (!git) throw new Error("missing test git");
+			await git
+				.raw(["worktree", "remove", "--force", "--force", worktreePath])
+				.catch(() => {});
+			return {
+				stillRegistered: Boolean((await git.raw(["worktree", "list"]))?.trim()),
+			};
+		};
+		cleanupGitOps.deleteLocalBranch = async ({ repoPath, branch }) => {
+			const git = await activeGit?.(repoPath);
+			if (!git) throw new Error("missing test git");
+			const listed = await git.raw(["branch", "--list", branch]);
+			if (!listed.trim()) return { deleted: false };
+			await git.raw(["branch", "-D", branch]);
+			return { deleted: true };
+		};
+	});
 
 	test("worktree removal failure blocks local delete while the path still exists", async () => {
 		const tmp = mkdtempSync(join(tmpdir(), "workspace-delete-"));
@@ -477,7 +557,7 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 					deleteBranch: false,
 					force: true,
 				}),
-			).rejects.toThrow(/Failed to open project repo/i);
+			).rejects.toThrow(/Failed to verify worktree removal/i);
 			expect(cloudCallCount).toBe(0);
 		} finally {
 			rmSync(tmp, { recursive: true, force: true });

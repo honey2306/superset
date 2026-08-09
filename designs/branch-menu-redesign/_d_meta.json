@@ -1,0 +1,45 @@
+{
+	"type": "design",
+	"designSystems": [],
+	"primaryDesignSystem": null,
+	"assets": {
+		"Branch Menu": {
+			"versions": [
+				{
+					"path": "Branch Menu.html",
+					"createdAt": "2026-08-08T08:58:57.730Z",
+					"status": "needs-review"
+				}
+			]
+		},
+		"Variant C": {
+			"versions": [
+				{
+					"path": "Variant C.html",
+					"createdAt": "2026-08-08T11:06:27.502Z",
+					"status": "needs-review"
+				}
+			]
+		},
+		"Branch Menu v2": {
+			"versions": [
+				{
+					"path": "Branch Menu v2.html",
+					"createdAt": "2026-08-08T15:21:44.698Z",
+					"status": "needs-review"
+				}
+			]
+		},
+		"Branch Menu v3": {
+			"versions": [
+				{
+					"path": "Branch Menu v3.html",
+					"createdAt": "2026-08-08T15:37:39.031Z",
+					"status": "needs-review"
+				}
+			]
+		}
+	},
+	"createdAt": "2026-08-08T08:58:57.730Z",
+	"updatedAt": "2026-08-08T15:37:39.033Z"
+}

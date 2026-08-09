@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>Dracula Colorful v7 — Authentic</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --page-bg: #0d0e14;
+    --page-fg: #e6e6f0;
+    --page-muted: #8a8fa8;
+    --divider: #2a2c38;
+    --font-ui: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui);
+    background: var(--page-bg);
+    color: var(--page-fg);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+    padding: 32px 24px 80px;
+  }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
+  .lede { color: var(--page-muted); font-size: 13.5px; max-width: 940px; margin: 0 0 20px; }
+  .lede strong { color: var(--page-fg); }
+  .lede .pink { color: #ff8fd1; }
+  .lede .cool { color: #a2b0d8; }
+  .lede code { font-family: var(--font-mono); font-size: 12.5px; color: #ff8fd1; background: rgba(255,143,209,0.08); padding: 1px 6px; border-radius: 4px; }
+
+  .reasoning {
+    background: linear-gradient(135deg, rgba(255,143,209,0.09), rgba(162,176,216,0.05));
+    border: 1px solid rgba(255, 143, 209, 0.22);
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin: 4px 0 24px;
+    font-size: 13px;
+    max-width: 940px;
+  }
+  .reasoning p { margin: 0; }
+  .reasoning p + p { margin-top: 8px; }
+  .reasoning strong { color: #ff8fd1; }
+
+  .frame-label {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 10px 4px;
+    margin-top: 20px;
+    max-width: 1400px;
+  }
+  .frame-label .name { font-size: 14px; font-weight: 600; color: #ff8fd1; }
+  .frame-label .desc { color: var(--page-muted); font-size: 12px; font-family: var(--font-mono); }
+
+  .app {
+    max-width: 1400px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: var(--bg);
+    display: grid;
+    grid-template-rows: 44px 1fr 28px;
+    height: 780px;
+    color: var(--fg);
+    font-family: var(--font-ui);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .titlebar {
+    background: var(--sidebar);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 14px;
+    gap: 12px;
+    font-size: 12px;
+  }
+  .traffic { display: flex; gap: 8px; }
+  .traffic span { width: 12px; height: 12px; border-radius: 50%; }
+  .traffic .r { background: #ff5f57; }
+  .traffic .y { background: #febc2e; }
+  .traffic .g { background: #28c840; }
+  .tb-btn { padding: 4px 8px; border-radius: 5px; color: var(--muted-fg); font-size: 13px; }
+  .tb-spacer { flex: 1; }
+  .tb-branch {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--fg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tb-branch .path { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted-fg); }
+  .tb-team {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--fg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tb-team .pro {
+    background: var(--primary); color: var(--primary-fg);
+    padding: 1px 6px; border-radius: 3px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .tb-team .lt {
+    width: 18px; height: 18px; border-radius: 4px;
+    background: var(--accent); color: var(--accent-fg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+
+  .body { display: grid; grid-template-columns: 220px 1fr 300px; overflow: hidden; }
+
+  /* Workspace panel */
+  .ws-panel {
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    padding: 12px 8px;
+    overflow: hidden;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .ws-section-header {
+    padding: 6px 8px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted-fg);
+    font-size: 12px;
+  }
+  .ws-section-header.top {
+    color: var(--fg); font-size: 13px; font-weight: 500;
+    padding: 8px 8px 8px 4px;
+  }
+  .ws-group { display: flex; flex-direction: column; gap: 1px; margin-bottom: 8px; }
+  .ws-group-head {
+    padding: 6px 8px 4px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px;
+    color: var(--fg);
+    font-weight: 500;
+  }
+  .ws-group-head .avatar {
+    width: 20px; height: 20px; border-radius: 4px;
+    background: linear-gradient(135deg, #4b6a8f, #7a92b8);
+    font-size: 11px; color: white; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ws-group-head .count { color: var(--muted-fg); font-size: 11px; font-family: var(--font-mono); }
+  .ws-item {
+    padding: 6px 10px 6px 30px;
+    font-size: 12.5px;
+    border-radius: 6px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--fg);
+    position: relative;
+  }
+  .ws-item .lbl { display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+  .ws-item .lbl .name { font-size: 12.5px; }
+  .ws-item .lbl .branch { font-size: 10.5px; color: var(--muted-fg); font-family: var(--font-mono); }
+  .ws-item .diff { margin-left: auto; font-size: 10px; font-family: var(--font-mono); display: flex; gap: 4px; }
+  .ws-item .diff .add { color: #6fff95; }
+  .ws-item .diff .del { color: #ff8fd1; }
+
+  /* v7 SELECTED: 蓝灰底 + 粉色左侧竖条 */
+  .ws-item.selected {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+  .ws-item.selected::after {
+    content: "";
+    position: absolute;
+    left: 0; top: 4px; bottom: 4px;
+    width: 3px;
+    background: var(--primary);
+    border-radius: 0 3px 3px 0;
+  }
+  .ws-item.dirty::before {
+    content: "";
+    position: absolute;
+    left: 16px; top: 50%;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+    transform: translateY(-50%);
+    box-shadow: 0 0 6px rgba(255, 143, 209, 0.5);
+  }
+
+  /* Center */
+  .center { display: grid; grid-template-rows: 34px 1fr 100px; overflow: hidden; }
+  .tabbar {
+    background: var(--sidebar);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: end;
+    padding: 0 4px;
+  }
+  .tab {
+    padding: 8px 12px; font-size: 12.5px;
+    color: var(--muted-fg);
+    border-radius: 6px 6px 0 0;
+    position: relative;
+  }
+  .tab.active {
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .tab.active::after {
+    content: ""; position: absolute; left: 6px; right: 6px; bottom: 0;
+    height: 2px; background: var(--primary); border-radius: 2px 2px 0 0;
+  }
+  .tab .close { opacity: 0.5; margin-left: 6px; font-size: 11px; }
+  .tab .add { color: var(--muted-fg); padding: 0 4px; }
+
+  .chat {
+    padding: 20px 24px;
+    display: flex; flex-direction: column; gap: 12px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .agent-tabs { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .agent-tab {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .agent-tab .dot { width: 12px; height: 12px; border-radius: 3px; }
+  .agent-tab .dot.pink { background: var(--primary); }
+  .agent-tab .dot.blue { background: var(--chart5); }
+  .agent-tab .dot.green { background: #6fff95; }
+  .agent-tab .dot.yellow { background: #f6ff9a; }
+  .agent-tab.active {
+    background: var(--accent);
+    color: var(--fg);
+    border-color: var(--accent);
+  }
+  .agent-tab.active::after {
+    content: ""; position: absolute; left: 6px; right: 6px; bottom: -1px;
+    height: 2px; background: var(--primary); border-radius: 2px;
+  }
+
+  .chat-bubble { max-width: 88%; background: transparent; padding: 4px 0; }
+  .chat-bubble .who {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--fg);
+    margin-bottom: 6px;
+  }
+  .chat-bubble .who::before {
+    content: "";
+    display: inline-block;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--primary);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .chat-bubble .msg { font-size: 13px; color: var(--fg); line-height: 1.65; }
+  .chat-bubble .msg .bullet { display: flex; align-items: baseline; gap: 8px; margin: 4px 0; }
+  .chat-bubble .msg .bullet::before {
+    content: "•"; color: var(--primary); font-size: 14px; line-height: 1;
+  }
+  .chat-bubble .msg strong { color: var(--fg); font-weight: 600; }
+  .chat-bubble .msg .skill {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--primary);
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    margin: 0 2px;
+  }
+
+  .composer {
+    border-top: 1px solid var(--border);
+    background: var(--sidebar);
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .composer .input-shell {
+    background: var(--input);
+    border: 1px solid var(--primary);
+    box-shadow: 0 0 0 2px rgba(255, 143, 209, 0.15);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted-fg);
+    font-size: 12.5px;
+  }
+  .composer .input-shell .prompt { color: var(--primary); }
+  .composer .input-shell .cur {
+    width: 1.5px; height: 12px; background: var(--primary);
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink { 0%,50%{opacity:1} 50.01%,100%{opacity:0} }
+  .composer .row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11.5px; color: var(--muted-fg);
+  }
+  .composer .row .chip {
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--card);
+    color: var(--fg);
+    font-size: 11px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .composer .row .chip.on-primary {
+    color: var(--primary);
+    border-color: rgba(255,143,209,0.35);
+    background: rgba(255,143,209,0.06);
+  }
+  .composer .row .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+  .composer .row .send {
+    margin-left: auto;
+    color: var(--muted-fg);
+    padding: 3px 10px; border-radius: 5px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+
+  /* Right changes */
+  .changes {
+    background: var(--sidebar);
+    border-left: 1px solid var(--border);
+    padding: 12px 12px;
+    overflow: hidden;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .changes-tabs {
+    display: flex; gap: 8px;
+    border-bottom: 1px solid var(--border);
+    margin: -12px -12px 0 -12px;
+    padding: 8px 12px 0;
+  }
+  .changes-tabs .t {
+    padding: 6px 8px;
+    font-size: 12.5px;
+    color: var(--muted-fg);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .changes-tabs .t.active {
+    color: var(--primary);
+    border-color: var(--primary);
+    font-weight: 500;
+  }
+  .commit-box {
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--muted-fg);
+    min-height: 36px;
+  }
+  .commit-btn {
+    background: var(--primary);
+    color: var(--primary-fg);
+    padding: 8px;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 500;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .changes-tree {
+    font-size: 11.5px;
+    color: var(--fg);
+    display: flex; flex-direction: column; gap: 1px;
+    line-height: 1.7;
+    overflow: hidden;
+  }
+  .changes-tree .h {
+    color: var(--fg); font-size: 12px; font-weight: 500;
+    margin: 4px 0 2px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .changes-tree .h .caret { color: var(--muted-fg); font-size: 10px; }
+  .changes-tree .h .cnt {
+    background: rgba(255,143,209,0.15);
+    color: var(--primary);
+    font-size: 10px; padding: 0 6px; border-radius: 8px;
+    margin-left: 4px;
+    font-weight: 600;
+  }
+  .changes-tree .row {
+    padding: 0 4px 0 20px;
+    display: flex; align-items: center; gap: 4px;
+    color: var(--muted-fg);
+  }
+  .changes-tree .row .name { color: var(--fg); }
+  .changes-tree .row .add {
+    color: var(--primary); font-family: var(--font-mono);
+    font-size: 10.5px; margin-left: auto; font-weight: 500;
+  }
+
+  .footer {
+    border-top: 1px solid var(--border);
+    background: var(--sidebar);
+    display: flex; align-items: center;
+    padding: 0 12px;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--muted-fg);
+    font-family: var(--font-mono);
+  }
+  .footer .item { display: flex; align-items: center; gap: 4px; }
+  .footer .item.pri { color: var(--primary); }
+  .footer .spacer { flex: 1; }
+  .footer .item.branch .p { color: var(--fg); }
+  .footer .item.branch .p::before {
+    content: "";
+    display: inline-block;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--primary);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .pink-hunt {
+    max-width: 940px;
+    margin-top: 24px;
+    padding: 16px 20px;
+    background: #14161f;
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+  }
+  .pink-hunt h3 { margin: 0 0 10px; font-size: 13.5px; color: var(--page-fg); }
+  .pink-hunt ol { margin: 0; padding-left: 20px; font-size: 12.5px; color: var(--page-muted); line-height: 1.75; }
+  .pink-hunt ol li strong { color: #ff8fd1; font-weight: 500; }
+  .strip {
+    display: flex; height: 8px; border-radius: 3px; overflow: hidden;
+    margin-top: 8px; max-width: 1400px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .strip span { display: block; }
+
+  .foot { color: var(--page-muted); font-size: 12.5px; margin-top: 24px; max-width: 940px; }
+  .foot strong { color: var(--page-fg); }
+</style>
+</head>
+<body>
+  <h1>v7 · Authentic Dracula (integrity restored)</h1>
+  <p class="lede">
+    <strong>你的反馈揭示了一个物理问题:</strong>整体基底是<span class="cool">冷调蓝紫 (#2f3244, hsl 233°)</span>,任何粉紫 accent 上大面积都会因为色相冲突发浑。这不是调色号能解决的,是方向错了。<br>
+    <strong>回到 Dracula 官方:</strong>官方主题的 selected line 是 <code>#44475a</code> 蓝灰,<span class="pink">粉从来不做大面积底</span>。粉在 Dracula 语言里是"关键字/字符串"级别的小色块。<br>
+    <strong>v7 的解法:</strong>accent 回归 <span class="cool">蓝灰 #4c5075</span>(Dracula 官方 selected 提亮版),粉做<strong class="pink">高密度小尺寸点缀</strong> —— 每屏 15+ 处,但没有一处占大面积。粉的存在感靠"密度"不靠"面积"。
+  </p>
+
+  <div class="reasoning">
+    <p><strong>为什么这次会对:</strong>Dracula 官方本来就是这个逻辑。你看 VS Code 的 Dracula:选中行是蓝灰,粉在字符串、注释、关键字里点缀。整个主题读起来是"冷底 + 粉/绿/紫的高频小色块",没有大面积粉底。这是它 15 年不过时的原因。</p>
+    <p>之前 v2 → v6 一直在往"粉紫底"跑,是我一次次背离 Dracula 的语法在解答你的反馈。v7 把它拉回来。</p>
+  </div>
+
+  <div class="frame-label">
+    <span class="name">v7 · Authentic Dracula</span>
+    <span class="desc">accent #4c5075 蓝灰 · 粉靠密度</span>
+  </div>
+  <div class="app" style="
+    --bg: #2f3244;
+    --sidebar: #3a3e56;
+    --card: #3a3e56;
+    --border: #525777;
+    --input: #464b68;
+    --muted: #3f4560;
+    --fg: #f2f4ff;
+    --muted-fg: #a2b0d8;
+    --primary: #ff8fd1; --primary-fg: #1e1e2e;
+    --accent: #4c5075; --accent-fg: #f2f4ff;
+    --chart5: #c4a2ff;
+  ">
+    <div class="titlebar">
+      <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+      <div class="tb-btn">◀</div>
+      <div class="tb-btn">▶</div>
+      <div class="tb-btn">▢</div>
+      <div class="tb-spacer"></div>
+      <div class="tb-branch">🌿 <span class="path">/feat/acp-agent-contr...</span> 打开 ⌄</div>
+      <div class="tb-team"><span class="lt">LT</span>Local Admin's Team <span class="pro">PRO</span> ⇅</div>
+    </div>
+
+    <div class="body">
+      <div class="ws-panel">
+        <div class="ws-section-header top">⚡ 自动化任务</div>
+        <div class="ws-section-header">⏱ 临时工作区</div>
+
+        <div class="ws-group">
+          <div class="ws-group-head">
+            <div class="avatar">S</div>
+            <span>superset</span><span class="count">(3)</span>
+            <span style="margin-left:auto; color: var(--muted-fg); font-size:11px">+ ⌄</span>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">CDP M5 termina...</span>
+              <span class="branch">cdp-m5-terminal-retry</span>
+            </div>
+            <div class="diff"><span class="add">+4121</span><span class="del">−4121</span></div>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">terminal fusion s...</span>
+              <span class="branch">codex/terminal-fusion-smoke</span>
+            </div>
+            <div class="diff"><span class="add">+4121</span><span class="del">−4121</span></div>
+          </div>
+          <div class="ws-item selected dirty">
+            <div class="lbl">
+              <span class="name">local</span>
+              <span class="branch">feat/acp-agent-control-plane</span>
+            </div>
+            <div class="diff"><span class="add">+2181</span><span class="del">−0</span></div>
+          </div>
+        </div>
+
+        <div class="ws-group">
+          <div class="ws-group-head">
+            <div class="avatar" style="background: linear-gradient(135deg,#4b6a8f,#c48ba8)">M</div>
+            <span>mini-krow</span><span class="count">(1)</span>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">local</span>
+              <span class="branch">main</span>
+            </div>
+            <div class="diff"><span class="add">+8649</span><span class="del">−524</span></div>
+          </div>
+        </div>
+
+        <div class="ws-group">
+          <div class="ws-group-head">
+            <div class="avatar">S</div>
+            <span>superset</span><span class="count">(1)</span>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">local</span>
+              <span class="branch">feat/acp-agent-control-plane</span>
+            </div>
+            <div class="diff"><span class="add">+2181</span><span class="del">−0</span></div>
+          </div>
+        </div>
+
+        <div class="ws-section-header top" style="margin-top:auto">📁 添加代码仓库</div>
+      </div>
+
+      <div class="center">
+        <div class="tabbar">
+          <div class="tab">Terminal</div>
+          <div class="tab active">你能干嘛呢<span class="close">×</span></div>
+          <div class="tab add">+</div>
+        </div>
+
+        <div class="chat">
+          <div class="agent-tabs">
+            <div class="agent-tab active"><span class="dot pink"></span>claude</div>
+            <div class="agent-tab"><span class="dot blue"></span>codex</div>
+            <div class="agent-tab"><span class="dot green"></span>pi</div>
+            <div class="agent-tab"><span class="dot yellow"></span>MyFlicker</div>
+            <div class="agent-tab" style="padding:5px 8px">+</div>
+            <div class="agent-tab" style="padding:5px 8px">⚙</div>
+            <div style="margin-left:auto; display:flex; gap:6px">
+              <button style="background:var(--primary); color: var(--primary-fg); padding: 5px 12px; border-radius: 6px; font-size:12px; display:flex; align-items:center; gap:5px; font-weight:500; border: none">▶ Set Run</button>
+            </div>
+          </div>
+          <div class="chat-bubble">
+            <div class="who">Claude</div>
+            <div class="msg">
+              <div style="margin-bottom: 6px">你能干嘛呢</div>
+              <div class="bullet"><span><strong>写代码和改代码</strong> — 新功能、修 bug、重构、类型修复</span></div>
+              <div class="bullet"><span><strong>探索代码库</strong> — 查找定义、追踪引用、理解模块关系</span></div>
+              <div class="bullet"><span><strong>运行命令</strong> — 测试、lint、typecheck、构建、启动 dev server</span></div>
+              <div class="bullet"><span><strong>Git 和 PR</strong> — 创建分支、提交、发 PR、回复 review 评论</span></div>
+              <div class="bullet"><span><strong>数据库</strong> — 改 Drizzle schema (迁移由你来跑)</span></div>
+              <div class="bullet"><span><strong>UI 验证</strong> — 通过 CDP 驱动真实浏览器测试功能</span></div>
+              <div class="bullet"><span><strong>调研和分析</strong> — 深度研究、架构改进建议、诊断疑难 bug</span></div>
+              <div style="margin-top:10px">还有一堆项目自带的 skill,比如
+                <span class="skill">/code-review</span><span class="skill">/create-pr</span><span class="skill">/verify</span><span class="skill">/diagnose</span><span class="skill">/task-run</span>
+                等。
+              </div>
+              <div style="margin-top:8px">想做什么? 我是 Kiro,可以帮你处理这个 Superset monorepo 里的各种开发任务:</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="input-shell">
+            <span class="prompt">›</span>
+            <span>Message agent…</span>
+            <span class="cur"></span>
+            <span style="margin-left:auto; color: var(--primary); font-family: var(--font-mono); font-weight: 500">Send ↵</span>
+          </div>
+          <div class="row">
+            <span class="chip on-primary"><span class="dot"></span>Manual</span>
+            <span class="chip">Default</span>
+            <span class="chip">Thinking High</span>
+            <span class="chip" style="color: var(--primary); border-color: rgba(255,143,209,0.35); background: rgba(255,143,209,0.06)">6% $0.07</span>
+            <span class="send" style="margin-left:auto"><span style="color: var(--primary)">🌿</span> feat/acp-agent-control-plane <span style="color: var(--primary)">+383</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="changes">
+        <div class="changes-tabs">
+          <div class="t active">🔀 Changes</div>
+          <div class="t">📄 Files</div>
+          <div style="margin-left:auto; display:flex; gap:8px; color: var(--muted-fg); font-size:11px">⤢ ×</div>
+        </div>
+        <div>
+          <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--fg); margin-bottom:6px">
+            <span style="font-family: var(--font-mono); font-size:11px"><span style="color:var(--primary)">🌿</span> feat/acp-agent-contr...</span>
+            <span style="margin-left:auto; color: var(--muted-fg); font-size:11px">☰ ↻ ⇧</span>
+          </div>
+          <div class="commit-box">提交信息</div>
+          <div class="commit-btn" style="margin-top: 8px">✓ 提交</div>
+        </div>
+        <div class="changes-tree">
+          <div class="h"><span class="caret">▼</span>对比 main<span class="cnt">4</span></div>
+          <div class="row">apps</div>
+          <div class="row" style="padding-left:32px">desktop</div>
+          <div class="row" style="padding-left:44px">src / renderer / screens</div>
+          <div class="row" style="padding-left:56px">main / components</div>
+          <div class="row" style="padding-left:68px">WorkspaceView / TabsContent</div>
+          <div class="row" style="padding-left:80px">AcpSessionPane / components</div>
+          <div class="row" style="padding-left:92px"><span class="name">AcpTimeline</span><span class="add">+222</span></div>
+          <div class="row" style="padding-left:92px"><span class="name">AcpToolCallItem.tsx</span><span class="add">+184</span></div>
+          <div class="row" style="padding-left:80px"><span class="name">acp-pane.css</span><span class="add">+1525</span></div>
+          <div class="row" style="padding-left:80px"><span class="name">AcpSessionPane.tsx</span><span class="add">+250</span></div>
+          <div class="h" style="margin-top: 8px"><span class="caret">▼</span>提交<span class="cnt">1</span></div>
+          <div class="row" style="padding-left:12px"><span style="color:var(--primary); font-family:var(--font-mono); font-size:10.5px">8250c88f2</span> <span style="margin-left:6px">feat(acp-pane)...</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="item">🔵 Loading...</div>
+      <div class="spacer"></div>
+      <div class="item pri">6% $0.07</div>
+      <div class="item branch"><span class="p">feat/acp-agent-control-plane +383</span></div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <span style="background:#ff8fd1; flex: 7"></span>
+    <span style="background:#4c5075; flex: 15"></span>
+    <span style="background:#3a3e56; flex: 78"></span>
+  </div>
+  <p style="max-width:1400px; margin: 6px 4px 0; color: var(--page-muted); font-size: 11.5px; font-family: var(--font-mono)">
+    粉 7% · 蓝灰 accent 15% · 底色 78% —— 粉不占大面积,却出现在每一处需要被注意的地方
+  </p>
+
+  <div class="pink-hunt">
+    <h3>数一数这一屏里的粉(共 15 处)</h3>
+    <ol>
+      <li>顶栏 <strong>PRO</strong> 徽章底色</li>
+      <li>标题栏 <strong>Traffic light</strong> 右侧不动(是 macOS 系统色,列出来对比)</li>
+      <li>workspace 选中项的 <strong>左侧竖条</strong>(v7 新做法)</li>
+      <li>每个 workspace 的 <strong>脏点</strong>(dirty indicator · 6px 粉圆 + 微光)× 5 个</li>
+      <li>diff 列的 <strong>−4121</strong> del 数字</li>
+      <li>Chat tab 的 <strong>底部下划线</strong>(active 指示)</li>
+      <li>Agent tab active 的 <strong>底部下划线</strong>(claude 那栏)</li>
+      <li>Agent 首字色块 <strong>claude 粉方块</strong>(chart1)</li>
+      <li>Chat 气泡的 <strong>身份圆点</strong>(Claude 前的粉圆)</li>
+      <li>每个 bullet 的 <strong>粉色圆点</strong>(条目符号)× 7 个</li>
+      <li>Skill 徽章的 <strong>粉色文字</strong> × 5 个</li>
+      <li>Composer 输入框的 <strong>粉色描边 + 光环</strong>(focus 态,常驻粉)</li>
+      <li>Composer 的 <strong>&gt; prompt</strong> 粉字符</li>
+      <li>Composer <strong>Send ↵</strong> 粉字</li>
+      <li>Composer chips (Manual / Cost) 的 <strong>粉色描边</strong></li>
+      <li>Set Run 按钮 <strong>粉底</strong>(primary CTA)</li>
+      <li>底栏 branch 名前的 <strong>粉圆点</strong> + <strong>+383</strong> 粉数字</li>
+      <li>Cost <strong>6% $0.07</strong> 粉字</li>
+      <li>Changes 面板 <strong>tab 下划线</strong>(active)</li>
+      <li>Changes 面板 <strong>commit count 徽章</strong>(粉底浅粉字)</li>
+      <li>Changes 面板 <strong>提交按钮</strong>(粉底)</li>
+      <li>Changes 面板 <strong>+222 / +184 / +1525 / +250</strong> 加号数字 × 4</li>
+      <li>Changes 面板 <strong>commit SHA</strong>(粉字)</li>
+    </ol>
+  </div>
+
+  <p class="foot">
+    · <strong>核心变化:</strong>accent 从"想变粉的紫" (#7a5c78) 回归 <strong>Dracula 官方血脉的蓝灰</strong> (#4c5075)。大面积干净,不再发浑。<br>
+    · <strong>粉的表达方式变了:</strong>不再靠"大面积上色",改靠"多处小色块 + 光/描边/图标 + 文字"。数一下右边的 hunt 列表 —— 粉在这一屏出现 20+ 次,但没有一次超过 8px×20px。这就是 Dracula 原本的样子。<br>
+    · <strong>不动的:</strong>primary、chart、terminal 全保持。改的是 accent 系(accent / sidebarAccent / secondary / tertiaryActive / terminal selectionBackground)。<br>
+    · <code>/Users/wufan/Downloads/dracula-colorful-v2.json</code> 已定稿到 v7。重新导入应该会感觉 UI 干净了、但粉还处处都是。
+  </p>
+</body>
+</html>

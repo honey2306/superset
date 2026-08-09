@@ -16,6 +16,11 @@ import {
 import { createUserSimpleGit } from "../../../runtime/git/simple-git";
 import { deleteLocalWorkspace } from "../../../workspaces/local-workspace-store";
 import { protectedProcedure, router } from "../../index";
+import {
+	normalizeSparseCheckoutPaths,
+	parseSparseCheckoutPaths,
+	serializeSparseCheckoutPaths,
+} from "../workspace-creation/shared/sparse-checkout";
 import { normalizeWorktreeBaseDir } from "../workspace-creation/shared/worktree-paths";
 import { getGitHubRemotes } from "./utils/git-remote";
 import {
@@ -88,7 +93,31 @@ export const projectRouter = router({
 				worktreeBaseDir: row.worktreeBaseDir,
 				branchPrefixMode: row.branchPrefixMode,
 				branchPrefixCustom: row.branchPrefixCustom,
+				sparseCheckoutPaths: parseSparseCheckoutPaths(row.sparseCheckoutPaths),
 			};
+		}),
+
+	setSparseCheckoutPaths: protectedProcedure
+		.input(
+			z.object({
+				projectId: z.string().uuid(),
+				paths: z.array(z.string().max(1024)).max(1000),
+			}),
+		)
+		.mutation(({ ctx, input }) => {
+			const paths = normalizeSparseCheckoutPaths(input.paths);
+			const updated = ctx.db
+				.update(projects)
+				.set({ sparseCheckoutPaths: serializeSparseCheckoutPaths(paths) })
+				.where(eq(projects.id, input.projectId))
+				.returning({ id: projects.id })
+				.get();
+			if (!updated)
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Project is not set up on this host",
+				});
+			return { sparseCheckoutPaths: paths };
 		}),
 
 	setWorktreeBaseDir: protectedProcedure

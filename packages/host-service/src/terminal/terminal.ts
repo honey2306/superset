@@ -1,5 +1,8 @@
-import { existsSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { randomBytes } from "node:crypto";
+import { existsSync, writeFileSync } from "node:fs";
+import { readdir, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, isAbsolute, join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import type { NodeWebSocket } from "@hono/node-ws";
 import { hasRunningForegroundProcess } from "@superset/pty-daemon/process-tree";
@@ -162,7 +165,7 @@ type TerminalClientMessage =
 // from live data.
 type TerminalServerMessage =
 	| { type: "attached"; terminalId: string }
-	| { type: "error"; message: string }
+	| { type: "error"; message: string; code?: "session-gone" }
 	| { type: "exit"; exitCode: number; signal: number }
 	| { type: "title"; title: string | null };
 
@@ -209,14 +212,27 @@ type TerminalSocket = {
 // Scanner logic lives in @superset/shared/shell-ready-scanner.
 // ---------------------------------------------------------------------------
 
+/** Bound the marker wait: wrapper startup can be bypassed by user shell config. */
+const SHELL_READY_TIMEOUT_MS = 15_000;
+/** Let shell plugins finish installing their line editor before sending Enter. */
+const INITIAL_COMMAND_ENTER_DELAY_MS = 500;
+/** Keep typed input safely below the canonical TTY line-discipline ceiling. */
+const MAX_TYPED_INITIAL_COMMAND_BYTES = 512;
+
 /**
  * Shell readiness lifecycle:
  * - `pending`     — shell initialising; scanner active
  * - `ready`       — OSC 133;A detected; scanner off
+ * - `timed_out`   — marker never arrived; queued automation runs anyway
  * - `unsupported` — launch config has no marker; scanner never started
  * - `cancelled`   — session ended before readiness; queued automation cancelled
  */
-type ShellReadyState = "pending" | "ready" | "unsupported" | "cancelled";
+type ShellReadyState =
+	| "pending"
+	| "ready"
+	| "timed_out"
+	| "unsupported"
+	| "cancelled";
 
 interface TerminalSession {
 	terminalId: string;
@@ -258,8 +274,10 @@ interface TerminalSession {
 	shellReadyState: ShellReadyState;
 	shellReadyResolve: (() => void) | null;
 	shellReadyPromise: Promise<void>;
+	shellReadyTimeoutId: ReturnType<typeof setTimeout> | null;
 	scanState: ShellReadyScanState;
 	initialCommandQueued: boolean;
+	launchShellName: string;
 
 	/**
 	 * Side-channel UTF-8 decoder. portManager.checkOutputForHint takes a
@@ -360,6 +378,73 @@ export function __resetSessionsForTesting(): void {
 export function isLiveTerminalSession(terminalId: string): boolean {
 	const session = sessions.get(terminalId);
 	return session !== undefined && !session.exited;
+}
+
+export type TerminalCommandCompletion =
+	| { kind: "completed"; exitCode: number }
+	| { kind: "exited"; exitCode: number; signal: number }
+	| { kind: "timeout"; timeoutMs: number };
+
+/**
+ * Wait for a marker emitted by an interactive terminal's initial command.
+ * The terminal deliberately remains open after that command, so process exit
+ * is not a completion signal. This uses the same daemon output stream as the
+ * renderer and first scans buffered output to avoid a subscribe-after-output
+ * race.
+ */
+export function waitForTerminalCommandCompletion(args: {
+	terminalId: string;
+	marker: string;
+	timeoutMs: number;
+}): Promise<TerminalCommandCompletion> {
+	const session = sessions.get(args.terminalId);
+	if (!session || session.exited) {
+		return Promise.reject(
+			new Error(
+				`Terminal ${args.terminalId} is unavailable for setup completion`,
+			),
+		);
+	}
+	const marker = `${args.marker}:`;
+	const parse = (text: string): number | null => {
+		const start = text.lastIndexOf(marker);
+		if (start < 0) return null;
+		const match = /^\d+/.exec(text.slice(start + marker.length));
+		return match ? Number.parseInt(match[0], 10) : null;
+	};
+	const buffered = Buffer.concat(
+		session.buffer.map((chunk) => Buffer.from(chunk)),
+	).toString("utf8");
+	const alreadyCompleted = parse(buffered);
+	if (alreadyCompleted !== null) {
+		return Promise.resolve({ kind: "completed", exitCode: alreadyCompleted });
+	}
+
+	return new Promise((resolve) => {
+		let settled = false;
+		let text = "";
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		const settle = (result: TerminalCommandCompletion) => {
+			if (settled) return;
+			settled = true;
+			if (timeout) clearTimeout(timeout);
+			subscription.dispose();
+			exitSubscription.dispose();
+			resolve(result);
+		};
+		const subscription = session.pty.onData((chunk) => {
+			text = (text + chunk).slice(-1024);
+			const exitCode = parse(text);
+			if (exitCode !== null) settle({ kind: "completed", exitCode });
+		});
+		const exitSubscription = session.pty.onExit(({ exitCode, signal }) => {
+			settle({ kind: "exited", exitCode, signal });
+		});
+		timeout = setTimeout(
+			() => settle({ kind: "timeout", timeoutMs: args.timeoutMs }),
+			args.timeoutMs,
+		);
+	});
 }
 
 /**
@@ -711,10 +796,30 @@ export function replayBuffer(session: TerminalSession, socket: TerminalSocket) {
 	sendBytes(socket, combined);
 }
 
-/** Transition out of `pending` after the scanner matches the prompt marker. */
-function resolveShellReady(session: TerminalSession): void {
+function clearShellReadyTimeout(session: TerminalSession): void {
+	if (session.shellReadyTimeoutId) {
+		clearTimeout(session.shellReadyTimeoutId);
+		session.shellReadyTimeoutId = null;
+	}
+}
+
+/** Transition out of `pending` after the marker matches or the bounded wait expires. */
+function resolveShellReady(
+	session: TerminalSession,
+	state: "ready" | "timed_out",
+): void {
 	if (session.shellReadyState !== "pending") return;
-	session.shellReadyState = "ready";
+	session.shellReadyState = state;
+	clearShellReadyTimeout(session);
+	// A timeout can leave a partial marker prefix withheld by the scanner.
+	if (session.scanState.heldBytes.length > 0) {
+		const heldBytes = Uint8Array.from(session.scanState.heldBytes);
+		session.scanState.heldBytes.length = 0;
+		session.scanState.matchPos = 0;
+		session.modeTracker.feed(heldBytes);
+		if (broadcastBytes(session, heldBytes) === 0)
+			bufferOutput(session, heldBytes);
+	}
 	if (session.shellReadyResolve) {
 		session.shellReadyResolve();
 		session.shellReadyResolve = null;
@@ -725,10 +830,62 @@ function resolveShellReady(session: TerminalSession): void {
 function cancelShellReady(session: TerminalSession): void {
 	if (session.shellReadyState !== "pending") return;
 	session.shellReadyState = "cancelled";
+	clearShellReadyTimeout(session);
 	if (session.shellReadyResolve) {
 		session.shellReadyResolve();
 		session.shellReadyResolve = null;
 	}
+}
+
+const LAUNCH_SCRIPT_STALE_MS = 60 * 60 * 1000;
+void (async () => {
+	try {
+		for (const name of await readdir(tmpdir())) {
+			if (!name.startsWith("superset-launch-")) continue;
+			const scriptPath = join(tmpdir(), name);
+			try {
+				if (
+					Date.now() - (await stat(scriptPath)).mtimeMs >
+					LAUNCH_SCRIPT_STALE_MS
+				) {
+					await rm(scriptPath, { force: true });
+				}
+			} catch {
+				// Another instance may have removed it first.
+			}
+		}
+	} catch (error) {
+		console.warn("[terminal] stale launch-script sweep failed", { error });
+	}
+})();
+
+function stageInitialCommandScript(
+	session: TerminalSession,
+	commandText: string,
+): { typedLine: string; scriptPath: string } | null {
+	const safeId = session.terminalId.replace(/[^\w-]/g, "_").slice(0, 60);
+	const scriptPath = join(
+		tmpdir(),
+		`superset-launch-${safeId}-${randomBytes(4).toString("hex")}.sh`,
+	);
+	const quotedPath = `'${scriptPath.replaceAll("'", "'\\''")}'`;
+	try {
+		writeFileSync(
+			scriptPath,
+			`command rm -f -- ${quotedPath}\n${commandText}\n`,
+			{ mode: 0o600, flag: "wx" },
+		);
+	} catch (error) {
+		console.warn("[terminal] failed to stage long initial command; typing it", {
+			terminalId: session.terminalId,
+			error,
+		});
+		return null;
+	}
+	return {
+		typedLine: `${session.launchShellName === "fish" ? "source" : "."} ${quotedPath}`,
+		scriptPath,
+	};
 }
 
 function queueInitialCommand(
@@ -737,17 +894,37 @@ function queueInitialCommand(
 ): void {
 	if (session.initialCommandQueued || session.exited) return;
 	session.initialCommandQueued = true;
-	const cmd = initialCommand.endsWith("\n")
-		? initialCommand
-		: `${initialCommand}\n`;
+	const commandText = initialCommand.replace(/[\r\n]+$/, "");
 	// Marker-backed shells can run interactive startup hooks that read or flush
 	// PTY input before the first prompt (direnv/devenv is one example). Wait for
 	// that prompt so the command cannot be consumed as startup input. Launches
-	// without a verified marker resolve this promise immediately.
+	// without a verified marker resolve this promise immediately. A missing
+	// marker is bounded by SHELL_READY_TIMEOUT_MS.
+	const isDefunct = () =>
+		session.exited ||
+		session.shellReadyState === "cancelled" ||
+		sessions.get(session.terminalId) !== session;
 	void session.shellReadyPromise.then(() => {
-		if (!session.exited && session.shellReadyState !== "cancelled") {
-			session.pty.write(cmd);
+		if (isDefunct()) return;
+		let typedText = commandText;
+		let scriptPath: string | null = null;
+		if (
+			Buffer.byteLength(commandText, "utf8") > MAX_TYPED_INITIAL_COMMAND_BYTES
+		) {
+			const staged = stageInitialCommandScript(session, commandText);
+			if (staged) {
+				typedText = staged.typedLine;
+				scriptPath = staged.scriptPath;
+			}
 		}
+		session.pty.write(typedText);
+		setTimeout(() => {
+			if (isDefunct()) {
+				if (scriptPath) void rm(scriptPath, { force: true }).catch(() => {});
+				return;
+			}
+			session.pty.write("\r");
+		}, INITIAL_COMMAND_ENTER_DELAY_MS);
 	});
 }
 
@@ -1285,15 +1462,22 @@ export async function createTerminalSessionInternal({
 				: "unsupported",
 		shellReadyResolve,
 		shellReadyPromise,
+		shellReadyTimeoutId: null,
 		scanState: createScanState(),
 		// Adopted sessions have already run their initialCommand in the prior
 		// host-service lifetime — flag it as queued so we don't double-fire it.
 		initialCommandQueued: isAdopted,
+		launchShellName: basename(shell),
 		portHintDecoder: new StringDecoder("utf8"),
 		modeTracker: createModeTracker(cols, rows),
 	};
 	sessions.set(terminalId, session);
 	portManager.upsertSession(terminalId, workspaceId, pty.pid);
+	if (session.shellReadyState === "pending") {
+		session.shellReadyTimeoutId = setTimeout(() => {
+			resolveShellReady(session, "timed_out");
+		}, SHELL_READY_TIMEOUT_MS);
+	}
 
 	session.unsubscribeDaemon = daemon.subscribe(
 		terminalId,
@@ -1316,7 +1500,7 @@ export async function createTerminalSessionInternal({
 					const result = scanForShellReady(session.scanState, chunk);
 					bytes = result.output;
 					if (result.matched) {
-						resolveShellReady(session);
+						resolveShellReady(session, "ready");
 					}
 				}
 				if (bytes.byteLength === 0) return;
@@ -1430,7 +1614,7 @@ export function registerWorkspaceTerminalRoute({
 
 		const session = sessions.get(terminalId);
 		if (!session) {
-			return c.json({ error: "Session not found" }, 404);
+			return c.json({ error: "session-gone" }, 404);
 		}
 
 		disposeSession(terminalId, db);
@@ -1516,15 +1700,13 @@ export function registerWorkspaceTerminalRoute({
 					.findFirst({ where: eq(terminalSessions.id, terminalId) })
 					.sync();
 				if (!record) {
-					return {
-						error: `Terminal session "${terminalId}" not found; create it before connecting.`,
-					};
+					return { error: "session-gone" };
 				}
 				if (record.status === "disposed") {
-					return { error: `Terminal session "${terminalId}" is disposed.` };
+					return { error: "session-gone" };
 				}
 				if (record.status === "exited") {
-					return { error: `Terminal session "${terminalId}" has exited.` };
+					return { error: "session-gone" };
 				}
 				if (!record.originWorkspaceId) {
 					return {
@@ -1580,7 +1762,13 @@ export function registerWorkspaceTerminalRoute({
 					void (async () => {
 						const session = await resolveSessionForAttach();
 						if ("error" in session) {
-							sendMessage(ws, { type: "error", message: session.error });
+							sendMessage(ws, {
+								type: "error",
+								message: session.error,
+								...(session.error === "session-gone"
+									? { code: "session-gone" as const }
+									: {}),
+							});
 							ws.close(1011, session.error);
 							return;
 						}

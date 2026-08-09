@@ -1,4 +1,4 @@
-import type { ITheme } from "@xterm/xterm";
+import type { FontWeight, ITheme } from "@xterm/xterm";
 import { toXtermTheme } from "renderer/stores/theme/utils";
 import {
 	builtInThemes,
@@ -11,6 +11,13 @@ export interface TerminalAppearance {
 	background: string;
 	fontFamily: string;
 	fontSize: number;
+	lineHeight: number;
+	letterSpacing: number;
+	fontWeight: FontWeight;
+	ligatures: boolean;
+	minimumContrastRatio: number;
+	cursorStyle: "block" | "bar" | "underline";
+	cursorBlink: boolean;
 }
 
 export const TERMINAL_FONT_FAMILY_CSS_VARIABLE =
@@ -70,6 +77,8 @@ export const DEFAULT_TERMINAL_FONT_FAMILY = serializeFontFamilyList([
 ]);
 
 export const DEFAULT_TERMINAL_FONT_SIZE = 14;
+export const DEFAULT_TERMINAL_LINE_HEIGHT = 1;
+export const DEFAULT_TERMINAL_LETTER_SPACING = 0;
 
 const MONOSPACE_GENERIC_FAMILIES = new Set(["monospace", "ui-monospace"]);
 
@@ -181,12 +190,33 @@ export function sanitizeTerminalFontFamily(
 
 /** Reads localStorage theme cache for flash-free first paint. */
 export function getDefaultTerminalAppearance(): TerminalAppearance {
-	const theme = readCachedTerminalTheme();
+	return resolveTerminalAppearance(readCachedTerminalTheme());
+}
+
+export function resolveTerminalAppearance(
+	theme: ITheme,
+	settings: Record<string, unknown> = {},
+): TerminalAppearance {
 	return {
 		theme,
 		background: theme.background ?? "#151110",
-		fontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
-		fontSize: DEFAULT_TERMINAL_FONT_SIZE,
+		fontFamily: sanitizeTerminalFontFamily(
+			settings.terminalFontFamily as string | null,
+		),
+		fontSize:
+			(settings.terminalFontSize as number | null) ??
+			DEFAULT_TERMINAL_FONT_SIZE,
+		lineHeight: (settings.terminalLineHeight as number | null) ?? 1,
+		letterSpacing: (settings.terminalLetterSpacing as number | null) ?? 0,
+		fontWeight: ((settings.terminalFontWeight as number | null) ??
+			"normal") as FontWeight,
+		ligatures: (settings.terminalLigatures as boolean | null) ?? true,
+		minimumContrastRatio:
+			(settings.terminalMinimumContrast as number | null) ?? 1,
+		cursorStyle:
+			(settings.terminalCursorStyle as "block" | "bar" | "underline" | null) ??
+			"block",
+		cursorBlink: (settings.terminalCursorBlink as boolean | null) ?? true,
 	};
 }
 

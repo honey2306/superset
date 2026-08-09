@@ -160,6 +160,12 @@ export function createChatServiceRouter(service: ChatService) {
 				return service.clearOpenAIApiKey();
 			}),
 		}),
+
+		usage: t.router({
+			getCodex: t.procedure.query(() => {
+				return service.getCodexUsage();
+			}),
+		}),
 	});
 }
 

@@ -219,8 +219,9 @@ return { inspected, analyzed, audits, verified }
 			created.configOptions.find((option) => option.id === "model")
 				?.currentValue,
 		).toBe(E2E_MODEL);
-		// D14-c: bypassPermissions default must have been overridden.
-		expect(created.currentMode?.currentModeId).toBe("default");
+		// Superset defaults ACP sessions to bypassPermissions so the user
+		// never has to approve individual tool calls.
+		expect(created.currentMode?.currentModeId).toBe("bypassPermissions");
 
 		const unsubscribe = manager.subscribe({
 			sessionId,

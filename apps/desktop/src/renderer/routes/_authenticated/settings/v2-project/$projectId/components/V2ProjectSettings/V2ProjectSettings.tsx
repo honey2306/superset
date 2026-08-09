@@ -18,6 +18,7 @@ import { DeleteProjectSection } from "./components/DeleteProjectSection";
 import { NameSection } from "./components/NameSection";
 import { ProjectLocationSection } from "./components/ProjectLocationSection";
 import { RepositorySection } from "./components/RepositorySection";
+import { SparseCheckoutSection } from "./components/SparseCheckoutSection";
 import { V2ScriptsEditor } from "./components/V2ScriptsEditor";
 import { WorktreeLocationSection } from "./components/WorktreeLocationSection";
 
@@ -208,6 +209,22 @@ export function V2ProjectSettings({
 							onChanged={() => refetchHostProject()}
 						/>
 					</SettingsRow>
+					{targetHostUrl && (
+						<div className="pt-4">
+							<div className="mb-3">
+								<h3 className="text-sm font-medium">Sparse checkout</h3>
+								<p className="mt-0.5 text-xs text-muted-foreground">
+									Limit new worktrees to selected folders.
+								</p>
+							</div>
+							<SparseCheckoutSection
+								projectId={projectId}
+								hostUrl={targetHostUrl}
+								paths={hostProject?.sparseCheckoutPaths ?? []}
+								onChanged={() => refetchHostProject()}
+							/>
+						</div>
+					)}
 					{targetHostUrl && (
 						<div className="pt-4">
 							<div className="mb-3">

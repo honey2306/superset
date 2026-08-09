@@ -8,8 +8,8 @@ import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceProjection } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import { NavigationControls } from "../NavigationControls";
 import { SidebarToggle } from "../SidebarToggle";
+import { OpenAIUsageBadge } from "./components/OpenAIUsageBadge";
 import { OpenInMenuButton } from "./components/OpenInMenuButton";
-import { OrganizationDropdown } from "./components/OrganizationDropdown";
 import { ResourceConsumption } from "./components/ResourceConsumption";
 import { WindowControls } from "./components/WindowControls";
 
@@ -53,14 +53,13 @@ export function TopBar() {
 						<span>{t("workspace.offlineLabel")}</span>
 					</div>
 				)}
+				<OpenAIUsageBadge />
 				{workspace?.worktreePath ? (
 					<OpenInMenuButton
 						worktreePath={workspace.worktreePath}
-						branch={workspace.branch}
 						projectId={workspace.projectId}
 					/>
 				) : null}
-				<OrganizationDropdown />
 				{!isMac && <WindowControls />}
 			</div>
 		</div>

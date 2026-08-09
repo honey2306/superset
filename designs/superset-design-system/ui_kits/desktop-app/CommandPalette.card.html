@@ -1,0 +1,121 @@
+<!-- @dsCard group="Desktop app" viewport="800x560" name="CommandPalette (⌘⇧K)" subtitle="全局命令面板 · Workspace actions / Actions / Navigation / Add project" -->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="../../components.css" />
+  <link rel="stylesheet" href="../../app.css" />
+</head>
+<body>
+  <div id="root" style="padding: 40px; display: flex; justify-content: center; background: color-mix(in oklch, var(--page-bg) 92%, #000 8%); min-height: 100%;"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const { Icon, Kbd } = window.SupersetDesignSystem_91a6da;
+
+    const cpGroups = [
+      {
+        label: "Workspace actions",
+        items: [
+          { icon: "branch", label: "Rename this workspace", kbd: ["⌘", "R"] },
+          { icon: "push", label: "Push to origin", kbd: ["⌘", "⇧", "P"] },
+          { icon: "pull", label: "Fetch and rebase", kbd: null },
+          { icon: "trash", label: "Delete this workspace…", kbd: null },
+        ],
+      },
+      {
+        label: "Actions",
+        items: [
+          { icon: "spark", label: "Toggle theme", kbd: ["⌘", "⇧", "T"] },
+          { icon: "sort", label: "Toggle left sidebar", kbd: ["⌘", "B"] },
+          { icon: "changes", label: "Show keyboard shortcuts", kbd: ["⌘", "?"] },
+          { icon: "refresh", label: "Check for updates", kbd: null },
+          { icon: "alert", label: "Mute notifications", kbd: null },
+        ],
+      },
+      {
+        label: "Navigation",
+        items: [
+          { icon: "search", label: "Search files…", kbd: ["⌘", "P"] },
+          { icon: "terminal", label: "Focus terminal", kbd: ["⌘", "J"] },
+          { icon: "arrowRight", label: "Go to Automations", kbd: null },
+        ],
+      },
+      {
+        label: "Add project",
+        items: [
+          { icon: "plus", label: "Open project…", kbd: null },
+          { icon: "cloud", label: "Clone from URL…", kbd: null },
+          { icon: "spark", label: "Start from template", kbd: null },
+        ],
+      },
+    ];
+
+    function CpKit() {
+      const [q, setQ] = React.useState("");
+      const [focused, setFocused] = React.useState({ g: 0, i: 0 });
+      const filtered = cpGroups
+        .map((g) => ({
+          ...g,
+          items: g.items.filter((it) =>
+            it.label.toLowerCase().includes(q.toLowerCase()),
+          ),
+        }))
+        .filter((g) => g.items.length > 0);
+      return (
+        <div className="cp-modal">
+          <div className="cp-input">
+            <Icon name="search" className="glyph" size={14} />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search commands, files, workspaces…"
+              autoFocus
+            />
+            <Kbd>Esc</Kbd>
+          </div>
+          <div className="cp-list">
+            {filtered.length === 0 ? (
+              <div className="cp-empty">No results.</div>
+            ) : (
+              filtered.map((g, gi) => (
+                <div className="cp-group" key={g.label}>
+                  <div className="cp-group-head">{g.label}</div>
+                  {g.items.map((it, ii) => (
+                    <div
+                      className={
+                        "cp-item" +
+                        (gi === focused.g && ii === focused.i
+                          ? " is-focused"
+                          : "")
+                      }
+                      key={it.label}
+                      onMouseEnter={() => setFocused({ g: gi, i: ii })}
+                    >
+                      <Icon name={it.icon} className="glyph" size={14} />
+                      <span className="label">{it.label}</span>
+                      {it.kbd ? (
+                        <span className="kbd-slot">
+                          {it.kbd.map((k) => (
+                            <Kbd key={k}>{k}</Kbd>
+                          ))}
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const cpRoot = ReactDOM.createRoot(document.getElementById("root"));
+    cpRoot.render(<CpKit />);
+  </script>
+</body>
+</html>

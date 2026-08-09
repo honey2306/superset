@@ -1,4 +1,5 @@
 import type { DetectedPort } from "@superset/port-scanner";
+import type { SessionStatus } from "@superset/session-protocol";
 import type { AgentIdentity } from "@superset/shared/agent-identity";
 import type { FsWatchEvent } from "@superset/workspace-fs/host";
 import type { AgentLifecycleEventType } from "./map-event-type.ts";
@@ -131,6 +132,24 @@ export interface WorkspaceOperationChangedMessage {
 	operation: unknown;
 }
 
+/**
+ * ACP session status transition — a host-wide broadcast so the sidebar and
+ * other passive consumers can react without keeping a per-session WebSocket
+ * open. The per-session `/acp-sessions/:sessionId/stream` remains the
+ * authoritative channel for pane-level updates; this event is a lightweight
+ * fan-in for status only. `eventType: "deleted"` is fired from `close` so
+ * subscribers can drop the row without a follow-up list refetch.
+ */
+export interface AcpSessionChangedMessage {
+	type: "acp-session:changed";
+	workspaceId: string;
+	sessionId: string;
+	eventType: "changed" | "deleted";
+	/** Absent for `deleted`. */
+	status?: SessionStatus;
+	occurredAt: number;
+}
+
 export interface EventBusErrorMessage {
 	type: "error";
 	message: string;
@@ -146,6 +165,7 @@ export type ServerMessage =
 	| ProjectChangedMessage
 	| CatalogChangedMessage
 	| WorkspaceOperationChangedMessage
+	| AcpSessionChangedMessage
 	| EventBusErrorMessage;
 
 // ── Client → Server ────────────────────────────────────────────────

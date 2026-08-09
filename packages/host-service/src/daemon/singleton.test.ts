@@ -4,13 +4,20 @@
 // coverage lives in DaemonSupervisor.node-test.ts.
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import { DaemonSupervisor } from "./DaemonSupervisor.ts";
 import {
 	__resetSupervisorForTesting,
 	getSupervisor,
+	resolveSupervisorScriptPath,
 	startDaemonBootstrap,
 	waitForDaemonReady,
 } from "./singleton.ts";
+
+const fixtureDirs: string[] = [];
 
 beforeEach(() => {
 	__resetSupervisorForTesting();
@@ -18,6 +25,23 @@ beforeEach(() => {
 
 afterEach(() => {
 	__resetSupervisorForTesting();
+	for (const dir of fixtureDirs.splice(0)) {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+describe("resolveSupervisorScriptPath", () => {
+	test("finds a daemon beside the entry when resolver is bundled in chunks", () => {
+		const distDir = fs.mkdtempSync(path.join(os.tmpdir(), "pty-daemon-path-"));
+		fixtureDirs.push(distDir);
+		const chunksDir = path.join(distDir, "chunks");
+		fs.mkdirSync(chunksDir);
+		const daemonPath = path.join(distDir, "pty-daemon.js");
+		fs.writeFileSync(daemonPath, "");
+
+		const moduleUrl = pathToFileURL(path.join(chunksDir, "runtime.js")).href;
+		expect(resolveSupervisorScriptPath(moduleUrl)).toBe(daemonPath);
+	});
 });
 
 describe("getSupervisor", () => {

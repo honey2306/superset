@@ -114,11 +114,10 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 			workspaceId: WORKSPACE_ID,
 		});
 		expect(created.status).toBe("idle");
-		expect(created.currentMode?.currentModeId).toBe("default");
+		expect(created.currentMode?.currentModeId).toBe("bypassPermissions");
 
 		const listed = await host.trpc.acpSessions.list.query({});
-		expect(listed.enabled).toBe(true);
-		expect(listed.items.map((state) => state.sessionId)).toContain(sessionId);
+		expect(listed).toEqual({ items: [], nextCursor: null, enabled: true });
 
 		// prompt acks admission only; the turn's completion is never awaited on
 		// the HTTP request — remote clients poll state (or ride the WS stream).
@@ -215,6 +214,24 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 				}),
 			),
 		).toBe("PRECONDITION_FAILED");
+	}, 30_000);
+
+	test("close removes the session from the router surface", async () => {
+		const sessionId = "router-close";
+		await host.trpc.acpSessions.create.mutate({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+		});
+
+		await host.trpc.acpSessions.close.mutate({ sessionId });
+		expect(await host.trpc.acpSessions.list.query({})).toEqual({
+			items: [],
+			nextCursor: null,
+			enabled: true,
+		});
+		expect(
+			await trpcErrorCode(host.trpc.acpSessions.get.query({ sessionId })),
+		).toBe("NOT_FOUND");
 	}, 30_000);
 
 	test("the surface requires host auth, list included", async () => {

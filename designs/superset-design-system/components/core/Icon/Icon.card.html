@@ -1,0 +1,31 @@
+<!-- @dsCard group="Components" viewport="720x260" name="Icon set" subtitle="23 line icons, 24-viewbox, stroke=currentColor" -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../../styles.css" />
+  <link rel="stylesheet" href="../../../components.css" />
+</head>
+<body>
+  <div id="root" style="padding:24px"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const { Icon } = window.SupersetDesignSystem_91a6da;
+    const NAMES = ["branch","chevron","search","plus","check","refresh","push","pull","merge","arrowRight","edit","copy","terminal","trash","alert","file","cloud","changes","max","x","sort","moreH","spark"];
+    const cardRoot = ReactDOM.createRoot(document.getElementById("root"));
+    cardRoot.render(
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(88px, 1fr))", gap: 10, color: "var(--fg-mute)" }}>
+        {NAMES.map((n) => (
+          <div key={n} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "10px 6px", borderRadius: 6, border: "1px solid var(--line)" }}>
+            <Icon name={n} size={18} />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-10)", color: "var(--fg-faint)" }}>{n}</span>
+          </div>
+        ))}
+      </div>,
+    );
+  </script>
+</body>
+</html>

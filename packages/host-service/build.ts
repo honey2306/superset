@@ -5,6 +5,8 @@
  * lib/native/ in the distribution bundle.
  */
 import { existsSync, mkdirSync } from "node:fs";
+import { createRequire } from "node:module";
+import { patchPiAcpBundle } from "./src/runtime/acp-sessions/pi-acp-bundle";
 
 const outdir = "dist";
 if (!existsSync(outdir)) {
@@ -72,6 +74,81 @@ if (!workerResult.success) {
 	process.exit(1);
 }
 
+// Detached ACP owner. It is adopted across host-service/Desktop restarts and
+// keeps adapter processes, turns, permissions, and journals alive.
+const acpDaemonResult = await Bun.build({
+	entrypoints: ["src/runtime/acp-sessions/daemon-entry.ts"],
+	target: "node",
+	outdir,
+	naming: "acp-daemon.js",
+	format: "esm",
+	define: {
+		"process.env.NODE_ENV": JSON.stringify("production"),
+	},
+	external: ["better-sqlite3"],
+});
+
+if (!acpDaemonResult.success) {
+	console.error("[host-service] ACP daemon build failed:");
+	for (const log of acpDaemonResult.logs) console.error(log);
+	process.exit(1);
+}
+
+// This is launched as an ACP subprocess by acp-sessions.ts, so it must be
+// emitted beside host-service.js rather than relying on a source-tree .ts file.
+const codexBridgeResult = await Bun.build({
+	entrypoints: ["src/runtime/acp-sessions/codex-app-server-acp.ts"],
+	target: "node",
+	outdir,
+	naming: "codex-app-server-acp.js",
+	format: "esm",
+	define: {
+		"process.env.NODE_ENV": JSON.stringify("production"),
+	},
+});
+
+if (!codexBridgeResult.success) {
+	console.error("[host-service] Codex ACP bridge build failed:");
+	for (const log of codexBridgeResult.logs) {
+		console.error(log);
+	}
+	process.exit(1);
+}
+
+// pi-acp translates Pi's supported RPC mode into the same ACP transport used by
+// the other session runtimes. Bundle it beside host-service so packaged builds
+// do not depend on a globally installed adapter (Pi itself still must be on PATH).
+const moduleRequire = createRequire(import.meta.url);
+const piBridgeResult = await Bun.build({
+	entrypoints: [moduleRequire.resolve("pi-acp")],
+	target: "node",
+	outdir,
+	naming: "pi-acp.js",
+	format: "esm",
+	define: {
+		"process.env.NODE_ENV": JSON.stringify("production"),
+	},
+	plugins: [
+		{
+			name: "superset-pi-acp-startup",
+			setup(build) {
+				build.onLoad({ filter: /pi-acp\/dist\/index\.js$/ }, async (args) => ({
+					contents: patchPiAcpBundle(await Bun.file(args.path).text()),
+					loader: "js",
+				}));
+			},
+		},
+	],
+});
+
+if (!piBridgeResult.success) {
+	console.error("[host-service] Pi ACP bridge build failed:");
+	for (const log of piBridgeResult.logs) {
+		console.error(log);
+	}
+	process.exit(1);
+}
+
 console.log(
-	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js`,
+	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js`,
 );

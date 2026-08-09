@@ -1,27 +1,109 @@
 import type {
 	RequestPermissionOutcome,
+	SessionConfigOption,
 	SessionStatus,
+	TimelineItem,
+	ToolCallUpdate,
 } from "@superset/session-protocol";
 import {
 	useAcpPermissions,
 	useAcpSession,
 } from "@superset/session-protocol/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { normalizeWorkspaceFilePath } from "renderer/components/Chat/ChatInterface/utils/file-paths";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
+import { useTabsStore } from "renderer/stores/tabs/store";
 import "./acp-pane.css";
 import { AcpComposer } from "./components/AcpComposer";
+import { AcpEmptyState } from "./components/AcpEmptyState";
 import { AcpSessionError } from "./components/AcpSessionError";
 import { AcpStatusBar } from "./components/AcpStatusBar";
-import { AcpTimeline } from "./components/AcpTimeline";
-import { AcpPermissionCard } from "./components/AcpTimeline/components/AcpToolCallItem/components/AcpPermissionCard";
+import { AcpTimeline, type AcpTimelineHandle } from "./components/AcpTimeline";
+import {
+	AcpPermissionCard,
+	isAskUserPermission,
+} from "./components/AcpTimeline/components/AcpToolCallItem/components/AcpPermissionCard";
+
+function modelLabel(
+	options: readonly SessionConfigOption[],
+): string | undefined {
+	const option = options.find((item) => {
+		if (item.type !== "select") return false;
+		if (item.category === "model") return true;
+		const name = item.name?.toLowerCase() ?? "";
+		const id = item.id.toLowerCase();
+		return name === "model" || id === "model" || id.endsWith(".model");
+	});
+	if (!option) return undefined;
+
+	const value = option.currentValue;
+	return value == null || value === "" ? undefined : String(value);
+}
+
+function findToolCall(
+	items: readonly TimelineItem[],
+	toolCallId: string,
+): ToolCallUpdate | undefined {
+	for (const item of items) {
+		if (item.kind !== "tool_call") continue;
+		if (item.id === toolCallId) return item.call;
+		const child = findToolCall(item.children, toolCallId);
+		if (child) return child;
+	}
+	return undefined;
+}
+
+function userMessageText(
+	item: Extract<TimelineItem, { kind: "message" }>,
+): string {
+	return item.blocks
+		.filter(
+			(
+				block,
+			): block is Extract<(typeof item.blocks)[number], { type: "text" }> =>
+				block.type === "text",
+		)
+		.map((block) => block.text)
+		.join(" ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+/**
+ * The most recent user prompt — used by the toolbar/status bar so it tracks
+ * the current thread of work while the tab keeps a stable subject.
+ */
+export function getLatestUserMessageTitle(
+	items: readonly TimelineItem[],
+): string | null {
+	for (let index = items.length - 1; index >= 0; index -= 1) {
+		const item = items[index];
+		if (item?.kind !== "message" || item.role !== "user") continue;
+		const text = userMessageText(item);
+		if (text) return text;
+	}
+	return null;
+}
 
 export interface AcpSessionPaneProps {
 	sessionId: string;
 	hostUrl: string;
 	workspaceId: string;
+	/** Renderer workspace id used for opening a diff target in the panes store. */
+	rendererWorkspaceId: string;
 	cwd: string;
+	/** Human-readable name for the agent (e.g. "Claude Code"). Shown in message author labels. */
+	agentLabel?: string;
+	/** Suppress transient 404s while the launcher creates this known session. */
+	isLaunching?: boolean;
+	/** Creation failure kept with the pane instead of dropping the new tab. */
+	creationError?: string;
+	onRetryLaunch?: () => void;
 	onSessionMetadataChange(input: {
+		/** Stable session subject for the tab title. */
 		title: string | null;
+		/** Latest user prompt for the toolbar/status bar. */
+		latestUserMessage: string | null;
 		status: SessionStatus;
 	}): void;
 }
@@ -30,7 +112,12 @@ export function AcpSessionPane({
 	sessionId,
 	hostUrl,
 	workspaceId,
+	rendererWorkspaceId,
 	cwd,
+	agentLabel,
+	isLaunching = false,
+	creationError,
+	onRetryLaunch,
 	onSessionMetadataChange,
 }: AcpSessionPaneProps) {
 	// Stabilize the client across renders — a fresh client per render means a
@@ -50,23 +137,58 @@ export function AcpSessionPane({
 		sessionId,
 		api: client.api,
 		streamUrl,
+		initiallyLaunching: isLaunching,
 	});
 
 	const permissions = useAcpPermissions(session);
+	const addFileViewerPane = useTabsStore((store) => store.addFileViewerPane);
+	const openFileFromTool = useCallback(
+		(path: string) => {
+			const filePath = normalizeWorkspaceFilePath({
+				filePath: path,
+				workspaceRoot: cwd,
+			});
+			if (!filePath) return;
+			addFileViewerPane(rendererWorkspaceId, { filePath });
+		},
+		[addFileViewerPane, cwd, rendererWorkspaceId],
+	);
 
 	const [mutationError, setMutationError] = useState<string | null>(null);
 	const [isCancelling, setIsCancelling] = useState(false);
+	const [isUpdatingSession, setIsUpdatingSession] = useState(false);
+	const handleSessionUpdate = useCallback(
+		async (action: () => Promise<void>) => {
+			setMutationError(null);
+			setIsUpdatingSession(true);
+			try {
+				await action();
+			} catch (err) {
+				setMutationError(
+					err instanceof Error
+						? `Session update failed: ${err.message}`
+						: "Session update failed",
+				);
+			} finally {
+				setIsUpdatingSession(false);
+			}
+		},
+		[],
+	);
 
 	const handleRespond = useCallback(
-		(requestId: string, outcome: RequestPermissionOutcome) => {
+		async (requestId: string, outcome: RequestPermissionOutcome) => {
 			setMutationError(null);
-			void permissions.respond(requestId, outcome).catch((err) => {
+			try {
+				await permissions.respond(requestId, outcome);
+			} catch (err) {
 				setMutationError(
 					err instanceof Error
 						? `Permission response failed: ${err.message}`
 						: "Permission response failed",
 				);
-			});
+				throw err;
+			}
 		},
 		[permissions],
 	);
@@ -86,26 +208,66 @@ export function AcpSessionPane({
 			.finally(() => setIsCancelling(false));
 	}, [session.actions]);
 
+	const timelineRef = useRef<AcpTimelineHandle>(null);
+	const hasUserMessage = session.timeline.items.some(
+		(item) => item.kind === "message" && item.role === "user",
+	);
+	const handleJumpToLastUserMessage = useCallback(() => {
+		timelineRef.current?.scrollToLastUserMessage();
+	}, []);
+
 	const lastMetaRef = useRef<{
 		title: string | null;
+		latestUserMessage: string | null;
 		status: SessionStatus;
 	} | null>(null);
 	useEffect(() => {
 		const state = session.state;
 		if (!state) return;
-		const next = { title: state.title, status: state.status };
+		// The tab title is fed exclusively by session_info_update — host-side
+		// title generation (Claude Code / Codex style) writes into state.title
+		// after the first prompt. Falling back to the raw first user message
+		// would let sensitive prompt text land in the tab strip before the
+		// summary arrives; the panes registry falls back to the agent label.
+		const next = {
+			title: state.title,
+			latestUserMessage: getLatestUserMessageTitle(session.timeline.items),
+			status: state.status,
+		};
 		const last = lastMetaRef.current;
-		if (last?.title === next.title && last?.status === next.status) return;
+		if (
+			last?.title === next.title &&
+			last?.latestUserMessage === next.latestUserMessage &&
+			last?.status === next.status
+		)
+			return;
 		lastMetaRef.current = next;
 		onSessionMetadataChange(next);
-	}, [session.state, onSessionMetadataChange]);
+	}, [session.state, session.timeline.items, onSessionMetadataChange]);
 
-	if (session.isLoading && !session.state) {
+	if (
+		(session.isLoading || isLaunching || session.availability === "retrying") &&
+		!session.state
+	) {
 		return (
 			<div className="acp-pane">
-				<div className="acp-pane__empty">
-					<div className="acp-pane__empty-title">Loading session…</div>
-				</div>
+				<AcpEmptyState
+					sessionId={sessionId}
+					cwd={cwd}
+					agentLabel={agentLabel}
+				/>
+			</div>
+		);
+	}
+
+	if (creationError && !session.state) {
+		return (
+			<div className="acp-pane">
+				<AcpSessionError
+					message="Failed to start session"
+					hint={creationError}
+					onRetry={onRetryLaunch ?? (() => void session.actions.refresh())}
+				/>
 			</div>
 		);
 	}
@@ -128,6 +290,9 @@ export function AcpSessionPane({
 	}
 
 	const state = session.state;
+	const model =
+		modelLabel(session.timeline.meta.configOptions ?? []) ??
+		modelLabel(state?.configOptions ?? []);
 	const isResumeFailure =
 		!!session.error && !!state && state.status === "offline";
 	const composerStatus = isResumeFailure
@@ -191,33 +356,56 @@ export function AcpSessionPane({
 			)}
 
 			<AcpTimeline
+				ref={timelineRef}
 				className="acp-pane__body"
+				sessionId={sessionId}
 				timeline={session.timeline}
 				onRespond={handleRespond}
-				hasOlder={session.hasOlder}
-				isLoadingOlder={session.isLoadingOlder}
-				onLoadOlder={session.loadOlder}
+				cwd={cwd}
+				model={model}
+				onOpenFile={openFileFromTool}
+				agentLabel={agentLabel}
+				status={state?.status}
 			/>
 
 			<div className="acp-pane__composer-wrap">
-				{permissions.pending.length > 0 && (
-					<div
-						className="acp-pane__perm-float"
-						role="alertdialog"
-						aria-modal="true"
-						aria-label="Permission required"
-					>
-						<AcpPermissionCard
-							permission={{
-								...permissions.pending[0],
-								resolution: null,
-							}}
-							onRespond={handleRespond}
-						/>
-					</div>
-				)}
+				{permissions.pending.length > 0 &&
+					(() => {
+						const pending = permissions.pending[0];
+						const sourceToolCall = findToolCall(
+							session.timeline.items,
+							pending.toolCall.toolCallId,
+						);
+						const isAskUser = isAskUserPermission(pending, sourceToolCall);
+						return (
+							<div
+								className="acp-pane__perm-float"
+								data-type={isAskUser ? "askuser" : "permission"}
+								role="alertdialog"
+								aria-modal="true"
+								aria-label={
+									isAskUser
+										? "Agent is asking a question"
+										: "Permission required"
+								}
+							>
+								<AcpPermissionCard
+									key={pending.requestId}
+									permission={{
+										...pending,
+										resolution: null,
+									}}
+									variant={isAskUser ? "askuser" : "permission"}
+									sourceToolCall={sourceToolCall}
+									pendingCount={permissions.pending.length}
+									onRespond={handleRespond}
+								/>
+							</div>
+						);
+					})()}
 
 				<AcpComposer
+					sessionId={sessionId}
 					status={composerStatus}
 					isLoading={session.isLoading}
 					isCancelling={isCancelling}
@@ -225,6 +413,7 @@ export function AcpSessionPane({
 					cwd={cwd}
 					commands={session.timeline.meta.availableCommands}
 					configOptions={state?.configOptions ?? []}
+					queuedPrompts={state?.queuedPrompts ?? []}
 					searchFiles={(query) =>
 						client.searchFiles?.({ workspaceId, cwd, query }) ??
 						Promise.resolve([])
@@ -234,15 +423,35 @@ export function AcpSessionPane({
 					onSubmit={async (blocks) => {
 						await session.actions.prompt(blocks);
 					}}
+					onEnqueue={async (blocks) => {
+						await session.actions.enqueue(blocks);
+					}}
+					onRemoveQueued={session.actions.removeQueued}
+					onReorderQueue={session.actions.reorderQueue}
+					onEditQueued={session.actions.editQueued}
 					onCancel={handleCancel}
+					onJumpToLastUserMessage={
+						hasUserMessage ? handleJumpToLastUserMessage : undefined
+					}
 				/>
 			</div>
 
 			{state && (
 				<AcpStatusBar
 					state={state}
+					hostUrl={hostUrl}
 					usage={session.timeline.meta.usage}
-					streamStatus={session.streamStatus}
+					currentMode={session.timeline.meta.currentMode}
+					configOptions={session.timeline.meta.configOptions}
+					isSubmitting={isUpdatingSession}
+					onSetMode={(modeId) =>
+						handleSessionUpdate(() => session.actions.setMode(modeId))
+					}
+					onSetConfigOption={(optionId, value) =>
+						handleSessionUpdate(() =>
+							session.actions.setConfigOption(optionId, value),
+						)
+					}
 				/>
 			)}
 		</div>

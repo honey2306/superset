@@ -3,8 +3,12 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import { defineWorkerTask } from "./define-worker-task.ts";
-import { HostWorkerPool } from "./host-worker-pool.ts";
+import {
+	HostWorkerPool,
+	resolveHostWorkerScriptPath,
+} from "./host-worker-pool.ts";
 import { gitStatusSnapshotTask } from "./tasks/git.ts";
 
 const WORKER_ENTRY = path.resolve(import.meta.dirname, "host-worker.ts");
@@ -31,6 +35,18 @@ afterEach(async () => {
 	for (const dir of fixtureDirs.splice(0)) {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
+});
+
+test("resolves a host worker above a Rollup chunks directory", () => {
+	const distDir = fs.mkdtempSync(path.join(os.tmpdir(), "host-worker-path-"));
+	fixtureDirs.push(distDir);
+	const chunksDir = path.join(distDir, "chunks");
+	fs.mkdirSync(chunksDir);
+	const workerPath = path.join(distDir, "host-worker.js");
+	fs.writeFileSync(workerPath, "");
+
+	const moduleUrl = pathToFileURL(path.join(chunksDir, "runtime.js")).href;
+	expect(resolveHostWorkerScriptPath(moduleUrl)).toBe(workerPath);
 });
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 5_000) {

@@ -33,15 +33,22 @@ const IDLE_TIMEOUT_MS = 30_000;
 const CRASH_BUDGET = 3;
 const CRASH_WINDOW_MS = 60_000;
 
-export function resolveHostWorkerScriptPath(): string | null {
+export function resolveHostWorkerScriptPath(
+	moduleUrl = import.meta.url,
+): string | null {
 	const override = process.env.SUPERSET_HOST_WORKER_SCRIPT_PATH;
 	if (override) return existsSync(override) ? override : null;
 
-	const here = path.dirname(fileURLToPath(import.meta.url));
-	// Production (electron-vite / standalone dist): host-service.js and
-	// host-worker.js are emitted side-by-side in the same dist directory.
-	const sideBySide = path.resolve(here, "host-worker.js");
-	if (existsSync(sideBySide)) return sideBySide;
+	const here = path.dirname(fileURLToPath(moduleUrl));
+	// Production bundle: the worker is emitted beside host-service.js. Rollup
+	// may place this module in chunks/, one level below that entry directory.
+	const bundledCandidates = [
+		path.resolve(here, "host-worker.js"),
+		path.resolve(here, "..", "host-worker.js"),
+	];
+	for (const candidate of bundledCandidates) {
+		if (existsSync(candidate)) return candidate;
+	}
 
 	// Source-running fallback (`bun run` from packages/host-service): `here`
 	// is `packages/host-service/src/workers/`; the built entry sits at

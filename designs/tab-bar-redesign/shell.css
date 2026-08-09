@@ -1,0 +1,607 @@
+/* Realistic Superset app shell — mirrors what the user actually sees when
+   they open the desktop app. Every variant's tab bar sits inside this
+   frame, so we can judge fit-with-context, not just the bar in isolation. */
+
+.page {
+	padding: 32px;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	gap: 32px;
+}
+
+.page-title {
+	color: var(--fg);
+	font-size: 24px;
+	font-weight: 600;
+	margin: 0 0 4px;
+	letter-spacing: -0.01em;
+}
+.page-lede {
+	color: var(--fg-2);
+	opacity: 0.7;
+	max-width: 68ch;
+	line-height: 1.65;
+	margin: 0;
+}
+.variant-caption {
+	color: var(--fg-2);
+	opacity: 0.75;
+	font-size: 12px;
+	line-height: 1.7;
+	margin: 12px 4px 0;
+	max-width: 76ch;
+}
+.variant-badge {
+	display: inline-block;
+	font-size: 10.5px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--pink);
+	margin-right: 10px;
+}
+.variant-title {
+	color: var(--fg);
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.variant-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+/* Full-window app shell */
+.window {
+	background: var(--bg);
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.5);
+	display: grid;
+	grid-template-columns: 220px 1fr 240px;
+	grid-template-rows: 44px 1fr 220px;
+	height: 720px;
+}
+
+/* Titlebar / traffic lights */
+.titlebar {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 0 14px;
+	background: var(--bg-2);
+	border-bottom: 1px solid var(--line);
+}
+.traffic {
+	display: flex;
+	gap: 7px;
+}
+.traffic span {
+	width: 11px;
+	height: 11px;
+	border-radius: 999px;
+	display: block;
+	background: var(--dim);
+}
+.titlebar-title {
+	flex: 1;
+	color: var(--fg-2);
+	opacity: 0.5;
+	font-size: 11px;
+	text-align: center;
+}
+.titlebar-branch {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 8px;
+	border-radius: 4px;
+	background: var(--pink-dim);
+	color: var(--pink);
+	font-size: 10.5px;
+	font-family: var(--font-mono);
+}
+.titlebar-org {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 8px;
+	color: var(--fg-2);
+	opacity: 0.7;
+	font-size: 11px;
+}
+
+/* Sidebar */
+.sidebar {
+	grid-row: 2 / 4;
+	background: var(--bg-2);
+	border-right: 1px solid var(--line);
+	padding: 12px 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	overflow: hidden;
+}
+.sb-group {
+	color: var(--muted);
+	font-size: 10px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	padding: 10px 8px 4px;
+}
+.sb-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: 4px;
+	color: var(--fg-2);
+	opacity: 0.75;
+	font-size: 12px;
+	cursor: pointer;
+}
+.sb-item:hover {
+	background: var(--panel);
+	opacity: 1;
+}
+.sb-item.active {
+	background: var(--panel-2);
+	color: var(--fg);
+	opacity: 1;
+}
+.sb-item .dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	background: var(--muted);
+	flex-shrink: 0;
+}
+.sb-item.running .dot {
+	background: var(--green);
+	box-shadow: 0 0 6px rgba(80, 250, 123, 0.5);
+}
+.sb-item.active .dot {
+	background: var(--pink);
+}
+.sb-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Main content column: [tab bar] [agent row] [chat body] */
+.main {
+	grid-row: 2 / 4;
+	grid-column: 2;
+	display: flex;
+	flex-direction: column;
+	background: var(--bg);
+	overflow: hidden;
+}
+
+/* Agent selector row (icons + gear + spacer + Set Run) */
+.agent-row {
+	display: flex;
+	align-items: center;
+	padding: 8px 12px;
+	gap: 10px;
+	color: var(--fg-2);
+	font-size: 12px;
+	border-bottom: 1px solid var(--line);
+}
+.agent-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	color: var(--fg-2);
+	opacity: 0.75;
+	cursor: pointer;
+}
+.agent-chip:hover {
+	background: var(--panel);
+	opacity: 1;
+}
+.agent-chip svg,
+.agent-chip .agent-emoji {
+	width: 12px;
+	height: 12px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 11px;
+}
+.agent-icon-plus,
+.agent-icon-gear {
+	width: 22px;
+	height: 22px;
+	border-radius: 4px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--muted);
+	cursor: pointer;
+}
+.agent-icon-plus:hover,
+.agent-icon-gear:hover {
+	background: var(--panel);
+	color: var(--fg-2);
+}
+.agent-icon-plus svg,
+.agent-icon-gear svg {
+	width: 12px;
+	height: 12px;
+}
+.spacer {
+	flex: 1;
+}
+.set-run {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 10px;
+	border-radius: 4px;
+	background: var(--pink-dim);
+	color: var(--pink);
+	border: 1px solid rgba(255, 121, 198, 0.28);
+	font-size: 12px;
+}
+.set-run svg {
+	width: 10px;
+	height: 10px;
+}
+.set-run-chevron {
+	padding-left: 6px;
+	margin-left: 4px;
+	border-left: 1px solid rgba(255, 121, 198, 0.28);
+	opacity: 0.7;
+}
+
+/* Chat body */
+.chat {
+	flex: 1;
+	padding: 22px 28px;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+.chat-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--line);
+}
+.chat-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 10px;
+	border-radius: 999px;
+	border: 1px solid rgba(255, 121, 198, 0.36);
+	background: transparent;
+	color: var(--pink);
+	font-size: 11.5px;
+}
+.chat-title {
+	color: var(--fg-2);
+	opacity: 0.7;
+	font-size: 12px;
+}
+.chat-row {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+}
+.chat-row.you {
+	align-items: flex-end;
+}
+.chat-role {
+	color: var(--pink);
+	font-size: 10px;
+	letter-spacing: 0.14em;
+	font-weight: 600;
+	font-family: var(--font-mono);
+}
+.chat-row.you .chat-role {
+	color: var(--cyan);
+}
+.chat-bubble {
+	padding: 8px 14px;
+	border-radius: 8px;
+	color: var(--fg);
+	font-size: 12.5px;
+	line-height: 1.55;
+	max-width: 62%;
+}
+.chat-row.you .chat-bubble {
+	background: transparent;
+	border: 1px solid rgba(139, 233, 253, 0.28);
+}
+.chat-row.assistant .chat-bubble {
+	padding-left: 0;
+}
+.chat-row.assistant .chat-body {
+	color: var(--fg);
+	font-size: 12.5px;
+	line-height: 1.7;
+}
+.chat-row.assistant .chat-body li {
+	margin: 4px 0;
+}
+
+/* Files sidebar (right) */
+.files-pane {
+	grid-row: 2 / 4;
+	grid-column: 3;
+	background: var(--bg-2);
+	border-left: 1px solid var(--line);
+	display: flex;
+	flex-direction: column;
+}
+.files-tabs {
+	display: flex;
+	align-items: stretch;
+	height: 38px;
+	border-bottom: 1px solid var(--line);
+}
+.files-tab {
+	padding: 0 14px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--fg-2);
+	opacity: 0.65;
+	font-size: 12px;
+	cursor: pointer;
+	position: relative;
+}
+.files-tab:hover {
+	opacity: 0.9;
+}
+.files-tab.active {
+	color: var(--pink);
+	opacity: 1;
+}
+.files-tab.active::after {
+	content: "";
+	position: absolute;
+	left: 12px;
+	right: 12px;
+	bottom: -1px;
+	height: 1.5px;
+	background: var(--pink);
+}
+.files-tab svg {
+	width: 12px;
+	height: 12px;
+}
+.files-search {
+	margin: 10px;
+	padding: 6px 10px;
+	border-radius: 4px;
+	background: var(--panel);
+	color: var(--muted);
+	font-size: 11.5px;
+}
+.files-icons {
+	padding: 4px 12px;
+	display: flex;
+	gap: 8px;
+	color: var(--muted);
+}
+.files-icons svg {
+	width: 14px;
+	height: 14px;
+}
+.files-list {
+	flex: 1;
+	overflow: hidden;
+	padding: 6px 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.files-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 8px;
+	border-radius: 4px;
+	color: var(--fg-2);
+	opacity: 0.7;
+	font-size: 11.5px;
+	font-family: var(--font-mono);
+}
+.files-item .diff {
+	margin-left: auto;
+	color: var(--green);
+	font-size: 10px;
+}
+.files-item .diff.mod {
+	color: var(--orange);
+}
+
+/* Bottom pane / terminal */
+.dock {
+	grid-column: 2;
+	grid-row: 3;
+	background: var(--bg-2);
+	border-top: 1px solid var(--line);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+.dock-body {
+	flex: 1;
+	padding: 12px 14px;
+	color: var(--fg-2);
+	font-family: var(--font-mono);
+	font-size: 11.5px;
+	overflow: hidden;
+}
+.dock-body .prompt {
+	color: var(--muted);
+}
+.dock-body .prompt .branch {
+	color: var(--purple);
+}
+.dock-body .prompt .cwd {
+	color: var(--cyan);
+}
+.dock-body .caret {
+	display: inline-block;
+	width: 7px;
+	height: 14px;
+	background: var(--pink);
+	vertical-align: -3px;
+	animation: blink 1s steps(2, end) infinite;
+	margin-left: 2px;
+}
+@keyframes blink {
+	50% {
+		opacity: 0;
+	}
+}
+
+/* Reserve rows: the main column spans rows 2-3 by default. When we need
+   a bottom dock, we split it into a chat row (2) + dock row (3). */
+.window--with-dock .main {
+	grid-row: 2;
+}
+
+/* ============================================================
+   Shared tab-bar primitives — every variant overrides colors/state.
+   Position: sits at the top of .main. Height stays at 40px.
+   ============================================================ */
+.tabbar {
+	display: flex;
+	align-items: stretch;
+	height: 40px;
+	min-width: 0;
+	position: relative;
+	flex-shrink: 0;
+}
+.tabs-track {
+	display: flex;
+	align-items: stretch;
+	min-width: 0;
+	flex: 1;
+	position: relative;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.tabs-track::-webkit-scrollbar {
+	display: none;
+}
+.tab {
+	width: 156px;
+	min-width: 0;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 8px 0 12px;
+	font-size: 12px;
+	color: var(--fg-2);
+	opacity: 0.6;
+	cursor: pointer;
+	position: relative;
+	transition:
+		opacity 120ms ease,
+		color 120ms ease,
+		background 120ms ease;
+	flex-shrink: 0;
+}
+.tab:hover {
+	opacity: 0.9;
+}
+.tab.active {
+	opacity: 1;
+	color: var(--fg);
+}
+.tab-icon {
+	width: 14px;
+	height: 14px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	color: var(--muted);
+}
+.tab.active .tab-icon,
+.tab.running .tab-icon {
+	color: var(--pink);
+}
+.tab-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tab-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 999px;
+	background: var(--muted);
+	opacity: 0.5;
+	flex-shrink: 0;
+}
+.tab.running .tab-dot {
+	background: var(--green);
+	opacity: 1;
+	box-shadow: 0 0 6px rgba(80, 250, 123, 0.5);
+}
+.tab-close {
+	width: 16px;
+	height: 16px;
+	border-radius: 3px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: currentColor;
+	opacity: 0;
+	transition:
+		opacity 120ms ease,
+		background 120ms ease;
+	flex-shrink: 0;
+}
+.tab:hover .tab-close {
+	opacity: 0.6;
+}
+.tab-close:hover {
+	opacity: 1;
+	background: rgba(255, 255, 255, 0.06);
+}
+.tab-close svg {
+	width: 9px;
+	height: 9px;
+}
+.tab-add {
+	width: 24px;
+	height: 24px;
+	margin: 0 6px;
+	border-radius: 4px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--muted);
+	align-self: center;
+	flex-shrink: 0;
+}
+.tab-add:hover {
+	background: var(--panel);
+	color: var(--fg-2);
+}
+.tab-add svg {
+	width: 12px;
+	height: 12px;
+}

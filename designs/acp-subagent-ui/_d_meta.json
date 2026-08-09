@@ -1,0 +1,25 @@
+{
+  "type": "design",
+  "title": "ACP Subagent Timeline",
+  "prompt": "Design subagent presentation for ACP while matching the current ACP UI style.",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "ACP Subagent Timeline": {
+      "versions": [
+        {
+          "path": "ACP Subagent Timeline.html",
+          "createdAt": "2026-08-09T13:53:06.105Z",
+          "status": "needs-review",
+          "subtitle": "Interactive subagent states with shared global permission card",
+          "viewport": {
+            "width": 1080,
+            "height": 830
+          }
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-08-09T13:53:06.106Z",
+  "updatedAt": "2026-08-09T13:59:26.067Z"
+}

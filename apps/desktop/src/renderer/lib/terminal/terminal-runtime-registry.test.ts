@@ -18,6 +18,7 @@ mock.module("renderer/lib/trpc-client", () => ({
 
 const { terminalRuntimeRegistry } = await import("./terminal-runtime-registry");
 const { tryPersistRuntimeState } = await import("./terminal-runtime");
+const { createTransport } = await import("./terminal-ws-transport");
 
 interface FakeStorageState {
 	values: Map<string, string>;
@@ -58,6 +59,39 @@ afterEach(() => {
 });
 
 describe("terminalRuntimeRegistry eviction cleanup", () => {
+	test("release removes ended sessions and clears their persisted snapshot", () => {
+		const terminalId = "session-ended-release";
+		const entryKey = `${terminalId}\u0000${terminalId}`;
+		const transport = createTransport();
+		transport.sessionEnded = true;
+		fakeStorage.values.set(`terminal-buffer:${terminalId}`, "scrollback");
+		fakeStorage.values.set(`terminal-dims:${terminalId}`, '{\\"cols\\":80}');
+		const registryInternals = terminalRuntimeRegistry as unknown as {
+			entries: Map<string, unknown>;
+			entryKeysByTerminalId: Map<string, Set<string>>;
+		};
+		registryInternals.entries.set(entryKey, {
+			terminalId,
+			instanceId: terminalId,
+			runtime: null,
+			transport,
+			linkManager: null,
+			pendingLinkHandlers: null,
+			disposeBufferChangeListener: null,
+			lastUsedAt: 0,
+		});
+		registryInternals.entryKeysByTerminalId.set(
+			terminalId,
+			new Set([entryKey]),
+		);
+
+		terminalRuntimeRegistry.release(terminalId);
+
+		expect(terminalRuntimeRegistry.has(terminalId)).toBe(false);
+		expect(fakeStorage.values.has(`terminal-buffer:${terminalId}`)).toBe(false);
+		expect(fakeStorage.values.has(`terminal-dims:${terminalId}`)).toBe(false);
+	});
+
 	test("keeps a runtime when dimensions fail to persist", () => {
 		const terminalId = "dimensions-write-failure";
 		const setItem = fakeStorage.storage.setItem.bind(fakeStorage.storage);

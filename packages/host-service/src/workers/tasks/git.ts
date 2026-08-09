@@ -9,6 +9,10 @@ import type { BaseRefFetchTarget } from "../../trpc/router/git/utils/base-ref-fr
 import { getChangedFilesForDiff } from "../../trpc/router/git/utils/git-helpers.ts";
 import type { GitStatusSnapshotComputation } from "../../trpc/router/git/utils/git-status.ts";
 import { getGitStatusSnapshot } from "../../trpc/router/git/utils/git-status.ts";
+import {
+	normalizeWorktreePath,
+	parseWorktreeList,
+} from "../../trpc/router/workspace-creation/shared/worktree-list.ts";
 import { defineWorkerTask } from "../define-worker-task.ts";
 
 export interface GitTaskEnv {
@@ -58,8 +62,73 @@ export const gitCommitFilesTask = defineWorkerTask<
 	},
 });
 
+/** Git reads used by delete preview/preflight. Kept together so even a large
+ * repository's status walk never blocks all host-service tRPC traffic. */
+export const gitWorktreeStateTask = defineWorkerTask<
+	{ worktreePath: string; gitEnv: GitTaskEnv },
+	{ hasChanges: boolean; hasUnpushedCommits: boolean }
+>({
+	type: "git/worktreeState",
+	handler: async ({ worktreePath, gitEnv }) => {
+		const git = createUserSimpleGit(worktreePath).env(gitEnv);
+		const status = await git.status();
+		let hasUnpushedCommits = false;
+		try {
+			const result = await git.raw([
+				"rev-list",
+				"--count",
+				"HEAD",
+				"--not",
+				"--remotes",
+			]);
+			const count = Number.parseInt(result.trim(), 10);
+			hasUnpushedCommits = Number.isFinite(count) && count > 0;
+		} catch {
+			// No upstream/readable history is not itself an unsafe delete signal.
+		}
+		return { hasChanges: !status.isClean(), hasUnpushedCommits };
+	},
+});
+
+export const gitWorktreeRemoveTask = defineWorkerTask<
+	{ repoPath: string; worktreePath: string; gitEnv: GitTaskEnv },
+	{ stillRegistered: boolean }
+>({
+	type: "git/removeWorktree",
+	handler: async ({ repoPath, worktreePath, gitEnv }) => {
+		const git = createUserSimpleGit(repoPath).env(gitEnv);
+		const target = normalizeWorktreePath(worktreePath);
+		await git
+			.raw(["worktree", "remove", "--force", "--force", target])
+			.catch(() => {});
+		const raw = await git.raw(["worktree", "list", "--porcelain"]);
+		return {
+			stillRegistered: parseWorktreeList(raw).some(
+				(worktree) => normalizeWorktreePath(worktree.path) === target,
+			),
+		};
+	},
+});
+
+export const gitDeleteBranchTask = defineWorkerTask<
+	{ repoPath: string; branch: string; gitEnv: GitTaskEnv },
+	{ deleted: boolean }
+>({
+	type: "git/deleteLocalBranch",
+	handler: async ({ repoPath, branch, gitEnv }) => {
+		const git = createUserSimpleGit(repoPath).env(gitEnv);
+		const listed = await git.raw(["branch", "--list", branch]);
+		if (!listed.trim()) return { deleted: false };
+		await git.raw(["branch", "-D", branch]);
+		return { deleted: true };
+	},
+});
+
 export const gitTasks = [
 	gitStatusSnapshotTask,
 	gitFetchBaseRefTask,
 	gitCommitFilesTask,
+	gitWorktreeStateTask,
+	gitWorktreeRemoveTask,
+	gitDeleteBranchTask,
 ];

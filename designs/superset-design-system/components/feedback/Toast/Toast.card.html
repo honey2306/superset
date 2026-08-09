@@ -1,0 +1,28 @@
+<!-- @dsCard group="Components" viewport="720x220" name="Toast" subtitle="success / info / warn / error" -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../../styles.css" />
+  <link rel="stylesheet" href="../../../components.css" />
+</head>
+<body>
+  <div id="root" style="padding:24px;display:flex;flex-direction:column;gap:10px;align-items:flex-start"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const { Toast } = window.SupersetDesignSystem_91a6da;
+    const cardRoot = ReactDOM.createRoot(document.getElementById("root"));
+    cardRoot.render(
+      <>
+        <Toast tone="success">已切换到 feat/kro-suite</Toast>
+        <Toast>已拉取 main · 12 commits</Toast>
+        <Toast tone="warn">推送时发现冲突,请先 pull</Toast>
+        <Toast tone="error">fetch 失败:无法连接 origin</Toast>
+      </>,
+    );
+  </script>
+</body>
+</html>

@@ -28,6 +28,8 @@ export interface SubscribeToSessionOptions {
 	 * it currently is.
 	 */
 	since?: number;
+	/** The journal incarnation associated with `since`. */
+	epoch?: string;
 	onEnvelope: (envelope: SessionUpdateEnvelope) => void;
 	/**
 	 * A reset frame means the server cannot serve our cursor (journal evicted,
@@ -86,6 +88,7 @@ export function subscribeToSession(
 	// lastSeq doubles as the dedup floor and the reconnect cursor. When the
 	// caller gave no `since`, we accept the first live envelope at any seq.
 	let lastSeq = options.since ?? 0;
+	let epoch = options.epoch;
 	let hasCursor = options.since !== undefined;
 	let stopped = false;
 	let attempts = 0;
@@ -95,7 +98,8 @@ export function subscribeToSession(
 	function withCursor(base: string): string {
 		if (!hasCursor) return base;
 		const separator = base.includes("?") ? "&" : "?";
-		return `${base}${separator}since=${lastSeq}`;
+		const cursor = `${base}${separator}since=${lastSeq}`;
+		return epoch ? `${cursor}&epoch=${encodeURIComponent(epoch)}` : cursor;
 	}
 
 	function stop(status: StreamStatus = "stopped"): void {
@@ -134,6 +138,11 @@ export function subscribeToSession(
 			return;
 		}
 		if (hasCursor) {
+			if (epoch !== undefined && envelope.epoch !== epoch) {
+				onReset?.("epoch_mismatch");
+				stop();
+				return;
+			}
 			if (envelope.seq <= lastSeq) return; // at-least-once dedup
 			if (envelope.seq > lastSeq + 1) {
 				onGap?.({ expected: lastSeq + 1, received: envelope.seq });
@@ -142,6 +151,7 @@ export function subscribeToSession(
 			}
 		}
 		lastSeq = envelope.seq;
+		epoch = envelope.epoch;
 		hasCursor = true;
 		onEnvelope(envelope);
 	}

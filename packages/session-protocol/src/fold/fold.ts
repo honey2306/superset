@@ -39,6 +39,8 @@ export interface PermissionView {
 	requestedAt: number;
 	/** Mirrors PendingPermission.multiSelect: collect picks, answer on Done. */
 	multiSelect?: boolean;
+	/** True for an ACP form elicitation rather than request_permission. */
+	isElicitation?: boolean;
 	/** null while a client answer is still pending. */
 	resolution: RequestPermissionOutcome | null;
 }
@@ -48,6 +50,14 @@ export interface ToolCallItem {
 	/** The ACP toolCallId. */
 	id: string;
 	call: ToolCall;
+	/**
+	 * Normalized terminal stream emitted by adapters such as Pi. ACP represents
+	 * its info, output deltas, and exit status as separate `_meta` frames; keep
+	 * that durable stream on the owning tool rather than treating the opaque
+	 * terminal id as a desktop terminal pane. Streams are keyed by ACP terminal
+	 * id because a tool can own more than one.
+	 */
+	terminals?: Record<string, TerminalStream>;
 	permissions: PermissionView[];
 	/**
 	 * Subagent timeline nested under its Task tool call. An item lands here
@@ -59,6 +69,15 @@ export interface ToolCallItem {
 	children: TimelineItem[];
 	startSeq: number;
 	endSeq: number;
+}
+
+export interface TerminalStream {
+	terminalId: string;
+	cwd?: string;
+	/** Concatenated non-empty output deltas, in received order. */
+	output: string;
+	exitCode?: number;
+	signal?: string | null;
 }
 
 export interface PlanItem {
@@ -121,6 +140,17 @@ export function foldEnvelopes(
 	envelopes: SessionUpdateEnvelope[],
 ): FoldedTimeline {
 	let next = timeline;
+	if (next.state === null) {
+		const stateEnvelope = envelopes.find(
+			(envelope) => envelope.frame.kind === "state",
+		);
+		if (stateEnvelope?.frame.kind === "state") {
+			// Resumed adapters may replay transcript chunks before their first state
+			// frame. Seed adapter identity so harness-specific chunk semantics apply
+			// to the whole replay; the normal fold still applies state frames in order.
+			next = { ...next, state: stateEnvelope.frame.state };
+		}
+	}
 	for (const envelope of envelopes) {
 		next = foldEnvelope(next, envelope);
 	}
@@ -198,6 +228,13 @@ export function foldEnvelope(
 			break;
 		case "state":
 			next.state = frame.state;
+			// State frames are authoritative snapshots. Incremental mode/config
+			// updates do not always accompany a client-initiated config change, so
+			// retaining their older meta values would leave pickers stale even though
+			// state has the current catalog.
+			next.meta.currentMode = frame.state.currentMode;
+			next.meta.configOptions = frame.state.configOptions;
+			next.meta.availableCommands = frame.state.availableCommands;
 			break;
 		case "reset":
 			next.resetReason = frame.reason;
@@ -329,6 +366,37 @@ function appendChunk(
 		const blocks = [...last.blocks];
 		const previous = blocks[blocks.length - 1];
 		if (previous?.type === "text" && content.type === "text") {
+			const cumulativeSnapshot =
+				role === "agent" &&
+				(timeline.state?.harness === "myflicker-acp" ||
+					timeline.state?.harness === "codex-app-server" ||
+					timeline.state?.harness === "pi-acp");
+			if (cumulativeSnapshot) {
+				// MyFlicker, Codex app-server, and Pi can emit the final item snapshot
+				// after streaming its text. Treat exact repeats as no-ops and a strict
+				// extension as a replacement. The strict checks deliberately leave
+				// normal chunks (and ambiguous edits) alone, so Claude retains ACP
+				// delta semantics.
+				if (
+					content.text === previous.text ||
+					previous.text.endsWith(content.text)
+				) {
+					timeline.items[timeline.items.length - 1] = {
+						...last,
+						endSeq: seq,
+					};
+					return;
+				}
+				if (content.text.startsWith(previous.text)) {
+					blocks[blocks.length - 1] = { ...previous, text: content.text };
+					timeline.items[timeline.items.length - 1] = {
+						...last,
+						blocks,
+						endSeq: seq,
+					};
+					return;
+				}
+			}
 			// Agent/thought chunks are streaming fragments of one message — plain
 			// concatenation. User chunks are whole blocks of one prompt (the
 			// adapter doesn't echo prompts; the host journals them itself), so
@@ -418,6 +486,95 @@ function mergeToolCall(base: ToolCall, patch: ToolCallPatch): ToolCall {
 	};
 }
 
+type TerminalStreamPatch = {
+	terminalId: string;
+	cwd?: string;
+	outputDelta?: string;
+	exitCode?: number;
+	signal?: string | null;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: null;
+}
+
+function nonEmptyString(value: unknown): string | null {
+	return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/**
+ * Pi 0.0.33 emits terminal state across three independently-shaped `_meta`
+ * payloads. The update's toolCallId determines ownership; terminal_id is an
+ * opaque adapter identifier and may legitimately differ from it.
+ */
+function terminalStreamPatches(patch: ToolCallPatch): TerminalStreamPatch[] {
+	const meta = asRecord(patch._meta);
+	if (!meta) return [];
+	const info = asRecord(meta.terminal_info);
+	const output = asRecord(meta.terminal_output);
+	const exit = asRecord(meta.terminal_exit);
+	const result: TerminalStreamPatch[] = [];
+	if (info) {
+		const terminalId = nonEmptyString(info.terminal_id);
+		const cwd = nonEmptyString(info.cwd);
+		if (terminalId) result.push({ terminalId, ...(cwd ? { cwd } : {}) });
+	}
+	if (output) {
+		const terminalId = nonEmptyString(output.terminal_id);
+		const outputDelta = nonEmptyString(output.data);
+		// Pi's bashOutputDelta explicitly supplies deltas. Empty frames only
+		// signal activity, so they must not invent output.
+		if (terminalId) {
+			result.push({ terminalId, ...(outputDelta ? { outputDelta } : {}) });
+		}
+	}
+	if (exit) {
+		const terminalId = nonEmptyString(exit.terminal_id);
+		const exitCode =
+			typeof exit.exit_code === "number" && Number.isFinite(exit.exit_code)
+				? exit.exit_code
+				: undefined;
+		const signal =
+			typeof exit.signal === "string" || exit.signal === null
+				? exit.signal
+				: undefined;
+		if (terminalId) {
+			result.push({
+				terminalId,
+				...(exitCode !== undefined ? { exitCode } : {}),
+				...(signal !== undefined ? { signal } : {}),
+			});
+		}
+	}
+	return result;
+}
+
+function mergeTerminalStreams(
+	base: Record<string, TerminalStream> | undefined,
+	patch: TerminalStreamPatch | null,
+): Record<string, TerminalStream> | undefined {
+	if (!patch) return base;
+	const previous = base?.[patch.terminalId];
+	const output = `${previous?.output ?? ""}${patch.outputDelta ?? ""}`;
+	return {
+		...base,
+		[patch.terminalId]: {
+			terminalId: patch.terminalId,
+			output,
+			...(previous?.cwd ? { cwd: previous.cwd } : {}),
+			...(patch.cwd ? { cwd: patch.cwd } : {}),
+			...(previous?.exitCode !== undefined
+				? { exitCode: previous.exitCode }
+				: {}),
+			...(patch.exitCode !== undefined ? { exitCode: patch.exitCode } : {}),
+			...(previous?.signal !== undefined ? { signal: previous.signal } : {}),
+			...(patch.signal !== undefined ? { signal: patch.signal } : {}),
+		},
+	};
+}
+
 /**
  * The claude-agent adapter tags subagent activity with the spawning Task
  * tool's id via `_meta.claudeCode.parentToolUseId`. Not every frame carries
@@ -445,6 +602,9 @@ function upsertToolCall(
 	seq: number,
 	createCall: () => ToolCall,
 ): void {
+	const terminalPatches = terminalStreamPatches(patch);
+	const mergeTerminals = (base: Record<string, TerminalStream> | undefined) =>
+		terminalPatches.reduce(mergeTerminalStreams, base);
 	const parentId = claudeParentToolUseId(patch);
 	if (parentId && hasToolCall(timeline.items, parentId)) {
 		const strayIndex = timeline.items.findIndex(
@@ -455,7 +615,12 @@ function upsertToolCall(
 			timeline.items.splice(strayIndex, 1);
 			insertToolCall(
 				timeline.items,
-				{ ...stray, call: mergeToolCall(stray.call, patch), endSeq: seq },
+				{
+					...stray,
+					call: mergeToolCall(stray.call, patch),
+					terminals: mergeTerminals(stray.terminals),
+					endSeq: seq,
+				},
 				parentId,
 				seq,
 			);
@@ -469,6 +634,7 @@ function upsertToolCall(
 		(item) => ({
 			...item,
 			call: mergeToolCall(item.call, patch),
+			terminals: mergeTerminals(item.terminals),
 			endSeq: seq,
 		}),
 	);
@@ -479,6 +645,9 @@ function upsertToolCall(
 			kind: "tool_call",
 			id: patch.toolCallId,
 			call: createCall(),
+			...(terminalPatches.length > 0
+				? { terminals: mergeTerminals(undefined) }
+				: {}),
 			permissions: [],
 			children: [],
 			startSeq: seq,

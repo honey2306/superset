@@ -1,5 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
-import type { HostAuthProvider } from "../types";
+import type { AuthValidationResult, HostAuthProvider } from "../types";
+
+const NO: AuthValidationResult = { ok: false, kind: null };
 
 export class PskHostAuthProvider implements HostAuthProvider {
 	private readonly secretBuffer: Buffer;
@@ -8,14 +10,16 @@ export class PskHostAuthProvider implements HostAuthProvider {
 		this.secretBuffer = Buffer.from(secret);
 	}
 
-	validate(request: Request): boolean {
+	validate(request: Request): AuthValidationResult {
 		const header = request.headers.get("authorization");
 		const token = header?.startsWith("Bearer ") ? header.slice(7) : null;
-		return token !== null && this.safeEqual(token);
+		if (token === null || !this.safeEqual(token)) return NO;
+		return { ok: true, kind: "psk" };
 	}
 
-	validateToken(token: string): boolean {
-		return this.safeEqual(token);
+	validateToken(token: string): AuthValidationResult {
+		if (!this.safeEqual(token)) return NO;
+		return { ok: true, kind: "psk" };
 	}
 
 	private safeEqual(input: string): boolean {

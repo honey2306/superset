@@ -20,6 +20,7 @@ import type {
 	SelectTaskStatus,
 	SelectTeam,
 	SelectTeamMember,
+	SelectTodo,
 	SelectUser,
 	SelectV2Client,
 	SelectV2Host,
@@ -48,6 +49,7 @@ import { env } from "renderer/env.renderer";
 import { track } from "renderer/lib/analytics";
 import { getAuthToken, getJwt } from "renderer/lib/auth-client";
 import { refreshJwtAfterUnauthorized } from "renderer/lib/jwt-refresh";
+import { reclaimTerminalStateForQuota } from "renderer/lib/terminal/terminal-buffer-gc";
 import superjson from "superjson";
 import { z } from "zod";
 import {
@@ -65,6 +67,8 @@ import {
 	workspaceLocalStateSchema,
 } from "./dashboardSidebarLocal";
 import { evictInactiveOrgs } from "./evictInactiveOrgs";
+import { notifyQuotaExhausted } from "./notifyQuotaExhausted";
+import { withQuotaGuard } from "./withQuotaGuard";
 import { withReadHeal } from "./withReadHeal";
 
 const columnMapper = snakeCamelMapper();
@@ -92,6 +96,12 @@ const createIndexedCollection = ((
 	config: Parameters<typeof createCollection>[0],
 ) =>
 	createCollection({ ...config, ...indexDefaults })) as typeof createCollection;
+
+const guardQuota = <T>(options: T): T =>
+	withQuotaGuard(options, {
+		reclaim: () => reclaimTerminalStateForQuota(),
+		onPersistFailed: (storageKey) => notifyQuotaExhausted(storageKey),
+	});
 
 type ElectricSyncConfig = ReturnType<typeof electricCollectionOptions>;
 const createPersistedElectricCollection = ((config: ElectricSyncConfig) => {
@@ -146,6 +156,7 @@ export interface OrgCollections {
 	githubPullRequests: Collection<SelectGithubPullRequest>;
 	automations: Collection<SelectAutomation>;
 	automationRuns: Collection<SelectAutomationRun>;
+	todos: Collection<SelectTodo>;
 	v2SidebarProjects: Collection<
 		DashboardSidebarProjectRow,
 		string,
@@ -721,13 +732,34 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		}),
 	);
 
-	const v2SidebarProjects = createIndexedCollection(
-		localStorageCollectionOptions({
-			id: `v2_sidebar_projects-${organizationId}`,
-			storageKey: `v2-sidebar-projects-${organizationId}`,
-			schema: dashboardSidebarProjectSchema,
-			getKey: (item) => item.projectId,
+	const todos = createPersistedElectricCollection(
+		electricCollectionOptions<SelectTodo>({
+			id: `todos-${organizationId}`,
+			shapeOptions: {
+				url: electricUrl,
+				params: {
+					table: "todos",
+					organizationId,
+				},
+				headers: electricHeaders,
+				columnMapper,
+				onError: handleElectricSyncError,
+			},
+			getKey: (item) => item.id,
 		}),
+	);
+	todos.createIndex((todo) => todo.status, basicIndexConfig);
+	todos.createIndex((todo) => todo.ownerUserId, basicIndexConfig);
+
+	const v2SidebarProjects = createIndexedCollection(
+		localStorageCollectionOptions(
+			guardQuota({
+				id: `v2_sidebar_projects-${organizationId}`,
+				storageKey: `v2-sidebar-projects-${organizationId}`,
+				schema: dashboardSidebarProjectSchema,
+				getKey: (item: DashboardSidebarProjectRow) => item.projectId,
+			}),
+		),
 	);
 	v2SidebarProjects.createIndex(
 		(sidebarProject) => sidebarProject.tabOrder,
@@ -736,16 +768,18 @@ function createOrgCollections(organizationId: string): OrgCollections {
 
 	const v2WorkspaceLocalState = createIndexedCollection(
 		localStorageCollectionOptions(
-			withReadHeal(
-				{
-					id: `v2_workspace_local_state-${organizationId}`,
-					storageKey: `v2-workspace-local-state-${organizationId}`,
-					schema: workspaceLocalStateSchema,
-					// Explicit type so `withReadHeal`'s passthrough generic keeps the
-					// linkage between schema and getKey for downstream inference.
-					getKey: (item: WorkspaceLocalStateRow) => item.workspaceId,
-				},
-				healWorkspaceLocalState,
+			guardQuota(
+				withReadHeal(
+					{
+						id: `v2_workspace_local_state-${organizationId}`,
+						storageKey: `v2-workspace-local-state-${organizationId}`,
+						schema: workspaceLocalStateSchema,
+						// Explicit type so `withReadHeal`'s passthrough generic keeps the
+						// linkage between schema and getKey for downstream inference.
+						getKey: (item: WorkspaceLocalStateRow) => item.workspaceId,
+					},
+					healWorkspaceLocalState,
+				),
 			),
 		),
 	);
@@ -763,12 +797,14 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const v2SidebarSections = createIndexedCollection(
-		localStorageCollectionOptions({
-			id: `v2_sidebar_sections-${organizationId}`,
-			storageKey: `v2-sidebar-sections-${organizationId}`,
-			schema: dashboardSidebarSectionSchema,
-			getKey: (item) => item.sectionId,
-		}),
+		localStorageCollectionOptions(
+			guardQuota({
+				id: `v2_sidebar_sections-${organizationId}`,
+				storageKey: `v2-sidebar-sections-${organizationId}`,
+				schema: dashboardSidebarSectionSchema,
+				getKey: (item: DashboardSidebarSectionRow) => item.sectionId,
+			}),
+		),
 	);
 	v2SidebarSections.createIndex(
 		(section) => section.projectId,
@@ -780,28 +816,32 @@ function createOrgCollections(organizationId: string): OrgCollections {
 	);
 
 	const v2TerminalPresets = createIndexedCollection(
-		localStorageCollectionOptions({
-			id: `v2_terminal_presets-${organizationId}`,
-			storageKey: `v2-terminal-presets-${organizationId}`,
-			schema: v2TerminalPresetSchema,
-			getKey: (item) => item.id,
-		}),
+		localStorageCollectionOptions(
+			guardQuota({
+				id: `v2_terminal_presets-${organizationId}`,
+				storageKey: `v2-terminal-presets-${organizationId}`,
+				schema: v2TerminalPresetSchema,
+				getKey: (item: V2TerminalPresetRow) => item.id,
+			}),
+		),
 	);
 
 	const v2UserPreferences = createCollection(
 		localStorageCollectionOptions(
-			withReadHeal(
-				{
-					id: `v2_user_preferences-${organizationId}`,
-					storageKey: `v2-user-preferences-${organizationId}`,
-					schema: v2UserPreferencesSchema,
-					// Cast widens the inferred literal "preferences" key to string so
-					// the collection slots into the shared OrgCollections.{...<TKey=string>}
-					// shape alongside the other v2 collections. Explicit `item` type so
-					// `withReadHeal`'s passthrough generic keeps schema/getKey linkage.
-					getKey: (item: V2UserPreferencesRow) => item.id as string,
-				},
-				healV2UserPreferences,
+			guardQuota(
+				withReadHeal(
+					{
+						id: `v2_user_preferences-${organizationId}`,
+						storageKey: `v2-user-preferences-${organizationId}`,
+						schema: v2UserPreferencesSchema,
+						// Cast widens the inferred literal "preferences" key to string so
+						// the collection slots into the shared OrgCollections.{...<TKey=string>}
+						// shape alongside the other v2 collections. Explicit `item` type so
+						// `withReadHeal`'s passthrough generic keeps schema/getKey linkage.
+						getKey: (item: V2UserPreferencesRow) => item.id as string,
+					},
+					healV2UserPreferences,
+				),
 			),
 		),
 	);
@@ -829,6 +869,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		githubPullRequests,
 		automations,
 		automationRuns,
+		todos,
 		v2SidebarProjects,
 		v2WorkspaceLocalState,
 		v2SidebarSections,

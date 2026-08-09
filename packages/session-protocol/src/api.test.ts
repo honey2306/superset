@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+	closeSessionInput,
+	createSessionInput,
 	decodeMessagesCursor,
 	encodeMessagesCursor,
 	getMessagesInput,
@@ -29,6 +31,26 @@ describe("messages cursor", () => {
 });
 
 describe("router input schemas", () => {
+	test("createSessionInput keeps Claude as the omission-compatible default and admits every harness", () => {
+		expect(
+			createSessionInput.parse({ sessionId: "s1", workspaceId: "w1" }).harness,
+		).toBeUndefined();
+		for (const harness of [
+			"claude-agent-acp",
+			"codex-app-server",
+			"pi-acp",
+			"myflicker-acp",
+		] as const) {
+			expect(
+				createSessionInput.parse({
+					sessionId: "s1",
+					workspaceId: "w1",
+					harness,
+				}).harness,
+			).toBe(harness);
+		}
+	});
+
 	test("promptInput requires at least one structurally valid content block", () => {
 		expect(
 			promptInput.safeParse({
@@ -43,6 +65,11 @@ describe("router input schemas", () => {
 			promptInput.safeParse({ sessionId: "s1", prompt: [{ text: "no type" }] })
 				.success,
 		).toBe(false);
+	});
+
+	test("closeSessionInput requires a non-empty session id", () => {
+		expect(closeSessionInput.safeParse({ sessionId: "s1" }).success).toBe(true);
+		expect(closeSessionInput.safeParse({ sessionId: "" }).success).toBe(false);
 	});
 
 	test("respondToPermissionInput accepts both outcome shapes and rejects junk", () => {

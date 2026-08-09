@@ -19,16 +19,23 @@ let bootstrapPromise: Promise<unknown> | null = null;
  * package's `dist/pty-daemon.js`. Either is fine — both are real Node
  * scripts.
  */
-export function resolveSupervisorScriptPath(): string {
+export function resolveSupervisorScriptPath(
+	moduleUrl = import.meta.url,
+): string {
 	const override = process.env.SUPERSET_PTY_DAEMON_SCRIPT_PATH;
 	if (override) return override;
 
-	const here = path.dirname(fileURLToPath(import.meta.url));
-	// Production / dev (electron-vite bundle): host-service.js and
-	// pty-daemon.js are emitted side-by-side in the same dist directory,
-	// so `here` and the daemon entry share a parent.
-	const sideBySide = path.resolve(here, "pty-daemon.js");
-	if (existsSync(sideBySide)) return sideBySide;
+	const here = path.dirname(fileURLToPath(moduleUrl));
+	// Production / dev bundle: the daemon is emitted beside host-service.js.
+	// Rollup may place this module in a chunks/ directory, so also check the
+	// entry directory one level above the current chunk.
+	const bundledCandidates = [
+		path.resolve(here, "pty-daemon.js"),
+		path.resolve(here, "..", "pty-daemon.js"),
+	];
+	for (const candidate of bundledCandidates) {
+		if (existsSync(candidate)) return candidate;
+	}
 
 	// Source-running fallback (`bun run` from packages/host-service):
 	// `here` is `packages/host-service/src/daemon/`; the daemon's bundled

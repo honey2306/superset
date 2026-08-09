@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TRPCClientError } from "@trpc/client";
 import { eq } from "drizzle-orm";
+import { simpleGit } from "simple-git";
 import { workspaces } from "../../src/db/schema";
 import { type BasicScenario, createBasicScenario } from "../helpers/scenarios";
 
@@ -34,6 +36,52 @@ describe("git router integration", () => {
 		await expect(
 			scenario.host.trpc.git.listBranches.query({ workspaceId: "no-such-ws" }),
 		).rejects.toBeInstanceOf(TRPCClientError);
+	});
+
+	test("pullBranch fast-forwards a non-current branch without switching", async () => {
+		const bareRepoPath = mkdtempSync(
+			join(tmpdir(), "host-service-pull-branch-"),
+		);
+		try {
+			await simpleGit().init(["--bare", "--initial-branch=main", bareRepoPath]);
+			await scenario.repo.git.addRemote("origin", bareRepoPath);
+			await scenario.repo.git.checkoutLocalBranch("feature/pull-me");
+			const oldCommit = await scenario.repo.commit("old", {
+				"feature.txt": "old",
+			});
+			await scenario.repo.git.push("origin", "feature/pull-me", [
+				"--set-upstream",
+			]);
+
+			const remoteCommit = await scenario.repo.commit("remote", {
+				"feature.txt": "remote",
+			});
+			await scenario.repo.git.push("origin", "feature/pull-me");
+			await scenario.repo.git.checkout("main");
+			await scenario.repo.git.branch(["-f", "feature/pull-me", oldCommit]);
+			await scenario.repo.git.raw([
+				"update-ref",
+				"refs/remotes/origin/feature/pull-me",
+				oldCommit,
+			]);
+
+			await scenario.host.trpc.git.pullBranch.mutate({
+				workspaceId: scenario.workspaceId,
+				branch: "feature/pull-me",
+			});
+
+			expect(
+				(await scenario.repo.git.revparse(["--abbrev-ref", "HEAD"])).trim(),
+			).toBe("main");
+			expect(
+				(await scenario.repo.git.revparse(["feature/pull-me"])).trim(),
+			).toBe(remoteCommit);
+			expect(
+				(await scenario.repo.git.revparse(["origin/feature/pull-me"])).trim(),
+			).toBe(remoteCommit);
+		} finally {
+			rmSync(bareRepoPath, { recursive: true, force: true });
+		}
 	});
 
 	test("getStatus on a clean repo reports no staged or unstaged changes", async () => {

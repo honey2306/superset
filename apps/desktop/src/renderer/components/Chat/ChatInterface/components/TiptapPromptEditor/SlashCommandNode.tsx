@@ -31,6 +31,7 @@ function SlashCommandChip({
 	const hasArgs = argumentHint.trim().length > 0;
 
 	const inputRef = useRef<HTMLInputElement>(null);
+	const selectedOptionRef = useRef<HTMLDivElement>(null);
 	const [isEditing, setIsEditing] = useState(hasArgs);
 	// Which item is highlighted in the dropdown — owned here so arrow keys work
 	const [selectedValue, setSelectedValue] = useState<string>(
@@ -54,6 +55,13 @@ function SlashCommandChip({
 			setSelectedValue(filteredOptions[0] ?? "");
 		}
 	}, [filteredOptions, selectedValue]);
+
+	// Arrow-key navigation is owned by the chip input, so cmdk does not perform
+	// its usual active-item scrolling for us.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedValue changes which option owns the ref
+	useEffect(() => {
+		selectedOptionRef.current?.scrollIntoView({ block: "nearest" });
+	}, [selectedValue]);
 
 	// Focus input (with rAF so Tiptap's DOM commit has settled) whenever edit mode opens
 	useEffect(() => {
@@ -274,9 +282,11 @@ function SlashCommandChip({
 				</PopoverAnchor>
 				{argumentOptions.length > 0 && (
 					<PopoverContent
-						className="w-56 p-0"
+						className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden border-[#ff79c6]/35 p-0 shadow-xl"
 						side="top"
 						align="start"
+						sideOffset={6}
+						avoidCollisions={false}
 						onOpenAutoFocus={(e) => e.preventDefault()}
 					>
 						<Command
@@ -284,17 +294,21 @@ function SlashCommandChip({
 							onValueChange={setSelectedValue}
 							shouldFilter={false}
 						>
-							<CommandList>
+							<CommandList className="max-h-60 scroll-py-1">
 								<CommandEmpty>{t("slashCommand.noMatch")}</CommandEmpty>
-								<CommandGroup>
+								<CommandGroup className="p-1">
 									{filteredOptions.map((opt) => (
 										<CommandItem
 											key={opt}
+											ref={
+												opt === selectedValue ? selectedOptionRef : undefined
+											}
 											value={opt}
+											className="relative min-w-0 py-2 pl-3 data-[selected=true]:bg-[#ff79c6]/10 data-[selected=true]:text-foreground data-[selected=true]:before:absolute data-[selected=true]:before:inset-y-1 data-[selected=true]:before:left-0 data-[selected=true]:before:w-0.5 data-[selected=true]:before:rounded-full data-[selected=true]:before:bg-[#ff79c6] data-[selected=true]:before:content-['']"
 											onSelect={() => handleSelectOption(opt)}
 											onMouseDown={(e) => e.preventDefault()}
 										>
-											{opt}
+											<span className="truncate">{opt}</span>
 										</CommandItem>
 									))}
 								</CommandGroup>

@@ -5,14 +5,22 @@ import type {
 	ToolCallUpdate,
 } from "@superset/session-protocol";
 import { useEffect, useState } from "react";
-import { AcpPermissionCard } from "./components/AcpPermissionCard";
+import {
+	AcpPermissionCard,
+	isAskUserPermission,
+} from "./components/AcpPermissionCard";
 import { ContentView } from "./components/ContentView";
 import { DiffView } from "./components/DiffView";
 import { TerminalRef } from "./components/TerminalRef";
 
 interface AcpToolCallItemProps {
 	item: ToolCallItem;
-	onRespond(requestId: string, outcome: RequestPermissionOutcome): void;
+	presentation?: "default" | "subagent";
+	onOpenFile?(path: string): void;
+	onRespond(
+		requestId: string,
+		outcome: RequestPermissionOutcome,
+	): Promise<void>;
 	renderChild(child: TimelineItem): React.ReactNode;
 }
 
@@ -44,7 +52,11 @@ export function classifyToolCallContent(
 	});
 }
 
-function statusText(call: ToolCallUpdate): string {
+export function toolCallStatusText(
+	call: ToolCallUpdate,
+	hasUnresolvedPermission: boolean,
+): string {
+	if (hasUnresolvedPermission) return "awaiting approval";
 	if (!call.status) return "running";
 	if (call.status === "completed") return "completed";
 	if (call.status === "failed") return "failed";
@@ -52,8 +64,45 @@ function statusText(call: ToolCallUpdate): string {
 	return call.status;
 }
 
+export function formatRawToolCallContent(content: unknown): string | undefined {
+	return JSON.stringify(content, null, 2);
+}
+
+const GENERIC_EXECUTE_TITLES = new Set([
+	"bash",
+	"command",
+	"execute",
+	"execute command",
+	"run command",
+	"shell",
+]);
+
+function commandFromRawInput(rawInput: unknown): string | undefined {
+	if (typeof rawInput !== "object" || rawInput === null) return undefined;
+	const command = (rawInput as Record<string, unknown>).command;
+	return typeof command === "string" && command.trim().length > 0
+		? command.trim()
+		: undefined;
+}
+
+/**
+ * Adapters sometimes announce a generic shell title before they include the
+ * command in a later completion update. Prefer that command, while retaining
+ * titles that carry useful adapter-provided context.
+ */
+export function toolCallTitle(call: ToolCallUpdate): string {
+	const title = call.title?.trim();
+	const command = commandFromRawInput(call.rawInput);
+	if (title && GENERIC_EXECUTE_TITLES.has(title.toLowerCase()) && command) {
+		return command;
+	}
+	return title || call.toolCallId;
+}
+
 export function AcpToolCallItem({
 	item,
+	presentation = "default",
+	onOpenFile,
 	onRespond,
 	renderChild,
 }: AcpToolCallItemProps) {
@@ -73,9 +122,10 @@ export function AcpToolCallItem({
 	const locations = call.locations ?? [];
 	const kind = call.kind ?? "other";
 	const status = call.status ?? "in_progress";
+	const title = toolCallTitle(call);
 
 	return (
-		<div className="acp-tool" data-kind={kind}>
+		<div className="acp-tool" data-kind={kind} data-presentation={presentation}>
 			<button
 				type="button"
 				className="acp-tool__head"
@@ -87,12 +137,15 @@ export function AcpToolCallItem({
 					{expanded ? "▾" : "›"}
 				</span>
 				<span className="acp-tool__kind">{kind}</span>
-				<span className="acp-tool__title select-text cursor-text">
-					{call.title ?? call.toolCallId}
-				</span>
-				<span className="acp-tool__meta" data-status={status}>
-					{status === "in_progress" && <span className="acp-blink">●</span>}
-					<span>{statusText(call)}</span>
+				<span className="acp-tool__title select-text cursor-text">{title}</span>
+				<span
+					className="acp-tool__meta"
+					data-status={hasUnresolvedPermission ? "awaiting_approval" : status}
+				>
+					{status === "in_progress" && !hasUnresolvedPermission && (
+						<span className="acp-blink">●</span>
+					)}
+					<span>{toolCallStatusText(call, hasUnresolvedPermission)}</span>
 				</span>
 			</button>
 
@@ -119,6 +172,10 @@ export function AcpToolCallItem({
 							<AcpPermissionCard
 								key={perm.requestId}
 								permission={perm}
+								sourceToolCall={call}
+								variant={
+									isAskUserPermission(perm, call) ? "askuser" : "permission"
+								}
 								onRespond={onRespond}
 							/>
 						))}
@@ -133,6 +190,7 @@ export function AcpToolCallItem({
 											path={entry.path}
 											oldText={entry.oldText}
 											newText={entry.newText}
+											onOpenFile={onOpenFile}
 										/>
 									);
 								}
@@ -141,6 +199,11 @@ export function AcpToolCallItem({
 										<TerminalRef
 											key={`t-${entry.terminalId}-${i}`}
 											terminalId={entry.terminalId}
+											title={call.title}
+											rawInput={call.rawInput}
+											rawOutput={call.rawOutput}
+											status={call.status}
+											terminal={item.terminals?.[entry.terminalId]}
 										/>
 									);
 								}
@@ -164,7 +227,7 @@ export function AcpToolCallItem({
 						<details className="acp-tool__raw">
 							<summary>Input</summary>
 							<pre className="select-text cursor-text">
-								{JSON.stringify(call.rawInput, null, 2)?.slice(0, 2000)}
+								{formatRawToolCallContent(call.rawInput)}
 							</pre>
 						</details>
 					)}
@@ -173,7 +236,7 @@ export function AcpToolCallItem({
 						<details className="acp-tool__raw">
 							<summary>Output</summary>
 							<pre className="select-text cursor-text">
-								{JSON.stringify(call.rawOutput, null, 2)?.slice(0, 2000)}
+								{formatRawToolCallContent(call.rawOutput)}
 							</pre>
 						</details>
 					)}

@@ -1,0 +1,55 @@
+/* Dracula tokens — mirrors designs/acp-terminal-agent/dracula-theme.css.
+   All designs use these; no hardcoded colors past this file. */
+:root[data-theme="dracula"] {
+	--bg: #282a36; /* app background */
+	--bg-2: #21222c; /* panel / sidebar background */
+	--bg-3: #1e1f29; /* the darkest — page frame around the app */
+	--panel: #2d2f3f; /* elevated surface */
+	--panel-2: #343746; /* hover / active surface */
+	--line: rgba(98, 114, 164, 0.18); /* faint hairline */
+	--line-hi: rgba(98, 114, 164, 0.36); /* stronger hairline */
+	--fg: #f8f8f2; /* primary text */
+	--fg-2: #d0d3e0; /* secondary text */
+	--muted: #6272a4; /* dimmed text / comments */
+	--dim: #44475a; /* dividers, chip bg */
+
+	--pink: #ff79c6; /* primary accent */
+	--pink-dim: rgba(255, 121, 198, 0.14);
+	--purple: #bd93f9;
+	--cyan: #8be9fd;
+	--green: #50fa7b;
+	--orange: #ffb86c;
+	--yellow: #f1fa8c;
+	--red: #ff5555;
+
+	--font-ui:
+		-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+		"Noto Sans SC", "Segoe UI", system-ui, sans-serif;
+	--font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	background: var(--bg-3);
+	color: var(--fg);
+	font-family: var(--font-ui);
+	font-size: 13px;
+	-webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+button {
+	font: inherit;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	padding: 0;
+}

@@ -1,0 +1,119 @@
+/* Superset DS — Colors (Dracula-only) */
+
+:root {
+	/* ---------- Base palette (Dracula) ---------- */
+	--dracula-bg: #282a36; /* @kind color */
+	--dracula-bg-deep: #1e1f29; /* @kind color */
+	--dracula-surface: #2d2f3f; /* @kind color */
+	--dracula-popover: #21222c; /* @kind color */
+	--dracula-current-line: #44475a; /* @kind color */
+	--dracula-comment: #6272a4; /* @kind color */
+	--dracula-fg: #f8f8f2; /* @kind color */
+	--dracula-pink: #ff79c6; /* @kind color */
+	--dracula-purple: #bd93f9; /* @kind color */
+	--dracula-green: #50fa7b; /* @kind color */
+	--dracula-orange: #ffb86c; /* @kind color */
+	--dracula-red: #ff5555; /* @kind color */
+	--dracula-cyan: #8be9fd; /* @kind color */
+	--dracula-yellow: #f1fa8c; /* @kind color */
+
+	/* ---------- Semantic surfaces ---------- */
+	--page-bg: var(--dracula-bg-deep); /* @kind color */
+	--surface: var(--dracula-bg); /* @kind color */
+	--surface-elev: color-mix(
+		in oklch,
+		var(--dracula-popover) 92%,
+		#fff 8%
+	); /* @kind color */
+	--surface-sunk: var(--dracula-popover); /* @kind color */
+	--overlay-scrim: rgba(0, 0, 0, 0.42); /* @kind color */
+
+	/* ---------- Text ---------- */
+	--fg: var(--dracula-fg); /* @kind color */
+	--fg-mute: color-mix(
+		in oklch,
+		var(--dracula-fg) 55%,
+		transparent
+	); /* @kind color */
+	--fg-faint: color-mix(
+		in oklch,
+		var(--dracula-fg) 38%,
+		transparent
+	); /* @kind color */
+	--fg-inverse: var(--dracula-bg); /* @kind color */
+
+	/* ---------- Lines & fills ---------- */
+	--line: color-mix(
+		in oklch,
+		var(--dracula-fg) 10%,
+		transparent
+	); /* @kind color */
+	--line-strong: color-mix(
+		in oklch,
+		var(--dracula-fg) 18%,
+		transparent
+	); /* @kind color */
+	--hover: color-mix(
+		in oklch,
+		var(--dracula-fg) 6%,
+		transparent
+	); /* @kind color */
+	--selected: color-mix(
+		in oklch,
+		var(--dracula-fg) 10%,
+		transparent
+	); /* @kind color */
+
+	/* ---------- Accent (pink) ---------- */
+	--accent: var(--dracula-pink); /* @kind color */
+	--accent-2: var(--dracula-purple); /* @kind color */
+	--accent-tint: color-mix(
+		in oklch,
+		var(--dracula-pink) 14%,
+		transparent
+	); /* @kind color */
+	--accent-line: color-mix(
+		in oklch,
+		var(--dracula-pink) 55%,
+		transparent
+	); /* @kind color */
+	--accent-glow: color-mix(
+		in oklch,
+		var(--dracula-pink) 55%,
+		transparent
+	); /* @kind color */
+
+	/* ---------- Semantic ---------- */
+	--success: var(--dracula-green); /* @kind color */
+	--warning: var(--dracula-orange); /* @kind color */
+	--danger: var(--dracula-red); /* @kind color */
+	--info: var(--dracula-cyan); /* @kind color */
+	--success-tint: color-mix(
+		in oklch,
+		var(--success) 12%,
+		transparent
+	); /* @kind color */
+	--warning-tint: color-mix(
+		in oklch,
+		var(--warning) 12%,
+		transparent
+	); /* @kind color */
+	--danger-tint: color-mix(
+		in oklch,
+		var(--danger) 14%,
+		transparent
+	); /* @kind color */
+	--info-tint: color-mix(
+		in oklch,
+		var(--info) 14%,
+		transparent
+	); /* @kind color */
+
+	/* ---------- Focus ring ---------- */
+	--ring: color-mix(in oklch, var(--accent) 55%, transparent); /* @kind color */
+	--ring-halo: color-mix(
+		in oklch,
+		var(--accent) 22%,
+		transparent
+	); /* @kind color */
+}

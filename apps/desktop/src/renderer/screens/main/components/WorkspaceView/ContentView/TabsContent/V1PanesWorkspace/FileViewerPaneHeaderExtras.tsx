@@ -3,16 +3,19 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import {
 	TbFold,
+	TbFolderOpen,
 	TbLayoutSidebarRightFilled,
 	TbListDetails,
 	TbPinFilled,
 } from "react-icons/tb";
+import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useChangesStore } from "renderer/stores/changes";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import type { FileViewerMode } from "shared/tabs-types";
 
 interface FileViewerPaneHeaderExtrasProps {
 	paneId: string;
+	filePath: string | null;
 	viewMode: FileViewerMode;
 	isPinned: boolean;
 	hasRenderedMode: boolean;
@@ -22,6 +25,7 @@ interface FileViewerPaneHeaderExtrasProps {
 
 export function FileViewerPaneHeaderExtras({
 	paneId,
+	filePath,
 	viewMode,
 	isPinned,
 	hasRenderedMode,
@@ -29,6 +33,7 @@ export function FileViewerPaneHeaderExtras({
 	onViewModeChange,
 }: FileViewerPaneHeaderExtrasProps) {
 	const pinPane = useTabsStore((s) => s.pinPane);
+	const openInFinderMutation = electronTrpc.external.openInFinder.useMutation();
 	const {
 		viewMode: diffViewMode,
 		setViewMode: setDiffViewMode,
@@ -125,6 +130,23 @@ export function FileViewerPaneHeaderExtras({
 						</TooltipContent>
 					</Tooltip>
 				</>
+			)}
+			{filePath && (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
+							type="button"
+							aria-label="Reveal in Finder"
+							onClick={() => openInFinderMutation.mutate(filePath)}
+							className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+						>
+							<TbFolderOpen className="size-3.5" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent side="bottom" showArrow={false}>
+						Reveal in Finder
+					</TooltipContent>
+				</Tooltip>
 			)}
 			{!isPinned && (
 				<Tooltip>

@@ -92,3 +92,20 @@ export const automationPromptSourceValues = [
 ] as const;
 export const automationPromptSourceEnum = z.enum(automationPromptSourceValues);
 export type AutomationPromptSource = z.infer<typeof automationPromptSourceEnum>;
+
+export const todoModeValues = ["auto", "manual"] as const;
+export const todoModeEnum = z.enum(todoModeValues);
+export type TodoMode = z.infer<typeof todoModeEnum>;
+
+export const todoStatusValues = [
+	"pending",
+	"notified",
+	"dispatching",
+	"dispatched",
+	"skipped_offline",
+	"dispatch_failed",
+	"done",
+	"canceled",
+] as const;
+export const todoStatusEnum = z.enum(todoStatusValues);
+export type TodoStatus = z.infer<typeof todoStatusEnum>;

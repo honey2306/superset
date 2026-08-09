@@ -46,6 +46,7 @@ import {
 	DEFAULT_SHOW_RESOURCE_MONITOR,
 	DEFAULT_TERMINAL_LINK_BEHAVIOR,
 	DEFAULT_TERMINAL_PARKED_RUNTIME_CAP,
+	DEFAULT_USE_ACP_FOR_AGENT_PRESETS,
 	DEFAULT_USE_COMPACT_TERMINAL_ADD_BUTTON,
 	MAX_TERMINAL_PARKED_RUNTIME_CAP,
 	MIN_TERMINAL_PARKED_RUNTIME_CAP,
@@ -659,6 +660,26 @@ export const createSettingsRouter = () => {
 				return { success: true };
 			}),
 
+		getUseAcpForAgentPresets: publicProcedure.query(() => {
+			const row = getSettings();
+			return row.useAcpForAgentPresets ?? DEFAULT_USE_ACP_FOR_AGENT_PRESETS;
+		}),
+
+		setUseAcpForAgentPresets: publicProcedure
+			.input(z.object({ enabled: z.boolean() }))
+			.mutation(({ input }) => {
+				localDb
+					.insert(settings)
+					.values({ id: 1, useAcpForAgentPresets: input.enabled })
+					.onConflictDoUpdate({
+						target: settings.id,
+						set: { useAcpForAgentPresets: input.enabled },
+					})
+					.run();
+
+				return { success: true };
+			}),
+
 		getUseCompactTerminalAddButton: publicProcedure.query(() => {
 			const row = getSettings();
 			return (
@@ -858,8 +879,19 @@ export const createSettingsRouter = () => {
 			return {
 				terminalFontFamily: row.terminalFontFamily ?? null,
 				terminalFontSize: row.terminalFontSize ?? null,
+				terminalLineHeight: row.terminalLineHeight ?? null,
+				terminalLetterSpacing: row.terminalLetterSpacing ?? null,
+				terminalFontWeight: row.terminalFontWeight ?? null,
+				terminalLigatures: row.terminalLigatures ?? null,
+				terminalMinimumContrast: row.terminalMinimumContrast ?? null,
+				terminalCursorStyle: row.terminalCursorStyle ?? null,
+				terminalCursorBlink: row.terminalCursorBlink ?? null,
 				editorFontFamily: row.editorFontFamily ?? null,
 				editorFontSize: row.editorFontSize ?? null,
+				editorLineHeight: row.editorLineHeight ?? null,
+				editorLetterSpacing: row.editorLetterSpacing ?? null,
+				editorFontWeight: row.editorFontWeight ?? null,
+				editorLigatures: row.editorLigatures ?? null,
 			};
 		}),
 

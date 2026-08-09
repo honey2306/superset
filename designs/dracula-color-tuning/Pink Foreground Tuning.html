@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>粉底白字 · 白色深浅分档</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --page-bg: #0d0e14;
+    --page-fg: #e6e6f0;
+    --page-muted: #8a8fa8;
+    --divider: #2a2c38;
+    --font-ui: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui);
+    background: var(--page-bg);
+    color: var(--page-fg);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+    padding: 32px 24px 80px;
+  }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
+  .lede { color: var(--page-muted); font-size: 13.5px; max-width: 940px; margin: 0 0 20px; }
+  .lede strong { color: var(--page-fg); }
+  .lede code { font-family: var(--font-mono); font-size: 12.5px; color: #ff8fd1; background: rgba(255,143,209,0.08); padding: 1px 6px; border-radius: 4px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin: 20px 0 32px;
+  }
+  @media (max-width: 1300px) { .grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+
+  .col-title {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 0 4px 10px;
+    border-bottom: 1px solid var(--divider);
+    margin-bottom: 12px;
+  }
+  .col-title .name { font-size: 13.5px; font-weight: 600; }
+  .col-title .rec { font-size: 10px; color: #ff8fd1; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
+  .col-title .tag { font-size: 10.5px; color: var(--page-muted); font-family: var(--font-mono); }
+
+  /* Compact preview */
+  .demo {
+    background: var(--bg);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    color: var(--fg);
+    font-family: var(--font-ui);
+    height: 480px;
+  }
+  .topbar {
+    background: var(--sidebar);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+  }
+  .topbar .team {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+  .pro-badge {
+    background: var(--primary);
+    color: var(--primary-fg);
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .body { padding: 14px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .row-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--primary);
+    color: var(--primary-fg);
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    display: inline-flex; align-items: center; gap: 5px;
+    border: none;
+  }
+  .btn-primary-big {
+    background: var(--primary);
+    color: var(--primary-fg);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%;
+  }
+  .pill-count {
+    background: var(--primary);
+    color: var(--primary-fg);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex; align-items: center;
+  }
+  .pill-round {
+    background: var(--primary);
+    color: var(--primary-fg);
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+
+  .commit-box {
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--muted-fg);
+  }
+
+  .row-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag-outline {
+    padding: 3px 8px; border-radius: 4px;
+    font-size: 11px;
+    background: var(--card);
+    border: 1px solid rgba(255,143,209,0.35);
+    color: var(--primary);
+  }
+
+  .label-row {
+    display: flex; align-items: center; justify-content: space-between;
+    color: var(--muted-fg);
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+  .label-row strong { color: var(--fg); font-family: var(--font-ui); font-weight: 500; }
+  .swatch-hex {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted-fg);
+  }
+  .swatch-hex .box { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1); }
+
+  .divider { border-top: 1px solid var(--border); margin: 4px 0; }
+
+  .info {
+    max-width: 940px;
+    padding: 14px 18px;
+    background: #14161f;
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--page-muted);
+  }
+  .info strong { color: var(--page-fg); }
+  .info code { font-family: var(--font-mono); color: #ff8fd1; background: rgba(255,143,209,0.08); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>粉底白字 · 白色深浅 4 档</h1>
+  <p class="lede">
+    你反馈"白色稍微淡一点"。我做了 4 档,从<strong>纯冷白</strong>到<strong>粉调白</strong>,横向对比每档在 PRO 徽章、Set Run、提交按钮、count 徽章上的效果。
+    <strong style="color:#ff8fd1">C 档「粉调白 #ffe4f2」推荐</strong> —— 白里带一点粉,和底色同源,视觉上不"生",最柔和舒适。
+  </p>
+
+  <div class="info" style="margin-bottom: 20px">
+    <strong>为什么"纯冷白"看着生:</strong>粉底 <code>#ff8fd1</code> 是暖色,冷白 <code>#f2f4ff</code> 是冷色,冷暖对撞产生"贴纸感"。让白色<strong>掺一点粉</strong> —— 白 → 粉的过渡就自然多了,像 Apple 的 System Pink 上文字用的手法。
+  </div>
+
+  <div class="grid">
+    <!-- A: 冷白 (当前 v7) -->
+    <div>
+      <div class="col-title"><div class="name">A · 冷白 (当前)</div><div class="tag">#f2f4ff</div></div>
+      <div class="demo" style="
+        --bg: #2f3244;
+        --sidebar: #3a3e56;
+        --card: #3a3e56;
+        --border: #525777;
+        --input: #464b68;
+        --fg: #f2f4ff;
+        --muted-fg: #a2b0d8;
+        --primary: #ff8fd1; --primary-fg: #f2f4ff;
+      ">
+        <div class="topbar">
+          <span style="font-family: var(--font-mono); color: var(--muted-fg); font-size:11px">🌿 /feat/acp...</span>
+          <div class="team">LT Local Admin's Team <span class="pro-badge">PRO</span></div>
+        </div>
+        <div class="body">
+          <div class="label-row"><strong>PRO 徽章</strong> <span class="swatch-hex"><span class="box" style="background:#f2f4ff"></span>f2f4ff</span></div>
+          <div class="row-buttons">
+            <button class="btn-primary">▶ Set Run</button>
+            <button class="btn-primary" style="padding: 7px 10px">Merge</button>
+          </div>
+          <div class="divider"></div>
+          <div class="label-row"><strong>提交按钮</strong> <span class="swatch-hex"><span class="box" style="background:#f2f4ff"></span>f2f4ff</span></div>
+          <div class="commit-box">提交信息</div>
+          <div class="btn-primary-big">✓ 提交</div>
+          <div class="divider"></div>
+          <div class="label-row"><strong>徽章 / Tag</strong></div>
+          <div class="row-tags">
+            <span class="pill-round">NEW</span>
+            <span class="pill-count">4</span>
+            <span class="tag-outline">/code-review</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B: 微粉白 -->
+    <div>
+      <div class="col-title"><div class="name">B · 微粉白</div><div class="tag">#fbecf3</div></div>
+      <div class="demo" style="
+        --bg: #2f3244;
+        --sidebar: #3a3e56;
+        --card: #3a3e56;
+        --border: #525777;
+        --input: #464b68;
+        --fg: #f2f4ff;
+        --muted-fg: #a2b0d8;
+        --primary: #ff8fd1; --primary-fg: #fbecf3;
+      ">
+        <div class="topbar">
+          <span style="font-family: var(--font-mono); color: var(--muted-fg); font-size:11px">🌿 /feat/acp...</span>
+          <div class="team">LT Local Admin's Team <span class="pro-badge">PRO</span></div>
+        </div>
+        <div class="body">
+          <div class="label-row"><strong>PRO 徽章</strong> <span class="swatch-hex"><span class="box" style="background:#fbecf3"></span>fbecf3</span></div>
+          <div class="row-buttons">
+            <button class="btn-primary">▶ Set Run</button>
+            <button class="btn-primary" style="padding: 7px 10px">Merge</button>
+          </div>
+          <div class="divider"></div>
+          <div class="label-row"><strong>提交按钮</strong> <span class="swatch-hex"><span class="box" style="background:#fbecf3"></span>fbecf3</span></div>
+          <div class="commit-box">提交信息</div>
+          <div class="btn-primary-big">✓ 提交</div>
+          <div class="divider"></div>
+          <div class="label-row"><strong>徽章 / Tag</strong></div>
+          <div class="row-tags">
+            <span class="pill-round">NEW</span>
+            <span class="pill-count">4</span>
+            <span class="tag-outline">/code-review</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C: 粉调白 ⭐ -->
+    <div>
+      <div class="col-title"><div class="name">C · 粉调白 ⭐</div><div class="rec">推荐</div></div>
+      <div class="demo" style="
+        --bg: #2f3244;
+        --sidebar: #3a3e56;
+        --card: #3a3e56;
+        --border: #525777;
+        --input: #464b68;
+        --fg: #f2f4ff;
+        --muted-fg: #a2b0d8;
+        --primary: #ff8fd1; --primary-fg: #ffe4f2;
+      ">
+        <div class="topbar">
+          <span style="font-family: var(--font-mono); color: var(--muted-fg); font-size:11px">🌿 /feat/acp...</span>
+          <div class="team">LT Local Admin's Team <span class="pro-badge">PRO</span></div>
+        </div>
+        <div class="body">
+          <div class="label-row"><strong>PRO 徽章</strong> <span class="swatch-hex"><span class="box" style="background:#ffe4f2"></span>ffe4f2</span></div>
+          <div class="row-buttons">
+            <button class="btn-primary">▶ Set Run</button>
+            <button class="btn-primary" style="padding: 7px 10px">Merge</button>
+          </div>
+          <div class="divider"></div>
+          <div class="label-row"><strong>提交按钮</strong> <span class="swatch-hex"><span class="box" style="background:#ffe4f2"></span>ffe4f2</span></div>
+          <div class="commit-box">提交信息</div>
+          <div class="btn-primary-big">✓ 提交</div>
+          <div class="divider"></div>
+          <div class="label-row"><strong>徽章 / Tag</strong></div>
+          <div class="row-tags">
+            <span class="pill-round">NEW</span>
+            <span class="pill-count">4</span>
+            <span class="tag-outline">/code-review</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- D: 淡玫瑰白 -->
+    <div>
+      <div class="col-title"><div class="name">D · 淡玫瑰白</div><div class="tag">#ffd3e6</div></div>
+      <div class="demo" style="
+        --bg: #2f3244;
+        --sidebar: #3a3e56;
+        --card: #3a3e56;
+        --border: #525777;
+        --input: #464b68;
+        --fg: #f2f4ff;
+        --muted-fg: #a2b0d8;
+        --primary: #ff8fd1; --primary-fg: #ffd3e6;
+      ">
+        <div class="topbar">
+          <span style="font-family: var(--font-mono); color: var(--muted-fg); font-size:11px">🌿 /feat/acp...</span>
+          <div class="team">LT Local Admin's Team <span class="pro-badge">PRO</span></div>
+        </div>
+        <div class="body">
+          <div class="label-row"><strong>PRO 徽章</strong> <span class="swatch-hex"><span class="box" style="background:#ffd3e6"></span>ffd3e6</span></div>
+          <div class="row-buttons">
+            <button class="btn-primary">▶ Set Run</button>
+            <button class="btn-primary" style="padding: 7px 10px">Merge</button>
+          </div>
+          <div class="divider"></div>
+          <div class="label-row"><strong>提交按钮</strong> <span class="swatch-hex"><span class="box" style="background:#ffd3e6"></span>ffd3e6</span></div>
+          <div class="commit-box">提交信息</div>
+          <div class="btn-primary-big">✓ 提交</div>
+          <div class="divider"></div>
+          <div class="label-row"><strong>徽章 / Tag</strong></div>
+          <div class="row-tags">
+            <span class="pill-round">NEW</span>
+            <span class="pill-count">4</span>
+            <span class="tag-outline">/code-review</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info">
+    <strong>怎么挑:</strong><br>
+    · <strong>A 冷白 #f2f4ff</strong> — 当前值,反差最强,像"贴纸"<br>
+    · <strong>B 微粉白 #fbecf3</strong> — 白里 5% 粉,对比降一点<br>
+    · <strong style="color:#ff8fd1">C 粉调白 #ffe4f2 ⭐</strong> — 白里 12% 粉,已应用,最柔和<br>
+    · <strong>D 淡玫瑰白 #ffd3e6</strong> — 白里 20% 粉,再淡就影响识别<br><br>
+    如果 C 还是偏"生",告诉我上/下一档;喜欢的话直接说好,已经定稿 C。<br>
+    · <code>/Users/wufan/Downloads/dracula-colorful-v2.json</code> 当前是 C。
+  </div>
+</body>
+</html>

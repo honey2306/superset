@@ -1,0 +1,41 @@
+<!-- @dsCard group="Components" viewport="720x520" name="Popover · branch list" subtitle="search + current/focused/normal rows + remote group" -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../../styles.css" />
+  <link rel="stylesheet" href="../../../components.css" />
+</head>
+<body>
+  <div id="root" style="padding:24px;display:flex;justify-content:center"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const {
+      Popover, PopoverHeader, PopoverGroup, PopoverRow, PopoverSep, PopoverHint,
+      Icon, Tag, Kbd,
+    } = window.SupersetDesignSystem_91a6da;
+    const cardRoot = ReactDOM.createRoot(document.getElementById("root"));
+    cardRoot.render(
+      <Popover>
+        <PopoverHeader placeholder="Jump to branch, or type to create…" />
+        <PopoverGroup label="本地分支" count={4} action={<button className="action"><Icon name="plus" /> 新建</button>} />
+        <PopoverRow name="feat/kro-suite" current tag={<Tag dir="up">3</Tag>} />
+        <PopoverRow name="main" focused tag={<Tag dir="down">12</Tag>} end="1w" />
+        <PopoverRow name="bugfix/reap-legacy-orphans" tag={<Tag dir="down">2</Tag>} end="2d" />
+        <PopoverRow name="feat/browser-extension-bridge" tag={<Tag dir="up">6</Tag>} end="4d" />
+        <PopoverSep />
+        <PopoverGroup label="远程" count={2} action={<button className="action"><Icon name="refresh" /> Fetch</button>} />
+        <PopoverRow iconName="cloud" name="feat/mcp-cursor-connector" end="origin" />
+        <PopoverRow iconName="cloud" name="release/2026-08" end="origin" />
+        <PopoverHint>
+          <span>右键任意分支查看操作</span>
+          <span style={{ display: "inline-flex", gap: 6 }}><Kbd>↵</Kbd> <span className="faint">切换</span></span>
+        </PopoverHint>
+      </Popover>,
+    );
+  </script>
+</body>
+</html>

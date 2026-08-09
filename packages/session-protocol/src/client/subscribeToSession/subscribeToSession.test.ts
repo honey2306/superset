@@ -99,6 +99,25 @@ describe("subscribeToSession", () => {
 		h.subscription.close();
 	});
 
+	test("includes the epoch with a replay cursor", () => {
+		const sockets: FakeWebSocket[] = [];
+		const subscription = subscribeToSession({
+			streamUrl: "ws://test/stream",
+			since: 3,
+			epoch: "incarnation-a",
+			onEnvelope: () => {},
+			createWebSocket: (url) => {
+				const ws = new FakeWebSocket(url);
+				sockets.push(ws);
+				return ws;
+			},
+		});
+		expect(sockets[0]?.url).toBe(
+			"ws://test/stream?since=3&epoch=incarnation-a",
+		);
+		subscription.close();
+	});
+
 	test("drops duplicate envelopes (seq <= lastSeq)", () => {
 		const h = harness({ since: 0 });
 		h.sockets[0]?.open();

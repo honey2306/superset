@@ -115,17 +115,17 @@ export function TabItem<TData>({
 				{/* biome-ignore lint/a11y/useKeyWithClickEvents: tabs are pointer-driven; keyboard nav is out of scope here */}
 				<div
 					ref={setRef}
+					data-tab-item
+					data-tab-active={isActive || undefined}
 					className={cn(
-						// The bar carries a bottom border and the inactive-tab shade. The
-						// active tab has NO bottom border (only left/right/top) and takes an
-						// opaque fill, so it flows straight into the content below. Inactive
-						// tabs keep a 1px border on all sides (transparent except the bottom
-						// line) so the bar's line runs unbroken beneath them and tabs don't
-						// shift when switching.
-						"group relative flex h-full w-full items-center transition-colors",
+						// Flat underline tabs: the bar's bottom hairline is drawn on the
+						// TabBar root; the active tab paints a highlight-colored underline
+						// over that hairline via an inset shadow (no layout shift). Inactive
+						// tabs are fully transparent — hover adds a barely-there tint.
+						"group relative flex h-full w-full items-center text-muted-foreground/70 transition-colors",
 						isActive
-							? "border-x border-t border-border bg-background text-foreground"
-							: "border border-transparent border-b-border bg-border/30 text-muted-foreground/70 hover:bg-border/20 hover:text-muted-foreground",
+							? "text-foreground shadow-[inset_0_-1.5px_0_var(--highlight)]"
+							: "hover:bg-white/[0.03] hover:text-foreground/90",
 						isPaneOver && "bg-primary/5",
 						isDragging && "opacity-30",
 					)}
@@ -183,7 +183,7 @@ export function TabItem<TData>({
 									aria-label="Close tab"
 									className={cn(
 										"pointer-events-none size-5 cursor-pointer text-current opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-										isActive ? "hover:bg-muted" : "hover:bg-foreground/10",
+										"hover:bg-foreground/10",
 									)}
 									onClick={(event) => {
 										event.stopPropagation();

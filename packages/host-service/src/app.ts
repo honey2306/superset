@@ -1,28 +1,33 @@
+import { getConnInfo } from "@hono/node-server/conninfo";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { trpcServer } from "@hono/trpc-server";
 import { Octokit } from "@octokit/rest";
 import { ChatService } from "@superset/chat/server/desktop";
-import { eq } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createApiClient } from "./api";
 import { createDb, type HostDb } from "./db";
-import { workspaces } from "./db/schema";
 import { EventBus, GitWatcher, registerEventBusRoute } from "./events";
 import type { ApiAuthProvider } from "./providers/auth";
-import type { HostAuthProvider } from "./providers/host-auth";
-import type { ModelProviderRuntimeResolver } from "./providers/model-providers";
 import {
-	AcpSessionManager,
+	CompositeHostAuthProvider,
+	type HostAuthProvider,
+	PhoneSessionAuthProvider,
+} from "./providers/host-auth";
+import type { ModelProviderRuntimeResolver } from "./providers/model-providers";
+import { registerStaticAppRoute } from "./routes/static-app";
+import {
+	AcpDaemonClient,
+	type AcpSessionManager,
 	registerAcpSessionStreamRoute,
-	SqliteAcpSessionPersistence,
 } from "./runtime/acp-sessions";
 import { ChatRuntimeManager } from "./runtime/chat";
 import { WorkspaceFilesystemManager } from "./runtime/filesystem";
 import type { GitCredentialProvider } from "./runtime/git";
 import { createGitFactory } from "./runtime/git";
 import { runMainWorkspaceSweep } from "./runtime/main-workspace-sweep";
+import { PhoneAuthService } from "./runtime/phone";
 import { runProjectBackfill } from "./runtime/project-backfill";
 import { PullRequestRuntimeManager } from "./runtime/pull-requests";
 import { runWorkspaceBackfill } from "./runtime/workspace-backfill";
@@ -55,6 +60,14 @@ export interface CreateAppOptions {
 		cloudApiUrl: string;
 		migrationsFolder: string;
 		allowedOrigins: string[];
+		/**
+		 * Absolute path to a Vite `build.outDir` for `apps/web`. When set the
+		 * bundle is served at `/app/*` on the same origin as the tRPC API,
+		 * making CORS a non-issue for the phone frontend. Omit to disable the
+		 * route entirely (default in tests and dev where the phone frontend
+		 * is served by a separate Vite dev server).
+		 */
+		webAppDir?: string;
 	};
 	providers: {
 		auth: ApiAuthProvider;
@@ -109,6 +122,16 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	const execGh: ExecGh = options.execGh ?? defaultExecGh;
 
 	const filesystem = new WorkspaceFilesystemManager({ db });
+
+	// Phone auth substrate. Constructed early so the composite auth provider
+	// below can layer phone-session validation on top of the PSK the caller
+	// supplied. The service is stateless w.r.t. the rest of the runtime and
+	// only reaches into the SQLite DB.
+	const phoneAuth = new PhoneAuthService({ db });
+	const hostAuth: HostAuthProvider = new CompositeHostAuthProvider([
+		providers.hostAuth,
+		new PhoneSessionAuthProvider(phoneAuth),
+	]);
 	// GitWatcher is the single source of truth for `.git/` and worktree fs
 	// activity per workspace. Both EventBus (broadcasts to clients) and the
 	// pull-requests runtime (event-driven branch sync) subscribe to it.
@@ -132,8 +155,9 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	// per-workspace. ChatService is a long-lived singleton wrapping mastra's
 	// auth storage; the `host.auth.*` router proxies to it.
 	const chatService = options.chatService ?? new ChatService();
-	// ACP session harness (docs/acp-sessions.md) — owns Claude Code
-	// adapter child processes. Fully parallel to the mastra chat runtime.
+	// ACP session harness (docs/acp-sessions.md). Production talks to the
+	// detached per-org ACP daemon, which owns adapters and active turns across
+	// host-service/Desktop restarts. Tests may inject an in-process manager.
 	// Pre-release, so internal-channel only: the desktop coordinator spawns
 	// hosts with SUPERSET_ACP_SESSIONS=1 on canary/dev builds, never on
 	// stable. Without it the harness is inert — no WS route, every RPC except
@@ -144,21 +168,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		process.env.SUPERSET_ACP_SESSIONS === "1";
 	const acpSessions =
 		options.acpSessions ??
-		new AcpSessionManager({
-			resolveWorkspaceCwd: (workspaceId) => {
-				const workspace = db.query.workspaces
-					.findFirst({ where: eq(workspaces.id, workspaceId) })
-					.sync();
-				if (!workspace) {
-					throw new Error(`Workspace not found: ${workspaceId}`);
-				}
-				return workspace.worktreePath;
-			},
-			// Registry rows only (workspace binding, adapter session id, title)
-			// — the journal stays in-memory; a restarted host lists these as
-			// `offline` and resurrects on demand via the adapter's session/load.
-			persistence: new SqliteAcpSessionPersistence(db),
-		});
+		new AcpDaemonClient({ organizationId: config.organizationId });
 
 	// `runtime` is populated below once EventBus, Catalog, TerminalAgent
 	// store, and Workspace Provisioning exist. Declared with `let` here
@@ -167,6 +177,13 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	let runtime: HostServiceRuntime;
 	const app = new Hono();
 	const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
+
+	// Phone frontend static bundle. Registered before CORS so preflight
+	// requests aren't matched by the static handler; the bundle is served
+	// same-origin so CORS doesn't apply anyway.
+	if (config.webAppDir) {
+		registerStaticAppRoute({ app, distDir: config.webAppDir });
+	}
 
 	app.use(
 		"*",
@@ -183,6 +200,24 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 
 	const eventBus = new EventBus({ db, filesystem, gitWatcher });
 	eventBus.start();
+	pullRequestRuntime.subscribeToWorkspaceEvents(eventBus);
+
+	// Forward ACP session status transitions from the daemon (or an in-process
+	// manager in tests) to the shared event bus. Sidebar and other host-wide
+	// consumers react to this instead of polling `acpSessions.list`. When the
+	// runtime doesn't expose the hook (older daemon builds that never emit),
+	// the sidebar naturally falls back to its refetch cadence.
+	if (acpSessionsEnabled) {
+		acpSessions.onSessionChanged?.((event) => {
+			eventBus.broadcastAcpSessionChanged({
+				workspaceId: event.workspaceId,
+				sessionId: event.sessionId,
+				eventType: event.eventType,
+				...(event.status !== undefined ? { status: event.status } : {}),
+				occurredAt: event.occurredAt,
+			});
+		});
+	}
 
 	// Workspace Catalog Module (M1) — the sole normal writer of identity
 	// and display columns. Constructed AFTER EventBus so catalog wake pings
@@ -237,6 +272,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 					terminalAgentStore,
 					organizationId: config.organizationId,
 					isAuthenticated: true,
+					authKind: "psk",
 					clientMachineId: undefined,
 				}),
 			}),
@@ -256,6 +292,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 						terminalAgentStore,
 						organizationId: config.organizationId,
 						isAuthenticated: true,
+						authKind: "psk",
 						clientMachineId: undefined,
 					}),
 				});
@@ -269,6 +306,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		auth: chatService,
 		chat: chatRuntime,
 		filesystem,
+		phoneAuth,
 		pullRequests: pullRequestRuntime,
 		workspaceProvisioning,
 	};
@@ -324,17 +362,31 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		});
 	})();
 
-	const wsAuth: MiddlewareHandler = async (c, next) => {
-		const token = c.req.query("token");
-		const authorized =
-			(await providers.hostAuth.validate(c.req.raw)) ||
-			(token && (await providers.hostAuth.validateToken(token)));
-		if (!authorized) return c.json({ error: "Unauthorized" }, 401);
-		return next();
-	};
-	app.use("/terminal/*", wsAuth);
-	app.use("/events", wsAuth);
-	app.use("/acp-sessions/*", wsAuth);
+	const wsAuth =
+		(options: { allowPhone: boolean }): MiddlewareHandler =>
+		async (c, next) => {
+			const headerResult = await hostAuth.validate(c.req.raw);
+			if (headerResult.ok) {
+				if (headerResult.kind === "phone" && !options.allowPhone) {
+					return c.json({ error: "Forbidden" }, 403);
+				}
+				return next();
+			}
+			const token = c.req.query("token");
+			if (token) {
+				const queryResult = await hostAuth.validateToken(token);
+				if (queryResult.ok) {
+					if (queryResult.kind === "phone" && !options.allowPhone) {
+						return c.json({ error: "Forbidden" }, 403);
+					}
+					return next();
+				}
+			}
+			return c.json({ error: "Unauthorized" }, 401);
+		};
+	app.use("/terminal/*", wsAuth({ allowPhone: false }));
+	app.use("/events", wsAuth({ allowPhone: false }));
+	app.use("/acp-sessions/*", wsAuth({ allowPhone: true }));
 
 	registerEventBusRoute({ app, eventBus, upgradeWebSocket });
 	registerWorkspaceTerminalRoute({
@@ -356,7 +408,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		trpcServer({
 			router: appRouter,
 			createContext: async (_opts, c) => {
-				const isAuthenticated = await providers.hostAuth.validate(c.req.raw);
+				const authResult = await hostAuth.validate(c.req.raw);
 				return {
 					git,
 					credentials: providers.credentials,
@@ -369,9 +421,11 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 					eventBus,
 					terminalAgentStore,
 					organizationId: config.organizationId,
-					isAuthenticated,
+					isAuthenticated: authResult.ok,
+					authKind: authResult.kind,
 					clientMachineId:
 						c.req.header("x-superset-client-machine-id") ?? undefined,
+					remoteAddress: resolveRemoteAddress(c),
 				} as Record<string, unknown>;
 			},
 		}),
@@ -412,4 +466,29 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	};
 
 	return { app, injectWebSocket, api, db, dispose };
+}
+
+/**
+ * Best-effort caller IP for per-request rate limiting. Prefers the first
+ * entry of `x-forwarded-for` (that's what the relay forwards, and what any
+ * reverse-proxy in front of us sets), then falls back to Hono's Node-side
+ * `getConnInfo` for the raw TCP peer. Never throws — a failed lookup just
+ * yields `undefined` and the caller collapses into the shared "unknown"
+ * bucket.
+ */
+function resolveRemoteAddress(c: {
+	req: { header: (name: string) => string | undefined };
+	env?: unknown;
+}): string | undefined {
+	const forwarded = c.req.header("x-forwarded-for");
+	if (forwarded) {
+		const first = forwarded.split(",")[0]?.trim();
+		if (first) return first;
+	}
+	try {
+		const info = getConnInfo(c as never);
+		return info.remote.address ?? undefined;
+	} catch {
+		return undefined;
+	}
 }

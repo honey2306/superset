@@ -1,11 +1,28 @@
 import type { ChatServiceRouter } from "@superset/chat/server/desktop";
-import { findSlashCommandByNameOrAlias } from "@superset/chat/shared";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ChatServiceOutputs = inferRouterOutputs<ChatServiceRouter>;
 export type SlashCommand =
 	ChatServiceOutputs["workspace"]["getSlashCommands"][number];
+
+/** The presentation fields a rich composer needs, independent of command host. */
+export type ComposerSlashCommand = {
+	name: string;
+	aliases: string[];
+	description: string;
+	argumentHint: string;
+	kind: "builtin" | "custom";
+	action?:
+		| SlashCommand["action"]
+		| { type: "set_mode"; valueByLabel: Record<string, string | boolean> }
+		| {
+				type: "set_config_option";
+				configId: string;
+				valueByLabel: Record<string, string | boolean>;
+		  };
+	argumentOptions?: string[];
+};
 
 function getSlashQuery(inputValue: string): string | null {
 	if (inputValue.includes("\n")) return null;
@@ -23,7 +40,7 @@ function getMatchRank(commandName: string, query: string): number | null {
 }
 
 export function getCommandMatchRank(
-	command: SlashCommand,
+	command: ComposerSlashCommand,
 	query: string,
 ): number | null {
 	const nameRank = getMatchRank(command.name.toLowerCase(), query);
@@ -42,19 +59,9 @@ export function getCommandMatchRank(
 	return bestAliasRank;
 }
 
-export function shouldSuppressSlashMenuForCommittedCommand(
-	query: string | null,
-	commands: SlashCommand[],
-): boolean {
-	if (!query) return false;
-	const exactCommandMatch = findSlashCommandByNameOrAlias(commands, query);
-	if (!exactCommandMatch) return false;
-	return exactCommandMatch.argumentHint.trim().length > 0;
-}
-
-export function sortSlashCommandMatches(
-	matches: Array<{ command: SlashCommand; rank: number }>,
-): SlashCommand[] {
+export function sortSlashCommandMatches<T extends ComposerSlashCommand>(
+	matches: Array<{ command: T; rank: number }>,
+): T[] {
 	return matches
 		.sort((a, b) => {
 			if (a.command.kind !== b.command.kind) {
@@ -64,6 +71,40 @@ export function sortSlashCommandMatches(
 			return a.command.name.localeCompare(b.command.name);
 		})
 		.map((item) => item.command);
+}
+
+export type SlashCommandSelectionBehavior = "choose" | "input" | "execute";
+
+export function getSlashCommandSelectionBehavior(
+	command: ComposerSlashCommand,
+): SlashCommandSelectionBehavior {
+	if (command.argumentOptions?.length || command.action?.type === "set_model")
+		return "choose";
+	if (command.argumentHint.trim()) return "input";
+	return "execute";
+}
+
+export function resolveSlashCommandArgumentOptions(
+	command: ComposerSlashCommand,
+	availableModelNames: string[],
+): string[] {
+	if (command.argumentOptions?.length) return command.argumentOptions;
+	if (command.action?.type === "set_model") return availableModelNames;
+	return [];
+}
+
+export function filterSlashCommands<T extends ComposerSlashCommand>(
+	commands: T[],
+	query: string,
+): T[] {
+	const rankedCommands = commands
+		.map((command) => {
+			const rank = getCommandMatchRank(command, query);
+			return rank === null ? null : { command, rank };
+		})
+		.filter((item): item is { command: T; rank: number } => item !== null);
+
+	return sortSlashCommandMatches(rankedCommands);
 }
 
 export function useSlashCommands({
@@ -77,25 +118,9 @@ export function useSlashCommands({
 
 	const query = getSlashQuery(inputValue);
 	const isOpen = query !== null;
-	const suppressMenuForCommittedCommand = useMemo(
-		() => shouldSuppressSlashMenuForCommittedCommand(query, commands),
-		[commands, query],
-	);
-
 	const filteredCommands = useMemo(() => {
 		if (!isOpen || query === null) return [];
-
-		const rankedCommands = commands
-			.map((command) => {
-				const rank = getCommandMatchRank(command, query);
-				return rank === null ? null : { command, rank };
-			})
-			.filter(
-				(item): item is { command: SlashCommand; rank: number } =>
-					item !== null,
-			);
-
-		return sortSlashCommandMatches(rankedCommands);
+		return filterSlashCommands(commands, query);
 	}, [commands, isOpen, query]);
 
 	const prevQuery = useRef(query);
@@ -119,8 +144,7 @@ export function useSlashCommands({
 	}, [filteredCommands.length]);
 
 	return {
-		isOpen:
-			isOpen && filteredCommands.length > 0 && !suppressMenuForCommittedCommand,
+		isOpen: isOpen && filteredCommands.length > 0,
 		filteredCommands,
 		selectedIndex,
 		setSelectedIndex,

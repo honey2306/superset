@@ -9,6 +9,16 @@ import {
 import type { V1PanesPaneData } from "./types";
 
 /**
+ * When the "use ACP for agent presets" setting is on and the host supports ACP,
+ * `V1PanesWorkspace` builds one of these and passes it through the opener chain.
+ * A `true` return means the preset click was consumed by the ACP path and the
+ * caller should not fall through to the terminal launcher.
+ */
+export interface AcpPresetLauncher {
+	launchByPresetName(normalizedName: string): boolean;
+}
+
+/**
  * Unified pane-open entry for the v1-panes mount.
  *
  * Ports v2's `useWorkspacePaneOpeners` shape (a single `openPreset` that
@@ -29,8 +39,17 @@ import type { V1PanesPaneData } from "./types";
 export async function openV1PanesPreset(
 	store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
 	preset: Pick<TerminalPreset, "commands" | "cwd" | "name">,
-	options: { target: V1PanesPresetTarget },
+	options: { target: V1PanesPresetTarget; acpLauncher?: AcpPresetLauncher },
 ) {
+	// When ACP mode is on and the preset names a supported agent, hand the click
+	// off to the ACP launcher and short-circuit the terminal path. Presets that
+	// don't map to an ACP agent (e.g. `amp`, `gemini`) fall through to terminal.
+	if (options.acpLauncher) {
+		const normalizedName = preset.name.trim().toLowerCase();
+		if (options.acpLauncher.launchByPresetName(normalizedName)) {
+			return;
+		}
+	}
 	const state = store.getState();
 	const activeTabId = state.activeTabId;
 	const activePaneId = state.getActivePane()?.pane.id ?? null;
@@ -88,13 +107,14 @@ export async function openV1PanesPreset(
 export function useV1PanesPresetOpeners(
 	_workspaceId: string,
 	store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
+	acpLauncher?: AcpPresetLauncher,
 ) {
 	const openPreset = useCallback(
 		(
 			preset: Pick<TerminalPreset, "commands" | "cwd" | "name">,
 			options: { target: V1PanesPresetTarget },
-		) => openV1PanesPreset(store, preset, options),
-		[store],
+		) => openV1PanesPreset(store, preset, { ...options, acpLauncher }),
+		[store, acpLauncher],
 	);
 
 	const addTerminalTab = useCallback(() => {

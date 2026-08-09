@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>TODO 单方向预览</title>
+		<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+		<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+		<link rel="stylesheet" href="_ds/superset-design-system/tokens/colors.css" />
+		<link rel="stylesheet" href="_ds/superset-design-system/tokens/typography.css" />
+		<link rel="stylesheet" href="_ds/superset-design-system/tokens/spacing.css" />
+		<link rel="stylesheet" href="_ds/superset-design-system/tokens/radius.css" />
+		<link rel="stylesheet" href="_ds/superset-design-system/tokens/shadow.css" />
+		<link rel="stylesheet" href="_ds/superset-design-system/tokens/motion.css" />
+		<link rel="stylesheet" href="_ds/superset-design-system/tokens/reset.css" />
+		<link rel="stylesheet" href="_ds/superset-design-system/styles.css" />
+		<script src="_ds/superset-design-system/_ds_bundle.js"></script>
+		<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+		<style>
+			html, body { margin: 0; background: var(--page-bg, #282a36); }
+			body { font-family: var(--font-ui); }
+		</style>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="text/babel" src="data.jsx"></script>
+		<script type="text/babel" src="shared.jsx"></script>
+		<script type="text/babel" src="variants.jsx"></script>
+		<script type="text/babel">
+			const params = new URLSearchParams(window.location.search);
+			const variantParam = params.get("v") || "1a";
+			const map = {
+				"1a": () => <window.V1_FixedList todos={window.TODOS} headerKind="a" />,
+				"1b": () => <window.V1_FixedList todos={window.TODOS} headerKind="b" />,
+				"1c": () => <window.V1_FixedList todos={window.TODOS} headerKind="c" />,
+				"2": () => <window.V2_Timeline todos={window.TODOS} />,
+				"3": () => <window.V3_CardGrid todos={window.TODOS} />,
+				"4": () => <window.V4_Hero todos={window.TODOS} />,
+			};
+			const Cmp = map[variantParam] || map["1a"];
+			ReactDOM.createRoot(document.getElementById("root")).render(
+				<div style={{ padding: 12 }}>
+					<Cmp />
+				</div>
+			);
+		</script>
+	</body>
+</html>

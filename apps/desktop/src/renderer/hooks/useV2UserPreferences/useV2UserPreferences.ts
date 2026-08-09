@@ -12,7 +12,6 @@ export type RightSidebarTab = V2UserPreferencesRow["rightSidebarTab"];
 
 export interface V2UserPreferencesApi {
 	preferences: V2UserPreferencesRow;
-	setRightSidebarOpen: (next: boolean | ((prev: boolean) => boolean)) => void;
 	setRightSidebarTab: (next: RightSidebarTab) => void;
 	setRightSidebarWidth: (next: number) => void;
 	setDeleteLocalBranch: (next: boolean) => void;
@@ -32,29 +31,6 @@ export function useV2UserPreferences(): V2UserPreferencesApi {
 	);
 
 	const preferences = rows[0] ?? DEFAULT_V2_USER_PREFERENCES;
-
-	const setRightSidebarOpen = useCallback(
-		(next: boolean | ((prev: boolean) => boolean)) => {
-			const existing = collections.v2UserPreferences.get(
-				V2_USER_PREFERENCES_ID,
-			);
-			const prev =
-				existing?.rightSidebarOpen ??
-				DEFAULT_V2_USER_PREFERENCES.rightSidebarOpen;
-			const value = typeof next === "function" ? next(prev) : next;
-			if (!existing) {
-				collections.v2UserPreferences.insert({
-					...DEFAULT_V2_USER_PREFERENCES,
-					rightSidebarOpen: value,
-				});
-				return;
-			}
-			collections.v2UserPreferences.update(V2_USER_PREFERENCES_ID, (draft) => {
-				draft.rightSidebarOpen = value;
-			});
-		},
-		[collections],
-	);
 
 	const setRightSidebarTab = useCallback(
 		(next: RightSidebarTab) => {
@@ -143,7 +119,6 @@ export function useV2UserPreferences(): V2UserPreferencesApi {
 
 	return {
 		preferences,
-		setRightSidebarOpen,
 		setRightSidebarTab,
 		setRightSidebarWidth,
 		setDeleteLocalBranch,

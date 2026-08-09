@@ -3,6 +3,20 @@ import { protectedProcedure, router } from "../../index";
 import { getContent } from "./procedures/get-content";
 
 export const pullRequestsRouter = router({
+	unlinkFromWorkspace: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.mutation(({ ctx, input }) => {
+			ctx.runtime.pullRequests.unlinkWorkspacePullRequest(input.workspaceId);
+			return { ok: true };
+		}),
+	restoreToWorkspace: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			await ctx.runtime.pullRequests.restoreWorkspacePullRequest(
+				input.workspaceId,
+			);
+			return { ok: true };
+		}),
 	getByWorkspaces: protectedProcedure
 		.input(
 			z.object({

@@ -8,6 +8,7 @@ import { sql } from "drizzle-orm";
 import {
 	index,
 	integer,
+	primaryKey,
 	sqliteTable,
 	text,
 	uniqueIndex,
@@ -77,6 +78,7 @@ export const projects = sqliteTable(
 		// "fall back to the host-wide default" in `host_settings`.
 		branchPrefixMode: text("branch_prefix_mode").$type<BranchPrefixMode>(),
 		branchPrefixCustom: text("branch_prefix_custom"),
+		sparseCheckoutPaths: text("sparse_checkout_paths"),
 		// Empty string means "not yet backfilled" — the startup sweep targets
 		// these rows (name from cloud legacy row if reachable, else basename).
 		name: text().notNull().default(""),
@@ -210,6 +212,10 @@ export const workspaces = sqliteTable(
 		pullRequestId: text("pull_request_id").references(() => pullRequests.id, {
 			onDelete: "set null",
 		}),
+		suppressedPullRequestId: text("suppressed_pull_request_id").references(
+			() => pullRequests.id,
+			{ onDelete: "set null" },
+		),
 		// Empty string means "not yet backfilled from cloud" — the startup
 		// backfill sweep targets these rows.
 		name: text().notNull().default(""),
@@ -421,20 +427,13 @@ export const workspaceOperationLocks = sqliteTable(
 	},
 );
 
-/**
- * Registry of ACP agent sessions (docs/acp-sessions.md). One row per
- * session, kept fresh on every state emit. Rows survive host restarts so the
- * manager can list them as `offline` and resurrect on demand via the
- * adapter's `session/load` — the journal itself is not persisted; transcript
- * replay comes from the agent harness's own on-disk session store.
- */
 export const acpSessions = sqliteTable(
 	"acp_sessions",
 	{
 		sessionId: text("session_id").primaryKey(),
 		workspaceId: text("workspace_id").notNull(),
-		/** Adapter-side ACP session id — the `session/load` key. */
 		acpSessionId: text("acp_session_id").notNull(),
+		epoch: text().notNull().default("legacy"),
 		harness: text().notNull().$type<HarnessKind>(),
 		cwd: text().notNull(),
 		title: text(),
@@ -443,6 +442,30 @@ export const acpSessions = sqliteTable(
 		updatedAt: integer("updated_at").notNull(),
 	},
 	(table) => [index("acp_sessions_workspace_id_idx").on(table.workspaceId)],
+);
+
+export const acpSessionJournal = sqliteTable(
+	"acp_session_journal",
+	{
+		sessionId: text("session_id").notNull(),
+		epoch: text().notNull(),
+		seq: integer().notNull(),
+		ts: integer().notNull(),
+		frameJson: text("frame_json").notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.sessionId, table.epoch, table.seq] }),
+	],
+);
+
+export const acpSessionCommands = sqliteTable(
+	"acp_session_commands",
+	{
+		sessionId: text("session_id").notNull(),
+		commandId: text("command_id").notNull(),
+		createdAt: integer("created_at").notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.sessionId, table.commandId] })],
 );
 
 /**
@@ -456,3 +479,32 @@ export const workspaceCloudDeletes = sqliteTable("workspace_cloud_deletes", {
 		.notNull()
 		.$defaultFn(() => Date.now()),
 });
+
+// ── Phone pairing + sessions ─────────────────────────────────────────────
+// Short-lived pairing codes minted by the desktop (Settings → Phone access)
+// and one-shot redeemed by a phone browser opening `/app/pair?code=…`. On
+// redeem, a long-lived `phone_sessions` row is minted and its raw bearer
+// token is returned once — thereafter only its SHA-256 hash is stored, so a
+// stolen DB never yields usable tokens.
+
+export const phonePairingCodes = sqliteTable("phone_pairing_codes", {
+	code: text().primaryKey(),
+	createdAt: integer("created_at").notNull(),
+	expiresAt: integer("expires_at").notNull(),
+	redeemedAt: integer("redeemed_at"),
+	redeemedSessionId: text("redeemed_session_id"),
+});
+
+export const phoneSessions = sqliteTable(
+	"phone_sessions",
+	{
+		id: text().primaryKey(),
+		tokenHash: text("token_hash").notNull(),
+		deviceLabel: text("device_label").notNull().default(""),
+		createdAt: integer("created_at").notNull(),
+		expiresAt: integer("expires_at").notNull(),
+		lastSeenAt: integer("last_seen_at").notNull(),
+		revokedAt: integer("revoked_at"),
+	},
+	(table) => [uniqueIndex("phone_sessions_token_hash_idx").on(table.tokenHash)],
+);

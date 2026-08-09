@@ -7,13 +7,16 @@ function stateFrame(): SessionUpdateFrame {
 		kind: "state",
 		state: {
 			sessionId: "s",
+			epoch: "legacy",
 			workspaceId: "w",
 			harness: "claude-agent-acp",
 			status: "idle",
 			title: null,
 			currentMode: null,
 			configOptions: [],
+			availableCommands: null,
 			pendingPermissions: [],
+			queuedPrompts: [],
 			cwd: "/tmp",
 			lastSeq: 0,
 			lastStopReason: null,
@@ -63,6 +66,38 @@ describe("SessionJournal", () => {
 		journal.append("s", updateFrame("a"));
 		expect(journal.after(1)).toEqual([]);
 		expect(journal.after(2)).toBeNull();
+	});
+
+	test("restores a durable epoch-scoped tail and continues its sequence", () => {
+		const first = new SessionJournal({ epoch: "epoch-a", capacity: 10 });
+		first.append("s", updateFrame("one"));
+		first.append("s", updateFrame("two"));
+		const restored = new SessionJournal({
+			epoch: "epoch-a",
+			capacity: 10,
+			entries: first.after(0) ?? [],
+		});
+		expect(restored.latestSeq).toBe(2);
+		expect(restored.append("s", updateFrame("three"))).toMatchObject({
+			epoch: "epoch-a",
+			seq: 3,
+		});
+	});
+
+	test("rejects a durable gap or duplicate instead of reusing a sequence", () => {
+		const seed = new SessionJournal({ epoch: "epoch-a", capacity: 10 });
+		const one = seed.append("s", updateFrame("one"));
+		const two = seed.append("s", updateFrame("two"));
+		expect(
+			() =>
+				new SessionJournal({
+					epoch: "epoch-a",
+					entries: [one, { ...two, seq: 3 }],
+				}),
+		).toThrow("expected 2");
+		expect(
+			() => new SessionJournal({ epoch: "epoch-a", entries: [one, two, two] }),
+		).toThrow("expected 3");
 	});
 
 	test("evicts beyond capacity and reports unservable cursors as null", () => {

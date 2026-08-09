@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dracula">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Branch Menu · v3 — 完整场景 (B + 右键菜单)</title>
+		<link rel="stylesheet" href="tokens.css" />
+		<link rel="stylesheet" href="v2.css" />
+		<link rel="stylesheet" href="v3.css" />
+	</head>
+	<body>
+		<main class="v2-page frame-page">
+			<header class="v2-head">
+				<div class="v2-head-titles">
+					<div class="v2-eyebrow"><span>Superset · Branch Menu · v3 — 场景化</span></div>
+					<h1 class="v2-title">
+						完整分支菜单
+						<span class="sub">— B 版 · 右键菜单聚合操作</span>
+					</h1>
+					<p class="v2-desc">
+						以真实 Changes 面板为外框,展示分支切换 (左键 pill) 与分支管理
+						(右键任意分支行) 两条并行的动作路径。原本行内 hover 才出现的
+						「合并」按钮已经移除;合并、pull、push、rename、delete 等操作全部收进
+						右键菜单。可以试试:<b>右键任意一条分支</b>、<b>回车切换焦点分支</b>、
+						<b>Esc 关闭</b>。
+					</p>
+				</div>
+				<div class="v2-theme" id="themeSwitch">
+					<button data-theme="dracula" class="is-active">Dracula</button>
+					<button data-theme="ember">Ember</button>
+					<button data-theme="zed">Zed</button>
+					<button data-theme="light">Light</button>
+				</div>
+			</header>
+
+			<div class="scenario-strip" id="scenarioStrip">
+				<div class="left">
+					<span class="badge">Scenario</span>
+					<span>选一个初始状态。任何时候都可以左键 pill 打开分支列表,或在列表里右键任意分支查看操作菜单。</span>
+				</div>
+				<div class="right" id="scenarioButtons"></div>
+			</div>
+
+			<div class="frame-scene" id="scene"></div>
+		</main>
+
+		<div id="portalRoot"></div>
+
+		<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+		<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+		<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+		<script type="text/babel" src="v2-icons.jsx"></script>
+		<script type="text/babel" src="v3-icons.jsx"></script>
+		<script type="text/babel" src="v3-data.jsx"></script>
+		<script type="text/babel" src="v3-context-menu.jsx"></script>
+		<script type="text/babel" src="v3-sidebar.jsx"></script>
+		<script type="text/babel" src="v3-app.jsx"></script>
+	</body>
+</html>

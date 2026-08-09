@@ -13,13 +13,17 @@ export class FakeApiAuthProvider implements ApiAuthProvider {
 
 export class FakeHostAuthProvider implements HostAuthProvider {
 	constructor(private readonly psk: string) {}
-	validate(request: Request): boolean {
+	validate(request: Request) {
 		const header = request.headers.get("authorization");
 		const token = header?.startsWith("Bearer ") ? header.slice(7) : null;
-		return token === this.psk;
+		return token === this.psk
+			? ({ ok: true, kind: "psk" } as const)
+			: ({ ok: false, kind: null } as const);
 	}
-	validateToken(token: string): boolean {
-		return token === this.psk;
+	validateToken(token: string) {
+		return token === this.psk
+			? ({ ok: true, kind: "psk" } as const)
+			: ({ ok: false, kind: null } as const);
 	}
 }
 

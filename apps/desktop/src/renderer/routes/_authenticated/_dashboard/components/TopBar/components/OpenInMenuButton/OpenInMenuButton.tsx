@@ -21,13 +21,11 @@ import { useThemeStore } from "renderer/stores";
 
 interface OpenInMenuButtonProps {
 	worktreePath: string;
-	branch?: string;
 	projectId?: string;
 }
 
 export const OpenInMenuButton = memo(function OpenInMenuButton({
 	worktreePath,
-	branch,
 	projectId,
 }: OpenInMenuButtonProps) {
 	const { t } = useTranslation();
@@ -116,11 +114,6 @@ export const OpenInMenuButton = memo(function OpenInMenuButton({
 								alt=""
 								className="size-3.5 object-contain shrink-0"
 							/>
-						)}
-						{branch && (
-							<span className="hidden lg:inline text-muted-foreground truncate max-w-[140px] tabular-nums">
-								/{branch}
-							</span>
 						)}
 						<span className="hidden sm:inline text-foreground font-medium">
 							{t("dashboard.open")}

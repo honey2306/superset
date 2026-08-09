@@ -13,6 +13,7 @@ import { healthRouter } from "./health";
 import { hostRouter } from "./host";
 import { issuesRouter } from "./issues";
 import { notificationsRouter } from "./notifications";
+import { phoneRouter } from "./phone";
 import { portsRouter } from "./ports";
 import { projectRouter } from "./project";
 import { pullRequestsRouter } from "./pull-requests";
@@ -41,6 +42,7 @@ export const appRouter = router({
 	cloud: cloudRouter,
 	issues: issuesRouter,
 	notifications: notificationsRouter,
+	phone: phoneRouter,
 	pullRequests: pullRequestsRouter,
 	project: projectRouter,
 	ports: portsRouter,

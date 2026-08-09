@@ -1,2 +1,4 @@
+export { CompositeHostAuthProvider } from "./CompositeHostAuthProvider";
+export { PhoneSessionAuthProvider } from "./PhoneSessionAuthProvider";
 export { PskHostAuthProvider } from "./PskHostAuthProvider";
-export type { HostAuthProvider } from "./types";
+export type { AuthKind, AuthValidationResult, HostAuthProvider } from "./types";

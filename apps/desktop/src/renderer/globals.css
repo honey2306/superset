@@ -4,6 +4,7 @@
 
 @source "./**/*.{ts,tsx}";
 @source "../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../../packages/panes/src/**/*.{ts,tsx}";
 @source "../../../../packages/ui/node_modules/streamdown/dist/*.js";
 
 /**
@@ -15,46 +16,48 @@
  * This ensures the app looks correct during initial load before hydration.
  */
 :root {
-	/* Default to dark (ember) theme colors as fallback */
-	--background: #151110;
-	--foreground: #eae8e6;
-	--card: #201e1c;
-	--card-foreground: #eae8e6;
-	--popover: #201e1c;
-	--popover-foreground: #eae8e6;
-	--primary: #eae8e6;
-	--primary-foreground: #151110;
-	--secondary: #2a2827;
-	--secondary-foreground: #eae8e6;
-	--muted: #2a2827;
-	--muted-foreground: #a8a5a3;
-	--accent: #2a2827;
-	--accent-foreground: #eae8e6;
-	--tertiary: #1a1716;
-	--tertiary-active: #252220;
-	--destructive: #cc4444;
-	--destructive-foreground: #ffcccc;
-	--border: #2a2827;
-	--input: #2a2827;
-	--ring: #3a3837;
-	--chart-1: #e07850;
-	--chart-2: #50a878;
-	--chart-3: #d4a84b;
-	--chart-4: #7b68ee;
-	--chart-5: #dc6b6b;
+	/* Default to Dracula theme colors as fallback (pre-hydration).
+	 * Kept in sync with apps/desktop/src/shared/themes/built-in/dracula.ts —
+	 * the theme store overrides these via applyUIColors after boot. */
+	--background: #1e1f29;
+	--foreground: #f8f8f2;
+	--card: #282a36;
+	--card-foreground: #f8f8f2;
+	--popover: #21222c;
+	--popover-foreground: #f8f8f2;
+	--primary: #f8f8f2;
+	--primary-foreground: #282a36;
+	--secondary: #44475a;
+	--secondary-foreground: #f8f8f2;
+	--muted: #44475a;
+	--muted-foreground: #d0d3e0;
+	--accent: #6272a4;
+	--accent-foreground: #f8f8f2;
+	--tertiary: #21222c;
+	--tertiary-active: #343746;
+	--destructive: #ff5555;
+	--destructive-foreground: #ffe4e4;
+	--border: #44475a;
+	--input: #44475a;
+	--ring: #6272a4;
+	--chart-1: #ff79c6;
+	--chart-2: #bd93f9;
+	--chart-3: #50fa7b;
+	--chart-4: #ffb86c;
+	--chart-5: #8be9fd;
 	--radius: 0.625rem;
-	--sidebar: #1a1716;
-	--sidebar-foreground: #eae8e6;
-	--sidebar-primary: #e07850;
-	--sidebar-primary-foreground: #151110;
-	--sidebar-accent: #252220;
-	--sidebar-accent-foreground: #eae8e6;
-	--sidebar-border: #2a2827;
-	--sidebar-ring: #3a3837;
-	--highlight-match: rgba(224, 120, 80, 0.2);
-	--highlight-active: rgba(224, 120, 80, 0.5);
-	--highlight: #e07850;
-	--highlight-foreground: #151110;
+	--sidebar: #21222c;
+	--sidebar-foreground: #f8f8f2;
+	--sidebar-primary: #ff79c6;
+	--sidebar-primary-foreground: #282a36;
+	--sidebar-accent: #343746;
+	--sidebar-accent-foreground: #f8f8f2;
+	--sidebar-border: #44475a;
+	--sidebar-ring: #6272a4;
+	--highlight-match: rgba(255, 121, 198, 0.2);
+	--highlight-active: rgba(255, 121, 198, 0.55);
+	--highlight: #ff79c6;
+	--highlight-foreground: #282a36;
 }
 
 /* Light theme fallback values - applied before hydration if user has light theme saved */
@@ -100,6 +103,16 @@
 }
 
 @theme inline {
+	/* CJK-friendly font stacks. Latin first so each script picks the correct
+	 * face — without this, Tailwind 4's default `ui-sans-serif` lets Electron
+	 * on macOS fall back to Hiragino Sans / STHeiti for Chinese runs, which
+	 * reads geometric and doesn't sit right next to SF Pro Latin. */
+	--font-sans:
+		-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+		"Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Segoe UI",
+		system-ui, sans-serif;
+	--font-mono:
+		"SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
@@ -154,6 +167,35 @@
 
 	body {
 		@apply bg-background text-foreground;
+		/* CJK-friendly font stack — Latin first so each script gets correct
+		 * glyphs. Without this, Electron on macOS picks Hiragino / STHeiti for
+		 * some Chinese runs, which reads as visibly wrong next to SF Pro. */
+		font-family:
+			-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+			"Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Segoe UI",
+			system-ui, sans-serif;
+	}
+
+	/* Top tab bar — faint hairlines between adjacent tabs. Only a hovered tab
+	   hides the hairlines on both of its sides so the hover tint reads as one
+	   continuous surface. The active tab keeps its hairlines so the current
+	   tab's boundaries stay visible on both sides. See
+	   packages/panes/.../TabBar.tsx and TabItem.tsx. */
+	[data-tab-slot] + [data-tab-slot]::before {
+		content: "";
+		position: absolute;
+		left: 0;
+		top: 8px;
+		bottom: 8px;
+		width: 1px;
+		background: var(--border);
+		opacity: 0.7;
+		pointer-events: none;
+		transition: opacity 120ms ease;
+	}
+	[data-tab-slot] + [data-tab-slot]:has([data-tab-item]:hover)::before,
+	[data-tab-slot]:has(+ [data-tab-slot] [data-tab-item]:hover)::before {
+		opacity: 0;
 	}
 
 	html,

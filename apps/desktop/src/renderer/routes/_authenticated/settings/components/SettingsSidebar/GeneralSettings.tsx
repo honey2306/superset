@@ -9,7 +9,7 @@ import {
 	HiOutlineShieldCheck,
 	HiOutlineSparkles,
 } from "react-icons/hi2";
-import { LuBrain, LuGitBranch, LuKeyboard } from "react-icons/lu";
+import { LuBrain, LuGitBranch, LuKeyboard, LuSmartphone } from "react-icons/lu";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
@@ -31,12 +31,13 @@ type SettingsRoute =
 	| "/settings/git"
 	| "/settings/terminal"
 	| "/settings/models"
+	| "/settings/phone"
 	| "/settings/permissions"
 	| "/settings/projects";
 
 interface SectionItem {
 	id: SettingsRoute;
-	section: SettingsSection;
+	section?: SettingsSection;
 	labelKey: MessageKey;
 	icon: React.ReactNode;
 	macOnly?: boolean;
@@ -115,6 +116,11 @@ const SECTION_GROUPS: SectionGroup[] = [
 		labelKey: "settings.group.system",
 		items: [
 			{
+				id: "/settings/phone",
+				labelKey: "settings.phoneAccess",
+				icon: <LuSmartphone className="h-4 w-4" />,
+			},
+			{
 				id: "/settings/permissions",
 				section: "permissions",
 				labelKey: "settings.permissions",
@@ -141,10 +147,15 @@ export function GeneralSettings({ matchCounts }: GeneralSettingsProps) {
 			{SECTION_GROUPS.map((group, groupIndex) => {
 				const platformItems = group.items.filter(
 					(item) =>
-						(!item.macOnly || isMac) && allowedSections.has(item.section),
+						(!item.macOnly || isMac) &&
+						(item.section === undefined || allowedSections.has(item.section)),
 				);
 				const filteredItems = matchCounts
-					? platformItems.filter((item) => (matchCounts[item.section] ?? 0) > 0)
+					? platformItems.filter(
+							(item) =>
+								item.section !== undefined &&
+								(matchCounts[item.section] ?? 0) > 0,
+						)
 					: platformItems;
 
 				if (filteredItems.length === 0) return null;
@@ -160,7 +171,9 @@ export function GeneralSettings({ matchCounts }: GeneralSettingsProps) {
 									to: section.id,
 									fuzzy: true,
 								});
-								const count = matchCounts?.[section.section];
+								const count = section.section
+									? matchCounts?.[section.section]
+									: undefined;
 
 								return (
 									<Link

@@ -76,6 +76,7 @@ export function V1PanesPresetBar({
 	const { presets, matchedPresets, createPreset, reorderPresets } = usePresets(
 		workspace?.projectId,
 	);
+
 	const inFlightAgentTypesRef = useRef(new Set<AgentType>());
 	const isDraggingPresetRef = useRef(false);
 	const [dragPresetSnapshot, setDragPresetSnapshot] = useState<

@@ -3,8 +3,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { LuClock3, LuWorkflow } from "react-icons/lu";
+import { LuClock3, LuListTodo, LuWorkflow } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useTodoAlerts } from "renderer/routes/_authenticated/_dashboard/hooks/useTodoAlerts";
 import {
 	useCatalogProjects,
 	useCatalogWorkspaces,
@@ -46,10 +47,18 @@ export function WorkspaceSidebarHeader({
 		);
 	}, [projects, workspaces]);
 	const isAutomationsOpen = !!matchRoute({ to: "/automations", fuzzy: true });
+	const isTodosOpen = !!matchRoute({ to: "/todos", fuzzy: true });
 	const isTemporaryWorkspaceOpen = workspaceId === temporaryWorkspace?.id;
+
+	const { alertCount: todoAlertCount } = useTodoAlerts();
+	const hasTodoAlerts = todoAlertCount > 0;
 
 	const handleAutomationsClick = () => {
 		navigate({ to: "/automations" });
+	};
+
+	const handleTodosClick = () => {
+		navigate({ to: "/todos" });
 	};
 
 	const handleTemporaryWorkspaceClick = async () => {
@@ -115,6 +124,19 @@ export function WorkspaceSidebarHeader({
 				<Tooltip delayDuration={300}>
 					<TooltipTrigger asChild>
 						<button
+							className={cn(itemClassName(isTodosOpen), "relative")}
+							onClick={handleTodosClick}
+							type="button"
+						>
+							<LuListTodo className="size-4" strokeWidth={STROKE_WIDTH} />
+							{hasTodoAlerts && <TodoAlertDot />}
+						</button>
+					</TooltipTrigger>
+					<TooltipContent side="right">{t("workspace.todos")}</TooltipContent>
+				</Tooltip>
+				<Tooltip delayDuration={300}>
+					<TooltipTrigger asChild>
+						<button
 							className={itemClassName(isTemporaryWorkspaceOpen)}
 							disabled={isTemporaryWorkspacePending}
 							onClick={() => void handleTemporaryWorkspaceClick()}
@@ -146,6 +168,19 @@ export function WorkspaceSidebarHeader({
 				</span>
 			</button>
 			<button
+				className={itemClassName(isTodosOpen)}
+				onClick={handleTodosClick}
+				type="button"
+			>
+				<div className="relative flex size-5 items-center justify-center">
+					<LuListTodo className="size-4" strokeWidth={STROKE_WIDTH} />
+					{hasTodoAlerts && <TodoAlertDot />}
+				</div>
+				<span className="flex-1 text-left text-sm font-medium">
+					{t("workspace.todos")}
+				</span>
+			</button>
+			<button
 				className={itemClassName(isTemporaryWorkspaceOpen)}
 				disabled={isTemporaryWorkspacePending}
 				onClick={() => void handleTemporaryWorkspaceClick()}
@@ -159,5 +194,14 @@ export function WorkspaceSidebarHeader({
 				</span>
 			</button>
 		</div>
+	);
+}
+
+function TodoAlertDot() {
+	return (
+		<span className="absolute right-0 top-0 flex size-2 -translate-y-0.5 translate-x-0.5">
+			<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+			<span className="relative inline-flex size-2 rounded-full bg-red-500" />
+		</span>
 	);
 }

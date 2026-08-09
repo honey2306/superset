@@ -5,6 +5,7 @@ export {
 	builtInThemes,
 	DEFAULT_THEME_ID,
 	darkTheme,
+	draculaTheme,
 	getBuiltInTheme,
 	lightTheme,
 	monokaiTheme,

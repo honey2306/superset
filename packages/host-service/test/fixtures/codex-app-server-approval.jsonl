@@ -1,0 +1,4 @@
+{"direction":"in","frame":{"method":"item/commandExecution/requestApproval","id":0,"params":{"threadId":"thread-1","turnId":"turn-1","itemId":"call-1","availableDecisions":["accept",{"acceptWithExecpolicyAmendment":{"execpolicy_amendment":["touch","approved.txt"]}},"decline","cancel"]}}}
+{"direction":"out","frame":{"jsonrpc":"2.0","id":0,"result":{"decision":"accept"}}}
+{"direction":"out","frame":{"jsonrpc":"2.0","id":0,"result":{"decision":"decline"}}}
+{"direction":"in","frame":{"method":"turn/completed","params":{"threadId":"thread-1","turn":{"id":"turn-1","status":"completed"}}}}

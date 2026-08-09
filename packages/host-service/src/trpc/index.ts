@@ -67,11 +67,67 @@ const t = initTRPC
 export const router = t.router;
 export const publicProcedure = t.procedure;
 
-export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
+/**
+ * Procedure paths a paired phone bearer is allowed to reach. Anything not
+ * matched by this allowlist responds FORBIDDEN to phone callers even
+ * though its own `protectedProcedure` guard would pass. Kept as an
+ * allowlist (not a blocklist) so newly-added mutations are safe-by-default.
+ *
+ * Only edit this list after considering blast radius. Terminal, git,
+ * settings mutations, credential edits, and workspace destroy paths are
+ * intentionally absent.
+ */
+const PHONE_ALLOWED_PATHS = new Set<string>([
+	"health.check",
+	"host.info",
+	"phone.pairing.mint",
+	"phone.pairing.redeem",
+	"phone.sessions.list",
+	"phone.sessions.revoke",
+	"phone.me",
+	"workspaceCatalog.snapshot",
+]);
+
+const PHONE_ALLOWED_PREFIXES: readonly string[] = ["acpSessions."];
+
+function isPhoneAllowed(path: string): boolean {
+	if (PHONE_ALLOWED_PATHS.has(path)) return true;
+	return PHONE_ALLOWED_PREFIXES.some((p) => path.startsWith(p));
+}
+
+export const protectedProcedure = t.procedure.use(
+	async ({ ctx, path, next }) => {
+		if (!ctx.isAuthenticated) {
+			throw new TRPCError({
+				code: "UNAUTHORIZED",
+				message: "Invalid or missing authentication token.",
+			});
+		}
+		if (ctx.authKind === "phone" && !isPhoneAllowed(path)) {
+			throw new TRPCError({
+				code: "FORBIDDEN",
+				message: "This operation is not available to paired phone sessions.",
+			});
+		}
+		return next({ ctx });
+	},
+);
+
+/**
+ * Procedure gated to callers holding the desktop PSK. Phone-session bearers
+ * are rejected with FORBIDDEN; unauthenticated callers get UNAUTHORIZED.
+ */
+export const pskOnlyProcedure = t.procedure.use(async ({ ctx, next }) => {
 	if (!ctx.isAuthenticated) {
 		throw new TRPCError({
 			code: "UNAUTHORIZED",
 			message: "Invalid or missing authentication token.",
+		});
+	}
+	if (ctx.authKind === "phone") {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "This operation requires desktop-level auth.",
 		});
 	}
 	return next({ ctx });

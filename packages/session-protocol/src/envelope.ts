@@ -24,6 +24,8 @@ export type SessionUpdateFrame =
 export interface SessionUpdateEnvelope {
 	/** Per-session, monotonic from 1, gapless. */
 	seq: number;
+	/** Journal incarnation; prevents seq reuse after journal loss/recreation. */
+	epoch: string;
 	sessionId: string;
 	ts: number;
 	frame: SessionUpdateFrame;

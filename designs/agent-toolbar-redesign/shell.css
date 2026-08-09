@@ -1,0 +1,534 @@
+/* Realistic Superset app shell — sidebar + chat + files pane + terminal dock,
+   with the new A-underline tab bar as the fixed top row so we can judge how
+   each toolbar variant reads *below* it. */
+
+.page {
+	padding: 32px;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	gap: 40px;
+}
+
+.page-title {
+	color: var(--fg);
+	font-size: 24px;
+	font-weight: 600;
+	margin: 0 0 4px;
+	letter-spacing: -0.01em;
+}
+.page-lede {
+	color: var(--fg-2);
+	opacity: 0.7;
+	max-width: 68ch;
+	line-height: 1.65;
+	margin: 0;
+}
+.variant-caption {
+	color: var(--fg-2);
+	opacity: 0.75;
+	font-size: 12px;
+	line-height: 1.7;
+	margin: 12px 4px 0;
+	max-width: 76ch;
+}
+.variant-badge {
+	display: inline-block;
+	font-size: 10.5px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--pink);
+	margin-right: 10px;
+}
+.variant-title {
+	color: var(--fg);
+	font-size: 15px;
+	font-weight: 600;
+}
+.variant-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+/* Full-window app shell */
+.window {
+	background: var(--bg);
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.5);
+	display: grid;
+	grid-template-columns: 220px 1fr 240px;
+	grid-template-rows: 44px 1fr 200px;
+	height: 680px;
+}
+
+/* Titlebar */
+.titlebar {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 0 14px;
+	background: var(--bg-2);
+	border-bottom: 1px solid var(--line);
+}
+.traffic {
+	display: flex;
+	gap: 7px;
+}
+.traffic span {
+	width: 11px;
+	height: 11px;
+	border-radius: 999px;
+	background: var(--dim);
+}
+.titlebar-title {
+	flex: 1;
+	color: var(--fg-2);
+	opacity: 0.5;
+	font-size: 11px;
+	text-align: center;
+}
+.titlebar-branch {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 8px;
+	border-radius: 4px;
+	background: var(--pink-dim);
+	color: var(--pink);
+	font-size: 10.5px;
+	font-family: var(--font-mono);
+}
+
+/* Sidebar */
+.sidebar {
+	grid-row: 2 / 4;
+	grid-column: 1;
+	background: var(--bg-2);
+	border-right: 1px solid var(--line);
+	padding: 12px 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	overflow: hidden;
+}
+.sb-group {
+	color: var(--muted);
+	font-size: 10px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	padding: 10px 8px 4px;
+}
+.sb-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: 4px;
+	color: var(--fg-2);
+	opacity: 0.75;
+	font-size: 12px;
+}
+.sb-item.active {
+	background: var(--panel-2);
+	color: var(--fg);
+	opacity: 1;
+}
+.sb-item .dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	background: var(--muted);
+	flex-shrink: 0;
+}
+.sb-item.running .dot {
+	background: var(--green);
+	box-shadow: 0 0 6px rgba(80, 250, 123, 0.5);
+}
+.sb-item.active .dot {
+	background: var(--pink);
+}
+.sb-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Main column */
+.main {
+	grid-row: 2;
+	grid-column: 2;
+	display: flex;
+	flex-direction: column;
+	background: var(--bg);
+	overflow: hidden;
+}
+
+/* ---- A-underline tab bar (固化,当作 toolbar 上下文) ---- */
+.tabbar {
+	display: flex;
+	align-items: stretch;
+	height: 40px;
+	border-bottom: 1px solid var(--line);
+	flex-shrink: 0;
+}
+.tabs-track {
+	display: flex;
+	align-items: stretch;
+}
+.tab-slot {
+	position: relative;
+	width: 156px;
+	flex-shrink: 0;
+}
+.tab-slot + .tab-slot::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 8px;
+	bottom: 8px;
+	width: 1px;
+	background: var(--line-hi);
+	opacity: 0.6;
+	pointer-events: none;
+}
+.tab {
+	height: 100%;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 8px 0 12px;
+	font-size: 12px;
+	color: var(--fg-2);
+	opacity: 0.6;
+	position: relative;
+}
+.tab.active {
+	color: var(--fg);
+	opacity: 1;
+	box-shadow: inset 0 -1.5px 0 var(--pink);
+}
+.tab .tab-icon {
+	width: 14px;
+	height: 14px;
+	display: inline-flex;
+	color: var(--muted);
+}
+.tab.active .tab-icon,
+.tab.running .tab-icon {
+	color: var(--pink);
+}
+.tab .tab-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 999px;
+	background: var(--green);
+	box-shadow: 0 0 6px rgba(80, 250, 123, 0.5);
+}
+.tab .tab-title {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tab-add {
+	width: 24px;
+	height: 24px;
+	margin: 0 6px;
+	border-radius: 4px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--muted);
+	align-self: center;
+}
+.tab-add svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Chat body */
+.chat {
+	flex: 1;
+	padding: 22px 28px;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+.chat-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--line);
+}
+.chat-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 10px;
+	border-radius: 999px;
+	border: 1px solid rgba(255, 121, 198, 0.36);
+	color: var(--pink);
+	font-size: 11.5px;
+}
+.chat-title {
+	color: var(--fg-2);
+	opacity: 0.7;
+	font-size: 12px;
+}
+.chat-row {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+.chat-row.you {
+	align-items: flex-end;
+}
+.chat-role {
+	color: var(--pink);
+	font-size: 10px;
+	letter-spacing: 0.14em;
+	font-weight: 600;
+	font-family: var(--font-mono);
+}
+.chat-row.you .chat-role {
+	color: var(--cyan);
+}
+.chat-bubble {
+	padding: 8px 14px;
+	border-radius: 8px;
+	color: var(--fg);
+	font-size: 12.5px;
+	line-height: 1.55;
+	max-width: 62%;
+}
+.chat-row.you .chat-bubble {
+	border: 1px solid rgba(139, 233, 253, 0.28);
+}
+.chat-row.assistant .chat-body {
+	color: var(--fg);
+	font-size: 12.5px;
+	line-height: 1.7;
+}
+.chat-row.assistant .chat-body li {
+	margin: 4px 0;
+}
+
+/* Files pane */
+.files-pane {
+	grid-row: 2 / 4;
+	grid-column: 3;
+	background: var(--bg-2);
+	border-left: 1px solid var(--line);
+	display: flex;
+	flex-direction: column;
+}
+.files-tabs {
+	display: flex;
+	align-items: stretch;
+	height: 38px;
+	border-bottom: 1px solid var(--line);
+}
+.files-tab {
+	padding: 0 14px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--fg-2);
+	opacity: 0.65;
+	font-size: 12px;
+	position: relative;
+}
+.files-tab.active {
+	color: var(--pink);
+	opacity: 1;
+}
+.files-tab.active::after {
+	content: "";
+	position: absolute;
+	left: 12px;
+	right: 12px;
+	bottom: -1px;
+	height: 1.5px;
+	background: var(--pink);
+}
+.files-tab svg {
+	width: 12px;
+	height: 12px;
+}
+.files-search {
+	margin: 10px;
+	padding: 6px 10px;
+	border-radius: 4px;
+	background: var(--panel);
+	color: var(--muted);
+	font-size: 11.5px;
+}
+.files-list {
+	flex: 1;
+	overflow: hidden;
+	padding: 6px 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.files-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 8px;
+	border-radius: 4px;
+	color: var(--fg-2);
+	opacity: 0.7;
+	font-size: 11.5px;
+	font-family: var(--font-mono);
+}
+.files-item .diff {
+	margin-left: auto;
+	color: var(--green);
+	font-size: 10px;
+}
+.files-item .diff.mod {
+	color: var(--orange);
+}
+
+/* Terminal dock */
+.dock {
+	grid-row: 3;
+	grid-column: 2;
+	background: var(--bg-2);
+	border-top: 1px solid var(--line);
+	padding: 12px 14px;
+	color: var(--fg-2);
+	font-family: var(--font-mono);
+	font-size: 11.5px;
+}
+.dock .branch {
+	color: var(--purple);
+}
+.dock .cwd {
+	color: var(--cyan);
+}
+.dock .caret {
+	display: inline-block;
+	width: 7px;
+	height: 14px;
+	background: var(--pink);
+	vertical-align: -3px;
+	animation: blink 1s steps(2, end) infinite;
+	margin-left: 2px;
+}
+@keyframes blink {
+	50% {
+		opacity: 0;
+	}
+}
+
+/* ============================================================
+   Agent toolbar — shared primitives (variants override look)
+   ============================================================ */
+.toolbar {
+	display: flex;
+	align-items: center;
+	height: 34px;
+	padding: 0 8px;
+	border-bottom: 1px solid var(--line);
+	color: var(--fg-2);
+	font-size: 12px;
+	flex-shrink: 0;
+	gap: 2px;
+}
+.tb-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 24px;
+	padding: 0 8px;
+	border-radius: 4px;
+	color: var(--fg-2);
+	font-size: 12px;
+	opacity: 0.85;
+	cursor: pointer;
+	transition:
+		background 120ms ease,
+		opacity 120ms ease;
+}
+.tb-chip:hover {
+	background: var(--panel);
+	opacity: 1;
+}
+.tb-chip-icon {
+	width: 14px;
+	height: 14px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+.tb-icon-btn {
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--muted);
+	cursor: pointer;
+	transition:
+		background 120ms ease,
+		color 120ms ease;
+	flex-shrink: 0;
+}
+.tb-icon-btn:hover {
+	background: var(--panel);
+	color: var(--fg-2);
+}
+.tb-icon-btn svg {
+	width: 14px;
+	height: 14px;
+}
+.tb-spacer {
+	flex: 1;
+}
+
+/* Set Run - split button (default look, variants override) */
+.run-split {
+	display: inline-flex;
+	align-items: stretch;
+	height: 24px;
+	border-radius: 4px;
+	overflow: hidden;
+}
+.run-main {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 10px;
+	color: var(--fg);
+	font-size: 12px;
+	cursor: pointer;
+	border-right: 1px solid var(--line);
+}
+.run-main svg {
+	width: 10px;
+	height: 10px;
+	color: var(--pink);
+}
+.run-chevron {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	color: var(--muted);
+	cursor: pointer;
+}
+.run-chevron svg {
+	width: 10px;
+	height: 10px;
+}

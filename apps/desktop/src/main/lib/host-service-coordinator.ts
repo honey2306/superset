@@ -3,8 +3,9 @@ import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import * as fs from "node:fs";
 import path from "node:path";
-import { settings } from "@superset/local-db";
+import { organizations, settings } from "@superset/local-db";
 import { getHostId, getHostName } from "@superset/shared/host-info";
+import { eq } from "drizzle-orm";
 import { app, dialog } from "electron";
 import log from "electron-log/main";
 import { env as sharedEnv } from "shared/env.shared";
@@ -19,6 +20,10 @@ import {
 	readManifest,
 	removeManifest,
 } from "./host-service-manifest";
+import {
+	HOST_SERVICE_RESPAWN_STABLE_MS,
+	nextRespawnDelayMs,
+} from "./host-service-respawn";
 import {
 	findFreePort,
 	HEALTH_POLL_TIMEOUT_MS,
@@ -46,6 +51,12 @@ export interface HostServiceStatusEvent {
 export interface SpawnConfig {
 	authToken: string;
 	cloudApiUrl: string;
+}
+
+interface RespawnState {
+	attempts: number;
+	timer: ReturnType<typeof setTimeout> | null;
+	stableTimer: ReturnType<typeof setTimeout> | null;
 }
 
 interface HostServiceProcess {
@@ -118,6 +129,18 @@ export class HostServiceCoordinator extends EventEmitter {
 	private scriptPath = path.join(__dirname, "host-service.js");
 	private machineId = getHostId();
 	private devReloadWatcher: fs.FSWatcher | null = null;
+	private respawns = new Map<string, RespawnState>();
+	private configProvider: (() => Promise<SpawnConfig | null>) | null = null;
+	private scheduleRespawnTimer: (
+		run: () => void,
+		delayMs: number,
+	) => ReturnType<typeof setTimeout> = (run, delayMs) =>
+		setTimeout(run, delayMs);
+
+	/** Supplies fresh credentials for automatic respawns. */
+	setConfigProvider(provider: () => Promise<SpawnConfig | null>): void {
+		this.configProvider = provider;
+	}
 
 	async start(
 		organizationId: string,
@@ -188,6 +211,9 @@ export class HostServiceCoordinator extends EventEmitter {
 	}
 
 	stop(organizationId: string): void {
+		// A crashed child is removed before its timer fires, so this must happen
+		// even when no instance is currently tracked.
+		this.clearRespawnState(organizationId);
 		const instance = this.instances.get(organizationId);
 		if (!instance) return;
 
@@ -213,6 +239,29 @@ export class HostServiceCoordinator extends EventEmitter {
 		for (const [id] of this.instances) {
 			this.stop(id);
 		}
+		for (const id of Array.from(this.respawns.keys())) {
+			this.clearRespawnState(id);
+		}
+	}
+
+	/** Explicit full-quit path; normal host-service restarts leave ACP daemons alive. */
+	async shutdownAcpDaemons(force = false): Promise<void> {
+		const organizationIds = this.getActiveOrganizationIds();
+		if (organizationIds.length === 0) return;
+		const { AcpDaemonClient } = await import("@superset/host-service");
+		await Promise.allSettled(
+			organizationIds.map(async (organizationId) => {
+				const client = new AcpDaemonClient({
+					organizationId,
+					spawnIfMissing: false,
+				});
+				try {
+					await client.shutdown({ force });
+				} finally {
+					await client.dispose();
+				}
+			}),
+		);
 	}
 
 	async restart(
@@ -590,24 +639,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		let childExited = false;
 		child.on("exit", (code, signal) => {
 			childExited = true;
-			log.info(
-				`[host-service:${organizationId}] exited with code ${code} signal ${signal}`,
-			);
-			const current = this.instances.get(organizationId);
-			if (!current || current.pid !== childPid || current.status === "stopped")
-				return;
-
-			// Only alert a crash of a running child; startup deaths surface via
-			// start()'s rejection instead.
-			const previousStatus = current.status;
-			this.rememberPort(organizationId, current.port);
-			this.instances.delete(organizationId);
-			removeManifest(organizationId);
-			this.emitStatus(organizationId, "stopped", previousStatus);
-
-			if (previousStatus === "running") {
-				this.alertChildCrashed(organizationId, code, signal);
-			}
+			this.handleChildExit(organizationId, childPid, code, signal);
 		});
 		// Don't let the child block Electron's exit — stopAll() handles teardown.
 		child.unref();
@@ -656,6 +688,13 @@ export class HostServiceCoordinator extends EventEmitter {
 			HOST_NAME: getHostName(),
 			HOST_SERVICE_SECRET: secret,
 			HOST_SERVICE_PORT: String(port),
+			// Internal builds expose the authenticated phone surface on the LAN.
+			// Stable builds retain the existing loopback-only boundary until phone
+			// access graduates from its ACP feature gate.
+			HOST_SERVICE_HOSTNAME: isInternalBuild() ? "0.0.0.0" : "127.0.0.1",
+			SUPERSET_WEB_APP_DIR: app.isPackaged
+				? path.join(process.resourcesPath, "resources/web")
+				: path.join(app.getAppPath(), "dist/resources/web"),
 			HOST_MANIFEST_DIR: organizationDir,
 			HOST_DB_PATH: path.join(organizationDir, "host.db"),
 			HOST_MIGRATIONS_FOLDER: app.isPackaged
@@ -682,6 +721,18 @@ export class HostServiceCoordinator extends EventEmitter {
 		// Remove any inherited shell value without affecting the loopback host.
 		delete childEnv.RELAY_URL;
 
+		// Pin the mfcli path for the ACP daemon's title generation. Resolving
+		// via `which` inside the augmented shell PATH beats relying on the
+		// daemon's inherited PATH — packaged Electron builds sometimes strip
+		// NVM/Homebrew entries even after applyShellEnvToProcess ran, and
+		// mfcli commonly sits under one of those. Best-effort: on failure we
+		// leave the env var unset and the daemon falls back to `mfcli` on its
+		// own PATH.
+		const mfcliPath = await resolveMfcliPath(childEnv);
+		if (mfcliPath) {
+			childEnv.SUPERSET_MFCLI_TITLE_COMMAND = mfcliPath;
+		}
+
 		return childEnv;
 	}
 
@@ -699,22 +750,158 @@ export class HostServiceCoordinator extends EventEmitter {
 		} satisfies HostServiceStatusEvent);
 	}
 
-	/**
-	 * Alert on an unexpected crash of a running child. Recovery is the existing
-	 * tray > Host Service > Restart.
-	 */
-	private alertChildCrashed(
+	private handleChildExit(
 		organizationId: string,
+		childPid: number,
 		code: number | null,
 		signal: NodeJS.Signals | null,
 	): void {
+		log.info(
+			`[host-service:${organizationId}] exited with code ${code} signal ${signal}`,
+		);
+		const current = this.instances.get(organizationId);
+		if (!current || current.pid !== childPid || current.status === "stopped")
+			return;
+
+		const previousStatus = current.status;
+		this.rememberPort(organizationId, current.port);
+		this.instances.delete(organizationId);
+		removeManifest(organizationId);
+		this.emitStatus(organizationId, "stopped", previousStatus);
+		if (previousStatus !== "running") return;
+
 		const cause =
 			signal != null ? `signal ${signal}` : `exit code ${code ?? "unknown"}`;
 		log.error(`[host-service:${organizationId}] crashed (${cause})`);
-		dialog.showErrorBox(
-			"Host service crashed",
-			`The Superset host service stopped unexpectedly (${cause}). Workspaces and terminals for this organization are unavailable until it restarts — use the Superset tray menu > Host Service > Restart.`,
+		this.scheduleRespawn(organizationId, cause);
+	}
+
+	private scheduleRespawn(organizationId: string, cause: string): void {
+		const state = this.respawns.get(organizationId) ?? {
+			attempts: 0,
+			timer: null,
+			stableTimer: null,
+		};
+		this.respawns.set(organizationId, state);
+
+		const delay = nextRespawnDelayMs(state.attempts);
+		if (delay === null) {
+			log.error(
+				`[host-service:${organizationId}] giving up after ${state.attempts} respawn attempts`,
+			);
+			this.clearRespawnState(organizationId);
+			this.alertChildCrashed(organizationId, cause);
+			return;
+		}
+
+		state.attempts += 1;
+		const attempt = state.attempts;
+		log.info(
+			`[host-service:${organizationId}] respawn attempt ${attempt} in ${Math.round(delay)}ms`,
 		);
+		if (state.timer) clearTimeout(state.timer);
+		state.timer = this.scheduleRespawnTimer(() => {
+			state.timer = null;
+			void this.respawn(organizationId, attempt, state);
+		}, delay);
+		state.timer.unref?.();
+	}
+
+	private async respawn(
+		organizationId: string,
+		attempt: number,
+		state: RespawnState,
+	): Promise<void> {
+		const cancelled = () => this.respawns.get(organizationId) !== state;
+		if (!this.configProvider) {
+			log.error(
+				`[host-service:${organizationId}] cannot respawn: no config provider registered`,
+			);
+			this.clearRespawnState(organizationId);
+			this.alertChildCrashed(organizationId, "no config provider");
+			return;
+		}
+
+		try {
+			const config = await this.configProvider();
+			if (cancelled()) return;
+			if (!config) {
+				log.warn(
+					`[host-service:${organizationId}] respawn attempt ${attempt}: no config available`,
+				);
+				this.scheduleRespawn(organizationId, "no auth token available");
+				return;
+			}
+			await this.startWithPreferredPorts(
+				organizationId,
+				config,
+				this.getPreferredPorts(organizationId),
+			);
+			if (cancelled()) {
+				this.stop(organizationId);
+				return;
+			}
+			log.info(
+				`[host-service:${organizationId}] respawned on attempt ${attempt}`,
+			);
+			this.armRespawnBudgetReset(organizationId);
+		} catch (error) {
+			if (cancelled()) return;
+			log.error(
+				`[host-service:${organizationId}] respawn attempt ${attempt} failed:`,
+				error,
+			);
+			this.scheduleRespawn(organizationId, `respawn attempt ${attempt} failed`);
+		}
+	}
+
+	private armRespawnBudgetReset(organizationId: string): void {
+		const state = this.respawns.get(organizationId);
+		const instance = this.instances.get(organizationId);
+		if (!state || instance?.status !== "running") return;
+		if (state.stableTimer) clearTimeout(state.stableTimer);
+		state.stableTimer = this.scheduleRespawnTimer(() => {
+			if (
+				this.respawns.get(organizationId) === state &&
+				this.instances.get(organizationId) === instance &&
+				instance.status === "running"
+			) {
+				this.clearRespawnState(organizationId);
+			}
+		}, HOST_SERVICE_RESPAWN_STABLE_MS);
+		state.stableTimer.unref?.();
+	}
+
+	private clearRespawnState(organizationId: string): void {
+		const state = this.respawns.get(organizationId);
+		if (!state) return;
+		if (state.timer) clearTimeout(state.timer);
+		if (state.stableTimer) clearTimeout(state.stableTimer);
+		this.respawns.delete(organizationId);
+	}
+
+	private alertChildCrashed(organizationId: string, cause: string): void {
+		const orgName = this.getOrganizationName(organizationId);
+		void dialog.showMessageBox({
+			type: "error",
+			title: "Host service crashed",
+			message: `The Superset host service${orgName ? ` for ${orgName}` : ""} stopped unexpectedly (${cause}) and could not be restarted automatically.`,
+			detail:
+				"Its workspaces and terminals are unavailable until it restarts — use the Superset tray menu > Host Service > Restart.",
+		});
+	}
+
+	private getOrganizationName(organizationId: string): string | null {
+		try {
+			const row = localDb
+				.select({ name: organizations.name })
+				.from(organizations)
+				.where(eq(organizations.id, organizationId))
+				.get();
+			return row?.name ?? null;
+		} catch {
+			return null;
+		}
 	}
 }
 
@@ -752,4 +939,44 @@ export function getHostServiceCoordinator(): HostServiceCoordinator {
 		coordinator = new HostServiceCoordinator();
 	}
 	return coordinator;
+}
+
+/**
+ * Resolve an absolute path to `mfcli` using the passed child env's PATH. Used
+ * to pin `SUPERSET_MFCLI_TITLE_COMMAND` for the ACP daemon so title generation
+ * finds mfcli even when the daemon's inherited PATH is missing NVM/Homebrew
+ * entries. Returns null if the lookup fails; the daemon then relies on its
+ * own PATH.
+ */
+async function resolveMfcliPath(
+	env: Record<string, string>,
+): Promise<string | null> {
+	if (env.SUPERSET_MFCLI_TITLE_COMMAND) {
+		return env.SUPERSET_MFCLI_TITLE_COMMAND;
+	}
+	const probe = process.platform === "win32" ? "where" : "which";
+	try {
+		const stdout = await new Promise<string>((resolve, reject) => {
+			const child = childProcess.execFile(
+				probe,
+				["mfcli"],
+				{ env, timeout: 5_000, encoding: "utf8" },
+				(error, out) => {
+					if (error) reject(error);
+					else resolve(out);
+				},
+			);
+			child.on("error", reject);
+		});
+		const first = stdout
+			.split(/\r?\n/)
+			.map((line) => line.trim())
+			.find(Boolean);
+		return first || null;
+	} catch (error) {
+		log.debug(
+			`[host-service-coordinator] mfcli lookup failed: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return null;
+	}
 }

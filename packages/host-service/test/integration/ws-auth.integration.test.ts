@@ -12,6 +12,16 @@ describe("websocket route auth", () => {
 		await host.dispose();
 	});
 
+	async function pairPhone(): Promise<string> {
+		const { code } = await host.trpc.phone.pairing.mint.mutate();
+		const { token } =
+			await host.unauthenticatedTrpc.phone.pairing.redeem.mutate({
+				code,
+				deviceLabel: "integration test phone",
+			});
+		return token;
+	}
+
 	test("/events rejects requests without auth header or token", async () => {
 		const res = await host.fetch("http://host-service.test/events");
 		expect(res.status).toBe(401);
@@ -40,5 +50,31 @@ describe("websocket route auth", () => {
 			"http://host-service.test/terminal/some-id?workspaceId=ws-1",
 		);
 		expect(res.status).toBe(401);
+	});
+
+	test("phone sessions cannot authenticate event or terminal sockets", async () => {
+		const token = await pairPhone();
+		const query = `token=${encodeURIComponent(token)}`;
+
+		const [events, terminal] = await Promise.all([
+			host.fetch(`http://host-service.test/events?${query}`),
+			host.fetch(
+				`http://host-service.test/terminal/some-id?workspaceId=ws-1&${query}`,
+			),
+		]);
+
+		expect(events.status).toBe(403);
+		expect(terminal.status).toBe(403);
+	});
+
+	test("phone sessions can authenticate the ACP stream socket", async () => {
+		const token = await pairPhone();
+		const res = await host.fetch(
+			`http://host-service.test/acp-sessions/session-1/stream?token=${encodeURIComponent(token)}`,
+		);
+
+		// ACP is disabled in this fixture, so auth passes and the route falls
+		// through. The important boundary is that this is not a 401/403.
+		expect([404, 426]).toContain(res.status);
 	});
 });

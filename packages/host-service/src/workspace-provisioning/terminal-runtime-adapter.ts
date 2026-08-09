@@ -2,7 +2,10 @@ import { eq } from "drizzle-orm";
 import type { HostDb } from "../db";
 import { projects, workspaces } from "../db/schema";
 import type { EventBus } from "../events";
-import { createTerminalSessionInternal } from "../terminal/terminal";
+import {
+	createTerminalSessionInternal,
+	waitForTerminalCommandCompletion,
+} from "../terminal/terminal";
 import { runAgentInWorkspace } from "../trpc/router/agents";
 import { resolveInitialCommand } from "../trpc/router/workspace-creation/shared/setup-terminal";
 import type { HostServiceContext } from "../types";
@@ -27,6 +30,8 @@ export interface StartInitialSessionArgs {
 	worktreePath: string;
 	intent: InitialSessionIntent;
 	terminalId: string;
+	/** Setup/command must complete successfully before a dependent agent runs. */
+	awaitCommandCompletion?: boolean;
 }
 
 export interface TerminalRuntimeAdapter {
@@ -46,7 +51,13 @@ export function createProductionTerminalRuntime(
 ): TerminalRuntimeAdapter {
 	return {
 		async startInitialSession(args) {
-			const { intent, terminalId, workspaceId, worktreePath } = args;
+			const {
+				intent,
+				terminalId,
+				workspaceId,
+				worktreePath,
+				awaitCommandCompletion,
+			} = args;
 			if (intent.kind === "agent") {
 				const result = await runAgentInWorkspace(deps.ctxFactory(), {
 					workspaceId,
@@ -102,6 +113,13 @@ export function createProductionTerminalRuntime(
 				intent.kind === "command"
 					? intent.command
 					: setupCommand?.initialCommand;
+			const completionMarker =
+				awaitCommandCompletion && initialCommand
+					? `__SUPERSET_SETUP_COMPLETE_${terminalId.replaceAll("-", "")}`
+					: null;
+			const trackedInitialCommand = completionMarker
+				? `(${initialCommand}); __superset_setup_exit=$?; printf '\\n${completionMarker}:%s__\\n' "$__superset_setup_exit"`
+				: initialCommand;
 			const label =
 				intent.kind === "shell" || intent.kind === "command"
 					? intent.label
@@ -119,11 +137,33 @@ export function createProductionTerminalRuntime(
 				workspaceId,
 				db: deps.db,
 				eventBus: deps.eventBus,
-				initialCommand,
+				initialCommand: trackedInitialCommand,
 				cwd: worktreePath,
 			});
 			if ("error" in result) {
 				throw new Error(`Terminal spawn failed: ${result.error}`);
+			}
+			if (completionMarker) {
+				const completion = await waitForTerminalCommandCompletion({
+					terminalId,
+					marker: completionMarker,
+					timeoutMs: 5 * 60_000,
+				});
+				if (completion.kind === "timeout") {
+					throw new Error(
+						`Setup command timed out after ${completion.timeoutMs}ms (terminal ${terminalId})`,
+					);
+				}
+				if (completion.kind === "exited") {
+					throw new Error(
+						`Setup terminal exited before completion marker (exit code ${completion.exitCode}, signal ${completion.signal}; terminal ${terminalId})`,
+					);
+				}
+				if (completion.exitCode !== 0) {
+					throw new Error(
+						`Setup command failed with exit code ${completion.exitCode} (terminal ${terminalId})`,
+					);
+				}
 			}
 			return {
 				key: intent.key,

@@ -19,9 +19,8 @@ describe("healV2UserPreferences", () => {
 	});
 
 	it("preserves stored top-level fields and fills missing ones", () => {
-		const stored = { rightSidebarOpen: false, rightSidebarWidth: 500 };
+		const stored = { rightSidebarWidth: 500 };
 		const healed = healV2UserPreferences(stored);
-		expect(healed.rightSidebarOpen).toBe(false);
 		expect(healed.rightSidebarWidth).toBe(500);
 		expect(healed.terminalPresetsInitialized).toBe(false);
 		expect(healed.sidebarFileLinks).toEqual(
@@ -44,7 +43,6 @@ describe("healV2UserPreferences", () => {
 			id: "preferences",
 			fileLinks: { plain: null, shift: null, meta: "pane", metaShift: null },
 			urlLinks: { plain: null, shift: null, meta: "pane", metaShift: null },
-			rightSidebarOpen: true,
 			rightSidebarTab: "changes",
 			rightSidebarWidth: 340,
 			deleteLocalBranch: false,

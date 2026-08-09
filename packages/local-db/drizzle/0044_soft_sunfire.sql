@@ -1,0 +1,1 @@
+ALTER TABLE `settings` ADD `use_acp_for_agent_presets` integer;

@@ -6,7 +6,6 @@ import {
 	Command,
 	CommandEmpty,
 	CommandGroup,
-	CommandInput,
 	CommandItem,
 	CommandList,
 } from "@superset/ui/command";
@@ -26,16 +25,22 @@ import Suggestion from "@tiptap/suggestion";
 const slashSuggestionKey = new PluginKey("slashCommandSuggestion");
 const mentionSuggestionKey = new PluginKey("fileMentionSuggestion");
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+	forwardRef,
+	useEffect,
+	useImperativeHandle,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
 import { resolveHotkeyFromEvent } from "renderer/hotkeys";
 import { FileIcon } from "renderer/lib/fileIcons";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import {
-	getCommandMatchRank,
-	type SlashCommand,
-	shouldSuppressSlashMenuForCommittedCommand,
-	sortSlashCommandMatches,
+	type ComposerSlashCommand,
+	filterSlashCommands,
+	resolveSlashCommandArgumentOptions,
 } from "../../hooks/useSlashCommands";
 import type { ModelOption } from "../../types";
 import { SlashCommandMenu } from "../SlashCommandMenu";
@@ -47,14 +52,15 @@ import {
 	SlashCommandPreviewPopover,
 } from "./SlashCommandPreviewPopover";
 import { serializeEditorToText } from "./serializeEditorToText";
+import { shouldInsertTriggerSeparator } from "./shouldInsertTriggerSeparator";
 
 type FileResult = { id: string; name: string; relativePath: string };
 type SearchFilesFn = (query: string) => Promise<FileResult[]>;
 
 type SlashMenuState = {
-	commands: SlashCommand[];
+	commands: ComposerSlashCommand[];
 	selectedIndex: number;
-	tiptapCommand: (props: { cmd: SlashCommand }) => void;
+	tiptapCommand: (props: { cmd: ComposerSlashCommand }) => void;
 };
 
 type MentionState = {
@@ -68,11 +74,23 @@ export interface TiptapPromptEditorProps {
 	cwd: string;
 	searchFiles: SearchFilesFn;
 	previewSlashCommand?: PreviewSlashCommandFn;
-	slashCommands: SlashCommand[];
+	slashCommands: ComposerSlashCommand[];
 	availableModels?: ModelOption[];
 	placeholder?: string;
 	className?: string;
 	focusShortcutText?: string;
+	disabled?: boolean;
+	/**
+	 * Optional paste handler for contexts that only accept a subset of files.
+	 * Return true only when the files were handled and the browser paste should
+	 * be suppressed.
+	 */
+	onPasteFiles?: (files: File[]) => boolean;
+}
+
+export interface TiptapPromptEditorHandle {
+	insertTrigger(trigger: "/" | "@"): void;
+	focus(): void;
 }
 
 function getDirectoryPath(relativePath: string): string {
@@ -81,16 +99,24 @@ function getDirectoryPath(relativePath: string): string {
 	return relativePath.slice(0, lastSlash);
 }
 
-export function TiptapPromptEditor({
-	cwd,
-	searchFiles,
-	previewSlashCommand,
-	slashCommands,
-	availableModels,
-	placeholder,
-	className,
-	focusShortcutText,
-}: TiptapPromptEditorProps) {
+export const TiptapPromptEditor = forwardRef<
+	TiptapPromptEditorHandle,
+	TiptapPromptEditorProps
+>(function TiptapPromptEditor(
+	{
+		cwd,
+		searchFiles,
+		previewSlashCommand,
+		slashCommands,
+		availableModels,
+		placeholder,
+		className,
+		focusShortcutText,
+		disabled = false,
+		onPasteFiles,
+	},
+	ref,
+) {
 	const { t } = useTranslation();
 	const resolvedPlaceholder = placeholder ?? t("chatInput.placeholder");
 	const controller = usePromptInputController();
@@ -103,6 +129,8 @@ export function TiptapPromptEditor({
 	availableModelsRef.current = availableModels;
 	const attachmentsRef = useRef(attachments);
 	attachmentsRef.current = attachments;
+	const onPasteFilesRef = useRef(onPasteFiles);
+	onPasteFilesRef.current = onPasteFiles;
 	const controllerRef = useRef(controller);
 	controllerRef.current = controller;
 
@@ -150,18 +178,28 @@ export function TiptapPromptEditor({
 		mentionState?.query ?? "",
 		120,
 	);
-	const isMentionVisible =
-		mentionState !== null && (mentionState?.query?.length ?? 0) > 0;
+	const isMentionVisible = mentionState !== null;
 	const [fileResults, setFileResults] = useState<FileResult[]>([]);
+	const [isSearchingFiles, setIsSearchingFiles] = useState(false);
+	const [fileSearchError, setFileSearchError] = useState(false);
 	useEffect(() => {
-		if (!isMentionVisible || !cwd || debouncedMentionQuery.length === 0) return;
+		if (!isMentionVisible || !cwd) return;
 		let cancelled = false;
+		setFileResults([]);
+		setIsSearchingFiles(true);
+		setFileSearchError(false);
 		searchFiles(debouncedMentionQuery)
 			.then((results) => {
 				if (!cancelled) setFileResults(results);
 			})
 			.catch(() => {
-				// Empty results on error — mention popup degrades gracefully.
+				if (!cancelled) {
+					setFileResults([]);
+					setFileSearchError(true);
+				}
+			})
+			.finally(() => {
+				if (!cancelled) setIsSearchingFiles(false);
 			});
 		return () => {
 			cancelled = true;
@@ -276,28 +314,16 @@ export function TiptapPromptEditor({
 								return charBefore === " " || charBefore === "\n";
 							},
 
-							items: ({ query }: { query: string }) => {
-								const commands = slashCommandsRef.current;
-								const q = query.toLowerCase();
-								if (shouldSuppressSlashMenuForCommittedCommand(q, commands)) {
-									return [];
-								}
-								const matches = commands
-									.map((command) => {
-										const rank = getCommandMatchRank(command, q);
-										return rank === null ? null : { command, rank };
-									})
-									.filter(
-										(item): item is { command: SlashCommand; rank: number } =>
-											item !== null,
-									);
-								return sortSlashCommandMatches(matches);
-							},
+							items: ({ query }: { query: string }) =>
+								filterSlashCommands(
+									slashCommandsRef.current,
+									query.toLowerCase(),
+								),
 
 							render: () => ({
 								onStart(props: {
-									items: SlashCommand[];
-									command: (p: { cmd: SlashCommand }) => void;
+									items: ComposerSlashCommand[];
+									command: (p: { cmd: ComposerSlashCommand }) => void;
 								}) {
 									setSlashMenu({
 										commands: props.items,
@@ -306,8 +332,8 @@ export function TiptapPromptEditor({
 									});
 								},
 								onUpdate(props: {
-									items: SlashCommand[];
-									command: (p: { cmd: SlashCommand }) => void;
+									items: ComposerSlashCommand[];
+									command: (p: { cmd: ComposerSlashCommand }) => void;
 								}) {
 									setSlashMenu((prev) =>
 										prev
@@ -378,15 +404,15 @@ export function TiptapPromptEditor({
 							}: {
 								editor: Editor;
 								range: { from: number; to: number };
-								props: { cmd: SlashCommand };
+								props: { cmd: ComposerSlashCommand };
 							}) {
 								// Insert the chip; the chip's input auto-focuses so the
 								// user can type arguments directly inside it.
 								const cmd = props.cmd;
-								const argumentOptions =
-									cmd.action?.type === "set_model"
-										? (availableModelsRef.current?.map((m) => m.name) ?? [])
-										: [];
+								const argumentOptions = resolveSlashCommandArgumentOptions(
+									cmd,
+									availableModelsRef.current?.map((model) => model.name) ?? [],
+								);
 								ed.chain()
 									.deleteRange(range)
 									.insertContentAt(range.from, {
@@ -580,8 +606,13 @@ export function TiptapPromptEditor({
 					.map((i) => i.getAsFile())
 					.filter((f): f is File => f !== null);
 				if (files.length > 0) {
+					const handleFiles = onPasteFilesRef.current;
+					if (handleFiles) {
+						if (!handleFiles(files)) return false;
+					} else {
+						attachmentsRef.current.add(files);
+					}
 					event.preventDefault();
-					attachmentsRef.current.add(files);
 					return true;
 				}
 				return false;
@@ -594,6 +625,35 @@ export function TiptapPromptEditor({
 			controllerRef.current.textInput.setInput(text);
 		},
 	});
+
+	useEffect(() => {
+		editor?.setEditable(!disabled);
+	}, [disabled, editor]);
+
+	useImperativeHandle(
+		ref,
+		() => ({
+			focus: () => editor?.commands.focus("end"),
+			insertTrigger: (trigger) => {
+				if (!editor || disabled) return;
+				const { $from } = editor.state.selection;
+				const charBefore = $from.parent.textBetween(
+					Math.max(0, $from.parentOffset - 1),
+					$from.parentOffset,
+				);
+				const separator = shouldInsertTriggerSeparator(
+					$from.nodeBefore,
+					charBefore,
+				);
+				editor
+					.chain()
+					.focus()
+					.insertContent(separator ? ` ${trigger}` : trigger)
+					.run();
+			},
+		}),
+		[disabled, editor],
+	);
 
 	// Register focus callback so controller.textInput.focus() targets the editor
 	useEffect(() => {
@@ -749,21 +809,14 @@ export function TiptapPromptEditor({
 						onMouseDown={(e) => e.preventDefault()}
 					>
 						<Command shouldFilter={false}>
-							<CommandInput
-								placeholder={t("mention.searchFiles")}
-								value={mentionState?.query ?? ""}
-								onValueChange={(q) =>
-									setMentionState((prev) =>
-										prev ? { ...prev, query: q } : null,
-									)
-								}
-							/>
 							<CommandList className="max-h-[200px] [&::-webkit-scrollbar]:hidden">
 								{mentionFiles.length === 0 && (
 									<CommandEmpty className="px-2 py-3 text-left text-xs text-muted-foreground">
-										{!mentionState?.query
-											? t("mention.typeToSearch")
-											: t("mention.noResults")}
+										{isSearchingFiles
+											? t("mention.searchingFiles")
+											: fileSearchError
+												? t("mention.fileSearchNotAvailable")
+												: t("mention.noResults")}
 									</CommandEmpty>
 								)}
 								{mentionFiles.length > 0 && (
@@ -806,4 +859,4 @@ export function TiptapPromptEditor({
 			</Popover>
 		</>
 	);
-}
+});

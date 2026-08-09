@@ -7,6 +7,12 @@ import {
 	isNoPullRequestFoundMessage,
 	isUpstreamMissingError,
 } from "./git-utils";
+import {
+	gitDeleteLocalBranch,
+	gitDeleteRemoteBranch,
+	gitMergeBranch,
+	gitResetToCommit,
+} from "./security/git-commands";
 import { assertRegisteredWorktree } from "./security/path-validation";
 import {
 	fetchCurrentBranch,
@@ -286,6 +292,128 @@ export const createGitOperationsRouter = () => {
 					}
 				},
 			),
+
+		deleteLocalBranch: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+					branch: z.string(),
+				}),
+			)
+			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				assertRegisteredWorktree(input.worktreePath);
+				try {
+					await gitDeleteLocalBranch(input.worktreePath, input.branch);
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : String(error);
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: `Failed to delete branch "${input.branch}": ${message}`,
+					});
+				}
+				clearStatusCacheForWorktree(input.worktreePath);
+				return { success: true };
+			}),
+
+		deleteRemoteBranch: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+					branch: z.string(),
+					remote: z.string().default("origin"),
+				}),
+			)
+			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				assertRegisteredWorktree(input.worktreePath);
+				try {
+					await gitDeleteRemoteBranch(
+						input.worktreePath,
+						input.branch,
+						input.remote,
+					);
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : String(error);
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: `Failed to delete "${input.branch}" on ${input.remote}: ${message}`,
+					});
+				}
+				clearStatusCacheForWorktree(input.worktreePath);
+				return { success: true };
+			}),
+
+		mergeBranch: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+					branch: z.string(),
+					noFastForward: z.boolean().optional(),
+					squash: z.boolean().optional(),
+				}),
+			)
+			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				assertRegisteredWorktree(input.worktreePath);
+
+				const currentBranch = await getLocalBranchOrThrow({
+					worktreePath: input.worktreePath,
+					action: "merge",
+				});
+				if (currentBranch === input.branch) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "Cannot merge a branch into itself",
+					});
+				}
+
+				try {
+					await gitMergeBranch(input.worktreePath, input.branch, {
+						noFastForward: input.noFastForward,
+						squash: input.squash,
+					});
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : String(error);
+					if (message.includes("CONFLICT") || message.includes("conflict")) {
+						throw new TRPCError({
+							code: "CONFLICT",
+							message: `Merge produced conflicts. Resolve them in the terminal or editor, then stage and commit.`,
+						});
+					}
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: `Merge failed: ${message}`,
+					});
+				}
+
+				clearStatusCacheForWorktree(input.worktreePath);
+				return { success: true };
+			}),
+
+		resetToCommit: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+					commit: z.string(),
+					mode: z.enum(["soft", "mixed", "hard"]),
+				}),
+			)
+			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				assertRegisteredWorktree(input.worktreePath);
+				try {
+					await gitResetToCommit(input.worktreePath, input.commit, input.mode);
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : String(error);
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: `Reset failed: ${message}`,
+					});
+				}
+				clearStatusCacheForWorktree(input.worktreePath);
+				return { success: true };
+			}),
 
 		mergePR: publicProcedure
 			.input(

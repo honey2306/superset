@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>ACP Markdown — 列表微调 · 完整对话预览</title>
+		<link rel="stylesheet" href="./variants.css" />
+	</head>
+	<body>
+		<div class="app">
+			<aside class="sidebar">
+				<div>
+					<div class="sidebar__slug">ACP · MARKDOWN</div>
+					<h1 class="sidebar__title">列表排版对比</h1>
+				</div>
+				<p class="sidebar__desc">
+					真实 ACP pane 上下文里的一段完整对话:段落、列表、代码块、表格、引用、任务清单、分隔线、内联代码、链接。切换右侧 6 版列表微调,其它元素完全一致。
+				</p>
+
+				<div class="sidebar__group-label">Variants</div>
+				<div class="variant-picker" role="tablist" aria-label="列表排版方案">
+					<button
+						type="button"
+						class="variant-picker__btn"
+						data-target="m1"
+						data-active="true"
+						role="tab"
+					>
+						<span class="variant-picker__num">1</span>
+						<span class="variant-picker__meta">
+							<span class="variant-picker__name">Baseline</span>
+							<span class="variant-picker__hint">圆点 muted + 术语加粗</span>
+						</span>
+					</button>
+					<button type="button" class="variant-picker__btn" data-target="m2" role="tab">
+						<span class="variant-picker__num">2</span>
+						<span class="variant-picker__meta">
+							<span class="variant-picker__name">Terminal ›</span>
+							<span class="variant-picker__hint">粉色箭头 marker</span>
+						</span>
+					</button>
+					<button type="button" class="variant-picker__btn" data-target="m3" role="tab">
+						<span class="variant-picker__num">3</span>
+						<span class="variant-picker__meta">
+							<span class="variant-picker__name">Mono 术语</span>
+							<span class="variant-picker__hint">等宽粉色,像 CLI --flag</span>
+						</span>
+					</button>
+					<button type="button" class="variant-picker__btn" data-target="m4" role="tab">
+						<span class="variant-picker__num">4</span>
+						<span class="variant-picker__meta">
+							<span class="variant-picker__name">Hairline 分隔</span>
+							<span class="variant-picker__hint">每项底部一条细线</span>
+						</span>
+					</button>
+					<button type="button" class="variant-picker__btn" data-target="m5" role="tab">
+						<span class="variant-picker__num">5</span>
+						<span class="variant-picker__meta">
+							<span class="variant-picker__name">无 marker</span>
+							<span class="variant-picker__hint">Hover 时粉色导轨</span>
+						</span>
+					</button>
+					<button type="button" class="variant-picker__btn" data-target="m6" role="tab">
+						<span class="variant-picker__num">6</span>
+						<span class="variant-picker__meta">
+							<span class="variant-picker__name">紧凑 · 冒号</span>
+							<span class="variant-picker__hint">粉冒号 + 更紧行距</span>
+						</span>
+					</button>
+				</div>
+
+				<div class="sidebar__foot">
+					所有变体共用 Dracula 调色板和 <code>.acp-md</code> 基础样式;仅 <code>&lt;ul&gt;</code> 的 marker/术语/节奏不同。切换后段落、代码块、表格、引用等其它元素完全一致。
+				</div>
+			</aside>
+
+			<div class="preview">
+				<div class="acp-pane">
+					<!-- Toolbar -->
+					<div class="acp-pane__toolbar">
+						<span class="acp-pane__chip">CLAUDE CODE</span>
+						<span class="acp-pane__toolbar-title">帮我理解 useSlashCommands 是怎么工作的</span>
+						<span class="acp-pane__toolbar-spacer"></span>
+						<span class="acp-pane__header-pill">idle</span>
+					</div>
+
+					<!-- Timeline body -->
+					<div class="acp-pane__body">
+						<div class="acp-pane__body-inner" id="timeline">
+							<!-- User -->
+							<div class="acp-msg" data-role="user">
+								<div class="acp-msg__author">
+									<span class="acp-msg__author-name">你</span>
+								</div>
+								<div class="acp-msg__bubble">
+									帮我理解 <code>useSlashCommands</code> 是怎么工作的,顺便给我看下相关的类型和一个调用示例。也评估下这个 hook 值不值得抽到 packages 里。
+								</div>
+							</div>
+
+							<!-- Agent — full markdown showcase (list section swaps class) -->
+							<div class="acp-msg" data-role="agent">
+								<div class="acp-msg__author">
+									<span class="acp-msg__author-name">CLAUDE</span>
+								</div>
+								<div class="acp-msg__bubble">
+									<div class="acp-md acp-md--m1" id="acp-md">
+										<h2>useSlashCommands 概览</h2>
+										<p>
+											<code>useSlashCommands</code> 是 Chat interface 里驱动 <strong>斜杠命令菜单</strong>的核心 hook。它订阅当前 session 的 <code>availableCommands</code>,把编辑器里的 <code>/&lt;query&gt;</code> 前缀转成一个可导航的 candidates 列表,并把选中的命令 <em>插回</em> Tiptap 文档。
+										</p>
+
+										<h3>能力清单</h3>
+										<ul>
+											<li><strong>命令发现</strong> — 从 session meta 里读 <code>availableCommands</code>,包含内置和项目 skill</li>
+											<li><strong>模糊匹配</strong> — 基于当前 query 计算候选,忽略大小写、支持 kebab-case 中缀匹配</li>
+											<li><strong>键盘导航</strong> — ↑ / ↓ 移动高亮,<kbd>Enter</kbd> 或 <kbd>Tab</kbd> 确认,<kbd>Esc</kbd> 关闭</li>
+											<li><strong>Tiptap 集成</strong> — 通过 <code>SlashCommandNode</code> 把选中命令替换为不可编辑的 chip</li>
+											<li><strong>参数占位</strong> — 命令支持参数占位,插入后自动把光标停在参数位</li>
+											<li><strong>状态解耦</strong> — 菜单打开/关闭由外部 state 驱动,hook 不管 UI 只出数据</li>
+										</ul>
+
+										<h3>返回类型</h3>
+										<p>核心签名如下,<em>data-only</em> 输出,UI 完全在调用方组装:</p>
+
+										<div class="acp-code">
+											<div class="acp-code__hd">
+												<span class="acp-code__lang" data-lang="ts">ts</span>
+												<span class="acp-code__meta">useSlashCommands.ts</span>
+												<button type="button" class="acp-code__copy">copy</button>
+											</div>
+											<div class="acp-code__body">
+												<div class="acp-code__gutter">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11</div>
+												<pre class="acp-code__pre"><span class="tok-keyword">export</span> <span class="tok-keyword">interface</span> <span class="tok-type">SlashCommandsState</span> {
+  <span class="tok-fn">query</span>: <span class="tok-type">string</span>;
+  <span class="tok-fn">candidates</span>: <span class="tok-type">SlashCommand</span>[];
+  <span class="tok-fn">highlightedIndex</span>: <span class="tok-type">number</span>;
+  <span class="tok-fn">isOpen</span>: <span class="tok-type">boolean</span>;
+}
+
+<span class="tok-keyword">export</span> <span class="tok-keyword">function</span> <span class="tok-fn">useSlashCommands</span>(
+  <span class="tok-fn">args</span>: <span class="tok-type">UseSlashCommandsArgs</span>,
+): <span class="tok-type">SlashCommandsController</span>;</pre>
+											</div>
+										</div>
+
+										<h3>调用示例</h3>
+										<p>典型的用法配合一个 Tiptap 编辑器和一个 <code>&lt;SlashCommandMenu /&gt;</code>:</p>
+
+										<div class="acp-code">
+											<div class="acp-code__hd">
+												<span class="acp-code__lang" data-lang="tsx">tsx</span>
+												<span class="acp-code__meta">TiptapPromptEditor.tsx · L82</span>
+												<button type="button" class="acp-code__copy">copy</button>
+											</div>
+											<div class="acp-code__body">
+												<div class="acp-code__gutter">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17</div>
+												<pre class="acp-code__pre"><span class="tok-keyword">const</span> <span class="tok-fn">slash</span> = <span class="tok-fn">useSlashCommands</span>({
+  <span class="tok-fn">editor</span>,
+  <span class="tok-fn">commands</span>,
+  <span class="tok-fn">onCommit</span>: (<span class="tok-fn">command</span>) =&gt; {
+    <span class="tok-fn">telemetry</span>.<span class="tok-fn">emit</span>(<span class="tok-string">"slash.commit"</span>, { <span class="tok-fn">id</span>: command.<span class="tok-fn">id</span> });
+  },
+});
+
+<span class="tok-keyword">return</span> (
+  &lt;<span class="tok-type">EditorShell</span>&gt;
+    &lt;<span class="tok-type">EditorContent</span> <span class="tok-fn">editor</span>={editor} /&gt;
+    {slash.state.<span class="tok-fn">isOpen</span> &amp;&amp; (
+      &lt;<span class="tok-type">SlashCommandMenu</span> <span class="tok-fn">state</span>={slash.state} <span class="tok-fn">onSelect</span>={slash.<span class="tok-fn">commit</span>} /&gt;
+    )}
+  &lt;/<span class="tok-type">EditorShell</span>&gt;
+);</pre>
+											</div>
+										</div>
+
+										<h3>命令来源</h3>
+										<p>候选 candidates 汇总自三处,优先级从高到低:</p>
+
+										<table>
+											<thead>
+												<tr>
+													<th>来源</th>
+													<th>触发前缀</th>
+													<th>覆盖策略</th>
+													<th>示例</th>
+												</tr>
+											</thead>
+											<tbody>
+												<tr>
+													<td>项目 skill</td>
+													<td><code>/</code></td>
+													<td>覆盖同名 built-in</td>
+													<td><code>/code-review</code></td>
+												</tr>
+												<tr>
+													<td>Session 内置</td>
+													<td><code>/</code></td>
+													<td>—</td>
+													<td><code>/help</code>, <code>/clear</code></td>
+												</tr>
+												<tr>
+													<td>Agent 提供</td>
+													<td><code>/</code></td>
+													<td>与内置合并</td>
+													<td><code>/plan</code></td>
+												</tr>
+											</tbody>
+										</table>
+
+										<h3>还没搞定的</h3>
+										<p>基于当前分支的 TODO:</p>
+										<ul>
+											<li><span class="acp-md__task" data-done="true"><span class="acp-md__task-box">✓</span>把 keyboard nav 挪出 <code>SlashCommandMenu</code>,由 hook 出 state</span></li>
+											<li><span class="acp-md__task" data-done="true"><span class="acp-md__task-box">✓</span>接入 <code>SlashCommandNode</code> 的 chip 渲染</span></li>
+											<li><span class="acp-md__task"><span class="acp-md__task-box"></span>参数占位的光标定位在 Windows Chromium 上还有偏差</span></li>
+											<li><span class="acp-md__task"><span class="acp-md__task-box"></span>命令去重逻辑还没走进单测</span></li>
+										</ul>
+
+										<blockquote>
+											<p><strong>提示</strong>:如果你只想快速试一下,可以直接看 <a href="#">apps/desktop/src/renderer/components/Chat/ChatInterface/hooks/useSlashCommands/useSlashCommands.test.ts</a> —— 那里已经把最常见的 3 种交互路径都盖住了。</p>
+										</blockquote>
+
+										<hr />
+
+										<h3>值不值得抽到 packages?</h3>
+										<p>短答:<strong>暂时不值得</strong>。原因:</p>
+										<ol>
+											<li>目前只有 desktop 一处调用方</li>
+											<li>hook 里的 Tiptap 依赖会把 <code>packages/chat</code> 的包体积拉大 <em>~180kb</em></li>
+											<li>命令来源(session meta)是 desktop 特有的 tRPC 通道,抽走之前得先抽 protocol</li>
+										</ol>
+
+										<p>反过来,<strong>抽到 <code>apps/desktop</code> 内部的 shared hooks 目录是合理的</strong> —— 也就是从当前 co-located 位置往上挪一层,让 Composer 和未来的 CommandPalette 都能用。</p>
+
+										<h3>可以直接跑的命令</h3>
+										<p>如果你要在本地验证:</p>
+
+										<div class="acp-code">
+											<div class="acp-code__hd">
+												<span class="acp-code__lang" data-lang="bash">bash</span>
+												<span class="acp-code__meta">apps/desktop</span>
+												<button type="button" class="acp-code__copy">copy</button>
+											</div>
+											<div class="acp-code__body">
+												<div class="acp-code__gutter">1
+2
+3
+4</div>
+												<pre class="acp-code__pre"><span class="tok-comment"># 只跑这一个 hook 的测试</span>
+bun test src/renderer/components/Chat/ChatInterface/hooks/useSlashCommands
+
+<span class="tok-comment"># 或者启 dev 手动试</span>
+bun dev</pre>
+											</div>
+										</div>
+
+										<p>需要我把它挪到 <code>apps/desktop/src/renderer/hooks/</code> 吗?那样 <code>CommandPalette</code> 也能直接复用。</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Composer (visual only) -->
+					<div class="acp-pane__composer">
+						<div class="acp-pane__composer-box">
+							<div class="acp-pane__composer-row">
+								<span class="acp-pane__composer-glyph">›</span>
+								<span class="acp-pane__composer-placeholder">Message agent…</span>
+							</div>
+							<div class="acp-pane__composer-toolbar">
+								<span class="acp-pane__composer-toolbar-hint">
+									<span class="slash">/</span> commands
+								</span>
+								<span class="acp-pane__composer-toolbar-hint">
+									<span class="at">@</span> files
+								</span>
+								<span class="acp-pane__composer-toolbar-hint">
+									<span class="kbd">⇧ ↵</span> newline
+								</span>
+								<span class="acp-pane__composer-spacer"></span>
+								<span class="acp-pane__composer-send">Send<span class="kbd" style="margin-left: 4px">↵</span></span>
+							</div>
+						</div>
+					</div>
+
+					<!-- Status bar -->
+					<div class="acp-status-bar">
+						<span class="acp-status-bar__group">
+							<span class="acp-status-bar__conn">
+								<span class="acp-status-bar__conn-dot"></span>online
+							</span>
+						</span>
+						<span class="acp-status-bar__group">
+							<span class="acp-status-bar__mode">◆ default</span>
+							<span>claude-opus-4-7</span>
+						</span>
+						<span class="acp-status-bar__group acp-status-bar__seg--branch">
+							⎇ <span class="acp-status-bar__seg-value">feat/acp-agent-control-plane</span>
+						</span>
+						<span class="acp-status-bar__spacer"></span>
+						<span class="acp-status-bar__group acp-status-bar__seg--cost">
+							$ 0.412
+						</span>
+						<span class="acp-status-bar__group">
+							ctx <span class="acp-status-bar__seg-value">32%</span>
+						</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			(() => {
+				const md = document.getElementById("acp-md");
+				const buttons = document.querySelectorAll(".variant-picker__btn");
+				buttons.forEach((btn) => {
+					btn.addEventListener("click", () => {
+						const target = btn.dataset.target;
+						buttons.forEach((b) => b.setAttribute("data-active", b === btn ? "true" : "false"));
+						md.className = `acp-md acp-md--${target}`;
+					});
+				});
+			})();
+		</script>
+	</body>
+</html>

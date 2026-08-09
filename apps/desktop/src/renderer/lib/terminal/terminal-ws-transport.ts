@@ -35,7 +35,7 @@ export interface TerminalLogEntry {
 // JSON.
 type TerminalServerMessage =
 	| { type: "attached"; terminalId: string }
-	| { type: "error"; message: string }
+	| { type: "error"; message: string; code?: "session-gone" }
 	| { type: "exit"; exitCode: number; signal: number }
 	| { type: "title"; title: string | null };
 
@@ -63,6 +63,8 @@ export interface TerminalTransport {
 	 * status indicator.
 	 */
 	lastDiagnosis: TerminalFailureClassification | null;
+	sessionEnded: boolean;
+	_onSessionEnded: (() => void) | null;
 
 	/** Internal: the shared reconnecting relay socket (partysocket). Created
 	 * once on first connect; it re-signs the URL and runs the relay preflight
@@ -250,7 +252,9 @@ export function clearLogs(transport: TerminalTransport) {
 	}
 }
 
-export function createTransport(): TerminalTransport {
+export function createTransport(
+	options: { onSessionEnded?: () => void } = {},
+): TerminalTransport {
 	return {
 		connectionState: "disconnected",
 		currentUrl: null,
@@ -263,6 +267,8 @@ export function createTransport(): TerminalTransport {
 		logs: [],
 		logListeners: new Set(),
 		lastDiagnosis: null,
+		sessionEnded: false,
+		_onSessionEnded: options.onSessionEnded ?? null,
 		_socket: null,
 		_terminal: null,
 		_onDataDisposable: null,
@@ -277,6 +283,12 @@ export function createTransport(): TerminalTransport {
 		_lastLivenessTick: 0,
 		_resumeListener: null,
 	};
+}
+
+function markSessionEnded(transport: TerminalTransport): void {
+	if (transport.sessionEnded) return;
+	transport.sessionEnded = true;
+	transport._onSessionEnded?.();
 }
 
 // Wall-clock watchdog cadence and the gap that counts as a suspend. A tick gap
@@ -559,6 +571,7 @@ function attachSocketListeners(
 		}
 
 		if (message.type === "attached") {
+			transport.sessionEnded = false;
 			transport.exitInfo = null;
 			transport.lastDiagnosis = null;
 			transport._diagnosisLogged = false;
@@ -568,6 +581,8 @@ function attachSocketListeners(
 		}
 
 		if (message.type === "error") {
+			if (message.code === "session-gone" || message.message === "session-gone")
+				markSessionEnded(transport);
 			transport.lastDiagnosis = {
 				category: "unknown",
 				message: message.message,
@@ -582,6 +597,7 @@ function attachSocketListeners(
 		if (message.type === "exit") {
 			transport._writeCoalescer?.flushSync();
 			transport._terminated = true;
+			markSessionEnded(transport);
 			transport.lastDiagnosis = {
 				category: "unknown",
 				message: `The terminal session ended (exit code ${message.exitCode}).`,
