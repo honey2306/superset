@@ -14,7 +14,7 @@ export const defaultConfig: MarkdownStyleConfig = {
 		),
 		table: ({ children }) => (
 			<div className="overflow-x-auto my-4">
-				<table className="w-max min-w-full divide-y divide-border">
+				<table className="w-max min-w-full divide-y divide-line">
 					{children}
 				</table>
 			</div>
@@ -30,7 +30,7 @@ export const defaultConfig: MarkdownStyleConfig = {
 			</td>
 		),
 		blockquote: ({ children }) => (
-			<blockquote className="border-l-4 border-muted-foreground/30 pl-4 italic my-4">
+			<blockquote className="border-l-4 border-fg-faint pl-4 italic my-4">
 				{children}
 			</blockquote>
 		),
