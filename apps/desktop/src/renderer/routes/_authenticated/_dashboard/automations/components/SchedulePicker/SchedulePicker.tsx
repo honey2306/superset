@@ -151,9 +151,7 @@ export function SchedulePicker({
 			</PopoverTrigger>
 			<PopoverContent className="w-72" align="start" side="top" sideOffset={8}>
 				<div className="flex flex-col gap-3">
-					<span className="text-xs font-medium text-muted-foreground">
-						Schedule
-					</span>
+					<span className="text-xs font-medium text-fg-mute">Schedule</span>
 
 					<Select
 						value={state.kind}

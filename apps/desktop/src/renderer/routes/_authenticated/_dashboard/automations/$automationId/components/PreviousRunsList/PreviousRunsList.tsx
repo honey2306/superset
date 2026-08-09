@@ -9,10 +9,10 @@ import {
 } from "../../../utils/hostOfflineError";
 
 const STATUS_DOT: Record<SelectAutomationRun["status"], string> = {
-	dispatched: "bg-emerald-500",
+	dispatched: "bg-success-tint",
 	dispatching: "bg-amber-500",
-	skipped_offline: "bg-red-500",
-	dispatch_failed: "bg-red-500",
+	skipped_offline: "bg-destructive",
+	dispatch_failed: "bg-destructive",
 };
 
 interface PreviousRunsListProps {
@@ -29,7 +29,7 @@ export function PreviousRunsList({ runs }: PreviousRunsListProps) {
 	const now = useNow();
 
 	if (runs.length === 0) {
-		return <p className="text-sm italic text-muted-foreground">No runs yet</p>;
+		return <p className="text-sm italic text-fg-mute">No runs yet</p>;
 	}
 
 	return (
@@ -41,7 +41,7 @@ export function PreviousRunsList({ runs }: PreviousRunsListProps) {
 						disabled
 						onClick={() => {}}
 						className={cn(
-							"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
+							"flex w-full items-center gap-2 rounded-ds-3 px-2 py-1.5 text-left",
 							"cursor-default opacity-70",
 						)}
 					>
@@ -54,7 +54,7 @@ export function PreviousRunsList({ runs }: PreviousRunsListProps) {
 							)}
 						/>
 						<span className="truncate">{run.title || "Automation"}</span>
-						<span className="ml-auto shrink-0 truncate text-muted-foreground">
+						<span className="ml-auto shrink-0 truncate text-fg-mute">
 							{run.scheduledFor
 								? formatAgo(new Date(run.scheduledFor), now)
 								: "—"}

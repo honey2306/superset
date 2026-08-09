@@ -138,7 +138,7 @@ function TaskDetailPage() {
 		if (isTaskLoading || isTaskSyncing) {
 			return (
 				<div className="flex-1 flex items-center justify-center">
-					<span className="text-muted-foreground">
+					<span className="text-fg-mute">
 						{isTaskSyncing ? "Syncing task..." : "Loading task..."}
 					</span>
 				</div>
@@ -147,7 +147,7 @@ function TaskDetailPage() {
 
 		return (
 			<div className="flex-1 flex items-center justify-center">
-				<span className="text-muted-foreground">Task not found</span>
+				<span className="text-fg-mute">Task not found</span>
 			</div>
 		);
 	}

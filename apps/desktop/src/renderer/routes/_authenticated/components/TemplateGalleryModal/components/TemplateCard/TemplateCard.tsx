@@ -29,9 +29,9 @@ export function TemplateCard({
 			disabled={!available || disabled}
 			onClick={() => onSelect(template)}
 			className={cn(
-				"flex flex-col overflow-hidden border border-border/50 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+				"flex flex-col overflow-hidden border border-line/50 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				available && !disabled
-					? "cursor-pointer hover:border-border"
+					? "cursor-pointer hover:border-line"
 					: "cursor-not-allowed opacity-60",
 			)}
 		>
@@ -58,10 +58,8 @@ export function TemplateCard({
 				)}
 			</div>
 			<div className="flex flex-col gap-0.5 p-3">
-				<span className="text-sm font-medium text-foreground">
-					{template.name}
-				</span>
-				<span className="line-clamp-2 text-xs text-muted-foreground">
+				<span className="text-sm font-medium text-fg">{template.name}</span>
+				<span className="line-clamp-2 text-xs text-fg-mute">
 					{available ? t(template.description) : t("template.comingSoon")}
 				</span>
 			</div>

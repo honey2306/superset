@@ -265,7 +265,7 @@ function AutomationsPage() {
 
 	return (
 		<div className="flex h-full w-full flex-1 flex-col overflow-hidden">
-			<header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
+			<header className="flex h-11 shrink-0 items-center justify-between border-b border-line px-4">
 				<div className="flex items-center gap-3">
 					<h1 className="text-sm font-semibold tracking-tight">
 						{t("dashboard.automations")}
@@ -275,19 +275,19 @@ function AutomationsPage() {
 						<TabsList className="h-8 bg-transparent p-0 gap-1">
 							<TabsTrigger
 								value="mine"
-								className="h-8 rounded-md px-3 data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
+								className="h-8 rounded-ds-3 px-3 data-[state=active]:bg-accent-tint data-[state=active]:text-fg data-[state=inactive]:text-fg-mute"
 							>
 								<span className="text-sm">{t("automations.mine")}</span>
-								<span className="ml-1 tabular-nums text-xs text-muted-foreground">
+								<span className="ml-1 tabular-nums text-xs text-fg-mute">
 									{mineCount}
 								</span>
 							</TabsTrigger>
 							<TabsTrigger
 								value="team"
-								className="h-8 rounded-md px-3 data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
+								className="h-8 rounded-ds-3 px-3 data-[state=active]:bg-accent-tint data-[state=active]:text-fg data-[state=inactive]:text-fg-mute"
 							>
 								<span className="text-sm">{t("automations.team")}</span>
-								<span className="ml-1 tabular-nums text-xs text-muted-foreground">
+								<span className="ml-1 tabular-nums text-xs text-fg-mute">
 									{teamCount}
 								</span>
 							</TabsTrigger>
@@ -300,7 +300,7 @@ function AutomationsPage() {
 						asChild
 						variant="ghost"
 						size="sm"
-						className="h-8 text-muted-foreground"
+						className="h-8 text-fg-mute"
 					>
 						<a
 							href={`${COMPANY.DOCS_URL}/automations`}
@@ -325,21 +325,21 @@ function AutomationsPage() {
 
 			{!cliHintDismissed && (
 				<div className="shrink-0 px-4 pt-3">
-					<div className="relative flex items-start gap-3 rounded-lg border border-border bg-gradient-to-b from-accent/40 to-accent/10 py-3 pl-3.5 pr-10">
-						<div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm">
+					<div className="relative flex items-start gap-3 rounded-ds-5 border border-line bg-gradient-to-b from-accent/40 to-accent/10 py-3 pl-3.5 pr-10">
+						<div className="flex size-8 shrink-0 items-center justify-center rounded-ds-3 border border-line bg-background text-fg shadow-sm">
 							<LuTerminal className="size-4" />
 						</div>
 						<div className="min-w-0 space-y-1">
-							<p className="text-sm font-medium text-foreground">
+							<p className="text-sm font-medium text-fg">
 								{t("automations.cliTitle", { cli: "superset" })}
 							</p>
-							<p className="text-sm leading-relaxed text-muted-foreground">
+							<p className="text-sm leading-relaxed text-fg-mute">
 								{t("automations.cliDescription")}{" "}
 								<a
 									href={`${COMPANY.DOCS_URL}/cli/getting-started`}
 									target="_blank"
 									rel="noreferrer"
-									className="font-medium text-foreground underline underline-offset-2 hover:text-foreground/80"
+									className="font-medium text-fg underline underline-offset-2 hover:text-fg-mute"
 								>
 									{t("automations.gettingStarted")}
 								</a>{" "}
@@ -348,7 +348,7 @@ function AutomationsPage() {
 									href={`${COMPANY.DOCS_URL}/cli/cli-reference`}
 									target="_blank"
 									rel="noreferrer"
-									className="font-medium text-foreground underline underline-offset-2 hover:text-foreground/80"
+									className="font-medium text-fg underline underline-offset-2 hover:text-fg-mute"
 								>
 									{t("automations.cliReference")}
 								</a>
@@ -360,7 +360,7 @@ function AutomationsPage() {
 							size="icon-sm"
 							onClick={() => setCliHintDismissed(true)}
 							aria-label={t("automations.dismiss")}
-							className="absolute right-2 top-2 size-6 text-muted-foreground hover:text-foreground"
+							className="absolute right-2 top-2 size-6 text-fg-mute hover:text-fg"
 						>
 							<LuX className="size-3.5" />
 						</Button>

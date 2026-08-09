@@ -52,7 +52,7 @@ export function HostOfflineRunDialog({
 							) : (
 								<p>
 									The run was skipped because{" "}
-									<span className="font-medium text-foreground">
+									<span className="font-medium text-fg">
 										{remoteHost?.name ?? "the target host"}
 									</span>{" "}
 									isn't connected to the Superset relay. Make sure relay access

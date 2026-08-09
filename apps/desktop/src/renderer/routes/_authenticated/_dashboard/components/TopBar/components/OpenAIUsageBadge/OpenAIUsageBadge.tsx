@@ -22,10 +22,10 @@ function levelForRemaining(remaining: number): "crit" | "high" | "mid" | "low" {
 }
 
 const LEVEL_CLASS: Record<ReturnType<typeof levelForRemaining>, string> = {
-	crit: "text-red-500 dark:text-red-400",
-	high: "text-orange-500 dark:text-orange-400",
-	mid: "text-yellow-600 dark:text-yellow-500",
-	low: "text-muted-foreground",
+	crit: "text-destructive dark:text-destructive",
+	high: "text-warning dark:text-warning",
+	mid: "text-warning dark:text-warning",
+	low: "text-fg-mute",
 };
 
 export function OpenAIUsageBadge() {
@@ -56,7 +56,7 @@ export function OpenAIUsageBadge() {
 
 	return (
 		<output
-			className={`no-drag flex items-center rounded bg-muted px-2 py-1 text-xs ${LEVEL_CLASS[level]}`}
+			className={`no-drag flex items-center rounded bg-hover px-2 py-1 text-xs ${LEVEL_CLASS[level]}`}
 			title={tooltip}
 			data-level={level}
 			aria-label={tooltip}

@@ -200,7 +200,7 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 
 	return (
 		<div className="flex flex-col gap-2">
-			<span className="text-xs text-muted-foreground">Open in workspace</span>
+			<span className="text-xs text-fg-mute">Open in workspace</span>
 			<div className="flex gap-1.5">
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -224,10 +224,10 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 										<span className="truncate">{selectedProject.name}</span>
 									</>
 								) : (
-									<span className="text-muted-foreground">Select project</span>
+									<span className="text-fg-mute">Select project</span>
 								)}
 							</span>
-							<HiChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+							<HiChevronDown className="w-3.5 h-3.5 text-fg-mute shrink-0" />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent

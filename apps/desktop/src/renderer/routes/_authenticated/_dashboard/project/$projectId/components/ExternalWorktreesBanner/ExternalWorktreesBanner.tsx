@@ -53,11 +53,11 @@ export function ExternalWorktreesBanner({ projectId }: { projectId: string }) {
 			animate={{ opacity: 1, y: 0 }}
 			exit={{ opacity: 0, y: 8 }}
 			transition={{ duration: 0.2, ease: "easeOut" }}
-			className="mx-6 mt-6 rounded-lg border border-border/60 bg-card/50 p-4"
+			className="mx-6 mt-6 rounded-ds-5 border border-line/60 bg-surface/50 p-4"
 		>
 			<div className="flex items-start justify-between gap-4">
 				<div className="space-y-2 min-w-0">
-					<p className="text-sm font-medium text-foreground">
+					<p className="text-sm font-medium text-fg">
 						{t("workspace.existingWorktreesFound", {
 							count: importableWorktrees.length,
 						})}
@@ -66,14 +66,14 @@ export function ExternalWorktreesBanner({ projectId }: { projectId: string }) {
 						{visibleBranches.map((wt) => (
 							<span
 								key={wt.path}
-								className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground"
+								className="inline-flex items-center gap-1 rounded-ds-3 bg-hover px-2 py-0.5 text-xs font-mono text-fg-mute"
 							>
 								<GoGitBranch className="size-3 shrink-0" />
 								<span className="truncate max-w-[180px]">{wt.branch}</span>
 							</span>
 						))}
 						{remainingCount > 0 && (
-							<span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+							<span className="inline-flex items-center rounded-ds-3 bg-hover px-2 py-0.5 text-xs text-fg-mute">
 								{t("workspace.moreCount", { count: remainingCount })}
 							</span>
 						)}

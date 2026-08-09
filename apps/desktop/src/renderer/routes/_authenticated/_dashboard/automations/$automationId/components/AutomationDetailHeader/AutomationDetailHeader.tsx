@@ -36,7 +36,7 @@ export function AutomationDetailHeader({
 	runNowDisabled,
 }: AutomationDetailHeaderProps) {
 	return (
-		<header className="flex h-11 shrink-0 items-center justify-between border-b border-border px-4">
+		<header className="flex h-11 shrink-0 items-center justify-between border-b border-line px-4">
 			<Breadcrumb>
 				<BreadcrumbList className="text-sm">
 					<BreadcrumbItem>

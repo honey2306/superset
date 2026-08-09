@@ -163,7 +163,7 @@ export function CreateTaskDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
 				showCloseButton={false}
-				className="!top-[calc(50%-min(35vh,320px))] !-translate-y-0 flex max-h-[min(72vh,640px)] flex-col gap-0 overflow-hidden bg-popover p-0 text-popover-foreground sm:max-w-[720px]"
+				className="!top-[calc(50%-min(35vh,320px))] !-translate-y-0 flex max-h-[min(72vh,640px)] flex-col gap-0 overflow-hidden bg-surface-sunk p-0 text-fg sm:max-w-[720px]"
 				onOpenAutoFocus={(event) => {
 					event.preventDefault();
 					titleInputRef.current?.focus();
@@ -176,10 +176,10 @@ export function CreateTaskDialog({
 
 				<div className="flex items-center justify-between border-b px-4 py-2.5">
 					<div className="flex min-w-0 items-center gap-2 text-sm">
-						<div className="max-w-40 truncate rounded-md border border-border/60 bg-muted/40 px-2 py-1 font-medium text-muted-foreground">
+						<div className="max-w-40 truncate rounded-ds-3 border border-line/60 bg-hover/40 px-2 py-1 font-medium text-fg-mute">
 							{organizationLabel}
 						</div>
-						<HiChevronRight className="size-3.5 text-muted-foreground" />
+						<HiChevronRight className="size-3.5 text-fg-mute" />
 						<span className="font-medium">{t("tasks.newIssue")}</span>
 					</div>
 
@@ -187,7 +187,7 @@ export function CreateTaskDialog({
 						<button
 							type="button"
 							disabled={isCreating}
-							className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+							className="rounded-ds-3 p-1.5 text-fg-mute transition-colors hover:bg-hover hover:text-fg"
 							aria-label={t("tasks.close")}
 						>
 							<HiXMark className="size-4" />
@@ -208,7 +208,7 @@ export function CreateTaskDialog({
 							}
 						}}
 						placeholder={t("tasks.titlePlaceholder")}
-						className="w-full bg-transparent text-3xl font-semibold tracking-tight outline-none placeholder:text-muted-foreground/60"
+						className="w-full bg-transparent text-3xl font-semibold tracking-tight outline-none placeholder:text-fg-faint"
 					/>
 
 					<div className="mt-5 flex-1">
@@ -244,7 +244,7 @@ export function CreateTaskDialog({
 					<Button
 						variant="ghost"
 						size="icon"
-						className="h-10 w-10 rounded-full text-muted-foreground"
+						className="h-10 w-10 rounded-full text-fg-mute"
 						onClick={handleAttachmentClick}
 						disabled={isCreating}
 					>
@@ -260,10 +260,10 @@ export function CreateTaskDialog({
 							{isCreating ? t("tasks.creating") : t("tasks.create")}
 							{!isCreating && (
 								<KbdGroup className="ml-1.5 opacity-70">
-									<Kbd className="bg-primary-foreground/15 text-primary-foreground h-4 min-w-4 text-[10px]">
+									<Kbd className="bg-primary-foreground/15 text-accent-foreground h-4 min-w-4 text-[10px]">
 										{modKey}
 									</Kbd>
-									<Kbd className="bg-primary-foreground/15 text-primary-foreground h-4 min-w-4 text-[10px]">
+									<Kbd className="bg-primary-foreground/15 text-accent-foreground h-4 min-w-4 text-[10px]">
 										↵
 									</Kbd>
 								</KbdGroup>

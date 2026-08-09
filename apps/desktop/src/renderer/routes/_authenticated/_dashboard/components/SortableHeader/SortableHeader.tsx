@@ -43,9 +43,9 @@ export function SortableHeader<F extends string>({
 			aria-label={`Sort by ${label}, currently ${sortLabel}`}
 			className={cn(
 				"group flex min-w-0 items-center gap-1 rounded outline-none transition-colors",
-				"hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40",
+				"hover:text-fg focus-visible:ring-2 focus-visible:ring-ring/40",
 				align === "center" && "justify-center",
-				isActive && "text-foreground",
+				isActive && "text-fg",
 				className,
 			)}
 		>

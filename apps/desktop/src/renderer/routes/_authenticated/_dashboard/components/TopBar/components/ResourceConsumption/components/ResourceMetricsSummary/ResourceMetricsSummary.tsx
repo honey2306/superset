@@ -31,7 +31,7 @@ export function ResourceMetricsSummary({
 	);
 	const shareBarColorClass =
 		hostShareSeverity === "high"
-			? "bg-red-500/80"
+			? "bg-destructive/80"
 			: hostShareSeverity === "elevated"
 				? "bg-amber-500/80"
 				: "bg-foreground/40";
@@ -58,7 +58,7 @@ export function ResourceMetricsSummary({
 			<Tooltip delayDuration={150}>
 				<TooltipTrigger asChild>
 					<div
-						className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted/60"
+						className="mt-3 h-1 w-full overflow-hidden rounded-full bg-hover/60"
 						role="progressbar"
 						aria-label="System RAM share"
 						aria-valuenow={Math.round(clampedSharePercent)}

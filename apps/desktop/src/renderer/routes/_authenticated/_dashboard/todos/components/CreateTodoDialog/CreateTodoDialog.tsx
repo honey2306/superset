@@ -185,7 +185,7 @@ export function CreateTodoDialog({
 									<Label htmlFor="todo-mode-manual">
 										{t("todos.modeManual")}
 									</Label>
-									<span className="text-xs text-muted-foreground">
+									<span className="text-xs text-fg-mute">
 										{t("todos.modeManualHelp")}
 									</span>
 								</div>
@@ -194,7 +194,7 @@ export function CreateTodoDialog({
 								<RadioGroupItem id="todo-mode-auto" value="auto" />
 								<div className="flex flex-col">
 									<Label htmlFor="todo-mode-auto">{t("todos.modeAuto")}</Label>
-									<span className="text-xs text-muted-foreground">
+									<span className="text-xs text-fg-mute">
 										{t("todos.modeAutoHelp")}
 									</span>
 								</div>
@@ -203,7 +203,7 @@ export function CreateTodoDialog({
 					</div>
 
 					{mode === "auto" && (
-						<div className="flex flex-col gap-3 rounded-md border border-border p-3">
+						<div className="flex flex-col gap-3 rounded-ds-3 border border-line p-3">
 							<div className="flex flex-col gap-1.5">
 								<Label>{t("todos.hostOptional")}</Label>
 								<DevicePicker

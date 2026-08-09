@@ -365,17 +365,17 @@ function ProjectPage() {
 				<div className="flex-1 flex items-center justify-center px-6 py-8">
 					<div className="w-full max-w-3xl space-y-6">
 						<div className="space-y-1.5">
-							<p className="text-xs uppercase tracking-wide text-muted-foreground">
+							<p className="text-xs uppercase tracking-wide text-fg-mute">
 								{t("workspace.projectStep", {
 									current: step === "workspace" ? 1 : 2,
 									total: 2,
 								})}
 							</p>
-							<h1 className="text-2xl font-semibold text-foreground">
+							<h1 className="text-2xl font-semibold text-fg">
 								{step === "workspace" && t("workspace.createFirst")}
 								{step === "setup" && t("workspace.setupScript")}
 							</h1>
-							<p className="text-sm text-muted-foreground">
+							<p className="text-sm text-fg-mute">
 								{step === "workspace" && t("workspace.isolatedDescription")}
 								{step === "setup" && (
 									<>
@@ -384,7 +384,7 @@ function ProjectPage() {
 											href="https://docs.superset.sh/setup-teardown-scripts"
 											target="_blank"
 											rel="noopener noreferrer"
-											className="group inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-foreground transition-colors"
+											className="group inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-fg transition-colors"
 										>
 											{t("workspace.readDocs")}
 											<HiChevronRight className="size-3 transition-transform duration-150 group-hover:translate-x-0.5" />
@@ -422,8 +422,8 @@ function ProjectPage() {
 										/>
 									</div>
 
-									<div className="rounded-md border border-border/60 bg-card/40 px-3 py-2 text-sm">
-										<div className="flex items-center gap-2 text-muted-foreground">
+									<div className="rounded-ds-3 border border-line/60 bg-surface/40 px-3 py-2 text-sm">
+										<div className="flex items-center gap-2 text-fg-mute">
 											<GoGitBranch className="size-3.5" />
 											<span className="font-mono">
 												{generatedBranchName || "branch-name"}
@@ -441,7 +441,7 @@ function ProjectPage() {
 										open={showAdvanced}
 										onOpenChange={setShowAdvanced}
 									>
-										<CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground/80 hover:text-muted-foreground transition-colors py-1">
+										<CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground/80 hover:text-fg-mute transition-colors py-1">
 											<HiChevronDown
 												className={`size-3 transition-transform duration-200 ${showAdvanced ? "" : "-rotate-90"}`}
 											/>
@@ -457,11 +457,11 @@ function ProjectPage() {
 													className="overflow-hidden"
 												>
 													<div className="pt-3 space-y-2">
-														<span className="text-xs font-medium text-muted-foreground">
+														<span className="text-xs font-medium text-fg-mute">
 															{t("project.baseBranch")}
 														</span>
 														{isBranchesError ? (
-															<div className="flex items-center gap-2 h-10 px-3 rounded-md border border-destructive/50 bg-destructive/10 text-destructive text-sm">
+															<div className="flex items-center gap-2 h-10 px-3 rounded-ds-3 border border-destructive/50 bg-destructive/10 text-destructive text-sm">
 																{t("workspace.failedLoadBranches")}
 															</div>
 														) : (
@@ -477,19 +477,19 @@ function ProjectPage() {
 																		disabled={isBranchesLoading}
 																	>
 																		<span className="flex items-center gap-2 truncate">
-																			<GoGitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+																			<GoGitBranch className="size-3.5 shrink-0 text-fg-mute" />
 																			<span className="truncate font-mono text-sm">
 																				{effectiveCompareBaseBranch ||
 																					t("workspace.selectBaseBranch")}
 																			</span>
 																			{effectiveCompareBaseBranch ===
 																				branchData?.defaultBranch && (
-																				<span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+																				<span className="text-[10px] text-fg-mute bg-hover px-1.5 py-0.5 rounded">
 																					{t("workspace.defaultBranch")}
 																				</span>
 																			)}
 																		</span>
-																		<HiChevronUpDown className="size-4 shrink-0 text-muted-foreground" />
+																		<HiChevronUpDown className="size-4 shrink-0 text-fg-mute" />
 																	</Button>
 																</PopoverTrigger>
 																<PopoverContent
@@ -521,20 +521,20 @@ function ProjectPage() {
 																					className="flex items-center justify-between"
 																				>
 																					<span className="flex items-center gap-2 truncate">
-																						<GoGitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+																						<GoGitBranch className="size-3.5 shrink-0 text-fg-mute" />
 																						<span className="truncate">
 																							{branch.name}
 																						</span>
 																						{branch.name ===
 																							branchData?.defaultBranch && (
-																							<span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+																							<span className="text-[10px] text-fg-mute bg-hover px-1.5 py-0.5 rounded">
 																								{t("workspace.defaultBranch")}
 																							</span>
 																						)}
 																					</span>
 																					<span className="flex items-center gap-2 shrink-0">
 																						{branch.lastCommitDate > 0 && (
-																							<span className="text-xs text-muted-foreground">
+																							<span className="text-xs text-fg-mute">
 																								{formatRelativeTime(
 																									branch.lastCommitDate,
 																									relativeTimeLabels,
@@ -543,7 +543,7 @@ function ProjectPage() {
 																						)}
 																						{effectiveCompareBaseBranch ===
 																							branch.name && (
-																							<HiCheck className="size-4 text-primary" />
+																							<HiCheck className="size-4 text-accent-solid" />
 																						)}
 																					</span>
 																				</CommandItem>
@@ -583,16 +583,16 @@ function ProjectPage() {
 									{setupMode === "checklist" && actions.length > 0 && (
 										<div className="space-y-3">
 											{setupDefaults?.projectSummary && (
-												<p className="text-sm text-muted-foreground">
+												<p className="text-sm text-fg-mute">
 													{setupDefaults.projectSummary}
 												</p>
 											)}
-											<div className="overflow-hidden rounded-lg border bg-card/40 divide-y divide-border/60">
+											<div className="overflow-hidden rounded-ds-5 border bg-surface/40 divide-y divide-border/60">
 												{actions.map((action) => (
 													<label
 														key={action.id}
 														htmlFor={`action-${action.id}`}
-														className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors cursor-pointer"
+														className="flex items-center gap-3 px-3 py-2.5 hover:bg-hover/40 transition-colors cursor-pointer"
 													>
 														<Checkbox
 															id={`action-${action.id}`}
@@ -600,10 +600,10 @@ function ProjectPage() {
 															onCheckedChange={() => toggleAction(action.id)}
 														/>
 														<div className="flex flex-col min-w-0">
-															<span className="text-sm text-foreground">
+															<span className="text-sm text-fg">
 																{action.label}
 															</span>
-															<span className="text-xs text-muted-foreground font-mono truncate">
+															<span className="text-xs text-fg-mute font-mono truncate">
 																{action.detail}
 															</span>
 														</div>
@@ -613,7 +613,7 @@ function ProjectPage() {
 											<button
 												type="button"
 												onClick={switchToCustom}
-												className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+												className="text-xs text-fg-mute hover:text-fg underline underline-offset-2"
 											>
 												{t("workspace.customizeCommands")}
 											</button>
@@ -621,8 +621,8 @@ function ProjectPage() {
 									)}
 
 									{setupMode === "checklist" && actions.length === 0 && (
-										<div className="overflow-hidden rounded-lg border bg-card/40 p-6 text-center space-y-3">
-											<p className="text-sm text-muted-foreground">
+										<div className="overflow-hidden rounded-ds-5 border bg-surface/40 p-6 text-center space-y-3">
+											<p className="text-sm text-fg-mute">
 												{t("workspace.noSetupDetected")}
 											</p>
 											<div className="flex items-center justify-center gap-2">
@@ -653,12 +653,12 @@ function ProjectPage() {
 												<button
 													type="button"
 													onClick={() => setSetupMode("checklist")}
-													className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+													className="text-xs text-fg-mute hover:text-fg underline underline-offset-2"
 												>
 													{t("workspace.backToChecklist")}
 												</button>
 											)}
-											<div className="overflow-hidden rounded-lg border bg-card/40">
+											<div className="overflow-hidden rounded-ds-5 border bg-surface/40">
 												<div className="p-3 space-y-3">
 													<Textarea
 														id="setup-script"
@@ -670,17 +670,17 @@ function ProjectPage() {
 														value={setupContent}
 														onChange={(e) => setSetupContent(e.target.value)}
 													/>
-													<div className="flex flex-wrap items-center gap-1.5 border-t px-1 pt-2 text-[11px] text-muted-foreground">
+													<div className="flex flex-wrap items-center gap-1.5 border-t px-1 pt-2 text-[11px] text-fg-mute">
 														<span className="mr-1">
 															{t("workspace.variables")}
 														</span>
-														<span className="rounded bg-muted px-1.5 py-0.5 font-mono">
+														<span className="rounded bg-hover px-1.5 py-0.5 font-mono">
 															$SUPERSET_ROOT_PATH
 														</span>
-														<span className="rounded bg-muted px-1.5 py-0.5 font-mono">
+														<span className="rounded bg-hover px-1.5 py-0.5 font-mono">
 															$SUPERSET_WORKSPACE_PATH
 														</span>
-														<span className="rounded bg-muted px-1.5 py-0.5 font-mono">
+														<span className="rounded bg-hover px-1.5 py-0.5 font-mono">
 															$SUPERSET_WORKSPACE_NAME
 														</span>
 													</div>
@@ -693,7 +693,7 @@ function ProjectPage() {
 										open={teardownOpen}
 										onOpenChange={setTeardownOpen}
 									>
-										<CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground/80 hover:text-muted-foreground transition-colors py-1">
+										<CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground/80 hover:text-fg-mute transition-colors py-1">
 											<HiChevronDown
 												className={`size-3 transition-transform duration-200 ${teardownOpen ? "" : "-rotate-90"}`}
 											/>

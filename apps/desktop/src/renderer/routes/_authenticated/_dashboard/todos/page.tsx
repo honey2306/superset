@@ -55,9 +55,9 @@ const BUCKETS: BucketMeta[] = [
 	{
 		key: "overdue",
 		labelKey: "todos.bucketOverdue",
-		dotClass: "bg-red-500",
-		pillTextClass: "text-red-400",
-		pillBgClass: "bg-red-500/10",
+		dotClass: "bg-destructive",
+		pillTextClass: "text-destructive",
+		pillBgClass: "bg-destructive/10",
 	},
 	{
 		key: "today",
@@ -77,8 +77,8 @@ const BUCKETS: BucketMeta[] = [
 		key: "later",
 		labelKey: "todos.bucketLater",
 		dotClass: "bg-muted-foreground",
-		pillTextClass: "text-muted-foreground",
-		pillBgClass: "bg-muted/40",
+		pillTextClass: "text-fg-mute",
+		pillBgClass: "bg-hover/40",
 	},
 ];
 
@@ -173,12 +173,12 @@ function TodosPage() {
 
 	return (
 		<div className="flex h-full w-full flex-1 flex-col overflow-hidden bg-background">
-			<header className="border-b border-border bg-card">
+			<header className="border-b border-line bg-surface">
 				<div className="flex items-center gap-3 px-6 pt-4 pb-2.5">
 					<h1 className="text-lg font-semibold tracking-tight">
 						{t("todos.title")}
 					</h1>
-					<span className="font-mono text-xs text-muted-foreground">
+					<span className="font-mono text-xs text-fg-mute">
 						{t("todos.countUnit", { count: totalCount })}
 					</span>
 					<div className="flex-1" />
@@ -200,9 +200,9 @@ function TodosPage() {
 					</div>
 					<div className="flex-1" />
 					<div className="relative w-64">
-						<LuSearch className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+						<LuSearch className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-fg-mute" />
 						<Input
-							className="h-8 rounded-full bg-muted/40 pl-8 pr-14 text-xs"
+							className="h-8 rounded-full bg-hover/40 pl-8 pr-14 text-xs"
 							onChange={(e) => setSearchQuery(e.target.value)}
 							placeholder={t("todos.searchPlaceholder")}
 							type="search"
@@ -218,7 +218,7 @@ function TodosPage() {
 					<Empty className="my-auto">
 						<EmptyHeader>
 							<EmptyMedia>
-								<LuListTodo className="size-8 text-muted-foreground" />
+								<LuListTodo className="size-8 text-fg-mute" />
 							</EmptyMedia>
 							<EmptyTitle>{t("todos.empty")}</EmptyTitle>
 							<EmptyDescription>{t("todos.description")}</EmptyDescription>
@@ -245,11 +245,11 @@ function TodosPage() {
 										<span className="text-xs font-semibold uppercase tracking-wide">
 											{t(b.labelKey)}
 										</span>
-										<span className="font-mono text-xs text-muted-foreground">
+										<span className="font-mono text-xs text-fg-mute">
 											{items.length}
 										</span>
 									</div>
-									<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border bg-card">
+									<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-ds-3 border border-line bg-surface">
 										{items.map((todo) => (
 											<TodoRow
 												key={todo.id}
@@ -310,7 +310,7 @@ function BucketPill({ bucket, count }: BucketPillProps) {
 		<span
 			className={cn(
 				"inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
-				isEmpty ? "bg-muted/30 text-muted-foreground" : bucket.pillBgClass,
+				isEmpty ? "bg-hover/30 text-fg-mute" : bucket.pillBgClass,
 			)}
 		>
 			<span
@@ -319,15 +319,13 @@ function BucketPill({ bucket, count }: BucketPillProps) {
 					isEmpty ? "bg-muted-foreground/50" : bucket.dotClass,
 				)}
 			/>
-			<span
-				className={isEmpty ? "text-muted-foreground" : bucket.pillTextClass}
-			>
+			<span className={isEmpty ? "text-fg-mute" : bucket.pillTextClass}>
 				{t(bucket.labelKey)}
 			</span>
 			<span
 				className={cn(
 					"font-mono font-semibold",
-					isEmpty ? "text-muted-foreground" : "text-foreground",
+					isEmpty ? "text-fg-mute" : "text-fg",
 				)}
 			>
 				{count}

@@ -53,7 +53,7 @@ function WorkspaceRow({
 		>
 			{ws ? (
 				<>
-					<span className="text-muted-foreground text-xs shrink-0 w-20 text-left line-clamp-1">
+					<span className="text-fg-mute text-xs shrink-0 w-20 text-left line-clamp-1">
 						Workspace
 					</span>
 					<span className="flex items-center justify-center w-4 shrink-0">
@@ -68,10 +68,10 @@ function WorkspaceRow({
 				</>
 			) : (
 				<>
-					<span className="text-muted-foreground text-xs shrink-0 w-20 text-left line-clamp-1">
+					<span className="text-fg-mute text-xs shrink-0 w-20 text-left line-clamp-1">
 						Workspace
 					</span>
-					<span className="truncate text-xs font-normal text-muted-foreground flex-1 min-w-0">
+					<span className="truncate text-xs font-normal text-fg-mute flex-1 min-w-0">
 						Unknown
 					</span>
 				</>
@@ -102,19 +102,16 @@ function V2WorkspaceRow({
 			className={cn("gap-2.5", isCurrent && "bg-accent/50")}
 			onSelect={onSelect}
 		>
-			<span className="text-muted-foreground text-xs shrink-0 w-20 text-left line-clamp-1">
+			<span className="text-fg-mute text-xs shrink-0 w-20 text-left line-clamp-1">
 				{ws ? ws.projectName : "Workspace"}
 			</span>
 			<span className="flex items-center justify-center w-4 shrink-0">
-				<LuGitBranch
-					className="size-3 text-muted-foreground"
-					strokeWidth={1.5}
-				/>
+				<LuGitBranch className="size-3 text-fg-mute" strokeWidth={1.5} />
 			</span>
 			<span
 				className={cn(
 					"truncate text-xs font-normal flex-1 min-w-0",
-					!ws && "text-muted-foreground",
+					!ws && "text-fg-mute",
 				)}
 			>
 				{ws ? ws.branch : "Unknown"}
@@ -146,20 +143,20 @@ function AutomationRow({
 			className={cn("gap-2.5", isCurrent && "bg-accent/50")}
 			onSelect={onSelect}
 		>
-			<span className="text-muted-foreground text-xs shrink-0 w-20 text-left line-clamp-1">
+			<span className="text-fg-mute text-xs shrink-0 w-20 text-left line-clamp-1">
 				Automation
 			</span>
 			<span className="flex items-center justify-center w-4 shrink-0">
 				{presetIcon ? (
 					<img src={presetIcon} alt="" className="size-3.5 object-contain" />
 				) : (
-					<LuCpu className="size-3 text-muted-foreground" strokeWidth={1.5} />
+					<LuCpu className="size-3 text-fg-mute" strokeWidth={1.5} />
 				)}
 			</span>
 			<span
 				className={cn(
 					"truncate text-xs font-normal flex-1 min-w-0",
-					!automation && "text-muted-foreground",
+					!automation && "text-fg-mute",
 				)}
 			>
 				{automation ? automation.name : "Unknown"}
@@ -197,7 +194,7 @@ function TaskRow({
 		>
 			{task ? (
 				<>
-					<span className="text-muted-foreground text-xs shrink-0 w-20 text-left line-clamp-1">
+					<span className="text-fg-mute text-xs shrink-0 w-20 text-left line-clamp-1">
 						{task.slug}
 					</span>
 					<span className="flex items-center justify-center w-4 shrink-0">
@@ -214,10 +211,10 @@ function TaskRow({
 				</>
 			) : (
 				<>
-					<span className="text-muted-foreground text-xs shrink-0 w-20 text-left line-clamp-1">
+					<span className="text-fg-mute text-xs shrink-0 w-20 text-left line-clamp-1">
 						Task
 					</span>
-					<span className="truncate text-xs font-normal text-muted-foreground flex-1 min-w-0">
+					<span className="truncate text-xs font-normal text-fg-mute flex-1 min-w-0">
 						Unknown
 					</span>
 				</>
@@ -324,7 +321,7 @@ export function HistoryDropdown() {
 					<button
 						type="button"
 						disabled
-						className="no-drag flex items-center justify-center size-7 rounded-md text-muted-foreground opacity-30"
+						className="no-drag flex items-center justify-center size-7 rounded-ds-3 text-fg-mute opacity-30"
 					>
 						<LuHistory className="size-3.5" strokeWidth={1.5} />
 					</button>
@@ -341,7 +338,7 @@ export function HistoryDropdown() {
 					<DropdownMenuTrigger asChild>
 						<button
 							type="button"
-							className="no-drag flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+							className="no-drag flex items-center justify-center size-7 rounded-ds-3 text-fg-mute hover:text-fg hover:bg-hover transition-colors"
 						>
 							<LuHistory className="size-3.5" strokeWidth={1.5} />
 						</button>

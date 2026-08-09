@@ -20,7 +20,7 @@ export function ProjectThumbnail({
 		return (
 			<div
 				className={cn(
-					"relative size-6 rounded-sm overflow-hidden flex-shrink-0 bg-muted border border-foreground/10",
+					"relative size-6 rounded-sm overflow-hidden flex-shrink-0 bg-hover border border-foreground/10",
 					className,
 				)}
 			>
@@ -38,7 +38,7 @@ export function ProjectThumbnail({
 		<div
 			className={cn(
 				"size-6 rounded-sm flex items-center justify-center flex-shrink-0",
-				"text-xs font-medium bg-muted text-muted-foreground border border-foreground/10",
+				"text-xs font-medium bg-hover text-fg-mute border border-foreground/10",
 				className,
 			)}
 		>

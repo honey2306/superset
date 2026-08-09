@@ -47,7 +47,7 @@ export function TemplateGalleryPanel({
 			<div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-6">
 				{AUTOMATION_TEMPLATE_CATEGORIES.map((category) => (
 					<section key={category.id} className="flex flex-col gap-3">
-						<h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+						<h3 className="text-xs font-medium uppercase tracking-wider text-fg-mute">
 							{localizeAutomationCategory(category.id, t)}
 						</h3>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">

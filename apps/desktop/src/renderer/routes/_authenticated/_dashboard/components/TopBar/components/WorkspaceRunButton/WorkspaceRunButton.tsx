@@ -167,17 +167,17 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 				disabled={isPending}
 				aria-label={buttonAriaLabel}
 				className={cn(
-					"group flex items-center gap-1.5 h-6 px-1.5 sm:px-2 rounded-l border border-r-0 border-border/60 bg-secondary/50 text-xs font-medium",
+					"group flex items-center gap-1.5 h-6 px-1.5 sm:px-2 rounded-l border border-r-0 border-line/60 bg-secondary/50 text-xs font-medium",
 					"transition-all duration-150 ease-out",
-					"hover:bg-secondary hover:border-border",
+					"hover:bg-secondary hover:border-line",
 					"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 					"active:scale-[0.98]",
 					isPending && "opacity-50 pointer-events-none",
 					isRunning
-						? "text-emerald-300 border-emerald-500/25 bg-emerald-500/10"
+						? "text-success border-emerald-500/25 bg-success-tint/10"
 						: hasRunCommand
-							? "text-foreground"
-							: "text-muted-foreground/80 border-border/40 bg-secondary/40",
+							? "text-fg"
+							: "text-muted-foreground/80 border-line/40 bg-secondary/40",
 				)}
 			>
 				{isRunning ? (
@@ -189,7 +189,7 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 				)}
 				<span className="hidden sm:inline">{buttonLabel}</span>
 				{hotkeyText && hotkeyText !== "Unassigned" && (
-					<span className="hidden sm:inline text-[10px] text-muted-foreground/60 ml-1">
+					<span className="hidden sm:inline text-[10px] text-fg-faint ml-1">
 						{hotkeyText}
 					</span>
 				)}
@@ -203,16 +203,16 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 						disabled={isPending}
 						aria-label={t("dashboard.runMenuAria")}
 						className={cn(
-							"flex items-center justify-center h-6 w-6 rounded-r border border-border/60 bg-secondary/50 text-muted-foreground",
+							"flex items-center justify-center h-6 w-6 rounded-r border border-line/60 bg-secondary/50 text-fg-mute",
 							"transition-all duration-150 ease-out",
-							"hover:bg-secondary hover:border-border hover:text-foreground",
+							"hover:bg-secondary hover:border-line hover:text-fg",
 							"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 							"active:scale-[0.98]",
 							isPending && "opacity-50 pointer-events-none",
 							isRunning
-								? "text-emerald-300 border-emerald-500/25 bg-emerald-500/10 hover:bg-emerald-500/20"
+								? "text-success border-emerald-500/25 bg-success-tint/10 hover:bg-success-tint/20"
 								: !hasRunCommand &&
-										"text-muted-foreground/80 border-border/40 bg-secondary/40",
+										"text-muted-foreground/80 border-line/40 bg-secondary/40",
 						)}
 					>
 						<HiChevronDown className="size-3.5" />

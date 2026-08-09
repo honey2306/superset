@@ -24,13 +24,13 @@ export function ActivityItem({
 					className="w-6 h-6 rounded-full shrink-0 mt-0.5"
 				/>
 			) : (
-				<div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs shrink-0 mt-0.5">
+				<div className="w-6 h-6 rounded-full bg-hover flex items-center justify-center text-xs shrink-0 mt-0.5">
 					{avatarFallback}
 				</div>
 			)}
 			<div className="text-sm">
-				<span className="text-foreground">{actorName}</span>
-				<span className="text-muted-foreground">
+				<span className="text-fg">{actorName}</span>
+				<span className="text-fg-mute">
 					{" "}
 					{action} · {formatDistanceToNow(timestamp, { addSuffix: true })}
 				</span>

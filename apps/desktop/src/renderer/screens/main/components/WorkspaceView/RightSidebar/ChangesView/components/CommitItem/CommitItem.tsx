@@ -50,11 +50,11 @@ function CommitHeader({
 				<TooltipTrigger asChild>
 					<ContextMenuTrigger asChild>
 						<div className="flex min-w-0 flex-1 items-center gap-1.5">
-							<span className="text-[10px] font-mono text-muted-foreground shrink-0">
+							<span className="text-[10px] font-mono text-fg-mute shrink-0">
 								{shortHash}
 							</span>
 							<span className="text-xs flex-1 truncate">{message}</span>
-							<span className="text-[10px] text-muted-foreground shrink-0">
+							<span className="text-[10px] text-fg-mute shrink-0">
 								{formatRelativeDate(date, t)}
 							</span>
 						</div>

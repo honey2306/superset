@@ -42,7 +42,7 @@ export function KanbanColumn({
 				<span className="text-sm font-medium capitalize truncate">
 					{status.name}
 				</span>
-				<span className="text-xs text-muted-foreground tabular-nums">
+				<span className="text-xs text-fg-mute tabular-nums">
 					{tasks.length}
 				</span>
 			</div>
@@ -51,7 +51,7 @@ export function KanbanColumn({
 			<div
 				ref={setNodeRef}
 				className={cn(
-					"flex-1 flex flex-col gap-1 overflow-y-auto min-h-[60px] rounded-md p-0.5 transition-colors",
+					"flex-1 flex flex-col gap-1 overflow-y-auto min-h-[60px] rounded-ds-3 p-0.5 transition-colors",
 					isOver && "bg-accent/20 ring-1 ring-accent/40",
 				)}
 			>

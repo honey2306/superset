@@ -134,12 +134,12 @@ function DaemonAutoUpdateFailureDialogInner({
 						Daemon update needs confirmation
 					</AlertDialogTitle>
 					<AlertDialogDescription asChild>
-						<div className="space-y-1.5 text-muted-foreground">
+						<div className="space-y-1.5 text-fg-mute">
 							<span className="block">
 								Superset tried to update the terminal daemon without closing
 								sessions, but the handoff did not finish. Reason:
 							</span>
-							<span className="block cursor-text select-text rounded bg-muted/40 px-2 py-1.5 font-mono text-[11px] text-foreground">
+							<span className="block cursor-text select-text rounded bg-hover/40 px-2 py-1.5 font-mono text-[11px] text-fg">
 								{failure?.reason ?? ""}
 							</span>
 							<span className="block">

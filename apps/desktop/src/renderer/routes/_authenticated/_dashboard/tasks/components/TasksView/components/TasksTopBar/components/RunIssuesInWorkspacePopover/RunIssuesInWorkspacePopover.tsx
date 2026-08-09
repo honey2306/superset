@@ -246,7 +246,7 @@ export function RunIssuesInWorkspacePopover({
 				<Button
 					variant="ghost"
 					size="sm"
-					className="h-7 text-xs gap-1.5 bg-muted/50"
+					className="h-7 text-xs gap-1.5 bg-hover/50"
 				>
 					<HiMiniPlay className="size-3" />
 					Run in Workspace
@@ -268,7 +268,7 @@ export function RunIssuesInWorkspacePopover({
 							<Button
 								variant="ghost"
 								size="sm"
-								className="w-full justify-between font-normal h-8 min-w-0 bg-muted/50 rounded-md"
+								className="w-full justify-between font-normal h-8 min-w-0 bg-hover/50 rounded-ds-3"
 							>
 								<span className="flex items-center gap-2 truncate">
 									{selectedProject ? (
@@ -281,9 +281,7 @@ export function RunIssuesInWorkspacePopover({
 											<span className="truncate">{selectedProject.name}</span>
 										</>
 									) : (
-										<span className="text-muted-foreground">
-											Select project
-										</span>
+										<span className="text-fg-mute">Select project</span>
 									)}
 								</span>
 								<ChevronDownIcon className="size-4 opacity-50 shrink-0" />
@@ -333,14 +331,14 @@ export function RunIssuesInWorkspacePopover({
 						placeholder="Select agent"
 						onValueChange={setSelectedAgent}
 						onBeforeConfigureAgents={() => setOpen(false)}
-						triggerClassName="h-8 text-xs w-full border-0 shadow-none bg-muted/50 rounded-md"
+						triggerClassName="h-8 text-xs w-full border-0 shadow-none bg-hover/50 rounded-ds-3"
 						allowNone
 						noneLabel="No agent"
 						noneValue={NONE}
 					/>
 				</div>
 
-				<div className="border-t border-border p-2">
+				<div className="border-t border-line p-2">
 					<Button
 						size="sm"
 						className="w-full h-8"

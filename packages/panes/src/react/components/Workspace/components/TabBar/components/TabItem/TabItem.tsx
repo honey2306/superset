@@ -196,7 +196,7 @@ export function TabItem<TData>({
 									type="button"
 									variant="ghost"
 								>
-									<XIcon className="size-3.5" />
+									<XIcon className="size-3" />
 								</Button>
 							</div>
 						</>

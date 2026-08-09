@@ -61,11 +61,11 @@ function statusDotClass(
 	isOverdue: boolean,
 ): string {
 	if (status === "dispatch_failed" || status === "skipped_offline") {
-		return "bg-red-500";
+		return "bg-destructive";
 	}
-	if (status === "dispatching") return "bg-blue-500 animate-pulse";
-	if (status === "dispatched") return "bg-emerald-500";
-	if (isOverdue) return "bg-red-500";
+	if (status === "dispatching") return "bg-info-tint animate-pulse";
+	if (status === "dispatched") return "bg-success-tint";
+	if (isOverdue) return "bg-destructive";
 	if (status === "notified") return "bg-amber-500";
 	return "bg-muted-foreground/40";
 }
@@ -111,7 +111,7 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 	});
 
 	return (
-		<li className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent/40">
+		<li className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-hover">
 			<span
 				aria-hidden
 				className={cn(
@@ -124,19 +124,19 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 					<span className="truncate text-sm font-medium">{todo.title}</span>
 					<ModePill mode={todo.mode} />
 					{statusLabelKey && (
-						<span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+						<span className="font-mono text-[10px] uppercase tracking-wide text-fg-mute">
 							{t(statusLabelKey)}
 						</span>
 					)}
 				</div>
-				<div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-fg-mute">
 					<span className="font-mono">
 						{dayLabel} · {fmtTime(dueDate)}
 					</span>
 					<span
 						className={cn(
 							"font-mono text-[11px]",
-							isOverdue ? "text-red-400" : "text-muted-foreground/70",
+							isOverdue ? "text-destructive" : "text-fg-faint",
 						)}
 					>
 						{relative}
@@ -145,12 +145,12 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 						<span className="truncate text-[11px]">· {todo.agent}</span>
 					)}
 					{todo.note && (
-						<span className="max-w-md truncate text-[11px] text-muted-foreground/70">
+						<span className="max-w-md truncate text-[11px] text-fg-faint">
 							{todo.note}
 						</span>
 					)}
 					{todo.error && (
-						<span className="inline-flex select-text cursor-text items-center gap-1 text-[11px] text-red-400">
+						<span className="inline-flex select-text cursor-text items-center gap-1 text-[11px] text-destructive">
 							<LuTriangleAlert className="size-3" />
 							{todo.error}
 						</span>
@@ -201,9 +201,7 @@ function ModePill({ mode }: { mode: SelectTodo["mode"] }) {
 		<span
 			className={cn(
 				"inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
-				isAuto
-					? "bg-pink-500/15 text-pink-400"
-					: "bg-muted/50 text-muted-foreground",
+				isAuto ? "bg-pink-500/15 text-pink-400" : "bg-hover/50 text-fg-mute",
 			)}
 		>
 			{isAuto ? "AUTO" : "REMIND"}

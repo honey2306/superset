@@ -199,7 +199,7 @@ function AuthenticatedLayout() {
 							<h2 className="text-lg font-medium">
 								Still restoring your session
 							</h2>
-							<p className="text-sm text-muted-foreground">
+							<p className="text-sm text-fg-mute">
 								Superset can't confirm your sign-in with the server.
 							</p>
 						</div>
@@ -232,12 +232,10 @@ function AuthenticatedLayout() {
 	if (!isSignedIn && hasLocalToken && !isOnline) {
 		return (
 			<div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-background">
-				<HiOutlineWifi className="size-12 text-muted-foreground" />
+				<HiOutlineWifi className="size-12 text-fg-mute" />
 				<div className="text-center">
 					<h2 className="text-lg font-medium">{t("offline.title")}</h2>
-					<p className="text-sm text-muted-foreground">
-						{t("offline.description")}
-					</p>
+					<p className="text-sm text-fg-mute">{t("offline.description")}</p>
 				</div>
 				<Button variant="outline" size="sm" onClick={() => refetch()}>
 					{t("offline.retry")}
@@ -254,7 +252,7 @@ function AuthenticatedLayout() {
 		return (
 			<div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-background">
 				<Spinner />
-				<p className="text-sm text-muted-foreground">Loading...</p>
+				<p className="text-sm text-fg-mute">Loading...</p>
 			</div>
 		);
 	}

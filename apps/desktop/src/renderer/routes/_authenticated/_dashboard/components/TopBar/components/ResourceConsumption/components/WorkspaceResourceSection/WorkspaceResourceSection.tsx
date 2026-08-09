@@ -173,7 +173,7 @@ export function WorkspaceResourceSection({
 		return (
 			<div
 				key={project.projectId}
-				className={cn("py-1", projectIndex > 0 && "border-t border-border/40")}
+				className={cn("py-1", projectIndex > 0 && "border-t border-line/40")}
 			>
 				<button
 					type="button"
@@ -186,14 +186,14 @@ export function WorkspaceResourceSection({
 					}
 				>
 					<div className="flex items-center gap-1 min-w-0 mr-2">
-						<span className="flex items-center justify-center h-4 w-4 shrink-0 text-muted-foreground/70 group-hover:text-muted-foreground transition-colors">
+						<span className="flex items-center justify-center h-4 w-4 shrink-0 text-fg-faint group-hover:text-fg-mute transition-colors">
 							{isProjectCollapsed ? (
 								<HiOutlineChevronRight className="h-3 w-3" />
 							) : (
 								<HiOutlineChevronDown className="h-3 w-3" />
 							)}
 						</span>
-						<span className="text-[11px] font-semibold uppercase tracking-[0.04em] truncate min-w-0 text-muted-foreground">
+						<span className="text-[11px] font-semibold uppercase tracking-[0.04em] truncate min-w-0 text-fg-mute">
 							{project.projectName}
 						</span>
 						<UsageSeverityBadge severity={projectSeverity} />
@@ -217,7 +217,7 @@ export function WorkspaceResourceSection({
 										<button
 											type="button"
 											onClick={() => toggleWorkspace(workspace.workspaceId)}
-											className="flex items-center justify-center h-7 w-5 ml-3.5 shrink-0 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+											className="flex items-center justify-center h-7 w-5 ml-3.5 shrink-0 text-fg-faint hover:text-fg-mute transition-colors"
 											aria-label={
 												isCollapsed
 													? t("dashboard.expandWorkspace")
@@ -239,7 +239,7 @@ export function WorkspaceResourceSection({
 										className="flex-1 min-w-0 flex items-center justify-between py-1.5 pr-3.5 pl-1 text-left"
 									>
 										<div className="flex items-center gap-1.5 min-w-0 mr-2">
-											<span className="text-[12px] text-foreground truncate min-w-0">
+											<span className="text-[12px] text-fg truncate min-w-0">
 												{workspace.workspaceName}
 											</span>
 											<UsageSeverityBadge severity={workspaceSeverity} />
@@ -278,7 +278,7 @@ export function WorkspaceResourceSection({
 											>
 												<div className="flex items-center gap-1.5 min-w-0 mr-2">
 													<span className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
-													<span className="text-[11px] text-muted-foreground truncate min-w-0">
+													<span className="text-[11px] text-fg-mute truncate min-w-0">
 														{getPaneName(session)}
 													</span>
 													<UsageSeverityBadge severity={sessionSeverity} />

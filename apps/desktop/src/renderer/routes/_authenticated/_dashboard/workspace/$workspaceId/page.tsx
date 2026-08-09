@@ -90,7 +90,7 @@ function WorkspacePage() {
 
 	if (!isReady) {
 		return (
-			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+			<div className="flex h-full items-center justify-center text-sm text-fg-mute">
 				Loading workspace…
 			</div>
 		);

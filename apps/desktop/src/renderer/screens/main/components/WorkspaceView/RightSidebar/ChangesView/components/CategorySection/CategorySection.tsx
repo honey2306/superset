@@ -38,8 +38,8 @@ export function CategorySection({
 	}
 
 	const liveWorkBadgeClass: Partial<Record<ChangeCategory, string>> = {
-		unstaged: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-		staged: "bg-green-500/15 text-green-700 dark:text-green-400",
+		unstaged: "bg-warning-tint text-warning",
+		staged: "bg-success-tint text-success",
 	};
 	const countBadgeClass = liveWorkBadgeClass[id];
 	const isLiveWork = countBadgeClass !== undefined;
@@ -49,7 +49,7 @@ export function CategorySection({
 			open={isExpanded}
 			onOpenChange={onToggle}
 			className={cn(
-				"min-w-0 overflow-hidden border-t border-border/40 transition-opacity first:border-t-0",
+				"min-w-0 overflow-hidden border-t border-line/40 transition-opacity first:border-t-0",
 				isDragging && "opacity-45",
 			)}
 		>
@@ -57,18 +57,18 @@ export function CategorySection({
 				ref={containerRef}
 				className={cn(
 					"group flex items-center min-w-0 cursor-grab active:cursor-grabbing",
-					isOver && "bg-accent/20",
+					isOver && "bg-accent-tint",
 				)}
 			>
 				<CollapsibleTrigger
 					className={cn(
 						"flex-1 flex items-center gap-1.5 px-2 py-1.5 text-left min-w-0",
-						"hover:bg-accent/30 cursor-pointer transition-colors",
+						"hover:bg-hover cursor-pointer transition-colors",
 					)}
 				>
 					<VscChevronRight
 						className={cn(
-							"size-3 text-muted-foreground shrink-0 transition-transform duration-150",
+							"size-3 text-fg-mute shrink-0 transition-transform duration-150",
 							isExpanded && "rotate-90",
 						)}
 					/>
@@ -88,7 +88,7 @@ export function CategorySection({
 										"rounded-full px-1.5 py-0.5 font-medium leading-none",
 										countBadgeClass,
 									)
-								: "text-muted-foreground",
+								: "text-fg-mute",
 						)}
 					>
 						{count}

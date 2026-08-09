@@ -379,7 +379,7 @@ export function PromptGroup({
 				<div className="shrink min-w-0 ml-auto max-w-[50%]">
 					<Input
 						className={cn(
-							"border-none bg-transparent dark:bg-transparent shadow-none text-xs font-mono text-muted-foreground/60 px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/30 focus:text-muted-foreground text-right placeholder:text-right overflow-hidden text-ellipsis",
+							"border-none bg-transparent dark:bg-transparent shadow-none text-xs font-mono text-fg-faint px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/30 focus:text-fg-mute text-right placeholder:text-right overflow-hidden text-ellipsis",
 						)}
 						placeholder={branchPreview || t("workspace.branchName")}
 						value={branchName}
@@ -490,7 +490,7 @@ export function PromptGroup({
 							placeholder={t("workspace.noAgent")}
 							onValueChange={setSelectedAgent}
 							onBeforeConfigureAgents={closeModal}
-							triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-foreground w-auto max-w-[160px]`}
+							triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-fg w-auto max-w-[160px]`}
 							iconClassName="size-3 object-contain"
 							allowNone
 							noneLabel={t("workspace.noAgent")}
@@ -501,7 +501,7 @@ export function PromptGroup({
 								models={modelSupport.models}
 								value={selectedModel}
 								onValueChange={setSelectedModel}
-								triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-foreground w-auto max-w-[160px]`}
+								triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-fg w-auto max-w-[160px]`}
 							/>
 						)}
 						{effortSupport && (
@@ -509,7 +509,7 @@ export function PromptGroup({
 								models={effortSupport.efforts}
 								value={selectedEffort}
 								onValueChange={setSelectedEffort}
-								triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-foreground w-auto max-w-[160px]`}
+								triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-fg w-auto max-w-[160px]`}
 							/>
 						)}
 					</PromptInputTools>
@@ -574,7 +574,7 @@ export function PromptGroup({
 								handleSubmit();
 							}}
 						>
-							<ArrowUpIcon className="size-3.5 text-muted-foreground" />
+							<ArrowUpIcon className="size-3.5 text-fg-mute" />
 						</PromptInputSubmit>
 					</div>
 				</PromptInputFooter>
@@ -603,7 +603,7 @@ export function PromptGroup({
 								animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
 								exit={{ opacity: 0, x: 8, filter: "blur(4px)" }}
 								transition={{ duration: 0.2, ease: "easeOut" }}
-								className="flex items-center gap-1 text-xs text-muted-foreground"
+								className="flex items-center gap-1 text-xs text-fg-mute"
 							>
 								<LuGitPullRequest className="size-3 shrink-0" />
 								{t("workspace.basedOnPr", { number: linkedPR.prNumber })}

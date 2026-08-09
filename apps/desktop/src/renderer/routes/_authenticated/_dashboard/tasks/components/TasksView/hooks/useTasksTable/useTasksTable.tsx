@@ -198,7 +198,7 @@ export function useTasksTable({
 									onClick={row.getToggleExpandedHandler()}
 								>
 									<HiChevronRight
-										className={`h-3 w-3 text-muted-foreground transition-transform duration-100 group-hover:text-foreground ${
+										className={`h-3 w-3 text-fg-mute transition-transform duration-100 group-hover:text-fg ${
 											row.getIsExpanded() ? "rotate-90" : ""
 										}`}
 									/>
@@ -211,7 +211,7 @@ export function useTasksTable({
 										<span className="text-sm font-medium capitalize">
 											{status.name}
 										</span>
-										<span className="text-xs text-muted-foreground">
+										<span className="text-xs text-fg-mute">
 											{row.subRows.length}
 										</span>
 									</div>
@@ -257,7 +257,7 @@ export function useTasksTable({
 				cell: (info) => {
 					if (info.cell.getIsPlaceholder()) return null;
 					return (
-						<span className="text-xs text-muted-foreground truncate min-w-0">
+						<span className="text-xs text-fg-mute truncate min-w-0">
 							{info.getValue()}
 						</span>
 					);
@@ -324,7 +324,7 @@ export function useTasksTable({
 					const date = info.getValue();
 					if (!date) return null;
 					return (
-						<span className="text-xs text-muted-foreground shrink-0 w-11">
+						<span className="text-xs text-fg-mute shrink-0 w-11">
 							{format(new Date(date), "MMM d")}
 						</span>
 					);

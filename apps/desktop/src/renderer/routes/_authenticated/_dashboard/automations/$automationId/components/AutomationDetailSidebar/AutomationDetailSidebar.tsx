@@ -55,7 +55,7 @@ export function AutomationDetailSidebar({
 		.sort((a, b) => b.getTime() - a.getTime())[0];
 
 	return (
-		<aside className="flex w-[360px] shrink-0 flex-col overflow-hidden border-l border-border">
+		<aside className="flex w-[360px] shrink-0 flex-col overflow-hidden border-l border-line">
 			<div className="flex shrink-0 flex-col gap-6 px-5 pt-5 pb-2">
 				<Section title={t("automations.status")}>
 					<Row
@@ -66,7 +66,7 @@ export function AutomationDetailSidebar({
 									className={cn(
 										"inline-block size-2 shrink-0 rounded-full",
 										automation.enabled
-											? "bg-emerald-500"
+											? "bg-success-tint"
 											: "border border-muted-foreground/60",
 									)}
 								/>

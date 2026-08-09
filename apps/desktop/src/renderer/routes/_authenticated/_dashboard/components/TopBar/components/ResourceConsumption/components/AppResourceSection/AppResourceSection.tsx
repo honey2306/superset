@@ -50,15 +50,15 @@ export function AppResourceSection({
 	const showOther = app.other.cpu > 0 || app.other.memory > 0;
 
 	return (
-		<div className="border-b border-border/60 py-1">
+		<div className="border-b border-line/60 py-1">
 			<div className="flex items-center justify-between px-3.5 py-1.5">
 				<div className="flex items-center gap-1.5 min-w-0 mr-2">
-					<span className="text-[12px] font-medium text-foreground truncate min-w-0">
+					<span className="text-[12px] font-medium text-fg truncate min-w-0">
 						{t("dashboard.supersetApp")}
 					</span>
 					<UsageSeverityBadge severity={appSeverity} />
 				</div>
-				<div className={cn(METRIC_COLS, "text-[12px] text-foreground")}>
+				<div className={cn(METRIC_COLS, "text-[12px] text-fg")}>
 					<span className={CPU_COL}>{formatCpu(app.cpu)}</span>
 					<span className={MEM_COL}>{formatMemory(app.memory)}</span>
 				</div>

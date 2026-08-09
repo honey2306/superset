@@ -85,7 +85,7 @@ export function ResourceConsumption({ className }: ResourceConsumptionProps) {
 							size="icon-xs"
 							aria-label={t("dashboard.resourceConsumption")}
 							className={cn(
-								"no-drag relative text-muted-foreground hover:text-foreground",
+								"no-drag relative text-fg-mute hover:text-fg",
 								className,
 							)}
 						>
@@ -267,15 +267,15 @@ function ResourceConsumptionContent({
 	);
 	const shareBarColorClass =
 		hostShareSeverity === "high"
-			? "bg-red-500/80"
+			? "bg-destructive/80"
 			: hostShareSeverity === "elevated"
 				? "bg-amber-500/80"
 				: "bg-foreground/40";
 	return (
 		<PopoverContent align="start" className="w-[28rem] p-0 overflow-hidden">
-			<div className="px-3.5 pt-3 pb-3 border-b border-border/60">
+			<div className="px-3.5 pt-3 pb-3 border-b border-line/60">
 				<div className="flex items-center justify-between">
-					<h4 className="text-[13px] font-medium tracking-tight text-foreground">
+					<h4 className="text-[13px] font-medium tracking-tight text-fg">
 						{t("dashboard.resources")}
 					</h4>
 					<div className="flex items-center gap-0.5">
@@ -283,7 +283,7 @@ function ResourceConsumptionContent({
 							<DropdownMenuTrigger asChild>
 								<button
 									type="button"
-									className="flex items-center gap-1 h-6 px-1.5 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+									className="flex items-center gap-1 h-6 px-1.5 rounded text-[11px] text-fg-mute hover:text-fg hover:bg-foreground/[0.06] transition-colors"
 									aria-label={t("dashboard.sortWorkspaces")}
 								>
 									<HiOutlineBarsArrowDown className="h-3.5 w-3.5" />
@@ -311,7 +311,7 @@ function ResourceConsumptionContent({
 						<button
 							type="button"
 							onClick={() => refetch()}
-							className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
+							className="h-6 w-6 inline-flex items-center justify-center rounded text-fg-mute hover:text-fg hover:bg-foreground/[0.06] transition-colors"
 							aria-label={t("dashboard.refreshMetrics")}
 						>
 							<HiOutlineArrowPath
@@ -343,7 +343,7 @@ function ResourceConsumptionContent({
 						<Tooltip delayDuration={150}>
 							<TooltipTrigger asChild>
 								<div
-									className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted/60"
+									className="mt-3 h-1 w-full overflow-hidden rounded-full bg-hover/60"
 									role="progressbar"
 									aria-label={t("dashboard.systemRamShare")}
 									aria-valuenow={Math.round(trackedMemorySharePercent)}
@@ -396,13 +396,13 @@ function ResourceConsumptionContent({
 				)}
 
 				{normalizedSnapshot && normalizedSnapshot.workspaces.length === 0 && (
-					<div className="px-3.5 py-6 text-center text-[11px] text-muted-foreground">
+					<div className="px-3.5 py-6 text-center text-[11px] text-fg-mute">
 						{t("dashboard.noActiveTerminals")}
 					</div>
 				)}
 
 				{!normalizedSnapshot && (
-					<div className="px-3.5 py-6 text-center text-[11px] text-muted-foreground">
+					<div className="px-3.5 py-6 text-center text-[11px] text-fg-mute">
 						{t("dashboard.loading")}
 					</div>
 				)}

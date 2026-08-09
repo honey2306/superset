@@ -51,7 +51,7 @@ export function TableContent({
 	if (table.getRowModel().rows.length === 0) {
 		return (
 			<div className="flex-1 flex items-center justify-center">
-				<div className="flex flex-col items-center gap-2 text-muted-foreground">
+				<div className="flex flex-col items-center gap-2 text-fg-mute">
 					<HiCheckCircle className="h-8 w-8" />
 					<span className="text-sm">{t("tasks.none")}</span>
 				</div>

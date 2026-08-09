@@ -29,7 +29,7 @@ export function UploadingAttachmentPill({
 			<PromptInputAttachment data={file} loading={isPending} />
 			{isPending && (
 				<div className="pointer-events-none absolute top-[7px] left-[7px] flex size-5 items-center justify-center rounded bg-background/70 transition-opacity group-hover:opacity-0">
-					<Loader2 className="size-3 animate-spin text-muted-foreground" />
+					<Loader2 className="size-3 animate-spin text-fg-mute" />
 				</div>
 			)}
 			{isError && (

@@ -612,7 +612,7 @@ export function ChangesView({
 
 	if (!worktreePath) {
 		return (
-			<div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
+			<div className="flex-1 flex items-center justify-center text-fg-mute text-sm p-4">
 				{t("v1Changes.noWorkspaceSelected")}
 			</div>
 		);
@@ -620,7 +620,7 @@ export function ChangesView({
 
 	if (!status && isLoading) {
 		return (
-			<div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
+			<div className="flex-1 flex items-center justify-center text-fg-mute text-sm p-4">
 				{t("v1Changes.loadingChanges")}
 			</div>
 		);
@@ -635,7 +635,7 @@ export function ChangesView({
 		!status.untracked
 	) {
 		return (
-			<div className="flex-1 flex select-text cursor-text items-center justify-center text-muted-foreground text-sm p-4">
+			<div className="flex-1 flex select-text cursor-text items-center justify-center text-fg-mute text-sm p-4">
 				{t("v1Changes.unableToLoad")}
 			</div>
 		);
@@ -656,7 +656,7 @@ export function ChangesView({
 				canCreatePR={prActionState.canCreatePR}
 				createPRBlockedReason={prActionState.createPRBlockedReason}
 			/>
-			<div className="border-b border-border">
+			<div className="border-b border-line">
 				<CommitInput
 					worktreePath={worktreePath}
 					hasStagedChanges={hasStagedChanges}
@@ -671,7 +671,7 @@ export function ChangesView({
 			</div>
 
 			{!hasChanges ? (
-				<div className="flex flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
+				<div className="flex flex-1 items-center justify-center px-4 text-center text-sm text-fg-mute">
 					{t("v1Changes.noChangesDetected")}
 				</div>
 			) : (

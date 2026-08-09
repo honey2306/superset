@@ -41,11 +41,11 @@ type TaskLaunchAgent = AgentDefinitionId | "none";
 function BatchStatusIcon({ status }: { status: TaskStatus }) {
 	switch (status) {
 		case "pending":
-			return <LuCircle className="size-3 text-muted-foreground" />;
+			return <LuCircle className="size-3 text-fg-mute" />;
 		case "creating":
 			return <Spinner className="size-3" />;
 		case "done":
-			return <HiCheck className="size-3 text-green-500" />;
+			return <HiCheck className="size-3 text-success" />;
 		case "failed":
 			return <HiXMark className="size-3 text-destructive" />;
 	}
@@ -282,7 +282,7 @@ export function RunInWorkspacePopover({
 				<Button
 					variant="ghost"
 					size="sm"
-					className="h-7 text-xs gap-1.5 bg-muted/50"
+					className="h-7 text-xs gap-1.5 bg-hover/50"
 				>
 					<HiMiniPlay className="size-3" />
 					Run in Workspace
@@ -304,7 +304,7 @@ export function RunInWorkspacePopover({
 							<Button
 								variant="ghost"
 								size="sm"
-								className="w-full justify-between font-normal h-8 min-w-0 bg-muted/50 rounded-md"
+								className="w-full justify-between font-normal h-8 min-w-0 bg-hover/50 rounded-ds-3"
 								disabled={isRunning}
 							>
 								<span className="flex items-center gap-2 truncate">
@@ -322,9 +322,7 @@ export function RunInWorkspacePopover({
 											<span className="truncate">{selectedProject.name}</span>
 										</>
 									) : (
-										<span className="text-muted-foreground">
-											Select project
-										</span>
+										<span className="text-fg-mute">Select project</span>
 									)}
 								</span>
 								<ChevronDownIcon className="size-4 opacity-50 shrink-0" />
@@ -370,7 +368,7 @@ export function RunInWorkspacePopover({
 						onValueChange={setSelectedAgent}
 						onBeforeConfigureAgents={() => setOpen(false)}
 						disabled={isRunning}
-						triggerClassName="h-8 text-xs w-full border-0 shadow-none bg-muted/50 rounded-md"
+						triggerClassName="h-8 text-xs w-full border-0 shadow-none bg-hover/50 rounded-ds-3"
 						allowNone
 						noneLabel="No agent"
 						noneValue="none"
@@ -396,7 +394,7 @@ export function RunInWorkspacePopover({
 							{tasks.map((task) => (
 								<div
 									key={task.id}
-									className="flex items-center gap-2 text-xs text-muted-foreground"
+									className="flex items-center gap-2 text-xs text-fg-mute"
 								>
 									<BatchStatusIcon
 										status={taskStatuses.get(task.id) ?? "pending"}
@@ -408,7 +406,7 @@ export function RunInWorkspacePopover({
 					)}
 				</div>
 
-				<div className="border-t border-border p-2">
+				<div className="border-t border-line p-2">
 					<Button
 						size="sm"
 						className="w-full h-8"
