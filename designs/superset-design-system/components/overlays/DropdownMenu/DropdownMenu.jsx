@@ -1,7 +1,12 @@
 const _React = window.React;
 const { useState, useRef, useEffect } = window.React;
 
-export function DropdownMenu({ trigger, children, side = "bottom", align = "start" }) {
+export function DropdownMenu({
+	trigger,
+	children,
+	side = "bottom",
+	align = "start",
+}) {
 	const [open, setOpen] = useState(false);
 	const wrapRef = useRef(null);
 	useEffect(() => {

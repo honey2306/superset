@@ -92,10 +92,7 @@ function StatusIcon({ status }) {
 						: "var(--fg-faint)";
 	if (status === "running") {
 		return (
-			<span
-				className="spinner accent"
-				style={{ width: 12, height: 12 }}
-			/>
+			<span className="spinner accent" style={{ width: 12, height: 12 }} />
 		);
 	}
 	return (
@@ -156,8 +153,7 @@ function WorkspaceSidebarKit() {
 					<span className="dot" />
 				</button>
 				<button className="wsb-nav">
-					<Icon name="clock" className="glyph" size={14} /> Temporary
-					workspace
+					<Icon name="clock" className="glyph" size={14} /> Temporary workspace
 				</button>
 			</div>
 			<div className="wsb-body">
@@ -167,17 +163,20 @@ function WorkspaceSidebarKit() {
 							<span className="thumb">{p.thumb}</span>
 							<span className="name">{p.name}</span>
 							<span className="count">({p.count})</span>
-							<Icon name="plus" size={12} style={{ color: "var(--fg-faint)" }} />
+							<Icon
+								name="plus"
+								size={12}
+								style={{ color: "var(--fg-faint)" }}
+							/>
 						</div>
 						{p.sections.map((s) => (
 							<React.Fragment key={s.id}>
-								<div
-									className={`wsb-section-head${
-										s.open ? " is-open" : ""
-									}`}
-								>
+								<div className={`wsb-section-head${s.open ? " is-open" : ""}`}>
 									<Icon name="chevron" className="chev" size={8} />
-									{s.name} <span style={{ color: "var(--fg-mute)" }}>({s.rows.length})</span>
+									{s.name}{" "}
+									<span style={{ color: "var(--fg-mute)" }}>
+										({s.rows.length})
+									</span>
 								</div>
 								{s.open
 									? s.rows.map((r) => <WsbRow row={r} key={r.id} />)
@@ -189,9 +188,16 @@ function WorkspaceSidebarKit() {
 			</div>
 			<div className="wsb-ports">
 				<div className="wsb-ports-head">
-					<Icon name="chevron" className="glyph" size={8} style={{ transform: "rotate(90deg)" }} />
+					<Icon
+						name="chevron"
+						className="glyph"
+						size={8}
+						style={{ transform: "rotate(90deg)" }}
+					/>
 					<Icon name="radioTower" className="glyph" size={11} /> Ports
-					<span className="count" style={{ marginLeft: "auto" }}>4</span>
+					<span className="count" style={{ marginLeft: "auto" }}>
+						4
+					</span>
 				</div>
 				{wsbPorts.map((g) => (
 					<div className="wsb-port-group" key={g.name}>

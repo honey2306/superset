@@ -1,5 +1,6 @@
-import { Icon } from "../../core/Icon/Icon.jsx";
 import { Button } from "../../core/Button/Button.jsx";
+import { Icon } from "../../core/Icon/Icon.jsx";
+
 const _React = window.React;
 
 export function AlertDialog({

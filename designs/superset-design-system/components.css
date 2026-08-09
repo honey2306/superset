@@ -1732,11 +1732,11 @@
 }
 .ds-sheet.s-top {
 	inset: 0 0 auto 0;
-	width: 100% !important;
+	width: 100%;
 }
 .ds-sheet.s-bottom {
 	inset: auto 0 0 0;
-	width: 100% !important;
+	width: 100%;
 }
 .ds-sheet-head {
 	display: flex;

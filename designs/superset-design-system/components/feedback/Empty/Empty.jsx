@@ -1,4 +1,5 @@
 import { Icon } from "../../core/Icon/Icon.jsx";
+
 const _React = window.React;
 
 export function Empty({

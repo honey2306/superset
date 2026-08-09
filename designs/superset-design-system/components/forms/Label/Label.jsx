@@ -7,7 +7,12 @@ export function Label({ htmlFor, required, children, className, ...rest }) {
 			{...rest}
 		>
 			{children}
-			{required ? <span className="req" aria-hidden> *</span> : null}
+			{required ? (
+				<span className="req" aria-hidden>
+					{" "}
+					*
+				</span>
+			) : null}
 		</label>
 	);
 }

@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 /**
  * Path breadcrumb. Mono for path segments, chevron between them, last
  * segment is `--fg`, prior segments are `--fg-mute` (clickable).

@@ -29,9 +29,9 @@ export function HoverCard({ content, side = "bottom", children, className }) {
 			{cloned}
 			{open ? (
 				<span
-					className={
-						["ds-hover-card", `s-${side}`, className].filter(Boolean).join(" ")
-					}
+					className={["ds-hover-card", `s-${side}`, className]
+						.filter(Boolean)
+						.join(" ")}
 					onMouseEnter={enter}
 					onMouseLeave={leave}
 				>
