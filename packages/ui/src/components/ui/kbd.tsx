@@ -5,9 +5,12 @@ function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
 		<kbd
 			data-slot="kbd"
 			className={cn(
-				"bg-muted text-muted-foreground pointer-events-none inline-flex h-5 w-fit min-w-5 items-center justify-center gap-1 rounded-sm px-1 font-sans text-xs font-medium select-none",
+				// DS Kbd: raised chip on --surface-elev with hairline, mono,
+				// tight letter-spacing. Used inline in menu items, tooltip
+				// hints, and KeyboardHintBar.
+				"bg-surface-elev text-fg-faint border border-line pointer-events-none inline-flex h-[16px] w-fit min-w-[16px] items-center justify-center gap-1 rounded-ds-2 px-[5px] font-mono text-[10px] leading-none tracking-[var(--ls-mono)] select-none",
 				"[&_svg:not([class*='size-'])]:size-3",
-				"[[data-slot=tooltip-content]_&]:bg-background/20 [[data-slot=tooltip-content]_&]:text-background dark:[[data-slot=tooltip-content]_&]:bg-background/10",
+				"[[data-slot=tooltip-content]_&]:bg-hover [[data-slot=tooltip-content]_&]:text-fg [[data-slot=tooltip-content]_&]:border-line-strong",
 				className,
 			)}
 			{...props}

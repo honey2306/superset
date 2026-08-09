@@ -15,8 +15,12 @@ import { buttonVariants } from "./button";
 // `max-h-[calc(100vh-2rem)]` + `overflow-y-auto` keep the footer reachable
 // when content (e.g. a long workspace name) would otherwise push action
 // buttons off-screen.
+// DS AlertDialog: full-modal destructive confirm. Sunk surface with 12px radius,
+// shadow-3, danger icon slot in the caller. Use when the trigger can't be
+// anchored (bulk deletes, sign-out); otherwise prefer ConfirmCard. See
+// layouts/ModalStack for who covers whom.
 export const alertDialogContentClassName =
-	"bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 select-text sm:max-w-lg";
+	"bg-surface-sunk text-fg border border-line data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-modal grid w-full max-w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 rounded-ds-6 p-5 shadow-ds-3 duration-[var(--dur-base)] select-text sm:max-w-lg";
 
 function AlertDialog({
 	...props
@@ -48,7 +52,8 @@ function AlertDialogOverlay({
 		<AlertDialogPrimitive.Overlay
 			data-slot="alert-dialog-overlay"
 			className={cn(
-				"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+				// DS scrim — see Dialog for the same rule.
+				"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-modal-scrim bg-[color:var(--overlay-scrim,rgba(0,0,0,0.42))]",
 				className,
 			)}
 			{...props}
@@ -129,7 +134,10 @@ function AlertDialogTitle({
 	return (
 		<AlertDialogPrimitive.Title
 			data-slot="alert-dialog-title"
-			className={cn("text-lg font-semibold", className)}
+			className={cn(
+				"text-[14px] font-semibold text-fg tracking-[var(--ls-title)]",
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -142,7 +150,10 @@ function AlertDialogDescription({
 	return (
 		<AlertDialogPrimitive.Description
 			data-slot="alert-dialog-description"
-			className={cn("text-muted-foreground text-sm", className)}
+			className={cn(
+				"text-fg-mute text-[12px] leading-[var(--lh-body)]",
+				className,
+			)}
 			{...props}
 		/>
 	);

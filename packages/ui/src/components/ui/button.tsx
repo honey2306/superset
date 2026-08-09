@@ -28,8 +28,7 @@ const buttonVariants = cva(
 					"border border-accent-line bg-accent text-accent-foreground hover:bg-accent-tint",
 				destructive:
 					"border border-danger/55 bg-danger-tint text-danger hover:bg-danger/25",
-				outline:
-					"border border-line text-fg-mute hover:text-fg hover:bg-hover",
+				outline: "border border-line text-fg-mute hover:text-fg hover:bg-hover",
 				secondary:
 					"border border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
 				ghost:

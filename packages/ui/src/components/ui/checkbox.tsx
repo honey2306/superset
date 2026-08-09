@@ -14,7 +14,10 @@ function Checkbox({
 		<CheckboxPrimitive.Root
 			data-slot="checkbox"
 			className={cn(
-				"peer border-input dark:bg-input/30 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:data-[state=checked]:bg-primary data-[state=checked]:border-primary focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-4 shrink-0 rounded-[4px] border shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+				// DS Checkbox: 14px square, 1.5px line-strong border, r-2.
+				// Checked = pink-tint bg + pink foreground checkmark. Pair with
+				// forms/Label for clickable labels. `Radio` is the mutex sibling.
+				"peer bg-transparent border-[1.5px] border-line-strong data-[state=checked]:bg-accent data-[state=checked]:border-accent-line data-[state=checked]:text-accent-solid focus-visible:ring-[3px] focus-visible:ring-accent-tint aria-invalid:ring-destructive/25 aria-invalid:border-destructive size-[14px] shrink-0 rounded-ds-2 transition-[background-color,border-color,box-shadow] duration-[120ms] outline-none disabled:cursor-not-allowed disabled:opacity-50",
 				className,
 			)}
 			{...props}
@@ -23,7 +26,7 @@ function Checkbox({
 				data-slot="checkbox-indicator"
 				className="grid place-content-center text-current transition-none"
 			>
-				<CheckIcon className="size-3.5" />
+				<CheckIcon className="size-3" strokeWidth={2.6} />
 			</CheckboxPrimitive.Indicator>
 		</CheckboxPrimitive.Root>
 	);
