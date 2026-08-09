@@ -360,7 +360,7 @@ export function SubagentInnerToolCall({
 		>
 			{hasResult ? (
 				<div className="pl-2 py-1.5">
-					<div className="whitespace-pre-wrap break-all font-mono text-xs text-muted-foreground">
+					<div className="whitespace-pre-wrap break-all font-mono text-xs text-fg-mute">
 						{result}
 					</div>
 				</div>
