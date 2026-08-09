@@ -372,19 +372,20 @@ export function WorkspaceListItem({
 			onMouseEnter={handleMouseEnter}
 			onDoubleClick={isBranchWorkspace ? undefined : rename.startRename}
 			className={cn(
-				"flex w-full pl-3 pr-2 text-sm",
-				"transition-colors text-left cursor-pointer",
-				isActive ? "hover:bg-muted" : "hover:bg-muted/50",
+				// DS: hover → --hover; active → accent-tint + 2px pink left bar.
+				"flex w-full pl-3 pr-2 text-[13px]",
+				"transition-colors duration-[120ms] text-left cursor-pointer rounded-ds-3",
+				isActive ? "hover:bg-accent-tint" : "hover:bg-hover",
 				"group relative",
 				showBranchSubtitle ? "py-1.5" : "py-2 items-center",
-				isActive && "bg-muted",
-				isSelected && "bg-primary/10 ring-1 ring-inset ring-primary/30",
+				isActive && "bg-accent-tint",
+				isSelected && "bg-accent-tint ring-1 ring-inset ring-accent-line",
 				(isDragging || isMultiDragging) && "opacity-30",
 			)}
 			style={{ cursor: isDragging ? "grabbing" : "pointer" }}
 		>
 			{isActive && (
-				<div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary rounded-r" />
+				<div className="absolute left-0 top-1.5 bottom-1.5 w-[2px] bg-accent-solid rounded-r-sm" />
 			)}
 
 			<div
@@ -409,14 +410,14 @@ export function WorkspaceListItem({
 						{isBranchWorkspace ? (
 							<>
 								<p className="text-xs font-medium">{t("workspace.local")}</p>
-								<p className="text-xs text-muted-foreground">
+								<p className="text-xs text-fg-mute">
 									Changes are made directly in the main repository
 								</p>
 							</>
 						) : (
 							<>
 								<p className="text-xs font-medium">{t("workspace.worktree")}</p>
-								<p className="text-xs text-muted-foreground">
+								<p className="text-xs text-fg-mute">
 									Isolated copy for parallel development
 								</p>
 							</>
@@ -450,9 +451,7 @@ export function WorkspaceListItem({
 							<span
 								className={cn(
 									"truncate text-[13px] leading-tight transition-colors flex-1",
-									isActive
-										? "text-foreground font-medium"
-										: "text-foreground/80",
+									isActive ? "text-fg font-medium" : "text-fg",
 								)}
 							>
 								{isBranchWorkspace ? "local" : name || branch}
@@ -489,7 +488,7 @@ export function WorkspaceListItem({
 														e.stopPropagation();
 														handleDeleteClick();
 													}}
-													className="flex items-center justify-center text-muted-foreground hover:text-foreground"
+													className="flex size-4 items-center justify-center rounded-ds-2 text-fg-faint transition-colors hover:bg-hover hover:text-fg"
 													aria-label={t("workspace.closeLabel")}
 												>
 													<HiMiniXMark className="size-3.5" />
@@ -510,7 +509,7 @@ export function WorkspaceListItem({
 						{(showBranchSubtitle || pr) && (
 							<div className="flex items-center gap-2 text-[11px] w-full">
 								{showBranchSubtitle && (
-									<span className="text-muted-foreground/60 truncate font-mono leading-tight">
+									<span className="truncate text-fg-faint font-mono tracking-[var(--ls-mono)] leading-tight">
 										{branch}
 									</span>
 								)}
