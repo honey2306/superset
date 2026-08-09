@@ -282,7 +282,7 @@ function SlashCommandChip({
 				</PopoverAnchor>
 				{argumentOptions.length > 0 && (
 					<PopoverContent
-						className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden border-[#ff79c6]/35 p-0 shadow-xl"
+						className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden border-accent-solid/35 p-0 shadow-xl"
 						side="top"
 						align="start"
 						sideOffset={6}
@@ -304,7 +304,7 @@ function SlashCommandChip({
 												opt === selectedValue ? selectedOptionRef : undefined
 											}
 											value={opt}
-											className="relative min-w-0 py-2 pl-3 data-[selected=true]:bg-[#ff79c6]/10 data-[selected=true]:text-foreground data-[selected=true]:before:absolute data-[selected=true]:before:inset-y-1 data-[selected=true]:before:left-0 data-[selected=true]:before:w-0.5 data-[selected=true]:before:rounded-full data-[selected=true]:before:bg-[#ff79c6] data-[selected=true]:before:content-['']"
+											className="relative min-w-0 py-2 pl-3 data-[selected=true]:bg-accent data-[selected=true]:text-foreground data-[selected=true]:before:absolute data-[selected=true]:before:inset-y-1 data-[selected=true]:before:left-0 data-[selected=true]:before:w-0.5 data-[selected=true]:before:rounded-full data-[selected=true]:before:bg-accent-solid data-[selected=true]:before:content-['']"
 											onSelect={() => handleSelectOption(opt)}
 											onMouseDown={(e) => e.preventDefault()}
 										>

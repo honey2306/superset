@@ -34,7 +34,7 @@ export function SlashCommandMenu<T extends ComposerSlashCommand>({
 			side="top"
 			align="start"
 			sideOffset={4}
-			className="w-[var(--radix-popover-trigger-width)] overflow-hidden border-[#ff79c6]/35 bg-popover/95 p-0 text-xs shadow-xl"
+			className="w-[var(--radix-popover-trigger-width)] overflow-hidden border-accent-solid/35 bg-popover/95 p-0 text-xs shadow-xl"
 			onOpenAutoFocus={(e) => e.preventDefault()}
 			onCloseAutoFocus={(e) => e.preventDefault()}
 		>
@@ -53,9 +53,9 @@ export function SlashCommandMenu<T extends ComposerSlashCommand>({
 							type="button"
 							role="option"
 							aria-selected={isSelected}
-							className={`relative flex w-full cursor-pointer items-center rounded-sm px-3 py-2 text-left text-foreground outline-none transition-colors before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-[#ff79c6] before:transition-opacity before:content-[''] ${
+							className={`relative flex w-full cursor-pointer items-center rounded-sm px-3 py-2 text-left text-foreground outline-none transition-colors before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-accent-solid before:transition-opacity before:content-[''] ${
 								isSelected
-									? "bg-[#ff79c6]/10 before:opacity-100"
+									? "bg-accent before:opacity-100"
 									: "before:opacity-0 hover:bg-muted/40"
 							}`}
 							onMouseEnter={() => onHover(index)}
@@ -65,8 +65,8 @@ export function SlashCommandMenu<T extends ComposerSlashCommand>({
 							}}
 						>
 							<div className="flex w-full min-w-0 items-center gap-2">
-								<span className="min-w-[80px] shrink-0 font-semibold text-[#ff79c6]">
-									<span className="font-mono font-normal text-[#ff79c6]/60">
+								<span className="min-w-[80px] shrink-0 font-semibold text-accent-solid">
+									<span className="font-mono font-normal text-accent-solid/60">
 										/
 									</span>
 									{cmd.name}
