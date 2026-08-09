@@ -24,9 +24,7 @@ export function SettingsSection({
 						{title}
 					</h3>
 					{description ? (
-						<p className="text-xs text-muted-foreground mt-0.5">
-							{description}
-						</p>
+						<p className="text-xs text-fg-mute mt-0.5">{description}</p>
 					) : null}
 				</div>
 				{action ? <div className="shrink-0">{action}</div> : null}

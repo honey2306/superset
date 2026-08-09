@@ -113,7 +113,7 @@ export function ResourcesFrame() {
 	return (
 		<>
 			{snapshot && (
-				<div className="border-b border-border/60 px-3.5 pt-3 pb-3">
+				<div className="border-b border-line/60 px-3.5 pt-3 pb-3">
 					<ResourceMetricsSummary snapshot={snapshot} />
 				</div>
 			)}
@@ -147,7 +147,7 @@ export function ResourcesFrame() {
 													isExpanded ? "Collapse workspace" : "Expand workspace"
 												}
 												aria-expanded={isExpanded}
-												className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-foreground/[0.08] hover:text-foreground"
+												className="flex size-5 shrink-0 items-center justify-center rounded text-fg-faint transition-colors hover:bg-foreground/[0.08] hover:text-fg"
 											>
 												{isExpanded ? (
 													<HiOutlineChevronDown className="!size-3.5" />
@@ -161,15 +161,13 @@ export function ResourcesFrame() {
 										<span className="min-w-0 flex-1 truncate">
 											{workspace.workspaceName}
 										</span>
-										<span className="max-w-32 shrink-0 truncate text-muted-foreground text-xs">
+										<span className="max-w-32 shrink-0 truncate text-fg-mute text-xs">
 											{workspace.projectName}
 										</span>
 										<UsageSeverityBadge
 											severity={getUsageSeverity(workspace, totals)}
 										/>
-										<span
-											className={cn(METRIC_COLS, "text-foreground/85 text-xs")}
-										>
+										<span className={cn(METRIC_COLS, "text-fg/85 text-xs")}>
 											<span className={CPU_COL}>
 												{formatCpu(workspace.cpu)}
 											</span>
@@ -191,17 +189,14 @@ export function ResourcesFrame() {
 											>
 												<span className="w-5 shrink-0" />
 												<span className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
-												<span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+												<span className="min-w-0 flex-1 truncate text-[13px] text-fg-mute">
 													{getPaneName(entry)}
 												</span>
 												<UsageSeverityBadge
 													severity={getUsageSeverity(entry, workspace)}
 												/>
 												<span
-													className={cn(
-														METRIC_COLS,
-														"text-muted-foreground/80 text-xs",
-													)}
+													className={cn(METRIC_COLS, "text-fg-mute/80 text-xs")}
 												>
 													<span className={CPU_COL}>
 														{formatCpu(entry.cpu)}
@@ -218,7 +213,7 @@ export function ResourcesFrame() {
 					</CommandGroup>
 				)}
 			</CommandList>
-			<div className="flex items-center gap-4 border-t border-border/60 px-3.5 py-2 text-[11px] text-muted-foreground">
+			<div className="flex items-center gap-4 border-t border-line/60 px-3.5 py-2 text-[11px] text-fg-mute">
 				<span>→ expand</span>
 				<span>← collapse</span>
 				<span>↵ open workspace / jump to terminal</span>

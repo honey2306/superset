@@ -91,16 +91,16 @@ export function PhoneAccessSettings() {
 		<div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-8">
 			<header>
 				<h1 className="text-2xl font-semibold">Phone access</h1>
-				<p className="mt-1 text-sm text-muted-foreground">
+				<p className="mt-1 text-sm text-fg-mute">
 					Pair a phone browser over your local network or Tailscale. Requires
-					<code className="mx-1 rounded bg-muted px-1 py-[1px] text-xs">
+					<code className="mx-1 rounded bg-hover px-1 py-[1px] text-xs">
 						SUPERSET_ACP_SESSIONS=1
 					</code>
 					on this host.
 				</p>
 			</header>
 
-			<section className="flex flex-col gap-3 rounded-lg border p-4">
+			<section className="flex flex-col gap-3 rounded-ds-5 border p-4">
 				<h2 className="text-sm font-medium">Pair a new phone</h2>
 				<label className="flex items-center gap-2 text-sm">
 					<input
@@ -137,13 +137,13 @@ export function PhoneAccessSettings() {
 					type="button"
 					disabled={!trpc || mint.isPending || !resolvedHostname.trim()}
 					onClick={() => mint.mutate()}
-					className="mt-2 self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+					className="mt-2 self-start rounded-ds-3 bg-accent-solid px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-50"
 				>
 					{mint.isPending ? "Generating…" : "Generate pairing code"}
 				</button>
 
 				{mint.error ? (
-					<div className="text-sm text-red-500">
+					<div className="text-sm text-destructive">
 						{mint.error instanceof Error
 							? mint.error.message
 							: "Failed to mint code."}
@@ -151,20 +151,18 @@ export function PhoneAccessSettings() {
 				) : null}
 
 				{mint.data && url ? (
-					<div className="mt-2 flex flex-col gap-3 rounded border bg-muted/40 p-3 sm:flex-row sm:items-start">
+					<div className="mt-2 flex flex-col gap-3 rounded border bg-hover/40 p-3 sm:flex-row sm:items-start">
 						<div className="shrink-0 self-center sm:self-start">
 							<PairingQrCode url={url} size={192} />
 						</div>
 						<div className="flex min-w-0 flex-1 flex-col gap-2">
-							<div className="text-xs uppercase tracking-wider text-muted-foreground">
+							<div className="text-xs uppercase tracking-wider text-fg-mute">
 								Pairing code (expires in 60s)
 							</div>
 							<div className="select-text cursor-text font-mono text-2xl tracking-widest">
 								{mint.data.code}
 							</div>
-							<div className="text-xs text-muted-foreground">
-								Or open on phone:
-							</div>
+							<div className="text-xs text-fg-mute">Or open on phone:</div>
 							<div className="select-text cursor-text break-all rounded bg-background p-2 font-mono text-xs">
 								{url}
 							</div>
@@ -173,12 +171,10 @@ export function PhoneAccessSettings() {
 				) : null}
 			</section>
 
-			<section className="flex flex-col gap-2 rounded-lg border p-4">
+			<section className="flex flex-col gap-2 rounded-ds-5 border p-4">
 				<h2 className="text-sm font-medium">Paired devices</h2>
 				{sessions.data && sessions.data.length === 0 ? (
-					<div className="text-sm text-muted-foreground">
-						No phones paired yet.
-					</div>
+					<div className="text-sm text-fg-mute">No phones paired yet.</div>
 				) : null}
 				<ul className="flex flex-col gap-1">
 					{sessions.data?.map((s) => (
@@ -188,14 +184,14 @@ export function PhoneAccessSettings() {
 						>
 							<div className="min-w-0">
 								<div className="truncate">{s.deviceLabel || s.id}</div>
-								<div className="text-xs text-muted-foreground">
+								<div className="text-xs text-fg-mute">
 									Last seen {new Date(s.lastSeenAt).toLocaleString()}
 								</div>
 							</div>
 							<button
 								type="button"
 								onClick={() => revoke.mutate(s.id)}
-								className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+								className="rounded px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
 							>
 								Revoke
 							</button>

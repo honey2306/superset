@@ -45,10 +45,10 @@ export function ScriptField({
 				role="region"
 				aria-label={t("scripts.editorAria")}
 				className={cn(
-					"relative rounded-md border transition-colors",
+					"relative rounded-ds-3 border transition-colors",
 					isDragOver
 						? "ring-2 ring-primary/40 border-primary/60"
-						: "border-input",
+						: "border-line",
 				)}
 				onDragOver={(e) => {
 					e.preventDefault();
@@ -80,14 +80,14 @@ export function ScriptField({
 					type="button"
 					onClick={() => fileInputRef.current?.click()}
 					title={t("scripts.importFile")}
-					className="absolute bottom-2 right-2 flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+					className="absolute bottom-2 right-2 flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-fg-mute hover:bg-hover hover:text-fg transition-colors"
 				>
 					<HiDocumentArrowUp className="h-3.5 w-3.5" />
 					{t("scripts.import")}
 				</button>
 				{isDragOver && (
-					<div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md bg-primary/10">
-						<div className="flex items-center gap-2 text-primary text-sm font-medium">
+					<div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-ds-3 bg-accent-tint">
+						<div className="flex items-center gap-2 text-accent-solid text-sm font-medium">
 							<HiDocumentArrowUp className="h-5 w-5" />
 							{t("scripts.dropToImport")}
 						</div>

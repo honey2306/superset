@@ -512,7 +512,7 @@ export function PresetsSection({
 			<div className="flex items-center justify-between">
 				<div className="space-y-0.5">
 					<Label className="text-sm font-medium">{t("terminal.presets")}</Label>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-xs text-fg-mute">
 						{t("terminal.presetsDescription")}
 					</p>
 				</div>
@@ -551,7 +551,7 @@ export function PresetsSection({
 						onPersistReorder={handlePersistReorder}
 						onToggleVisibility={handleToggleVisibility}
 					/>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-xs text-fg-mute">
 						{t("terminal.clickPresetToEdit")}
 					</p>
 				</>

@@ -163,19 +163,19 @@ function OnboardingRow({
 		<div className="flex items-center gap-4 py-7 first:pt-0 last:pb-0">
 			<div
 				className={cn(
-					"flex size-9 shrink-0 items-center justify-center rounded-md",
-					chipClassName ?? "bg-muted text-foreground",
+					"flex size-9 shrink-0 items-center justify-center rounded-ds-3",
+					chipClassName ?? "bg-hover text-fg",
 				)}
 			>
 				{icon}
 			</div>
 			<div className="min-w-0 flex-1">
-				<p className="text-sm font-medium text-foreground">{name}</p>
-				<p className="text-xs text-muted-foreground">{description}</p>
+				<p className="text-sm font-medium text-fg">{name}</p>
+				<p className="text-xs text-fg-mute">{description}</p>
 			</div>
 			<div className="flex shrink-0 items-center gap-2">
 				{status === "loading" ? (
-					<span className="flex items-center gap-1.5 px-3 text-sm text-muted-foreground">
+					<span className="flex items-center gap-1.5 px-3 text-sm text-fg-mute">
 						<Spinner className="size-3.5" />
 						{t("onboarding.checking")}
 					</span>
@@ -186,7 +186,7 @@ function OnboardingRow({
 						variant="ghost"
 						onClick={onRecheck}
 						disabled={!onRecheck}
-						className="text-emerald-500 hover:text-emerald-500"
+						className="text-success hover:text-success"
 					>
 						<LuCheck className="size-3.5" strokeWidth={2.5} />
 						{t("onboarding.connected")}

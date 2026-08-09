@@ -110,7 +110,7 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 	return (
 		<div>
 			<h3 className="text-sm font-medium mb-1">{t(config.titleKey)}</h3>
-			<p className="text-xs text-muted-foreground mb-3">
+			<p className="text-xs text-fg-mute mb-3">
 				{t(config.descriptionKey)}
 				{variant === "terminal" && (
 					<>
@@ -119,7 +119,7 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 							href="https://www.nerdfonts.com"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="text-primary hover:underline"
+							className="text-accent-solid hover:underline"
 						>
 							Nerd Fonts
 						</a>{" "}

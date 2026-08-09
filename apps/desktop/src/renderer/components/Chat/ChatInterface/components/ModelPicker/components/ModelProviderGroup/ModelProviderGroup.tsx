@@ -114,7 +114,7 @@ export function ModelProviderGroup({
 						)}
 						<div className="flex flex-1 flex-col gap-0.5">
 							<ModelSelectorName>{model.name}</ModelSelectorName>
-							<span className="text-muted-foreground text-xs">
+							<span className="text-fg-mute text-xs">
 								{modelDisabled ? disabledLabel : model.provider}
 							</span>
 						</div>

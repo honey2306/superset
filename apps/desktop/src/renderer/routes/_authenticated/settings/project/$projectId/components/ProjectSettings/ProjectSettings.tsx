@@ -71,12 +71,12 @@ export function SettingsSection({
 	return (
 		<div className="space-y-3">
 			<div>
-				<h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+				<h3 className="text-sm font-medium text-fg flex items-center gap-2">
 					{icon}
 					{title}
 				</h3>
 				{description && (
-					<p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+					<p className="text-sm text-fg-mute mt-0.5">{description}</p>
 				)}
 			</div>
 			{children}
@@ -302,7 +302,7 @@ export function ProjectSettings({
 			<ProjectSettingsHeader title={project.name}>
 				<ClickablePath
 					path={project.mainRepoPath}
-					className="text-xs text-muted-foreground"
+					className="text-xs text-fg-mute"
 				/>
 			</ProjectSettingsHeader>
 
@@ -368,9 +368,7 @@ export function ProjectSettings({
 						>
 							<SelectTrigger className="w-[260px]">
 								{isBranchDataLoading ? (
-									<span className="text-muted-foreground">
-										{t("project.loading")}
-									</span>
+									<span className="text-fg-mute">{t("project.loading")}</span>
 								) : (
 									<SelectValue />
 								)}
@@ -438,7 +436,7 @@ export function ProjectSettings({
 									<Label className="text-sm font-medium">
 										{t("project.importWorktrees")}
 									</Label>
-									<p className="text-xs text-muted-foreground">
+									<p className="text-xs text-fg-mute">
 										{t("project.externalWorktreesFound", {
 											count: importableExternalWorktrees.length,
 										})}
@@ -564,8 +562,8 @@ export function ProjectSettings({
 									onClick={handleIconUpload}
 									disabled={setProjectIcon.isPending}
 									className={cn(
-										"flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border",
-										"hover:bg-muted transition-colors",
+										"flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-ds-3 border",
+										"hover:bg-hover transition-colors",
 									)}
 								>
 									<LuImagePlus className="size-4" />
@@ -579,7 +577,7 @@ export function ProjectSettings({
 										onClick={handleRemoveIcon}
 										disabled={setProjectIcon.isPending}
 										className={cn(
-											"flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border",
+											"flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-ds-3 border",
 											"hover:bg-destructive/10 text-destructive transition-colors",
 										)}
 									>
@@ -589,7 +587,7 @@ export function ProjectSettings({
 								)}
 							</div>
 							<div className="flex items-center gap-2">
-								<Label className="text-sm text-muted-foreground">
+								<Label className="text-sm text-fg-mute">
 									{t("project.hideImage")}
 								</Label>
 								<Switch

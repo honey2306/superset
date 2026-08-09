@@ -37,7 +37,7 @@ export function RepositorySection({ repoUrl }: RepositorySectionProps) {
 							type="button"
 							variant="ghost"
 							size="icon"
-							className="absolute right-1 top-1 size-7 text-muted-foreground hover:text-foreground"
+							className="absolute right-1 top-1 size-7 text-fg-mute hover:text-fg"
 							onClick={() => openUrl.mutate(parsed.url)}
 							aria-label={t("project.openInGitHub")}
 						>

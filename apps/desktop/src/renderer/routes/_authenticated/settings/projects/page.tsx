@@ -57,7 +57,7 @@ function ProjectsIndexPage() {
 	if (isEmpty) {
 		if (isV2CloudEnabled ? !isReady : !catalogProjectsReady) return null;
 		return (
-			<div className="flex items-center justify-center h-full p-6 text-sm text-muted-foreground">
+			<div className="flex items-center justify-center h-full p-6 text-sm text-fg-mute">
 				{t("projects.none")}
 			</div>
 		);

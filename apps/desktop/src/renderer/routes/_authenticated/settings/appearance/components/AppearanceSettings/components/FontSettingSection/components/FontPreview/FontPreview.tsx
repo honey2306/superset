@@ -59,8 +59,8 @@ export function FontPreview({
 
 	return (
 		<div
-			className={`rounded-md border overflow-hidden ${
-				isTerminal ? "bg-[#1e1e1e] text-[#cccccc] border-[#333]" : "bg-muted/50"
+			className={`rounded-ds-3 border overflow-hidden ${
+				isTerminal ? "bg-[#1e1e1e] text-[#cccccc] border-[#333]" : "bg-hover/50"
 			}`}
 		>
 			{isTerminal ? (

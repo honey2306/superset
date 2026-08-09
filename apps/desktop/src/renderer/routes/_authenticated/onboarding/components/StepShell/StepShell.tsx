@@ -65,10 +65,8 @@ export function StepHeader({ title, subtitle, icon }: StepHeaderProps) {
 		<div className="flex flex-col items-center gap-4 text-center">
 			{icon}
 			<div className="space-y-1">
-				<h1 className="text-[14px] font-semibold text-foreground">{title}</h1>
-				{subtitle && (
-					<p className="text-[12px] text-muted-foreground">{subtitle}</p>
-				)}
+				<h1 className="text-[14px] font-semibold text-fg">{title}</h1>
+				{subtitle && <p className="text-[12px] text-fg-mute">{subtitle}</p>}
 			</div>
 		</div>
 	);
@@ -80,7 +78,7 @@ interface SupersetPillProps {
 
 export function SupersetPill({ children }: SupersetPillProps) {
 	return (
-		<div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card p-2">
+		<div className="flex items-center justify-center gap-2 rounded-2xl border border-line bg-surface p-2">
 			{children}
 		</div>
 	);

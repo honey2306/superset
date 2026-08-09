@@ -77,7 +77,7 @@ export function QuickAddPresets({
 								{icon ? (
 									<img src={icon} alt="" className="size-4 object-contain" />
 								) : (
-									<HiMiniCommandLine className="size-4 text-muted-foreground" />
+									<HiMiniCommandLine className="size-4 text-fg-mute" />
 								)}
 							</div>
 							<div className="min-w-0 flex-1">
@@ -85,13 +85,13 @@ export function QuickAddPresets({
 									{pill.label}
 								</div>
 								{pill.description && (
-									<div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+									<div className="text-xs text-fg-mute mt-0.5 line-clamp-2">
 										{pill.description}
 									</div>
 								)}
 							</div>
 							{alreadyAdded && (
-								<LuCheck className="size-4 shrink-0 text-muted-foreground mt-0.5" />
+								<LuCheck className="size-4 shrink-0 text-fg-mute mt-0.5" />
 							)}
 						</DropdownMenuItem>
 					);

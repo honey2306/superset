@@ -27,14 +27,14 @@ export function PlanBlock({ plan }: { plan: PlanData }) {
 						<li key={step.label} className="flex items-center gap-2">
 							<span
 								className={
-									step.done ? "text-green-500" : "text-muted-foreground"
+									step.done ? "text-green-500" : "text-fg-mute"
 								}
 							>
 								{step.done ? "\u2713" : "\u25CB"}
 							</span>
 							<span
 								className={
-									step.done ? "text-muted-foreground line-through" : ""
+									step.done ? "text-fg-mute line-through" : ""
 								}
 							>
 								{step.label}

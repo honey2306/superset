@@ -47,7 +47,7 @@ export function SparseCheckoutSection({
 
 	return (
 		<div className="space-y-3">
-			<p className="text-xs text-muted-foreground">
+			<p className="text-xs text-fg-mute">
 				These paths are applied only to new worktrees. Existing worktrees are
 				unchanged.
 			</p>

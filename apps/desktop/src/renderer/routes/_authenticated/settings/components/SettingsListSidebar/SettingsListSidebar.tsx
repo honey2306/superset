@@ -59,14 +59,14 @@ export function SettingsListSidebar<T>({
 				{showFilter && (
 					<div className="flex items-center gap-1.5">
 						<div className="relative flex-1 min-w-0">
-							<HiMagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+							<HiMagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-fg-mute pointer-events-none" />
 							<input
 								type="text"
 								aria-label={searchAriaLabel}
 								placeholder={searchPlaceholder}
 								value={filter}
 								onChange={(e) => setFilter(e.target.value)}
-								className="w-full h-8 pl-8 pr-2 text-sm bg-accent/50 rounded-md border-0 outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+								className="w-full h-8 pl-8 pr-2 text-sm bg-accent-tint/50 rounded-ds-3 border-0 outline-none focus:ring-1 focus:ring-ring placeholder:text-fg-mute"
 							/>
 						</div>
 						{toolbar}
@@ -75,19 +75,15 @@ export function SettingsListSidebar<T>({
 
 				{listHeader}
 
-				{isEmpty && (
-					<p className="px-2 text-sm text-muted-foreground">{emptyLabel}</p>
-				)}
+				{isEmpty && <p className="px-2 text-sm text-fg-mute">{emptyLabel}</p>}
 				{noMatches && (
-					<p className="px-2 text-sm text-muted-foreground">
-						{noMatchLabel(trimmed)}
-					</p>
+					<p className="px-2 text-sm text-fg-mute">{noMatchLabel(trimmed)}</p>
 				)}
 
 				{groupsWithRows.map((group) => (
 					<div key={group.id}>
 						{showGroupHeaders && (
-							<h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-2 mb-2">
+							<h2 className="text-xs font-semibold text-fg-mute uppercase tracking-wide px-2 mb-2">
 								{group.title}
 							</h2>
 						)}
@@ -105,10 +101,10 @@ export function SettingsListSidebar<T>({
 
 export function settingsListItemClass(isActive: boolean, extra?: string) {
 	return cn(
-		"flex items-center px-2 py-1.5 text-sm rounded-md transition-colors",
+		"flex items-center px-2 py-1.5 text-sm rounded-ds-3 transition-colors",
 		isActive
-			? "bg-accent text-accent-foreground"
-			: "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+			? "bg-accent-tint text-accent-foreground"
+			: "text-fg-mute hover:bg-hover hover:text-fg",
 		extra,
 	);
 }

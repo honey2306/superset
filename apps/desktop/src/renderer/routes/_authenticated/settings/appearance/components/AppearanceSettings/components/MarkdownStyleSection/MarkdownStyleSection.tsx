@@ -22,7 +22,7 @@ export function MarkdownStyleSection() {
 			<h3 className="text-sm font-medium mb-1">
 				{t("appearance.markdownStyle")}
 			</h3>
-			<p className="text-xs text-muted-foreground mb-3">
+			<p className="text-xs text-fg-mute mb-3">
 				{t("appearance.markdownStyleDescription")}
 			</p>
 			<Select

@@ -56,7 +56,7 @@ function V1Body() {
 	return (
 		<div className="space-y-0.5">
 			<Label className="text-sm font-medium">{t("git.worktreeLocation")}</Label>
-			<p className="text-xs text-muted-foreground">{t("git.baseDirectory")}</p>
+			<p className="text-xs text-fg-mute">{t("git.baseDirectory")}</p>
 			<WorktreeLocationPicker
 				currentPath={worktreeBaseDir}
 				defaultPathLabel={`${t("path.default")} (${defaultWorktreePath})`}
@@ -130,7 +130,7 @@ function V2Body() {
 					<Label className="text-sm font-medium">
 						{t("git.worktreeLocation")}
 					</Label>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-xs text-fg-mute">
 						{hasMultipleHosts
 							? t("git.worktreeLocationHint", {
 									host: selectedHost?.isLocal
@@ -166,7 +166,7 @@ function V2Body() {
 				onReset={() => setLocation.mutate(null)}
 			/>
 			{hasMultipleHosts && !isOnline ? (
-				<p className="text-xs text-muted-foreground">
+				<p className="text-xs text-fg-mute">
 					{t("git.hostOffline", {
 						host: selectedHost?.name ?? t("project.thisDevice"),
 					})}

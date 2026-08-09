@@ -248,7 +248,7 @@ function ConnectDialogShell({
 							href={apiKeyHelpUrl}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+							className="text-xs text-fg-mute underline-offset-4 hover:text-fg hover:underline"
 						>
 							{apiKeyHelpLabel}
 						</a>

@@ -138,7 +138,7 @@ export function SecretsSettings({ projectId }: SecretsSettingsProps) {
 						description={t("secrets.cloudProjectDescription")}
 					>
 						<div className="flex items-center justify-between">
-							<p className="text-sm text-muted-foreground">
+							<p className="text-sm text-fg-mute">
 								{linkToNeon.isPending
 									? t("secrets.connecting")
 									: t("secrets.notConnected")}

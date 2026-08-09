@@ -106,9 +106,7 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
 				<h2 className="text-xl font-semibold">{t("settings.general")}</h2>
-				<p className="text-sm text-muted-foreground mt-1">
-					{t("behavior.description")}
-				</p>
+				<p className="text-sm text-fg-mute mt-1">{t("behavior.description")}</p>
 			</div>
 
 			<div className="space-y-6">
@@ -118,7 +116,7 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 							<Label htmlFor="confirm-on-quit" className="text-sm font-medium">
 								{t("behavior.confirmBeforeQuitting")}
 							</Label>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-xs text-fg-mute">
 								{t("behavior.confirmBeforeQuittingHint")}
 							</p>
 						</div>
@@ -137,7 +135,7 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 							<Label className="text-sm font-medium">
 								{t("behavior.fileOpenMode")}
 							</Label>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-xs text-fg-mute">
 								{t("behavior.fileOpenModeHint")}
 							</p>
 						</div>
@@ -167,7 +165,7 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 							<Label htmlFor="resource-monitor" className="text-sm font-medium">
 								{t("behavior.resourceMonitor")}
 							</Label>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-xs text-fg-mute">
 								{t("behavior.resourceMonitorHint")}
 							</p>
 						</div>

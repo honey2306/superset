@@ -135,7 +135,7 @@ export function SessionsSection() {
 
 	return (
 		<>
-			<div className="rounded-md border border-border/60 p-4 space-y-3">
+			<div className="rounded-ds-3 border border-line/60 p-4 space-y-3">
 				<div className="space-y-0.5">
 					<div className="flex items-center justify-between">
 						<Label className="text-sm font-medium">
@@ -149,11 +149,11 @@ export function SessionsSection() {
 							{t("terminal.refresh")}
 						</Button>
 					</div>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-xs text-fg-mute">
 						{t("terminal.sessionsRunning", { count: aliveSessions.length })}
 					</p>
 					{aliveSessions.length >= 20 && (
-						<p className="text-xs text-muted-foreground/70">
+						<p className="text-xs text-fg-faint">
 							{t("terminal.manySessionsWarning")}
 						</p>
 					)}
@@ -201,11 +201,11 @@ export function SessionsSection() {
 				</div>
 
 				{showSessionList && aliveSessions.length > 0 && (
-					<div className="rounded-md border border-border/60 overflow-hidden">
+					<div className="rounded-ds-3 border border-line/60 overflow-hidden">
 						<div className="max-h-64 overflow-auto">
 							<table className="w-full text-xs">
 								<thead className="sticky top-0 bg-background">
-									<tr className="text-muted-foreground">
+									<tr className="text-fg-mute">
 										<th className="px-2 py-2 text-left font-medium">
 											{t("terminal.workspace")}
 										</th>
@@ -226,7 +226,7 @@ export function SessionsSection() {
 								</thead>
 								<tbody className="divide-y divide-border/60">
 									{sessionsSorted.map((session) => (
-										<tr key={session.sessionId} className="hover:bg-muted/30">
+										<tr key={session.sessionId} className="hover:bg-hover/30">
 											<td className="px-2 py-2 font-mono">
 												{session.workspaceId}
 											</td>
@@ -275,7 +275,7 @@ export function SessionsSection() {
 							{t("terminal.killAllTitle")}
 						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
-							<div className="text-muted-foreground space-y-1.5">
+							<div className="text-fg-mute space-y-1.5">
 								<span className="block">
 									{t("terminal.killAllDescription")}
 								</span>
@@ -316,7 +316,7 @@ export function SessionsSection() {
 							{t("terminal.clearHistoryTitle")}
 						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
-							<div className="text-muted-foreground space-y-1.5">
+							<div className="text-fg-mute space-y-1.5">
 								<span className="block">
 									{t("terminal.clearHistoryDescription")}
 								</span>
@@ -361,7 +361,7 @@ export function SessionsSection() {
 							{t("terminal.killSessionTitle")}
 						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
-							<div className="text-muted-foreground space-y-1.5">
+							<div className="text-fg-mute space-y-1.5">
 								<span className="block">
 									{t("terminal.killSessionDescription")}
 								</span>
@@ -409,7 +409,7 @@ export function SessionsSection() {
 							{t("terminal.restartTitle")}
 						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
-							<div className="text-muted-foreground space-y-1.5">
+							<div className="text-fg-mute space-y-1.5">
 								<span className="block">
 									{t("terminal.restartDescription")}
 								</span>

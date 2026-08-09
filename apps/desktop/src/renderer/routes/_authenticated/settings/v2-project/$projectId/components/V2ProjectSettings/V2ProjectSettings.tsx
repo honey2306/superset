@@ -111,7 +111,7 @@ export function V2ProjectSettings({
 	if (!project) {
 		if (!isReady) return null;
 		return (
-			<div className="p-6 text-sm text-muted-foreground select-text cursor-text">
+			<div className="p-6 text-sm text-fg-mute select-text cursor-text">
 				{t("project.notFound")}
 			</div>
 		);
@@ -213,7 +213,7 @@ export function V2ProjectSettings({
 						<div className="pt-4">
 							<div className="mb-3">
 								<h3 className="text-sm font-medium">Sparse checkout</h3>
-								<p className="mt-0.5 text-xs text-muted-foreground">
+								<p className="mt-0.5 text-xs text-fg-mute">
 									Limit new worktrees to selected folders.
 								</p>
 							</div>
@@ -229,7 +229,7 @@ export function V2ProjectSettings({
 						<div className="pt-4">
 							<div className="mb-3">
 								<h3 className="text-sm font-medium">{t("project.scripts")}</h3>
-								<p className="mt-0.5 text-xs text-muted-foreground">
+								<p className="mt-0.5 text-xs text-fg-mute">
 									{t("project.scriptsHint")}
 								</p>
 							</div>

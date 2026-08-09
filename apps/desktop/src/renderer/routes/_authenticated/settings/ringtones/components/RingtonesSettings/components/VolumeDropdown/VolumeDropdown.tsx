@@ -72,7 +72,7 @@ export function VolumeDropdown() {
 									{volumeLabels[volume as keyof typeof volumeLabels] ??
 										t("ringtones.volumeCustom")}
 								</span>
-								<span className="text-muted-foreground">({volume}%)</span>
+								<span className="text-fg-mute">({volume}%)</span>
 							</span>
 						</SelectValue>
 					</SelectTrigger>
@@ -81,9 +81,7 @@ export function VolumeDropdown() {
 							<SelectItem key={level} value={level.toString()}>
 								<div className="flex items-center gap-2">
 									<span className="font-medium">{volumeLabels[level]}</span>
-									<span className="text-muted-foreground text-xs">
-										({level}%)
-									</span>
+									<span className="text-fg-mute text-xs">({level}%)</span>
 								</div>
 							</SelectItem>
 						))}

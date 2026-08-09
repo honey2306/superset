@@ -14,7 +14,7 @@ export function AcpPresetLaunchSetting() {
 				<Label htmlFor="acp-preset-launch" className="text-sm font-medium">
 					{t("terminal.acpPresetLaunch")}
 				</Label>
-				<p className="text-xs text-muted-foreground max-w-md leading-relaxed">
+				<p className="text-xs text-fg-mute max-w-md leading-relaxed">
 					{t("terminal.acpPresetLaunchDescription")}
 				</p>
 			</div>

@@ -47,7 +47,7 @@ export function AnthropicApiKeyDialog({
 				</DialogHeader>
 
 				<div className="space-y-4">
-					<div className="rounded-lg border border-border/70 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+					<div className="rounded-ds-5 border border-border/70 bg-muted/15 px-4 py-3 text-sm text-fg-mute">
 						{t("apiKeyDialog.modeHintAnthropic")}
 					</div>
 
@@ -74,7 +74,7 @@ export function AnthropicApiKeyDialog({
 								autoFocus
 							/>
 						</InputGroup>
-						<p className="text-muted-foreground text-xs">
+						<p className="text-fg-mute text-xs">
 							{t("apiKeyDialog.useSameKeyAnthropic")}
 						</p>
 					</div>

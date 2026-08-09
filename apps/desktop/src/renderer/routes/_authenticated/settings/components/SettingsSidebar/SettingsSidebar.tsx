@@ -36,7 +36,7 @@ export function SettingsSidebar() {
 			{/* Back button */}
 			<Link
 				to={originRoute}
-				className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+				className="flex items-center gap-2 px-3 py-2 text-sm text-fg-mute hover:text-fg transition-colors mb-4"
 			>
 				<HiArrowLeft className="h-4 w-4" />
 				<span>{t("navigation.back")}</span>
@@ -49,35 +49,35 @@ export function SettingsSidebar() {
 
 			{/* Search input */}
 			<div className="relative px-3 mb-4">
-				<HiMagnifyingGlass className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+				<HiMagnifyingGlass className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-fg-mute pointer-events-none" />
 				<input
 					type="text"
 					placeholder={t("settings.search")}
 					value={searchQuery}
 					onChange={(e) => setSearchQuery(e.target.value)}
-					className="w-full h-8 pl-8 pr-8 text-sm bg-accent/50 rounded-md border-0 outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+					className="w-full h-8 pl-8 pr-8 text-sm bg-accent-tint/50 rounded-ds-3 border-0 outline-none focus:ring-1 focus:ring-ring placeholder:text-fg-mute"
 				/>
 				{searchQuery && (
 					<button
 						type="button"
 						onClick={() => setSearchQuery("")}
-						className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+						className="absolute right-6 top-1/2 -translate-y-1/2 text-fg-mute hover:text-fg"
 					>
 						<HiXMark className="h-4 w-4" />
 					</button>
 				)}
 			</div>
 
-			<div className="flex-1 overflow-y-auto min-h-0 border-t border-border pt-4 pb-4 px-3">
+			<div className="flex-1 overflow-y-auto min-h-0 border-t border-line pt-4 pb-4 px-3">
 				<GeneralSettings matchCounts={matchCounts} />
 			</div>
 
-			<div className="pt-3 border-t border-border px-3">
+			<div className="pt-3 border-t border-line px-3">
 				<a
 					href={COMPANY.DOCS_URL}
 					target="_blank"
 					rel="noopener noreferrer"
-					className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground transition-colors"
+					className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-ds-3 text-fg-mute hover:bg-hover hover:text-accent-foreground transition-colors"
 				>
 					<HiArrowTopRightOnSquare className="h-4 w-4" />
 					<span>{t("navigation.documentation")}</span>

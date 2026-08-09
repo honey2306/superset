@@ -251,9 +251,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 			<div className="w-full max-w-4xl p-6">
 				<div className="mb-8">
 					<h2 className="text-xl font-semibold">{t("settings.models")}</h2>
-					<p className="mt-1 text-sm text-muted-foreground">
-						{t("models.description")}
-					</p>
+					<p className="mt-1 text-sm text-fg-mute">{t("models.description")}</p>
 				</div>
 
 				<div className="space-y-8">
@@ -342,7 +340,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 									<CollapsibleTrigger asChild>
 										<button
 											type="button"
-											className="flex items-center gap-1.5 text-left text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+											className="flex items-center gap-1.5 text-left text-xs font-medium text-fg-mute hover:text-fg transition-colors"
 										>
 											<HiChevronDown
 												className={`size-3.5 transition-transform ${advancedOpen ? "" : "-rotate-90"}`}
@@ -355,7 +353,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 											type="button"
 											onClick={resetAnthropicAdvanced}
 											disabled={isSavingAnthropicConfig}
-											className="text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+											className="text-xs text-fg-mute hover:text-destructive transition-colors disabled:opacity-50"
 										>
 											{t("models.reset")}
 										</button>
@@ -431,7 +429,7 @@ export function ModelsSettings({ visibleItems }: ModelsSettingsProps) {
 											disabled={isSavingAnthropicConfig}
 										/>
 									</div>
-									<p className="text-xs text-muted-foreground">
+									<p className="text-xs text-fg-mute">
 										{t("models.savedOnBlur")}
 									</p>
 								</CollapsibleContent>

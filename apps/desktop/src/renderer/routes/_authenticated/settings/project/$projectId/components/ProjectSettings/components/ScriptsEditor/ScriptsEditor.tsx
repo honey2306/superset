@@ -111,17 +111,17 @@ function ScriptTextarea({
 
 	return (
 		<div className="space-y-2">
-			<p className="text-xs text-muted-foreground">{description}</p>
+			<p className="text-xs text-fg-mute">{description}</p>
 
 			{/* biome-ignore lint/a11y/useSemanticElements: Drop zone wrapper for drag-and-drop functionality */}
 			<div
 				role="region"
 				aria-label={t("project.scriptEditorAria")}
 				className={cn(
-					"relative rounded-lg border transition-colors",
+					"relative rounded-ds-5 border transition-colors",
 					isDragOver
-						? "border-primary bg-primary/5"
-						: "border-border hover:border-border/80",
+						? "border-primary bg-accent-tint"
+						: "border-line hover:border-line/80",
 				)}
 				onDragOver={handleDragOver}
 				onDragLeave={handleDragLeave}
@@ -132,12 +132,12 @@ function ScriptTextarea({
 					onChange={(e) => onChange(e.target.value)}
 					onBlur={onBlur}
 					placeholder={placeholder}
-					className="w-full min-h-[80px] p-3 text-sm font-mono bg-transparent resize-y focus:outline-none focus:ring-1 focus:ring-ring rounded-lg"
+					className="w-full min-h-[80px] p-3 text-sm font-mono bg-transparent resize-y focus:outline-none focus:ring-1 focus:ring-ring rounded-ds-5"
 					rows={3}
 				/>
 				{isDragOver && (
-					<div className="absolute inset-0 flex items-center justify-center bg-primary/10 rounded-lg pointer-events-none">
-						<div className="flex items-center gap-2 text-primary text-sm font-medium">
+					<div className="absolute inset-0 flex items-center justify-center bg-accent-tint rounded-ds-5 pointer-events-none">
+						<div className="flex items-center gap-2 text-accent-solid text-sm font-medium">
 							<HiDocumentArrowUp className="h-5 w-5" />
 							{t("project.dropToImport")}
 						</div>
@@ -149,7 +149,7 @@ function ScriptTextarea({
 				variant="ghost"
 				size="sm"
 				onClick={() => fileInputRef.current?.click()}
-				className="gap-1.5 text-muted-foreground"
+				className="gap-1.5 text-fg-mute"
 			>
 				<HiDocumentArrowUp className="h-3.5 w-3.5" />
 				{t("project.importFile")}
@@ -342,7 +342,7 @@ export function ScriptsEditor({ projectId, className }: ScriptsEditorProps) {
 	if (isLoading) {
 		return (
 			<div className={cn("space-y-4", className)}>
-				<div className="h-24 bg-muted/30 rounded-lg animate-pulse" />
+				<div className="h-24 bg-hover/30 rounded-ds-5 animate-pulse" />
 			</div>
 		);
 	}
@@ -351,17 +351,17 @@ export function ScriptsEditor({ projectId, className }: ScriptsEditorProps) {
 		<div className={cn("space-y-3", className)}>
 			<div className="flex items-center justify-between gap-2">
 				<div className="flex items-center gap-2">
-					<h3 className="text-base font-semibold text-foreground">
+					<h3 className="text-base font-semibold text-fg">
 						{t("project.scripts")}
 					</h3>
 					{saveStatus === "saving" && (
-						<span className="text-xs text-muted-foreground flex items-center gap-1">
+						<span className="text-xs text-fg-mute flex items-center gap-1">
 							<span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
 							{t("common.saving")}
 						</span>
 					)}
 					{saveStatus === "saved" && (
-						<span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+						<span className="text-xs text-success dark:text-success flex items-center gap-1">
 							<HiCheckCircle className="h-3.5 w-3.5" />
 							{t("project.saved")}
 						</span>

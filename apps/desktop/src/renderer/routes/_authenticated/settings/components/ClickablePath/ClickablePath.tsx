@@ -87,7 +87,7 @@ export function ClickablePath({
 					onCopyPath={handleCopyPath}
 					renderAppTrailing={(appId) =>
 						appId === defaultApp ? (
-							<span className="ml-auto text-xs text-muted-foreground">
+							<span className="ml-auto text-xs text-fg-mute">
 								{t("path.default")}
 							</span>
 						) : null

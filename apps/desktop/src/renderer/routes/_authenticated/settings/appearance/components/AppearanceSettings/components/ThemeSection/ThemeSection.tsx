@@ -76,7 +76,7 @@ function ThemeRow({
 		<div className="flex items-center justify-between gap-6 p-4">
 			<div className="min-w-0 flex-1">
 				<div className="text-sm font-medium">{label}</div>
-				<div className="text-xs text-muted-foreground">{hint}</div>
+				<div className="text-xs text-fg-mute">{hint}</div>
 			</div>
 			<Select value={value} onValueChange={onValueChange}>
 				<SelectTrigger size="sm" className="w-auto min-w-44 px-2">
@@ -117,7 +117,7 @@ function ThemeRow({
 					{options.map((group, idx) => (
 						<SelectGroup key={group.group}>
 							{idx > 0 && <SelectSeparator />}
-							<SelectLabel className="text-xs text-muted-foreground">
+							<SelectLabel className="text-xs text-fg-mute">
 								{group.group}
 							</SelectLabel>
 							{group.themes.map((theme) => (
@@ -287,7 +287,7 @@ export function ThemeSection() {
 	};
 
 	return (
-		<div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+		<div className="rounded-ds-5 border border-line overflow-hidden divide-y divide-border">
 			<ThemeRow
 				label={t("appearance.theme")}
 				hint={
@@ -297,7 +297,7 @@ export function ThemeSection() {
 							href={`${COMPANY.MARKETING_URL}/marketplace/themes`}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="inline-flex items-center gap-0.5 text-primary hover:underline"
+							className="inline-flex items-center gap-0.5 text-accent-solid hover:underline"
 						>
 							{t("appearance.marketplace")}
 							<HiOutlineArrowTopRightOnSquare className="h-3 w-3" />
@@ -307,7 +307,7 @@ export function ThemeSection() {
 							href={`${COMPANY.DOCS_URL}/custom-themes`}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="inline-flex items-center gap-0.5 text-primary hover:underline"
+							className="inline-flex items-center gap-0.5 text-accent-solid hover:underline"
 						>
 							{t("appearance.docs")}
 							<HiOutlineArrowTopRightOnSquare className="h-3 w-3" />
@@ -349,7 +349,7 @@ export function ThemeSection() {
 					<div className="text-sm font-medium">
 						{t("commandPalette.custom")}
 					</div>
-					<div className="text-xs text-muted-foreground">
+					<div className="text-xs text-fg-mute">
 						{t("appearance.customThemeHint")}
 					</div>
 				</div>

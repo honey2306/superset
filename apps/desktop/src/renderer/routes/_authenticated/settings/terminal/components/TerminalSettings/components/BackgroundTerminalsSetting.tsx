@@ -68,7 +68,7 @@ export function BackgroundTerminalsSetting() {
 				>
 					{t("terminal.backgroundMemory")}
 				</Label>
-				<p className="text-xs text-muted-foreground max-w-md leading-relaxed">
+				<p className="text-xs text-fg-mute max-w-md leading-relaxed">
 					{t("terminal.backgroundMemoryDescription", {
 						min: MIN_TERMINAL_PARKED_RUNTIME_CAP,
 						max: MAX_TERMINAL_PARKED_RUNTIME_CAP,

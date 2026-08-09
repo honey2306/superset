@@ -77,9 +77,7 @@ export function TerminalSettings({
 		<div className="p-6 max-w-6xl w-full">
 			<div className="mb-8">
 				<h2 className="text-xl font-semibold">{t("settings.terminal")}</h2>
-				<p className="text-sm text-muted-foreground mt-1">
-					{t("terminal.description")}
-				</p>
+				<p className="text-sm text-fg-mute mt-1">{t("terminal.description")}</p>
 			</div>
 
 			<SectionList>

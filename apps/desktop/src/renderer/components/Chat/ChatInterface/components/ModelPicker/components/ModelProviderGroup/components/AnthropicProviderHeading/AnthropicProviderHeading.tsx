@@ -22,7 +22,7 @@ export function AnthropicProviderHeading({
 		: t("modelPicker.connectInSettings", { provider: "Anthropic" });
 
 	return (
-		<div className="text-muted-foreground flex items-center justify-between px-2 py-1.5 text-xs font-medium">
+		<div className="text-fg-mute flex items-center justify-between px-2 py-1.5 text-xs font-medium">
 			<span>{heading}</span>
 			<Tooltip>
 				<TooltipTrigger asChild>
@@ -31,7 +31,7 @@ export function AnthropicProviderHeading({
 						variant="ghost"
 						size="icon"
 						aria-label={tooltipLabel}
-						className="text-muted-foreground hover:text-foreground size-6"
+						className="text-fg-mute hover:text-fg size-6"
 						disabled={isPending}
 						onClick={(event) => {
 							event.preventDefault();

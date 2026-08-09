@@ -30,7 +30,7 @@ export function PairingQrCode({ url, size = 192 }: PairingQrCodeProps) {
 			<div
 				role="img"
 				aria-label="QR code render error"
-				className="flex items-center justify-center rounded bg-background text-xs text-red-500 select-text cursor-text"
+				className="flex items-center justify-center rounded bg-background text-xs text-destructive select-text cursor-text"
 				style={{ width: size, height: size }}
 			>
 				{matrix.error}

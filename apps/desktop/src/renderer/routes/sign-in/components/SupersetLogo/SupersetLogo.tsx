@@ -20,7 +20,7 @@ export function SupersetLogo({
 			viewBox="0 0 282 46"
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
-			className={cn("text-foreground", className)}
+			className={cn("text-fg", className)}
 			aria-label="Superset"
 		>
 			<title>Superset</title>

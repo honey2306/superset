@@ -235,7 +235,7 @@ export function SetupProjectModal({
 
 						<TabsContent value="clone" className="mt-4 space-y-3">
 							{cloneDisabled ? (
-								<p className="text-sm text-muted-foreground">
+								<p className="text-sm text-fg-mute">
 									{t("project.cloneRequiresRepository")}
 								</p>
 							) : (
@@ -245,7 +245,7 @@ export function SetupProjectModal({
 											<Label className="text-xs">
 												{t("project.repository")}
 											</Label>
-											<p className="font-mono text-xs text-muted-foreground select-text cursor-text break-all">
+											<p className="font-mono text-xs text-fg-mute select-text cursor-text break-all">
 												{repoCloneUrl}
 											</p>
 										</div>

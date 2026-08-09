@@ -21,8 +21,8 @@ export function SidebarControl() {
 					className={cn(
 						"no-drag gap-1.5 h-6 px-1.5 rounded",
 						isSidebarOpen
-							? "font-semibold text-foreground bg-accent"
-							: "text-muted-foreground hover:text-foreground",
+							? "font-semibold text-fg bg-accent-tint"
+							: "text-fg-mute hover:text-fg",
 					)}
 				>
 					<LuDiff className="size-3" />

@@ -30,7 +30,7 @@ export function GhAuthDialog({
 						{t("onboarding.githubSignInDescription")}
 					</DialogDescription>
 				</DialogHeader>
-				<div className="h-[240px] w-full overflow-hidden rounded-md bg-[#151110] p-2">
+				<div className="h-[240px] w-full overflow-hidden rounded-ds-3 bg-[#151110] p-2">
 					{open && <GhAuthTerminal onExit={onExit} />}
 				</div>
 			</DialogContent>
