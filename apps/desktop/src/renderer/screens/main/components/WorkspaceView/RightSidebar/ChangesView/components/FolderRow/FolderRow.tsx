@@ -88,9 +88,7 @@ function FolderRowHeader({
 				<span
 					className={cn(
 						"truncate",
-						isGrouped
-							? "w-0 grow text-left"
-							: "flex-1 min-w-0 text-xs text-fg",
+						isGrouped ? "w-0 grow text-left" : "flex-1 min-w-0 text-xs text-fg",
 					)}
 					dir={isGrouped ? "rtl" : undefined}
 				>

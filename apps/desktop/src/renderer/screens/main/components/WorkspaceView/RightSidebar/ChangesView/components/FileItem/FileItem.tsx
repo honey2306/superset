@@ -261,14 +261,10 @@ export function FileItem({
 					{showStatsDisplay && (
 						<span className="flex items-center gap-0.5 text-[10px] font-mono shrink-0 whitespace-nowrap opacity-60">
 							{file.additions > 0 && (
-								<span className="text-success">
-									+{file.additions}
-								</span>
+								<span className="text-success">+{file.additions}</span>
 							)}
 							{file.deletions > 0 && (
-								<span className="text-destructive">
-									-{file.deletions}
-								</span>
+								<span className="text-destructive">-{file.deletions}</span>
 							)}
 						</span>
 					)}

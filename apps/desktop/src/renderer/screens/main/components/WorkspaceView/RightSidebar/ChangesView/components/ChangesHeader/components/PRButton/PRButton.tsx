@@ -70,9 +70,7 @@ export function PRButton({
 		mergePRMutation.mutate({ worktreePath, strategy });
 
 	if (isLoading) {
-		return (
-			<VscLoading className="w-4 h-4 animate-spin text-fg-mute" />
-		);
+		return <VscLoading className="w-4 h-4 animate-spin text-fg-mute" />;
 	}
 
 	if (!pr) {
@@ -125,9 +123,7 @@ export function PRButton({
 				className="flex items-center gap-1 ml-auto hover:opacity-80 transition-opacity"
 			>
 				<PRIcon state={pr.state} className="w-4 h-4" />
-				<span className="text-xs text-fg-mute font-mono">
-					#{pr.number}
-				</span>
+				<span className="text-xs text-fg-mute font-mono">#{pr.number}</span>
 			</a>
 		);
 	}
@@ -144,9 +140,7 @@ export function PRButton({
 				className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-accent-tint transition-colors"
 			>
 				<PRIcon state={pr.state} className="w-4 h-4" />
-				<span className="text-xs text-fg-mute font-mono">
-					#{pr.number}
-				</span>
+				<span className="text-xs text-fg-mute font-mono">#{pr.number}</span>
 			</a>
 			<div className="w-px h-full bg-line" />
 			<DropdownMenu>

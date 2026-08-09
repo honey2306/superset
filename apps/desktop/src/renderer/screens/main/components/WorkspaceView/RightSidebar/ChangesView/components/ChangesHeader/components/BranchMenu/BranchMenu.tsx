@@ -438,8 +438,8 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 						size="sm"
 						className={cn(
 							"h-7 min-w-0 max-w-56 gap-1.5 rounded-full border border-line/60 px-2.5 text-xs font-medium",
-							"hover:border-border hover:bg-accent/40",
-							open && "border-border bg-accent/40",
+							"hover:border-line hover:bg-hover",
+							open && "border-line bg-hover",
 						)}
 						disabled={isLoading}
 					>
@@ -496,8 +496,8 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 							type="button"
 							className={cn(
 								"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] text-fg-mute",
-								"hover:bg-accent/40 hover:text-fg",
-								creating && "bg-accent/40 text-fg",
+								"hover:bg-hover hover:text-fg",
+								creating && "bg-hover text-fg",
 							)}
 							onClick={() =>
 								creating
@@ -511,16 +511,16 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 					</div>
 
 					{creating ? (
-						<div className="mx-2 mb-2 rounded-lg border border-line/60 bg-accent/20 px-3 py-2.5">
+						<div className="mx-2 mb-2 rounded-ds-5 border border-line/60 bg-accent-tint px-3 py-2.5">
 							<div className="mb-2 flex items-center gap-2 text-[10.5px] text-fg-mute">
 								<span className="text-[9.5px] font-medium uppercase tracking-[0.18em]">
 									Base
 								</span>
-								<span className="inline-flex items-center gap-1 rounded-full bg-accent/40 px-2 py-0.5 font-mono">
+								<span className="inline-flex items-center gap-1 rounded-full bg-hover px-2 py-0.5 font-mono">
 									<VscSourceControl className="size-2.5" />
 									{creating.baseRef}
 									{creating.baseRef === currentBranch ? (
-										<span className="ml-1 rounded-full bg-primary/20 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-accent-solid">
+										<span className="ml-1 rounded-full bg-accent-tint px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-accent-solid">
 											{t("v1Changes.branchMenu.currentBadge")}
 										</span>
 									) : null}
@@ -574,8 +574,8 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 										<div
 											className={cn(
 												"flex h-[34px] items-center gap-2 px-3 text-xs",
-												"hover:bg-accent/40",
-												isCurrent && "bg-primary/10",
+												"hover:bg-hover",
+												isCurrent && "bg-accent-tint",
 											)}
 										>
 											{isRenaming ? (
@@ -643,7 +643,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 						{remoteOnlyBranches.map((branch) => (
 							<ContextMenu key={branch}>
 								<ContextMenuTrigger asChild>
-									<div className="flex h-[34px] items-center gap-2 px-3 text-xs hover:bg-accent/40">
+									<div className="flex h-[34px] items-center gap-2 px-3 text-xs hover:bg-hover">
 										<button
 											type="button"
 											className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:opacity-50"

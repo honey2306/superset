@@ -173,7 +173,7 @@ export function ReviewPanel({
 
 	if (isLoading && !pr) {
 		return (
-			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+			<div className="flex h-full items-center justify-center text-sm text-fg-mute">
 				{t("v1Changes.review.loading")}
 			</div>
 		);
@@ -181,7 +181,7 @@ export function ReviewPanel({
 
 	if (!pr) {
 		return (
-			<div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
+			<div className="flex h-full items-center justify-center px-4 text-center text-sm text-fg-mute">
 				{t("v1Changes.review.openPR")}
 			</div>
 		);
@@ -281,20 +281,18 @@ export function ReviewPanel({
 					</Avatar>
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-1.5">
-							<span className="truncate text-xs font-medium text-foreground">
+							<span className="truncate text-xs font-medium text-fg">
 								{comment.authorLogin}
 							</span>
-							<span className="shrink-0 rounded border border-border/70 bg-muted/35 px-1 py-0 text-[9px] uppercase tracking-wide text-muted-foreground">
+							<span className="shrink-0 rounded border border-line/70 bg-hover/50 px-1 py-0 text-[9px] uppercase tracking-wide text-fg-mute">
 								{t(getCommentKindText(comment))}
 							</span>
 							<span className="flex-1" />
 							{age ? (
-								<span className="shrink-0 text-[10px] text-muted-foreground">
-									{age}
-								</span>
+								<span className="shrink-0 text-[10px] text-fg-mute">{age}</span>
 							) : null}
 						</div>
-						<p className="mt-0.5 line-clamp-1 text-xs leading-4 text-muted-foreground">
+						<p className="mt-0.5 line-clamp-1 text-xs leading-4 text-fg-mute">
 							{getCommentPreviewText(comment.body, t)}
 						</p>
 					</div>
@@ -304,7 +302,7 @@ export function ReviewPanel({
 			return (
 				<div
 					key={comment.id}
-					className="group relative flex items-start gap-1 rounded-sm px-1.5 py-1 transition-colors hover:bg-accent/50"
+					className="group relative flex items-start gap-1 rounded-sm px-1.5 py-1 transition-colors hover:bg-hover"
 				>
 					<button
 						type="button"
@@ -320,7 +318,7 @@ export function ReviewPanel({
 						{comment.threadId && workspaceId ? (
 							<button
 								type="button"
-								className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+								className="inline-flex size-5 items-center justify-center rounded-sm text-fg-mute transition-colors hover:bg-hover hover:text-fg"
 								onClick={(event) => {
 									event.preventDefault();
 									event.stopPropagation();
@@ -344,7 +342,7 @@ export function ReviewPanel({
 						) : null}
 						<button
 							type="button"
-							className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+							className="inline-flex size-5 items-center justify-center rounded-sm text-fg-mute transition-colors hover:bg-hover hover:text-fg"
 							onClick={(event) => {
 								event.preventDefault();
 								event.stopPropagation();
@@ -367,7 +365,7 @@ export function ReviewPanel({
 								href={comment.url}
 								target="_blank"
 								rel="noopener noreferrer"
-								className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+								className="inline-flex size-5 items-center justify-center rounded-sm text-fg-mute transition-colors hover:bg-hover hover:text-fg"
 								aria-label={t("v1Changes.review.ariaOpenCommentGitHub")}
 							>
 								<LuArrowUpRight className="size-3" />
@@ -389,12 +387,12 @@ export function ReviewPanel({
 				>
 					<PRIcon state={pr.state} className="size-4 shrink-0" />
 					<span
-						className="min-w-0 flex-1 truncate text-xs font-medium text-foreground"
+						className="min-w-0 flex-1 truncate text-xs font-medium text-fg"
 						title={pr.title}
 					>
 						{pr.title}
 					</span>
-					<LuArrowUpRight className="size-3.5 shrink-0 text-muted-foreground/70 opacity-0 transition-opacity group-hover:opacity-100" />
+					<LuArrowUpRight className="size-3.5 shrink-0 text-fg-faint opacity-0 transition-opacity group-hover:opacity-100" />
 				</a>
 				<div className="flex items-center gap-1.5">
 					<span
@@ -406,7 +404,7 @@ export function ReviewPanel({
 						{t(reviewDecisionConfig[pr.reviewDecision].labelKey)}
 					</span>
 					{requestedReviewers.length > 0 && (
-						<span className="truncate text-[10px] text-muted-foreground">
+						<span className="truncate text-[10px] text-fg-mute">
 							{t("v1Changes.review.awaiting", {
 								reviewers: requestedReviewers.join(", "),
 							})}
@@ -415,26 +413,26 @@ export function ReviewPanel({
 				</div>
 			</div>
 
-			<div className="border-b border-border/70 my-1" />
+			<div className="border-b border-line/70 my-1" />
 
 			<Collapsible open={checksOpen} onOpenChange={setChecksOpen}>
 				<CollapsibleTrigger
 					className={cn(
 						"flex w-full min-w-0 items-center justify-between gap-2 px-2 py-1.5 text-left",
-						"hover:bg-accent/30 cursor-pointer transition-colors",
+						"hover:bg-hover cursor-pointer transition-colors",
 					)}
 				>
 					<div className="flex min-w-0 items-center gap-1.5">
 						<VscChevronRight
 							className={cn(
-								"size-3 text-muted-foreground shrink-0 transition-transform duration-150",
+								"size-3 text-fg-mute shrink-0 transition-transform duration-150",
 								checksOpen && "rotate-90",
 							)}
 						/>
 						<span className="text-xs font-medium truncate">
 							{t("v1Changes.review.checks")}
 						</span>
-						<span className="text-[10px] text-muted-foreground shrink-0">
+						<span className="text-[10px] text-fg-mute shrink-0">
 							{relevantChecks.length}
 						</span>
 					</div>
@@ -457,7 +455,7 @@ export function ReviewPanel({
 				</CollapsibleTrigger>
 				<CollapsibleContent className="px-0.5 pb-1 min-w-0 overflow-hidden">
 					{relevantChecks.length === 0 ? (
-						<div className="px-1.5 py-1 text-xs text-muted-foreground">
+						<div className="px-1.5 py-1 text-xs text-fg-mute">
 							{t("v1Changes.review.noChecksReportedSentence")}
 						</div>
 					) : (
@@ -474,7 +472,7 @@ export function ReviewPanel({
 									rel="noopener noreferrer"
 									className="group block"
 								>
-									<div className="flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-1 text-xs transition-colors hover:bg-accent/50">
+									<div className="flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-1 text-xs transition-colors hover:bg-hover">
 										<CheckIcon
 											className={cn(
 												"size-3 shrink-0",
@@ -484,10 +482,10 @@ export function ReviewPanel({
 										/>
 										<div className="flex min-w-0 flex-1 items-center gap-1">
 											<span className="min-w-0 truncate">{check.name}</span>
-											<LuArrowUpRight className="size-3.5 shrink-0 text-muted-foreground/70 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+											<LuArrowUpRight className="size-3.5 shrink-0 text-fg-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
 										</div>
 										{check.durationText && (
-											<span className="shrink-0 text-[10px] text-muted-foreground">
+											<span className="shrink-0 text-[10px] text-fg-mute">
 												{check.durationText}
 											</span>
 										)}
@@ -507,7 +505,7 @@ export function ReviewPanel({
 									/>
 									<span className="min-w-0 flex-1 truncate">{check.name}</span>
 									{check.durationText && (
-										<span className="shrink-0 text-[10px] text-muted-foreground">
+										<span className="shrink-0 text-[10px] text-fg-mute">
 											{check.durationText}
 										</span>
 									)}
@@ -518,7 +516,7 @@ export function ReviewPanel({
 				</CollapsibleContent>
 			</Collapsible>
 
-			<div className="border-b border-border/70 my-1" />
+			<div className="border-b border-line/70 my-1" />
 
 			<Collapsible
 				open={commentsOpen}
@@ -529,19 +527,19 @@ export function ReviewPanel({
 					<CollapsibleTrigger
 						className={cn(
 							"flex flex-1 min-w-0 items-center gap-1.5 px-2 py-1.5 text-left",
-							"hover:bg-accent/30 cursor-pointer transition-colors",
+							"hover:bg-hover cursor-pointer transition-colors",
 						)}
 					>
 						<VscChevronRight
 							className={cn(
-								"size-3 text-muted-foreground shrink-0 transition-transform duration-150",
+								"size-3 text-fg-mute shrink-0 transition-transform duration-150",
 								commentsOpen && "rotate-90",
 							)}
 						/>
 						<span className="text-xs font-medium truncate">
 							{t("v1Changes.review.comments")}
 						</span>
-						<span className="text-[10px] text-muted-foreground shrink-0">
+						<span className="text-[10px] text-fg-mute shrink-0">
 							{commentsCountLabel}
 						</span>
 					</CollapsibleTrigger>
@@ -550,7 +548,7 @@ export function ReviewPanel({
 							{uniqueResolvableThreadIds.length > 0 && workspaceId && (
 								<button
 									type="button"
-									className="shrink-0 flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground disabled:opacity-50"
+									className="shrink-0 flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-mute transition-colors hover:bg-hover hover:text-fg disabled:opacity-50"
 									onClick={() => void handleResolveAll()}
 									disabled={isResolvingAll}
 								>
@@ -564,7 +562,7 @@ export function ReviewPanel({
 							)}
 							<button
 								type="button"
-								className="shrink-0 flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+								className="shrink-0 flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-mute transition-colors hover:bg-hover hover:text-fg"
 								onClick={handleCopyCommentsList}
 							>
 								{copiedActionKey === ALL_COMMENTS_COPY_ACTION_KEY ? (
@@ -585,7 +583,7 @@ export function ReviewPanel({
 							<Skeleton className="h-11 w-full rounded-sm" />
 						</div>
 					) : comments.length === 0 ? (
-						<div className="px-1.5 py-1 text-xs text-muted-foreground">
+						<div className="px-1.5 py-1 text-xs text-fg-mute">
 							{t("v1Changes.review.noComments")}
 						</div>
 					) : (
@@ -603,19 +601,19 @@ export function ReviewPanel({
 					<CollapsibleTrigger
 						className={cn(
 							"flex w-full min-w-0 items-center gap-1.5 px-2 py-1.5 text-left",
-							"hover:bg-accent/30 cursor-pointer transition-colors",
+							"hover:bg-hover cursor-pointer transition-colors",
 						)}
 					>
 						<VscChevronRight
 							className={cn(
-								"size-3 text-muted-foreground shrink-0 transition-transform duration-150",
+								"size-3 text-fg-mute shrink-0 transition-transform duration-150",
 								resolvedCommentsGroupOpen && "rotate-90",
 							)}
 						/>
 						<span className="text-xs font-medium truncate">
 							{t("v1Changes.review.resolved")}
 						</span>
-						<span className="text-[10px] text-muted-foreground shrink-0">
+						<span className="text-[10px] text-fg-mute shrink-0">
 							{resolvedComments.length}
 						</span>
 					</CollapsibleTrigger>
