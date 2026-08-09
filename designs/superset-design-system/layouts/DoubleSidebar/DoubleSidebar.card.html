@@ -1,0 +1,49 @@
+<!-- @dsCard group="Layout" viewport="720x320" name="DoubleSidebar" subtitle="rail 44 + sidebar 260-320 + main · Superset main view" -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="../../components.css" />
+</head>
+<body>
+  <div id="root" style="padding:16px 20px"></div>
+  <script>
+    const label = (t) => `<span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-faint);letter-spacing:var(--ls-mono)">${t}</span>`;
+    document.getElementById("root").innerHTML = `
+      <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--page-bg);display:grid;grid-template-columns:44px 280px 1fr;height:260px">
+        <div style="background:var(--surface-sunk);border-right:1px solid var(--line);padding:10px 6px;display:flex;flex-direction:column;gap:6px;align-items:center">
+          <span style="width:24px;height:24px;background:var(--hover);border-radius:6px"></span>
+          <span style="width:24px;height:24px;background:var(--accent-tint);border-radius:6px;position:relative">
+            <span style="position:absolute;right:-6px;top:50%;transform:translateY(-50%);width:2px;height:14px;background:var(--accent-solid);border-radius:1px"></span>
+          </span>
+          <span style="width:24px;height:24px;background:var(--hover);border-radius:6px"></span>
+          <span style="width:24px;height:24px;background:var(--hover);border-radius:6px"></span>
+          <div style="margin-top:auto">${label("44")}</div>
+        </div>
+        <div style="background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column">
+          <div style="height:60px;border-bottom:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:6px">
+            <div style="height:14px;background:var(--hover);border-radius:4px;width:70%"></div>
+            <div style="height:10px;background:var(--hover);border-radius:3px;width:40%"></div>
+          </div>
+          <div style="flex:1;padding:10px;display:flex;flex-direction:column;gap:5px">
+            <div style="height:22px;background:var(--accent-tint);border-radius:4px"></div>
+            <div style="height:18px;background:var(--hover);border-radius:4px;width:88%"></div>
+            <div style="height:18px;background:var(--hover);border-radius:4px;width:74%"></div>
+            <div style="height:18px;background:var(--hover);border-radius:4px;width:82%"></div>
+          </div>
+          <div style="border-top:1px solid var(--line);padding:8px;font-family:var(--font-mono);font-size:10px;color:var(--fg-faint);text-align:center">
+            ports · footer · 44px
+          </div>
+          <div style="padding:4px 10px 8px">${label("260-320 · resize handle →")}</div>
+        </div>
+        <div style="background:var(--page-bg);padding:14px;display:flex;flex-direction:column;justify-content:flex-end">
+          <div style="height:14px;background:var(--hover);border-radius:4px;width:40%;margin-bottom:8px"></div>
+          <div style="height:10px;background:var(--hover);border-radius:3px;width:70%;margin-bottom:auto"></div>
+          ${label("main · 1fr")}
+        </div>
+      </div>
+    `;
+  </script>
+</body>
+</html>

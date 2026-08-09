@@ -1332,3 +1332,688 @@
 		animation: none;
 	}
 }
+
+/* =====================================================
+   Components — Slider
+   ===================================================== */
+.ds-slider {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	width: 140px;
+	height: 20px;
+}
+.ds-slider .track {
+	position: absolute;
+	inset: 9px 0;
+	background: var(--line);
+	border-radius: var(--r-pill);
+}
+.ds-slider .fill {
+	position: absolute;
+	inset: 0;
+	background: var(--accent);
+	border-radius: var(--r-pill);
+}
+.ds-slider input[type="range"] {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	background: transparent;
+	appearance: none;
+	-webkit-appearance: none;
+	cursor: pointer;
+}
+.ds-slider input[type="range"]::-webkit-slider-thumb {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 12px;
+	height: 12px;
+	border-radius: var(--r-pill);
+	background: var(--accent-solid);
+	box-shadow: 0 0 0 3px var(--accent-tint);
+	border: 0;
+	cursor: pointer;
+}
+.ds-slider input[type="range"]:focus-visible::-webkit-slider-thumb {
+	box-shadow: var(--focus-ring-strong);
+}
+
+/* =====================================================
+   Components — Textarea
+   ===================================================== */
+.ds-textarea {
+	width: 100%;
+	padding: var(--s-4) var(--s-5);
+	background: var(--surface-elev);
+	border: 1px solid var(--line);
+	border-radius: var(--r-4);
+	color: var(--fg);
+	font-size: var(--fs-12);
+	font-family: inherit;
+	line-height: var(--lh-body);
+	outline: 0;
+	transition:
+		border-color var(--dur-quick) var(--ease-standard),
+		box-shadow var(--dur-quick) var(--ease-standard);
+	min-height: 62px;
+}
+.ds-textarea.r-none {
+	resize: none;
+}
+.ds-textarea.r-vertical {
+	resize: vertical;
+}
+.ds-textarea::placeholder {
+	color: var(--fg-faint);
+}
+.ds-textarea:focus {
+	border-color: var(--accent-line);
+	box-shadow: var(--focus-ring);
+}
+
+/* =====================================================
+   Components — Label
+   ===================================================== */
+.ds-label {
+	display: inline-flex;
+	align-items: center;
+	font-size: var(--fs-11);
+	font-weight: var(--fw-medium);
+	color: var(--fg-mute);
+	line-height: 1.4;
+	user-select: none;
+}
+.ds-label .req {
+	color: var(--danger);
+	font-weight: var(--fw-semibold);
+}
+
+/* =====================================================
+   Components — Alert
+   ===================================================== */
+.ds-alert {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--s-5);
+	padding: var(--s-5) var(--s-6);
+	border-radius: var(--r-4);
+	border: 1px solid var(--line);
+	background: var(--surface-sunk);
+	color: var(--fg);
+	font-size: var(--fs-12);
+	line-height: var(--lh-body);
+}
+.ds-alert .glyph {
+	color: var(--fg-mute);
+	flex: 0 0 auto;
+	margin-top: 1px;
+}
+.ds-alert .title {
+	font-weight: var(--fw-semibold);
+	color: var(--fg);
+	margin-bottom: 2px;
+}
+.ds-alert .msg {
+	color: var(--fg-mute);
+}
+.ds-alert.info {
+	background: var(--info-tint);
+	border-color: color-mix(in oklch, var(--info) 22%, transparent);
+}
+.ds-alert.info .glyph {
+	color: var(--info);
+}
+.ds-alert.success {
+	background: var(--success-tint);
+	border-color: color-mix(in oklch, var(--success) 22%, transparent);
+}
+.ds-alert.success .glyph {
+	color: var(--success);
+}
+.ds-alert.warning {
+	background: var(--warning-tint);
+	border-color: color-mix(in oklch, var(--warning) 22%, transparent);
+}
+.ds-alert.warning .glyph {
+	color: var(--warning);
+}
+.ds-alert.danger {
+	background: var(--danger-tint);
+	border-color: color-mix(in oklch, var(--danger) 25%, transparent);
+}
+.ds-alert.danger .glyph {
+	color: var(--danger);
+}
+
+/* =====================================================
+   Components — Progress
+   ===================================================== */
+.ds-progress {
+	position: relative;
+	display: block;
+	width: 100%;
+	height: 4px;
+	background: var(--line);
+	border-radius: var(--r-pill);
+	overflow: hidden;
+}
+.ds-progress .fill {
+	position: absolute;
+	inset: 0 auto 0 0;
+	background: var(--accent-solid);
+	border-radius: var(--r-pill);
+	transition: width var(--dur-base) var(--ease-standard);
+}
+.ds-progress.success .fill {
+	background: var(--success);
+}
+.ds-progress.danger .fill {
+	background: var(--danger);
+}
+
+/* =====================================================
+   Components — Skeleton
+   ===================================================== */
+.ds-skeleton {
+	display: inline-block;
+	background: linear-gradient(
+		90deg,
+		var(--hover) 0%,
+		var(--line) 50%,
+		var(--hover) 100%
+	);
+	background-size: 200% 100%;
+	animation: ds-skeleton-shimmer 1.4s linear infinite;
+	border-radius: var(--r-2);
+	height: 12px;
+	width: 100%;
+}
+@keyframes ds-skeleton-shimmer {
+	from {
+		background-position: 200% 0;
+	}
+	to {
+		background-position: -200% 0;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.ds-skeleton {
+		animation: none;
+	}
+}
+
+/* =====================================================
+   Components — Empty
+   ===================================================== */
+.ds-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--s-4);
+	padding: var(--s-16) var(--s-8);
+	color: var(--fg-mute);
+	text-align: center;
+}
+.ds-empty .halo {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border-radius: var(--r-pill);
+	background: var(--hover);
+	color: var(--fg-mute);
+	margin-bottom: var(--s-2);
+}
+.ds-empty .title {
+	color: var(--fg);
+	font-size: var(--fs-13);
+	font-weight: var(--fw-semibold);
+}
+.ds-empty .desc {
+	color: var(--fg-mute);
+	font-size: var(--fs-12);
+	line-height: var(--lh-body);
+	max-width: 320px;
+}
+.ds-empty .cta {
+	margin-top: var(--s-4);
+}
+
+/* =====================================================
+   Components — Dialog
+   ===================================================== */
+.ds-dialog-scrim {
+	position: fixed;
+	inset: 0;
+	background: var(--overlay-scrim);
+	z-index: var(--z-modal-scrim);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--s-16);
+	animation: ds-fade-in var(--dur-base) var(--ease-standard);
+}
+.ds-dialog {
+	background: var(--surface-sunk);
+	border: 1px solid var(--line);
+	border-radius: var(--r-6);
+	box-shadow: var(--shadow-3);
+	color: var(--fg);
+	z-index: var(--z-modal);
+	max-height: 80vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	animation: ds-zoom-in var(--dur-base) var(--ease-standard);
+}
+.ds-dialog-head {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--s-6);
+	padding: var(--s-8) var(--s-8) var(--s-6);
+	border-bottom: 1px solid var(--line);
+}
+.ds-dialog-head .titles {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.ds-dialog-head .title {
+	font-size: var(--fs-16);
+	font-weight: var(--fw-semibold);
+	color: var(--fg);
+	letter-spacing: var(--ls-title);
+}
+.ds-dialog-head .desc {
+	font-size: var(--fs-12);
+	color: var(--fg-mute);
+	line-height: var(--lh-body);
+}
+.ds-dialog-foot {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--s-4);
+	padding: var(--s-6) var(--s-8);
+	border-top: 1px solid var(--line);
+	background: color-mix(in oklch, var(--surface-elev) 60%, transparent);
+}
+@keyframes ds-fade-in {
+	from {
+		opacity: 0;
+	}
+}
+@keyframes ds-zoom-in {
+	from {
+		opacity: 0;
+		transform: scale(0.96);
+	}
+}
+
+/* =====================================================
+   Components — AlertDialog
+   ===================================================== */
+.ds-alert-dialog {
+	width: 420px;
+	max-width: calc(100vw - 32px);
+	background: var(--surface-sunk);
+	border: 1px solid var(--line);
+	border-radius: var(--r-6);
+	box-shadow: var(--shadow-3);
+	padding: var(--s-8) var(--s-8) var(--s-6);
+	color: var(--fg);
+	z-index: var(--z-modal);
+	animation: ds-zoom-in var(--dur-base) var(--ease-standard);
+	display: flex;
+	flex-direction: column;
+	gap: var(--s-4);
+}
+.ds-alert-dialog .icon {
+	width: 32px;
+	height: 32px;
+	border-radius: var(--r-4);
+	background: var(--danger-tint);
+	color: var(--danger);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: var(--s-2);
+}
+.ds-alert-dialog .title {
+	font-size: var(--fs-14);
+	font-weight: var(--fw-semibold);
+	color: var(--fg);
+}
+.ds-alert-dialog .body {
+	font-size: var(--fs-12);
+	color: var(--fg-mute);
+	line-height: var(--lh-body);
+}
+.ds-alert-dialog .actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--s-3);
+	margin-top: var(--s-4);
+}
+
+/* =====================================================
+   Components — Sheet
+   ===================================================== */
+.ds-sheet-scrim {
+	position: fixed;
+	inset: 0;
+	background: var(--overlay-scrim);
+	z-index: var(--z-modal-scrim);
+	animation: ds-fade-in var(--dur-base) var(--ease-standard);
+}
+.ds-sheet {
+	position: fixed;
+	background: var(--surface-sunk);
+	border-left: 1px solid var(--line);
+	box-shadow: var(--shadow-4);
+	z-index: var(--z-modal);
+	display: flex;
+	flex-direction: column;
+	color: var(--fg);
+	animation: ds-sheet-slide var(--dur-slow) var(--ease-out);
+}
+.ds-sheet.s-right {
+	inset: 0 0 0 auto;
+}
+.ds-sheet.s-left {
+	inset: 0 auto 0 0;
+	border-left: 0;
+	border-right: 1px solid var(--line);
+}
+.ds-sheet.s-top {
+	inset: 0 0 auto 0;
+	width: 100% !important;
+}
+.ds-sheet.s-bottom {
+	inset: auto 0 0 0;
+	width: 100% !important;
+}
+.ds-sheet-head {
+	display: flex;
+	align-items: center;
+	gap: var(--s-4);
+	padding: var(--s-6) var(--s-7);
+	border-bottom: 1px solid var(--line);
+	flex: 0 0 auto;
+}
+.ds-sheet-head .title {
+	flex: 1;
+	font-size: var(--fs-14);
+	font-weight: var(--fw-semibold);
+	color: var(--fg);
+}
+.ds-sheet-body {
+	flex: 1;
+	overflow-y: auto;
+	padding: var(--s-6) var(--s-7);
+}
+@keyframes ds-sheet-slide {
+	from {
+		transform: translateX(24px);
+		opacity: 0;
+	}
+}
+
+/* =====================================================
+   Components — HoverCard
+   ===================================================== */
+.ds-hover-card-wrap {
+	position: relative;
+	display: inline-flex;
+}
+.ds-hover-card {
+	position: absolute;
+	z-index: var(--z-overlay);
+	background: var(--surface-sunk);
+	border: 1px solid var(--line);
+	border-radius: var(--r-6);
+	box-shadow: var(--shadow-3);
+	padding: var(--s-6);
+	min-width: 240px;
+	max-width: 320px;
+	color: var(--fg);
+	font-size: var(--fs-12);
+	animation: ds-fade-in var(--dur-quick) var(--ease-standard);
+}
+.ds-hover-card.s-top {
+	bottom: calc(100% + 8px);
+	left: 0;
+}
+.ds-hover-card.s-bottom {
+	top: calc(100% + 8px);
+	left: 0;
+}
+.ds-hover-card.s-left {
+	right: calc(100% + 8px);
+	top: 0;
+}
+.ds-hover-card.s-right {
+	left: calc(100% + 8px);
+	top: 0;
+}
+
+/* =====================================================
+   Components — DropdownMenu
+   ===================================================== */
+.ds-dropdown-wrap {
+	position: relative;
+	display: inline-flex;
+}
+.ds-dropdown {
+	position: absolute;
+	z-index: var(--z-overlay);
+	min-width: 220px;
+	background: var(--surface-sunk);
+	border: 1px solid var(--line);
+	border-radius: var(--r-5);
+	box-shadow: var(--shadow-3);
+	padding: var(--s-2);
+	backdrop-filter: blur(6px);
+	animation: ds-fade-in var(--dur-quick) var(--ease-standard);
+}
+.ds-dropdown.s-bottom.a-start {
+	top: calc(100% + 4px);
+	left: 0;
+}
+.ds-dropdown.s-bottom.a-end {
+	top: calc(100% + 4px);
+	right: 0;
+}
+.ds-dropdown.s-top.a-start {
+	bottom: calc(100% + 4px);
+	left: 0;
+}
+.ds-dropdown.s-top.a-end {
+	bottom: calc(100% + 4px);
+	right: 0;
+}
+
+/* =====================================================
+   Components — Table
+   ===================================================== */
+.ds-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--fs-12);
+	color: var(--fg);
+}
+.ds-table thead th {
+	text-align: left;
+	padding: var(--s-3) var(--s-5);
+	font-size: 10px;
+	letter-spacing: var(--ls-eyebrow);
+	text-transform: uppercase;
+	color: var(--fg-faint);
+	font-weight: var(--fw-medium);
+	border-bottom: 1px solid var(--line);
+	white-space: nowrap;
+}
+.ds-table tbody td {
+	padding: var(--s-4) var(--s-5);
+	border-bottom: 1px solid var(--line);
+	height: 30px;
+	color: var(--fg);
+}
+.ds-table tbody tr {
+	transition: background var(--dur-quick) var(--ease-standard);
+	cursor: pointer;
+}
+.ds-table tbody tr:hover {
+	background: var(--hover);
+}
+.ds-table tbody tr.is-active {
+	background: var(--accent-tint);
+}
+.ds-table .a-start {
+	text-align: left;
+}
+.ds-table .a-end {
+	text-align: right;
+}
+.ds-table .a-center {
+	text-align: center;
+}
+.ds-table .mono {
+	font-family: var(--font-mono);
+	font-size: var(--fs-11);
+	letter-spacing: var(--ls-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================
+   Components — Avatar
+   ===================================================== */
+.ds-avatar {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--r-pill);
+	background: var(--surface-elev);
+	border: 1px solid var(--line);
+	color: var(--fg-mute);
+	font-family: var(--font-mono);
+	font-weight: var(--fw-medium);
+	letter-spacing: var(--ls-mono);
+	overflow: hidden;
+	flex: 0 0 auto;
+}
+.ds-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+/* =====================================================
+   Components — ScrollArea
+   ===================================================== */
+.ds-scroll {
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-width: thin;
+	scrollbar-color: var(--line-strong) transparent;
+}
+.ds-scroll::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+.ds-scroll::-webkit-scrollbar-track {
+	background: transparent;
+}
+.ds-scroll::-webkit-scrollbar-thumb {
+	background-color: var(--line-strong);
+	border-radius: var(--r-pill);
+	border: 3px solid transparent;
+	background-clip: padding-box;
+}
+
+/* =====================================================
+   Components — Breadcrumb
+   ===================================================== */
+.ds-breadcrumb {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s-3);
+	font-family: var(--font-mono);
+	font-size: var(--fs-11);
+	letter-spacing: var(--ls-mono);
+	color: var(--fg-mute);
+}
+.ds-breadcrumb .seg {
+	cursor: pointer;
+	transition: color var(--dur-quick) var(--ease-standard);
+}
+.ds-breadcrumb .seg:hover {
+	color: var(--fg);
+}
+.ds-breadcrumb .seg.is-last {
+	color: var(--fg);
+	font-weight: var(--fw-medium);
+	cursor: default;
+}
+.ds-breadcrumb .sep {
+	color: var(--fg-faint);
+	transform: rotate(-90deg);
+}
+
+/* =====================================================
+   Components — Collapsible
+   ===================================================== */
+.ds-collapsible {
+	display: flex;
+	flex-direction: column;
+}
+.ds-collapsible .head {
+	display: flex;
+	align-items: center;
+	gap: var(--s-3);
+	padding: var(--s-3) var(--s-4);
+	background: transparent;
+	border: 0;
+	color: var(--fg-mute);
+	font-size: var(--fs-12);
+	cursor: pointer;
+	border-radius: var(--r-3);
+	transition: background var(--dur-quick) var(--ease-standard);
+	text-align: left;
+	width: 100%;
+	font-family: inherit;
+}
+.ds-collapsible .head:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+.ds-collapsible .head .chev {
+	color: var(--fg-faint);
+	transition: transform var(--dur-quick) var(--ease-standard);
+}
+.ds-collapsible.is-open .head .chev {
+	transform: rotate(90deg);
+}
+.ds-collapsible .head .glyph {
+	color: var(--fg-faint);
+}
+.ds-collapsible .head .title {
+	flex: 1;
+}
+.ds-collapsible .head .count {
+	color: var(--fg-faint);
+	font-family: var(--font-mono);
+	font-size: var(--fs-10);
+	font-variant-numeric: tabular-nums;
+}
+.ds-collapsible .body {
+	padding: var(--s-2) 0 var(--s-3) var(--s-8);
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}

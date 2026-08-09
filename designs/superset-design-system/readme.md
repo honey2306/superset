@@ -72,14 +72,70 @@
 - `styles.css` — global 入口(仅 `@import` 行)
 - `components.css` — 所有组件的样式
 - `app.css` — 完整 App Shell 用到的 layout 样式(不做组件,只做整合 UI kit 用的)
-- `tokens/` — 6 个 token 文件(colors / typography / spacing / radius / shadow / motion)+ reset
+- `tokens/` — 10 个 token 文件(colors / typography / spacing / radius / shadow / motion / z-index / opacity / border-width / focus)+ reset
 - `foundations/` — 7 张 foundation @dsCard 卡片
-- `components/` — 32 个组件,按 core / forms / feedback / overlays / navigation 分组;每个组件一张 `.card.html`
-- `ui_kits/desktop-app/` — 完整 App Shell,同时是 `starting point` 之一
+- `components/` — 53 个组件(含 sub-exports),按 core / forms / feedback / overlays / navigation / data 六组分类;每个组件一张 `.card.html`
+- `patterns/` — 7 个多组件复合模式(EmptyState 作为 primitive 另计):ErrorState / SkeletonList / FormField / SectionHeader / ListHeader / KeyboardHintBar / ToastStack
+- `layouts/` — 4 个页级布局:AppShell / DoubleSidebar / TabbedWorkspace / ModalStack
+- `ui_kits/desktop-app/` — 完整 App Shell + Chat / WorkspaceSidebar / CommandPalette / NewWorkspaceModal / Paywall / UpdatesPill 共 7 张卡
 - `Design System.html` — 手工整合的预览页(备用,`preview.html` 由 build-preview 生成)
 - `App Shell.html` — 完整应用页面的备用入口
 
-Starting points 现有 4 个:`desktop-app`(整套 App Shell)、`Popover`、`ContextMenu`、`ConfirmCard`——消费方可以直接以这几处高价值场景作为设计起点。
+Starting points 现有 11 个 —— 覆盖模态族(ConfirmCard / AlertDialog / Dialog / Popover / ContextMenu / DropdownMenu / Sheet)、EmptyState pattern,以及 3 个完整屏(desktop-app 主视图、WorkspaceSidebar、CommandPalette)。消费方可以直接以这几处高价值场景作为设计起点。
+
+## Decision guide
+
+一份"该用哪一件"的速查表。所有条目遵守四条契约:pink stays a tint、mono everywhere numbers appear、no hover-only inline actions、hairline everything。
+
+### Overlays — 该开哪种模态
+
+| 场景 | 组件 | 为什么 |
+|---|---|---|
+| 一句话确认(删除、切换) | `ConfirmCard` | 就地锚定,少打扰;`AlertDialog` 全屏 scrim 太重 |
+| 破坏性且无处锚定(批量删除、退出登录) | `AlertDialog` | 全屏 scrim + 危险按钮,必须 explicit |
+| 多字段表单(New workspace、Settings 子面板) | `Dialog` | 中央模态,有 header + footer 结构 |
+| 详细视图但不该抢焦(PR 详情、Task 详情) | `Sheet` | 侧滑,主区仍可见 |
+| 右键触发的次级动作 | `ContextMenu` | v3 的核心,禁 hover-only 内联操作 |
+| 点击按钮弹出的动作组 | `DropdownMenu` | 与 ContextMenu 同密度,不同触发方式 |
+| 富信息 hover 预览(PR 卡片、user 卡片) | `HoverCard` | 300ms 延迟,防误触 |
+| 一句话事实标签(disabled 说明、快捷键提示) | `Tooltip` | 即时显示 |
+| 键盘驱动的搜索(⌘K、branch 切换) | `Popover` | 与 ContextMenu 视觉一致但含 header + hint bar |
+
+### 输入 — 该用哪一种
+
+| 场景 | 组件 |
+|---|---|
+| 单行文本 | `Input` (hairline + focus glow) |
+| 多行文本 | `Textarea` |
+| 二选一或多选一(3 项以内) | `SegmentedControl` |
+| 二选一或多选一(4 项及以上) | `Radio` group |
+| 多选(彼此独立) | `Checkbox` |
+| 开关(立即生效的布尔) | `Switch` |
+| 数值滑动(0–N,连续) | `Slider` |
+| 从大集合选一个 | `Popover` 搜索式,不用 `Select` |
+
+### 状态反馈 — 该用哪一种
+
+| 场景 | 组件 |
+|---|---|
+| 已完成的动作反馈 | `Toast` (past tense) |
+| 持续存在的条件(未提交更改、更新可用) | `Alert` |
+| 破坏性动作前确认 | `ConfirmCard` 或 `AlertDialog` |
+| 加载中(可确定终点) | `Progress` |
+| 加载中(不确定终点) | `Spinner` |
+| 数据到来前的占位 | `SkeletonList` |
+| 数据永远不会到来 | `Empty` |
+| 数据请求失败 | `ErrorState` pattern |
+| 字段级校验失败 | `FormField` pattern (error slot) |
+
+### 布局 — 该套哪一层
+
+| 场景 | 布局 |
+|---|---|
+| 全应用外壳 | `AppShell` (chrome 34 + main 1fr + status 24) |
+| 主工作区 | `DoubleSidebar` (rail 44 + sidebar 260–320 + main) |
+| 有 tab 的多面板视图 | `TabbedWorkspace` |
+| 决定哪个 overlay 覆盖哪个 | `ModalStack` z-index ladder |
 
 ## Roadmap
 
@@ -88,10 +144,11 @@ Starting points 现有 4 个:`desktop-app`(整套 App Shell)、`Popover`、`Cont
 ### Components recap
 
 Core: `Badge / Button / Chip / Divider / Icon / IconButton / Kbd / Pill / Tag`
-Forms: `Checkbox / Input / Radio / SegmentedControl / Switch`
-Feedback: `ConfirmCard / Spinner / Toast`
-Navigation: `FileRow / Tabs / WorkspaceItem`
-Overlays: `ContextMenu`(+ MenuHeading/Sep/Group/Item)、`Popover`(+ Header/Group/Row/Sep/Hint)、`Tooltip`
+Forms: `Checkbox / Input / Label / Radio / SegmentedControl / Slider / Switch / Textarea`
+Feedback: `Alert / ConfirmCard / Empty / Progress / Skeleton / Spinner / Toast`
+Navigation: `Breadcrumb / Collapsible / FileRow / Tabs / WorkspaceItem`
+Overlays: `AlertDialog / ContextMenu`(+ MenuHeading/Sep/Group/Item)、`Dialog`(+ Header/Footer)、`DropdownMenu / HoverCard / Popover`(+ Header/Group/Row/Sep/Hint)、`Sheet / Tooltip`
+Data: `Avatar / ScrollArea / Table`(+ THead/TBody/TR/TH/TD)
 
 ## Regenerate
 

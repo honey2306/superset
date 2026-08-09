@@ -1,0 +1,42 @@
+<!-- @dsCard group="Components" viewport="720x520" name="Sheet" subtitle="side-anchored panel · right" -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../../styles.css" />
+  <link rel="stylesheet" href="../../../components.css" />
+  <style>
+    html, body { position: relative; height: 100%; margin: 0; contain: layout paint; overflow: hidden; }
+    .ds-sheet-scrim { position: absolute !important; inset: 0; }
+    .ds-sheet { position: absolute !important; }
+  </style>
+</head>
+<body>
+  <div id="root" style="position:relative;height:100%;background:color-mix(in oklch, var(--page-bg) 92%, #000 8%);overflow:hidden"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const { Sheet, Badge, Tag } = window.SupersetDesignSystem_91a6da;
+    ReactDOM.createRoot(document.getElementById("root")).render(
+      <Sheet open side="right" title="PR #4213 · fix/pty-shutdown-race" width={380}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <Badge pill>open</Badge>
+            <Tag dir="up">3</Tag>
+            <Tag dir="down">0</Tag>
+          </div>
+          <div style={{ color: "var(--fg-mute)", fontSize: "var(--fs-12)", lineHeight: "var(--lh-body)" }}>
+            host-service-coordinator was serializing dispose() on shutdown, which deadlocked with any pty still waiting on the coordinator lock. This bounds the total wait to 5s and drops any session that hasn't resolved.
+          </div>
+          <div style={{ height: 1, background: "var(--line)", margin: "8px 0" }} />
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-11)", color: "var(--fg-mute)" }}>
+            2 reviewers · 4 files · +36 / −18
+          </div>
+        </div>
+      </Sheet>,
+    );
+  </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":3,"namespace":"SupersetDesignSystem_91a6da","components":[{"name":"Badge","sourcePath":"components/core/Badge/Badge.jsx"},{"name":"Button","sourcePath":"components/core/Button/Button.jsx"},{"name":"Chip","sourcePath":"components/core/Chip/Chip.jsx"},{"name":"Divider","sourcePath":"components/core/Divider/Divider.jsx"},{"name":"Icon","sourcePath":"components/core/Icon/Icon.jsx"},{"name":"IconButton","sourcePath":"components/core/IconButton/IconButton.jsx"},{"name":"Kbd","sourcePath":"components/core/Kbd/Kbd.jsx"},{"name":"Pill","sourcePath":"components/core/Pill/Pill.jsx"},{"name":"Tag","sourcePath":"components/core/Tag/Tag.jsx"},{"name":"ConfirmCard","sourcePath":"components/feedback/ConfirmCard/ConfirmCard.jsx"},{"name":"Spinner","sourcePath":"components/feedback/Spinner/Spinner.jsx"},{"name":"Toast","sourcePath":"components/feedback/Toast/Toast.jsx"},{"name":"Checkbox","sourcePath":"components/forms/Checkbox/Checkbox.jsx"},{"name":"Input","sourcePath":"components/forms/Input/Input.jsx"},{"name":"Radio","sourcePath":"components/forms/Radio/Radio.jsx"},{"name":"SegmentedControl","sourcePath":"components/forms/SegmentedControl/SegmentedControl.jsx"},{"name":"Switch","sourcePath":"components/forms/Switch/Switch.jsx"},{"name":"FileRow","sourcePath":"components/navigation/FileRow/FileRow.jsx"},{"name":"Tabs","sourcePath":"components/navigation/Tabs/Tabs.jsx"},{"name":"WorkspaceItem","sourcePath":"components/navigation/WorkspaceItem/WorkspaceItem.jsx"},{"name":"ContextMenu","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"MenuHeading","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"MenuSep","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"MenuGroup","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"MenuItem","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"Popover","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverHeader","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverGroup","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverRow","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverSep","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverHint","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"Tooltip","sourcePath":"components/overlays/Tooltip/Tooltip.jsx"}],"sourceHashes":{"app.jsx":"8bce227006d3","components/core/Badge/Badge.jsx":"39130c4af1cb","components/core/Button/Button.jsx":"5d7471a0dfd0","components/core/Chip/Chip.jsx":"fc5ec5d4bf25","components/core/Divider/Divider.jsx":"fdc65bc695d6","components/core/Icon/Icon.jsx":"73e76aa66399","components/core/IconButton/IconButton.jsx":"af4cc38d9dfd","components/core/Kbd/Kbd.jsx":"91ff82673730","components/core/Pill/Pill.jsx":"b825841ed948","components/core/Tag/Tag.jsx":"95d1598e7020","components/feedback/ConfirmCard/ConfirmCard.jsx":"dbe4552667ab","components/feedback/Spinner/Spinner.jsx":"611ff32c2bb6","components/feedback/Toast/Toast.jsx":"f848577aff18","components/forms/Checkbox/Checkbox.jsx":"520dc7f6a910","components/forms/Input/Input.jsx":"45b796581632","components/forms/Radio/Radio.jsx":"aeaa146aa1dc","components/forms/SegmentedControl/SegmentedControl.jsx":"cf1e17837c0b","components/forms/Switch/Switch.jsx":"3366628b4439","components/navigation/FileRow/FileRow.jsx":"466f20b14bc1","components/navigation/Tabs/Tabs.jsx":"f614640074e1","components/navigation/WorkspaceItem/WorkspaceItem.jsx":"987dceb4a295","components/overlays/ContextMenu/ContextMenu.jsx":"f741ef8103f6","components/overlays/Popover/Popover.jsx":"4fd75af89da8","components/overlays/Tooltip/Tooltip.jsx":"4043bee9d0d6","icons.jsx":"25140872a087","preview.jsx":"11e3fb903bc6","ui_kits/desktop-app/Chat.jsx":"2287504a84c4","ui_kits/desktop-app/WorkspaceSidebar.jsx":"b29ee27a7c15","ui_kits/desktop-app/app.jsx":"3a9ce84f6130"},"inlinedExternals":[],"unexposedExports":[]} */
+/* @ds-bundle: {"format":3,"namespace":"SupersetDesignSystem_91a6da","components":[{"name":"Badge","sourcePath":"components/core/Badge/Badge.jsx"},{"name":"Button","sourcePath":"components/core/Button/Button.jsx"},{"name":"Chip","sourcePath":"components/core/Chip/Chip.jsx"},{"name":"Divider","sourcePath":"components/core/Divider/Divider.jsx"},{"name":"Icon","sourcePath":"components/core/Icon/Icon.jsx"},{"name":"IconButton","sourcePath":"components/core/IconButton/IconButton.jsx"},{"name":"Kbd","sourcePath":"components/core/Kbd/Kbd.jsx"},{"name":"Pill","sourcePath":"components/core/Pill/Pill.jsx"},{"name":"Tag","sourcePath":"components/core/Tag/Tag.jsx"},{"name":"Avatar","sourcePath":"components/data/Avatar/Avatar.jsx"},{"name":"ScrollArea","sourcePath":"components/data/ScrollArea/ScrollArea.jsx"},{"name":"Table","sourcePath":"components/data/Table/Table.jsx"},{"name":"THead","sourcePath":"components/data/Table/Table.jsx"},{"name":"TBody","sourcePath":"components/data/Table/Table.jsx"},{"name":"TR","sourcePath":"components/data/Table/Table.jsx"},{"name":"TH","sourcePath":"components/data/Table/Table.jsx"},{"name":"TD","sourcePath":"components/data/Table/Table.jsx"},{"name":"Alert","sourcePath":"components/feedback/Alert/Alert.jsx"},{"name":"ConfirmCard","sourcePath":"components/feedback/ConfirmCard/ConfirmCard.jsx"},{"name":"Empty","sourcePath":"components/feedback/Empty/Empty.jsx"},{"name":"Progress","sourcePath":"components/feedback/Progress/Progress.jsx"},{"name":"Skeleton","sourcePath":"components/feedback/Skeleton/Skeleton.jsx"},{"name":"Spinner","sourcePath":"components/feedback/Spinner/Spinner.jsx"},{"name":"Toast","sourcePath":"components/feedback/Toast/Toast.jsx"},{"name":"Checkbox","sourcePath":"components/forms/Checkbox/Checkbox.jsx"},{"name":"Input","sourcePath":"components/forms/Input/Input.jsx"},{"name":"Label","sourcePath":"components/forms/Label/Label.jsx"},{"name":"Radio","sourcePath":"components/forms/Radio/Radio.jsx"},{"name":"SegmentedControl","sourcePath":"components/forms/SegmentedControl/SegmentedControl.jsx"},{"name":"Slider","sourcePath":"components/forms/Slider/Slider.jsx"},{"name":"Switch","sourcePath":"components/forms/Switch/Switch.jsx"},{"name":"Textarea","sourcePath":"components/forms/Textarea/Textarea.jsx"},{"name":"Breadcrumb","sourcePath":"components/navigation/Breadcrumb/Breadcrumb.jsx"},{"name":"Collapsible","sourcePath":"components/navigation/Collapsible/Collapsible.jsx"},{"name":"FileRow","sourcePath":"components/navigation/FileRow/FileRow.jsx"},{"name":"Tabs","sourcePath":"components/navigation/Tabs/Tabs.jsx"},{"name":"WorkspaceItem","sourcePath":"components/navigation/WorkspaceItem/WorkspaceItem.jsx"},{"name":"AlertDialog","sourcePath":"components/overlays/AlertDialog/AlertDialog.jsx"},{"name":"ContextMenu","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"MenuHeading","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"MenuSep","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"MenuGroup","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"MenuItem","sourcePath":"components/overlays/ContextMenu/ContextMenu.jsx"},{"name":"Dialog","sourcePath":"components/overlays/Dialog/Dialog.jsx"},{"name":"DialogHeader","sourcePath":"components/overlays/Dialog/Dialog.jsx"},{"name":"DialogFooter","sourcePath":"components/overlays/Dialog/Dialog.jsx"},{"name":"DropdownMenu","sourcePath":"components/overlays/DropdownMenu/DropdownMenu.jsx"},{"name":"HoverCard","sourcePath":"components/overlays/HoverCard/HoverCard.jsx"},{"name":"Popover","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverHeader","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverGroup","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverRow","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverSep","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"PopoverHint","sourcePath":"components/overlays/Popover/Popover.jsx"},{"name":"Sheet","sourcePath":"components/overlays/Sheet/Sheet.jsx"},{"name":"Tooltip","sourcePath":"components/overlays/Tooltip/Tooltip.jsx"}],"sourceHashes":{"app.jsx":"8bce227006d3","components/core/Badge/Badge.jsx":"39130c4af1cb","components/core/Button/Button.jsx":"5d7471a0dfd0","components/core/Chip/Chip.jsx":"fc5ec5d4bf25","components/core/Divider/Divider.jsx":"fdc65bc695d6","components/core/Icon/Icon.jsx":"73e76aa66399","components/core/IconButton/IconButton.jsx":"af4cc38d9dfd","components/core/Kbd/Kbd.jsx":"91ff82673730","components/core/Pill/Pill.jsx":"b825841ed948","components/core/Tag/Tag.jsx":"95d1598e7020","components/data/Avatar/Avatar.jsx":"5024051544ad","components/data/ScrollArea/ScrollArea.jsx":"5c986c710ca6","components/data/Table/Table.jsx":"f6b67e799660","components/feedback/Alert/Alert.jsx":"260834f3613d","components/feedback/ConfirmCard/ConfirmCard.jsx":"dbe4552667ab","components/feedback/Empty/Empty.jsx":"009bc29c243b","components/feedback/Progress/Progress.jsx":"8e391de60844","components/feedback/Skeleton/Skeleton.jsx":"4c70f79cf855","components/feedback/Spinner/Spinner.jsx":"611ff32c2bb6","components/feedback/Toast/Toast.jsx":"f848577aff18","components/forms/Checkbox/Checkbox.jsx":"520dc7f6a910","components/forms/Input/Input.jsx":"45b796581632","components/forms/Label/Label.jsx":"cebc37b089ef","components/forms/Radio/Radio.jsx":"aeaa146aa1dc","components/forms/SegmentedControl/SegmentedControl.jsx":"cf1e17837c0b","components/forms/Slider/Slider.jsx":"46ca2be111ef","components/forms/Switch/Switch.jsx":"3366628b4439","components/forms/Textarea/Textarea.jsx":"479d65ff4dd6","components/navigation/Breadcrumb/Breadcrumb.jsx":"26c81e0254ba","components/navigation/Collapsible/Collapsible.jsx":"0814d7d2b9f3","components/navigation/FileRow/FileRow.jsx":"466f20b14bc1","components/navigation/Tabs/Tabs.jsx":"f614640074e1","components/navigation/WorkspaceItem/WorkspaceItem.jsx":"987dceb4a295","components/overlays/AlertDialog/AlertDialog.jsx":"03a34c826c10","components/overlays/ContextMenu/ContextMenu.jsx":"f741ef8103f6","components/overlays/Dialog/Dialog.jsx":"d1eb9274d6e9","components/overlays/DropdownMenu/DropdownMenu.jsx":"82987b2f9992","components/overlays/HoverCard/HoverCard.jsx":"f21007f6358a","components/overlays/Popover/Popover.jsx":"4fd75af89da8","components/overlays/Sheet/Sheet.jsx":"01c5deb3f209","components/overlays/Tooltip/Tooltip.jsx":"4043bee9d0d6","icons.jsx":"25140872a087","preview.jsx":"11e3fb903bc6","ui_kits/desktop-app/Chat.jsx":"2287504a84c4","ui_kits/desktop-app/WorkspaceSidebar.jsx":"b29ee27a7c15","ui_kits/desktop-app/app.jsx":"3a9ce84f6130"},"inlinedExternals":[],"unexposedExports":[]} */
 
 (() => {
 
@@ -1152,6 +1152,149 @@ function Tag({
 Object.assign(__ds_scope, { Tag });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/core/Tag/Tag.jsx", error: String((e && e.message) || e) }); }
 
+// components/data/Avatar/Avatar.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const _React = window.React;
+function initials(name) {
+  const parts = String(name || "?").trim().split(/\s+/);
+  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+function Avatar({
+  name,
+  src,
+  size = 24,
+  className,
+  ...rest
+}) {
+  return /*#__PURE__*/React.createElement("span", _extends({
+    className: ["ds-avatar", className].filter(Boolean).join(" "),
+    style: {
+      width: size,
+      height: size,
+      fontSize: Math.max(9, size / 2.4)
+    }
+  }, rest), src ? /*#__PURE__*/React.createElement("img", {
+    src: src,
+    alt: name
+  }) : initials(name));
+}
+Object.assign(__ds_scope, { Avatar });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/data/Avatar/Avatar.jsx", error: String((e && e.message) || e) }); }
+
+// components/data/ScrollArea/ScrollArea.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const _React = window.React;
+function ScrollArea({
+  children,
+  maxHeight,
+  className,
+  ...rest
+}) {
+  return /*#__PURE__*/React.createElement("div", _extends({
+    className: ["ds-scroll", className].filter(Boolean).join(" "),
+    style: {
+      maxHeight
+    }
+  }, rest), children);
+}
+Object.assign(__ds_scope, { ScrollArea });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/data/ScrollArea/ScrollArea.jsx", error: String((e && e.message) || e) }); }
+
+// components/data/Table/Table.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const _React = window.React;
+function Table({
+  children,
+  className,
+  ...rest
+}) {
+  return /*#__PURE__*/React.createElement("table", _extends({
+    className: ["ds-table", className].filter(Boolean).join(" ")
+  }, rest), children);
+}
+function THead({
+  children
+}) {
+  return /*#__PURE__*/React.createElement("thead", null, children);
+}
+function TBody({
+  children
+}) {
+  return /*#__PURE__*/React.createElement("tbody", null, children);
+}
+function TR({
+  children,
+  onClick,
+  active
+}) {
+  return /*#__PURE__*/React.createElement("tr", {
+    className: active ? "is-active" : undefined,
+    onClick: onClick
+  }, children);
+}
+function TH({
+  children,
+  align = "start",
+  mono
+}) {
+  return /*#__PURE__*/React.createElement("th", {
+    className: [`a-${align}`, mono && "mono"].filter(Boolean).join(" ")
+  }, children);
+}
+function TD({
+  children,
+  align = "start",
+  mono
+}) {
+  return /*#__PURE__*/React.createElement("td", {
+    className: [`a-${align}`, mono && "mono"].filter(Boolean).join(" ")
+  }, children);
+}
+Object.assign(__ds_scope, { Table, THead, TBody, TR, TH, TD });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/data/Table/Table.jsx", error: String((e && e.message) || e) }); }
+
+// components/feedback/Alert/Alert.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const {
+  Icon
+} = __ds_scope;
+const _React = window.React;
+const ICON = {
+  info: "cloud",
+  success: "check",
+  warning: "alert",
+  danger: "alert"
+};
+function Alert({
+  tone = "info",
+  title,
+  children,
+  className,
+  ...rest
+}) {
+  const cls = ["ds-alert", tone, className].filter(Boolean).join(" ");
+  return /*#__PURE__*/React.createElement("div", _extends({
+    className: cls,
+    role: tone === "danger" ? "alert" : "status"
+  }, rest), /*#__PURE__*/React.createElement(Icon, {
+    name: ICON[tone],
+    className: "glyph",
+    size: 14
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "body"
+  }, title ? /*#__PURE__*/React.createElement("div", {
+    className: "title"
+  }, title) : null, /*#__PURE__*/React.createElement("div", {
+    className: "msg"
+  }, children)));
+}
+Object.assign(__ds_scope, { Alert });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/feedback/Alert/Alert.jsx", error: String((e && e.message) || e) }); }
+
 // components/feedback/ConfirmCard/ConfirmCard.jsx
 try { (() => {
 const {
@@ -1193,6 +1336,92 @@ function ConfirmCard({
 }
 Object.assign(__ds_scope, { ConfirmCard });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/feedback/ConfirmCard/ConfirmCard.jsx", error: String((e && e.message) || e) }); }
+
+// components/feedback/Empty/Empty.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const {
+  Icon
+} = __ds_scope;
+const _React = window.React;
+function Empty({
+  iconName = "search",
+  title,
+  description,
+  action,
+  className,
+  ...rest
+}) {
+  return /*#__PURE__*/React.createElement("div", _extends({
+    className: ["ds-empty", className].filter(Boolean).join(" ")
+  }, rest), /*#__PURE__*/React.createElement("span", {
+    className: "halo"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: iconName,
+    size: 18,
+    className: "glyph"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "title"
+  }, title), description ? /*#__PURE__*/React.createElement("div", {
+    className: "desc"
+  }, description) : null, action ? /*#__PURE__*/React.createElement("div", {
+    className: "cta"
+  }, action) : null);
+}
+Object.assign(__ds_scope, { Empty });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/feedback/Empty/Empty.jsx", error: String((e && e.message) || e) }); }
+
+// components/feedback/Progress/Progress.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const _React = window.React;
+function Progress({
+  value = 0,
+  max = 100,
+  tone,
+  className,
+  ...rest
+}) {
+  const pct = Math.min(100, Math.max(0, value / max * 100));
+  const cls = ["ds-progress", tone, className].filter(Boolean).join(" ");
+  return /*#__PURE__*/React.createElement("span", _extends({
+    className: cls,
+    role: "progressbar",
+    "aria-valuenow": value,
+    "aria-valuemin": 0,
+    "aria-valuemax": max
+  }, rest), /*#__PURE__*/React.createElement("span", {
+    className: "fill",
+    style: {
+      width: `${pct}%`
+    }
+  }));
+}
+Object.assign(__ds_scope, { Progress });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/feedback/Progress/Progress.jsx", error: String((e && e.message) || e) }); }
+
+// components/feedback/Skeleton/Skeleton.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const _React = window.React;
+function Skeleton({
+  width,
+  height,
+  radius = 4,
+  className,
+  ...rest
+}) {
+  return /*#__PURE__*/React.createElement("span", _extends({
+    className: ["ds-skeleton", className].filter(Boolean).join(" "),
+    style: {
+      width,
+      height,
+      borderRadius: radius
+    }
+  }, rest));
+}
+Object.assign(__ds_scope, { Skeleton });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/feedback/Skeleton/Skeleton.jsx", error: String((e && e.message) || e) }); }
 
 // components/feedback/Spinner/Spinner.jsx
 try { (() => {
@@ -1307,6 +1536,28 @@ function Input({
 Object.assign(__ds_scope, { Input });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/forms/Input/Input.jsx", error: String((e && e.message) || e) }); }
 
+// components/forms/Label/Label.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const _React = window.React;
+function Label({
+  htmlFor,
+  required,
+  children,
+  className,
+  ...rest
+}) {
+  return /*#__PURE__*/React.createElement("label", _extends({
+    htmlFor: htmlFor,
+    className: ["ds-label", className].filter(Boolean).join(" ")
+  }, rest), children, required ? /*#__PURE__*/React.createElement("span", {
+    className: "req",
+    "aria-hidden": true
+  }, " *") : null);
+}
+Object.assign(__ds_scope, { Label });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/forms/Label/Label.jsx", error: String((e && e.message) || e) }); }
+
 // components/forms/Radio/Radio.jsx
 try { (() => {
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
@@ -1362,6 +1613,55 @@ function SegmentedControl({
 Object.assign(__ds_scope, { SegmentedControl });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/forms/SegmentedControl/SegmentedControl.jsx", error: String((e && e.message) || e) }); }
 
+// components/forms/Slider/Slider.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const _React = window.React;
+const {
+  useState,
+  useId
+} = window.React;
+function Slider({
+  value,
+  defaultValue = 50,
+  min = 0,
+  max = 100,
+  step = 1,
+  onChange,
+  className,
+  ...rest
+}) {
+  const [internal, setInternal] = useState(defaultValue);
+  const controlled = value !== undefined;
+  const v = controlled ? value : internal;
+  const id = useId();
+  const pct = (v - min) / (max - min) * 100;
+  return /*#__PURE__*/React.createElement("span", {
+    className: ["ds-slider", className].filter(Boolean).join(" ")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "track"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "fill",
+    style: {
+      width: `${pct}%`
+    }
+  })), /*#__PURE__*/React.createElement("input", _extends({
+    type: "range",
+    id: id,
+    min: min,
+    max: max,
+    step: step,
+    value: v,
+    onChange: e => {
+      const n = Number(e.target.value);
+      if (!controlled) setInternal(n);
+      onChange?.(n);
+    }
+  }, rest)));
+}
+Object.assign(__ds_scope, { Slider });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/forms/Slider/Slider.jsx", error: String((e && e.message) || e) }); }
+
 // components/forms/Switch/Switch.jsx
 try { (() => {
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
@@ -1388,6 +1688,98 @@ function Switch({
 }
 Object.assign(__ds_scope, { Switch });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/forms/Switch/Switch.jsx", error: String((e && e.message) || e) }); }
+
+// components/forms/Textarea/Textarea.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const _React = window.React;
+function Textarea({
+  resize = "vertical",
+  className,
+  ...rest
+}) {
+  const cls = ["ds-textarea", `r-${resize}`, className].filter(Boolean).join(" ");
+  return /*#__PURE__*/React.createElement("textarea", _extends({
+    className: cls
+  }, rest));
+}
+Object.assign(__ds_scope, { Textarea });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/forms/Textarea/Textarea.jsx", error: String((e && e.message) || e) }); }
+
+// components/navigation/Breadcrumb/Breadcrumb.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const {
+  Icon
+} = __ds_scope;
+const _React = window.React;
+function Breadcrumb({
+  items,
+  className,
+  ...rest
+}) {
+  return /*#__PURE__*/React.createElement("nav", _extends({
+    className: ["ds-breadcrumb", className].filter(Boolean).join(" "),
+    "aria-label": "Breadcrumb"
+  }, rest), items.map((it, i) => /*#__PURE__*/React.createElement(_React.Fragment, {
+    key: i
+  }, /*#__PURE__*/React.createElement("span", {
+    className: i === items.length - 1 ? "seg is-last" : "seg",
+    onClick: it.onClick
+  }, it.label), i < items.length - 1 ? /*#__PURE__*/React.createElement(Icon, {
+    name: "chevron",
+    size: 9,
+    className: "sep"
+  }) : null)));
+}
+Object.assign(__ds_scope, { Breadcrumb });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/navigation/Breadcrumb/Breadcrumb.jsx", error: String((e && e.message) || e) }); }
+
+// components/navigation/Collapsible/Collapsible.jsx
+try { (() => {
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const {
+  Icon
+} = __ds_scope;
+const _React = window.React;
+const {
+  useState
+} = window.React;
+function Collapsible({
+  title,
+  iconName,
+  count,
+  defaultOpen = false,
+  children,
+  className,
+  ...rest
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return /*#__PURE__*/React.createElement("div", _extends({
+    className: ["ds-collapsible", open && "is-open", className].filter(Boolean).join(" ")
+  }, rest), /*#__PURE__*/React.createElement("button", {
+    className: "head",
+    type: "button",
+    onClick: () => setOpen(v => !v),
+    "aria-expanded": open
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "chevron",
+    className: "chev",
+    size: 10
+  }), iconName ? /*#__PURE__*/React.createElement(Icon, {
+    name: iconName,
+    className: "glyph",
+    size: 12
+  }) : null, /*#__PURE__*/React.createElement("span", {
+    className: "title"
+  }, title), count != null ? /*#__PURE__*/React.createElement("span", {
+    className: "count"
+  }, count) : null), open ? /*#__PURE__*/React.createElement("div", {
+    className: "body"
+  }, children) : null);
+}
+Object.assign(__ds_scope, { Collapsible });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/navigation/Collapsible/Collapsible.jsx", error: String((e && e.message) || e) }); }
 
 // components/navigation/FileRow/FileRow.jsx
 try { (() => {
@@ -1499,6 +1891,54 @@ function WorkspaceItem({
 Object.assign(__ds_scope, { WorkspaceItem });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/navigation/WorkspaceItem/WorkspaceItem.jsx", error: String((e && e.message) || e) }); }
 
+// components/overlays/AlertDialog/AlertDialog.jsx
+try { (() => {
+const {
+  Icon
+} = __ds_scope;
+const {
+  Button
+} = __ds_scope;
+const _React = window.React;
+function AlertDialog({
+  open,
+  title,
+  body,
+  confirmLabel = "Delete",
+  cancelLabel = "Cancel",
+  onConfirm,
+  onCancel
+}) {
+  if (!open) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "ds-dialog-scrim",
+    onClick: onCancel
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "ds-alert-dialog",
+    role: "alertdialog",
+    "aria-modal": "true",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "icon"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "alert",
+    size: 16
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "title"
+  }, title), /*#__PURE__*/React.createElement("div", {
+    className: "body"
+  }, body), /*#__PURE__*/React.createElement("div", {
+    className: "actions"
+  }, /*#__PURE__*/React.createElement(Button, {
+    onClick: onCancel
+  }, cancelLabel), /*#__PURE__*/React.createElement(Button, {
+    variant: "danger",
+    onClick: onConfirm
+  }, confirmLabel))));
+}
+Object.assign(__ds_scope, { AlertDialog });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/overlays/AlertDialog/AlertDialog.jsx", error: String((e && e.message) || e) }); }
+
 // components/overlays/ContextMenu/ContextMenu.jsx
 try { (() => {
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
@@ -1571,6 +2011,151 @@ function MenuItem({
 }
 Object.assign(__ds_scope, { ContextMenu, MenuHeading, MenuSep, MenuGroup, MenuItem });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/overlays/ContextMenu/ContextMenu.jsx", error: String((e && e.message) || e) }); }
+
+// components/overlays/Dialog/Dialog.jsx
+try { (() => {
+const {
+  Icon
+} = __ds_scope;
+const {
+  IconButton
+} = __ds_scope;
+const _React = window.React;
+function Dialog({
+  open,
+  onClose,
+  width = 560,
+  children,
+  className
+}) {
+  if (!open) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "ds-dialog-scrim",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: ["ds-dialog", className].filter(Boolean).join(" "),
+    style: {
+      width
+    },
+    role: "dialog",
+    "aria-modal": "true",
+    onClick: e => e.stopPropagation()
+  }, children));
+}
+function DialogHeader({
+  title,
+  description,
+  onClose
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "ds-dialog-head"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "titles"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "title"
+  }, title), description ? /*#__PURE__*/React.createElement("div", {
+    className: "desc"
+  }, description) : null), onClose ? /*#__PURE__*/React.createElement(IconButton, {
+    onClick: onClose,
+    "aria-label": "Close"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x",
+    size: 14
+  })) : null);
+}
+function DialogFooter({
+  children
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "ds-dialog-foot"
+  }, children);
+}
+Object.assign(__ds_scope, { Dialog, DialogHeader, DialogFooter });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/overlays/Dialog/Dialog.jsx", error: String((e && e.message) || e) }); }
+
+// components/overlays/DropdownMenu/DropdownMenu.jsx
+try { (() => {
+const _React = window.React;
+const {
+  useState,
+  useRef,
+  useEffect
+} = window.React;
+function DropdownMenu({
+  trigger,
+  children,
+  side = "bottom",
+  align = "start"
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = e => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", off);
+    return () => document.removeEventListener("mousedown", off);
+  }, [open]);
+  const t = _React.cloneElement(_React.Children.only(trigger), {
+    onClick: () => setOpen(v => !v),
+    "aria-expanded": open
+  });
+  return /*#__PURE__*/React.createElement("span", {
+    className: "ds-dropdown-wrap",
+    ref: wrapRef
+  }, t, open ? /*#__PURE__*/React.createElement("span", {
+    className: `ds-dropdown s-${side} a-${align}`
+  }, children) : null);
+}
+Object.assign(__ds_scope, { DropdownMenu });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/overlays/DropdownMenu/DropdownMenu.jsx", error: String((e && e.message) || e) }); }
+
+// components/overlays/HoverCard/HoverCard.jsx
+try { (() => {
+const _React = window.React;
+const {
+  useState,
+  useRef
+} = window.React;
+function HoverCard({
+  content,
+  side = "bottom",
+  children,
+  className
+}) {
+  const [open, setOpen] = useState(false);
+  const openT = useRef(null);
+  const closeT = useRef(null);
+  const trigger = _React.Children.only(children);
+  const enter = () => {
+    clearTimeout(closeT.current);
+    openT.current = setTimeout(() => setOpen(true), 300);
+  };
+  const leave = () => {
+    clearTimeout(openT.current);
+    closeT.current = setTimeout(() => setOpen(false), 100);
+  };
+  const cloned = _React.cloneElement(trigger, {
+    onMouseEnter: e => {
+      trigger.props.onMouseEnter?.(e);
+      enter();
+    },
+    onMouseLeave: e => {
+      trigger.props.onMouseLeave?.(e);
+      leave();
+    }
+  });
+  return /*#__PURE__*/React.createElement("span", {
+    className: "ds-hover-card-wrap"
+  }, cloned, open ? /*#__PURE__*/React.createElement("span", {
+    className: ["ds-hover-card", `s-${side}`, className].filter(Boolean).join(" "),
+    onMouseEnter: enter,
+    onMouseLeave: leave
+  }, content) : null);
+}
+Object.assign(__ds_scope, { HoverCard });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/overlays/HoverCard/HoverCard.jsx", error: String((e && e.message) || e) }); }
 
 // components/overlays/Popover/Popover.jsx
 try { (() => {
@@ -1670,6 +2255,54 @@ function PopoverHint({
 }
 Object.assign(__ds_scope, { Popover, PopoverHeader, PopoverGroup, PopoverRow, PopoverSep, PopoverHint });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/overlays/Popover/Popover.jsx", error: String((e && e.message) || e) }); }
+
+// components/overlays/Sheet/Sheet.jsx
+try { (() => {
+const {
+  Icon
+} = __ds_scope;
+const {
+  IconButton
+} = __ds_scope;
+const _React = window.React;
+function Sheet({
+  open,
+  side = "right",
+  onClose,
+  title,
+  children,
+  width = 400,
+  className
+}) {
+  if (!open) return null;
+  const cls = ["ds-sheet", `s-${side}`, className].filter(Boolean).join(" ");
+  return /*#__PURE__*/React.createElement("div", {
+    className: "ds-sheet-scrim",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: cls,
+    style: {
+      width
+    },
+    role: "dialog",
+    "aria-modal": "true",
+    onClick: e => e.stopPropagation()
+  }, title ? /*#__PURE__*/React.createElement("div", {
+    className: "ds-sheet-head"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "title"
+  }, title), /*#__PURE__*/React.createElement(IconButton, {
+    onClick: onClose,
+    "aria-label": "Close"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x",
+    size: 13
+  }))) : null, /*#__PURE__*/React.createElement("div", {
+    className: "ds-sheet-body"
+  }, children)));
+}
+Object.assign(__ds_scope, { Sheet });
+})(); } catch (e) { __ds_ns.__errors.push({ path: "components/overlays/Sheet/Sheet.jsx", error: String((e && e.message) || e) }); }
 
 // components/overlays/Tooltip/Tooltip.jsx
 try { (() => {
@@ -3960,7 +4593,31 @@ __ds_ns.Pill = __ds_scope.Pill;
 
 __ds_ns.Tag = __ds_scope.Tag;
 
+__ds_ns.Avatar = __ds_scope.Avatar;
+
+__ds_ns.ScrollArea = __ds_scope.ScrollArea;
+
+__ds_ns.Table = __ds_scope.Table;
+
+__ds_ns.THead = __ds_scope.THead;
+
+__ds_ns.TBody = __ds_scope.TBody;
+
+__ds_ns.TR = __ds_scope.TR;
+
+__ds_ns.TH = __ds_scope.TH;
+
+__ds_ns.TD = __ds_scope.TD;
+
+__ds_ns.Alert = __ds_scope.Alert;
+
 __ds_ns.ConfirmCard = __ds_scope.ConfirmCard;
+
+__ds_ns.Empty = __ds_scope.Empty;
+
+__ds_ns.Progress = __ds_scope.Progress;
+
+__ds_ns.Skeleton = __ds_scope.Skeleton;
 
 __ds_ns.Spinner = __ds_scope.Spinner;
 
@@ -3970,17 +4627,29 @@ __ds_ns.Checkbox = __ds_scope.Checkbox;
 
 __ds_ns.Input = __ds_scope.Input;
 
+__ds_ns.Label = __ds_scope.Label;
+
 __ds_ns.Radio = __ds_scope.Radio;
 
 __ds_ns.SegmentedControl = __ds_scope.SegmentedControl;
 
+__ds_ns.Slider = __ds_scope.Slider;
+
 __ds_ns.Switch = __ds_scope.Switch;
+
+__ds_ns.Textarea = __ds_scope.Textarea;
+
+__ds_ns.Breadcrumb = __ds_scope.Breadcrumb;
+
+__ds_ns.Collapsible = __ds_scope.Collapsible;
 
 __ds_ns.FileRow = __ds_scope.FileRow;
 
 __ds_ns.Tabs = __ds_scope.Tabs;
 
 __ds_ns.WorkspaceItem = __ds_scope.WorkspaceItem;
+
+__ds_ns.AlertDialog = __ds_scope.AlertDialog;
 
 __ds_ns.ContextMenu = __ds_scope.ContextMenu;
 
@@ -3991,6 +4660,16 @@ __ds_ns.MenuSep = __ds_scope.MenuSep;
 __ds_ns.MenuGroup = __ds_scope.MenuGroup;
 
 __ds_ns.MenuItem = __ds_scope.MenuItem;
+
+__ds_ns.Dialog = __ds_scope.Dialog;
+
+__ds_ns.DialogHeader = __ds_scope.DialogHeader;
+
+__ds_ns.DialogFooter = __ds_scope.DialogFooter;
+
+__ds_ns.DropdownMenu = __ds_scope.DropdownMenu;
+
+__ds_ns.HoverCard = __ds_scope.HoverCard;
 
 __ds_ns.Popover = __ds_scope.Popover;
 
@@ -4003,6 +4682,8 @@ __ds_ns.PopoverRow = __ds_scope.PopoverRow;
 __ds_ns.PopoverSep = __ds_scope.PopoverSep;
 
 __ds_ns.PopoverHint = __ds_scope.PopoverHint;
+
+__ds_ns.Sheet = __ds_scope.Sheet;
 
 __ds_ns.Tooltip = __ds_scope.Tooltip;
 

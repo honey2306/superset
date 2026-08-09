@@ -5,4 +5,8 @@
 @import "./tokens/radius.css";
 @import "./tokens/shadow.css";
 @import "./tokens/motion.css";
+@import "./tokens/z-index.css";
+@import "./tokens/opacity.css";
+@import "./tokens/border-width.css";
+@import "./tokens/focus.css";
 @import "./tokens/reset.css";

@@ -1,0 +1,40 @@
+<!-- @dsCard group="Layout" viewport="720x360" name="ModalStack" subtitle="z-index ladder · scrim · which overlay for which decision" -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="../../components.css" />
+</head>
+<body>
+  <div id="root" style="padding:16px 20px"></div>
+  <script>
+    const rows = [
+      { z: "80", name: "z-toast", tint: "success", desc: "toasts stay above everything (esp. error toasts)" },
+      { z: "70", name: "z-tooltip", tint: "info", desc: "short labels, always accessible" },
+      { z: "60", name: "z-modal", tint: "accent", desc: "Dialog / Sheet / AlertDialog content" },
+      { z: "50", name: "z-modal-scrim", tint: "muted", desc: "single scrim, never stacked" },
+      { z: "40", name: "z-overlay", tint: "muted", desc: "Popover / ContextMenu / DropdownMenu / HoverCard" },
+      { z: "30", name: "z-sticky-overlay", tint: "muted", desc: "floating action bar" },
+      { z: "20", name: "z-dropdown", tint: "muted", desc: "menu trigger anchor" },
+      { z: "10", name: "z-rail", tint: "muted", desc: "sidebar, status bar" },
+      { z: "0", name: "z-base", tint: "muted", desc: "page content" },
+    ];
+    const tint = {
+      accent: "var(--accent-tint)", success: "var(--success-tint)",
+      info: "var(--info-tint)", muted: "var(--hover)",
+    };
+    document.getElementById("root").innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:2px">
+        ${rows.map(r => `
+          <div style="display:grid;grid-template-columns:60px 200px 1fr;gap:12px;padding:6px 10px;border-radius:6px;background:${tint[r.tint]};align-items:center">
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--fg);text-align:right">${r.z}</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--fg);letter-spacing:var(--ls-mono)">${r.name}</span>
+            <span style="font-size:11px;color:var(--fg-mute)">${r.desc}</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  </script>
+</body>
+</html>

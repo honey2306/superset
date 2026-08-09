@@ -207,6 +207,110 @@
       ]
     },
     {
+      "name": "Avatar",
+      "sourcePath": "components/data/Avatar/Avatar.jsx",
+      "props": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "src",
+          "type": "string"
+        },
+        {
+          "name": "size",
+          "type": "20 | 24 | 28 | 32"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ScrollArea",
+      "sourcePath": "components/data/ScrollArea/ScrollArea.jsx",
+      "props": [
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "maxHeight",
+          "type": "number | string"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Table",
+      "sourcePath": "components/data/Table/Table.jsx",
+      "props": [
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "THead",
+      "sourcePath": "components/data/Table/Table.jsx"
+    },
+    {
+      "name": "TBody",
+      "sourcePath": "components/data/Table/Table.jsx"
+    },
+    {
+      "name": "TR",
+      "sourcePath": "components/data/Table/Table.jsx",
+      "kind": "constant"
+    },
+    {
+      "name": "TH",
+      "sourcePath": "components/data/Table/Table.jsx",
+      "kind": "constant"
+    },
+    {
+      "name": "TD",
+      "sourcePath": "components/data/Table/Table.jsx",
+      "kind": "constant"
+    },
+    {
+      "name": "Alert",
+      "sourcePath": "components/feedback/Alert/Alert.jsx",
+      "props": [
+        {
+          "name": "tone",
+          "values": [
+            "info",
+            "success",
+            "warning",
+            "danger"
+          ]
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "ConfirmCard",
       "sourcePath": "components/feedback/ConfirmCard/ConfirmCard.jsx",
       "props": [
@@ -237,6 +341,80 @@
         {
           "name": "onCancel",
           "type": "() => void"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Empty",
+      "sourcePath": "components/feedback/Empty/Empty.jsx",
+      "props": [
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "action",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Progress",
+      "sourcePath": "components/feedback/Progress/Progress.jsx",
+      "props": [
+        {
+          "name": "value",
+          "type": "number"
+        },
+        {
+          "name": "max",
+          "type": "number"
+        },
+        {
+          "name": "tone",
+          "values": [
+            "accent",
+            "success",
+            "danger"
+          ]
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Skeleton",
+      "sourcePath": "components/feedback/Skeleton/Skeleton.jsx",
+      "props": [
+        {
+          "name": "width",
+          "type": "CSSProperties[\"width\"]"
+        },
+        {
+          "name": "height",
+          "type": "CSSProperties[\"height\"]"
+        },
+        {
+          "name": "radius",
+          "type": "number"
         },
         {
           "name": "className",
@@ -346,6 +524,28 @@
       ]
     },
     {
+      "name": "Label",
+      "sourcePath": "components/forms/Label/Label.jsx",
+      "props": [
+        {
+          "name": "htmlFor",
+          "type": "string"
+        },
+        {
+          "name": "required",
+          "type": "boolean"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "Radio",
       "sourcePath": "components/forms/Radio/Radio.jsx",
       "props": [
@@ -402,6 +602,40 @@
       ]
     },
     {
+      "name": "Slider",
+      "sourcePath": "components/forms/Slider/Slider.jsx",
+      "props": [
+        {
+          "name": "value",
+          "type": "number"
+        },
+        {
+          "name": "defaultValue",
+          "type": "number"
+        },
+        {
+          "name": "min",
+          "type": "number"
+        },
+        {
+          "name": "max",
+          "type": "number"
+        },
+        {
+          "name": "step",
+          "type": "number"
+        },
+        {
+          "name": "onChange",
+          "type": "(value: number) => void"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "Switch",
       "sourcePath": "components/forms/Switch/Switch.jsx",
       "props": [
@@ -412,6 +646,67 @@
         {
           "name": "onChange",
           "type": "(next: boolean) => void"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Textarea",
+      "sourcePath": "components/forms/Textarea/Textarea.jsx",
+      "props": [
+        {
+          "name": "resize",
+          "values": [
+            "none",
+            "vertical"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Breadcrumb",
+      "sourcePath": "components/navigation/Breadcrumb/Breadcrumb.jsx",
+      "props": [
+        {
+          "name": "items",
+          "type": "{ label: string"
+        },
+        {
+          "name": "onClick",
+          "type": "() => void }[]"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Collapsible",
+      "sourcePath": "components/navigation/Collapsible/Collapsible.jsx",
+      "props": [
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "iconName",
+          "type": "string"
+        },
+        {
+          "name": "count",
+          "type": "number"
+        },
+        {
+          "name": "defaultOpen",
+          "type": "boolean"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
         },
         {
           "name": "className",
@@ -521,6 +816,40 @@
       ]
     },
     {
+      "name": "AlertDialog",
+      "sourcePath": "components/overlays/AlertDialog/AlertDialog.jsx",
+      "props": [
+        {
+          "name": "open",
+          "type": "boolean"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "body",
+          "type": "ReactNode"
+        },
+        {
+          "name": "confirmLabel",
+          "type": "string"
+        },
+        {
+          "name": "cancelLabel",
+          "type": "string"
+        },
+        {
+          "name": "onConfirm",
+          "type": "() => void"
+        },
+        {
+          "name": "onCancel",
+          "type": "() => void"
+        }
+      ]
+    },
+    {
       "name": "ContextMenu",
       "sourcePath": "components/overlays/ContextMenu/ContextMenu.jsx",
       "props": [
@@ -599,6 +928,118 @@
         {
           "name": "onClick",
           "type": "() => void"
+        }
+      ]
+    },
+    {
+      "name": "Dialog",
+      "sourcePath": "components/overlays/Dialog/Dialog.jsx",
+      "props": [
+        {
+          "name": "open",
+          "type": "boolean"
+        },
+        {
+          "name": "onClose",
+          "type": "() => void"
+        },
+        {
+          "name": "width",
+          "type": "number"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "DialogHeader",
+      "sourcePath": "components/overlays/Dialog/Dialog.jsx",
+      "props": [
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "ReactNode"
+        },
+        {
+          "name": "onClose",
+          "type": "() => void"
+        }
+      ]
+    },
+    {
+      "name": "DialogFooter",
+      "sourcePath": "components/overlays/Dialog/Dialog.jsx",
+      "props": [
+        {
+          "name": "children",
+          "type": "ReactNode"
+        }
+      ]
+    },
+    {
+      "name": "DropdownMenu",
+      "sourcePath": "components/overlays/DropdownMenu/DropdownMenu.jsx",
+      "props": [
+        {
+          "name": "trigger",
+          "type": "ReactNode"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "side",
+          "values": [
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "name": "align",
+          "values": [
+            "start",
+            "center",
+            "end"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "HoverCard",
+      "sourcePath": "components/overlays/HoverCard/HoverCard.jsx",
+      "props": [
+        {
+          "name": "content",
+          "type": "ReactNode"
+        },
+        {
+          "name": "side",
+          "values": [
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ]
+        },
+        {
+          "name": "children",
+          "type": "ReactElement"
+        },
+        {
+          "name": "className",
+          "type": "string"
         }
       ]
     },
@@ -719,6 +1160,45 @@
       "sourcePath": "components/overlays/Popover/Popover.jsx"
     },
     {
+      "name": "Sheet",
+      "sourcePath": "components/overlays/Sheet/Sheet.jsx",
+      "props": [
+        {
+          "name": "open",
+          "type": "boolean"
+        },
+        {
+          "name": "side",
+          "values": [
+            "left",
+            "right",
+            "top",
+            "bottom"
+          ]
+        },
+        {
+          "name": "onClose",
+          "type": "() => void"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "children",
+          "type": "ReactNode"
+        },
+        {
+          "name": "width",
+          "type": "number"
+        },
+        {
+          "name": "className",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "Tooltip",
       "sourcePath": "components/overlays/Tooltip/Tooltip.jsx",
       "props": [
@@ -757,6 +1237,24 @@
       "viewport": "340x240"
     },
     {
+      "name": "Empty",
+      "path": "components/feedback/Empty/Empty.jsx",
+      "previewPath": "components/feedback/Empty/Empty.card.html",
+      "kind": "component",
+      "section": "Patterns",
+      "subtitle": "缺省态 · 图标 halo · 标题 · 描述 · CTA",
+      "viewport": "360x220"
+    },
+    {
+      "name": "AlertDialog",
+      "path": "components/overlays/AlertDialog/AlertDialog.jsx",
+      "previewPath": "components/overlays/AlertDialog/AlertDialog.card.html",
+      "kind": "component",
+      "section": "Overlays",
+      "subtitle": "全屏破坏性确认 · scrim + shadow-3",
+      "viewport": "420x260"
+    },
+    {
       "name": "ContextMenu",
       "path": "components/overlays/ContextMenu/ContextMenu.jsx",
       "previewPath": "components/overlays/ContextMenu/ContextMenu.card.html",
@@ -766,6 +1264,24 @@
       "viewport": "300x360"
     },
     {
+      "name": "Dialog",
+      "path": "components/overlays/Dialog/Dialog.jsx",
+      "previewPath": "components/overlays/Dialog/Dialog.card.html",
+      "kind": "component",
+      "section": "Overlays",
+      "subtitle": "模态窗 · 12px radius · shadow-3 · scrim",
+      "viewport": "560x420"
+    },
+    {
+      "name": "DropdownMenu",
+      "path": "components/overlays/DropdownMenu/DropdownMenu.jsx",
+      "previewPath": "components/overlays/DropdownMenu/DropdownMenu.card.html",
+      "kind": "component",
+      "section": "Overlays",
+      "subtitle": "点击触发 · 与 ContextMenu 同一密度",
+      "viewport": "240x360"
+    },
+    {
       "name": "Popover",
       "path": "components/overlays/Popover/Popover.jsx",
       "previewPath": "components/overlays/Popover/Popover.card.html",
@@ -773,6 +1289,15 @@
       "section": "Overlays",
       "subtitle": "搜索式 popover · 分组行 · 键盘导航",
       "viewport": "360x460"
+    },
+    {
+      "name": "Sheet",
+      "path": "components/overlays/Sheet/Sheet.jsx",
+      "previewPath": "components/overlays/Sheet/Sheet.card.html",
+      "kind": "component",
+      "section": "Overlays",
+      "subtitle": "侧滑面板 · 4 方向 · 保留主区可见",
+      "viewport": "400x580"
     },
     {
       "name": "desktop-app",
@@ -895,11 +1420,60 @@
       "name": "Tag"
     },
     {
+      "path": "components/data/Avatar/Avatar.card.html",
+      "group": "Components",
+      "viewport": "720x120",
+      "subtitle": "initials fallback · 4 sizes",
+      "name": "Avatar"
+    },
+    {
+      "path": "components/data/ScrollArea/ScrollArea.card.html",
+      "group": "Components",
+      "viewport": "720x240",
+      "subtitle": "bounded region · themed scrollbar",
+      "name": "ScrollArea"
+    },
+    {
+      "path": "components/data/Table/Table.card.html",
+      "group": "Components",
+      "viewport": "720x280",
+      "subtitle": "dense · numeric mono · active row",
+      "name": "Table"
+    },
+    {
+      "path": "components/feedback/Alert/Alert.card.html",
+      "group": "Components",
+      "viewport": "720x320",
+      "subtitle": "inline banner · info / success / warning / danger",
+      "name": "Alert"
+    },
+    {
       "path": "components/feedback/ConfirmCard/ConfirmCard.card.html",
       "group": "Components",
       "viewport": "720x260",
       "subtitle": "destructive confirm — Enter/Esc",
       "name": "ConfirmCard"
+    },
+    {
+      "path": "components/feedback/Empty/Empty.card.html",
+      "group": "Components",
+      "viewport": "720x340",
+      "subtitle": "empty state · halo icon · title · desc · CTA",
+      "name": "Empty"
+    },
+    {
+      "path": "components/feedback/Progress/Progress.card.html",
+      "group": "Components",
+      "viewport": "720x140",
+      "subtitle": "determinate · accent / success / danger",
+      "name": "Progress"
+    },
+    {
+      "path": "components/feedback/Skeleton/Skeleton.card.html",
+      "group": "Components",
+      "viewport": "720x220",
+      "subtitle": "loading placeholder · row / block",
+      "name": "Skeleton"
     },
     {
       "path": "components/feedback/Spinner/Spinner.card.html",
@@ -930,6 +1504,13 @@
       "name": "Input"
     },
     {
+      "path": "components/forms/Label/Label.card.html",
+      "group": "Components",
+      "viewport": "720x140",
+      "subtitle": "form label · required *",
+      "name": "Label"
+    },
+    {
       "path": "components/forms/Radio/Radio.card.html",
       "group": "Components",
       "viewport": "720x140",
@@ -944,11 +1525,39 @@
       "name": "SegmentedControl"
     },
     {
+      "path": "components/forms/Slider/Slider.card.html",
+      "group": "Components",
+      "viewport": "720x140",
+      "subtitle": "range · accent thumb with glow",
+      "name": "Slider"
+    },
+    {
       "path": "components/forms/Switch/Switch.card.html",
       "group": "Components",
       "viewport": "720x100",
       "subtitle": "on / off, controlled",
       "name": "Switch"
+    },
+    {
+      "path": "components/forms/Textarea/Textarea.card.html",
+      "group": "Components",
+      "viewport": "720x220",
+      "subtitle": "multiline · hairline · focus glow",
+      "name": "Textarea"
+    },
+    {
+      "path": "components/navigation/Breadcrumb/Breadcrumb.card.html",
+      "group": "Components",
+      "viewport": "720x120",
+      "subtitle": "path trail · mono segments",
+      "name": "Breadcrumb"
+    },
+    {
+      "path": "components/navigation/Collapsible/Collapsible.card.html",
+      "group": "Components",
+      "viewport": "720x220",
+      "subtitle": "section accordion · chevron rotates",
+      "name": "Collapsible"
     },
     {
       "path": "components/navigation/FileRow/FileRow.card.html",
@@ -972,6 +1581,13 @@
       "name": "WorkspaceItem"
     },
     {
+      "path": "components/overlays/AlertDialog/AlertDialog.card.html",
+      "group": "Components",
+      "viewport": "720x360",
+      "subtitle": "destructive full-modal confirm",
+      "name": "AlertDialog"
+    },
+    {
       "path": "components/overlays/ContextMenu/ContextMenu.card.html",
       "group": "Components",
       "viewport": "720x520",
@@ -979,11 +1595,39 @@
       "name": "ContextMenu · branch ops"
     },
     {
+      "path": "components/overlays/Dialog/Dialog.card.html",
+      "group": "Components",
+      "viewport": "720x520",
+      "subtitle": "modal · header + body + footer",
+      "name": "Dialog"
+    },
+    {
+      "path": "components/overlays/DropdownMenu/DropdownMenu.card.html",
+      "group": "Components",
+      "viewport": "720x340",
+      "subtitle": "click-triggered menu · reuses ContextMenu parts",
+      "name": "DropdownMenu"
+    },
+    {
+      "path": "components/overlays/HoverCard/HoverCard.card.html",
+      "group": "Components",
+      "viewport": "720x280",
+      "subtitle": "rich hover preview · 300ms delay",
+      "name": "HoverCard"
+    },
+    {
       "path": "components/overlays/Popover/Popover.card.html",
       "group": "Components",
       "viewport": "720x520",
       "subtitle": "search + current/focused/normal rows + remote group",
       "name": "Popover · branch list"
+    },
+    {
+      "path": "components/overlays/Sheet/Sheet.card.html",
+      "group": "Components",
+      "viewport": "720x520",
+      "subtitle": "side-anchored panel · right",
+      "name": "Sheet"
     },
     {
       "path": "components/overlays/Tooltip/Tooltip.card.html",
@@ -1042,6 +1686,83 @@
       "name": "WorkspaceSidebar"
     },
     {
+      "path": "layouts/AppShell/AppShell.card.html",
+      "group": "Layout",
+      "viewport": "720x360",
+      "subtitle": "chrome 34 · main 1fr · status 24 · z-index ladder",
+      "name": "AppShell"
+    },
+    {
+      "path": "layouts/DoubleSidebar/DoubleSidebar.card.html",
+      "group": "Layout",
+      "viewport": "720x320",
+      "subtitle": "rail 44 + sidebar 260-320 + main · Superset main view",
+      "name": "DoubleSidebar"
+    },
+    {
+      "path": "layouts/ModalStack/ModalStack.card.html",
+      "group": "Layout",
+      "viewport": "720x360",
+      "subtitle": "z-index ladder · scrim · which overlay for which decision",
+      "name": "ModalStack"
+    },
+    {
+      "path": "layouts/TabbedWorkspace/TabbedWorkspace.card.html",
+      "group": "Layout",
+      "viewport": "720x320",
+      "subtitle": "tab bar 34 · toolbar 32 · content 1fr · right panel 320-420",
+      "name": "TabbedWorkspace"
+    },
+    {
+      "path": "patterns/ErrorState/ErrorState.card.html",
+      "group": "Patterns",
+      "viewport": "720x420",
+      "subtitle": "whole-surface failure · icon halo · retry",
+      "name": "ErrorState"
+    },
+    {
+      "path": "patterns/FormField/FormField.card.html",
+      "group": "Patterns",
+      "viewport": "720x380",
+      "subtitle": "label · control · hint OR error",
+      "name": "FormField"
+    },
+    {
+      "path": "patterns/KeyboardHintBar/KeyboardHintBar.card.html",
+      "group": "Patterns",
+      "viewport": "720x160",
+      "subtitle": "popover / palette footer · mono kbd hints",
+      "name": "KeyboardHintBar"
+    },
+    {
+      "path": "patterns/ListHeader/ListHeader.card.html",
+      "group": "Patterns",
+      "viewport": "720x200",
+      "subtitle": "column headers · sort chevron",
+      "name": "ListHeader"
+    },
+    {
+      "path": "patterns/SectionHeader/SectionHeader.card.html",
+      "group": "Patterns",
+      "viewport": "720x260",
+      "subtitle": "title · desc · optional action",
+      "name": "SectionHeader"
+    },
+    {
+      "path": "patterns/SkeletonList/SkeletonList.card.html",
+      "group": "Patterns",
+      "viewport": "720x240",
+      "subtitle": "row-shape loading placeholder × 4",
+      "name": "SkeletonList"
+    },
+    {
+      "path": "patterns/ToastStack/ToastStack.card.html",
+      "group": "Patterns",
+      "viewport": "720x340",
+      "subtitle": "bottom-right · max 3 · past tense",
+      "name": "ToastStack"
+    },
+    {
       "path": "foundations/radius.card.html",
       "group": "Spacing",
       "viewport": "720x140",
@@ -1070,6 +1791,10 @@
     "tokens/radius.css",
     "tokens/shadow.css",
     "tokens/motion.css",
+    "tokens/z-index.css",
+    "tokens/opacity.css",
+    "tokens/border-width.css",
+    "tokens/focus.css",
     "tokens/reset.css",
     "styles.css"
   ],
@@ -1791,6 +2516,212 @@
       "kind": "other",
       "definedIn": "tokens/motion.css",
       "annotation": "other"
+    },
+    {
+      "name": "--z-base",
+      "value": "0",
+      "kind": "other",
+      "definedIn": "tokens/z-index.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--z-rail",
+      "value": "10",
+      "kind": "other",
+      "definedIn": "tokens/z-index.css"
+    },
+    {
+      "name": "--z-dropdown",
+      "value": "20",
+      "kind": "other",
+      "definedIn": "tokens/z-index.css"
+    },
+    {
+      "name": "--z-sticky-overlay",
+      "value": "30",
+      "kind": "other",
+      "definedIn": "tokens/z-index.css"
+    },
+    {
+      "name": "--z-overlay",
+      "value": "40",
+      "kind": "other",
+      "definedIn": "tokens/z-index.css"
+    },
+    {
+      "name": "--z-modal-scrim",
+      "value": "50",
+      "kind": "other",
+      "definedIn": "tokens/z-index.css"
+    },
+    {
+      "name": "--z-modal",
+      "value": "60",
+      "kind": "other",
+      "definedIn": "tokens/z-index.css"
+    },
+    {
+      "name": "--z-toast",
+      "value": "70",
+      "kind": "other",
+      "definedIn": "tokens/z-index.css"
+    },
+    {
+      "name": "--z-tooltip",
+      "value": "80",
+      "kind": "other",
+      "definedIn": "tokens/z-index.css"
+    },
+    {
+      "name": "--o-hairline",
+      "value": "0.06",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-line",
+      "value": "0.1",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-line-strong",
+      "value": "0.18",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-faint",
+      "value": "0.38",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-mute",
+      "value": "0.55",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-solid",
+      "value": "1",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-disabled",
+      "value": "0.5",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-scrim",
+      "value": "0.42",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-scrim-light",
+      "value": "0.32",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-accent-tint",
+      "value": "0.14",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-accent-line",
+      "value": "0.55",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-accent-glow",
+      "value": "0.55",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-accent-halo",
+      "value": "0.22",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-status-tint",
+      "value": "0.12",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--o-danger-tint",
+      "value": "0.14",
+      "kind": "other",
+      "definedIn": "tokens/opacity.css"
+    },
+    {
+      "name": "--bw-hairline",
+      "value": "1px",
+      "kind": "spacing",
+      "definedIn": "tokens/border-width.css"
+    },
+    {
+      "name": "--bw-active",
+      "value": "1.5px",
+      "kind": "spacing",
+      "definedIn": "tokens/border-width.css"
+    },
+    {
+      "name": "--bw-emphasis",
+      "value": "2px",
+      "kind": "spacing",
+      "definedIn": "tokens/border-width.css"
+    },
+    {
+      "name": "--bw-strong",
+      "value": "3px",
+      "kind": "spacing",
+      "definedIn": "tokens/border-width.css"
+    },
+    {
+      "name": "--focus-ring-width",
+      "value": "3px",
+      "kind": "other",
+      "definedIn": "tokens/focus.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--focus-ring-inset",
+      "value": "0px",
+      "kind": "spacing",
+      "definedIn": "tokens/focus.css"
+    },
+    {
+      "name": "--focus-ring-offset",
+      "value": "0px",
+      "kind": "spacing",
+      "definedIn": "tokens/focus.css"
+    },
+    {
+      "name": "--focus-ring",
+      "value": "0 0 0 var(--focus-ring-width) var(--accent-tint)",
+      "kind": "other",
+      "definedIn": "tokens/focus.css"
+    },
+    {
+      "name": "--focus-ring-strong",
+      "value": "0 0 0 var(--focus-ring-width) var(--accent-line)",
+      "kind": "other",
+      "definedIn": "tokens/focus.css"
+    },
+    {
+      "name": "--focus-ring-inner",
+      "value": "inset 0 0 0 var(--focus-ring-width) var(--accent-tint)",
+      "kind": "other",
+      "definedIn": "tokens/focus.css"
     }
   ],
   "themes": [],
