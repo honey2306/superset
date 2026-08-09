@@ -48,10 +48,10 @@ export function GenericToolCall({
 				<div className="space-y-3 py-1 pl-3">
 					{query != null ? (
 						<div className="space-y-1">
-							<h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+							<h4 className="font-medium text-fg-mute text-xs uppercase tracking-wide">
 								{t("chat.tool.createQuery")}
 							</h4>
-							<p className="text-xs text-foreground">{query}</p>
+							<p className="text-xs text-fg">{query}</p>
 						</div>
 					) : (
 						part.input != null && <ToolInput input={part.input} />

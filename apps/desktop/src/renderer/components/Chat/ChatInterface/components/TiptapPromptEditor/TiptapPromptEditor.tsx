@@ -811,7 +811,7 @@ export const TiptapPromptEditor = forwardRef<
 						<Command shouldFilter={false}>
 							<CommandList className="max-h-[200px] [&::-webkit-scrollbar]:hidden">
 								{mentionFiles.length === 0 && (
-									<CommandEmpty className="px-2 py-3 text-left text-xs text-muted-foreground">
+									<CommandEmpty className="px-2 py-3 text-left text-xs text-fg-mute">
 										{isSearchingFiles
 											? t("mention.searchingFiles")
 											: fileSearchError
@@ -829,7 +829,7 @@ export const TiptapPromptEditor = forwardRef<
 													value={file.relativePath}
 													className={cn(
 														idx === (mentionState?.selectedIndex ?? -1) &&
-															"bg-accent",
+															"bg-accent-tint",
 													)}
 													onSelect={() => {
 														mentionState?.tiptapCommand({
@@ -843,7 +843,7 @@ export const TiptapPromptEditor = forwardRef<
 													/>
 													<span className="truncate text-xs">{file.name}</span>
 													{dirPath && (
-														<span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+														<span className="min-w-0 truncate font-mono text-xs text-fg-mute">
 															{dirPath}
 														</span>
 													)}

@@ -31,7 +31,7 @@ export function DeleteTaskToolCall({ part }: DeleteTaskToolCallProps) {
 				<div className="space-y-2">
 					{deleted.length > 0 ? (
 						<div className="space-y-1">
-							<div className="font-medium text-foreground">
+							<div className="font-medium text-fg">
 								{t("chat.tool.deletedCount", { count: deleted.length })}
 							</div>
 							<div className="space-y-1">
@@ -52,7 +52,7 @@ export function DeleteTaskToolCall({ part }: DeleteTaskToolCallProps) {
 							</div>
 						</div>
 					) : (
-						<div className="text-muted-foreground">
+						<div className="text-fg-mute">
 							{t("chat.tool.noDeletedTasks")}
 						</div>
 					)}
