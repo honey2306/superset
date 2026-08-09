@@ -53,9 +53,13 @@ export const draculaTheme: Theme = {
 		muted: DRACULA.currentLine,
 		mutedForeground: "#d0d3e0",
 
-		// Accent — Dracula "comment" blue-gray as UI accent stripe
-		accent: DRACULA.comment,
-		accentForeground: DRACULA.fg,
+		// Accent — pink stays a tint (14%); text on top is the full pink.
+		// This is the DS's core rule; `bg-accent` should read as a soft
+		// highlight, never a full fill. Full pink is reserved for
+		// `sidebarPrimary` / `highlight` (the two "brand bar" exceptions)
+		// and `chart1` / `ring`.
+		accent: "rgba(255, 121, 198, 0.14)",
+		accentForeground: DRACULA.pink,
 
 		// Tertiary — panel backgrounds
 		tertiary: DRACULA.popover,
@@ -65,20 +69,20 @@ export const draculaTheme: Theme = {
 		destructive: DRACULA.red,
 		destructiveForeground: "#ffe4e4",
 
-		// Borders — Dracula current-line (subtle) + ring on comment
+		// Borders — Dracula current-line (subtle) + focus ring in brand pink.
 		border: DRACULA.currentLine,
 		input: DRACULA.currentLine,
-		ring: DRACULA.comment,
+		ring: DRACULA.pink,
 
 		// Sidebar — sits between page bg and surface
 		sidebar: DRACULA.popover,
 		sidebarForeground: DRACULA.fg,
 		sidebarPrimary: DRACULA.pink,
 		sidebarPrimaryForeground: DRACULA.bg,
-		sidebarAccent: "#343746",
-		sidebarAccentForeground: DRACULA.fg,
+		sidebarAccent: "rgba(255, 121, 198, 0.14)",
+		sidebarAccentForeground: DRACULA.pink,
 		sidebarBorder: DRACULA.currentLine,
-		sidebarRing: DRACULA.comment,
+		sidebarRing: DRACULA.pink,
 
 		// Charts — Dracula bright palette in author order
 		chart1: DRACULA.pink,
