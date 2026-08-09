@@ -135,11 +135,11 @@ export function LogView({
 				/>
 			</div>
 			{isLoading && rows.length === 0 ? (
-				<div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
+				<div className="flex flex-1 items-center justify-center text-xs text-fg-mute">
 					{t("v1Changes.log.loading")}
 				</div>
 			) : rows.length === 0 ? (
-				<div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
+				<div className="flex flex-1 items-center justify-center text-xs text-fg-mute">
 					{t("v1Changes.log.empty")}
 				</div>
 			) : (
@@ -243,20 +243,20 @@ function LogRow({
 						type="button"
 						onClick={onToggle}
 						className={cn(
-							"group w-full flex items-center gap-1.5 px-2 py-1 text-left hover:bg-accent/50 rounded-sm",
-							isCommitSelected && "bg-accent",
+							"group w-full flex items-center gap-1.5 px-2 py-1 text-left hover:bg-hover rounded-sm",
+							isCommitSelected && "bg-accent-tint",
 						)}
 					>
 						{isExpanded ? (
-							<VscChevronDown className="size-3 shrink-0 text-muted-foreground" />
+							<VscChevronDown className="size-3 shrink-0 text-fg-mute" />
 						) : (
-							<VscChevronRight className="size-3 shrink-0 text-muted-foreground" />
+							<VscChevronRight className="size-3 shrink-0 text-fg-mute" />
 						)}
-						<span className="text-[10px] font-mono text-muted-foreground shrink-0">
+						<span className="text-[10px] font-mono text-fg-mute shrink-0">
 							{commit.shortHash}
 						</span>
 						<span className="text-xs flex-1 truncate">{commit.message}</span>
-						<span className="text-[10px] text-muted-foreground shrink-0">
+						<span className="text-[10px] text-fg-mute shrink-0">
 							{formatRelativeDate(new Date(commit.date), t)}
 						</span>
 					</button>
@@ -272,7 +272,7 @@ function LogRow({
 				</ContextMenuContent>
 			</ContextMenu>
 			{isExpanded && files && files.length > 0 && (
-				<div className="ml-4 pl-1.5 border-l border-border">
+				<div className="ml-4 pl-1.5 border-l border-line">
 					<FileList
 						files={files}
 						viewMode={viewMode}

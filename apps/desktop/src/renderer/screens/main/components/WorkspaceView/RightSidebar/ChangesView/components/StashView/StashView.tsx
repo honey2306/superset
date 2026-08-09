@@ -87,7 +87,7 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 
 	if (isLoading && stashes.length === 0) {
 		return (
-			<div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
+			<div className="flex flex-1 items-center justify-center text-xs text-fg-mute">
 				{t("v1Changes.stashes.loading")}
 			</div>
 		);
@@ -95,7 +95,7 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 
 	if (stashes.length === 0) {
 		return (
-			<div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
+			<div className="flex flex-1 items-center justify-center text-xs text-fg-mute">
 				{t("v1Changes.stashes.empty")}
 			</div>
 		);
@@ -114,11 +114,11 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 					return (
 						<div
 							key={entry.ref}
-							className="border-b border-border/40 last:border-b-0"
+							className="border-b border-line/40 last:border-b-0"
 						>
 							<div
 								className={cn(
-									"group flex items-center gap-1.5 px-2 py-1.5 hover:bg-accent/50",
+									"group flex items-center gap-1.5 px-2 py-1.5 hover:bg-hover",
 									isPending && "opacity-60",
 								)}
 							>
@@ -128,18 +128,18 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 									className="flex flex-1 min-w-0 items-center gap-1.5 text-left"
 								>
 									{isExpanded ? (
-										<VscChevronDown className="size-3 shrink-0 text-muted-foreground" />
+										<VscChevronDown className="size-3 shrink-0 text-fg-mute" />
 									) : (
-										<VscChevronRight className="size-3 shrink-0 text-muted-foreground" />
+										<VscChevronRight className="size-3 shrink-0 text-fg-mute" />
 									)}
-									<span className="text-[10px] font-mono text-muted-foreground shrink-0">
+									<span className="text-[10px] font-mono text-fg-mute shrink-0">
 										{entry.ref}
 									</span>
 									<span className="text-xs flex-1 truncate">
 										{entry.message}
 									</span>
 									{entry.timestamp > 0 && (
-										<span className="text-[10px] text-muted-foreground shrink-0">
+										<span className="text-[10px] text-fg-mute shrink-0">
 											{formatRelativeDate(new Date(entry.timestamp), t)}
 										</span>
 									)}
@@ -236,13 +236,13 @@ function StashFilesList({
 	);
 	if (!files || files.length === 0) return null;
 	return (
-		<div className="ml-4 pl-1.5 border-l border-border pb-1">
+		<div className="ml-4 pl-1.5 border-l border-line pb-1">
 			{files.map((f) => (
 				<div
 					key={f.path}
 					className="flex items-center gap-1.5 px-2 py-0.5 text-xs"
 				>
-					<span className="text-[10px] font-mono text-muted-foreground shrink-0 w-4">
+					<span className="text-[10px] font-mono text-fg-mute shrink-0 w-4">
 						{f.status}
 					</span>
 					<span className="truncate">{f.path}</span>

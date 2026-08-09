@@ -58,7 +58,7 @@ function LevelIndicators({ level }: { level: number }) {
 		<div className="flex self-stretch shrink-0">
 			{Array.from({ length: level }).map((_, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: static visual dividers that never reorder
-				<div key={i} className="w-3 self-stretch border-r border-border" />
+				<div key={i} className="w-3 self-stretch border-r border-line" />
 			))}
 		</div>
 	);
@@ -230,8 +230,8 @@ export function FileItem({
 			{...fileDragProps}
 			className={cn(
 				"group w-full flex items-stretch gap-1 px-1.5 text-left rounded-sm",
-				"hover:bg-accent/50 cursor-pointer transition-colors",
-				isHighlighted && "bg-accent",
+				"hover:bg-hover cursor-pointer transition-colors",
+				isHighlighted && "bg-accent-tint",
 			)}
 		>
 			{hasIndent && <LevelIndicators level={level} />}
@@ -261,12 +261,12 @@ export function FileItem({
 					{showStatsDisplay && (
 						<span className="flex items-center gap-0.5 text-[10px] font-mono shrink-0 whitespace-nowrap opacity-60">
 							{file.additions > 0 && (
-								<span className="text-green-600 dark:text-green-500">
+								<span className="text-success">
 									+{file.additions}
 								</span>
 							)}
 							{file.deletions > 0 && (
-								<span className="text-red-600 dark:text-red-400">
+								<span className="text-destructive">
 									-{file.deletions}
 								</span>
 							)}

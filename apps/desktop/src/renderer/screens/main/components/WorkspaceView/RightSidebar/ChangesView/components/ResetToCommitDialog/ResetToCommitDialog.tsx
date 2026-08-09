@@ -74,7 +74,7 @@ export function ResetToCommitDialog({
 							<Label
 								key={m.value}
 								htmlFor={`reset-mode-${m.value}`}
-								className="flex cursor-pointer items-start gap-2 rounded-md border border-transparent p-2 hover:bg-accent/50 has-[button[data-state=checked]]:border-border has-[button[data-state=checked]]:bg-accent/40"
+								className="flex cursor-pointer items-start gap-2 rounded-ds-3 border border-transparent p-2 hover:bg-hover has-[button[data-state=checked]]:border-line has-[button[data-state=checked]]:bg-hover"
 							>
 								<RadioGroupItem
 									id={`reset-mode-${m.value}`}
@@ -83,7 +83,7 @@ export function ResetToCommitDialog({
 								/>
 								<div className="flex flex-col gap-0.5">
 									<span className="text-xs font-medium">{m.label}</span>
-									<span className="text-[11px] text-muted-foreground leading-snug">
+									<span className="text-[11px] text-fg-mute leading-snug">
 										{m.desc}
 									</span>
 								</div>

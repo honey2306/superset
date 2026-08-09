@@ -45,11 +45,11 @@ export function FileHistoryDialog({
 				</DialogHeader>
 				<div className="max-h-[420px] min-h-[240px] overflow-y-auto border-t">
 					{isLoading && commits.length === 0 ? (
-						<div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
+						<div className="flex h-40 items-center justify-center text-xs text-fg-mute">
 							{t("v1Changes.fileHistory.loading")}
 						</div>
 					) : commits.length === 0 ? (
-						<div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
+						<div className="flex h-40 items-center justify-center text-xs text-fg-mute">
 							{t("v1Changes.fileHistory.empty")}
 						</div>
 					) : (
@@ -65,21 +65,21 @@ export function FileHistoryDialog({
 											onOpenChange(false);
 										}}
 										className={cn(
-											"w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-accent/50",
-											isSelected && "bg-accent",
+											"w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-hover",
+											isSelected && "bg-accent-tint",
 										)}
 									>
-										<span className="text-[10px] font-mono text-muted-foreground shrink-0">
+										<span className="text-[10px] font-mono text-fg-mute shrink-0">
 											{commit.shortHash}
 										</span>
 										<span className="text-xs flex-1 truncate">
 											{commit.message}
 										</span>
-										<span className="text-[10px] text-muted-foreground shrink-0 truncate max-w-[100px]">
+										<span className="text-[10px] text-fg-mute shrink-0 truncate max-w-[100px]">
 											{commit.author}
 										</span>
 										{commit.date > 0 && (
-											<span className="text-[10px] text-muted-foreground shrink-0">
+											<span className="text-[10px] text-fg-mute shrink-0">
 												{formatRelativeDate(new Date(commit.date), t)}
 											</span>
 										)}

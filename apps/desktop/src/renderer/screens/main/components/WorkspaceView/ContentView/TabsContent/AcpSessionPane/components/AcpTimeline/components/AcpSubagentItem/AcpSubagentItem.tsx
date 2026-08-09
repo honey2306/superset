@@ -1,6 +1,5 @@
 import type { TimelineItem, ToolCallItem } from "@superset/session-protocol";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toolCallTitle } from "../AcpToolCallItem/AcpToolCallItem";
 
 interface AcpSubagentItemProps {
 	item: ToolCallItem;
@@ -155,7 +154,7 @@ export function AcpSubagentItem({ item, renderChild }: AcpSubagentItemProps) {
 						SUBAGENT <b>{subagentType(item)}</b>
 					</span>
 					<span className="acp-subagent__task select-text cursor-text">
-						{toolCallTitle(item.call)}
+						{item.call.title}
 					</span>
 				</span>
 				<span className="acp-subagent__summary">

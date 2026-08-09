@@ -68,37 +68,6 @@ export function formatRawToolCallContent(content: unknown): string | undefined {
 	return JSON.stringify(content, null, 2);
 }
 
-const GENERIC_EXECUTE_TITLES = new Set([
-	"bash",
-	"command",
-	"execute",
-	"execute command",
-	"run command",
-	"shell",
-]);
-
-function commandFromRawInput(rawInput: unknown): string | undefined {
-	if (typeof rawInput !== "object" || rawInput === null) return undefined;
-	const command = (rawInput as Record<string, unknown>).command;
-	return typeof command === "string" && command.trim().length > 0
-		? command.trim()
-		: undefined;
-}
-
-/**
- * Adapters sometimes announce a generic shell title before they include the
- * command in a later completion update. Prefer that command, while retaining
- * titles that carry useful adapter-provided context.
- */
-export function toolCallTitle(call: ToolCallUpdate): string {
-	const title = call.title?.trim();
-	const command = commandFromRawInput(call.rawInput);
-	if (title && GENERIC_EXECUTE_TITLES.has(title.toLowerCase()) && command) {
-		return command;
-	}
-	return title || call.toolCallId;
-}
-
 export function AcpToolCallItem({
 	item,
 	presentation = "default",
@@ -119,10 +88,7 @@ export function AcpToolCallItem({
 	}, [hasUnresolvedPermission]);
 
 	const classified = classifyToolCallContent(call.content);
-	const locations = call.locations ?? [];
-	const kind = call.kind ?? "other";
-	const status = call.status ?? "in_progress";
-	const title = toolCallTitle(call);
+	const { kind, locations, status, title } = call;
 
 	return (
 		<div className="acp-tool" data-kind={kind} data-presentation={presentation}>

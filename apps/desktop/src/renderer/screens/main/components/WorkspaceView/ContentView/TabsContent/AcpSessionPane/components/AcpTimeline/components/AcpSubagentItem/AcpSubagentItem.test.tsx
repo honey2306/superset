@@ -35,7 +35,13 @@ function tool(
 	return {
 		kind: "tool_call",
 		id,
-		call: { toolCallId: id, title: id, status },
+		call: {
+			toolCallId: id,
+			title: id,
+			kind: "other",
+			status,
+			locations: [],
+		},
 		permissions: [],
 		children,
 		startSeq: 1,
@@ -54,7 +60,9 @@ function subagent(
 		call: {
 			toolCallId: "task-1",
 			title: "Inspect the ACP lifecycle",
+			kind: "other",
 			status,
+			locations: [],
 			rawInput: { subagent_type: "Explore" },
 		},
 	};

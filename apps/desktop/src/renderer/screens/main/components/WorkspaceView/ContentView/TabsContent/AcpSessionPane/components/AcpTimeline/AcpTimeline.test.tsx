@@ -66,7 +66,13 @@ function tool(
 	return {
 		kind: "tool_call",
 		id: `tool:${sequence}`,
-		call: { toolCallId: `tool-${sequence}`, title: "Bash", status },
+		call: {
+			toolCallId: `tool-${sequence}`,
+			title: "Bash",
+			kind: "execute",
+			status,
+			locations: [],
+		},
 		permissions: [],
 		children: [],
 		terminals: {},
@@ -161,7 +167,9 @@ describe("subagent rendering", () => {
 			call: {
 				toolCallId: "task-1",
 				title: "Inspect the ACP lifecycle",
+				kind: "other" as const,
 				status: "in_progress" as const,
+				locations: [],
 				rawInput: { subagent_type: "Explore" },
 			},
 			children: [child],

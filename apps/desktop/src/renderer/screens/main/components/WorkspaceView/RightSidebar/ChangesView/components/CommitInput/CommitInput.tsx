@@ -320,7 +320,7 @@ export function CommitInput({
 							<VscArrowUp className="size-3.5" />
 							<span className="flex-1">{t(pushActionCopy.menuLabelKey)}</span>
 							{pushCount > 0 && (
-								<span className="text-[10px] text-muted-foreground">
+								<span className="text-[10px] text-fg-mute">
 									{pushCount}
 								</span>
 							)}
@@ -333,7 +333,7 @@ export function CommitInput({
 							<VscArrowDown className="size-3.5" />
 							<span className="flex-1">{t("v1Changes.commit.pull")}</span>
 							{pullCount > 0 && (
-								<span className="text-[10px] text-muted-foreground">
+								<span className="text-[10px] text-fg-mute">
 									{pullCount}
 								</span>
 							)}

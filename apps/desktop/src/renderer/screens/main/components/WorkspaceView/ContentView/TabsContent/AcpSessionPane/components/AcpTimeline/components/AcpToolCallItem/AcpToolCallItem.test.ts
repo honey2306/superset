@@ -3,30 +3,7 @@ import {
 	classifyToolCallContent,
 	formatRawToolCallContent,
 	toolCallStatusText,
-	toolCallTitle,
 } from "./AcpToolCallItem";
-
-describe("toolCallTitle", () => {
-	test("uses a completed command in place of mfcli's generic Bash title", () => {
-		expect(
-			toolCallTitle({
-				toolCallId: "bash-1",
-				title: "Bash",
-				rawInput: { command: "bun run test" },
-			}),
-		).toBe("bun run test");
-	});
-
-	test("preserves a meaningful adapter title when command input is present", () => {
-		expect(
-			toolCallTitle({
-				toolCallId: "bash-1",
-				title: "Run focused renderer tests",
-				rawInput: { command: "bun run test AcpTimeline" },
-			}),
-		).toBe("Run focused renderer tests");
-	});
-});
 
 describe("toolCallStatusText", () => {
 	test("shows a blocked tool as awaiting approval rather than running", () => {

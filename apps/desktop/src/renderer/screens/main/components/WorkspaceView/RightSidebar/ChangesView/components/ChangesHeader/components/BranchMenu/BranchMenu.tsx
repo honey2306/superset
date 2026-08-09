@@ -352,13 +352,13 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 
 	const rowContextMenu = (row: RowMeta) => (
 		<ContextMenuContent className="min-w-[220px]">
-			<ContextMenuLabel className="font-mono text-[11px] text-foreground">
-				<VscSourceControl className="mr-2 inline size-3 text-primary" />
+			<ContextMenuLabel className="font-mono text-[11px] text-fg">
+				<VscSourceControl className="mr-2 inline size-3 text-accent-solid" />
 				{row.name}
 			</ContextMenuLabel>
 			<ContextMenuSeparator />
 			<ContextMenuGroup>
-				<ContextMenuLabel className="text-[9.5px] uppercase tracking-wider text-muted-foreground">
+				<ContextMenuLabel className="text-[9.5px] uppercase tracking-wider text-fg-mute">
 					{t("v1Changes.branchMenu.actionsGroup")}
 				</ContextMenuLabel>
 				<ContextMenuItem
@@ -394,7 +394,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 				<>
 					<ContextMenuSeparator />
 					<ContextMenuGroup>
-						<ContextMenuLabel className="text-[9.5px] uppercase tracking-wider text-muted-foreground">
+						<ContextMenuLabel className="text-[9.5px] uppercase tracking-wider text-fg-mute">
 							{t("v1Changes.branchMenu.syncGroup")}
 						</ContextMenuLabel>
 						<ContextMenuItem
@@ -409,7 +409,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 			)}
 			<ContextMenuSeparator />
 			<ContextMenuGroup>
-				<ContextMenuLabel className="text-[9.5px] uppercase tracking-wider text-muted-foreground">
+				<ContextMenuLabel className="text-[9.5px] uppercase tracking-wider text-fg-mute">
 					{t("v1Changes.branchMenu.manageGroup")}
 				</ContextMenuLabel>
 				{row.isRemoteOnly ? null : (
@@ -437,26 +437,26 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 						variant="ghost"
 						size="sm"
 						className={cn(
-							"h-7 min-w-0 max-w-56 gap-1.5 rounded-full border border-border/60 px-2.5 text-xs font-medium",
+							"h-7 min-w-0 max-w-56 gap-1.5 rounded-full border border-line/60 px-2.5 text-xs font-medium",
 							"hover:border-border hover:bg-accent/40",
 							open && "border-border bg-accent/40",
 						)}
 						disabled={isLoading}
 					>
-						<VscSourceControl className="size-3.5 shrink-0 text-muted-foreground" />
+						<VscSourceControl className="size-3.5 shrink-0 text-fg-mute" />
 						<span className="truncate font-mono text-[11px] tracking-tight">
 							{currentBranch || t("v1Changes.branchMenu.title")}
 						</span>
 						<VscChevronDown
 							className={cn(
-								"size-3 shrink-0 text-muted-foreground transition-transform",
+								"size-3 shrink-0 text-fg-mute transition-transform",
 								open && "rotate-180",
 							)}
 						/>
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent align="start" className="w-[340px] p-0">
-					<div className="flex items-center gap-1 border-b border-border/60 px-3 py-2">
+					<div className="flex items-center gap-1 border-b border-line/60 px-3 py-2">
 						<Input
 							value={search}
 							onChange={(event) => setSearch(event.target.value)}
@@ -489,15 +489,15 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 
 					{/* Group header: Local branches + "+ New" action */}
 					<div className="flex items-center justify-between px-3 pb-1 pt-2">
-						<span className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+						<span className="text-[10px] font-medium uppercase tracking-[0.16em] text-fg-mute">
 							{t("v1Changes.branchMenu.localBranches")} · {localBranches.length}
 						</span>
 						<button
 							type="button"
 							className={cn(
-								"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] text-muted-foreground",
-								"hover:bg-accent/40 hover:text-foreground",
-								creating && "bg-accent/40 text-foreground",
+								"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] text-fg-mute",
+								"hover:bg-accent/40 hover:text-fg",
+								creating && "bg-accent/40 text-fg",
 							)}
 							onClick={() =>
 								creating
@@ -511,8 +511,8 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 					</div>
 
 					{creating ? (
-						<div className="mx-2 mb-2 rounded-lg border border-border/60 bg-accent/20 px-3 py-2.5">
-							<div className="mb-2 flex items-center gap-2 text-[10.5px] text-muted-foreground">
+						<div className="mx-2 mb-2 rounded-lg border border-line/60 bg-accent/20 px-3 py-2.5">
+							<div className="mb-2 flex items-center gap-2 text-[10.5px] text-fg-mute">
 								<span className="text-[9.5px] font-medium uppercase tracking-[0.18em]">
 									Base
 								</span>
@@ -520,7 +520,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 									<VscSourceControl className="size-2.5" />
 									{creating.baseRef}
 									{creating.baseRef === currentBranch ? (
-										<span className="ml-1 rounded-full bg-primary/20 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-primary">
+										<span className="ml-1 rounded-full bg-primary/20 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-accent-solid">
 											{t("v1Changes.branchMenu.currentBadge")}
 										</span>
 									) : null}
@@ -580,7 +580,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 										>
 											{isRenaming ? (
 												<>
-													<VscSourceControl className="size-3 shrink-0 text-muted-foreground" />
+													<VscSourceControl className="size-3 shrink-0 text-fg-mute" />
 													<Input
 														ref={renameInputRef}
 														value={renameDraft}
@@ -608,13 +608,13 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 													onClick={() => switchBranch.mutate({ branch })}
 												>
 													{isCurrent ? (
-														<VscCheck className="size-3 shrink-0 text-primary" />
+														<VscCheck className="size-3 shrink-0 text-accent-solid" />
 													) : (
-														<VscSourceControl className="size-3 shrink-0 text-muted-foreground" />
+														<VscSourceControl className="size-3 shrink-0 text-fg-mute" />
 													)}
 													<span className="truncate font-mono">{branch}</span>
 													{isCurrent ? (
-														<span className="ml-auto text-[9.5px] font-semibold uppercase tracking-wider text-primary">
+														<span className="ml-auto text-[9.5px] font-semibold uppercase tracking-wider text-accent-solid">
 															{t("v1Changes.branchMenu.currentBadge")}
 														</span>
 													) : null}
@@ -632,8 +632,8 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 						})}
 
 						{remoteOnlyBranches.length > 0 ? (
-							<div className="mt-1 flex items-center justify-between border-t border-border/60 px-3 pb-1 pt-2">
-								<span className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+							<div className="mt-1 flex items-center justify-between border-t border-line/60 px-3 pb-1 pt-2">
+								<span className="text-[10px] font-medium uppercase tracking-[0.16em] text-fg-mute">
 									{t("v1Changes.branchMenu.remoteBranches")} ·{" "}
 									{remoteOnlyBranches.length}
 								</span>
@@ -650,9 +650,9 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 											disabled={isMutating}
 											onClick={() => checkoutRemoteBranch.mutate({ branch })}
 										>
-											<VscCloudDownload className="size-3 shrink-0 text-muted-foreground" />
+											<VscCloudDownload className="size-3 shrink-0 text-fg-mute" />
 											<span className="truncate font-mono">{branch}</span>
-											<span className="ml-auto text-[9.5px] font-mono text-muted-foreground">
+											<span className="ml-auto text-[9.5px] font-mono text-fg-mute">
 												origin
 											</span>
 										</button>
@@ -667,13 +667,13 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 						))}
 
 						{localBranches.length === 0 && remoteOnlyBranches.length === 0 ? (
-							<div className="px-3 py-8 text-center text-xs text-muted-foreground">
+							<div className="px-3 py-8 text-center text-xs text-fg-mute">
 								{t("v1Changes.header.noBranchesFound")}
 							</div>
 						) : null}
 					</div>
 
-					<div className="border-t border-border/60 px-3 py-2 text-[10.5px] text-muted-foreground">
+					<div className="border-t border-line/60 px-3 py-2 text-[10.5px] text-fg-mute">
 						{t("v1Changes.branchMenu.hintRightClick")}
 					</div>
 				</PopoverContent>
