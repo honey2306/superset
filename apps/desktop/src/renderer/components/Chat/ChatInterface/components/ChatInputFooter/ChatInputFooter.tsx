@@ -161,7 +161,7 @@ export function ChatInputFooter({
 					{errorMessage && (
 						<p
 							role="alert"
-							className="mb-3 select-text rounded-md border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+							className="mb-3 select-text rounded-ds-3 border border-destructive/20 bg-danger-tint px-4 py-2 text-sm text-destructive"
 						>
 							{errorMessage}
 						</p>

@@ -101,7 +101,7 @@ export function WorkspaceSidebar({
 				))}
 
 				{groups.length === 0 && !isCollapsed && (
-					<div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
+					<div className="flex flex-col items-center justify-center h-32 text-fg-mute text-sm">
 						<span>{t("workspace.none")}</span>
 						<span className="text-xs mt-1">{t("workspace.noneHint")}</span>
 					</div>

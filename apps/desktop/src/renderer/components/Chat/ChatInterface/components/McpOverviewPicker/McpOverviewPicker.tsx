@@ -67,10 +67,10 @@ export function McpOverviewPicker({
 		<ModelSelector open={open} onOpenChange={onOpenChange}>
 			<ModelSelectorContent className="max-w-2xl" title={t("mcp.serversTitle")}>
 				<div className="border-b border-border/60 px-4 py-3">
-					<div className="text-sm font-medium text-foreground">
+					<div className="text-sm font-medium text-fg">
 						{t("mcp.serversCount", { count: servers.length })}
 					</div>
-					<div className="mt-1 truncate text-xs text-muted-foreground">
+					<div className="mt-1 truncate text-xs text-fg-mute">
 						{overview?.sourcePath
 							? t("mcp.loadedFrom", { path: overview.sourcePath })
 							: t("mcp.noConfig")}
@@ -96,10 +96,10 @@ export function McpOverviewPicker({
 								}}
 							>
 								<div className="min-w-0 flex-1">
-									<div className="truncate text-sm font-medium text-foreground">
+									<div className="truncate text-sm font-medium text-fg">
 										{server.name}
 									</div>
-									<div className="truncate text-xs text-muted-foreground">
+									<div className="truncate text-xs text-fg-mute">
 										{server.target}
 									</div>
 									{server.error ? (
@@ -118,7 +118,7 @@ export function McpOverviewPicker({
 											{t("mcp.disconnected")}
 										</span>
 									) : null}
-									<span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+									<span className="rounded-full border border-line bg-hover px-2 py-0.5 text-[11px] font-medium text-fg-mute">
 										{formatTransportLabel(server.transport)}
 									</span>
 									<span
@@ -129,7 +129,7 @@ export function McpOverviewPicker({
 									{onAuthenticateServer &&
 									server.transport === "remote" &&
 									server.state !== "disabled" ? (
-										<span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-foreground">
+										<span className="rounded-full border border-line px-2 py-0.5 text-[11px] font-medium text-fg">
 											{authenticatingServerName === server.name
 												? t("mcp.connecting")
 												: server.connected

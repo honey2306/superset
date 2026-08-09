@@ -332,9 +332,9 @@ export function MessageScrollbackRail({
 							const entryClassName = entry.isLatest
 								? isEmphasized
 									? "bg-muted/65 text-muted-foreground/90"
-									: "text-muted-foreground/60 hover:text-muted-foreground/85"
+									: "text-fg-faint hover:text-muted-foreground/85"
 								: isEmphasized
-									? "bg-primary/10 text-primary/85"
+									? "bg-accent-tint text-primary/85"
 									: "text-muted-foreground/85 hover:text-foreground/90";
 
 							return (
@@ -342,7 +342,7 @@ export function MessageScrollbackRail({
 									key={entry.id}
 									type="button"
 									className={cn(
-										"block w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+										"block w-full rounded-ds-3 px-2 py-1.5 text-left text-xs transition-colors",
 										entryClassName,
 									)}
 									onMouseEnter={() => setHoveredMessageId(entry.id)}

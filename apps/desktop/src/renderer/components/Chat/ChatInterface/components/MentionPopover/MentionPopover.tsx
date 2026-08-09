@@ -150,7 +150,7 @@ export function MentionProvider({
 						/>
 						<CommandList className="max-h-[200px] [&::-webkit-scrollbar]:hidden">
 							{files.length === 0 && (
-								<CommandEmpty className="px-2 py-3 text-left text-xs text-muted-foreground">
+								<CommandEmpty className="px-2 py-3 text-left text-xs text-fg-mute">
 									{searchQuery.length === 0
 										? t("mention.typeToSearch")
 										: isSearchPending
@@ -174,7 +174,7 @@ export function MentionProvider({
 												/>
 												<span className="truncate text-xs">{file.name}</span>
 												{dirPath && (
-													<span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+													<span className="min-w-0 truncate font-mono text-xs text-fg-mute">
 														{dirPath}
 													</span>
 												)}

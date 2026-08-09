@@ -13,7 +13,7 @@ export function ReviewStatus({
 	const config = {
 		approved: {
 			label: t("workspace.reviewApproved"),
-			className: "bg-emerald-500/15 text-emerald-500",
+			className: "bg-success-tint text-success",
 		},
 		changes_requested: {
 			label: t("workspace.reviewChangesRequested"),
@@ -34,7 +34,7 @@ export function ReviewStatus({
 
 	return (
 		<span
-			className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md shrink-0 truncate max-w-[200px] ${className}`}
+			className={`text-[10px] font-medium px-1.5 py-0.5 rounded-ds-3 shrink-0 truncate max-w-[200px] ${className}`}
 			title={label}
 		>
 			{label}

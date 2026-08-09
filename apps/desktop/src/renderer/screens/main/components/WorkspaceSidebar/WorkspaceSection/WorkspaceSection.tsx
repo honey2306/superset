@@ -211,12 +211,12 @@ export function WorkspaceSection({
 						ref={sectionHeaderRef}
 						className={cn(
 							"flex items-center w-full pl-2 pr-2 py-2 text-[11px] font-medium uppercase tracking-wider",
-							"text-muted-foreground hover:bg-muted/50 transition-colors",
+							"text-fg-mute hover:bg-hover/50 transition-colors",
 							dropZone.isDropTarget &&
 								!dropZone.isDragOver &&
 								"border border-dashed border-primary/20 rounded-sm",
 							dropZone.isDragOver &&
-								"bg-primary/10 border border-solid border-primary/40 rounded-sm",
+								"bg-accent-tint border border-solid border-primary/40 rounded-sm",
 						)}
 						style={{ cursor: isSectionDragging ? "grabbing" : "grab" }}
 					>
@@ -227,7 +227,7 @@ export function WorkspaceSection({
 									onChange={setRenameValue}
 									onSubmit={handleSubmitRename}
 									onCancel={handleCancelRename}
-									className="h-5 px-1 py-0 text-[11px] tracking-wider font-medium bg-transparent border-none outline-none flex-1 min-w-0 text-muted-foreground"
+									className="h-5 px-1 py-0 text-[11px] tracking-wider font-medium bg-transparent border-none outline-none flex-1 min-w-0 text-fg-mute"
 								/>
 							</div>
 						) : (

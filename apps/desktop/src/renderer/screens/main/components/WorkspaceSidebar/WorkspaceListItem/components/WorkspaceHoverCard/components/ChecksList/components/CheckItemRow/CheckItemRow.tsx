@@ -8,11 +8,11 @@ interface CheckItemRowProps {
 
 export function CheckItemRow({ check }: CheckItemRowProps) {
 	const statusConfig = {
-		success: { icon: LuCheck, className: "text-emerald-500" },
+		success: { icon: LuCheck, className: "text-success" },
 		failure: { icon: LuX, className: "text-destructive-foreground" },
 		pending: { icon: LuLoaderCircle, className: "text-amber-500" },
-		skipped: { icon: LuMinus, className: "text-muted-foreground" },
-		cancelled: { icon: LuMinus, className: "text-muted-foreground" },
+		skipped: { icon: LuMinus, className: "text-fg-mute" },
+		cancelled: { icon: LuMinus, className: "text-fg-mute" },
 	};
 
 	const { icon: Icon, className } = statusConfig[check.status];
@@ -33,12 +33,12 @@ export function CheckItemRow({ check }: CheckItemRowProps) {
 				href={check.url}
 				target="_blank"
 				rel="noopener noreferrer"
-				className="block text-muted-foreground hover:text-foreground transition-colors"
+				className="block text-fg-mute hover:text-fg transition-colors"
 			>
 				{content}
 			</a>
 		);
 	}
 
-	return <div className="text-muted-foreground">{content}</div>;
+	return <div className="text-fg-mute">{content}</div>;
 }

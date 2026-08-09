@@ -34,7 +34,7 @@ export function CloseProjectDialog({
 						{t("workspace.closeProjectQuestion", { name: projectName })}
 					</AlertDialogTitle>
 					<AlertDialogDescription asChild>
-						<div className="text-muted-foreground space-y-1.5">
+						<div className="text-fg-mute space-y-1.5">
 							<span className="block">
 								{t("workspace.closeProjectWorkspaceCount", {
 									count: workspaceCount,

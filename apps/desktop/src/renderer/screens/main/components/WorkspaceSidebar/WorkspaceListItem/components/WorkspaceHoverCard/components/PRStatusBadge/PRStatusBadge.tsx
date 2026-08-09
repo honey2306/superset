@@ -7,8 +7,8 @@ interface PRStatusBadgeProps {
 export function PRStatusBadge({ state }: PRStatusBadgeProps) {
 	const { t } = useTranslation();
 	const styles = {
-		open: "bg-emerald-500/15 text-emerald-500",
-		draft: "bg-muted text-muted-foreground",
+		open: "bg-success-tint text-success",
+		draft: "bg-hover text-fg-mute",
 		merged: "bg-violet-500/15 text-violet-500",
 		closed: "bg-destructive/15 text-destructive-foreground",
 	};
@@ -22,7 +22,7 @@ export function PRStatusBadge({ state }: PRStatusBadgeProps) {
 
 	return (
 		<span
-			className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md shrink-0 ${styles[state]}`}
+			className={`text-[10px] font-medium px-1.5 py-0.5 rounded-ds-3 shrink-0 ${styles[state]}`}
 		>
 			{labels[state]}
 		</span>

@@ -197,8 +197,8 @@ export function ProjectHeader({
 									type="button"
 									onClick={onToggleCollapse}
 									className={cn(
-										"flex items-center justify-center size-8 rounded-md",
-										"hover:bg-muted/50 transition-colors",
+										"flex items-center justify-center size-8 rounded-ds-3",
+										"hover:bg-hover/50 transition-colors",
 									)}
 								>
 									<ProjectThumbnail
@@ -214,7 +214,7 @@ export function ProjectHeader({
 						</ContextMenuTrigger>
 						<TooltipContent className="flex flex-col gap-0.5">
 							<span className="font-medium">{projectName}</span>
-							<span className="text-xs text-muted-foreground">
+							<span className="text-xs text-fg-mute">
 								{t("workspace.projectCount", { count: workspaceCount })}
 							</span>
 						</TooltipContent>
@@ -274,7 +274,7 @@ export function ProjectHeader({
 					<div
 						className={cn(
 							"flex items-center w-full pl-3 pr-2 py-1.5 text-sm font-medium",
-							"hover:bg-muted/50 transition-colors",
+							"hover:bg-hover/50 transition-colors",
 						)}
 					>
 						{rename.isRenaming ? (
@@ -311,7 +311,7 @@ export function ProjectHeader({
 									iconUrl={iconUrl}
 								/>
 								<span className="truncate">{projectName}</span>
-								<span className="text-xs text-muted-foreground tabular-nums font-normal">
+								<span className="text-xs text-fg-mute tabular-nums font-normal">
 									({workspaceCount})
 								</span>
 							</button>
@@ -326,9 +326,9 @@ export function ProjectHeader({
 										onNewWorkspace();
 									}}
 									onContextMenu={(e) => e.stopPropagation()}
-									className="p-1 rounded hover:bg-muted transition-colors shrink-0 ml-1"
+									className="p-1 rounded hover:bg-hover transition-colors shrink-0 ml-1"
 								>
-									<HiMiniPlus className="size-4 text-muted-foreground" />
+									<HiMiniPlus className="size-4 text-fg-mute" />
 								</button>
 							</TooltipTrigger>
 							<TooltipContent side="bottom" sideOffset={4}>
@@ -341,11 +341,11 @@ export function ProjectHeader({
 							onClick={onToggleCollapse}
 							onContextMenu={(e) => e.stopPropagation()}
 							aria-expanded={!isCollapsed}
-							className="p-1 rounded hover:bg-muted transition-colors shrink-0 ml-1"
+							className="p-1 rounded hover:bg-hover transition-colors shrink-0 ml-1"
 						>
 							<HiChevronRight
 								className={cn(
-									"size-3.5 text-muted-foreground transition-transform duration-150",
+									"size-3.5 text-fg-mute transition-transform duration-150",
 									!isCollapsed && "rotate-90",
 								)}
 							/>

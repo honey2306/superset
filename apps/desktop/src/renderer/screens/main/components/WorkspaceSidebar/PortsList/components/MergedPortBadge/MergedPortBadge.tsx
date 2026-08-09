@@ -38,25 +38,25 @@ export function MergedPortBadge({ port }: MergedPortBadgeProps) {
 			<TooltipTrigger asChild>
 				<div
 					className={cn(
-						"group relative mb-1 inline-flex max-w-full items-center gap-1 rounded-md",
-						"bg-primary/10 text-xs text-primary transition-colors hover:bg-primary/20",
+						"group relative mb-1 inline-flex max-w-full items-center gap-1 rounded-ds-3",
+						"bg-accent-tint text-xs text-accent-solid transition-colors hover:bg-accent-tint",
 						isPending && "opacity-70",
 					)}
 				>
 					<button
 						type="button"
 						onClick={handleClick}
-						className="flex max-w-40 min-w-0 items-center gap-1 rounded-md px-2 py-1 font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+						className="flex max-w-40 min-w-0 items-center gap-1 rounded-ds-3 px-2 py-1 font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
 					>
 						{port.label ? (
 							<>
 								<span className="min-w-0 truncate">{port.label}</span>
-								<span className="shrink-0 font-mono font-normal text-muted-foreground">
+								<span className="shrink-0 font-mono font-normal text-fg-mute">
 									{port.port}
 								</span>
 							</>
 						) : (
-							<span className="font-mono text-muted-foreground">
+							<span className="font-mono text-fg-mute">
 								{port.port}
 							</span>
 						)}
@@ -66,7 +66,7 @@ export function MergedPortBadge({ port }: MergedPortBadgeProps) {
 						onClick={handleOpenInBrowser}
 						disabled={openUrl.isPending}
 						aria-label={`Open ${port.label || `port ${port.port}`} in browser`}
-						className="text-muted-foreground opacity-0 transition-opacity hover:text-primary focus-visible:opacity-100 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 group-hover:opacity-100"
+						className="text-fg-mute opacity-0 transition-opacity hover:text-accent-solid focus-visible:opacity-100 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 group-hover:opacity-100"
 					>
 						<LuExternalLink className="size-3.5" strokeWidth={STROKE_WIDTH} />
 					</button>
@@ -76,7 +76,7 @@ export function MergedPortBadge({ port }: MergedPortBadgeProps) {
 						disabled={isPending}
 						aria-busy={isPending}
 						aria-label={`Close ${port.label || `port ${port.port}`}`}
-						className="pr-1 text-muted-foreground opacity-0 transition-opacity hover:text-primary focus-visible:opacity-100 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-70 group-hover:opacity-100"
+						className="pr-1 text-fg-mute opacity-0 transition-opacity hover:text-accent-solid focus-visible:opacity-100 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-70 group-hover:opacity-100"
 					>
 						{isPending ? (
 							<LuLoaderCircle
@@ -93,17 +93,17 @@ export function MergedPortBadge({ port }: MergedPortBadgeProps) {
 				<div className="text-xs space-y-1">
 					{port.label && <div className="font-medium">{port.label}</div>}
 					<div
-						className={`font-mono ${port.label ? "text-muted-foreground" : "font-medium"}`}
+						className={`font-mono ${port.label ? "text-fg-mute" : "font-medium"}`}
 					>
 						localhost:{port.port}
 					</div>
 					{(port.processName || port.pid != null) && (
-						<div className="text-muted-foreground">
+						<div className="text-fg-mute">
 							{port.processName}
 							{port.pid != null && ` (pid ${port.pid})`}
 						</div>
 					)}
-					<div className="text-[10px] text-muted-foreground/70">
+					<div className="text-[10px] text-fg-faint">
 						Click to open workspace
 					</div>
 				</div>

@@ -33,7 +33,7 @@ export function WorkspacePortGroup({ group }: WorkspacePortGroupProps) {
 				<button
 					type="button"
 					onClick={handleWorkspaceClick}
-					className="text-xs truncate text-left transition-colors text-muted-foreground hover:text-sidebar-foreground cursor-pointer"
+					className="text-xs truncate text-left transition-colors text-fg-mute hover:text-sidebar-foreground cursor-pointer"
 				>
 					{group.workspaceName}
 				</button>
@@ -45,7 +45,7 @@ export function WorkspacePortGroup({ group }: WorkspacePortGroupProps) {
 							disabled={isPending}
 							aria-busy={isPending}
 							className={cn(
-								"ml-auto rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-primary",
+								"ml-auto rounded p-0.5 text-fg-mute hover:bg-hover/50 hover:text-accent-solid",
 								"disabled:pointer-events-none disabled:opacity-60",
 							)}
 						>

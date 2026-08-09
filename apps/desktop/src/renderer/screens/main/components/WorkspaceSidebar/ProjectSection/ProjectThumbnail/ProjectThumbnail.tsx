@@ -78,7 +78,7 @@ export function ProjectThumbnail({
 	// Border: gray by default, custom color with slight transparency when set
 	const borderClasses = cn(
 		"border-[1.5px]",
-		hasCustomColor ? undefined : "border-border",
+		hasCustomColor ? undefined : "border-line",
 	);
 	const borderStyle = hasCustomColor
 		? { borderColor: hexToRgba(projectColor, 0.6) }
@@ -90,7 +90,7 @@ export function ProjectThumbnail({
 			<div
 				className={cn(
 					"relative size-6 rounded overflow-hidden flex-shrink-0",
-					!shouldUseTransparentIconFrame && "bg-muted",
+					!shouldUseTransparentIconFrame && "bg-hover",
 					!shouldUseTransparentIconFrame && borderClasses,
 					shouldUseTransparentIconFrame && "p-[1.5px]",
 					className,
@@ -112,7 +112,7 @@ export function ProjectThumbnail({
 		return (
 			<div
 				className={cn(
-					"relative size-6 rounded overflow-hidden flex-shrink-0 bg-muted",
+					"relative size-6 rounded overflow-hidden flex-shrink-0 bg-hover",
 					borderClasses,
 					className,
 				)}
@@ -142,7 +142,7 @@ export function ProjectThumbnail({
 			className={cn(
 				"size-6 rounded flex items-center justify-center flex-shrink-0",
 				"text-xs font-medium",
-				hasCustomColor ? undefined : "bg-muted text-muted-foreground",
+				hasCustomColor ? undefined : "bg-hover text-fg-mute",
 				borderClasses,
 				className,
 			)}

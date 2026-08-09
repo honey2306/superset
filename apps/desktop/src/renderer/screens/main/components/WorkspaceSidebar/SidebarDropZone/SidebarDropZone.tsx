@@ -135,7 +135,7 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0 }}
 						transition={{ duration: 0.15 }}
-						className="absolute inset-0 z-50 flex flex-col items-center justify-center m-2 rounded-lg border-2 border-dashed border-primary/60 bg-primary/5 backdrop-blur-sm"
+						className="absolute inset-0 z-50 flex flex-col items-center justify-center m-2 rounded-ds-5 border-2 border-dashed border-primary/60 bg-accent-tint backdrop-blur-sm"
 					>
 						<motion.div
 							initial={{ scale: 0.8, opacity: 0 }}
@@ -144,14 +144,14 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 							transition={{ duration: 0.15, delay: 0.05 }}
 							className="flex flex-col items-center gap-3"
 						>
-							<div className="rounded-full bg-primary/10 p-3">
-								<LuFolderPlus className="h-6 w-6 text-primary" />
+							<div className="rounded-full bg-accent-tint p-3">
+								<LuFolderPlus className="h-6 w-6 text-accent-solid" />
 							</div>
 							<div className="text-center">
-								<p className="text-sm font-medium text-primary">
+								<p className="text-sm font-medium text-accent-solid">
 									{t("workspace.dropToAddProject")}
 								</p>
-								<p className="text-xs text-muted-foreground mt-1">
+								<p className="text-xs text-fg-mute mt-1">
 									{t("workspace.releaseToOpenFolder")}
 								</p>
 							</div>
@@ -168,8 +168,8 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 						className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm"
 					>
 						<div className="flex flex-col items-center gap-3">
-							<LuLoader className="h-5 w-5 text-muted-foreground animate-spin" />
-							<span className="text-sm text-muted-foreground">
+							<LuLoader className="h-5 w-5 text-fg-mute animate-spin" />
+							<span className="text-sm text-fg-mute">
 								{t("workspace.addingProject")}
 							</span>
 						</div>
@@ -182,7 +182,7 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 						animate={{ opacity: 1, y: 0 }}
 						exit={{ opacity: 0, y: 10 }}
 						transition={{ duration: 0.2 }}
-						className="absolute bottom-3 left-3 right-3 z-50 flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive shadow-sm"
+						className="absolute bottom-3 left-3 right-3 z-50 flex items-start gap-2 rounded-ds-3 border border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive shadow-sm"
 					>
 						<span className="flex-1 text-xs">{error}</span>
 						<button
