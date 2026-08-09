@@ -57,12 +57,12 @@ export function MobileAppDemo() {
 						<span className="text-xs text-fg-faint font-medium">9:41</span>
 						<div className="flex items-center gap-1.5">
 							<div className="flex gap-0.5">
-								<div className="w-1 h-1 bg-foreground/50 rounded-full" />
-								<div className="w-1 h-1 bg-foreground/50 rounded-full" />
-								<div className="w-1 h-1 bg-foreground/50 rounded-full" />
-								<div className="w-1 h-1 bg-foreground/30 rounded-full" />
+								<div className="w-1 h-1 bg-fg/50 rounded-full" />
+								<div className="w-1 h-1 bg-fg/50 rounded-full" />
+								<div className="w-1 h-1 bg-fg/50 rounded-full" />
+								<div className="w-1 h-1 bg-fg/30 rounded-full" />
 							</div>
-							<div className="w-6 h-3 border border-foreground/50 rounded-sm ml-1">
+							<div className="w-6 h-3 border border-fg/50 rounded-sm ml-1">
 								<div className="w-4 h-full bg-success rounded-sm" />
 							</div>
 						</div>
@@ -71,7 +71,7 @@ export function MobileAppDemo() {
 					{/* App header */}
 					<div className="flex items-center justify-between px-5 py-3 border-b border-line">
 						<div className="flex items-center gap-3">
-							<div className="w-8 h-8 rounded-ds-5 bg-foreground/10 flex items-center justify-center">
+							<div className="w-8 h-8 rounded-ds-5 bg-fg/10 flex items-center justify-center">
 								<SupersetIcon className="w-4 h-4 text-white" />
 							</div>
 							<div>
@@ -94,7 +94,7 @@ export function MobileAppDemo() {
 									className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
 										msg.role === "user"
 											? "bg-info text-white"
-											: "bg-foreground/10 text-fg"
+											: "bg-fg/10 text-fg"
 									}`}
 								>
 									<p className="text-sm leading-relaxed whitespace-pre-line">
@@ -107,7 +107,7 @@ export function MobileAppDemo() {
 
 					{/* Input bar */}
 					<div className="absolute bottom-6 left-4 right-4">
-						<div className="flex items-center gap-2 px-4 py-3 bg-foreground/10 rounded-full border border-line">
+						<div className="flex items-center gap-2 px-4 py-3 bg-fg/10 rounded-full border border-line">
 							<span className="text-sm text-fg-mute flex-1">
 								Message...
 							</span>

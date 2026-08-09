@@ -1401,7 +1401,7 @@ ${sanitizeText(truncatedBody)}`;
 							anchorRef={plusMenuRef}
 						/>
 						<PromptInputSubmit
-							className="size-[22px] rounded-full border border-transparent bg-foreground/10 shadow-none p-[5px] hover:bg-foreground/20"
+							className="size-[22px] rounded-full border border-transparent bg-fg/10 shadow-none p-[5px] hover:bg-fg/20"
 							onClick={(e) => {
 								e.preventDefault();
 								void handleCreate();

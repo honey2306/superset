@@ -29,7 +29,7 @@ export function LinkedGitHubIssuePill({
 			title={title}
 			className="group flex items-center gap-2.5 rounded-ds-3 border border-line/50 bg-hover/60 px-3 py-2 text-sm transition-all select-none hover:bg-accent-tint hover:ring-1 hover:ring-line dark:hover:bg-hover"
 		>
-			<div className="relative flex size-7 shrink-0 items-center justify-center rounded-ds-3 bg-foreground/10 p-0.5">
+			<div className="relative flex size-7 shrink-0 items-center justify-center rounded-ds-3 bg-fg/10 p-0.5">
 				<IssueIcon
 					state={normalizeIssueState(state)}
 					className="size-5 transition-opacity group-hover:opacity-0"

@@ -46,7 +46,7 @@ function FileMentionChip({ node, selected, deleteNode }: NodeViewProps) {
 								event.stopPropagation();
 								deleteNode();
 							}}
-							className="ml-0.5 inline-flex size-3.5 items-center justify-center rounded-sm text-fg-mute hover:bg-foreground/10 hover:text-fg"
+							className="ml-0.5 inline-flex size-3.5 items-center justify-center rounded-sm text-fg-mute hover:bg-fg/10 hover:text-fg"
 						>
 							<LuX className="size-3" />
 						</button>

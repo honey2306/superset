@@ -20,7 +20,7 @@ export function RemoteWorkspacesDemo() {
 				<div className="p-4">
 					<div className="flex items-center justify-center gap-3 py-3">
 						<div className="flex flex-col items-center gap-1.5">
-							<div className="w-10 h-10 rounded-ds-5 bg-foreground/10 flex items-center justify-center">
+							<div className="w-10 h-10 rounded-ds-5 bg-fg/10 flex items-center justify-center">
 								<HiOutlineComputerDesktop className="size-5 text-fg-mute" />
 							</div>
 							<span className="text-[10px] text-fg-mute">
@@ -28,12 +28,12 @@ export function RemoteWorkspacesDemo() {
 							</span>
 						</div>
 						<div className="flex items-center gap-1">
-							<div className="w-6 h-px bg-foreground/20" />
+							<div className="w-6 h-px bg-fg/20" />
 							<HiOutlineSignal className="size-4 text-pink-400 animate-pulse" />
-							<div className="w-6 h-px bg-foreground/20" />
+							<div className="w-6 h-px bg-fg/20" />
 						</div>
 						<div className="flex flex-col items-center gap-1.5">
-							<div className="w-10 h-10 rounded-ds-5 bg-foreground/10 flex items-center justify-center">
+							<div className="w-10 h-10 rounded-ds-5 bg-fg/10 flex items-center justify-center">
 								<HiOutlineComputerDesktop className="size-5 text-fg-mute" />
 							</div>
 							<span className="text-[10px] text-fg-mute">Remote</span>
@@ -41,11 +41,11 @@ export function RemoteWorkspacesDemo() {
 					</div>
 
 					<div className="mt-2 space-y-1.5">
-						<div className="flex items-center justify-between px-2 py-1.5 rounded bg-foreground/5 text-xs">
+						<div className="flex items-center justify-between px-2 py-1.5 rounded bg-fg/5 text-xs">
 							<span className="text-fg-mute">Tunnel established</span>
 							<span className="text-success text-[10px]">live</span>
 						</div>
-						<div className="flex items-center justify-between px-2 py-1.5 rounded bg-foreground/5 text-xs">
+						<div className="flex items-center justify-between px-2 py-1.5 rounded bg-fg/5 text-xs">
 							<span className="text-fg-mute">Latency</span>
 							<span className="text-fg-mute text-[10px]">42ms</span>
 						</div>

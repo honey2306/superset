@@ -64,7 +64,7 @@ function FeatureButton({ feature, isSelected, onSelect }: FeatureButtonProps) {
 				"cursor-pointer text-left",
 				isSelected
 					? "bg-hover text-fg"
-					: "text-fg-mute hover:text-fg hover:bg-foreground/5",
+					: "text-fg-mute hover:text-fg hover:bg-fg/5",
 			)}
 		>
 			<Icon

@@ -25,7 +25,7 @@ export function SlackIntegrationDemo() {
 							#engineering
 						</span>
 					</div>
-					<span className="rounded bg-foreground/10 px-2 py-0.5 text-fg-mute text-xs">
+					<span className="rounded bg-fg/10 px-2 py-0.5 text-fg-mute text-xs">
 						Live
 					</span>
 				</div>
@@ -33,7 +33,7 @@ export function SlackIntegrationDemo() {
 				<div className="space-y-3 p-4">
 					{MESSAGES.map((message) => (
 						<div key={message.id} className="flex gap-3">
-							<div className="flex size-7 shrink-0 items-center justify-center rounded bg-foreground/10 font-semibold text-[10px] text-fg/90">
+							<div className="flex size-7 shrink-0 items-center justify-center rounded bg-fg/10 font-semibold text-[10px] text-fg/90">
 								{message.author === "Superset" ? "S" : "M"}
 							</div>
 							<div className="min-w-0 flex-1">

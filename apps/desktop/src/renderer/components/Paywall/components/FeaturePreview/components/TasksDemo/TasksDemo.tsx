@@ -72,7 +72,7 @@ export function TasksDemo() {
 						</div>
 						<span className="text-xs text-fg-mute ml-1">My Tasks</span>
 					</div>
-					<span className="text-xs text-fg-mute bg-foreground/10 px-2 py-0.5 rounded">
+					<span className="text-xs text-fg-mute bg-fg/10 px-2 py-0.5 rounded">
 						{TASKS.length} tasks
 					</span>
 				</div>
@@ -82,7 +82,7 @@ export function TasksDemo() {
 					{TASKS.map((task) => (
 						<div
 							key={task.id}
-							className="flex items-center gap-3 px-3 py-2.5 rounded-ds-5 hover:bg-foreground/5 transition-colors cursor-pointer group"
+							className="flex items-center gap-3 px-3 py-2.5 rounded-ds-5 hover:bg-fg/5 transition-colors cursor-pointer group"
 						>
 							{/* Status indicator */}
 							{task.status === "done" ? (
@@ -92,7 +92,7 @@ export function TasksDemo() {
 							) : task.status === "in-progress" ? (
 								<SpinnerIcon className="w-5 h-5 text-warning animate-spin shrink-0" />
 							) : (
-								<div className="w-5 h-5 rounded-full border-2 border-foreground/20 shrink-0 group-hover:border-foreground/40 transition-colors" />
+								<div className="w-5 h-5 rounded-full border-2 border-fg/20 shrink-0 group-hover:border-fg/40 transition-colors" />
 							)}
 
 							{/* Task content */}
@@ -109,7 +109,7 @@ export function TasksDemo() {
 							</div>
 
 							{/* Assignee */}
-							<div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-medium text-fg/90 shrink-0 bg-foreground/10">
+							<div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-medium text-fg/90 shrink-0 bg-fg/10">
 								{task.assignee}
 							</div>
 						</div>

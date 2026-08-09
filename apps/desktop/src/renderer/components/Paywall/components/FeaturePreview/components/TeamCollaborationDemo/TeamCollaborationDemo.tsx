@@ -38,13 +38,13 @@ export function TeamCollaborationDemo() {
 						{TEAM_MEMBERS.map((member, index) => (
 							<div
 								key={member.name}
-								className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium text-fg/90 border-2 border-card bg-foreground/10"
+								className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium text-fg/90 border-2 border-card bg-fg/10"
 								style={{ zIndex: TEAM_MEMBERS.length - index }}
 							>
 								{member.initials}
 							</div>
 						))}
-						<div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium text-fg-mute bg-foreground/10 border-2 border-card">
+						<div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium text-fg-mute bg-fg/10 border-2 border-card">
 							+3
 						</div>
 					</div>

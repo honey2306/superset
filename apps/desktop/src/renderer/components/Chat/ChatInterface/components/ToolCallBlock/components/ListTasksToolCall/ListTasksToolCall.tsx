@@ -40,7 +40,7 @@ export function ListTasksToolCall({ part }: ListTasksToolCallProps) {
 			icon={ClipboardListIcon}
 			details={
 				<div className="space-y-2">
-					<div className="text-muted-foreground">
+					<div className="text-fg-mute">
 						{t("chat.tool.foundTasks", { count })}
 						{hasMore ? t("chat.tool.moreAvailable") : ""}
 					</div>
@@ -140,7 +140,7 @@ export function ListTasksToolCall({ part }: ListTasksToolCallProps) {
 							})}
 						</div>
 					) : (
-						<div className="text-muted-foreground">
+						<div className="text-fg-mute">
 							{t("chat.tool.noTasksInResult")}
 						</div>
 					)}

@@ -90,17 +90,17 @@ function renderContent(props: TaskItemDisplayProps, t: TranslateFn) {
 	return (
 		<TaskItem className="space-y-1.5 text-xs">
 			<div className="flex items-center gap-1.5 min-w-0">
-				<div className="truncate text-sm font-medium text-foreground">
+				<div className="truncate text-sm font-medium text-fg">
 					{props.title}
 				</div>
 				{hasSlug ? (
-					<span className="text-[11px] text-muted-foreground shrink-0">
+					<span className="text-[11px] text-fg-mute shrink-0">
 						#{props.slug}
 					</span>
 				) : null}
 			</div>
 			{metadataText ? (
-				<div className="text-muted-foreground line-clamp-1">{metadataText}</div>
+				<div className="text-fg-mute line-clamp-1">{metadataText}</div>
 			) : null}
 			{labels.length > 0 ? (
 				<div className="flex flex-wrap gap-1">
@@ -121,7 +121,7 @@ function renderContent(props: TaskItemDisplayProps, t: TranslateFn) {
 				</div>
 			) : null}
 			{hasText(props.description) ? (
-				<div className="line-clamp-2 text-muted-foreground">
+				<div className="line-clamp-2 text-fg-mute">
 					{props.description}
 				</div>
 			) : null}

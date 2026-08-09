@@ -108,17 +108,17 @@ export function RequestSandboxAccessToolCall({
 			{!isPending && hasContext ? (
 				<div className="space-y-1 px-3 py-2">
 					{requestedPath ? (
-						<div className="text-xs text-muted-foreground">
+						<div className="text-xs text-fg-mute">
 							{t("chat.tool.path", { path: requestedPath })}
 						</div>
 					) : null}
 					{reason ? (
-						<div className="text-xs text-muted-foreground">
+						<div className="text-xs text-fg-mute">
 							{t("chat.tool.reason", { reason })}
 						</div>
 					) : null}
 					{!isCancelledOrError ? (
-						<div className="text-sm text-foreground">
+						<div className="text-sm text-fg">
 							{status === "granted"
 								? t("chat.tool.accessGrantedText")
 								: t("chat.tool.accessDeniedText")}

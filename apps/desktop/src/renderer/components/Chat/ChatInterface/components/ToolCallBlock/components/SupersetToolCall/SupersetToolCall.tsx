@@ -82,7 +82,7 @@ export function SupersetToolCall({
 						</div>
 					) : null}
 					{isError && errorText ? (
-						<div className="rounded border border-destructive/40 bg-destructive/10 ps-2 text-xs text-destructive">
+						<div className="rounded border border-destructive/40 bg-danger-tint ps-2 text-xs text-destructive">
 							{errorText}
 						</div>
 					) : contentText != null ? (
