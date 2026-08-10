@@ -1321,6 +1321,7 @@ export class AcpSessionManager {
 				clientCapabilities: {
 					fs: { readTextFile: false, writeTextFile: false },
 					terminal: false,
+					_meta: { terminal_output: true },
 					// UNSTABLE ACP extension, but it is what re-enables Claude
 					// Code's built-in AskUserQuestion tool — the adapter disallows
 					// the tool for clients that can't render form elicitations.

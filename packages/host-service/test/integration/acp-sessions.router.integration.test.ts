@@ -117,7 +117,11 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 		expect(created.currentMode?.currentModeId).toBe("bypassPermissions");
 
 		const listed = await host.trpc.acpSessions.list.query({});
-		expect(listed).toEqual({ items: [], nextCursor: null, enabled: true });
+		expect(listed.enabled).toBe(true);
+		expect(listed.items.some((item) => item.sessionId === sessionId)).toBe(
+			true,
+		);
+		expect(listed.nextCursor).toBeNull();
 
 		// prompt acks admission only; the turn's completion is never awaited on
 		// the HTTP request — remote clients poll state (or ride the WS stream).
@@ -224,11 +228,12 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 		});
 
 		await host.trpc.acpSessions.close.mutate({ sessionId });
-		expect(await host.trpc.acpSessions.list.query({})).toEqual({
-			items: [],
-			nextCursor: null,
-			enabled: true,
-		});
+		const listed = await host.trpc.acpSessions.list.query({});
+		expect(listed.items.some((item) => item.sessionId === sessionId)).toBe(
+			false,
+		);
+		expect(listed.nextCursor).toBeNull();
+		expect(listed.enabled).toBe(true);
 		expect(
 			await trpcErrorCode(host.trpc.acpSessions.get.query({ sessionId })),
 		).toBe("NOT_FOUND");

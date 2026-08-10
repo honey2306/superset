@@ -6,6 +6,7 @@ function isThemeType(value: string | null): value is ThemeType {
 
 export function resolveTerminalThemeType(params?: {
 	activeThemeType?: ThemeType;
+	storage?: Pick<Storage, "getItem">;
 }): ThemeType {
 	const activeThemeType = params?.activeThemeType;
 	if (activeThemeType) {
@@ -13,7 +14,8 @@ export function resolveTerminalThemeType(params?: {
 	}
 
 	try {
-		const persistedThemeType = localStorage.getItem("theme-type");
+		const storage = params?.storage ?? localStorage;
+		const persistedThemeType = storage.getItem("theme-type");
 		if (isThemeType(persistedThemeType)) {
 			return persistedThemeType;
 		}

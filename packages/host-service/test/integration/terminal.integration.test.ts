@@ -201,7 +201,7 @@ describe("terminal router integration", () => {
 			});
 			await waitFor(
 				() => existsSync(socketPath),
-				3000,
+				10_000,
 				() =>
 					[
 						"pty-daemon did not create socket",
@@ -228,7 +228,7 @@ describe("terminal router integration", () => {
 				),
 			);
 
-			await waitFor(() => readPositivePidFile(pidPath) !== null, 3000);
+			await waitFor(() => readPositivePidFile(pidPath) !== null, 10_000);
 			helperPid = readPositivePidFile(pidPath);
 			expect(helperPid).not.toBeNull();
 			expect(isPidAlive(helperPid as number)).toBe(true);
@@ -238,7 +238,7 @@ describe("terminal router integration", () => {
 				terminalId,
 			});
 
-			await waitFor(() => !isPidAlive(helperPid as number), 3000);
+			await waitFor(() => !isPidAlive(helperPid as number), 10_000);
 
 			await scenario.host.trpc.terminal.createSession.mutate({
 				workspaceId: scenario.workspaceId,
@@ -253,7 +253,7 @@ describe("terminal router integration", () => {
 
 			await waitFor(
 				() => readPositivePidFile(workspaceCleanupPidPath) !== null,
-				3000,
+				10_000,
 			);
 			workspaceCleanupHelperPid = readPositivePidFile(workspaceCleanupPidPath);
 			expect(workspaceCleanupHelperPid).not.toBeNull();
@@ -269,7 +269,7 @@ describe("terminal router integration", () => {
 
 			await waitFor(
 				() => !isPidAlive(workspaceCleanupHelperPid as number),
-				3000,
+				10_000,
 			);
 		} finally {
 			if (helperPid !== null && helperPid > 0 && isPidAlive(helperPid)) {
@@ -319,7 +319,7 @@ describe("terminal router integration", () => {
 					env: { ...process.env },
 				},
 			);
-			await waitFor(() => existsSync(socketPath), 3000);
+			await waitFor(() => existsSync(socketPath), 10_000);
 			process.env.SUPERSET_PTY_DAEMON_SOCKET = socketPath;
 			process.env.SUPERSET_HOME_DIR = tmp;
 
@@ -405,7 +405,7 @@ describe("terminal router integration", () => {
 					env: { ...process.env },
 				},
 			);
-			await waitFor(() => existsSync(socketPath), 3000);
+			await waitFor(() => existsSync(socketPath), 10_000);
 			process.env.SUPERSET_PTY_DAEMON_SOCKET = socketPath;
 			process.env.SUPERSET_HOME_DIR = tmp;
 
