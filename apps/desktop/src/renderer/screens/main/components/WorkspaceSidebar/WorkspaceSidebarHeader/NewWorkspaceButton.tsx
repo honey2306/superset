@@ -43,9 +43,9 @@ export function NewWorkspaceButton({
 					<button
 						type="button"
 						onClick={handleClick}
-						className="group flex items-center justify-center size-8 rounded-md bg-accent/40 hover:bg-accent/60 transition-colors"
+						className="group flex items-center justify-center size-8 rounded-ds-3 bg-accent-tint hover:bg-accent-tint transition-colors"
 					>
-						<div className="flex items-center justify-center size-5 rounded bg-accent">
+						<div className="flex items-center justify-center size-5 rounded bg-accent-tint">
 							<LuPlus className="size-3" strokeWidth={STROKE_WIDTH_THICK} />
 						</div>
 					</button>
@@ -61,13 +61,13 @@ export function NewWorkspaceButton({
 		<button
 			type="button"
 			onClick={handleClick}
-			className="group flex items-center gap-2 px-2 py-1.5 w-full text-sm font-medium text-muted-foreground hover:text-foreground bg-accent/40 hover:bg-accent/60 rounded-md transition-colors"
+			className="group flex items-center gap-2 px-2 py-1.5 w-full text-sm font-medium text-fg-mute hover:text-fg bg-accent-tint hover:bg-accent-tint rounded-ds-3 transition-colors"
 		>
-			<div className="flex items-center justify-center size-5 rounded bg-accent">
+			<div className="flex items-center justify-center size-5 rounded bg-accent-tint">
 				<LuPlus className="size-3" strokeWidth={STROKE_WIDTH_THICK} />
 			</div>
 			<span className="flex-1 text-left">{t("workspace.new")}</span>
-			<span className="text-[10px] text-muted-foreground/40 group-hover:text-muted-foreground/80 transition-colors font-mono tabular-nums shrink-0">
+			<span className="text-[10px] text-fg-mute/40 group-hover:text-fg-mute/80 transition-colors font-mono tabular-nums shrink-0">
 				{shortcutText}
 			</span>
 		</button>

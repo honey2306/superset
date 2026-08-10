@@ -56,11 +56,8 @@ export function V2WorktreeLocationPicker({
 	return (
 		<>
 			<div className="flex w-[28rem] max-w-full items-center gap-2">
-				<div className="flex h-9 min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap rounded-md border bg-transparent px-3 dark:bg-input/30">
-					<span
-						className="font-mono text-sm text-foreground"
-						title={displayPath}
-					>
+				<div className="flex h-9 min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap rounded-ds-3 border bg-transparent px-3 dark:bg-input/30">
+					<span className="font-mono text-sm text-fg" title={displayPath}>
 						{displayPath}
 					</span>
 				</div>

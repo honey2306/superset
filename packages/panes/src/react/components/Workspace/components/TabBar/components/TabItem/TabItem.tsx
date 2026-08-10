@@ -115,18 +115,18 @@ export function TabItem<TData>({
 				{/* biome-ignore lint/a11y/useKeyWithClickEvents: tabs are pointer-driven; keyboard nav is out of scope here */}
 				<div
 					ref={setRef}
+					data-tab-item
+					data-tab-active={isActive || undefined}
 					className={cn(
-						// The bar carries a bottom border and the inactive-tab shade. The
-						// active tab has NO bottom border (only left/right/top) and takes an
-						// opaque fill, so it flows straight into the content below. Inactive
-						// tabs keep a 1px border on all sides (transparent except the bottom
-						// line) so the bar's line runs unbroken beneath them and tabs don't
-						// shift when switching.
-						"group relative flex h-full w-full items-center transition-colors",
+						// Flat underline tabs: the bar's bottom hairline is drawn on the
+						// TabBar root; the active tab paints a highlight-colored underline
+						// over that hairline via an inset shadow (no layout shift). Inactive
+						// tabs are fully transparent — hover adds a barely-there tint.
+						"group relative flex h-full w-full items-center text-fg-mute transition-colors duration-[120ms]",
 						isActive
-							? "border-x border-t border-border bg-background text-foreground"
-							: "border border-transparent border-b-border bg-border/30 text-muted-foreground/70 hover:bg-border/20 hover:text-muted-foreground",
-						isPaneOver && "bg-primary/5",
+							? "text-fg font-medium shadow-[inset_0_-2px_0_var(--accent-solid)]"
+							: "hover:bg-hover hover:text-fg",
+						isPaneOver && "bg-accent-tint",
 						isDragging && "opacity-30",
 					)}
 					// Select on click, not mousedown: the browser suppresses click after a
@@ -137,7 +137,7 @@ export function TabItem<TData>({
 					{isEditing ? (
 						<div className="flex h-full w-full shrink-0 items-center px-2">
 							<TabRenameInput
-								className="w-full min-w-0 rounded border border-border bg-background px-1 py-0.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+								className="w-full min-w-0 rounded-ds-3 border border-line bg-surface-elev px-1 py-0.5 text-xs text-fg outline-none focus:ring-1 focus:ring-accent-line"
 								maxLength={64}
 								onCancel={stopEditing}
 								onChange={setEditValue}
@@ -182,8 +182,8 @@ export function TabItem<TData>({
 								<Button
 									aria-label="Close tab"
 									className={cn(
-										"pointer-events-none size-5 cursor-pointer text-current opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-										isActive ? "hover:bg-muted" : "hover:bg-foreground/10",
+										"pointer-events-none size-[18px] cursor-pointer rounded-ds-2 border-0 text-fg-faint opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+										"hover:bg-hover hover:text-fg",
 									)}
 									onClick={(event) => {
 										event.stopPropagation();
@@ -196,7 +196,7 @@ export function TabItem<TData>({
 									type="button"
 									variant="ghost"
 								>
-									<XIcon className="size-3.5" />
+									<XIcon className="size-3" />
 								</Button>
 							</div>
 						</>

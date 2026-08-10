@@ -16,7 +16,7 @@ export function TaskDetailHeader({
 	onDelete,
 }: TaskDetailHeaderProps) {
 	return (
-		<div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
+		<div className="flex items-center gap-3 px-6 py-4 border-b border-line shrink-0">
 			<Button
 				variant="ghost"
 				size="icon"
@@ -26,14 +26,14 @@ export function TaskDetailHeader({
 			>
 				<HiArrowLeft className="w-4 h-4" />
 			</Button>
-			<span className="text-sm text-muted-foreground">{task.slug}</span>
+			<span className="text-sm text-fg-mute">{task.slug}</span>
 			<div className="ml-auto flex items-center gap-1">
 				{task.externalUrl && (
 					<a
 						href={task.externalUrl}
 						target="_blank"
 						rel="noopener noreferrer"
-						className="text-muted-foreground hover:text-foreground transition-colors p-2"
+						className="text-fg-mute hover:text-fg transition-colors p-2"
 						title="Open in Linear"
 					>
 						<LuExternalLink className="w-4 h-4" />

@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>2306 · Typography Variants</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #181920;
+  color: #f8f8f2;
+  font-family: "JetBrains Mono", monospace;
+  padding: 40px 32px;
+  min-height: 100vh;
+}
+.page-title {
+  color: #6272a4;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 48px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+.card {
+  background: #21222c;
+  border: 1px solid rgba(98,114,164,0.18);
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  min-height: 240px;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.card:hover { border-color: rgba(255,121,198,0.25); }
+.card-label {
+  position: absolute;
+  top: 12px; right: 16px;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: #6272a4;
+  text-transform: uppercase;
+}
+
+/* ── A: Block gradient (current, improved) ──────────────────── */
+.var-a .glyph {
+  font-size: 15px;
+  line-height: 1.12;
+  white-space: pre;
+  letter-spacing: 0;
+  background: linear-gradient(160deg, #ff79c6 0%, #bd93f9 60%, #8be9fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 14px rgba(255,121,198,0.5));
+}
+
+/* ── B: Glowing outline ──────────────────────────────────────── */
+.var-b .glyph {
+  font-size: 88px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1.5px #ff79c6;
+  text-shadow:
+    0 0 20px rgba(255,121,198,0.6),
+    0 0 60px rgba(255,121,198,0.2),
+    0 0 100px rgba(189,147,249,0.15);
+}
+
+/* ── C: Solid gradient + scan ────────────────────────────────── */
+.var-c .glyph {
+  font-size: 88px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  background: linear-gradient(135deg, #ff79c6 0%, #bd93f9 50%, #8be9fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  position: relative;
+}
+.var-c .scan {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,0.08) 3px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+}
+
+/* ── D: Pixel / Stacked columns ─────────────────────────────── */
+.var-d .glyph {
+  display: flex;
+  gap: 8px;
+}
+.var-d .digit {
+  font-size: 72px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: transparent;
+  background: linear-gradient(180deg,
+    #f8f8f2 0%,
+    #ff79c6 40%,
+    #bd93f9 70%,
+    rgba(189,147,249,0.2) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* ── E: Big + small combo ────────────────────────────────────── */
+.var-e .glyph {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+}
+.var-e .num-big {
+  font-size: 96px;
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+  background: linear-gradient(135deg, #ff79c6, #bd93f9);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 20px rgba(255,121,198,0.45));
+}
+.var-e .sub {
+  display: flex;
+  flex-direction: column;
+  margin-left: 14px;
+  gap: 6px;
+}
+.var-e .sub span {
+  font-size: 10px;
+  color: #6272a4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.var-e .sub strong {
+  font-size: 11px;
+  color: #8be9fd;
+  font-weight: 400;
+}
+
+/* ── F: ASCII with color per row (optimized) ─────────────────── */
+.var-f .glyph {
+  font-size: 14px;
+  line-height: 1.08;
+  white-space: pre;
+  letter-spacing: 0;
+}
+.var-f .row-0 {
+  color: #ff79c6;
+  text-shadow:
+    0 0 8px rgba(255,121,198,0.95),
+    0 0 22px rgba(255,121,198,0.6),
+    0 0 50px rgba(255,121,198,0.25);
+  animation: acp-row0-breathe 2.8s ease-in-out infinite;
+}
+.var-f .row-1 {
+  color: #f982cc;
+  text-shadow:
+    0 0 6px rgba(255,121,198,0.7),
+    0 0 18px rgba(255,121,198,0.3);
+}
+.var-f .row-2 {
+  color: #d98ef5;
+  text-shadow:
+    0 0 8px rgba(189,147,249,0.55),
+    0 0 20px rgba(189,147,249,0.2);
+}
+.var-f .row-3 {
+  color: #bd93f9;
+  text-shadow:
+    0 0 8px rgba(189,147,249,0.7),
+    0 0 22px rgba(189,147,249,0.3);
+}
+.var-f .row-4 {
+  color: rgba(168,127,240,0.75);
+  text-shadow: 0 0 6px rgba(189,147,249,0.35);
+}
+.var-f .row-5 {
+  color: rgba(140,100,220,0.35);
+}
+@keyframes acp-row0-breathe {
+  0%, 100% { text-shadow: 0 0 8px rgba(255,121,198,0.95), 0 0 22px rgba(255,121,198,0.6), 0 0 50px rgba(255,121,198,0.25); }
+  50%      { text-shadow: 0 0 12px rgba(255,121,198,1),   0 0 32px rgba(255,121,198,0.75), 0 0 80px rgba(255,121,198,0.35); }
+}
+
+/* ── G: Light-weight mono ─────────────────────────────────────── */
+.var-g .glyph {
+  font-size: 80px;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  background: linear-gradient(180deg, rgba(248,248,242,0.9) 0%, rgba(255,121,198,0.6) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.var-g .hint {
+  font-size: 10.5px;
+  color: #6272a4;
+  letter-spacing: 0.16em;
+}
+
+/* ── H: Glitch ───────────────────────────────────────────────── */
+.var-h .glyph {
+  position: relative;
+  font-size: 88px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #ff79c6;
+  text-shadow: 0 0 20px rgba(255,121,198,0.5);
+}
+.var-h .glyph::before {
+  content: attr(data-text);
+  position: absolute;
+  left: -2px; top: 0;
+  color: #8be9fd;
+  clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+  opacity: 0.6;
+  animation: glitch-a 2.5s infinite;
+}
+.var-h .glyph::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 2px; top: 0;
+  color: #bd93f9;
+  clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+  opacity: 0.5;
+  animation: glitch-b 2.5s infinite;
+}
+@keyframes glitch-a {
+  0%, 90%, 100% { transform: translate(0); }
+  92% { transform: translate(-3px, 1px); }
+  94% { transform: translate(2px, -1px); }
+  96% { transform: translate(-1px, 2px); }
+}
+@keyframes glitch-b {
+  0%, 90%, 100% { transform: translate(0); }
+  91% { transform: translate(3px, -2px); }
+  93% { transform: translate(-2px, 1px); }
+  95% { transform: translate(1px, -1px); }
+}
+</style>
+</head>
+<body>
+<div class="page-title">2306 · Typography Exploration · Dracula</div>
+<div class="grid">
+
+  <!-- A -->
+  <div class="card var-a">
+    <span class="card-label">A · Block gradient</span>
+    <pre class="glyph">██████╗   ██████╗    ██████╗    ██████╗
+╚════██╗  ╚════██╗  ██╔═══██╗  ██╔════╝
+ █████╔╝   █████╔╝  ██║   ██║  ███████╗
+██╔═══╝    ╚═══██╗  ██║   ██║  ██╔══██╗
+███████╗  ██████╔╝  ╚██████╔╝  ╚██████╔╝
+╚══════╝  ╚═════╝    ╚═════╝    ╚═════╝</pre>
+  </div>
+
+  <!-- B -->
+  <div class="card var-b">
+    <span class="card-label">B · Neon outline</span>
+    <div class="glyph">2306</div>
+  </div>
+
+  <!-- C -->
+  <div class="card var-c">
+    <span class="card-label">C · Gradient + scanlines</span>
+    <div style="position:relative; display:inline-block;">
+      <div class="glyph">2306</div>
+      <div class="scan"></div>
+    </div>
+  </div>
+
+  <!-- D -->
+  <div class="card var-d">
+    <span class="card-label">D · Fading columns</span>
+    <div class="glyph">
+      <span class="digit">2</span>
+      <span class="digit">3</span>
+      <span class="digit">0</span>
+      <span class="digit">6</span>
+    </div>
+  </div>
+
+  <!-- E -->
+  <div class="card var-e">
+    <span class="card-label">E · Big + context label</span>
+    <div class="glyph">
+      <span class="num-big">2306</span>
+      <div class="sub">
+        <span>superset</span>
+        <strong>workspace</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- F -->
+  <div class="card var-f">
+    <span class="card-label">F · Block · row tint</span>
+    <div class="glyph"><span class="row-0">██████╗   ██████╗    ██████╗    ██████╗</span>
+<span class="row-1">╚════██╗  ╚════██╗  ██╔═══██╗  ██╔════╝</span>
+<span class="row-2"> █████╔╝   █████╔╝  ██║   ██║  ███████╗</span>
+<span class="row-3">██╔═══╝    ╚═══██╗  ██║   ██║  ██╔══██╗</span>
+<span class="row-4">███████╗  ██████╔╝  ╚██████╔╝  ╚██████╔╝</span>
+<span class="row-5">╚══════╝  ╚═════╝    ╚═════╝    ╚═════╝</span></div>
+  </div>
+
+  <!-- G -->
+  <div class="card var-g">
+    <span class="card-label">G · Ultra-light</span>
+    <div class="glyph">2306</div>
+    <div class="hint">superset agent · ready</div>
+  </div>
+
+  <!-- H -->
+  <div class="card var-h">
+    <span class="card-label">H · Glitch</span>
+    <div class="glyph" data-text="2306">2306</div>
+  </div>
+
+</div>
+</body>
+</html>

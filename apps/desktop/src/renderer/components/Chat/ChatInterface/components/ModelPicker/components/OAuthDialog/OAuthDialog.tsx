@@ -79,7 +79,7 @@ export function OAuthDialog({
 
 				<div className="min-w-0 space-y-4">
 					{isPreparing ? (
-						<div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+						<div className="rounded-ds-5 border border-dashed border-line/70 bg-hover/10 px-4 py-3 text-sm text-fg-mute">
 							{provider.preparingLabel}
 						</div>
 					) : null}
@@ -127,13 +127,11 @@ export function OAuthDialog({
 										autoFocus
 									/>
 								</InputGroup>
-								<p className="text-muted-foreground text-xs">
-									{provider.codeHint}
-								</p>
+								<p className="text-fg-mute text-xs">{provider.codeHint}</p>
 							</div>
 						</div>
 					) : !isPreparing ? (
-						<div className="rounded-lg border border-dashed border-border/70 bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+						<div className="rounded-ds-5 border border-dashed border-line/70 bg-hover/10 px-4 py-3 text-sm text-fg-mute">
 							{provider.preparingLabel}
 						</div>
 					) : null}

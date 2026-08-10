@@ -55,7 +55,7 @@ export function UpdateTaskToolCall({ part }: UpdateTaskToolCallProps) {
 				<div className="space-y-2">
 					{updated.length > 0 ? (
 						<div className="space-y-1">
-							<div className="font-medium text-foreground">
+							<div className="font-medium text-fg">
 								{t("chat.tool.updatedCount", { count: updated.length })}
 							</div>
 							<div className="space-y-1">
@@ -175,9 +175,7 @@ export function UpdateTaskToolCall({ part }: UpdateTaskToolCallProps) {
 							</div>
 						</div>
 					) : (
-						<div className="text-muted-foreground">
-							{t("chat.tool.noUpdatedTasks")}
-						</div>
+						<div className="text-fg-mute">{t("chat.tool.noUpdatedTasks")}</div>
 					)}
 				</div>
 			}

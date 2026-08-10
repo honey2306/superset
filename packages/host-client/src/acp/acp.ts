@@ -49,10 +49,23 @@ export function createAcpHostClient(transport: HostTransport): AcpHostClient {
 			respondToPermission: (input) =>
 				call(routingKey, "acpSessions.respondToPermission", input, "POST"),
 			cancel: (input) => call(routingKey, "acpSessions.cancel", input, "POST"),
+			close: (input) => call(routingKey, "acpSessions.close", input, "POST"),
 			setMode: (input) =>
 				call(routingKey, "acpSessions.setMode", input, "POST"),
 			setConfigOption: (input) =>
 				call(routingKey, "acpSessions.setConfigOption", input, "POST"),
+			enqueuePrompt: (input) =>
+				call(routingKey, "acpSessions.enqueuePrompt", input, "POST"),
+			sendNow: (input) =>
+				call(routingKey, "acpSessions.sendNow", input, "POST"),
+			removeQueuedPrompt: (input) =>
+				call(routingKey, "acpSessions.removeQueuedPrompt", input, "POST"),
+			reorderQueue: (input) =>
+				call(routingKey, "acpSessions.reorderQueue", input, "POST"),
+			editQueuedPrompt: (input) =>
+				call(routingKey, "acpSessions.editQueuedPrompt", input, "POST"),
+			clearQueue: (input) =>
+				call(routingKey, "acpSessions.clearQueue", input, "POST"),
 		}),
 		streamUrl: ({ routingKey, sessionId }) =>
 			transport.streamUrl({

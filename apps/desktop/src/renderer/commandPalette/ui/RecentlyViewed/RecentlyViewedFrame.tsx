@@ -128,9 +128,9 @@ function WorkspaceRow({
 		<CommandItem
 			value={`workspace ${entry.entityId} ${ws?.projectName ?? ""} ${ws?.branch ?? ""}`}
 			onSelect={onSelect}
-			className={cn("gap-2.5", isCurrent && "bg-accent/50")}
+			className={cn("gap-2.5", isCurrent && "bg-accent-tint/50")}
 		>
-			<span className="text-muted-foreground text-xs shrink-0 w-24 text-left line-clamp-1">
+			<span className="text-fg-mute text-xs shrink-0 w-24 text-left line-clamp-1">
 				{ws?.projectName ?? "Workspace"}
 			</span>
 			<span className="flex items-center justify-center w-4 shrink-0">
@@ -144,7 +144,7 @@ function WorkspaceRow({
 			<span
 				className={cn(
 					"truncate text-xs font-normal flex-1 min-w-0",
-					!ws && "text-muted-foreground",
+					!ws && "text-fg-mute",
 				)}
 			>
 				{ws?.branch ?? "Unknown"}
@@ -175,9 +175,9 @@ function TaskRow({
 		<CommandItem
 			value={`task ${entry.entityId} ${task?.slug ?? ""} ${task?.title ?? ""}`}
 			onSelect={onSelect}
-			className={cn("gap-2.5", isCurrent && "bg-accent/50")}
+			className={cn("gap-2.5", isCurrent && "bg-accent-tint/50")}
 		>
-			<span className="text-muted-foreground text-xs shrink-0 w-24 text-left line-clamp-1">
+			<span className="text-fg-mute text-xs shrink-0 w-24 text-left line-clamp-1">
 				{task?.slug ?? "Task"}
 			</span>
 			<span className="flex items-center justify-center w-4 shrink-0">
@@ -193,7 +193,7 @@ function TaskRow({
 			<span
 				className={cn(
 					"truncate text-xs font-normal flex-1 min-w-0",
-					!task && "text-muted-foreground",
+					!task && "text-fg-mute",
 				)}
 			>
 				{task?.title ?? "Unknown"}

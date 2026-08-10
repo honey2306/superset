@@ -4,6 +4,7 @@ import { parseGitHubRemote } from "@superset/shared/github-remote";
 import { and, eq, inArray } from "drizzle-orm";
 import type { HostDb } from "../../db";
 import { projects, pullRequests, workspaces } from "../../db/schema";
+import type { EventBus } from "../../events/event-bus";
 import type { GitWatcher } from "../../events/git-watcher";
 import type { ExecGh } from "../../trpc/router/workspace-creation/utils/exec-gh";
 import { type GitFactory, resolveDefaultBranchName } from "../git";
@@ -205,6 +206,7 @@ export interface PullRequestStateSnapshot {
 export interface PullRequestWorkspaceSnapshot {
 	workspaceId: string;
 	pullRequest: PullRequestStateSnapshot | null;
+	isPullRequestSuppressed: boolean;
 	error: string | null;
 	lastFetchedAt: string | null;
 }
@@ -267,6 +269,31 @@ function deriveCheckoutPullRequestUpstream(
 }
 
 export class PullRequestRuntimeManager {
+	unlinkWorkspacePullRequest(workspaceId: string): void {
+		const workspace = this.db
+			.select({ pullRequestId: workspaces.pullRequestId })
+			.from(workspaces)
+			.where(eq(workspaces.id, workspaceId))
+			.get();
+		if (!workspace?.pullRequestId) return;
+		this.db
+			.update(workspaces)
+			.set({
+				pullRequestId: null,
+				suppressedPullRequestId: workspace.pullRequestId,
+			})
+			.where(eq(workspaces.id, workspaceId))
+			.run();
+	}
+
+	async restoreWorkspacePullRequest(workspaceId: string): Promise<void> {
+		this.db
+			.update(workspaces)
+			.set({ suppressedPullRequestId: null })
+			.where(eq(workspaces.id, workspaceId))
+			.run();
+		await this.syncOneWorkspace(workspaceId);
+	}
 	private readonly db: HostDb;
 	private readonly execGh: ExecGh;
 	private readonly git: GitFactory;
@@ -275,6 +302,7 @@ export class PullRequestRuntimeManager {
 	private safetyNetTimer: ReturnType<typeof setInterval> | null = null;
 	private projectRefreshTimer: ReturnType<typeof setInterval> | null = null;
 	private unsubscribeFromGitWatcher: (() => void) | null = null;
+	private unsubscribeFromWorkspaceEvents: (() => void) | null = null;
 	private readonly inFlightProjects = new Map<string, Promise<void>>();
 	private readonly workspaceSyncState = new Map<
 		string,
@@ -329,13 +357,28 @@ export class PullRequestRuntimeManager {
 		}, PROJECT_REFRESH_INTERVAL_MS);
 	}
 
+	/** Sync newly-created, otherwise git-idle workspaces immediately. */
+	subscribeToWorkspaceEvents(
+		eventBus: Pick<EventBus, "onWorkspaceChanged">,
+	): void {
+		if (this.unsubscribeFromWorkspaceEvents) return;
+		this.unsubscribeFromWorkspaceEvents = eventBus.onWorkspaceChanged(
+			(event) => {
+				if (event.eventType !== "created") return;
+				void this.enqueueWorkspaceSync(event.workspaceId);
+			},
+		);
+	}
+
 	stop() {
 		if (this.safetyNetTimer) clearInterval(this.safetyNetTimer);
 		if (this.projectRefreshTimer) clearInterval(this.projectRefreshTimer);
 		this.unsubscribeFromGitWatcher?.();
+		this.unsubscribeFromWorkspaceEvents?.();
 		this.safetyNetTimer = null;
 		this.projectRefreshTimer = null;
 		this.unsubscribeFromGitWatcher = null;
+		this.unsubscribeFromWorkspaceEvents = null;
 	}
 
 	async getPullRequestsByWorkspaces(
@@ -346,6 +389,7 @@ export class PullRequestRuntimeManager {
 		const rows = this.db
 			.select({
 				workspaceId: workspaces.id,
+				suppressedPullRequestId: workspaces.suppressedPullRequestId,
 				pullRequestUrl: pullRequests.url,
 				pullRequestNumber: pullRequests.prNumber,
 				pullRequestTitle: pullRequests.title,
@@ -363,6 +407,7 @@ export class PullRequestRuntimeManager {
 
 		return rows.map((row) => ({
 			workspaceId: row.workspaceId,
+			isPullRequestSuppressed: row.suppressedPullRequestId !== null,
 			pullRequest:
 				row.pullRequestUrl &&
 				row.pullRequestNumber !== null &&
@@ -451,6 +496,7 @@ export class PullRequestRuntimeManager {
 			.update(workspaces)
 			.set({
 				pullRequestId: rowId,
+				suppressedPullRequestId: null,
 				headSha: pullRequest.headRefOid,
 				upstreamOwner: upstream?.owner ?? null,
 				upstreamRepo: upstream?.name ?? null,
@@ -682,7 +728,11 @@ export class PullRequestRuntimeManager {
 				}
 				continue;
 			}
-			const match = keyToPullRequest.get(key);
+			const rawMatch = keyToPullRequest.get(key);
+			const match =
+				rawMatch?.id === workspace.suppressedPullRequestId
+					? undefined
+					: rawMatch;
 			if (match) {
 				this.db
 					.update(workspaces)

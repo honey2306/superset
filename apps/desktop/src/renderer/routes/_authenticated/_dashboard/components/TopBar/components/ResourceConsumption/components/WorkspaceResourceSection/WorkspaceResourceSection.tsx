@@ -173,12 +173,12 @@ export function WorkspaceResourceSection({
 		return (
 			<div
 				key={project.projectId}
-				className={cn("py-1", projectIndex > 0 && "border-t border-border/40")}
+				className={cn("py-1", projectIndex > 0 && "border-t border-line/40")}
 			>
 				<button
 					type="button"
 					onClick={() => toggleProject(project.projectId)}
-					className="group w-full flex items-center justify-between px-2 py-1.5 hover:bg-foreground/[0.04] transition-colors"
+					className="group w-full flex items-center justify-between px-2 py-1.5 hover:bg-hover transition-colors"
 					aria-label={
 						isProjectCollapsed
 							? t("dashboard.expandProject")
@@ -186,19 +186,19 @@ export function WorkspaceResourceSection({
 					}
 				>
 					<div className="flex items-center gap-1 min-w-0 mr-2">
-						<span className="flex items-center justify-center h-4 w-4 shrink-0 text-muted-foreground/70 group-hover:text-muted-foreground transition-colors">
+						<span className="flex items-center justify-center h-4 w-4 shrink-0 text-fg-faint group-hover:text-fg-mute transition-colors">
 							{isProjectCollapsed ? (
 								<HiOutlineChevronRight className="h-3 w-3" />
 							) : (
 								<HiOutlineChevronDown className="h-3 w-3" />
 							)}
 						</span>
-						<span className="text-[11px] font-semibold uppercase tracking-[0.04em] truncate min-w-0 text-muted-foreground">
+						<span className="text-[11px] font-semibold uppercase tracking-[0.04em] truncate min-w-0 text-fg-mute">
 							{project.projectName}
 						</span>
 						<UsageSeverityBadge severity={projectSeverity} />
 					</div>
-					<div className={cn(METRIC_COLS, "text-[12px] text-foreground/90")}>
+					<div className={cn(METRIC_COLS, "text-[12px] text-fg-mute")}>
 						<span className={CPU_COL}>{formatCpu(project.cpu)}</span>
 						<span className={MEM_COL}>{formatMemory(project.memory)}</span>
 					</div>
@@ -212,12 +212,12 @@ export function WorkspaceResourceSection({
 
 						return (
 							<div key={workspace.workspaceId}>
-								<div className="group flex items-center hover:bg-foreground/[0.04] transition-colors">
+								<div className="group flex items-center hover:bg-hover transition-colors">
 									{hasSessions ? (
 										<button
 											type="button"
 											onClick={() => toggleWorkspace(workspace.workspaceId)}
-											className="flex items-center justify-center h-7 w-5 ml-3.5 shrink-0 text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+											className="flex items-center justify-center h-7 w-5 ml-3.5 shrink-0 text-fg-faint hover:text-fg-mute transition-colors"
 											aria-label={
 												isCollapsed
 													? t("dashboard.expandWorkspace")
@@ -239,16 +239,13 @@ export function WorkspaceResourceSection({
 										className="flex-1 min-w-0 flex items-center justify-between py-1.5 pr-3.5 pl-1 text-left"
 									>
 										<div className="flex items-center gap-1.5 min-w-0 mr-2">
-											<span className="text-[12px] text-foreground truncate min-w-0">
+											<span className="text-[12px] text-fg truncate min-w-0">
 												{workspace.workspaceName}
 											</span>
 											<UsageSeverityBadge severity={workspaceSeverity} />
 										</div>
 										<div
-											className={cn(
-												METRIC_COLS,
-												"text-[12px] text-foreground/85",
-											)}
+											className={cn(METRIC_COLS, "text-[12px] text-fg-mute")}
 										>
 											<span className={CPU_COL}>
 												{formatCpu(workspace.cpu)}
@@ -274,11 +271,11 @@ export function WorkspaceResourceSection({
 												onClick={() =>
 													navigateToPane(workspace.workspaceId, session.paneId)
 												}
-												className="w-full flex items-center justify-between pl-12 pr-3.5 py-1 hover:bg-foreground/[0.04] transition-colors text-left"
+												className="w-full flex items-center justify-between pl-12 pr-3.5 py-1 hover:bg-hover transition-colors text-left"
 											>
 												<div className="flex items-center gap-1.5 min-w-0 mr-2">
-													<span className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
-													<span className="text-[11px] text-muted-foreground truncate min-w-0">
+													<span className="h-1 w-1 shrink-0 rounded-full bg-fg-mute/40" />
+													<span className="text-[11px] text-fg-mute truncate min-w-0">
 														{getPaneName(session)}
 													</span>
 													<UsageSeverityBadge severity={sessionSeverity} />
@@ -286,7 +283,7 @@ export function WorkspaceResourceSection({
 												<div
 													className={cn(
 														METRIC_COLS,
-														"text-[11px] text-muted-foreground/80",
+														"text-[11px] text-fg-mute/80",
 													)}
 												>
 													<span className={CPU_COL}>

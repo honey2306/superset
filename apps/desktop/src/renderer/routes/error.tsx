@@ -47,9 +47,7 @@ export function ErrorPage({ error, info }: ErrorComponentProps) {
 
 					<div className="flex flex-col items-center gap-2 text-center">
 						<h1 className="text-xl font-semibold">{t("error.title")}</h1>
-						<p className="text-sm text-muted-foreground">
-							{t("error.description")}
-						</p>
+						<p className="text-sm text-fg-mute">{t("error.description")}</p>
 					</div>
 
 					<div className="flex items-center gap-3">
@@ -66,7 +64,7 @@ export function ErrorPage({ error, info }: ErrorComponentProps) {
 						onClick={() => setShowDetails((value) => !value)}
 						aria-expanded={showDetails}
 						aria-controls={ERROR_DETAILS_ID}
-						className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+						className="text-xs text-fg-mute hover:text-fg transition-colors"
 					>
 						{showDetails ? t("error.hideDetails") : t("error.showDetails")}
 					</button>
@@ -78,16 +76,16 @@ export function ErrorPage({ error, info }: ErrorComponentProps) {
 								onClick={() => {
 									void copyToClipboard(details).catch(() => {});
 								}}
-								className="absolute top-2 right-2 flex items-center justify-center h-6 w-6 bg-background/80 backdrop-blur border border-border rounded hover:bg-accent transition-colors"
+								className="absolute top-2 right-2 flex items-center justify-center h-6 w-6 bg-background/80 backdrop-blur border border-line rounded hover:bg-hover transition-colors"
 								aria-label={t("error.copyDetails")}
 							>
 								{copied ? (
-									<HiCheck className="w-3.5 h-3.5 text-green-500" />
+									<HiCheck className="w-3.5 h-3.5 text-success" />
 								) : (
 									<HiOutlineClipboard className="w-3.5 h-3.5" />
 								)}
 							</button>
-							<pre className="w-full max-h-80 overflow-auto rounded-md border border-border bg-muted/40 p-3 pr-10 text-left text-xs text-muted-foreground select-text">
+							<pre className="w-full max-h-80 overflow-auto rounded-ds-3 border border-line bg-hover/40 p-3 pr-10 text-left text-xs text-fg-mute select-text">
 								{details}
 							</pre>
 						</div>

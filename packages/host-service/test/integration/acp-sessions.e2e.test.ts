@@ -42,13 +42,19 @@ import { Hono } from "hono";
 import {
 	AcpSessionManager,
 	AcpSessionNotFoundError,
+	type AcpSessionPersistence,
 	AcpWorkspaceMismatchError,
+	PiStartupCache,
 	registerAcpSessionStreamRoute,
 } from "../../src/runtime/acp-sessions";
 
 const FAKE_ADAPTER = path.join(
 	import.meta.dir,
 	"../fixtures/fake-acp-adapter.ts",
+);
+const FAKE_PI_ADAPTER = path.join(
+	import.meta.dir,
+	"../fixtures/fake-pi-acp-adapter.ts",
 );
 const WORKSPACE_ID = "acp-e2e-workspace";
 
@@ -98,7 +104,11 @@ describe("acp-sessions e2e (fake adapter)", () => {
 	const servers: ServerType[] = [];
 	const subscriptions: SessionSubscription[] = [];
 
-	function newManager(options?: { journalCapacity?: number }) {
+	function newManager(options?: {
+		journalCapacity?: number;
+		piAdapterEntry?: string;
+		piStartupCache?: PiStartupCache;
+	}) {
 		const manager = new AcpSessionManager({
 			resolveWorkspaceCwd: () => workspaceDir,
 			adapterEntry: FAKE_ADAPTER,
@@ -107,6 +117,250 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		managers.push(manager);
 		return manager;
 	}
+
+	test("Pi suppresses its bootstrap prelude but preserves real turn output", async () => {
+		const manager = newManager({ piAdapterEntry: FAKE_PI_ADAPTER });
+		const sessionId = "e2e-pi-bootstrap";
+		await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			harness: "pi-acp",
+		});
+
+		// Pi intentionally sends its startup message after session/new resolves.
+		await sleep(25);
+		let timeline = foldEnvelopes(
+			emptyTimeline(),
+			manager.getMessages({ sessionId }).items,
+		);
+		expect(agentText(timeline)).not.toContain("pi v0.84.0");
+		expect(agentText(timeline)).not.toContain("AGENTS.md");
+		expect(timeline.items).toHaveLength(0);
+
+		const { turn } = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "real user prompt" }],
+		});
+		await expect(turn).resolves.toEqual({ stopReason: "end_turn" });
+
+		timeline = foldEnvelopes(
+			emptyTimeline(),
+			manager.getMessages({ sessionId }).items,
+		);
+		expect(agentText(timeline)).toContain("actual agent reply");
+		expect(
+			timeline.items.some(
+				(item) => item.kind === "message" && item.role === "thought",
+			),
+		).toBe(true);
+		expect(
+			timeline.items.some(
+				(item) =>
+					item.kind === "tool_call" && item.call.title === "actual tool",
+			),
+		).toBe(true);
+	});
+
+	test("Pi startup metadata still suppresses the prelude for an immediate prompt", async () => {
+		const manager = newManager({ piAdapterEntry: FAKE_PI_ADAPTER });
+		const sessionId = "e2e-pi-immediate-prompt";
+		await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			harness: "pi-acp",
+		});
+		const { turn } = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "prompt without waiting" }],
+		});
+		await expect(turn).resolves.toEqual({ stopReason: "end_turn" });
+		await sleep(25);
+
+		const text = agentText(
+			foldEnvelopes(emptyTimeline(), manager.getMessages({ sessionId }).items),
+		);
+		expect(text).toContain("actual agent reply");
+		expect(text).not.toContain("pi v0.84.0");
+	});
+
+	test("Pi exposes a cached upgrade notice without exposing its TUI prelude", async () => {
+		const cache = new PiStartupCache(async (command) => ({
+			stdout: command === "pi" ? "1.2.3" : "1.3.0",
+			stderr: "",
+		}));
+		cache.refreshInBackground();
+		await waitFor(
+			() => cache.getUpdateNotice() !== null,
+			1_000,
+			"Pi upgrade cache refresh",
+		);
+		const manager = newManager({
+			piAdapterEntry: FAKE_PI_ADAPTER,
+			piStartupCache: cache,
+		});
+		const sessionId = "e2e-pi-upgrade-notice";
+		await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			harness: "pi-acp",
+		});
+		await sleep(25);
+
+		const text = agentText(
+			foldEnvelopes(emptyTimeline(), manager.getMessages({ sessionId }).items),
+		);
+		expect(text).toContain("New version available: v1.3.0");
+		expect(text).not.toContain("AGENTS.md");
+	});
+
+	test("advertises terminal output and preserves Pi terminal metadata through the host", async () => {
+		const manager = newManager({ piAdapterEntry: FAKE_PI_ADAPTER });
+		const sessionId = "e2e-pi-terminal-output";
+		await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			harness: "pi-acp",
+		});
+		const { turn } = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "run terminal command" }],
+		});
+		await expect(turn).resolves.toEqual({ stopReason: "end_turn" });
+
+		const timeline = foldEnvelopes(
+			emptyTimeline(),
+			manager.getMessages({ sessionId }).items,
+		);
+		const tool = timeline.items.find(
+			(item) => item.kind === "tool_call" && item.id === "pi-terminal-tool",
+		);
+		if (!tool || tool.kind !== "tool_call") {
+			throw new Error("Pi terminal tool missing from timeline");
+		}
+		expect(tool.terminals?.["pi-opaque-terminal"]).toEqual({
+			terminalId: "pi-opaque-terminal",
+			cwd: "/fake-workspace",
+			output: "fake Pi terminal output\n",
+			exitCode: 0,
+			signal: null,
+		});
+	});
+
+	test("preserves a deterministic ACP Diff content block without mutating files", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-diff-content";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const { turn } = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "diff src/example.ts" }],
+		});
+		await expect(turn).resolves.toEqual({ stopReason: "end_turn" });
+
+		const timeline = foldEnvelopes(
+			emptyTimeline(),
+			manager.getMessages({ sessionId }).items,
+		);
+		const tool = timeline.items.find((item) => item.kind === "tool_call");
+		if (!tool || tool.kind !== "tool_call") {
+			throw new Error("diff tool call missing from timeline");
+		}
+		expect(tool.call.status).toBe("completed");
+		expect(tool.call.content).toEqual([
+			{
+				type: "diff",
+				path: "src/example.ts",
+				oldText: "export const answer = 41;\n",
+				newText: "export const answer = 42;\n",
+			},
+		]);
+	});
+
+	test("Pi historical startup frames stay hidden without creating stream gaps", async () => {
+		const sessionId = "e2e-pi-legacy-bootstrap";
+		const epoch = "legacy-pi-epoch";
+		const entries: SessionUpdateEnvelope[] = [
+			{
+				sessionId,
+				epoch,
+				seq: 1,
+				ts: 1,
+				frame: {
+					kind: "update",
+					update: {
+						sessionUpdate: "agent_message_chunk",
+						content: { type: "text", text: "pi v0.84.0\nContext: AGENTS.md" },
+					},
+				},
+			},
+			{
+				sessionId,
+				epoch,
+				seq: 2,
+				ts: 2,
+				frame: {
+					kind: "update",
+					update: {
+						sessionUpdate: "user_message_chunk",
+						content: { type: "text", text: "historical real prompt" },
+					},
+				},
+			},
+			{
+				sessionId,
+				epoch,
+				seq: 3,
+				ts: 3,
+				frame: {
+					kind: "update",
+					update: {
+						sessionUpdate: "agent_message_chunk",
+						content: { type: "text", text: "historical real reply" },
+					},
+				},
+			},
+		];
+		const persistence: AcpSessionPersistence = {
+			loadAll: () => [
+				{
+					sessionId,
+					workspaceId: WORKSPACE_ID,
+					acpSessionId: "fake-pi-legacy",
+					epoch,
+					harness: "pi-acp",
+					cwd: workspaceDir,
+					title: null,
+					lastStopReason: "end_turn",
+					createdAt: 1,
+					updatedAt: 3,
+				},
+			],
+			upsert: () => {},
+			loadJournal: () => entries,
+			appendEnvelope: () => {},
+			reserveCommand: () => true,
+			releaseCommand: () => {},
+			deleteSession: () => {},
+		};
+		const manager = new AcpSessionManager({
+			resolveWorkspaceCwd: () => workspaceDir,
+			piAdapterEntry: FAKE_PI_ADAPTER,
+			persistence,
+		});
+		managers.push(manager);
+		await manager.ensureLive(sessionId);
+		const received: SessionUpdateEnvelope[] = [];
+		const unsubscribe = manager.subscribe({
+			sessionId,
+			since: 0,
+			onEnvelope: (envelope) => received.push(envelope),
+		});
+		unsubscribe();
+		expectGapless(received);
+		const text = agentText(foldEnvelopes(emptyTimeline(), received));
+		expect(text).toContain("historical real reply");
+		expect(text).not.toContain("pi v0.84.0");
+	});
 
 	async function startServer(manager: AcpSessionManager): Promise<string> {
 		const app = new Hono();
@@ -173,9 +427,9 @@ describe("acp-sessions e2e (fake adapter)", () => {
 			workspaceId: WORKSPACE_ID,
 		});
 		expect(created.status).toBe("idle");
-		// D14-c: the fake starts sessions in bypassPermissions, like the real
-		// adapter — the manager must have switched it to default.
-		expect(created.currentMode?.currentModeId).toBe("default");
+		// The fake starts sessions in bypassPermissions, like the real
+		// adapter — Superset keeps them in bypass by default.
+		expect(created.currentMode?.currentModeId).toBe("bypassPermissions");
 
 		const stream = connect({ baseUrl, sessionId, since: 0 });
 
@@ -271,6 +525,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 			sessionId,
 			prompt: [{ type: "text", text: "permission risky-write" }],
 		});
+
 		await waitFor(
 			() => manager.get(sessionId).pendingPermissions.length > 0,
 			10_000,
@@ -333,6 +588,38 @@ describe("acp-sessions e2e (fake adapter)", () => {
 			.map((item) => (item.kind === "tool_call" ? item.call.status : ""));
 		expect(statuses).toEqual(["completed", "failed"]);
 	}, 30_000);
+
+	test("Claude AskUserQuestion permission correlates its annotated tool call", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-claude-ask-permission";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+		const { turn } = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "claude-ask-permission" }],
+		});
+		await waitFor(
+			() => manager.get(sessionId).pendingPermissions.length === 1,
+			10_000,
+			"the Claude AskUserQuestion permission",
+		);
+		const pending = manager.get(sessionId).pendingPermissions[0];
+		if (!pending) throw new Error("Claude question card disappeared");
+		expect(pending.toolCall.toolCallId).toBe("toolu_fixture_ask");
+		expect(pending.isElicitation).toBe(true);
+		expect(pending.options.map((option) => option.name)).toEqual([
+			"red",
+			"blue",
+		]);
+		expect(
+			manager.respondToPermission({
+				sessionId,
+				requestId: pending.requestId,
+				outcome: { outcome: "selected", optionId: "blue" },
+			}),
+		).toEqual({ status: "resolved" });
+		expect((await turn).stopReason).toBe("end_turn");
+		expect(manager.get(sessionId).pendingPermissions).toEqual([]);
+	});
 
 	test("two simultaneous permissions stay independently correlated and awaiting until both resolve", async () => {
 		const manager = newManager();
@@ -422,6 +709,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		const singleCard = manager.get(sessionId).pendingPermissions[0];
 		if (!singleCard) throw new Error("question card disappeared");
 		expect(singleCard.multiSelect).toBeUndefined();
+		expect(singleCard.isElicitation).toBe(true);
 		expect(singleCard.toolCall.title).toBe("pick a color");
 		expect(singleCard.options.map((option) => option.name)).toEqual([
 			"red",
@@ -451,6 +739,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		const multiCard = manager.get(sessionId).pendingPermissions[0];
 		if (!multiCard) throw new Error("question card disappeared");
 		expect(multiCard.multiSelect).toBe(true);
+		expect(multiCard.isElicitation).toBe(true);
 		manager.respondToPermission({
 			sessionId,
 			requestId: multiCard.requestId,
@@ -759,6 +1048,32 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		await inflight;
 	}, 30_000);
 
+	test("records Codex as the selected harness while preserving the ACP envelope", async () => {
+		// The deterministic ACP fixture stands in for the bridge's outer
+		// protocol here; this verifies the manager selection/persistence seam
+		// without starting a real Codex process or requiring a login.
+		const manager = new AcpSessionManager({
+			resolveWorkspaceCwd: () => workspaceDir,
+			adapterEntry: FAKE_ADAPTER,
+			codexAdapterEntry: FAKE_ADAPTER,
+		});
+		managers.push(manager);
+		const sessionId = "e2e-codex-harness";
+		const state = await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			harness: "codex-app-server",
+		});
+		expect(state.harness).toBe("codex-app-server");
+		await expect(
+			manager.create({
+				sessionId,
+				workspaceId: WORKSPACE_ID,
+				harness: "claude-agent-acp",
+			}),
+		).rejects.toThrow(AcpWorkspaceMismatchError);
+	}, 30_000);
+
 	test("setMode and setConfigOption round-trip through the adapter", async () => {
 		const manager = newManager();
 		const sessionId = "e2e-config";
@@ -808,6 +1123,35 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		);
 		await manager.setConfigOption({ sessionId, configId: "fast", value: "on" });
 		expect(configValue(manager.get(sessionId), "fast")).toBe("on");
+	}, 30_000);
+
+	test("caches async available-command updates in deep-cloned state snapshots", async () => {
+		// The update plus its following state snapshot evict the update frame,
+		// matching a client resync whose getMessages page cannot supply commands.
+		const manager = newManager({ journalCapacity: 1 });
+		const sessionId = "e2e-available-commands";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+		await waitFor(
+			() => manager.get(sessionId).availableCommands !== null,
+			10_000,
+			"the async available command catalog",
+		);
+
+		const snapshot = manager.get(sessionId);
+		expect(snapshot.availableCommands).toEqual([
+			{
+				name: "review",
+				description: "Review the current change",
+				input: { hint: "[scope]" },
+			},
+		]);
+		const command = snapshot.availableCommands?.[0];
+		if (!command?.input) throw new Error("expected command input metadata");
+		command.input.hint = "mutated by caller";
+		expect(manager.get(sessionId).availableCommands?.[0]?.input?.hint).toBe(
+			"[scope]",
+		);
+		expect(manager.getMessages({ sessionId, limit: 20 }).items).toEqual([]);
 	}, 30_000);
 
 	test("cancel with a pending permission card settles it cancelled", async () => {
@@ -1078,6 +1422,9 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		// The card is bound to the adapter's real tool call, not a synthetic
 		// elicitation-<uuid> stand-in.
 		expect(card.toolCall.toolCallId).toMatch(/^tool-\d+$/);
+		// The desktop must use this explicit discriminator instead of inferring
+		// AskUser from the adapter-owned tool call id.
+		expect(card.isElicitation).toBe(true);
 		manager.respondToPermission({
 			sessionId,
 			requestId: card.requestId,
@@ -1328,5 +1675,206 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expectGapless(received);
 		unsubscribeThrowing();
 		unsubscribe();
+	}, 30_000);
+
+	// ── Follow-up queue ────────────────────────────────────────────────
+	async function waitForHangReady(
+		manager: AcpSessionManager,
+		sessionId: string,
+	): Promise<void> {
+		// The fake adapter only installs its cancel handler AFTER the in_progress
+		// tool_call is notified — cancelling earlier is a no-op and leaves the
+		// prompt hung. Wait for the tool_call frame to land in the journal.
+		await waitFor(
+			() =>
+				manager
+					.getMessages({ sessionId, limit: 200 })
+					.items.some(
+						(envelope) =>
+							envelope.frame.kind === "update" &&
+							envelope.frame.update.sessionUpdate === "tool_call",
+					),
+			5_000,
+			"the hang tool_call to journal",
+		);
+	}
+
+	test("enqueuePrompt drains when the current turn settles", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-queue-drain";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const hang = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		hang.turn.catch(() => {});
+		await waitForHangReady(manager, sessionId);
+
+		const first = manager.enqueuePrompt({
+			sessionId,
+			prompt: [{ type: "text", text: "say alpha" }],
+		});
+		const second = manager.enqueuePrompt({
+			sessionId,
+			prompt: [{ type: "text", text: "say beta" }],
+		});
+		expect(first.queueId).not.toEqual(second.queueId);
+		expect(manager.get(sessionId).queuedPrompts).toHaveLength(2);
+
+		await manager.cancel({ sessionId });
+		await hang.turn.catch(() => {});
+		await waitFor(
+			() =>
+				manager.get(sessionId).status === "idle" &&
+				manager.get(sessionId).queuedPrompts.length === 0,
+			5_000,
+			"queue to drain",
+		);
+		const text = agentText(
+			foldEnvelopes(emptyTimeline(), manager.getMessages({ sessionId }).items),
+		);
+		// FIFO — alpha is written before beta.
+		expect(text.indexOf("alpha")).toBeGreaterThanOrEqual(0);
+		expect(text.indexOf("beta")).toBeGreaterThan(text.indexOf("alpha"));
+	}, 30_000);
+
+	test("sendNow cancels the current turn and jumps to the head", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-queue-sendnow";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const hang = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		hang.turn.catch(() => {});
+		await waitForHangReady(manager, sessionId);
+		manager.enqueuePrompt({
+			sessionId,
+			prompt: [{ type: "text", text: "say tail" }],
+		});
+		// Send-now jumps past `tail` — pendingSendNow beats queuedPrompts.
+		await manager.sendNow({
+			sessionId,
+			prompt: [{ type: "text", text: "say cut-in" }],
+		});
+		await hang.turn.catch(() => {});
+		await waitFor(
+			() =>
+				manager.get(sessionId).status === "idle" &&
+				manager.get(sessionId).queuedPrompts.length === 0,
+			5_000,
+			"queue to drain after sendNow",
+		);
+		const text = agentText(
+			foldEnvelopes(emptyTimeline(), manager.getMessages({ sessionId }).items),
+		);
+		expect(text.indexOf("cut-in")).toBeGreaterThanOrEqual(0);
+		expect(text.indexOf("tail")).toBeGreaterThan(text.indexOf("cut-in"));
+	}, 30_000);
+
+	test("reorderQueue full-list, edit, and remove reshape the queue", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-queue-edit";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const hang = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		hang.turn.catch(() => {});
+		await waitForHangReady(manager, sessionId);
+		const a = manager.enqueuePrompt({
+			sessionId,
+			prompt: [{ type: "text", text: "say a" }],
+		});
+		const b = manager.enqueuePrompt({
+			sessionId,
+			prompt: [{ type: "text", text: "say b" }],
+		});
+		const c = manager.enqueuePrompt({
+			sessionId,
+			prompt: [{ type: "text", text: "say c" }],
+		});
+
+		// Reorder to [c, a, b] and edit `a`.
+		manager.reorderQueue({
+			sessionId,
+			orderedIds: [c.queueId, a.queueId, b.queueId],
+		});
+		manager.editQueuedPrompt({
+			sessionId,
+			queueId: a.queueId,
+			prompt: [{ type: "text", text: "say alpha-edited" }],
+		});
+		manager.removeQueuedPrompt({ sessionId, queueId: b.queueId });
+
+		const state = manager.get(sessionId);
+		expect(state.queuedPrompts.map((entry) => entry.queueId)).toEqual([
+			c.queueId,
+			a.queueId,
+		]);
+
+		await manager.cancel({ sessionId });
+		await hang.turn.catch(() => {});
+		await waitFor(
+			() =>
+				manager.get(sessionId).status === "idle" &&
+				manager.get(sessionId).queuedPrompts.length === 0,
+			5_000,
+			"queue to drain",
+		);
+		const text = agentText(
+			foldEnvelopes(emptyTimeline(), manager.getMessages({ sessionId }).items),
+		);
+		expect(text).toContain("c");
+		expect(text).toContain("alpha-edited");
+		// b was removed, so no "b" body.
+		expect(text.split("say b").length - 1).toBe(0);
+	}, 30_000);
+
+	test("reorderQueue rejects malformed inputs", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-queue-reorder-invalid";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const hang = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		hang.turn.catch(() => {});
+		await waitForHangReady(manager, sessionId);
+		const a = manager.enqueuePrompt({
+			sessionId,
+			prompt: [{ type: "text", text: "say a" }],
+		});
+		const b = manager.enqueuePrompt({
+			sessionId,
+			prompt: [{ type: "text", text: "say b" }],
+		});
+
+		expect(() =>
+			manager.reorderQueue({ sessionId, orderedIds: [a.queueId] }),
+		).toThrow(/expected 2 ids/);
+		expect(() =>
+			manager.reorderQueue({
+				sessionId,
+				orderedIds: [a.queueId, a.queueId],
+			}),
+		).toThrow(/duplicate id/);
+		expect(() =>
+			manager.reorderQueue({
+				sessionId,
+				orderedIds: [a.queueId, "does-not-exist"],
+			}),
+		).toThrow(/unknown queueId/);
+		// Queue survives every failed reorder.
+		expect(
+			manager.get(sessionId).queuedPrompts.map((entry) => entry.queueId),
+		).toEqual([a.queueId, b.queueId]);
+
+		await manager.cancel({ sessionId });
+		await hang.turn.catch(() => {});
 	}, 30_000);
 });

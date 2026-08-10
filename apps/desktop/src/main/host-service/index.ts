@@ -5,6 +5,8 @@
  * The coordinator polls health.check to know when it's ready.
  */
 
+import type { IncomingMessage } from "node:http";
+import type { Duplex } from "node:stream";
 import { serve } from "@hono/node-server";
 import {
 	createApp,
@@ -94,6 +96,7 @@ async function main(): Promise<void> {
 			dbPath: env.HOST_DB_PATH,
 			cloudApiUrl: env.SUPERSET_API_URL,
 			migrationsFolder: env.HOST_MIGRATIONS_FOLDER,
+			webAppDir: env.SUPERSET_WEB_APP_DIR,
 			allowedOrigins: [
 				`http://localhost:${env.DESKTOP_VITE_PORT}`,
 				`http://127.0.0.1:${env.DESKTOP_VITE_PORT}`,
@@ -109,7 +112,11 @@ async function main(): Promise<void> {
 
 	const startedAt = Date.now();
 	const server = serve(
-		{ fetch: app.fetch, port: env.HOST_SERVICE_PORT, hostname: "127.0.0.1" },
+		{
+			fetch: app.fetch,
+			port: env.HOST_SERVICE_PORT,
+			hostname: env.HOST_SERVICE_HOSTNAME,
+		},
 		(info: { port: number }) => {
 			// Install only after the server is listening so startup throws still
 			// reach `main().catch(...)` and exit with a non-zero code.
@@ -145,6 +152,17 @@ async function main(): Promise<void> {
 		},
 	);
 	serverRef.current = server;
+	// Keep an error listener during the gap between Node emitting `upgrade` and
+	// @hono/node-ws adopting the socket. A peer reset in that window must not
+	// take down the bundled host-service process.
+	server.on("upgrade", (request: IncomingMessage, socket: Duplex) => {
+		const requestPath = request.url?.split("?")[0] ?? "<unknown>";
+		socket.on("error", (error: NodeJS.ErrnoException) => {
+			console.warn(
+				`[host-service] upgrade socket error (${error.code ?? error.message}) on ${requestPath} from ${request.socket.remoteAddress ?? "<unknown>"}`,
+			);
+		});
+	});
 	injectWebSocket(server);
 }
 

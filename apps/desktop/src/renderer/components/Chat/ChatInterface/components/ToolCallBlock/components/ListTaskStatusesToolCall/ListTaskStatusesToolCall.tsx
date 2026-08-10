@@ -50,7 +50,7 @@ export function ListTaskStatusesToolCall({
 			icon={ListChecksIcon}
 			details={
 				<div className="space-y-2">
-					<div className="text-muted-foreground">
+					<div className="text-fg-mute">
 						{t("chat.tool.statusesCount", { count: statuses.length })}
 					</div>
 					{statuses.length > 0 ? (
@@ -88,9 +88,7 @@ export function ListTaskStatusesToolCall({
 														style={{ backgroundColor: statusColor }}
 													/>
 												)}
-												<div className="font-medium text-foreground">
-													{name}
-												</div>
+												<div className="font-medium text-fg">{name}</div>
 											</div>
 											<div className="flex flex-wrap gap-1">
 												{type ? (
@@ -115,7 +113,7 @@ export function ListTaskStatusesToolCall({
 							})}
 						</div>
 					) : (
-						<div className="text-muted-foreground">
+						<div className="text-fg-mute">
 							{t("chat.tool.noStatusesInResult")}
 						</div>
 					)}

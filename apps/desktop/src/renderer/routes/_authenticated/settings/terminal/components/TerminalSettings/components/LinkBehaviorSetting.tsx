@@ -44,7 +44,7 @@ export function LinkBehaviorSetting() {
 				<Label htmlFor="terminal-link-behavior" className="text-sm font-medium">
 					{t("terminal.fileLinks")}
 				</Label>
-				<p className="text-xs text-muted-foreground">
+				<p className="text-xs text-fg-mute">
 					{t("terminal.fileLinksDescription")}
 				</p>
 			</div>

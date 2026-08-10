@@ -37,7 +37,7 @@ export function HostSelect({
 		<Select value={value} onValueChange={onValueChange}>
 			<SelectTrigger
 				size="sm"
-				className={`h-8 gap-1.5 px-2 text-foreground ${className ?? ""}`}
+				className={`h-8 gap-1.5 px-2 text-fg ${className ?? ""}`}
 			>
 				<SelectValue>
 					<span className="flex items-center gap-1.5">
@@ -53,7 +53,7 @@ export function HostSelect({
 								}
 								className={
 									selected.isOnline
-										? "size-1.5 shrink-0 rounded-full bg-emerald-500"
+										? "size-1.5 shrink-0 rounded-full bg-success-tint"
 										: "size-1.5 shrink-0 rounded-full bg-muted-foreground/60"
 								}
 							/>
@@ -66,15 +66,15 @@ export function HostSelect({
 					<SelectItem key={option.id} value={option.id}>
 						<span className="flex items-center gap-2">
 							{option.isLocal ? (
-								<HiOutlineComputerDesktop className="size-4 text-muted-foreground" />
+								<HiOutlineComputerDesktop className="size-4 text-fg-mute" />
 							) : (
-								<HiOutlineServer className="size-4 text-muted-foreground" />
+								<HiOutlineServer className="size-4 text-fg-mute" />
 							)}
 							<span className="truncate">
 								{option.isLocal ? t("project.thisDevice") : option.name}
 							</span>
 							{!option.isLocal && !option.isOnline && (
-								<span className="text-xs text-muted-foreground">offline</span>
+								<span className="text-xs text-fg-mute">offline</span>
 							)}
 						</span>
 					</SelectItem>

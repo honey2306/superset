@@ -39,11 +39,11 @@ export function PresetsTable({
 			ref={presetsContainerRef}
 			className={cn(
 				"divide-y divide-border",
-				bordered && "rounded-lg border border-border overflow-hidden",
+				bordered && "rounded-ds-5 border border-line overflow-hidden",
 			)}
 		>
 			{isLoading ? (
-				<div className="py-8 text-center text-sm text-muted-foreground">
+				<div className="py-8 text-center text-sm text-fg-mute">
 					{t("terminal.loadingPresets")}
 				</div>
 			) : presets.length > 0 ? (
@@ -61,7 +61,7 @@ export function PresetsTable({
 					/>
 				))
 			) : (
-				<div className="py-10 text-center text-sm text-muted-foreground">
+				<div className="py-10 text-center text-sm text-fg-mute">
 					{t("terminal.noPresets")}
 				</div>
 			)}

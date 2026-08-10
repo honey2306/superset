@@ -23,8 +23,8 @@ function FileMentionChip({ node, selected, deleteNode }: NodeViewProps) {
 					"mx-0.5 inline-flex items-center gap-1 rounded-sm border px-1 py-[1px] font-mono text-xs transition-colors",
 					broken
 						? "border-destructive/30 bg-destructive/10 text-destructive/80 line-through"
-						: "border-border bg-muted text-foreground/90 hover:bg-muted/70",
-					!broken && selected && "ring-1 ring-primary/40",
+						: "border-line bg-hover text-fg/90 hover:bg-hover/70",
+					!broken && selected && "ring-1 ring-accent-line",
 				)}
 			>
 				<FileIcon fileName={fileName} className="size-3 shrink-0" />
@@ -46,7 +46,7 @@ function FileMentionChip({ node, selected, deleteNode }: NodeViewProps) {
 								event.stopPropagation();
 								deleteNode();
 							}}
-							className="ml-0.5 inline-flex size-3.5 items-center justify-center rounded-sm text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+							className="ml-0.5 inline-flex size-3.5 items-center justify-center rounded-sm text-fg-mute hover:bg-fg/10 hover:text-fg"
 						>
 							<LuX className="size-3" />
 						</button>

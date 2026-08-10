@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>Dracula Colorful v4 — 五色分工分析</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --page-bg: #0d0e14;
+    --page-fg: #e6e6f0;
+    --page-muted: #8a8fa8;
+    --divider: #2a2c38;
+    --pink: #ff8fd1;
+    --violet: #c4a2ff;
+    --green: #6fff95;
+    --cyan: #a0f0ff;
+    --yellow: #f6ff9a;
+    --font-ui: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui);
+    background: var(--page-bg);
+    color: var(--page-fg);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+    padding: 40px 32px 100px;
+  }
+  h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 10px; }
+  .lede { color: var(--page-muted); font-size: 14px; max-width: 860px; margin: 0 0 12px; }
+  .lede code { font-family: var(--font-mono); font-size: 12.5px; color: var(--pink); background: rgba(255, 143, 209, 0.09); padding: 1px 6px; border-radius: 4px; }
+  .lede strong { color: var(--page-fg); }
+
+  h2.section {
+    font-size: 16px; font-weight: 600;
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--divider);
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  h2.section .num { font-family: var(--font-mono); color: var(--pink); font-size: 13px; }
+
+  /* Reasoning banner */
+  .reasoning {
+    background: linear-gradient(135deg, rgba(255,143,209,0.10), rgba(196,162,255,0.05));
+    border: 1px solid rgba(255, 143, 209, 0.25);
+    padding: 18px 22px;
+    border-radius: 10px;
+    margin-bottom: 28px;
+  }
+  .reasoning-title { font-size: 13px; color: var(--pink); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 10px; font-weight: 600; }
+  .reasoning p { margin: 0; font-size: 13.5px; }
+  .reasoning p + p { margin-top: 8px; }
+  .reasoning .kbd {
+    font-family: var(--font-mono);
+    background: rgba(0,0,0,0.35);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--page-fg);
+  }
+
+  /* Frequency evidence */
+  .evidence {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin: 16px 0 24px;
+  }
+  @media (max-width: 900px) { .evidence { grid-template-columns: 1fr; } }
+  .stat {
+    background: #14161f;
+    border: 1px solid var(--divider);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat .num { font-family: var(--font-mono); font-size: 32px; font-weight: 500; line-height: 1; letter-spacing: -0.02em; }
+  .stat .num.pink { color: var(--pink); }
+  .stat .num.violet { color: var(--violet); }
+  .stat .num.muted { color: var(--page-muted); }
+  .stat .label { font-size: 12px; color: var(--page-muted); }
+  .stat .detail { font-size: 12px; color: var(--page-muted); font-family: var(--font-mono); margin-top: 6px; }
+
+  /* Role assignment table */
+  .roles {
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .roles h3 { margin: 0; padding: 12px 18px; background: #16171f; font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--divider); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--divider); vertical-align: middle; }
+  th { font-weight: 600; color: var(--page-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; background: #12131a; }
+  .swatch-inline {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 12px;
+  }
+  .swatch-inline .box { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.08); }
+  .role-name { font-weight: 600; letter-spacing: 0.005em; }
+  .role-name.pink { color: var(--pink); }
+  .role-name.violet { color: var(--violet); }
+  .role-name.calm { color: #a2b0d8; }
+  .role-name.chart { color: #f6ff9a; }
+  td.usage { color: var(--page-muted); font-size: 12.5px; }
+  td.count { font-family: var(--font-mono); font-size: 12px; color: var(--page-muted); text-align: right; white-space: nowrap; }
+
+  /* Application preview */
+  .apps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 1100px) { .apps { grid-template-columns: 1fr; } }
+  .app-frame {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: var(--bg);
+    display: grid;
+    grid-template-rows: 32px 1fr;
+    min-height: 500px;
+    color: var(--fg);
+    font-family: var(--font-ui);
+  }
+  .titlebar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    font-size: 11.5px;
+  }
+  .titlebar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 8px var(--primary); }
+  .titlebar .path { color: var(--muted-fg); font-family: var(--font-mono); font-size: 11px; }
+  .app-body { display: grid; grid-template-columns: 190px 1fr; }
+  .app-side {
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    padding: 14px 8px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .app-side h5 { margin: 8px 8px 4px; font-size: 10.5px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
+  .nav {
+    padding: 7px 10px;
+    font-size: 13px;
+    border-radius: 7px;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--fg);
+  }
+  .nav .ic { width: 14px; height: 14px; border-radius: 3px; background: var(--muted-fg); opacity: 0.6; flex: none; }
+  .nav.active { background: var(--accent); color: var(--accent-fg); font-weight: 500; }
+  .nav.active .ic { background: var(--fg); opacity: 0.9; }
+
+  /* Workspace with pink primary indicator */
+  .ws-item {
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 7px;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--fg);
+    position: relative;
+  }
+  .ws-item.selected {
+    background: rgba(255, 143, 209, 0.10);
+    box-shadow: inset 0 0 0 1px rgba(255, 143, 209, 0.30);
+  }
+  .ws-item.selected::before {
+    content: "";
+    position: absolute;
+    left: -8px; top: 6px; bottom: 6px;
+    width: 3px; border-radius: 0 3px 3px 0;
+    background: var(--primary);
+  }
+  .ws-item .avatar {
+    width: 20px; height: 20px; border-radius: 5px;
+    background: rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; color: var(--muted-fg);
+    flex: none;
+  }
+  .ws-item.selected .avatar { background: var(--primary); color: var(--primary-fg); }
+
+  .app-main {
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 16px;
+    overflow: hidden;
+  }
+  .h1 { font-size: 17px; font-weight: 600; margin: 0; }
+  .sub { font-size: 13px; color: var(--muted-fg); margin: 0; }
+  .card-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .card-box .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .card-box .k { font-size: 13px; }
+  .card-box .v { font-size: 12.5px; color: var(--muted-fg); font-family: var(--font-mono); }
+
+  .cta-row { display: flex; gap: 8px; align-items: center; }
+  .btn {
+    padding: 8px 14px; border-radius: 7px;
+    font-size: 13px; font-family: var(--font-ui);
+    border: 1px solid transparent;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn.primary {
+    background: var(--primary);
+    color: var(--primary-fg);
+    font-weight: 500;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.05) inset;
+  }
+  .btn.ghost { background: transparent; color: var(--fg); border-color: var(--border); }
+  .btn.destructive-ghost { background: transparent; color: var(--destructive); border-color: var(--border); }
+
+  .pill {
+    display: inline-flex; align-items: center;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600;
+    background: var(--primary); color: var(--primary-fg);
+    letter-spacing: 0.03em;
+  }
+
+  .input-box {
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 12px;
+    font-size: 13px;
+    color: var(--fg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .input-box.focused {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(255, 143, 209, 0.20);
+  }
+  .input-box .ph { color: var(--muted-fg); }
+  .input-box .cursor {
+    width: 1.5px; height: 14px; background: var(--primary);
+    animation: blink 1.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+  .terminal-inline {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--fg);
+  }
+  .terminal-inline .m { color: var(--muted-fg); }
+  .terminal-inline .g { color: var(--green); }
+  .terminal-inline .p { color: var(--pink); }
+  .terminal-inline .v { color: var(--violet); }
+  .terminal-inline .y { color: var(--yellow); }
+  .terminal-inline .c { color: var(--cyan); }
+  .terminal-inline .cur { color: var(--pink); }
+
+  .app-caption {
+    font-size: 12.5px; color: var(--page-muted); margin: 6px 0 12px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .app-caption strong { color: var(--pink); font-family: var(--font-mono); font-size: 12px; }
+
+  /* Pink density scale */
+  .density {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px;
+    background: #14161f;
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .density-label { color: var(--page-muted); font-size: 12px; white-space: nowrap; }
+  .density-bar {
+    flex: 1;
+    display: flex;
+    height: 24px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .density-bar > span {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-family: var(--font-mono);
+    color: rgba(255,255,255,0.85);
+  }
+  .density-legend {
+    font-size: 12px; color: var(--page-muted);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+  .density-legend strong { color: var(--pink); }
+
+  .foot { color: var(--page-muted); font-size: 12.5px; margin-top: 30px; max-width: 860px; }
+  .foot strong { color: var(--page-fg); }
+</style>
+</head>
+<body>
+  <h1>五色分工分析 · v4 (Pink Signature)</h1>
+  <p class="lede">
+    <strong>粉是 Dracula 的 signature,不能不见。但也不能到处都是。</strong>
+    问题的正确解法不是"粉多"或"粉少",而是把粉放在<strong>它天然属于的位置</strong> ——
+    小面积、高频次、语义重的点睛处;把大面积的选中/hover 底色让给更沉稳的紫灰。
+    这份分析先看 Superset 里 <code>bg-primary</code> vs <code>bg-accent</code> 的实际使用频次,再决定每个 token 该穿什么颜色的衣服。
+  </p>
+
+  <!-- Reasoning -->
+  <div class="reasoning">
+    <p class="reasoning-title">为什么这次要重新分工</p>
+    <p>
+      <strong>v2</strong>:accent = 粉,大面积选中底色都是粉 → 每次点击一整块粉,吵、廉价。<br>
+      <strong>v3</strong>:accent = 紫灰,但粉被撤到只剩 chart 和小徽章 → Dracula 的辨识度也丢了(用户反馈"粉占比太少")。<br>
+      <strong>v4</strong>:重新看代码。<span class="kbd">bg-accent</span> 用了 <strong>140 处</strong>(选中/hover),<span class="kbd">bg-primary</span> 用了 <strong>21 处</strong>(CTA/focus/workspace 选中)。
+      粉自然应该在 primary —— 面积小、频次高、语义重、每次都是招牌色在最重要的位置闪一下,这才是 Dracula 该有的表达。
+    </p>
+  </div>
+
+  <h2 class="section"><span class="num">01</span> 使用频次统计(来自 apps/desktop 代码)</h2>
+  <div class="evidence">
+    <div class="stat">
+      <div class="num muted">140</div>
+      <div class="label">bg-accent 用途</div>
+      <div class="detail">大面积:选中态、hover 底、菜单激活</div>
+    </div>
+    <div class="stat">
+      <div class="num pink">21</div>
+      <div class="label">bg-primary 用途</div>
+      <div class="detail">小面积高频:CTA、focus ring、workspace 选中标</div>
+    </div>
+    <div class="stat">
+      <div class="num violet">52</div>
+      <div class="label">focus ring 出现</div>
+      <div class="detail">键盘 focus 全都用 ring / primary</div>
+    </div>
+  </div>
+
+  <p style="color: var(--page-muted); font-size: 13px; max-width: 780px; margin: 0 0 12px;">
+    <strong style="color: var(--page-fg)">规律很清楚:</strong>用户 UI 里的"点睛色"平均每个页面出现 1–3 次,面积总占 UI 的 &lt; 3%,但每次都要被立刻看见。
+    这就是粉色该做的角色。而"选中态/hover"每次可能占据 20%+ 屏幕面积,必须让给沉稳色。
+  </p>
+
+  <h2 class="section"><span class="num">02</span> 五色分工表 · 按语义 + 面积</h2>
+  <div class="roles">
+    <h3>Role assignment</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>颜色</th>
+          <th>色值</th>
+          <th>担任的角色</th>
+          <th>用在哪些场景</th>
+          <th style="text-align:right">面积权重</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="role-name pink">粉 Signature</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#ff8fd1"></span>#ff8fd1</span></td>
+          <td>primary · ring · highlight · chart1 · magenta · cursor</td>
+          <td class="usage">CTA 按钮、focus 光环、workspace 选中标、PRO 徽章、光标、图表首色、终端 magenta</td>
+          <td class="count">小 · 高频</td>
+        </tr>
+        <tr>
+          <td><span class="role-name violet">紫 Support</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#c4a2ff"></span>#c4a2ff</span></td>
+          <td>chart5 · terminal blue · 装饰紫</td>
+          <td class="usage">图表、终端 blue 系(变量、关键字)、需要 Dracula 紫的地方</td>
+          <td class="count">中 · 装饰</td>
+        </tr>
+        <tr>
+          <td><span class="role-name calm">紫灰 Structural</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#5a5f85"></span>#5a5f85</span></td>
+          <td>accent · sidebarAccent</td>
+          <td class="usage">选中态大面积底色 · hover 底 · 菜单激活</td>
+          <td class="count">大 · 高频</td>
+        </tr>
+        <tr>
+          <td><span class="role-name chart">绿/青/黄 Semantic</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#6fff95"></span>#6fff95</span> <span class="swatch-inline"><span class="box" style="background:#a0f0ff"></span>#a0f0ff</span> <span class="swatch-inline"><span class="box" style="background:#f6ff9a"></span>#f6ff9a</span></td>
+          <td>chart2–4 · terminal green/cyan/yellow</td>
+          <td class="usage">状态色(成功/信息/警告)、图表、终端语法高亮</td>
+          <td class="count">小 · 语义</td>
+        </tr>
+        <tr>
+          <td><span class="role-name" style="color: #ff7c7c">红 Alert</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#ff7c7c"></span>#ff7c7c</span></td>
+          <td>destructive · terminal red 略深</td>
+          <td class="usage">删除/危险按钮、错误提示;终端 red 用 #ff6e6e 区分</td>
+          <td class="count">小 · 语义</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="color: var(--page-muted); font-size: 12.5px; margin: 12px 0 0;">
+    · 核心洞察:<strong style="color: var(--pink)">粉的存在感来自"意外性",不来自"覆盖率"</strong>。
+    满屏的粉反而稀释了它作为 signature 的力量。放在最重要的行为上,一次瞥见就够。
+  </p>
+
+  <h2 class="section"><span class="num">03</span> 粉色实际密度 · 每屏平均</h2>
+  <div class="density">
+    <div class="density-label">v2 (accent = 粉):</div>
+    <div class="density-bar">
+      <span style="background: #ff8fd1; color: #1e1e2e; flex: 22">22%</span>
+      <span style="background: #575d80; flex: 15">紫灰</span>
+      <span style="background: #3a3e56; flex: 63">底/文</span>
+    </div>
+    <div class="density-legend"><strong>粉 22%</strong> · 吵</div>
+  </div>
+  <div class="density">
+    <div class="density-label">v3 (accent = 紫灰,粉撤退):</div>
+    <div class="density-bar">
+      <span style="background: #ff8fd1; color: #1e1e2e; flex: 2">2</span>
+      <span style="background: #575d80; flex: 25">紫灰</span>
+      <span style="background: #3a3e56; flex: 73">底/文</span>
+    </div>
+    <div class="density-legend"><strong>粉 2%</strong> · 太淡</div>
+  </div>
+  <div class="density">
+    <div class="density-label">v4 (粉 = primary + highlight):</div>
+    <div class="density-bar">
+      <span style="background: #ff8fd1; color: #1e1e2e; flex: 8">8%</span>
+      <span style="background: #575d80; flex: 22">紫灰</span>
+      <span style="background: #3a3e56; flex: 70">底/文</span>
+    </div>
+    <div class="density-legend"><strong>粉 8%</strong> · 刚好</div>
+  </div>
+
+  <p style="color: var(--page-muted); font-size: 12.5px; margin: 8px 0 0;">
+    · 参考:Stripe、Linear、Vercel 品牌色的实际屏占比通常在 <strong style="color: var(--page-fg)">5–10%</strong> 之间 —— 足够被看见,不会成为噪音。
+  </p>
+
+  <h2 class="section"><span class="num">04</span> 真实场景验证</h2>
+  <div class="apps">
+    <!-- v3 (pink absent) -->
+    <div>
+      <div class="app-caption">
+        <span>v3 · 粉几乎不出现</span>
+        <strong>粉密度 ~2%</strong>
+      </div>
+      <div class="app-frame" style="
+        --bg: #2f3244;
+        --card: #3a3e56;
+        --sidebar: #3a3e56;
+        --border: #525777;
+        --input: #464b68;
+        --fg: #f2f4ff;
+        --muted-fg: #a2b0d8;
+        --primary: #c4a2ff;
+        --primary-fg: #1e1e2e;
+        --accent: #5a5f85;
+        --accent-fg: #f2f4ff;
+        --destructive: #ff7c7c;
+      ">
+        <div class="titlebar"><span class="dot"></span><span>Superset</span><span class="path">· workspace · feat/acp</span></div>
+        <div class="app-body">
+          <div class="app-side">
+            <h5>Workspaces</h5>
+            <div class="ws-item"><div class="avatar">S</div>superset</div>
+            <div class="ws-item"><div class="avatar">A</div>acp-agent-control</div>
+            <div class="ws-item"><div class="avatar">B</div>branch-menu</div>
+            <h5>Reviews</h5>
+            <div class="nav active"><span class="ic"></span>Assigned</div>
+            <div class="nav"><span class="ic"></span>Drafts</div>
+          </div>
+          <div class="app-main">
+            <div>
+              <p class="h1">PR #218 · sidebar hover states</p>
+              <p class="sub">2 approved · 1 pending review</p>
+            </div>
+            <div class="card-box">
+              <div class="row"><span class="k">Author</span><span class="v">wufan</span></div>
+              <div class="row"><span class="k">Updated</span><span class="v">2h ago</span></div>
+            </div>
+            <div class="input-box"><span class="ph">Filter files, authors…</span></div>
+            <div class="cta-row">
+              <button class="btn primary">Merge</button>
+              <button class="btn ghost">Request changes</button>
+            </div>
+            <div class="terminal-inline">
+              <div><span class="m">$</span> git status</div>
+              <div class="g">✓ Working tree clean</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- v4 (pink at primary) -->
+    <div>
+      <div class="app-caption">
+        <span>v4 · 粉在 primary / focus / 徽章 / 选中标</span>
+        <strong>粉密度 ~8%</strong>
+      </div>
+      <div class="app-frame" style="
+        --bg: #2f3244;
+        --card: #3a3e56;
+        --sidebar: #3a3e56;
+        --border: #525777;
+        --input: #464b68;
+        --fg: #f2f4ff;
+        --muted-fg: #a2b0d8;
+        --primary: #ff8fd1;
+        --primary-fg: #1e1e2e;
+        --accent: #5a5f85;
+        --accent-fg: #f2f4ff;
+        --destructive: #ff7c7c;
+      ">
+        <div class="titlebar"><span class="dot"></span><span>Superset</span><span class="path">· workspace · feat/acp</span></div>
+        <div class="app-body">
+          <div class="app-side">
+            <h5>Workspaces</h5>
+            <div class="ws-item selected"><div class="avatar">S</div>superset</div>
+            <div class="ws-item"><div class="avatar">A</div>acp-agent-control</div>
+            <div class="ws-item"><div class="avatar">B</div>branch-menu</div>
+            <h5>Reviews</h5>
+            <div class="nav active"><span class="ic"></span>Assigned <span style="margin-left:auto;font-size:11px" class="pill">7</span></div>
+            <div class="nav"><span class="ic"></span>Drafts</div>
+          </div>
+          <div class="app-main">
+            <div>
+              <p class="h1">PR #218 · sidebar hover states</p>
+              <p class="sub">2 approved · 1 pending · <span style="color:var(--pink); font-weight:500">PRO</span></p>
+            </div>
+            <div class="card-box">
+              <div class="row"><span class="k">Author</span><span class="v">wufan</span></div>
+              <div class="row"><span class="k">Updated</span><span class="v">2h ago</span></div>
+            </div>
+            <div class="input-box focused"><span>Filter files</span><span class="cursor"></span></div>
+            <div class="cta-row">
+              <button class="btn primary">Merge</button>
+              <button class="btn ghost">Request changes</button>
+            </div>
+            <div class="terminal-inline">
+              <div><span class="m">$</span> git status<span class="cur">▍</span></div>
+              <div class="g">✓ Working tree clean</div>
+              <div><span class="v">→</span> <span class="p">2 commits</span> <span class="m">ahead of origin</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p style="color: var(--page-muted); font-size: 12.5px; margin-top: 14px;">
+    <strong style="color: var(--page-fg)">数一数右边的粉在哪:</strong>
+    ① 标题栏小圆点 · ② 当前 workspace 左侧竖条 + 头像 + 微透明底 · ③ 输入框 focus 光环 + 光标闪烁 ·
+    ④ Assigned 里的 <span class="pill" style="font-size:10px; padding: 1px 6px">7</span> 计数徽章 · ⑤ Merge 主 CTA · ⑥ PRO 文字 · ⑦ 终端里的 <code style="color:var(--pink); background: rgba(255,143,209,.08); padding: 1px 4px; border-radius: 3px; font-family: var(--font-mono)">2 commits</code> ·
+    ⑧ 终端光标。<br>
+    每一处都是"这里应该被注意到"的位置。粉不是被撒开,而是被<strong style="color: var(--pink)">派到岗</strong>了。
+  </p>
+
+  <h2 class="section"><span class="num">05</span> Token 关键改动 (v3 → v4)</h2>
+  <div class="roles">
+    <h3>Diff</h3>
+    <table>
+      <thead>
+        <tr><th>Token</th><th>v3</th><th>v4</th><th style="width:40%">语义</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="role-name" style="font-weight:500">primary</td>
+          <td><span class="swatch-inline"><span class="box" style="background:#c4a2ff"></span>#c4a2ff</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#ff8fd1"></span>#ff8fd1</span></td>
+          <td class="usage"><strong style="color: var(--pink)">粉回归 primary</strong> — CTA、focus ring、workspace 选中标</td>
+        </tr>
+        <tr>
+          <td class="role-name" style="font-weight:500">ring / sidebarRing</td>
+          <td><span class="swatch-inline"><span class="box" style="background:#c4a2ff"></span>#c4a2ff</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#ff8fd1"></span>#ff8fd1</span></td>
+          <td class="usage">键盘 focus 光环随 primary 变粉</td>
+        </tr>
+        <tr>
+          <td class="role-name" style="font-weight:500">sidebarPrimary</td>
+          <td><span class="swatch-inline"><span class="box" style="background:#c4a2ff"></span>#c4a2ff</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#ff8fd1"></span>#ff8fd1</span></td>
+          <td class="usage">同 primary</td>
+        </tr>
+        <tr>
+          <td class="role-name" style="font-weight:500">accent / sidebarAccent</td>
+          <td colspan="2"><span class="swatch-inline"><span class="box" style="background:#5a5f85"></span>#5a5f85</span> <span style="color: var(--page-muted); font-size:12px; margin-left: 8px">保持不变</span></td>
+          <td class="usage">大面积选中/hover 底色 —— 沉稳紫灰</td>
+        </tr>
+        <tr>
+          <td class="role-name" style="font-weight:500">chart5</td>
+          <td colspan="2"><span class="swatch-inline"><span class="box" style="background:#c4a2ff"></span>#c4a2ff</span> <span style="color: var(--page-muted); font-size:12px; margin-left: 8px">保持不变</span></td>
+          <td class="usage">紫依然是图表第五色</td>
+        </tr>
+        <tr>
+          <td class="role-name" style="font-weight:500">terminal.cursor</td>
+          <td><span class="swatch-inline"><span class="box" style="background:#f2f4ff"></span>#f2f4ff</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#ff8fd1"></span>#ff8fd1</span></td>
+          <td class="usage">终端光标也是粉,呼应 signature</td>
+        </tr>
+        <tr>
+          <td class="role-name" style="font-weight:500">highlightMatch</td>
+          <td><span class="swatch-inline"><span class="box" style="background:#c4a2ff66"></span>#c4a2ff66</span></td>
+          <td><span class="swatch-inline"><span class="box" style="background:#ff8fd166"></span>#ff8fd166</span></td>
+          <td class="usage">搜索高亮跟 primary 走</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot">
+    · <strong>核心洞察</strong>:五色分工的关键不是"每个颜色出现多少",是"每个颜色出现在<strong style="color: var(--pink)">对的位置</strong>"。粉在 21 个 primary 场景里做点睛,比在 140 个 accent 场景里做底色更能代表 Dracula。<br>
+    · <code>/Users/wufan/Downloads/dracula-colorful-v2.json</code> 已更新到 v4。这版粉的密度大约在 8%,足够撑起 signature,又不会像 v2 那样"到处都是粉底黑字"。<br>
+    · 如果你想让粉再多一点(比如 sidebarAccent 也带一点粉的透明底),或者让紫再重一点(比如某些次级按钮用紫),告诉我方向,我做微调。
+  </p>
+</body>
+</html>

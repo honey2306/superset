@@ -20,7 +20,7 @@ export function SettingsRow({
 				<Label htmlFor={htmlFor} className="text-sm font-medium">
 					{label}
 				</Label>
-				{hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+				{hint && <p className="mt-0.5 text-xs text-fg-mute">{hint}</p>}
 			</div>
 			<div className="shrink-0">{children}</div>
 		</div>

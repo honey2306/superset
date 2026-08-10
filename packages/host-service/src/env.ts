@@ -20,6 +20,11 @@ export const env = createEnv({
 			.optional(),
 		PORT: z.coerce.number().int().positive().default(4879),
 		RELAY_URL: z.string().url().optional(),
+		// Absolute path to the built `apps/web` Vite bundle. When set, that
+		// directory is served at `/app/*`. Omit to disable the phone frontend
+		// route (dev + tests). Auto-derived to `../public/web` in
+		// `serve.ts` when unset.
+		SUPERSET_WEB_APP_DIR: z.string().min(1).optional(),
 	},
 	runtimeEnv: process.env,
 	emptyStringAsUndefined: true,

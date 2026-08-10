@@ -143,15 +143,15 @@ export function PresetRow({
 				}
 			}}
 			className={cn(
-				"group flex items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+				"group flex items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-hover/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
 				isDragging && "opacity-30",
 			)}
 		>
-			<div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background">
+			<div className="flex size-7 shrink-0 items-center justify-center rounded-ds-3 border border-line bg-background">
 				{presetIcon ? (
 					<img src={presetIcon} alt="" className="size-4 object-contain" />
 				) : (
-					<HiMiniCommandLine className="size-4 text-muted-foreground" />
+					<HiMiniCommandLine className="size-4 text-fg-mute" />
 				)}
 			</div>
 
@@ -185,12 +185,12 @@ export function PresetRow({
 						</Badge>
 					)}
 				</div>
-				<div className="text-xs font-mono text-muted-foreground truncate">
+				<div className="text-xs font-mono text-fg-mute truncate">
 					{commandSummary}
 				</div>
 			</div>
 
-			<div className="shrink-0 hidden md:block text-xs text-muted-foreground truncate max-w-[18rem]">
+			<div className="shrink-0 hidden md:block text-xs text-fg-mute truncate max-w-[18rem]">
 				{appliesToLabel} · {modeLabel}
 			</div>
 
@@ -199,8 +199,8 @@ export function PresetRow({
 				className={cn(
 					"shrink-0 p-1.5 rounded transition-colors",
 					isVisibleInBar
-						? "text-muted-foreground/60 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-accent hover:text-foreground"
-						: "text-muted-foreground/40 hover:bg-accent hover:text-foreground",
+						? "text-fg-faint opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-accent-tint hover:text-fg"
+						: "text-fg-mute/40 hover:bg-accent-tint hover:text-fg",
 				)}
 				onClick={(e) => {
 					e.stopPropagation();
@@ -226,7 +226,7 @@ export function PresetRow({
 				ref={dragHandleRef}
 				onClick={(e) => e.stopPropagation()}
 				className={cn(
-					"shrink-0 flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-accent rounded p-1 -m-1 cursor-grab active:cursor-grabbing bg-transparent border-0 transition-opacity",
+					"shrink-0 flex items-center justify-center text-fg-faint hover:text-fg hover:bg-accent-tint rounded p-1 -m-1 cursor-grab active:cursor-grabbing bg-transparent border-0 transition-opacity",
 					"opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
 					isDragging && "opacity-100",
 				)}

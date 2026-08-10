@@ -207,9 +207,9 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		expect(resurrected.status).toBe("idle");
 		expect(resurrected.title).toBe("Persisted Title");
 		expect(resurrected.createdAt).toBe(stateBefore.createdAt);
-		// D14-c on load: the adapter comes back in bypassPermissions; the
-		// manager must force it out of bypass.
-		expect(resurrected.currentMode?.currentModeId).toBe("default");
+		// On load the adapter comes back in bypassPermissions and Superset
+		// keeps it there by default (no user-picked mode was persisted).
+		expect(resurrected.currentMode?.currentModeId).toBe("bypassPermissions");
 		// ensureLive on an already-live session must not respawn the adapter.
 		const pid = after.adapterPid(sessionId);
 		await after.ensureLive(sessionId);
@@ -256,6 +256,28 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		);
 		expect(text).toContain("replay-marker-6");
 		expect(text).not.toContain("replay-marker-1");
+	}, 30_000);
+
+	test("close permanently removes a live session and its durable recovery state", async () => {
+		const sessionId = "persist-close";
+		const manager = newManager();
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+		await runTurn(manager, sessionId, "say delete-marker");
+
+		await manager.close({ sessionId });
+		expect(() => manager.get(sessionId)).toThrow(AcpSessionNotFoundError);
+		expect(
+			manager.list({}).items.map((state) => state.sessionId),
+		).not.toContain(sessionId);
+		expect(
+			persistence.loadAll().map((record) => record.sessionId),
+		).not.toContain(sessionId);
+
+		const afterRestart = newManager();
+		expect(() => afterRestart.get(sessionId)).toThrow(AcpSessionNotFoundError);
+		expect(
+			afterRestart.list({}).items.map((state) => state.sessionId),
+		).not.toContain(sessionId);
 	}, 30_000);
 
 	test("create() re-issued after a restart resurrects the same adapter session; mismatched workspace conflicts", async () => {

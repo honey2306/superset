@@ -54,7 +54,9 @@ function fakeState(
 		title: null,
 		currentMode: null,
 		configOptions: [],
+		availableCommands: null,
 		pendingPermissions: [],
+		queuedPrompts: [],
 		cwd: "/tmp/ws",
 		lastSeq: 0,
 		lastStopReason: null,
@@ -79,6 +81,50 @@ describe("message folding", () => {
 		expect(item.blocks).toEqual([{ type: "text", text: "Hello, world" }]);
 		expect(item.startSeq).toBe(1);
 		expect(item.endSeq).toBe(2);
+	});
+
+	test.each([
+		"myflicker-acp",
+		"codex-app-server",
+	] as const)("normalizes %s cumulative agent snapshots without changing delta harnesses", (harness) => {
+		seqCounter = 0;
+		const timeline = foldEnvelopes(emptyTimeline(), [
+			textChunk("agent_message_chunk", "CODEX_"),
+			textChunk("agent_message_chunk", "CODEX_READY"),
+			textChunk("agent_message_chunk", "CODEX_READY"),
+			envelope({
+				kind: "state",
+				state: fakeState({ harness }),
+			}),
+		]);
+		const item = timeline.items[0];
+		if (item?.kind !== "message") throw new Error("expected message");
+		expect(item.blocks).toEqual([{ type: "text", text: "CODEX_READY" }]);
+	});
+
+	test("normalizes captured Pi cumulative agent snapshots", () => {
+		seqCounter = 0;
+		const timeline = foldEnvelopes(emptyTimeline(), [
+			textChunk("agent_message_chunk", "COMMAND_"),
+			textChunk("agent_message_chunk", "COMMAND_CARD_"),
+			textChunk("agent_message_chunk", "COMMAND_CARD_OK"),
+			textChunk("agent_message_chunk", "COMMAND_CARD_OK"),
+			envelope({ kind: "state", state: fakeState({ harness: "pi-acp" }) }),
+		]);
+		const item = timeline.items[0];
+		if (item?.kind !== "message") throw new Error("expected message");
+		expect(item.blocks).toEqual([{ type: "text", text: "COMMAND_CARD_OK" }]);
+	});
+
+	test("preserves Claude agent-message deltas", () => {
+		seqCounter = 0;
+		const deltaTimeline = foldEnvelopes(emptyTimeline(), [
+			textChunk("agent_message_chunk", "Hello"),
+			textChunk("agent_message_chunk", " world"),
+		]);
+		const deltaItem = deltaTimeline.items[0];
+		if (deltaItem?.kind !== "message") throw new Error("expected message");
+		expect(deltaItem.blocks).toEqual([{ type: "text", text: "Hello world" }]);
 	});
 
 	test("consecutive user chunks join with a blank line (separate prompt blocks)", () => {
@@ -196,6 +242,119 @@ describe("message folding", () => {
 });
 
 describe("tool call folding", () => {
+	test("normalizes captured Pi terminal metadata across info, output, and exit updates", () => {
+		seqCounter = 0;
+		const timeline = foldEnvelopes(emptyTimeline(), [
+			update({
+				sessionUpdate: "tool_call",
+				toolCallId: "pi-bash-1",
+				title: "bun run test",
+				kind: "execute",
+				status: "in_progress",
+				content: [{ type: "terminal", terminalId: "pi-bash-1" }],
+				_meta: {
+					terminal_info: {
+						terminal_id: "pi-bash-1",
+						cwd: "/repo",
+					},
+				},
+			}),
+			update({
+				sessionUpdate: "tool_call_update",
+				toolCallId: "pi-bash-1",
+				_meta: {
+					terminal_output: {
+						terminal_id: "pi-bash-1",
+						data: "59 passed\n",
+					},
+				},
+			}),
+			update({
+				sessionUpdate: "tool_call_update",
+				toolCallId: "pi-bash-1",
+				_meta: {
+					terminal_output: {
+						terminal_id: "pi-bash-1",
+						data: "",
+					},
+				},
+			}),
+			update({
+				sessionUpdate: "tool_call_update",
+				toolCallId: "pi-bash-1",
+				status: "completed",
+				_meta: {
+					terminal_exit: {
+						terminal_id: "pi-bash-1",
+						exit_code: 0,
+						signal: null,
+					},
+				},
+			}),
+		]);
+		const item = timeline.items[0];
+		if (item?.kind !== "tool_call") throw new Error("expected tool call");
+		expect(item.terminals).toEqual({
+			"pi-bash-1": {
+				terminalId: "pi-bash-1",
+				cwd: "/repo",
+				output: "59 passed\n",
+				exitCode: 0,
+				signal: null,
+			},
+		});
+	});
+
+	test("keeps terminal streams distinct and retains output plus exit from one Pi frame", () => {
+		seqCounter = 0;
+		const frames = [
+			update({
+				sessionUpdate: "tool_call",
+				toolCallId: "pi-task-1",
+				title: "Run commands",
+				content: [
+					{ type: "terminal", terminalId: "opaque-a" },
+					{ type: "terminal", terminalId: "opaque-b" },
+				],
+			}),
+			update({
+				sessionUpdate: "tool_call_update",
+				toolCallId: "pi-task-1",
+				_meta: {
+					terminal_output: { terminal_id: "opaque-a", data: "first\n" },
+					terminal_exit: {
+						terminal_id: "opaque-a",
+						exit_code: 0,
+						signal: null,
+					},
+				},
+			}),
+			update({
+				sessionUpdate: "tool_call_update",
+				toolCallId: "pi-task-1",
+				_meta: {
+					terminal_output: { terminal_id: "opaque-b", data: "second\n" },
+				},
+			}),
+		];
+		const firstReplay = foldEnvelopes(emptyTimeline(), frames);
+		const secondReplay = foldEnvelopes(emptyTimeline(), frames);
+		const firstItem = firstReplay.items[0];
+		const secondItem = secondReplay.items[0];
+		if (firstItem?.kind !== "tool_call" || secondItem?.kind !== "tool_call") {
+			throw new Error("expected tool calls");
+		}
+		expect(firstItem.terminals).toEqual({
+			"opaque-a": {
+				terminalId: "opaque-a",
+				output: "first\n",
+				exitCode: 0,
+				signal: null,
+			},
+			"opaque-b": { terminalId: "opaque-b", output: "second\n" },
+		});
+		expect(secondItem.terminals).toEqual(firstItem.terminals);
+	});
 	test("tool_call then tool_call_update merge; null/absent patch fields keep previous values", () => {
 		seqCounter = 0;
 		const timeline = foldEnvelopes(emptyTimeline(), [
@@ -218,7 +377,7 @@ describe("tool call folding", () => {
 		expect(timeline.items).toHaveLength(1);
 		const item = timeline.items[0];
 		if (item?.kind !== "tool_call") throw new Error("expected tool_call");
-		expect(item.call.title).toBe("Read file");
+		expect(item.call.title).toBe("/a.ts");
 		expect(item.call.kind).toBe("read");
 		expect(item.call.status).toBe("completed");
 		expect(item.call.rawInput).toEqual({ path: "/a.ts" });
@@ -406,6 +565,63 @@ describe("state and reset frames", () => {
 		);
 		expect(timeline.state?.status).toBe("idle");
 		expect(timeline.items).toHaveLength(0);
+	});
+
+	test("state frame supersedes stale timeline control-plane metadata", () => {
+		seqCounter = 0;
+		const timeline = foldEnvelopes(emptyTimeline(), [
+			update({
+				sessionUpdate: "current_mode_update",
+				currentModeId: "default",
+			}),
+			update({
+				sessionUpdate: "config_option_update",
+				configOptions: [
+					{
+						id: "model",
+						name: "Model",
+						options: [
+							{ value: "default", name: "Default" },
+							{ value: "haiku", name: "Haiku" },
+						],
+						currentValue: "default",
+					},
+				],
+			}),
+			update({
+				sessionUpdate: "available_commands_update",
+				availableCommands: [{ name: "stale", description: "old catalog" }],
+			}),
+			envelope({
+				kind: "state",
+				state: fakeState({
+					currentMode: {
+						currentModeId: "default",
+						availableModes: [{ id: "default", name: "Auto" }],
+					},
+					configOptions: [
+						{
+							id: "model",
+							name: "Model",
+							options: [
+								{ value: "default", name: "Default" },
+								{ value: "haiku", name: "Haiku" },
+							],
+							currentValue: "haiku",
+						},
+					],
+					availableCommands: [{ name: "current", description: "new catalog" }],
+				}),
+			}),
+		]);
+		expect(timeline.meta.availableCommands).toEqual([
+			{ name: "current", description: "new catalog" },
+		]);
+		expect(timeline.meta.currentMode).toEqual({
+			currentModeId: "default",
+			availableModes: [{ id: "default", name: "Auto" }],
+		});
+		expect(timeline.meta.configOptions?.[0]?.currentValue).toBe("haiku");
 	});
 
 	test("reset frame sets resetReason", () => {

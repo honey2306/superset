@@ -80,6 +80,19 @@ export function CommandPalette() {
 		[query, depth, handleBack],
 	);
 
+	// cmdk executes the highlighted item on Enter even when a button inside a
+	// frame has focus. Give controls such as the resource-row expander first
+	// refusal, then prevent cmdk from also selecting the row.
+	const handleRootKeyDown = useCallback((event: React.KeyboardEvent) => {
+		if (event.key !== "Enter" || !(event.target instanceof HTMLElement)) {
+			return;
+		}
+		const button = event.target.closest("button");
+		if (!button) return;
+		event.preventDefault();
+		button.click();
+	}, []);
+
 	useEffect(() => {
 		if (!open) setQuery("");
 	}, [open]);
@@ -93,7 +106,7 @@ export function CommandPalette() {
 			type="button"
 			onClick={handleBack}
 			aria-label={t("navigation.back")}
-			className="text-muted-foreground hover:text-foreground"
+			className="text-fg-mute hover:text-fg"
 		>
 			<ArrowLeftIcon className="size-4 shrink-0" />
 		</button>
@@ -113,8 +126,9 @@ export function CommandPalette() {
 					</DialogDescription>
 				</DialogHeader>
 				<Command
+					onKeyDown={handleRootKeyDown}
 					shouldFilter={!currentFrame || !currentFrame.command.renderFrame}
-					className="[&_[cmdk-group-heading]]:text-muted-foreground **:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5 [&_[cmdk-list]]:max-h-[min(500px,calc(80vh-3rem))]"
+					className="[&_[cmdk-group-heading]]:text-fg-mute **:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5 [&_[cmdk-list]]:max-h-[min(500px,calc(80vh-3rem))]"
 				>
 					<CommandInput
 						value={query}

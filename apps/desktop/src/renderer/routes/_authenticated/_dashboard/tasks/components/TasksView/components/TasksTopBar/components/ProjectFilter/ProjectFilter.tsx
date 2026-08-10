@@ -69,7 +69,7 @@ export function ProjectFilter({ value, onChange }: ProjectFilterProps) {
 					size="sm"
 					title={selected ? selected.name : t("tasks.project")}
 					aria-label={selected ? selected.name : t("tasks.project")}
-					className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+					className="h-8 gap-1.5 px-2 text-fg-mute hover:text-fg"
 				>
 					{selected ? (
 						<ProjectThumbnail

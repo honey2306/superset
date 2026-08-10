@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dracula">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Branch Menu · v2 — 高级简约</title>
+		<link rel="stylesheet" href="tokens.css" />
+		<link rel="stylesheet" href="v2.css" />
+	</head>
+	<body>
+		<main class="v2-page">
+			<header class="v2-head">
+				<div class="v2-head-titles">
+					<div class="v2-eyebrow"><span>Superset · Branch Menu · v2</span></div>
+					<h1 class="v2-title">
+						安静的分支切换
+						<span class="sub">— 三种简约方向</span>
+					</h1>
+					<p class="v2-desc">
+						放下花哨的紫粉色 pill。三个方向都把 Dracula 的
+						<code style="font-family: SF Mono, ui-monospace, monospace; color: var(--highlight)">#ff79c6</code>
+						从「填充」降级为「点缀」，让中性灰度做布局，让排版做层级。上方切换主题查看在 Ember / Zed / Light 下的表现。
+					</p>
+				</div>
+				<div class="v2-theme" id="themeSwitch">
+					<button data-theme="dracula" class="is-active">Dracula</button>
+					<button data-theme="ember">Ember</button>
+					<button data-theme="zed">Zed</button>
+					<button data-theme="light">Light</button>
+				</div>
+			</header>
+
+			<div class="v2-canvas" id="canvasRoot"></div>
+		</main>
+
+		<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+		<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+		<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+		<script type="text/babel" src="design-canvas.jsx"></script>
+		<script type="text/babel" src="v2-icons.jsx"></script>
+		<script type="text/babel" src="v2-variants.jsx"></script>
+		<script type="text/babel" src="v2-app.jsx"></script>
+	</body>
+</html>

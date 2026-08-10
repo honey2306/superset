@@ -165,7 +165,7 @@ export function InfiniteScrollView({
 
 	if (!hasChanges) {
 		return (
-			<div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+			<div className="flex h-full flex-col items-center justify-center gap-3 text-fg-mute">
 				<div>{t("v1Changes.noChangesDetected")}</div>
 				{isExpandedView ? (
 					<Button

@@ -56,7 +56,7 @@ function RingtoneRow({
 			}}
 			className={cn(
 				"flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-				isSelected ? "bg-accent/40" : "hover:bg-muted/50",
+				isSelected ? "bg-accent-tint/40" : "hover:bg-hover/50",
 			)}
 		>
 			<span className="text-xl shrink-0 w-7 text-center leading-none">
@@ -66,17 +66,17 @@ function RingtoneRow({
 				<div className="flex items-center gap-2">
 					<span className="text-sm font-medium truncate">{ringtone.name}</span>
 					{ringtone.duration && (
-						<span className="text-xs text-muted-foreground tabular-nums shrink-0">
+						<span className="text-xs text-fg-mute tabular-nums shrink-0">
 							{formatDuration(ringtone.duration)}
 						</span>
 					)}
 				</div>
-				<div className="text-xs text-muted-foreground truncate">
+				<div className="text-xs text-fg-mute truncate">
 					{ringtone.description}
 				</div>
 			</div>
 			<div className="w-5 flex justify-center shrink-0">
-				{isSelected && <HiCheck className="h-4 w-4 text-primary" />}
+				{isSelected && <HiCheck className="h-4 w-4 text-accent-solid" />}
 			</div>
 			<button
 				type="button"
@@ -93,7 +93,7 @@ function RingtoneRow({
 					"h-7 w-7 rounded-full flex items-center justify-center transition-colors border shrink-0",
 					isPlaying
 						? "bg-destructive text-destructive-foreground border-destructive hover:bg-destructive/90"
-						: "text-foreground border-border hover:bg-accent",
+						: "text-fg border-line hover:bg-accent-tint",
 				)}
 			>
 				{isPlaying ? (
@@ -254,7 +254,7 @@ export function RingtonesSettings({ visibleItems }: RingtonesSettingsProps) {
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
 				<h2 className="text-xl font-semibold">{t("settings.notifications")}</h2>
-				<p className="text-sm text-muted-foreground mt-1">
+				<p className="text-sm text-fg-mute mt-1">
 					{t("ringtones.description")}
 				</p>
 			</div>
@@ -270,7 +270,7 @@ export function RingtonesSettings({ visibleItems }: RingtonesSettingsProps) {
 							>
 								{t("ringtones.notificationSounds")}
 							</Label>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-xs text-fg-mute">
 								{t("ringtones.notificationSoundsDescription")}
 							</p>
 						</div>
@@ -294,7 +294,7 @@ export function RingtonesSettings({ visibleItems }: RingtonesSettingsProps) {
 								<h3 className="text-sm font-medium mb-1">
 									{t("ringtones.notificationSound")}
 								</h3>
-								<p className="text-xs text-muted-foreground">
+								<p className="text-xs text-fg-mute">
 									{t("ringtones.notificationSoundDescription")}
 								</p>
 							</div>
@@ -315,7 +315,7 @@ export function RingtonesSettings({ visibleItems }: RingtonesSettingsProps) {
 									: t("ringtones.addCustom")}
 							</Button>
 						</div>
-						<div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+						<div className="rounded-ds-5 border border-line overflow-hidden divide-y divide-border">
 							{ringtoneOptions.map((ringtone) => (
 								<RingtoneRow
 									key={ringtone.id}

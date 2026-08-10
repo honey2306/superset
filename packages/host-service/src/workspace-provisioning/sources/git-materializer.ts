@@ -5,7 +5,6 @@ import { TRPCError } from "@trpc/server";
 import {
 	asRemoteRef,
 	type ResolvedRef,
-	resolveDefaultBranchName,
 	resolveRef,
 	resolveUpstream,
 } from "../../runtime/git";
@@ -13,11 +12,16 @@ import { ensureMainWorkspaceStrict } from "../../trpc/router/project/utils/ensur
 import { getHostWorktreeBaseDir } from "../../trpc/router/settings/worktree-location";
 import { adoptExistingWorktree } from "../../trpc/router/workspace-creation/shared/adopt-existing-worktree";
 import {
+	findWorktreeAtPath,
 	getWorktreeBranchAtPath,
 	listWorktreeBranches,
 } from "../../trpc/router/workspace-creation/shared/branch-search";
 import { enablePushAutoSetupRemote } from "../../trpc/router/workspace-creation/shared/git-config";
 import { requireLocalProject } from "../../trpc/router/workspace-creation/shared/local-project";
+import {
+	addWorktreeWithSparseCheckout,
+	parseSparseCheckoutPaths,
+} from "../../trpc/router/workspace-creation/shared/sparse-checkout";
 import type { GitClient } from "../../trpc/router/workspace-creation/shared/types";
 import { safeResolveWorktreePath } from "../../trpc/router/workspace-creation/shared/worktree-paths";
 import { generateBranchNameFromPrompt } from "../../trpc/router/workspace-creation/utils/ai-branch-name";
@@ -183,6 +187,9 @@ async function materializeBranch(
 		plan.branch,
 		args.project.worktreeBaseDir ?? getHostWorktreeBaseDir(context.ctx),
 	);
+	const sparsePaths = parseSparseCheckoutPaths(
+		args.project.sparseCheckoutPaths,
+	);
 	mkdirSync(dirname(worktreePath), { recursive: true });
 
 	const worktree = await runReconciledSourceStep<WorktreeReceipt>(
@@ -199,7 +206,7 @@ async function materializeBranch(
 			if (existingPath) {
 				return { worktreePath: existingPath, ownership: "adopted" };
 			}
-			await addBranchWorktree(args.git, plan, worktreePath);
+			await addBranchWorktree(args.git, plan, worktreePath, sparsePaths);
 			return { worktreePath, ownership: "created" };
 		},
 	);
@@ -417,6 +424,9 @@ async function materializePullRequest(
 		branch,
 		args.project.worktreeBaseDir ?? getHostWorktreeBaseDir(context.ctx),
 	);
+	const sparsePaths = parseSparseCheckoutPaths(
+		args.project.sparseCheckoutPaths,
+	);
 	mkdirSync(dirname(worktreePath), { recursive: true });
 	const worktree = await runReconciledSourceStep<WorktreeReceipt>(
 		context,
@@ -431,7 +441,12 @@ async function materializePullRequest(
 			).worktreeMap.get(branch);
 			if (existingPath)
 				return { worktreePath: existingPath, ownership: "adopted" };
-			await args.git.raw(["worktree", "add", worktreePath, branch]);
+			await addExistingBranchWorktree(
+				args.git,
+				branch,
+				worktreePath,
+				sparsePaths,
+			);
 			return { worktreePath, ownership: "created" };
 		},
 	);
@@ -614,24 +629,23 @@ async function planBranchSource(
 		source.from.kind === "ref" ? source.from.value : undefined,
 	);
 	if (startPoint.kind === "local") {
-		const defaultBranchName = await resolveDefaultBranchName(git);
-		if (startPoint.shortName === defaultBranchName) {
-			const upstream = await resolveUpstream(git, defaultBranchName);
-			if (upstream) {
-				const remoteRef = asRemoteRef(upstream.remote, upstream.remoteBranch);
-				const remoteExists = await git
-					.raw(["rev-parse", "--verify", `${remoteRef}^{commit}`])
-					.then((output) => /^[0-9a-f]{40,}/.test(output.trim()))
-					.catch(() => false);
-				if (remoteExists) {
-					startPoint = {
-						kind: "remote-tracking",
-						fullRef: remoteRef,
-						shortName: upstream.remoteBranch,
-						remote: upstream.remote,
-						remoteShortName: `${upstream.remote}/${upstream.remoteBranch}`,
-					};
-				}
+		// A non-default base can be stale just as readily as main. Upgrade any
+		// local ref with an upstream so the fetch below refreshes it first.
+		const upstream = await resolveUpstream(git, startPoint.shortName);
+		if (upstream) {
+			const remoteRef = asRemoteRef(upstream.remote, upstream.remoteBranch);
+			const remoteExists = await git
+				.raw(["rev-parse", "--verify", `${remoteRef}^{commit}`])
+				.then((output) => /^[0-9a-f]{40,}/.test(output.trim()))
+				.catch(() => false);
+			if (remoteExists) {
+				startPoint = {
+					kind: "remote-tracking",
+					fullRef: remoteRef,
+					shortName: upstream.remoteBranch,
+					remote: upstream.remote,
+					remoteShortName: `${upstream.remote}/${upstream.remoteBranch}`,
+				};
 			}
 		}
 	}
@@ -690,28 +704,36 @@ async function addBranchWorktree(
 	git: GitClient,
 	plan: BranchSourcePlan,
 	worktreePath: string,
+	sparsePaths: string[],
 ): Promise<void> {
+	const hookTolerance = postCheckoutHookTolerance(
+		git,
+		worktreePath,
+		plan.branch,
+	);
 	if (plan.usedExistingBranch) {
-		await git.raw(
-			plan.startPoint.kind === "remote-tracking"
-				? [
-						"worktree",
-						"add",
-						"--track",
-						"-b",
-						plan.branch,
-						worktreePath,
-						plan.startPoint.remoteShortName,
-					]
-				: [
-						"worktree",
-						"add",
-						worktreePath,
-						plan.startPoint.kind === "head"
-							? "HEAD"
-							: plan.startPoint.shortName,
-					],
-		);
+		await addWorktreeWithSparseCheckout({
+			git,
+			worktreeArgs:
+				plan.startPoint.kind === "remote-tracking"
+					? [
+							"--track",
+							"-b",
+							plan.branch,
+							worktreePath,
+							plan.startPoint.remoteShortName,
+						]
+					: [
+							worktreePath,
+							plan.startPoint.kind === "head"
+								? "HEAD"
+								: plan.startPoint.shortName,
+						],
+			worktreePath,
+			sparsePaths,
+			logPrefix: "[workspace-provisioning]",
+			hookTolerance,
+		});
 		return;
 	}
 	const startPointArg =
@@ -720,15 +742,58 @@ async function addBranchWorktree(
 			: plan.startPoint.kind === "remote-tracking"
 				? plan.startPoint.remoteShortName
 				: plan.startPoint.shortName;
-	await git.raw([
-		"worktree",
-		"add",
-		"--no-track",
-		"-b",
-		plan.branch,
+	await addWorktreeWithSparseCheckout({
+		git,
+		worktreeArgs: [
+			"--no-track",
+			"-b",
+			plan.branch,
+			worktreePath,
+			startPointArg,
+		],
 		worktreePath,
-		startPointArg,
-	]);
+		sparsePaths,
+		logPrefix: "[workspace-provisioning]",
+		hookTolerance,
+	});
+}
+
+async function addExistingBranchWorktree(
+	git: GitClient,
+	branch: string,
+	worktreePath: string,
+	sparsePaths: string[],
+): Promise<void> {
+	await addWorktreeWithSparseCheckout({
+		git,
+		worktreeArgs: [worktreePath, branch],
+		worktreePath,
+		sparsePaths,
+		logPrefix: "[workspace-provisioning]",
+		hookTolerance: postCheckoutHookTolerance(git, worktreePath, branch),
+	});
+}
+
+function postCheckoutHookTolerance(
+	git: GitClient,
+	worktreePath: string,
+	branch: string,
+): { context: string; didSucceed: () => Promise<boolean> } {
+	return {
+		context: `[workspace-provisioning] worktree created at ${worktreePath}`,
+		didSucceed: async () => {
+			const registered = await findWorktreeAtPath(
+				git,
+				worktreePath,
+				branch,
+			).catch(() => false);
+			if (!registered) return false;
+			return git
+				.raw(["-C", worktreePath, "rev-parse", "--verify", "HEAD"])
+				.then(() => true)
+				.catch(() => false);
+		},
+	};
 }
 
 async function getLocalBranchHead(

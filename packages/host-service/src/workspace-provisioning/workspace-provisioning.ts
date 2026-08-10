@@ -594,11 +594,25 @@ export class WorkspaceProvisioning {
 				],
 			};
 		}
+		const hasSetupDependency =
+			intents.some(
+				(intent) => intent.kind === "setup" || intent.kind === "command",
+			) && intents.some((intent) => intent.kind === "agent");
+		// Setup/commands are durable prerequisites for any agent in the same
+		// request. Keep shells in their original group, but delay every agent
+		// until each prerequisite has reached an explicit successful terminal
+		// command completion.
+		const orderedIntents = hasSetupDependency
+			? [
+					...intents.filter((intent) => intent.kind !== "agent"),
+					...intents.filter((intent) => intent.kind === "agent"),
+				]
+			: intents;
 		const launches: InitialLaunchResult[] = [];
 		const warnings: Array<{ code: string; message: string }> = [];
 		let requiredFailure: WorkspaceOperationFailure | undefined;
 
-		for (const intent of intents) {
+		for (const intent of orderedIntents) {
 			const completed = this.journal.getCompletedStepOutput<{
 				launch?: InitialLaunchResult;
 				sessionId?: string;
@@ -629,6 +643,9 @@ export class WorkspaceProvisioning {
 					terminalId,
 					workspaceId,
 					worktreePath,
+					awaitCommandCompletion:
+						hasSetupDependency &&
+						(intent.kind === "setup" || intent.kind === "command"),
 				});
 				launches.push(result);
 				this.journal.markStepComplete(operationId, `terminal:${intent.key}`, {
@@ -647,7 +664,11 @@ export class WorkspaceProvisioning {
 				]);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
-				if (intent.requirement === "required") {
+				if (
+					intent.requirement === "required" ||
+					(hasSetupDependency &&
+						(intent.kind === "setup" || intent.kind === "command"))
+				) {
 					requiredFailure = {
 						code: "TERMINAL_UNAVAILABLE",
 						class: "transient",

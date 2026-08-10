@@ -25,22 +25,22 @@ export function WorkspaceStatusBadge({
 		open: {
 			icon: (
 				<LuGitPullRequest
-					className={cn(iconClass, "text-emerald-500")}
+					className={cn(iconClass, "text-success")}
 					strokeWidth={STROKE_WIDTH}
 				/>
 			),
-			bgColor: "bg-emerald-500/10",
-			hoverBgColor: "hover:bg-emerald-500/30",
+			bgColor: "bg-success-tint",
+			hoverBgColor: "hover:bg-success-tint",
 		},
 		merged: {
 			icon: (
 				<LuGitMerge
-					className={cn(iconClass, "text-purple-500")}
+					className={cn(iconClass, "text-accent-solid")}
 					strokeWidth={STROKE_WIDTH}
 				/>
 			),
-			bgColor: "bg-purple-500/10",
-			hoverBgColor: "hover:bg-purple-500/30",
+			bgColor: "bg-accent-tint",
+			hoverBgColor: "hover:bg-accent-tint",
 		},
 		closed: {
 			icon: (
@@ -55,12 +55,12 @@ export function WorkspaceStatusBadge({
 		draft: {
 			icon: (
 				<LuGitPullRequest
-					className={cn(iconClass, "text-muted-foreground")}
+					className={cn(iconClass, "text-fg-mute")}
 					strokeWidth={STROKE_WIDTH}
 				/>
 			),
-			bgColor: "bg-muted",
-			hoverBgColor: "hover:bg-muted/70",
+			bgColor: "bg-hover",
+			hoverBgColor: "hover:bg-hover/70",
 		},
 	};
 
@@ -81,7 +81,7 @@ export function WorkspaceStatusBadge({
 			onClick={handleClick}
 			disabled={!isClickable}
 			className={cn(
-				"flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] leading-none shrink-0 transition-colors",
+				"flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-ds-3 text-[10px] leading-none shrink-0 transition-colors",
 				bgColor,
 				isClickable && [hoverBgColor, "cursor-pointer"],
 				!isClickable && "cursor-default",
@@ -90,7 +90,7 @@ export function WorkspaceStatusBadge({
 		>
 			{icon}
 			{prNumber && (
-				<span className="text-muted-foreground font-mono tabular-nums leading-none">
+				<span className="text-fg-mute font-mono tabular-nums leading-none">
 					#{prNumber}
 				</span>
 			)}

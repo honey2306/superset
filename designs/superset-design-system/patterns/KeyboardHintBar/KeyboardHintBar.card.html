@@ -1,0 +1,42 @@
+<!-- @dsCard group="Patterns" viewport="720x160" name="KeyboardHintBar" subtitle="popover / palette footer · mono kbd hints" -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="../../components.css" />
+</head>
+<body>
+  <div id="root" style="padding:24px"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const { Kbd } = window.SupersetDesignSystem_91a6da;
+    const bar = {
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "6px 14px", borderTop: "1px solid var(--line)",
+      background: "var(--surface-sunk)", borderRadius: "0 0 12px 12px",
+      color: "var(--fg-faint)", fontSize: "var(--fs-10)", fontFamily: "var(--font-mono)",
+    };
+    const item = { display: "inline-flex", alignItems: "center", gap: 4 };
+    const sep = <span style={{ color: "var(--fg-faint)", opacity: 0.5 }}>·</span>;
+    ReactDOM.createRoot(document.getElementById("root")).render(
+      <div style={{ border: "1px solid var(--line)", borderRadius: 12, background: "var(--surface-sunk)", boxShadow: "var(--shadow-3)", overflow: "hidden" }}>
+        <div style={{ padding: 16, color: "var(--fg-mute)", fontSize: "var(--fs-12)" }}>
+          ⌘K popover · (search results would go here)
+        </div>
+        <div style={bar}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={item}><Kbd>↑</Kbd><Kbd>↓</Kbd> navigate</span>{sep}
+            <span style={item}><Kbd>↵</Kbd> open</span>{sep}
+            <span style={item}><Kbd>⇥</Kbd> next</span>
+          </div>
+          <span style={item}><Kbd>Esc</Kbd> close</span>
+        </div>
+      </div>,
+    );
+  </script>
+</body>
+</html>

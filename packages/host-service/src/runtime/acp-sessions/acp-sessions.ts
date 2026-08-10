@@ -1,22 +1,29 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
+import { fileURLToPath } from "node:url";
 import {
 	client,
 	ndJsonStream,
 	PROTOCOL_VERSION,
 } from "@agentclientprotocol/sdk";
 import type {
+	AvailableCommand,
 	ClientConnection,
 	ContentBlock,
 	CreateElicitationRequest,
 	CreateElicitationResponse,
+	EnqueuePromptResult,
+	HarnessKind,
 	JsonRpcId,
 	MessagesPage,
 	PendingPermission,
 	PermissionOption,
+	PromptAccepted,
+	QueuedPrompt,
 	RequestPermissionOutcome,
 	RequestPermissionRequest,
 	RequestPermissionResponse,
@@ -37,6 +44,14 @@ import {
 } from "@superset/session-protocol";
 import { SessionJournal } from "./journal";
 import type { AcpSessionPersistence, AcpSessionRecord } from "./persistence";
+import type { PiStartupCache } from "./pi-startup";
+import {
+	PI_ACP_DISABLE_EXTENSIONS_ENV,
+	PI_ACP_QUIET_STARTUP_ENV,
+	PI_ACP_UPDATE_NOTICE_ENV,
+	sharedPiStartupCache,
+} from "./pi-startup";
+import type { AcpSessionChangeHandler } from "./runtime";
 
 export class AcpSessionNotFoundError extends Error {}
 export class AcpSessionDeadError extends Error {}
@@ -63,6 +78,137 @@ function resolveAdapterEntry(): string {
 		"@agentclientprotocol/claude-agent-acp/package.json",
 	);
 	return path.join(path.dirname(adapterPkgJson), "dist/index.js");
+}
+
+export function resolveBundledAcpEntry(
+	filenames: readonly string[],
+	moduleUrl: string = import.meta.url,
+): string {
+	const here = path.dirname(fileURLToPath(moduleUrl));
+	const candidates = [here, path.resolve(here, "..")].flatMap((directory) =>
+		filenames.map((filename) => path.join(directory, filename)),
+	);
+	return candidates.find(existsSync) ?? candidates[0] ?? here;
+}
+
+function resolveCodexAdapterEntry(): string {
+	return resolveBundledAcpEntry(["codex-app-server-acp.js"]);
+}
+
+function resolvePiAdapterEntry(): string {
+	return resolveBundledAcpEntry(["pi-acp.js", "pi-acp.mjs"]);
+}
+
+/** Pi's adapter declares its startup prelude in session/new metadata. */
+function piStartupInfoFromSessionResponse(response: unknown): string | null {
+	if (!response || typeof response !== "object") return null;
+	const meta = (response as { _meta?: unknown })._meta;
+	if (!meta || typeof meta !== "object") return null;
+	const piAcp = (meta as { piAcp?: unknown }).piAcp;
+	if (!piAcp || typeof piAcp !== "object") return null;
+	const startupInfo = (piAcp as { startupInfo?: unknown }).startupInfo;
+	return typeof startupInfo === "string" && startupInfo.length > 0
+		? startupInfo
+		: null;
+}
+
+/** A cache-backed Pi upgrade notice is useful ACP output, unlike TUI prelude. */
+function isPiUpdateNotice(text: string): boolean {
+	return text.startsWith("New version available:");
+}
+
+const MAX_SESSION_TITLE_LENGTH = 256;
+
+/**
+ * Same shape as claude-agent-acp's own sanitizeTitle: collapse whitespace,
+ * strip newlines, and clamp to the ACP-observed title cap so a chatty model
+ * cannot push a paragraph into the tab strip.
+ */
+function sanitizeSessionTitle(raw: unknown): string | null {
+	if (typeof raw !== "string") return null;
+	const sanitized = raw
+		.replace(/[\r\n]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	if (!sanitized) return null;
+	if (sanitized.length <= MAX_SESSION_TITLE_LENGTH) return sanitized;
+	return `${sanitized.slice(0, MAX_SESSION_TITLE_LENGTH - 1)}…`;
+}
+
+function isPiTimelineUpdate(update: SessionNotification["update"]): boolean {
+	return (
+		update.sessionUpdate === "agent_message_chunk" ||
+		update.sessionUpdate === "agent_thought_chunk" ||
+		update.sessionUpdate === "tool_call" ||
+		update.sessionUpdate === "tool_call_update"
+	);
+}
+
+/**
+ * Claude ACP renders its built-in AskUserQuestion as a tool-call update, then
+ * asks the host to approve the same tool call. The permission request itself
+ * has no elicitation discriminator, so retain this adapter-declared identity
+ * long enough to correlate the two messages by their exact toolCallId.
+ */
+function isClaudeAskUserQuestion(
+	update: SessionNotification["update"],
+): boolean {
+	if (update.sessionUpdate !== "tool_call_update") return false;
+	const meta = update._meta;
+	if (!meta || typeof meta !== "object") return false;
+	const claudeCode = (meta as { claudeCode?: unknown }).claudeCode;
+	if (!claudeCode || typeof claudeCode !== "object") return false;
+	return (claudeCode as { toolName?: unknown }).toolName === "AskUserQuestion";
+}
+
+function firstPiUserMessageSeq(
+	entries: SessionUpdateEnvelope[],
+): number | null {
+	for (const envelope of entries) {
+		if (
+			envelope.frame.kind === "update" &&
+			envelope.frame.update.sessionUpdate === "user_message_chunk"
+		) {
+			return envelope.seq;
+		}
+	}
+	return null;
+}
+
+/**
+ * Legacy Pi journals may have persisted the startup prelude before the host
+ * began suppressing it. Replace only those pre-user timeline updates with an
+ * inert ACP update, preserving every sequence number: getMessages and stream
+ * cursors therefore remain gapless across a restart.
+ */
+function suppressPersistedPiBootstrap(
+	entries: SessionUpdateEnvelope[],
+	firstUserMessageSeq: number | null,
+): SessionUpdateEnvelope[] {
+	const bootstrapEndsBefore = firstUserMessageSeq ?? Number.POSITIVE_INFINITY;
+	return entries.map((envelope) => {
+		if (
+			envelope.seq >= bootstrapEndsBefore ||
+			envelope.frame.kind !== "update" ||
+			!isPiTimelineUpdate(envelope.frame.update)
+		) {
+			return envelope;
+		}
+		return {
+			...envelope,
+			frame: {
+				kind: "update",
+				// A title-less info update has no timeline rendering or state effect.
+				update: { sessionUpdate: "session_info_update" },
+			},
+		};
+	});
+}
+
+interface AdapterProcessSpec {
+	command: string;
+	args: string[];
+	usesElectronNode: boolean;
 }
 
 /** The slice of the SDK's request handler context parkPermission needs. */
@@ -145,9 +291,37 @@ interface AcpSessionRuntime {
 	 * cancelled or crashed turn leaves rows rendering as running forever.
 	 */
 	openToolCalls: Set<string>;
+	/** Tool calls Claude explicitly identified as its AskUserQuestion tool. */
+	askUserToolCalls: Set<string>;
+	/**
+	 * Pi emits an informational prelude asynchronously after session/new. It is
+	 * adapter bootstrap output, not part of the conversation. This opaque value
+	 * comes from Pi's session/new metadata, so suppression does not depend on
+	 * recognising version, skills, or project text in the renderer.
+	 */
+	piStartupInfo: string | null;
+	/** The first host-journaled user block, used to suppress legacy Pi preludes. */
+	piFirstUserMessageSeq: number | null;
 	activePromptCount: number;
+	/**
+	 * A `sendNow` request parked while the current turn drains. When
+	 * `activePromptCount` returns to zero the finally hook picks it up before
+	 * any other queued prompt and fires it as a normal prompt. Never more
+	 * than one — a second sendNow while one is pending replaces it, since
+	 * only the most recent "cut the line" ask is meaningful.
+	 */
+	pendingSendNow: QueuedPrompt | null;
 	stderrTail: string;
 	dead: boolean;
+	/** True once explicitly closed; late adapter events must not re-persist it. */
+	closed: boolean;
+	/**
+	 * True once a title-generation request has been kicked off for this
+	 * session — prevents the first prompt from starting more than one job even
+	 * if the caller emits several prompts back-to-back before the first result
+	 * lands.
+	 */
+	titleGenerationStarted: boolean;
 }
 
 interface InflightCreation {
@@ -169,6 +343,14 @@ export interface AcpSessionManagerOptions {
 	 * deterministic fake adapter speaking the same wire protocol.
 	 */
 	adapterEntry?: string;
+	/** Test/build override for the Codex-to-ACP bridge entry point. */
+	codexAdapterEntry?: string;
+	/** Test/build override for the Pi-to-ACP bridge entry point. */
+	piAdapterEntry?: string;
+	/** Executable override for MyFlicker's native ACP server. */
+	myflickerAdapterCommand?: string;
+	/** Injected in tests; production managers share the daemon-level cache. */
+	piStartupCache?: PiStartupCache;
 	/**
 	 * Durable session registry. When set, every session's binding row
 	 * (workspace, adapter session id, title, stop reason) is upserted on each
@@ -177,6 +359,20 @@ export interface AcpSessionManagerOptions {
 	 * Without it the manager is memory-only (sessions die with the host).
 	 */
 	persistence?: AcpSessionPersistence;
+	/**
+	 * Optional Claude-Code-style tab title generator. When provided, the
+	 * manager kicks it off in the background on the first user prompt of a
+	 * fresh session and, when it resolves with a non-empty title, feeds a
+	 * synthetic `session_info_update` through the same path as an
+	 * adapter-emitted one (journal → state → subscribers → persistence).
+	 * When it returns null/undefined or throws, the session simply stays
+	 * titleless — the renderer falls back to the agent label.
+	 */
+	generateTitle?: (input: {
+		sessionId: string;
+		workspaceId: string;
+		message: string;
+	}) => Promise<string | null>;
 }
 
 /**
@@ -193,15 +389,22 @@ export interface AcpSessionManagerOptions {
  * manager lists them as `offline` (get/list are passive) and `ensureLive` —
  * called by the router and stream route before every live-path operation —
  * resurrects one on demand via the adapter's `session/load`, which replays
- * the harness-stored transcript into a fresh journal. That new journal starts
- * seqs at 1; numeric cursors do not yet carry an incarnation id, so callers
- * must use the normal get + getMessages resync across a host restart.
+ * the harness-stored transcript while retaining the durable local journal.
+ * The registry epoch scopes every cursor, so a recreated journal cannot be
+ * mistaken for a continuation with the same numeric sequence.
  */
 export class AcpSessionManager {
 	private readonly resolveWorkspaceCwd: AcpSessionManagerOptions["resolveWorkspaceCwd"];
 	private readonly journalCapacity: number;
 	private readonly adapterEntry: string | undefined;
+	private readonly codexAdapterEntry: string | undefined;
+	private readonly piAdapterEntry: string | undefined;
+	private readonly myflickerAdapterCommand: string | undefined;
+	private readonly piStartupCache: PiStartupCache;
 	private readonly persistence: AcpSessionPersistence | undefined;
+	private readonly generateTitle:
+		| AcpSessionManagerOptions["generateTitle"]
+		| undefined;
 	private readonly runtimes = new Map<string, AcpSessionRuntime>();
 	private readonly creations = new Map<string, InflightCreation>();
 	/**
@@ -210,6 +413,14 @@ export class AcpSessionManager {
 	 * resurrection. Disjoint from `runtimes` by construction.
 	 */
 	private readonly offline = new Map<string, AcpSessionRecord>();
+	/**
+	 * Host-wide listeners for session status transitions. Fed by `emitState`
+	 * and `close`; consumed by the daemon-entry to fan out over the daemon
+	 * socket, and by in-process host-service tests. Kept intentionally
+	 * minimal — just `{workspaceId, sessionId, status?, eventType}` — so the
+	 * sidebar-style consumers do not require a per-session subscription.
+	 */
+	private readonly sessionChangeListeners = new Set<AcpSessionChangeHandler>();
 
 	constructor(options: AcpSessionManagerOptions) {
 		this.resolveWorkspaceCwd = options.resolveWorkspaceCwd;
@@ -221,7 +432,12 @@ export class AcpSessionManager {
 		}
 		this.journalCapacity = journalCapacity;
 		this.adapterEntry = options.adapterEntry;
+		this.codexAdapterEntry = options.codexAdapterEntry;
+		this.piAdapterEntry = options.piAdapterEntry;
+		this.myflickerAdapterCommand = options.myflickerAdapterCommand;
+		this.piStartupCache = options.piStartupCache ?? sharedPiStartupCache;
 		this.persistence = options.persistence;
+		this.generateTitle = options.generateTitle;
 		if (this.persistence) {
 			try {
 				for (const record of this.persistence.loadAll()) {
@@ -243,10 +459,12 @@ export class AcpSessionManager {
 	async create(input: {
 		sessionId: string;
 		workspaceId: string;
+		harness?: HarnessKind;
 	}): Promise<SessionScopedState> {
 		const runtime = await this.getOrCreateRuntime(
 			input.sessionId,
 			input.workspaceId,
+			input.harness ?? "claude-agent-acp",
 		);
 		return this.snapshotState(runtime);
 	}
@@ -364,11 +582,27 @@ export class AcpSessionManager {
 	 * completion (stop reason, errors) lands in journaled state frames. The
 	 * returned `turn` promise is for in-process callers (tests) only.
 	 */
-	prompt(input: { sessionId: string; prompt: ContentBlock[] }): {
+	prompt(input: {
+		sessionId: string;
+		commandId?: string;
+		prompt: ContentBlock[];
+	}): {
 		accepted: true;
 		turn: Promise<{ stopReason: StopReason }>;
 	} {
 		const runtime = this.requireLive(input.sessionId);
+		if (
+			input.commandId &&
+			this.persistence &&
+			!this.persistence.reserveCommand(input.sessionId, input.commandId)
+		) {
+			// The original admission is durable. A retry can safely return the
+			// same acknowledgement without duplicating the harness prompt.
+			return {
+				accepted: true,
+				turn: Promise.resolve({ stopReason: "end_turn" }),
+			};
+		}
 		// The adapter does not echo the prompt back as user_message_chunk
 		// updates, so journal the user's message here — otherwise it is
 		// invisible to every subscriber and to history replay. Journaled
@@ -380,8 +614,17 @@ export class AcpSessionManager {
 				kind: "update",
 				update: { sessionUpdate: "user_message_chunk", content: block },
 			});
-			if (promptStartSeq === 0) promptStartSeq = envelope.seq;
+			if (promptStartSeq === 0) {
+				promptStartSeq = envelope.seq;
+				if (
+					runtime.state.harness === "pi-acp" &&
+					runtime.piFirstUserMessageSeq === null
+				) {
+					runtime.piFirstUserMessageSeq = envelope.seq;
+				}
+			}
 		}
+		this.maybeStartTitleGeneration(runtime, input.prompt);
 		// A fresh turn starts with a clean error slate — anything in lastError
 		// from here on is about THIS turn, so clients can show it verbatim.
 		runtime.state.lastError = null;
@@ -397,21 +640,29 @@ export class AcpSessionManager {
 				return { stopReason: response.stopReason };
 			})
 			.catch((error: unknown) => {
-				const reason = error instanceof Error ? error.message : String(error);
-				if (!runtime.dead) {
-					runtime.state.lastError = reason;
+				if (input.commandId && !runtime.closed) {
+					// Admission failed, so a later retry must be allowed to try again.
+					// While the turn is live the durable reservation suppresses dupes.
+					this.persistence?.releaseCommand(input.sessionId, input.commandId);
 				}
-				// The user's message is already journaled and looks delivered —
-				// this frame lets fold mark it failed on every client.
-				this.journalFrame(runtime, {
-					kind: "prompt_rejected",
-					reason,
-					promptStartSeq,
-				});
+				const reason = error instanceof Error ? error.message : String(error);
+				if (!runtime.dead && !runtime.closed) {
+					runtime.state.lastError = reason;
+					// The user's message is already journaled and looks delivered —
+					// this frame lets fold mark it failed on every client. A permanent
+					// close has already removed this session's durable rows, so late
+					// transport rejection must not recreate an orphan journal row.
+					this.journalFrame(runtime, {
+						kind: "prompt_rejected",
+						reason,
+						promptStartSeq,
+					});
+				}
 				throw error;
 			})
 			.finally(() => {
 				runtime.activePromptCount -= 1;
+				if (runtime.closed) return;
 				// Whatever never reached a terminal status this turn (cancelled,
 				// errored) must not keep rendering as running on every client.
 				if (runtime.activePromptCount === 0) {
@@ -420,10 +671,164 @@ export class AcpSessionManager {
 				// Force an emit so every turn end lands a state frame with the
 				// final lastStopReason / lastError even if the status is unchanged.
 				this.syncStatus(runtime, { force: true });
+				// Drain the follow-up queue: whichever prompt is next (a pending
+				// sendNow beats the ordered tail) fires as if the user had just
+				// typed it. Its own finally hook keeps the chain going.
+				if (runtime.activePromptCount === 0) {
+					this.drainQueue(runtime);
+				}
 			});
 		// Detached callers (the router) drop `turn`; keep its rejection handled.
 		turn.catch(() => {});
 		return { accepted: true, turn };
+	}
+
+	/**
+	 * Append a follow-up prompt for whenever the current turn (and any
+	 * already-queued prompts) finishes. If nothing is in flight, drains
+	 * immediately so `enqueue → nothing running` still feels like `prompt`.
+	 */
+	enqueuePrompt(input: {
+		sessionId: string;
+		commandId?: string;
+		prompt: ContentBlock[];
+	}): EnqueuePromptResult {
+		const runtime = this.requireLive(input.sessionId);
+		const queued: QueuedPrompt = {
+			queueId: randomUUID(),
+			prompt: [...input.prompt],
+			enqueuedAt: Date.now(),
+		};
+		runtime.state.queuedPrompts.push(queued);
+		this.emitState(runtime);
+		if (runtime.activePromptCount === 0 && !runtime.pendingSendNow) {
+			this.drainQueue(runtime);
+		}
+		return { queueId: queued.queueId };
+	}
+
+	/**
+	 * Cancel the running turn (if any) and run this prompt immediately. Works
+	 * for every adapter: the standard `session/cancel` notification stops the
+	 * in-flight turn's stopReason to `cancelled`, and the queue drain hook
+	 * picks up the parked prompt before any other queued item. Called with an
+	 * idle session behaves like a normal `prompt`.
+	 */
+	async sendNow(input: {
+		sessionId: string;
+		commandId?: string;
+		prompt: ContentBlock[];
+	}): Promise<PromptAccepted> {
+		const runtime = this.requireLive(input.sessionId);
+		if (runtime.activePromptCount === 0) {
+			this.prompt(input);
+			return { accepted: true };
+		}
+		runtime.pendingSendNow = {
+			queueId: randomUUID(),
+			prompt: [...input.prompt],
+			enqueuedAt: Date.now(),
+		};
+		// The user asked to "cut the line" — cancel the current turn. The
+		// prompt-settle hook will fire pendingSendNow before any tail item.
+		await this.cancel({ sessionId: input.sessionId });
+		return { accepted: true };
+	}
+
+	removeQueuedPrompt(input: { sessionId: string; queueId: string }): void {
+		const runtime = this.requireLive(input.sessionId);
+		const before = runtime.state.queuedPrompts.length;
+		runtime.state.queuedPrompts = runtime.state.queuedPrompts.filter(
+			(entry) => entry.queueId !== input.queueId,
+		);
+		if (runtime.state.queuedPrompts.length !== before) {
+			this.emitState(runtime);
+		}
+	}
+
+	reorderQueue(input: { sessionId: string; orderedIds: string[] }): void {
+		const runtime = this.requireLive(input.sessionId);
+		const current = runtime.state.queuedPrompts;
+		if (input.orderedIds.length !== current.length) {
+			throw new Error(
+				`reorderQueue expected ${current.length} ids, got ${input.orderedIds.length}`,
+			);
+		}
+		const byId = new Map(current.map((entry) => [entry.queueId, entry]));
+		const seen = new Set<string>();
+		const next: QueuedPrompt[] = [];
+		for (const id of input.orderedIds) {
+			if (seen.has(id)) throw new Error(`reorderQueue duplicate id: ${id}`);
+			const entry = byId.get(id);
+			if (!entry) throw new Error(`reorderQueue unknown queueId: ${id}`);
+			seen.add(id);
+			next.push(entry);
+		}
+		runtime.state.queuedPrompts = next;
+		this.emitState(runtime);
+	}
+
+	editQueuedPrompt(input: {
+		sessionId: string;
+		queueId: string;
+		prompt: ContentBlock[];
+	}): void {
+		const runtime = this.requireLive(input.sessionId);
+		const entry = runtime.state.queuedPrompts.find(
+			(item) => item.queueId === input.queueId,
+		);
+		if (!entry) return;
+		entry.prompt = [...input.prompt];
+		this.emitState(runtime);
+	}
+
+	clearQueue(input: { sessionId: string }): void {
+		const runtime = this.requireLive(input.sessionId);
+		if (runtime.state.queuedPrompts.length === 0 && !runtime.pendingSendNow) {
+			return;
+		}
+		runtime.state.queuedPrompts = [];
+		runtime.pendingSendNow = null;
+		this.emitState(runtime);
+	}
+
+	/**
+	 * Shift the next queued prompt (pendingSendNow first) into a fresh turn.
+	 * Called from the prompt-settle hook and from `enqueuePrompt` when the
+	 * session was already idle.
+	 */
+	private drainQueue(runtime: AcpSessionRuntime): void {
+		if (runtime.closed || runtime.dead) return;
+		if (runtime.activePromptCount > 0) return;
+		const pending = runtime.pendingSendNow;
+		let next: QueuedPrompt | null = null;
+		if (pending) {
+			next = pending;
+			runtime.pendingSendNow = null;
+		} else if (runtime.state.queuedPrompts.length > 0) {
+			next = runtime.state.queuedPrompts[0] ?? null;
+			runtime.state.queuedPrompts = runtime.state.queuedPrompts.slice(1);
+		}
+		if (!next) return;
+		this.emitState(runtime);
+		// `prompt` is fire-and-forget from here; its own finally hook keeps
+		// draining down the chain. Detach on the microtask queue so a synchronous
+		// caller (the prompt-settle finally hook) doesn't re-enter `prompt` while
+		// its own frame is still on the stack — which would layer `activePromptCount`
+		// bookkeeping in the wrong order.
+		queueMicrotask(() => {
+			try {
+				this.prompt({
+					sessionId: runtime.state.sessionId,
+					prompt: next.prompt,
+				});
+			} catch (error) {
+				// The session may have gone offline / dead between settle and drain.
+				// A queued prompt that no longer has a live target is dropped; the
+				// state emit above already showed it as removed from the queue.
+				console.warn("[acp-sessions] queue drain skipped", error);
+			}
+		});
 	}
 
 	/** First answer wins; later answers to the same request are reported stale. */
@@ -450,6 +855,72 @@ export class AcpSessionManager {
 		await runtime.connection.agent.notify("session/cancel", {
 			sessionId: runtime.acpSessionId,
 		});
+	}
+
+	/**
+	 * Permanently close a session. Unlike `cancel`, this tears down the adapter
+	 * and removes every durable row, so the session cannot appear in Recent or
+	 * be resurrected after a host restart.
+	 */
+	async close(input: { sessionId: string }): Promise<void> {
+		const { sessionId } = input;
+		const creation = this.creations.get(sessionId);
+		if (creation) await creation.promise;
+
+		const runtime = this.runtimes.get(sessionId);
+		const offline = this.offline.get(sessionId);
+		if (!runtime && !offline) {
+			throw new AcpSessionNotFoundError(`Unknown ACP session: ${sessionId}`);
+		}
+		const workspaceId = runtime?.state.workspaceId ?? offline?.workspaceId;
+		// Deleting durable state is the commit point for a permanent close. It is
+		// synchronous (SQLite transaction), so if it fails we have not yet marked
+		// the runtime closed, killed its child, or removed it from memory. The
+		// renderer can keep the pane visible and safely offer the user a retry.
+		this.persistence?.deleteSession(sessionId);
+
+		if (runtime) {
+			// Stop accepting late adapter notifications before closing its transport:
+			// `abort`/`exit` handlers otherwise mark the runtime dead and re-upsert
+			// the registry row after persistence has deleted it.
+			runtime.closed = true;
+			for (const resolver of runtime.pendingResolvers.values()) {
+				resolver({ outcome: "cancelled" });
+			}
+			runtime.pendingResolvers.clear();
+			runtime.state.pendingPermissions = [];
+			runtime.state.queuedPrompts = [];
+			runtime.pendingSendNow = null;
+			try {
+				await runtime.connection.agent.notify("session/cancel", {
+					sessionId: runtime.acpSessionId,
+				});
+			} catch {
+				// The process is about to be terminated, so a broken ACP transport
+				// cannot prevent explicit session disposal.
+			}
+			try {
+				runtime.connection.close();
+			} catch {
+				// best-effort — it may already be disconnected
+			}
+			try {
+				runtime.child.kill();
+			} catch {
+				// best-effort — it may already have exited
+			}
+			this.runtimes.delete(sessionId);
+		}
+
+		this.offline.delete(sessionId);
+		if (workspaceId) {
+			this.notifySessionChange({
+				sessionId,
+				workspaceId,
+				eventType: "deleted",
+				occurredAt: Date.now(),
+			});
+		}
 	}
 
 	async setMode(input: { sessionId: string; modeId: string }): Promise<void> {
@@ -507,16 +978,28 @@ export class AcpSessionManager {
 	subscribe(input: {
 		sessionId: string;
 		since?: number;
+		epoch?: string;
 		onEnvelope: (envelope: SessionUpdateEnvelope) => void;
 	}): () => void {
 		const runtime = this.require(input.sessionId);
 		const { onEnvelope } = input;
+		if (input.epoch !== undefined && input.epoch !== runtime.journal.epoch) {
+			onEnvelope({
+				seq: runtime.journal.latestSeq,
+				epoch: runtime.journal.epoch,
+				sessionId: runtime.state.sessionId,
+				ts: Date.now(),
+				frame: { kind: "reset", reason: "epoch_mismatch" },
+			});
+			return () => {};
+		}
 		const since = input.since ?? runtime.journal.latestSeq;
 		const backlog = runtime.journal.after(since);
 		if (backlog === null) {
 			onEnvelope({
 				// Reset frames short-circuit client seq checks; seq is nominal.
 				seq: runtime.journal.latestSeq,
+				epoch: runtime.journal.epoch,
 				sessionId: runtime.state.sessionId,
 				ts: Date.now(),
 				frame: { kind: "reset", reason: "journal_evicted" },
@@ -537,6 +1020,18 @@ export class AcpSessionManager {
 	/** Adapter process pid — lets tests and ops target the child directly. */
 	adapterPid(sessionId: string): number | null {
 		return this.require(sessionId).child.pid ?? null;
+	}
+
+	/** Active turns/interactions whose process-local callbacks make replacement unsafe. */
+	pendingInteractionCount(): number {
+		let count = 0;
+		for (const runtime of this.runtimes.values()) {
+			count += Math.max(
+				runtime.activePromptCount,
+				runtime.state.pendingPermissions.length,
+			);
+		}
+		return count;
 	}
 
 	/** Kill every adapter process. Journals die with the manager. */
@@ -567,12 +1062,18 @@ export class AcpSessionManager {
 	private async getOrCreateRuntime(
 		sessionId: string,
 		workspaceId: string,
+		harness: HarnessKind,
 	): Promise<AcpSessionRuntime> {
 		const existing = this.runtimes.get(sessionId);
 		if (existing) {
 			if (existing.state.workspaceId !== workspaceId) {
 				throw new AcpWorkspaceMismatchError(
 					`Session ${sessionId} is already bound to workspace ${existing.state.workspaceId}`,
+				);
+			}
+			if (existing.state.harness !== harness) {
+				throw new AcpWorkspaceMismatchError(
+					`Session ${sessionId} is already bound to ${existing.state.harness}`,
 				);
 			}
 			return existing;
@@ -598,10 +1099,20 @@ export class AcpSessionManager {
 					`Session ${sessionId} is already bound to workspace ${record.workspaceId}`,
 				);
 			}
+			if (record.harness !== harness) {
+				throw new AcpWorkspaceMismatchError(
+					`Session ${sessionId} is already bound to ${record.harness}`,
+				);
+			}
 			return this.resurrectRuntime(record);
 		}
 
-		const promise = this.createRuntime(sessionId, workspaceId).finally(() => {
+		const promise = this.createRuntime(
+			sessionId,
+			workspaceId,
+			undefined,
+			harness,
+		).finally(() => {
 			this.creations.delete(sessionId);
 		});
 		this.creations.set(sessionId, { workspaceId, promise });
@@ -637,7 +1148,33 @@ export class AcpSessionManager {
 		sessionId: string,
 		workspaceId: string,
 		resume?: AcpSessionRecord,
+		harness: HarnessKind = resume?.harness ?? "claude-agent-acp",
 	): Promise<AcpSessionRuntime> {
+		let epoch = resume?.epoch ?? randomUUID();
+		let durableEntries: SessionUpdateEnvelope[] = [];
+		let persistedPiFirstUserMessageSeq: number | null = null;
+		if (resume && this.persistence) {
+			try {
+				durableEntries = this.persistence.loadJournal(sessionId, epoch);
+				if (harness === "pi-acp") {
+					persistedPiFirstUserMessageSeq =
+						firstPiUserMessageSeq(durableEntries);
+					durableEntries = suppressPersistedPiBootstrap(
+						durableEntries,
+						persistedPiFirstUserMessageSeq,
+					);
+				}
+			} catch (error) {
+				// A partially written/corrupt journal must never continue at a
+				// potentially reused seq. Switch incarnation; clients holding the
+				// old cursor get an explicit epoch reset instead of bad replay.
+				console.error(
+					"[acp-sessions] journal integrity failed; minting new epoch",
+					error,
+				);
+				epoch = randomUUID();
+			}
+		}
 		const cwd = await this.resolveWorkspaceCwd(workspaceId);
 		// process.execPath instead of a PATH lookup for "node": inside the
 		// packaged Electron app there is no node on PATH — the Electron binary
@@ -647,21 +1184,61 @@ export class AcpSessionManager {
 		// shell profile) must never reach the agent child: they silently
 		// override the user's own Claude login for the whole session. Scrubbed
 		// here — the spawn site — so every launch path is covered, not just dev.
-		const env: Record<string, string | undefined> = {
-			...process.env,
-			ELECTRON_RUN_AS_NODE: "1",
-		};
+		const adapterProcess: AdapterProcessSpec = (() => {
+			switch (harness) {
+				case "codex-app-server":
+					return {
+						command: process.execPath,
+						args: [this.codexAdapterEntry ?? resolveCodexAdapterEntry()],
+						usesElectronNode: true,
+					};
+				case "pi-acp":
+					return {
+						command: process.execPath,
+						args: [this.piAdapterEntry ?? resolvePiAdapterEntry()],
+						usesElectronNode: true,
+					};
+				case "myflicker-acp":
+					return {
+						command: this.myflickerAdapterCommand ?? "mfcli",
+						args: ["acp"],
+						usesElectronNode: false,
+					};
+				case "claude-agent-acp":
+					return {
+						command: process.execPath,
+						args: [this.adapterEntry ?? resolveAdapterEntry()],
+						usesElectronNode: true,
+					};
+			}
+		})();
+		const env: Record<string, string | undefined> = { ...process.env };
+		if (adapterProcess.usesElectronNode) env.ELECTRON_RUN_AS_NODE = "1";
+		else delete env.ELECTRON_RUN_AS_NODE;
 		delete env.ANTHROPIC_API_KEY;
 		delete env.ANTHROPIC_AUTH_TOKEN;
-		const child = spawn(
-			process.execPath,
-			[this.adapterEntry ?? resolveAdapterEntry()],
-			{
-				cwd,
-				env,
-				stdio: ["pipe", "pipe", "pipe"],
-			},
-		);
+		if (harness === "pi-acp") {
+			// Shared process cache: this starts an advisory refresh only after a Pi
+			// session is requested, and never waits for it on the session/new path.
+			this.piStartupCache.refreshInBackground();
+			env[PI_ACP_QUIET_STARTUP_ENV] = "1";
+			const updateNotice = this.piStartupCache.getUpdateNotice();
+			if (updateNotice) env[PI_ACP_UPDATE_NOTICE_ENV] = updateNotice;
+			else delete env[PI_ACP_UPDATE_NOTICE_ENV];
+			// Default false: --no-extensions removes every user extension command and
+			// hook. Operators may explicitly opt into the ACP fast mode to avoid
+			// expensive extensions (for example pi-pretty).
+			if (process.env[PI_ACP_DISABLE_EXTENSIONS_ENV] === "1") {
+				env[PI_ACP_DISABLE_EXTENSIONS_ENV] = "1";
+			} else {
+				delete env[PI_ACP_DISABLE_EXTENSIONS_ENV];
+			}
+		}
+		const child = spawn(adapterProcess.command, adapterProcess.args, {
+			cwd,
+			env,
+			stdio: ["pipe", "pipe", "pipe"],
+		});
 		if (!child.stdin || !child.stdout) {
 			child.kill();
 			throw new Error("adapter child process is missing stdio pipes");
@@ -703,7 +1280,7 @@ export class AcpSessionManager {
 					context,
 				): RequestPermissionResponse | Promise<RequestPermissionResponse> => {
 					const target = runtime;
-					if (!target || target.dead) {
+					if (!target || target.dead || target.closed) {
 						return { outcome: { outcome: "cancelled" } };
 					}
 					return this.parkPermission(target, context);
@@ -715,7 +1292,7 @@ export class AcpSessionManager {
 					context,
 				): CreateElicitationResponse | Promise<CreateElicitationResponse> => {
 					const target = runtime;
-					if (!target || target.dead) {
+					if (!target || target.dead || target.closed) {
 						return { action: "cancel" };
 					}
 					return this.parkElicitation(target, context);
@@ -744,6 +1321,7 @@ export class AcpSessionManager {
 				clientCapabilities: {
 					fs: { readTextFile: false, writeTextFile: false },
 					terminal: false,
+					_meta: { terminal_output: true },
 					// UNSTABLE ACP extension, but it is what re-enables Claude
 					// Code's built-in AskUserQuestion tool — the adapter disallows
 					// the tool for clients that can't render form elicitations.
@@ -753,6 +1331,7 @@ export class AcpSessionManager {
 			let acpSessionId: string;
 			let modes: SessionModeState | null;
 			let configOptions: SessionConfigOption[];
+			let piStartupInfo: string | null = null;
 			if (resume) {
 				// session/load replays the harness-stored transcript as ordinary
 				// session/update notifications before the response resolves — they
@@ -771,40 +1350,47 @@ export class AcpSessionManager {
 					mcpServers: [],
 				});
 				acpSessionId = session.sessionId;
+				if (harness === "pi-acp") {
+					piStartupInfo = piStartupInfoFromSessionResponse(session);
+				}
 				modes = session.modes ?? null;
 				configOptions = session.configOptions ?? [];
 			}
 
-			// D14-c: the adapter starts (and loads) sessions in bypassPermissions;
-			// a Superset session must never sit in bypass unless the user chose
-			// it. Fresh sessions are forced to default outright; resumed ones only
-			// override bypass, so a user-picked mode (plan, acceptEdits) survives
-			// the restart.
-			const hasDefaultMode = modes?.availableModes.some(
-				(mode) => mode.id === "default",
+			// Superset defaults ACP sessions to bypassPermissions so the user
+			// never has to approve individual tool calls. Fresh sessions are
+			// forced into bypass outright; resumed sessions only get pulled
+			// back into bypass if the adapter re-hydrated them in `default`
+			// (a cold-start fallback), so a user-picked mode (plan,
+			// acceptEdits) survives the restart.
+			const hasBypassMode = modes?.availableModes.some(
+				(mode) => mode.id === "bypassPermissions",
 			);
-			const forceDefaultMode = resume
-				? modes?.currentModeId === "bypassPermissions"
-				: modes !== null && modes.currentModeId !== "default";
-			if (modes && hasDefaultMode && forceDefaultMode) {
+			const forceBypassMode = resume
+				? modes?.currentModeId === "default"
+				: modes !== null && modes.currentModeId !== "bypassPermissions";
+			if (modes && hasBypassMode && forceBypassMode) {
 				await connection.agent.request("session/set_mode", {
 					sessionId: acpSessionId,
-					modeId: "default",
+					modeId: "bypassPermissions",
 				});
-				modes = { ...modes, currentModeId: "default" };
+				modes = { ...modes, currentModeId: "bypassPermissions" };
 			}
 
 			const now = Date.now();
 			const created: AcpSessionRuntime = {
 				state: {
 					sessionId,
+					epoch,
 					workspaceId,
-					harness: "claude-agent-acp",
+					harness,
 					status: "idle",
 					title: resume?.title ?? null,
 					currentMode: modes,
 					configOptions,
+					availableCommands: null,
 					pendingPermissions: [],
+					queuedPrompts: [],
 					cwd,
 					lastSeq: 0,
 					lastStopReason: resume?.lastStopReason ?? null,
@@ -815,19 +1401,38 @@ export class AcpSessionManager {
 				acpSessionId,
 				child,
 				connection,
-				journal: new SessionJournal(this.journalCapacity),
+				journal: new SessionJournal({
+					epoch,
+					capacity: this.journalCapacity,
+					entries: durableEntries,
+				}),
 				subscribers: new Set(),
 				pendingResolvers: new Map(),
 				openToolCalls: new Set(),
+				askUserToolCalls: new Set(),
+				piStartupInfo,
+				piFirstUserMessageSeq:
+					harness === "pi-acp" ? persistedPiFirstUserMessageSeq : null,
 				activePromptCount: 0,
+				pendingSendNow: null,
 				stderrTail,
 				dead: false,
+				closed: false,
+				// A resumed session already carries whatever title was in the
+				// registry — no need to regenerate. A fresh session starts
+				// title-less and the first prompt kicks off the generator.
+				titleGenerationStarted: resume?.title != null,
 			};
 			runtime = created;
 			for (let index = 0; index < earlyUpdatesSize; index += 1) {
 				const notification =
 					earlyUpdates[(earlyUpdatesStart + index) % this.journalCapacity];
-				if (notification) this.handleUpdate(created, notification);
+				// A resumed ACP adapter commonly replays its transcript. The local
+				// durable journal already has that authoritative history, so avoid
+				// duplicating it; state is refreshed by the load response below.
+				if (notification && (!resume || durableEntries.length === 0)) {
+					this.handleUpdate(created, notification);
+				}
 			}
 			if (resume) {
 				// Nothing replayed can still be running — the process it ran in is
@@ -872,7 +1477,7 @@ export class AcpSessionManager {
 	}
 
 	private markDead(runtime: AcpSessionRuntime, reason: string): void {
-		if (runtime.dead) return;
+		if (runtime.dead || runtime.closed) return;
 		runtime.dead = true;
 		for (const requestId of [...runtime.pendingResolvers.keys()]) {
 			this.settlePermission(runtime, requestId, { outcome: "cancelled" });
@@ -882,6 +1487,81 @@ export class AcpSessionManager {
 		runtime.state.lastError = stderr ? `${reason}\n${stderr}` : reason;
 		this.syncStatus(runtime, { force: true });
 		this.evictDeadRuntimes();
+	}
+
+	/**
+	 * Fire the injected `generateTitle` on the first prompt of a fresh
+	 * session and, when it resolves, feed a synthetic session_info_update
+	 * through the same path an adapter-emitted one would take. Errors are
+	 * swallowed: a titleless tab is fine (the renderer falls back to the
+	 * agent label), and this must not affect the turn.
+	 */
+	private maybeStartTitleGeneration(
+		runtime: AcpSessionRuntime,
+		prompt: ContentBlock[],
+	): void {
+		const sessionId = runtime.state.sessionId;
+		if (!this.generateTitle) {
+			console.log(`[acp-title] skip ${sessionId}: no generateTitle injected`);
+			return;
+		}
+		if (runtime.titleGenerationStarted) return;
+		if (runtime.state.title != null) {
+			console.log(
+				`[acp-title] skip ${sessionId}: already has title "${runtime.state.title}"`,
+			);
+			return;
+		}
+		const message = prompt
+			.map((block) => (block.type === "text" ? block.text : ""))
+			.join(" ")
+			.replace(/\s+/g, " ")
+			.trim();
+		if (!message) {
+			console.log(`[acp-title] skip ${sessionId}: prompt has no text`);
+			return;
+		}
+		runtime.titleGenerationStarted = true;
+		console.log(
+			`[acp-title] start ${sessionId}: message="${message.slice(0, 80)}"`,
+		);
+		const generate = this.generateTitle;
+		const workspaceId = runtime.state.workspaceId;
+		const acpSessionId = runtime.acpSessionId;
+		void generate({ sessionId, workspaceId, message })
+			.then((raw) => {
+				if (runtime.closed || runtime.dead) {
+					console.log(
+						`[acp-title] drop ${sessionId}: session closed/dead before title landed`,
+					);
+					return;
+				}
+				const title = sanitizeSessionTitle(raw);
+				if (!title) {
+					console.log(
+						`[acp-title] drop ${sessionId}: generator returned ${JSON.stringify(raw)}`,
+					);
+					return;
+				}
+				console.log(`[acp-title] resolved ${sessionId}: "${title}"`);
+				// Feed the synthetic notification through the same path an
+				// adapter-emitted one would take: journal → state → subscribers
+				// → persistence. sessionId must match the runtime's acp id.
+				this.handleUpdate(runtime, {
+					sessionId: acpSessionId,
+					update: {
+						sessionUpdate: "session_info_update",
+						title,
+						updatedAt: new Date().toISOString(),
+					},
+				});
+			})
+			.catch((error) => {
+				console.warn(
+					`[acp-sessions] title generation failed for session ${sessionId}`,
+					error,
+				);
+			});
 	}
 
 	/**
@@ -901,6 +1581,7 @@ export class AcpSessionManager {
 			});
 		}
 		runtime.openToolCalls.clear();
+		runtime.askUserToolCalls.clear();
 	}
 
 	/** Bound the dead-session graveyard; oldest (by updatedAt) go first. */
@@ -921,18 +1602,24 @@ export class AcpSessionManager {
 		runtime: AcpSessionRuntime,
 		notification: SessionNotification,
 	): void {
+		if (runtime.closed) return;
 		if (notification.sessionId !== runtime.acpSessionId) return;
 		const update = notification.update;
+		if (this.shouldSuppressPiBootstrapUpdate(runtime, update)) return;
 		this.journalFrame(runtime, { kind: "update", update });
 		// Most variants are timeline-only; these few also live in scoped state.
 		switch (update.sessionUpdate) {
 			case "tool_call":
 			case "tool_call_update": {
+				if (isClaudeAskUserQuestion(update)) {
+					runtime.askUserToolCalls.add(update.toolCallId);
+				}
 				const status =
 					update.status ??
 					(update.sessionUpdate === "tool_call" ? "pending" : null);
 				if (status === "completed" || status === "failed") {
 					runtime.openToolCalls.delete(update.toolCallId);
+					runtime.askUserToolCalls.delete(update.toolCallId);
 				} else if (status !== null) {
 					runtime.openToolCalls.add(update.toolCallId);
 				}
@@ -959,15 +1646,49 @@ export class AcpSessionManager {
 				runtime.state.configOptions = update.configOptions;
 				this.emitState(runtime);
 				break;
+			case "available_commands_update":
+				runtime.state.availableCommands = cloneAvailableCommands(
+					update.availableCommands,
+				);
+				this.emitState(runtime);
+				break;
 			default:
 				break;
 		}
 	}
 
-	private parkPermission(
+	private shouldSuppressPiBootstrapUpdate(
+		runtime: AcpSessionRuntime,
+		update: SessionNotification["update"],
+	): boolean {
+		if (runtime.state.harness !== "pi-acp") return false;
+		if (
+			update.sessionUpdate === "agent_message_chunk" &&
+			update.content.type === "text" &&
+			runtime.piStartupInfo !== null &&
+			update.content.text === runtime.piStartupInfo
+		) {
+			// Pi declares this opaque startup payload in session/new metadata,
+			// then emits it asynchronously. Consume it even if the user prompts
+			// immediately after creation. A cache-backed upgrade notice is the sole
+			// exception: it has no TUI payload and remains a non-blocking message.
+			runtime.piStartupInfo = null;
+			return !isPiUpdateNotice(update.content.text);
+		}
+		// Older Pi journals have no startup metadata. Before Superset has
+		// journaled a user block, timeline updates are adapter bootstrap only.
+		return runtime.piFirstUserMessageSeq === null && isPiTimelineUpdate(update);
+	}
+
+	private async parkPermission(
 		runtime: AcpSessionRuntime,
 		context: PermissionRequestContext,
 	): Promise<RequestPermissionResponse> {
+		// The SDK dispatches notifications and requests independently. Give the
+		// immediately preceding tool_call_update one event-loop turn to reach its
+		// handler before consulting the correlation set; otherwise the request can
+		// win that race despite arriving after the update on the adapter stream.
+		await new Promise<void>((resolve) => setImmediate(resolve));
 		const requestId =
 			context.requestId !== null && context.requestId !== undefined
 				? String(context.requestId)
@@ -977,6 +1698,9 @@ export class AcpSessionManager {
 			toolCall: context.params.toolCall,
 			options: context.params.options,
 			requestedAt: Date.now(),
+			...(runtime.askUserToolCalls.has(context.params.toolCall.toolCallId)
+				? { isElicitation: true }
+				: {}),
 		};
 		runtime.state.pendingPermissions = [
 			...runtime.state.pendingPermissions,
@@ -1111,6 +1835,7 @@ export class AcpSessionManager {
 			},
 			options: input.options,
 			requestedAt: Date.now(),
+			isElicitation: true,
 			...(input.multiSelect ? { multiSelect: true } : {}),
 		};
 		runtime.state.pendingPermissions = [
@@ -1166,6 +1891,14 @@ export class AcpSessionManager {
 		frame: SessionUpdateFrame,
 	): SessionUpdateEnvelope {
 		const envelope = runtime.journal.append(runtime.state.sessionId, frame);
+		try {
+			this.persistence?.appendEnvelope(envelope);
+		} catch (error) {
+			console.error(
+				"[acp-sessions] failed to durably append journal envelope",
+				error,
+			);
+		}
 		for (const subscriber of runtime.subscribers) {
 			try {
 				subscriber(envelope);
@@ -1196,6 +1929,7 @@ export class AcpSessionManager {
 	}
 
 	private emitState(runtime: AcpSessionRuntime): void {
+		if (runtime.closed) return;
 		runtime.state.updatedAt = Date.now();
 		this.journalFrame(runtime, {
 			kind: "state",
@@ -1208,6 +1942,37 @@ export class AcpSessionManager {
 		// Every state emit refreshes the registry row (create, title change,
 		// turn end, death) — best-effort; the live path never depends on it.
 		this.persistState(runtime);
+		this.notifySessionChange({
+			sessionId: runtime.state.sessionId,
+			workspaceId: runtime.state.workspaceId,
+			eventType: "changed",
+			status: runtime.state.status,
+			occurredAt: Date.now(),
+		});
+	}
+
+	/**
+	 * Subscribe to host-wide session status transitions. Callers get one call
+	 * per state emit and one final `deleted` on close. Failures in a listener
+	 * are contained so a bad subscriber can't take the manager with it.
+	 */
+	onSessionChanged(listener: AcpSessionChangeHandler): () => void {
+		this.sessionChangeListeners.add(listener);
+		return () => {
+			this.sessionChangeListeners.delete(listener);
+		};
+	}
+
+	private notifySessionChange(
+		event: Parameters<AcpSessionChangeHandler>[0],
+	): void {
+		for (const listener of this.sessionChangeListeners) {
+			try {
+				listener(event);
+			} catch (error) {
+				console.warn("[acp-sessions] session-change listener threw", error);
+			}
+		}
 	}
 
 	private persistState(runtime: AcpSessionRuntime): void {
@@ -1217,6 +1982,7 @@ export class AcpSessionManager {
 				sessionId: runtime.state.sessionId,
 				workspaceId: runtime.state.workspaceId,
 				acpSessionId: runtime.acpSessionId,
+				epoch: runtime.state.epoch,
 				harness: runtime.state.harness,
 				cwd: runtime.state.cwd,
 				title: runtime.state.title,
@@ -1233,13 +1999,16 @@ export class AcpSessionManager {
 	private offlineState(record: AcpSessionRecord): SessionScopedState {
 		return {
 			sessionId: record.sessionId,
+			epoch: record.epoch,
 			workspaceId: record.workspaceId,
 			harness: record.harness,
 			status: "offline",
 			title: record.title,
 			currentMode: null,
 			configOptions: [],
+			availableCommands: null,
 			pendingPermissions: [],
+			queuedPrompts: [],
 			cwd: record.cwd,
 			lastSeq: 0,
 			lastStopReason: record.lastStopReason,
@@ -1256,8 +2025,15 @@ export class AcpSessionManager {
 				? { ...runtime.state.currentMode }
 				: null,
 			configOptions: [...runtime.state.configOptions],
+			availableCommands: cloneAvailableCommands(
+				runtime.state.availableCommands,
+			),
 			pendingPermissions: runtime.state.pendingPermissions.map((pending) => ({
 				...pending,
+			})),
+			queuedPrompts: runtime.state.queuedPrompts.map((queued) => ({
+				...queued,
+				prompt: [...queued.prompt],
 			})),
 			lastSeq: runtime.journal.latestSeq,
 		};
@@ -1282,4 +2058,12 @@ export class AcpSessionManager {
 		}
 		return runtime;
 	}
+}
+
+/** ACP command metadata contains nested input/meta objects; state snapshots
+ * must not leak mutable references to callers or journal frames. */
+function cloneAvailableCommands(
+	commands: AvailableCommand[] | null,
+): AvailableCommand[] | null {
+	return commands === null ? null : structuredClone(commands);
 }

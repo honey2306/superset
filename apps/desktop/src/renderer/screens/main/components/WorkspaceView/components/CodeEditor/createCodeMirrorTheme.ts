@@ -1,4 +1,8 @@
 import { EditorView } from "@codemirror/view";
+import {
+	resolveEditorLineHeight,
+	resolveFontVariantLigatures,
+} from "renderer/lib/editor-typography";
 import { getEditorTheme, type Theme } from "shared/themes";
 import {
 	DEFAULT_CODE_EDITOR_FONT_FAMILY,
@@ -8,6 +12,10 @@ import {
 interface CodeEditorFontSettings {
 	fontFamily?: string;
 	fontSize?: number;
+	lineHeight?: number | null;
+	letterSpacing?: number | null;
+	fontWeight?: number | null;
+	ligatures?: boolean | null;
 }
 
 export function createCodeMirrorTheme(
@@ -16,7 +24,7 @@ export function createCodeMirrorTheme(
 	fillHeight: boolean,
 ) {
 	const fontSize = fontSettings.fontSize ?? DEFAULT_CODE_EDITOR_FONT_SIZE;
-	const lineHeight = 1.5; // Zed 使用固定 1.5 行高
+	const lineHeight = resolveEditorLineHeight(fontSize, fontSettings.lineHeight);
 	const editorTheme = getEditorTheme(theme);
 
 	return EditorView.theme(
@@ -27,12 +35,15 @@ export function createCodeMirrorTheme(
 				color: editorTheme.colors.foreground,
 				fontFamily: fontSettings.fontFamily ?? DEFAULT_CODE_EDITOR_FONT_FAMILY,
 				fontSize: `${fontSize}px`,
+				fontWeight: fontSettings.fontWeight ?? "normal",
 			},
 			".cm-scroller": {
 				fontFamily: "inherit",
-				lineHeight: lineHeight.toString(),
+				lineHeight: `${lineHeight}px`,
+				letterSpacing: `${fontSettings.letterSpacing ?? 0}px`,
 				overflow: fillHeight ? "auto" : "visible",
-				fontVariantLigatures: "contextual", // 启用连字
+				fontVariantLigatures:
+					resolveFontVariantLigatures(fontSettings.ligatures) ?? "contextual",
 			},
 			".cm-content": {
 				padding: "16px 0", // Zed 风格更大的垂直 padding

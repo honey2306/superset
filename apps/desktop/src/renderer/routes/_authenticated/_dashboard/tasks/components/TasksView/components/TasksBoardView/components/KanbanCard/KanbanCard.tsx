@@ -49,9 +49,9 @@ export function KanbanCard({ task, onClick, overlay }: KanbanCardProps) {
 			role="button"
 			tabIndex={0}
 			className={cn(
-				"bg-card border border-border/60 rounded-md px-3 py-2.5 cursor-grab active:cursor-grabbing hover:bg-accent/30 transition-colors group",
+				"bg-surface border border-line/60 rounded-ds-3 px-3 py-2.5 cursor-grab active:cursor-grabbing hover:bg-hover transition-colors group",
 				isDragging && "opacity-40",
-				overlay && "shadow-xl border-border cursor-grabbing",
+				overlay && "shadow-xl border-line cursor-grabbing",
 			)}
 			onClick={onClick}
 			onKeyDown={(e) => {
@@ -63,9 +63,7 @@ export function KanbanCard({ task, onClick, overlay }: KanbanCardProps) {
 		>
 			{/* Row 1: Slug + Assignee avatar */}
 			<div className="flex items-center justify-between gap-2 mb-1">
-				<span className="text-xs text-muted-foreground font-medium">
-					{task.slug}
-				</span>
+				<span className="text-xs text-fg-mute font-medium">{task.slug}</span>
 				{assigneeName && (
 					<Avatar
 						size="xs"
@@ -110,7 +108,7 @@ export function KanbanCard({ task, onClick, overlay }: KanbanCardProps) {
 				)}
 
 				{createdDate && (
-					<span className="text-[10px] text-muted-foreground ml-auto">
+					<span className="text-[10px] text-fg-mute ml-auto">
 						Created {createdDate}
 					</span>
 				)}

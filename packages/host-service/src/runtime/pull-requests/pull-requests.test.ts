@@ -308,6 +308,86 @@ describe("PullRequestRuntimeManager direct checkout PR linking", () => {
 	});
 });
 
+describe("PullRequestRuntimeManager unlink and restore", () => {
+	function seedLinkedWorkspace(db: HostDb) {
+		seedPullRequest(db, {
+			id: "pr-1",
+			prNumber: 101,
+			headBranch: "feature",
+			headSha: "sha-feature",
+		});
+		seedWorkspace(db, {
+			id: "ws",
+			branch: "feature",
+			headSha: "sha-feature",
+			upstreamOwner: REPO.owner,
+			upstreamRepo: REPO.name,
+			upstreamBranch: "feature",
+			pullRequestId: "pr-1",
+		});
+	}
+
+	test("unlink suppresses the current PR and deletion clears the foreign key", async () => {
+		const db = createRealDb();
+		seedProject(db);
+		seedLinkedWorkspace(db);
+		const manager = createManager(db, {
+			execGh: routeGh({
+				feature: makePrNode({
+					number: 101,
+					headRef: "feature",
+					headSha: "sha-feature",
+				}),
+			}),
+		});
+
+		manager.unlinkWorkspacePullRequest("ws");
+		expect(getWorkspace(db, "ws")?.pullRequestId).toBeNull();
+		expect(getWorkspace(db, "ws")?.suppressedPullRequestId).toBe("pr-1");
+
+		await manager.refreshPullRequestsByWorkspaces(["ws"]);
+		expect(getWorkspace(db, "ws")?.pullRequestId).toBeNull();
+
+		db.delete(pullRequests).where(eq(pullRequests.id, "pr-1")).run();
+		expect(getWorkspace(db, "ws")?.suppressedPullRequestId).toBeNull();
+	});
+
+	test("explicit checkout and restore clear suppression", async () => {
+		const db = createRealDb();
+		seedProject(db);
+		seedLinkedWorkspace(db);
+		const manager = createManager(db, {
+			execGh: routeGh({
+				feature: makePrNode({
+					number: 101,
+					headRef: "feature",
+					headSha: "sha-feature",
+				}),
+			}),
+		});
+
+		manager.unlinkWorkspacePullRequest("ws");
+		await withSilencedWarnings(() => manager.restoreWorkspacePullRequest("ws"));
+		expect(getWorkspace(db, "ws")?.suppressedPullRequestId).toBeNull();
+
+		await manager.linkWorkspaceToCheckoutPullRequest({
+			workspaceId: "ws",
+			projectId: PROJECT_ID,
+			pullRequest: {
+				number: 101,
+				url: "https://github.com/base-owner/base-repo/pull/101",
+				title: "PR 101",
+				state: "open",
+				isDraft: false,
+				headRefName: "feature",
+				headRefOid: "sha-feature",
+				isCrossRepository: false,
+			},
+		});
+		expect(getWorkspace(db, "ws")?.suppressedPullRequestId).toBeNull();
+	});
+});
+
 describe("PullRequestRuntimeManager refresh", () => {
 	test("preserves last-known review and checks when detail refresh fails", async () => {
 		const db = createRealDb();

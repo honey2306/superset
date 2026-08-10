@@ -42,7 +42,7 @@ export function CreateTaskStatusPicker({
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
-					className="flex h-9 items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-3 text-sm transition-colors hover:bg-muted/60"
+					className="flex h-9 items-center gap-2 rounded-full border border-line/60 bg-hover/30 px-3 text-sm transition-colors hover:bg-hover/60"
 					disabled={sortedStatuses.length === 0}
 				>
 					{currentStatus ? (
@@ -55,9 +55,9 @@ export function CreateTaskStatusPicker({
 							<span>{currentStatus.name}</span>
 						</>
 					) : (
-						<span className="text-muted-foreground">Status</span>
+						<span className="text-fg-mute">Status</span>
 					)}
-					<HiChevronDown className="size-3.5 text-muted-foreground" />
+					<HiChevronDown className="size-3.5 text-fg-mute" />
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-52 p-1">

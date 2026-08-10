@@ -1,4 +1,11 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+	index,
+	integer,
+	primaryKey,
+	real,
+	sqliteTable,
+	text,
+} from "drizzle-orm/sqlite-core";
 import { v4 as uuidv4 } from "uuid";
 
 import type {
@@ -175,6 +182,28 @@ export const workspaceSections = sqliteTable(
 export type InsertWorkspaceSection = typeof workspaceSections.$inferInsert;
 export type SelectWorkspaceSection = typeof workspaceSections.$inferSelect;
 
+/**
+ * Retained for migration compatibility. The v1→v2 product migration is not
+ * used by this fork, but dropping its historical state during an unrelated
+ * appearance migration would be destructive for existing installations.
+ */
+export const legacyV1MigrationState = sqliteTable(
+	"v1_migration_state",
+	{
+		v1Id: text("v1_id").notNull(),
+		kind: text("kind").notNull(),
+		v2Id: text("v2_id"),
+		organizationId: text("organization_id").notNull(),
+		status: text("status").notNull(),
+		reason: text("reason"),
+		migratedAt: integer("migrated_at").notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.organizationId, table.v1Id, table.kind] }),
+		index("v1_migration_state_v2_id_idx").on(table.v2Id),
+	],
+);
+
 export const settings = sqliteTable("settings", {
 	id: integer("id").primaryKey().default(1),
 	lastActiveWorkspaceId: text("last_active_workspace_id"),
@@ -217,12 +246,34 @@ export const settings = sqliteTable("settings", {
 	useCompactTerminalAddButton: integer("use_compact_terminal_add_button", {
 		mode: "boolean",
 	}),
+	useAcpForAgentPresets: integer("use_acp_for_agent_presets", {
+		mode: "boolean",
+	}),
 	terminalFontFamily: text("terminal_font_family"),
 	terminalFontSize: integer("terminal_font_size"),
+	terminalLineHeight: real("terminal_line_height"),
+	terminalLetterSpacing: real("terminal_letter_spacing"),
+	terminalFontWeight: integer("terminal_font_weight"),
+	terminalLigatures: integer("terminal_ligatures", { mode: "boolean" }),
+	terminalMinimumContrast: real("terminal_minimum_contrast"),
+	terminalCursorStyle: text("terminal_cursor_style").$type<
+		"block" | "bar" | "underline"
+	>(),
+	terminalCursorBlink: integer("terminal_cursor_blink", { mode: "boolean" }),
 	terminalParkedRuntimeCap: integer("terminal_parked_runtime_cap"),
 	editorFontFamily: text("editor_font_family"),
 	editorFontSize: integer("editor_font_size"),
+	editorLineHeight: real("editor_line_height"),
+	editorLetterSpacing: real("editor_letter_spacing"),
+	editorFontWeight: integer("editor_font_weight"),
+	editorLigatures: integer("editor_ligatures", { mode: "boolean" }),
 	showResourceMonitor: integer("show_resource_monitor", { mode: "boolean" }),
+	/** Deprecated but retained so unrelated migrations do not drop user data. */
+	legacyOpenLinksInApp: integer("open_links_in_app", { mode: "boolean" }),
+	/** Deprecated local-only relay flag; retained for migration compatibility. */
+	legacyExposeHostServiceViaRelay: integer("expose_host_service_via_relay", {
+		mode: "boolean",
+	}),
 	worktreeBaseDir: text("worktree_base_dir"),
 	defaultEditor: text("default_editor").$type<ExternalApp>(),
 });

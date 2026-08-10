@@ -26,6 +26,42 @@ export interface GitStatusSnapshotComputation {
 	baseRefFetchTarget: BaseRefFetchTarget | null;
 }
 
+/**
+ * `--untracked-files=normal` collapses wholly-untracked directories to a
+ * single `dir/` entry. Expand only those directories, preserving the UI's
+ * per-file output without forcing git to walk every untracked file on each
+ * status refresh (which would bypass core.untrackedCache).
+ */
+async function expandUntrackedDirectories(
+	git: SimpleGit,
+	untrackedPaths: string[],
+): Promise<Map<string, string[]>> {
+	const directories = untrackedPaths.filter((path) => path.endsWith("/"));
+	const expanded = new Map<string, string[]>();
+	if (directories.length === 0) return expanded;
+
+	const raw = await git
+		.raw([
+			"ls-files",
+			"--others",
+			"--exclude-standard",
+			"-z",
+			"--",
+			...directories,
+		])
+		.catch(() => "");
+	for (const path of raw.split("\0").filter(Boolean)) {
+		const directory = directories.find((candidate) =>
+			path.startsWith(candidate),
+		);
+		if (!directory) continue;
+		const files = expanded.get(directory);
+		if (files) files.push(path);
+		else expanded.set(directory, [path]);
+	}
+	return expanded;
+}
+
 export async function getGitStatusSnapshot({
 	git,
 	worktreePath,
@@ -47,7 +83,9 @@ export async function getGitStatusSnapshot({
 		defaultBranchName
 			? buildBranch(git, defaultBranchName, false)
 			: buildBranch(git, currentBranchName, true),
-		git.status(),
+		// simple-git hardcodes a bare `-u` (= all); a later explicit mode wins.
+		// Normal mode allows git's untracked cache to avoid a full worktree walk.
+		git.status(["--untracked-files=normal"]),
 		git
 			.raw([
 				"ls-files",
@@ -100,19 +138,29 @@ export async function getGitStatusSnapshot({
 	const unstagedNumstat = parseNumstat(
 		await git.raw(["diff", "--numstat", "-z"]).catch(() => ""),
 	);
+	const expandedUntracked = await expandUntrackedDirectories(
+		git,
+		status.files
+			.filter((file) => file.index === "?" && file.working_dir === "?")
+			.map((file) => file.path),
+	);
 	const unstaged: ChangedFile[] = [];
 	const untrackedFiles: ChangedFile[] = [];
 	for (const file of status.files) {
 		const wd = file.working_dir;
 		if (file.index === "?" && wd === "?") {
-			const entry: ChangedFile = {
-				path: file.path,
-				status: "untracked",
-				additions: 0,
-				deletions: 0,
-			};
-			untrackedFiles.push(entry);
-			unstaged.push(entry);
+			// Retain the original entry if expansion fails or reports no files so
+			// a status path can never disappear from the Changes panel.
+			for (const path of expandedUntracked.get(file.path) ?? [file.path]) {
+				const entry: ChangedFile = {
+					path,
+					status: "untracked",
+					additions: 0,
+					deletions: 0,
+				};
+				untrackedFiles.push(entry);
+				unstaged.push(entry);
+			}
 		} else if (wd && wd !== " ") {
 			const stats = unstagedNumstat.get(file.path) ?? {
 				additions: 0,

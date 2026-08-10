@@ -123,13 +123,13 @@ export function CompareBaseBranchPicker({
 				>
 					<GoGitBranch className="size-3 shrink-0" />
 					{isBranchesLoading && branches.length === 0 ? (
-						<span className="h-2.5 w-14 rounded-sm bg-muted-foreground/15 animate-pulse" />
+						<span className="h-2.5 w-14 rounded-sm bg-fg-mute/15 animate-pulse" />
 					) : effectiveCompareBaseBranch ? (
 						<span className="font-mono truncate">
 							{effectiveCompareBaseBranch}
 						</span>
 					) : (
-						<span className="truncate text-muted-foreground/80">
+						<span className="truncate text-fg-mute/80">
 							{t("workspace.selectBaseBranch")}
 						</span>
 					)}
@@ -199,20 +199,20 @@ export function CompareBaseBranchPicker({
 										);
 										setOpen(false);
 									}}
-									className="group items-start gap-3 rounded-md px-2.5 py-2"
+									className="group items-start gap-3 rounded-ds-3 px-2.5 py-2"
 								>
 									{isWorktree ? (
-										<LuFolderOpen className="mt-0.5 size-4 shrink-0 text-primary/80" />
+										<LuFolderOpen className="mt-0.5 size-4 shrink-0 text-accent-solid/80" />
 									) : isRemoteOnly ? (
-										<GoGlobe className="mt-0.5 size-4 shrink-0 text-muted-foreground/60" />
+										<GoGlobe className="mt-0.5 size-4 shrink-0 text-fg-faint" />
 									) : (
-										<GoGitBranch className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+										<GoGitBranch className="mt-0.5 size-4 shrink-0 text-fg-mute" />
 									)}
 									<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 										<span className="truncate text-sm leading-snug">
 											{branch.name}
 										</span>
-										<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+										<span className="flex items-center gap-1.5 text-[11px] text-fg-mute">
 											{branch.lastCommitDate > 0 && (
 												<span>
 													{formatRelativeTime(
@@ -236,7 +236,7 @@ export function CompareBaseBranchPicker({
 											{isWorktree && (
 												<>
 													<span aria-hidden>·</span>
-													<span className="text-primary/80">
+													<span className="text-accent-solid/80">
 														{t("workspace.worktreeFilter")}
 													</span>
 												</>
@@ -246,7 +246,7 @@ export function CompareBaseBranchPicker({
 									<span className="ml-2 flex shrink-0 items-center gap-1.5 self-center">
 										<button
 											type="button"
-											className="hidden items-center rounded-sm bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/20 group-hover:inline-flex group-data-[selected=true]:inline-flex"
+											className="hidden items-center rounded-sm bg-accent-tint px-2 py-0.5 text-[11px] font-medium text-accent-solid hover:bg-accent-tint group-hover:inline-flex group-data-[selected=true]:inline-flex"
 											onClick={(e) => {
 												e.stopPropagation();
 												onOpenWorkspace(toOpenWorkspaceTarget(branch));
@@ -259,7 +259,7 @@ export function CompareBaseBranchPicker({
 											</span>
 										</button>
 										{effectiveCompareBaseBranch === branch.name && (
-											<HiCheck className="size-4 text-primary group-hover:hidden group-data-[selected=true]:hidden" />
+											<HiCheck className="size-4 text-accent-solid group-hover:hidden group-data-[selected=true]:hidden" />
 										)}
 									</span>
 								</CommandItem>
@@ -268,7 +268,7 @@ export function CompareBaseBranchPicker({
 						{hasNextPage && (
 							<div
 								ref={sentinelRef}
-								className="py-2 text-center text-[11px] text-muted-foreground/60"
+								className="py-2 text-center text-[11px] text-fg-faint"
 							>
 								{isFetchingNextPage ? t("workspace.loadingMore") : ""}
 							</div>

@@ -21,11 +21,11 @@ interface McpOverviewPickerProps {
 function getStateClassName(state: McpServerOverviewItem["state"]): string {
 	switch (state) {
 		case "enabled":
-			return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+			return "border-success bg-success-tint text-success dark:text-success";
 		case "disabled":
-			return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+			return "border-warning bg-warning-tint text-warning dark:text-warning";
 		default:
-			return "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300";
+			return "border-destructive/30 bg-destructive/10 text-destructive dark:text-destructive";
 	}
 }
 
@@ -66,11 +66,11 @@ export function McpOverviewPicker({
 	return (
 		<ModelSelector open={open} onOpenChange={onOpenChange}>
 			<ModelSelectorContent className="max-w-2xl" title={t("mcp.serversTitle")}>
-				<div className="border-b border-border/60 px-4 py-3">
-					<div className="text-sm font-medium text-foreground">
+				<div className="border-b border-line/60 px-4 py-3">
+					<div className="text-sm font-medium text-fg">
 						{t("mcp.serversCount", { count: servers.length })}
 					</div>
-					<div className="mt-1 truncate text-xs text-muted-foreground">
+					<div className="mt-1 truncate text-xs text-fg-mute">
 						{overview?.sourcePath
 							? t("mcp.loadedFrom", { path: overview.sourcePath })
 							: t("mcp.noConfig")}
@@ -96,10 +96,10 @@ export function McpOverviewPicker({
 								}}
 							>
 								<div className="min-w-0 flex-1">
-									<div className="truncate text-sm font-medium text-foreground">
+									<div className="truncate text-sm font-medium text-fg">
 										{server.name}
 									</div>
-									<div className="truncate text-xs text-muted-foreground">
+									<div className="truncate text-xs text-fg-mute">
 										{server.target}
 									</div>
 									{server.error ? (
@@ -110,7 +110,7 @@ export function McpOverviewPicker({
 								</div>
 								<div className="ml-3 flex shrink-0 items-center gap-1.5">
 									{server.connected === true ? (
-										<span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+										<span className="rounded-full border border-success bg-success-tint px-2 py-0.5 text-[11px] font-medium text-success dark:text-success">
 											{t("common.connected")}
 										</span>
 									) : server.connected === false ? (
@@ -118,7 +118,7 @@ export function McpOverviewPicker({
 											{t("mcp.disconnected")}
 										</span>
 									) : null}
-									<span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+									<span className="rounded-full border border-line bg-hover px-2 py-0.5 text-[11px] font-medium text-fg-mute">
 										{formatTransportLabel(server.transport)}
 									</span>
 									<span
@@ -129,7 +129,7 @@ export function McpOverviewPicker({
 									{onAuthenticateServer &&
 									server.transport === "remote" &&
 									server.state !== "disabled" ? (
-										<span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-foreground">
+										<span className="rounded-full border border-line px-2 py-0.5 text-[11px] font-medium text-fg">
 											{authenticatingServerName === server.name
 												? t("mcp.connecting")
 												: server.connected

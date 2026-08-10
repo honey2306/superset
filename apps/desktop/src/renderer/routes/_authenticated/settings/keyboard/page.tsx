@@ -64,9 +64,9 @@ function HotkeyRow({
 			)}
 		>
 			<div className="flex flex-col">
-				<span className="text-sm text-foreground">{label}</span>
+				<span className="text-sm text-fg">{label}</span>
 				{description && (
-					<span className="text-xs text-muted-foreground">{description}</span>
+					<span className="text-xs text-fg-mute">{description}</span>
 				)}
 			</div>
 			<div className="flex items-center gap-2">
@@ -74,10 +74,10 @@ function HotkeyRow({
 					type="button"
 					onClick={onStartRecording}
 					className={cn(
-						"h-7 px-3 rounded-md border text-xs transition-colors",
+						"h-7 px-3 rounded-ds-3 border text-xs transition-colors",
 						isRecording
 							? "border-destructive/50 bg-destructive/10 text-destructive ring-2 ring-destructive/20"
-							: "border-border bg-accent/20 text-foreground hover:bg-accent/40",
+							: "border-line bg-accent-tint/20 text-fg hover:bg-accent-tint/40",
 					)}
 				>
 					{isRecording ? (
@@ -206,7 +206,7 @@ function KeyboardShortcutsPage() {
 			<div className="mb-6 flex items-start justify-between gap-4">
 				<div>
 					<h2 className="text-xl font-semibold">{t("keyboard.title")}</h2>
-					<p className="text-sm text-muted-foreground mt-1">
+					<p className="text-sm text-fg-mute mt-1">
 						{t("keyboard.descriptionPrefix")}{" "}
 						<KbdGroup>
 							{showHotkeysKeys.map((key) => (
@@ -234,7 +234,7 @@ function KeyboardShortcutsPage() {
 					<Label htmlFor="adaptive-layout" className="text-sm font-medium">
 						{t("keyboard.adaptiveLayout")}
 					</Label>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-xs text-fg-mute">
 						{t("keyboard.adaptiveLayoutDescription")}
 					</p>
 				</div>
@@ -247,13 +247,13 @@ function KeyboardShortcutsPage() {
 
 			{/* Search */}
 			<div className="relative mb-6">
-				<HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+				<HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-fg-mute" />
 				<Input
 					type="text"
 					placeholder={t("dashboard.search")}
 					value={searchQuery}
 					onChange={(e) => setSearchQuery(e.target.value)}
-					className="pl-9 bg-accent/30 border-transparent focus:border-accent"
+					className="pl-9 bg-accent-tint/30 border-transparent focus:border-accent"
 				/>
 			</div>
 
@@ -265,10 +265,10 @@ function KeyboardShortcutsPage() {
 
 					return (
 						<div key={category}>
-							<h3 className="text-sm font-medium text-muted-foreground mb-2">
+							<h3 className="text-sm font-medium text-fg-mute mb-2">
 								{category}
 							</h3>
-							<div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+							<div className="rounded-ds-5 border border-line overflow-hidden divide-y divide-border">
 								{hotkeys.map((hotkey) => (
 									<HotkeyRow
 										key={hotkey.id}
@@ -293,7 +293,7 @@ function KeyboardShortcutsPage() {
 				{CATEGORY_ORDER.every(
 					(cat) => (filteredHotkeysByCategory[cat] ?? []).length === 0,
 				) && (
-					<div className="py-8 text-center text-sm text-muted-foreground">
+					<div className="py-8 text-center text-sm text-fg-mute">
 						{t("keyboard.noResults", { query: searchQuery })}
 					</div>
 				)}
@@ -310,7 +310,7 @@ function KeyboardShortcutsPage() {
 							{t("keyboard.conflictTitle")}
 						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
-							<div className="text-muted-foreground space-y-1.5">
+							<div className="text-fg-mute space-y-1.5">
 								<span className="block">
 									{pendingConflict
 										? t("keyboard.conflictDescription", {

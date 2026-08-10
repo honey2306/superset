@@ -165,7 +165,7 @@ export function ProjectLocationSection({
 		<>
 			{currentPath ? (
 				<div className="flex w-[28rem] max-w-full items-center gap-2">
-					<div className="flex h-9 min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap rounded-md border bg-transparent px-3 dark:bg-input/30">
+					<div className="flex h-9 min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap rounded-ds-3 border bg-transparent px-3 dark:bg-input/30">
 						<ClickablePath path={currentPath} className="max-w-none shrink-0" />
 					</div>
 					<Tooltip>
@@ -187,7 +187,7 @@ export function ProjectLocationSection({
 				</div>
 			) : (
 				<div className="flex items-center gap-3">
-					<span className="text-sm text-muted-foreground">
+					<span className="text-sm text-fg-mute">
 						{t("project.notSetUp", { host: hostName })}
 					</span>
 					<Button
@@ -282,20 +282,16 @@ export function ProjectLocationSection({
 						<AlertDialogDescription asChild>
 							<div className="space-y-3 text-sm select-text cursor-text">
 								<div>
-									<div className="text-muted-foreground text-xs">
+									<div className="text-fg-mute text-xs">
 										{t("project.from")}
 									</div>
 									<div className="font-mono break-all">{currentPath}</div>
 								</div>
 								<div>
-									<div className="text-muted-foreground text-xs">
-										{t("project.to")}
-									</div>
+									<div className="text-fg-mute text-xs">{t("project.to")}</div>
 									<div className="font-mono break-all">{pendingPath}</div>
 								</div>
-								<p className="text-muted-foreground">
-									{t("project.relocateWarning")}
-								</p>
+								<p className="text-fg-mute">{t("project.relocateWarning")}</p>
 							</div>
 						</AlertDialogDescription>
 					</AlertDialogHeader>

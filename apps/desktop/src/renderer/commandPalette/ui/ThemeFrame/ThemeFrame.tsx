@@ -97,7 +97,7 @@ export function ThemeFrame() {
 						</div>
 						<span>{t("appearance.system")}</span>
 						{activeThemeId === SYSTEM_THEME_ID ? (
-							<span className="ml-auto text-xs text-muted-foreground">✓</span>
+							<span className="ml-auto text-xs text-fg-mute">✓</span>
 						) : null}
 					</CommandItem>
 				</CommandGroup>
@@ -159,7 +159,7 @@ function ThemeGroup({ heading, themes, activeId, onSelect }: ThemeGroupProps) {
 					<ThemeSwatch theme={theme} />
 					<span>{theme.name}</span>
 					{theme.id === activeId ? (
-						<span className="ml-auto text-xs text-muted-foreground">✓</span>
+						<span className="ml-auto text-xs text-fg-mute">✓</span>
 					) : null}
 				</CommandItem>
 			))}

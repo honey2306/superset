@@ -71,7 +71,7 @@ export function OrganizationDropdown({
 		variant === "collapsed" ? (
 			<button
 				type="button"
-				className="flex size-8 items-center justify-center rounded-md transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+				className="flex size-8 items-center justify-center rounded-ds-3 transition-colors text-fg-mute hover:bg-hover hover:text-fg"
 				aria-label={t("dashboard.organizationMenu")}
 			>
 				<Avatar
@@ -84,7 +84,7 @@ export function OrganizationDropdown({
 		) : variant === "expanded" ? (
 			<button
 				type="button"
-				className="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground min-w-0"
+				className="group flex w-full items-center gap-2 rounded-ds-3 px-2 py-1.5 text-sm font-medium text-fg-mute transition-colors hover:bg-hover hover:text-fg min-w-0"
 				aria-label={t("dashboard.organizationMenu")}
 			>
 				<Avatar
@@ -99,7 +99,7 @@ export function OrganizationDropdown({
 		) : (
 			<button
 				type="button"
-				className="group no-drag flex items-center gap-1.5 h-6 px-1.5 rounded border border-border/60 bg-secondary/50 hover:bg-secondary hover:border-border transition-all duration-150 ease-out focus:outline-none focus:ring-1 focus:ring-ring"
+				className="group no-drag flex items-center gap-1.5 h-6 px-1.5 rounded border border-line/60 bg-secondary/50 hover:bg-secondary hover:border-line transition-all duration-150 ease-out focus:outline-none focus:ring-1 focus:ring-ring"
 				aria-label={t("dashboard.organizationMenu")}
 			>
 				<Avatar
@@ -112,7 +112,7 @@ export function OrganizationDropdown({
 					{displayName}
 				</span>
 				{planBadge}
-				<HiChevronUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+				<HiChevronUpDown className="h-3.5 w-3.5 text-fg-mute shrink-0" />
 			</button>
 		);
 

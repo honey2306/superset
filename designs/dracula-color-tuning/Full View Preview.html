@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>Dracula Colorful — 整屏预览 v5 vs v6</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --page-bg: #0d0e14;
+    --page-fg: #e6e6f0;
+    --page-muted: #8a8fa8;
+    --divider: #2a2c38;
+    --font-ui: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui);
+    background: var(--page-bg);
+    color: var(--page-fg);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+    padding: 32px 24px 80px;
+  }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
+  .lede { color: var(--page-muted); font-size: 13.5px; max-width: 900px; margin: 0 0 20px; }
+  .lede strong { color: var(--page-fg); }
+  .lede code { font-family: var(--font-mono); font-size: 12.5px; color: #ff8fd1; background: rgba(255,143,209,0.08); padding: 1px 6px; border-radius: 4px; }
+
+  .reasoning {
+    background: linear-gradient(135deg, rgba(255,143,209,0.09), rgba(196,162,255,0.05));
+    border: 1px solid rgba(255, 143, 209, 0.22);
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin: 4px 0 24px;
+    font-size: 13px;
+    max-width: 900px;
+  }
+  .reasoning strong { color: #ff8fd1; }
+  .reasoning .cold { color: #a0f0ff; font-weight: 500; }
+  .reasoning .warm { color: #ffb98c; font-weight: 500; }
+
+  .frame-label {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 10px 4px;
+    margin-top: 24px;
+  }
+  .frame-label .name { font-size: 14px; font-weight: 600; }
+  .frame-label .name.bad { color: #ff7c7c; }
+  .frame-label .name.good { color: #ff8fd1; }
+  .frame-label .desc { color: var(--page-muted); font-size: 12px; font-family: var(--font-mono); }
+
+  /* Full app frame */
+  .app {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: var(--bg);
+    display: grid;
+    grid-template-rows: 44px 1fr 28px;
+    height: 720px;
+    color: var(--fg);
+    font-family: var(--font-ui);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .titlebar {
+    background: var(--sidebar);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 14px;
+    gap: 12px;
+    font-size: 12px;
+  }
+  .traffic { display: flex; gap: 8px; }
+  .traffic span { width: 12px; height: 12px; border-radius: 50%; }
+  .traffic .r { background: #ff5f57; }
+  .traffic .y { background: #febc2e; }
+  .traffic .g { background: #28c840; }
+  .tb-btn {
+    padding: 4px 8px; border-radius: 5px; color: var(--muted-fg);
+    font-size: 13px;
+  }
+  .tb-spacer { flex: 1; }
+  .tb-branch {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--fg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tb-branch .path { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted-fg); }
+  .tb-team {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--fg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tb-team .pro {
+    background: var(--primary); color: var(--primary-fg);
+    padding: 1px 6px; border-radius: 3px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .tb-team .lt {
+    width: 18px; height: 18px; border-radius: 4px;
+    background: var(--accent); color: var(--accent-fg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+
+  /* Main body: workspace panel + center + right panel */
+  .body { display: grid; grid-template-columns: 220px 1fr 300px; overflow: hidden; }
+
+  .ws-panel {
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    padding: 12px 8px;
+    overflow: hidden;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .ws-section-header {
+    padding: 6px 8px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted-fg);
+    font-size: 12px;
+  }
+  .ws-section-header .ic { width: 14px; height: 14px; opacity: 0.7; }
+  .ws-section-header.top {
+    color: var(--fg);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 8px 8px 4px;
+  }
+  .ws-group {
+    display: flex; flex-direction: column; gap: 1px;
+    margin-bottom: 8px;
+  }
+  .ws-group-head {
+    padding: 6px 8px 4px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px;
+    color: var(--fg);
+    font-weight: 500;
+  }
+  .ws-group-head .avatar {
+    width: 20px; height: 20px; border-radius: 4px;
+    background: linear-gradient(135deg, #4b6a8f, #7a92b8);
+    font-size: 11px; color: white; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ws-group-head .count {
+    color: var(--muted-fg); font-size: 11px;
+    font-family: var(--font-mono);
+  }
+  .ws-item {
+    padding: 6px 10px 6px 30px;
+    font-size: 12.5px;
+    border-radius: 6px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--fg);
+    position: relative;
+  }
+  .ws-item .lbl { display: flex; flex-direction: column; gap: 1px; overflow: hidden; }
+  .ws-item .lbl .name { font-size: 12.5px; }
+  .ws-item .lbl .branch { font-size: 10.5px; color: var(--muted-fg); font-family: var(--font-mono); }
+  .ws-item .ic { width: 12px; height: 12px; opacity: 0.5; flex: none; }
+  .ws-item .diff { margin-left: auto; font-size: 10px; font-family: var(--font-mono); display: flex; gap: 4px; }
+  .ws-item .diff .add { color: #6fff95; }
+  .ws-item .diff .del { color: #ff8fd1; }
+  .ws-item.selected {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+  .ws-item.selected .lbl .branch { color: var(--accent-fg); opacity: 0.75; }
+  .ws-item::before {
+    content: "•";
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    color: var(--primary);
+    font-size: 14px;
+    line-height: 0;
+  }
+  .ws-item:not(.dirty)::before { display: none; }
+
+  /* Center chat/terminal */
+  .center {
+    display: grid;
+    grid-template-rows: 34px 1fr 100px;
+    overflow: hidden;
+  }
+  .tabbar {
+    background: var(--sidebar);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: end;
+    padding: 0 4px;
+  }
+  .tab {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: var(--muted-fg);
+    border-radius: 6px 6px 0 0;
+  }
+  .tab.active {
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .tab .close { opacity: 0.5; margin-left: 6px; font-size: 11px; }
+  .tab .add { color: var(--muted-fg); padding: 0 4px; }
+
+  .chat {
+    padding: 20px 24px;
+    display: flex; flex-direction: column; gap: 12px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .agent-tabs {
+    display: flex; gap: 6px; align-items: center;
+    margin-bottom: 8px;
+  }
+  .agent-tab {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .agent-tab .dot {
+    width: 12px; height: 12px; border-radius: 3px;
+  }
+  .agent-tab .dot.pink { background: var(--primary); }
+  .agent-tab .dot.blue { background: var(--chart5); }
+  .agent-tab .dot.green { background: #6fff95; }
+  .agent-tab .dot.yellow { background: #f6ff9a; }
+  .agent-tab.active {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-color: var(--accent);
+  }
+  .agent-tab .cog { opacity: 0.5; }
+
+  .chat-bubble {
+    max-width: 88%;
+    background: transparent;
+    padding: 4px 0;
+  }
+  .chat-bubble .who {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--fg);
+    margin-bottom: 6px;
+  }
+  .chat-bubble .msg {
+    font-size: 13px;
+    color: var(--fg);
+    line-height: 1.65;
+  }
+  .chat-bubble .msg .bullet { display: flex; align-items: baseline; gap: 8px; margin: 4px 0; }
+  .chat-bubble .msg .bullet::before {
+    content: "•";
+    color: var(--primary);
+    font-size: 14px;
+    line-height: 1;
+  }
+  .chat-bubble .msg strong { color: var(--fg); font-weight: 600; }
+  .chat-bubble .msg em { color: var(--muted-fg); font-style: normal; }
+  .chat-bubble .msg .skill {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--card);
+    border: 1px solid var(--accent);
+    color: var(--accent-fg);
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    margin: 0 2px;
+  }
+
+  .composer {
+    border-top: 1px solid var(--border);
+    background: var(--sidebar);
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .composer .input-shell {
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted-fg);
+    font-size: 12.5px;
+  }
+  .composer .input-shell .cur {
+    width: 1.5px; height: 12px; background: var(--primary);
+    animation: blink 1.2s infinite;
+  }
+  @keyframes blink { 0%,50%{opacity:1} 50.01%,100%{opacity:0} }
+  .composer .row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11.5px; color: var(--muted-fg);
+  }
+  .composer .row .chip {
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--card);
+    color: var(--fg);
+    font-size: 11px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .composer .row .chip.on-primary {
+    background: var(--card);
+    color: var(--primary);
+    border-color: rgba(255,143,209,0.30);
+  }
+  .composer .row .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+  .composer .row .send {
+    margin-left: auto;
+    background: var(--card); color: var(--muted-fg);
+    border: 1px solid var(--border);
+    padding: 3px 10px; border-radius: 5px;
+    font-size: 11px;
+  }
+
+  /* Right changes panel */
+  .changes {
+    background: var(--sidebar);
+    border-left: 1px solid var(--border);
+    padding: 12px 12px;
+    overflow: hidden;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .changes-tabs {
+    display: flex; gap: 8px;
+    border-bottom: 1px solid var(--border);
+    margin: -12px -12px 0 -12px;
+    padding: 8px 12px 0;
+  }
+  .changes-tabs .t {
+    padding: 6px 8px;
+    font-size: 12.5px;
+    color: var(--muted-fg);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .changes-tabs .t.active {
+    color: var(--primary);
+    border-color: var(--primary);
+    font-weight: 500;
+  }
+  .commit-box {
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--muted-fg);
+    min-height: 36px;
+  }
+  .commit-btn {
+    background: var(--accent);
+    color: var(--accent-fg);
+    padding: 8px;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 500;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .changes-tree {
+    font-size: 11.5px;
+    color: var(--fg);
+    display: flex; flex-direction: column; gap: 1px;
+    line-height: 1.7;
+    overflow: hidden;
+  }
+  .changes-tree .h { color: var(--fg); font-size: 12px; font-weight: 500; margin: 4px 0 2px; display: flex; align-items: center; gap: 4px; }
+  .changes-tree .h .caret { color: var(--muted-fg); font-size: 10px; }
+  .changes-tree .h .cnt {
+    background: var(--accent); color: var(--accent-fg);
+    font-size: 10px; padding: 0 6px; border-radius: 8px;
+    margin-left: 4px;
+  }
+  .changes-tree .row {
+    padding: 0 4px 0 20px;
+    display: flex; align-items: center; gap: 4px;
+    color: var(--muted-fg);
+    font-family: inherit;
+  }
+  .changes-tree .row .name { color: var(--fg); }
+  .changes-tree .row .add { color: var(--primary); font-family: var(--font-mono); font-size: 10.5px; margin-left: auto; }
+
+  /* Footer */
+  .footer {
+    border-top: 1px solid var(--border);
+    background: var(--sidebar);
+    display: flex; align-items: center;
+    padding: 0 12px;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--muted-fg);
+    font-family: var(--font-mono);
+  }
+  .footer .item { display: flex; align-items: center; gap: 4px; }
+  .footer .item.pri { color: var(--primary); }
+  .footer .spacer { flex: 1; }
+  .footer .item.branch .p { color: var(--fg); }
+
+  /* Density strip */
+  .strip {
+    display: flex; height: 8px; border-radius: 3px; overflow: hidden; margin-top: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .strip span { display: block; }
+
+  .foot { color: var(--page-muted); font-size: 12.5px; margin-top: 30px; max-width: 900px; }
+  .foot strong { color: var(--page-fg); }
+</style>
+</head>
+<body>
+  <h1>整屏预览 · v5-C vs v6 Refined</h1>
+  <p class="lede">
+    你说的对 —— <strong>"粉红加黑"</strong> 是因为 v5-C 的 accent 是<strong style="color:#ff5f7d">热粉 (#8b5f8f)</strong>,和整体<span class="cold">冷调蓝紫底</span> (#2f3244) 撞了色。
+    这是最经典的 hot-pink-on-dark 陷阱:两种色温对立,视觉发廉价。修法不是"少加粉",而是把 accent 从<strong style="color:#ff5f7d">热粉</strong>换成<strong style="color:#c48ba8">暖玫瑰/复古紫</strong> —— 保留粉的温度,降饱和,加一点棕/紫的稳感。
+  </p>
+
+  <div class="reasoning">
+    <strong>色相分析:</strong> v5-C accent 是 <code style="font-family:var(--font-mono); background:rgba(0,0,0,0.3); padding: 1px 6px; border-radius:3px">#8b5f8f</code>,hsl 大约 (296°, 21%, 47%) —— 偏紫红,饱和度还行,和冷紫底 (233°) 相差 60°,产生"撞色"感。
+    v6 accent 是 <code style="font-family:var(--font-mono); background:rgba(0,0,0,0.3); padding: 1px 6px; border-radius:3px">#7a5c78</code>,hsl (303°, 14%, 41%) —— 更靠近粉紫的<strong style="color:#c48ba8">"灰玫瑰"</strong>,饱和度降到 14%,视觉更沉稳,同时保留可辨识的粉温度。而且现在做的是"整屏"预览,workspace 面板 / chat / changes 三区都在,你能看到 accent 大面积上屏后是不是舒服。
+  </p>
+
+  <!-- v5-C bad -->
+  <div class="frame-label">
+    <span class="name bad">v5-C · Hot Pink 陷阱</span>
+    <span class="desc">accent = #8b5f8f · 粉红加黑感</span>
+  </div>
+  <div class="app" style="
+    --bg: #2f3244;
+    --sidebar: #3a3e56;
+    --card: #3a3e56;
+    --border: #635076;
+    --input: #464b68;
+    --muted: #3f4560;
+    --fg: #f2f4ff;
+    --muted-fg: #a2b0d8;
+    --primary: #ff8fd1; --primary-fg: #1e1e2e;
+    --accent: #8b5f8f; --accent-fg: #ffe4f2;
+    --chart5: #c4a2ff;
+  ">
+    <div class="titlebar">
+      <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+      <div class="tb-btn">◀</div>
+      <div class="tb-btn">▶</div>
+      <div class="tb-btn">▢</div>
+      <div class="tb-spacer"></div>
+      <div class="tb-branch">🌿 <span class="path">/feat/acp-agent-contr...</span> 打开 ⌄</div>
+      <div class="tb-team"><span class="lt">LT</span>Local Admin's Team <span class="pro">PRO</span> ⇅</div>
+    </div>
+
+    <div class="body">
+      <!-- Workspace panel -->
+      <div class="ws-panel">
+        <div class="ws-section-header top">⚡ 自动化任务</div>
+        <div class="ws-section-header">⏱ 临时工作区</div>
+
+        <div class="ws-group">
+          <div class="ws-group-head">
+            <div class="avatar">S</div>
+            <span>superset</span><span class="count">(3)</span>
+            <span style="margin-left:auto; color: var(--muted-fg); font-size:11px">+ ⌄</span>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">CDP M5 termina...</span>
+              <span class="branch">cdp-m5-terminal-retry</span>
+            </div>
+            <div class="diff"><span class="add">+4121</span><span class="del">−4121</span></div>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">terminal fusion s...</span>
+              <span class="branch">codex/terminal-fusion-smoke</span>
+            </div>
+            <div class="diff"><span class="add">+4121</span><span class="del">−4121</span></div>
+          </div>
+          <div class="ws-item selected dirty">
+            <div class="lbl">
+              <span class="name">local</span>
+              <span class="branch">feat/acp-agent-control-plane</span>
+            </div>
+            <div class="diff"><span class="add">+2181</span><span class="del">−0</span></div>
+          </div>
+        </div>
+
+        <div class="ws-group">
+          <div class="ws-group-head">
+            <div class="avatar" style="background: linear-gradient(135deg,#4b6a8f,#c48ba8)">M</div>
+            <span>mini-krow</span><span class="count">(1)</span>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">local</span>
+              <span class="branch">main</span>
+            </div>
+            <div class="diff"><span class="add">+8649</span><span class="del">−524</span></div>
+          </div>
+        </div>
+
+        <div class="ws-group">
+          <div class="ws-group-head">
+            <div class="avatar">S</div>
+            <span>superset</span><span class="count">(1)</span>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">local</span>
+              <span class="branch">feat/acp-agent-control-plane</span>
+            </div>
+            <div class="diff"><span class="add">+2181</span><span class="del">−0</span></div>
+          </div>
+        </div>
+
+        <div class="ws-section-header top" style="margin-top:auto">📁 添加代码仓库</div>
+      </div>
+
+      <!-- Center chat area -->
+      <div class="center">
+        <div class="tabbar">
+          <div class="tab">Terminal</div>
+          <div class="tab active">你能干嘛呢<span class="close">×</span></div>
+          <div class="tab add">+</div>
+        </div>
+
+        <div class="chat">
+          <div class="agent-tabs">
+            <div class="agent-tab active"><span class="dot pink"></span>claude</div>
+            <div class="agent-tab"><span class="dot blue"></span>codex</div>
+            <div class="agent-tab"><span class="dot green"></span>pi</div>
+            <div class="agent-tab"><span class="dot yellow"></span>MyFlicker</div>
+            <div class="agent-tab" style="padding:5px 8px">+</div>
+            <div class="agent-tab" style="padding:5px 8px"><span class="cog">⚙</span></div>
+            <div style="margin-left:auto; display:flex; gap:6px">
+              <button style="background:var(--card); color: var(--fg); border:1px solid var(--border); padding: 5px 10px; border-radius: 6px; font-size:12px; display:flex; align-items:center; gap:5px">▶ Set Run</button>
+            </div>
+          </div>
+          <div class="chat-bubble">
+            <div class="who">Claude</div>
+            <div class="msg">
+              <div style="margin-bottom: 6px">你能干嘛呢</div>
+              <div class="bullet"><span><strong>写代码和改代码</strong> — 新功能、修 bug、重构、类型修复</span></div>
+              <div class="bullet"><span><strong>探索代码库</strong> — 查找定义、追踪引用、理解模块关系</span></div>
+              <div class="bullet"><span><strong>运行命令</strong> — 测试、lint、typecheck、构建、启动 dev server</span></div>
+              <div class="bullet"><span><strong>Git 和 PR</strong> — 创建分支、提交、发 PR、回复 review 评论</span></div>
+              <div class="bullet"><span><strong>数据库</strong> — 改 Drizzle schema (迁移由你来跑)</span></div>
+              <div class="bullet"><span><strong>UI 验证</strong> — 通过 CDP 驱动真实浏览器测试功能</span></div>
+              <div class="bullet"><span><strong>调研和分析</strong> — 深度研究、架构改进建议、诊断疑难 bug</span></div>
+              <div style="margin-top:10px">还有一堆项目自带的 skill,比如
+                <span class="skill">/code-review</span><span class="skill">/create-pr</span><span class="skill">/verify</span><span class="skill">/diagnose</span><span class="skill">/task-run</span>
+                等。
+              </div>
+              <div style="margin-top:8px">想做什么? 我是 Kiro,可以帮你处理这个 Superset monorepo 里的各种开发任务:</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="input-shell">
+            <span>›</span>
+            <span>Message agent…</span>
+            <span class="cur"></span>
+            <span style="margin-left:auto">Send ↵</span>
+          </div>
+          <div class="row">
+            <span class="chip on-primary"><span class="dot"></span>Manual</span>
+            <span class="chip">Default</span>
+            <span class="chip">Thinking High</span>
+            <span class="chip" style="color: var(--primary)">6% $0.07</span>
+            <span class="send" style="margin-left:auto">feat/acp-agent-control-plane +383</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right changes panel -->
+      <div class="changes">
+        <div class="changes-tabs">
+          <div class="t active">🔀 Changes</div>
+          <div class="t">📄 Files</div>
+          <div style="margin-left:auto; display:flex; gap:8px; color: var(--muted-fg); font-size:11px">⤢ ×</div>
+        </div>
+        <div>
+          <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--fg); margin-bottom:6px">
+            <span style="font-family: var(--font-mono); font-size:11px">🌿 feat/acp-agent-contr...</span>
+            <span style="margin-left:auto; color: var(--muted-fg); font-size:11px">☰ ↻ ⇧</span>
+          </div>
+          <div class="commit-box">提交信息</div>
+          <div class="commit-btn" style="margin-top: 8px">✓ 提交</div>
+        </div>
+        <div class="changes-tree">
+          <div class="h"><span class="caret">▼</span>对比 main<span class="cnt">4</span></div>
+          <div class="row">apps</div>
+          <div class="row" style="padding-left:32px">desktop</div>
+          <div class="row" style="padding-left:44px">src / renderer / screens</div>
+          <div class="row" style="padding-left:56px">main / components</div>
+          <div class="row" style="padding-left:68px">WorkspaceView / TabsContent</div>
+          <div class="row" style="padding-left:80px">AcpSessionPane / components</div>
+          <div class="row" style="padding-left:92px"><span class="name">AcpTimeline</span><span class="add">+222</span></div>
+          <div class="row" style="padding-left:92px"><span class="name">AcpToolCallItem.tsx</span><span class="add">+184</span></div>
+          <div class="row" style="padding-left:80px"><span class="name">acp-pane.css</span><span class="add">+1525</span></div>
+          <div class="row" style="padding-left:80px"><span class="name">AcpSessionPane.tsx</span><span class="add">+250</span></div>
+          <div class="h" style="margin-top: 8px"><span class="caret">▼</span>提交<span class="cnt">1</span></div>
+          <div class="row" style="padding-left:12px"><span style="color:var(--primary); font-family:var(--font-mono); font-size:10.5px">8250c88f2</span> <span style="margin-left:6px">feat(acp-pane)...</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="item">🔵 Loading...</div>
+      <div class="spacer"></div>
+      <div class="item pri">6% $0.07</div>
+      <div class="item branch">🌿 <span class="p">feat/acp-agent-control-plane</span> +383</div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <span style="background:#ff8fd1; flex: 6"></span>
+    <span style="background:#8b5f8f; flex: 26"></span>
+    <span style="background:#3a3e56; flex: 68"></span>
+  </div>
+
+  <!-- v6 refined -->
+  <div class="frame-label">
+    <span class="name good">v6 · Refined Mauve ⭐</span>
+    <span class="desc">accent = #7a5c78 · 暖玫瑰灰</span>
+  </div>
+  <div class="app" style="
+    --bg: #2f3244;
+    --sidebar: #3a3e56;
+    --card: #3a3e56;
+    --border: #5c4a68;
+    --input: #464b68;
+    --muted: #3f4560;
+    --fg: #f2f4ff;
+    --muted-fg: #a2b0d8;
+    --primary: #ff8fd1; --primary-fg: #1e1e2e;
+    --accent: #7a5c78; --accent-fg: #ffe4f2;
+    --chart5: #c4a2ff;
+  ">
+    <div class="titlebar">
+      <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+      <div class="tb-btn">◀</div>
+      <div class="tb-btn">▶</div>
+      <div class="tb-btn">▢</div>
+      <div class="tb-spacer"></div>
+      <div class="tb-branch">🌿 <span class="path">/feat/acp-agent-contr...</span> 打开 ⌄</div>
+      <div class="tb-team"><span class="lt">LT</span>Local Admin's Team <span class="pro">PRO</span> ⇅</div>
+    </div>
+
+    <div class="body">
+      <div class="ws-panel">
+        <div class="ws-section-header top">⚡ 自动化任务</div>
+        <div class="ws-section-header">⏱ 临时工作区</div>
+
+        <div class="ws-group">
+          <div class="ws-group-head">
+            <div class="avatar">S</div>
+            <span>superset</span><span class="count">(3)</span>
+            <span style="margin-left:auto; color: var(--muted-fg); font-size:11px">+ ⌄</span>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">CDP M5 termina...</span>
+              <span class="branch">cdp-m5-terminal-retry</span>
+            </div>
+            <div class="diff"><span class="add">+4121</span><span class="del">−4121</span></div>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">terminal fusion s...</span>
+              <span class="branch">codex/terminal-fusion-smoke</span>
+            </div>
+            <div class="diff"><span class="add">+4121</span><span class="del">−4121</span></div>
+          </div>
+          <div class="ws-item selected dirty">
+            <div class="lbl">
+              <span class="name">local</span>
+              <span class="branch">feat/acp-agent-control-plane</span>
+            </div>
+            <div class="diff"><span class="add">+2181</span><span class="del">−0</span></div>
+          </div>
+        </div>
+
+        <div class="ws-group">
+          <div class="ws-group-head">
+            <div class="avatar" style="background: linear-gradient(135deg,#4b6a8f,#c48ba8)">M</div>
+            <span>mini-krow</span><span class="count">(1)</span>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">local</span>
+              <span class="branch">main</span>
+            </div>
+            <div class="diff"><span class="add">+8649</span><span class="del">−524</span></div>
+          </div>
+        </div>
+
+        <div class="ws-group">
+          <div class="ws-group-head">
+            <div class="avatar">S</div>
+            <span>superset</span><span class="count">(1)</span>
+          </div>
+          <div class="ws-item dirty">
+            <div class="lbl">
+              <span class="name">local</span>
+              <span class="branch">feat/acp-agent-control-plane</span>
+            </div>
+            <div class="diff"><span class="add">+2181</span><span class="del">−0</span></div>
+          </div>
+        </div>
+
+        <div class="ws-section-header top" style="margin-top:auto">📁 添加代码仓库</div>
+      </div>
+
+      <div class="center">
+        <div class="tabbar">
+          <div class="tab">Terminal</div>
+          <div class="tab active">你能干嘛呢<span class="close">×</span></div>
+          <div class="tab add">+</div>
+        </div>
+
+        <div class="chat">
+          <div class="agent-tabs">
+            <div class="agent-tab active"><span class="dot pink"></span>claude</div>
+            <div class="agent-tab"><span class="dot blue"></span>codex</div>
+            <div class="agent-tab"><span class="dot green"></span>pi</div>
+            <div class="agent-tab"><span class="dot yellow"></span>MyFlicker</div>
+            <div class="agent-tab" style="padding:5px 8px">+</div>
+            <div class="agent-tab" style="padding:5px 8px"><span class="cog">⚙</span></div>
+            <div style="margin-left:auto; display:flex; gap:6px">
+              <button style="background:var(--card); color: var(--fg); border:1px solid var(--border); padding: 5px 10px; border-radius: 6px; font-size:12px; display:flex; align-items:center; gap:5px">▶ Set Run</button>
+            </div>
+          </div>
+          <div class="chat-bubble">
+            <div class="who">Claude</div>
+            <div class="msg">
+              <div style="margin-bottom: 6px">你能干嘛呢</div>
+              <div class="bullet"><span><strong>写代码和改代码</strong> — 新功能、修 bug、重构、类型修复</span></div>
+              <div class="bullet"><span><strong>探索代码库</strong> — 查找定义、追踪引用、理解模块关系</span></div>
+              <div class="bullet"><span><strong>运行命令</strong> — 测试、lint、typecheck、构建、启动 dev server</span></div>
+              <div class="bullet"><span><strong>Git 和 PR</strong> — 创建分支、提交、发 PR、回复 review 评论</span></div>
+              <div class="bullet"><span><strong>数据库</strong> — 改 Drizzle schema (迁移由你来跑)</span></div>
+              <div class="bullet"><span><strong>UI 验证</strong> — 通过 CDP 驱动真实浏览器测试功能</span></div>
+              <div class="bullet"><span><strong>调研和分析</strong> — 深度研究、架构改进建议、诊断疑难 bug</span></div>
+              <div style="margin-top:10px">还有一堆项目自带的 skill,比如
+                <span class="skill">/code-review</span><span class="skill">/create-pr</span><span class="skill">/verify</span><span class="skill">/diagnose</span><span class="skill">/task-run</span>
+                等。
+              </div>
+              <div style="margin-top:8px">想做什么? 我是 Kiro,可以帮你处理这个 Superset monorepo 里的各种开发任务:</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="input-shell">
+            <span>›</span>
+            <span>Message agent…</span>
+            <span class="cur"></span>
+            <span style="margin-left:auto">Send ↵</span>
+          </div>
+          <div class="row">
+            <span class="chip on-primary"><span class="dot"></span>Manual</span>
+            <span class="chip">Default</span>
+            <span class="chip">Thinking High</span>
+            <span class="chip" style="color: var(--primary)">6% $0.07</span>
+            <span class="send" style="margin-left:auto">feat/acp-agent-control-plane +383</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="changes">
+        <div class="changes-tabs">
+          <div class="t active">🔀 Changes</div>
+          <div class="t">📄 Files</div>
+          <div style="margin-left:auto; display:flex; gap:8px; color: var(--muted-fg); font-size:11px">⤢ ×</div>
+        </div>
+        <div>
+          <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--fg); margin-bottom:6px">
+            <span style="font-family: var(--font-mono); font-size:11px">🌿 feat/acp-agent-contr...</span>
+            <span style="margin-left:auto; color: var(--muted-fg); font-size:11px">☰ ↻ ⇧</span>
+          </div>
+          <div class="commit-box">提交信息</div>
+          <div class="commit-btn" style="margin-top: 8px">✓ 提交</div>
+        </div>
+        <div class="changes-tree">
+          <div class="h"><span class="caret">▼</span>对比 main<span class="cnt">4</span></div>
+          <div class="row">apps</div>
+          <div class="row" style="padding-left:32px">desktop</div>
+          <div class="row" style="padding-left:44px">src / renderer / screens</div>
+          <div class="row" style="padding-left:56px">main / components</div>
+          <div class="row" style="padding-left:68px">WorkspaceView / TabsContent</div>
+          <div class="row" style="padding-left:80px">AcpSessionPane / components</div>
+          <div class="row" style="padding-left:92px"><span class="name">AcpTimeline</span><span class="add">+222</span></div>
+          <div class="row" style="padding-left:92px"><span class="name">AcpToolCallItem.tsx</span><span class="add">+184</span></div>
+          <div class="row" style="padding-left:80px"><span class="name">acp-pane.css</span><span class="add">+1525</span></div>
+          <div class="row" style="padding-left:80px"><span class="name">AcpSessionPane.tsx</span><span class="add">+250</span></div>
+          <div class="h" style="margin-top: 8px"><span class="caret">▼</span>提交<span class="cnt">1</span></div>
+          <div class="row" style="padding-left:12px"><span style="color:var(--primary); font-family:var(--font-mono); font-size:10.5px">8250c88f2</span> <span style="margin-left:6px">feat(acp-pane)...</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="item">🔵 Loading...</div>
+      <div class="spacer"></div>
+      <div class="item pri">6% $0.07</div>
+      <div class="item branch">🌿 <span class="p">feat/acp-agent-control-plane</span> +383</div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <span style="background:#ff8fd1; flex: 6"></span>
+    <span style="background:#7a5c78; flex: 26"></span>
+    <span style="background:#3a3e56; flex: 68"></span>
+  </div>
+
+  <p class="foot">
+    · <strong>关键改动 (v5-C → v6):</strong>
+    accent <code style="font-family:var(--font-mono); background:rgba(255,143,209,0.08); padding: 1px 5px; border-radius: 3px; color:#ff8fd1">#8b5f8f</code> → <code style="font-family:var(--font-mono); background:rgba(255,143,209,0.08); padding: 1px 5px; border-radius: 3px; color:#ff8fd1">#7a5c78</code>,
+    secondary/tertiaryActive <code style="font-family:var(--font-mono); background:rgba(255,143,209,0.08); padding: 1px 5px; border-radius: 3px; color:#ff8fd1">#7a5570</code> → <code style="font-family:var(--font-mono); background:rgba(255,143,209,0.08); padding: 1px 5px; border-radius: 3px; color:#ff8fd1">#6b4e6a</code>,
+    border <code style="font-family:var(--font-mono); background:rgba(255,143,209,0.08); padding: 1px 5px; border-radius: 3px; color:#ff8fd1">#635076</code> → <code style="font-family:var(--font-mono); background:rgba(255,143,209,0.08); padding: 1px 5px; border-radius: 3px; color:#ff8fd1">#5c4a68</code>。
+    饱和度都降了 5-10%,色相往灰玫瑰靠。<br>
+    · <strong>没动</strong>:primary (#ff8fd1)、chart、terminal 全保持 —— 粉的<strong style="color:#ff8fd1">点睛角色</strong>不变。<br>
+    · <strong>预览方式</strong>:后面每次都用这个整屏视角(顶栏 + workspace + chat + changes + 底栏),对比再也不局限于局部小卡片。
+  </p>
+</body>
+</html>

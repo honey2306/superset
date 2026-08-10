@@ -7,26 +7,26 @@ export type { ActivePaneStatus } from "shared/tabs-types";
 /** Lookup object for status indicator styling - avoids if/else chains */
 const STATUS_CONFIG = {
 	permission: {
-		pingColor: "bg-red-400",
-		dotColor: "bg-red-500",
+		pingColor: "bg-info-tint",
+		dotColor: "bg-info",
 		pulse: true,
 		tooltip: "Needs input",
 	},
 	failed: {
-		pingColor: "bg-red-400",
-		dotColor: "bg-red-500",
+		pingColor: "bg-danger-tint",
+		dotColor: "bg-destructive",
 		pulse: true,
 		tooltip: "Agent failed",
 	},
 	working: {
-		pingColor: "bg-amber-400",
-		dotColor: "bg-amber-500",
+		pingColor: "bg-warning-tint",
+		dotColor: "bg-warning",
 		pulse: true,
 		tooltip: "Agent working",
 	},
 	review: {
 		pingColor: "",
-		dotColor: "bg-green-500",
+		dotColor: "bg-success",
 		pulse: false,
 		tooltip: "Ready for review",
 	},
@@ -42,8 +42,9 @@ interface StatusIndicatorProps {
 
 /**
  * Visual indicator for pane/workspace status.
- * - Red pulsing: needs user input (permission)
+ * - Blue pulsing: needs user input (permission / ask_user)
  * - Amber pulsing: agent working
+ * - Red pulsing: agent failed
  * - Green static: ready for review
  */
 export function StatusIndicator({ status, className }: StatusIndicatorProps) {

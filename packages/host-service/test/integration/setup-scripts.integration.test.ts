@@ -133,7 +133,7 @@ describe("setup scripts integration", () => {
 		expect(created.operation.workspaceId).toBeTruthy();
 
 		await waitFor(
-			() => writes.includes("echo setup-a && echo setup-b\n"),
+			() => writes.join("").includes("echo setup-a && echo setup-b\r"),
 			5000,
 			() => `expected setup command write, got ${JSON.stringify(writes)}`,
 		);

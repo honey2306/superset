@@ -628,7 +628,7 @@ export function HostServiceTerminalPane({
 
 	if (status === "starting") {
 		return (
-			<div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+			<div className="flex h-full w-full items-center justify-center text-sm text-fg-mute">
 				{t("terminal.connectionLostReconnecting")}
 			</div>
 		);
@@ -636,7 +636,7 @@ export function HostServiceTerminalPane({
 
 	if (status === "unavailable" || error) {
 		return (
-			<div className="flex h-full w-full items-center justify-center text-sm text-red-500">
+			<div className="flex h-full w-full items-center justify-center text-sm text-destructive">
 				{error ?? t("terminal.connectionToDaemonLost")}
 			</div>
 		);
@@ -667,7 +667,7 @@ export function HostServiceTerminalPane({
 					/>
 				)}
 				{connectionState === "closed" && exitCode === null && (
-					<div className="pointer-events-none absolute right-2 bottom-2 rounded bg-background/80 px-2 py-1 text-xs text-muted-foreground">
+					<div className="pointer-events-none absolute right-2 bottom-2 rounded bg-background/80 px-2 py-1 text-xs text-fg-mute">
 						{t("terminal.connectionLostReconnecting")}
 					</div>
 				)}

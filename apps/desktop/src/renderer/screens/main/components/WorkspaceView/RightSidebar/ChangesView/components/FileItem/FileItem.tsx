@@ -8,23 +8,27 @@ import {
 } from "@superset/ui/context-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
+import { useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	VscAdd,
 	VscClippy,
 	VscDiscard,
 	VscFolderOpened,
+	VscHistory,
 	VscLinkExternal,
 	VscRemove,
 	VscTrash,
 } from "react-icons/vsc";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useChangesStore } from "renderer/stores/changes";
 import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { createFileKey, useScrollContext } from "../../../../ChangesContent";
 import { useFileDrag, usePathActions } from "../../hooks";
 import { getStatusColor, getStatusIndicator } from "../../utils";
 import { DiscardConfirmDialog } from "../DiscardConfirmDialog";
+import { FileHistoryDialog } from "../FileHistoryDialog";
 import type { RowHoverAction } from "../RowHoverActions";
 import { RowHoverActions } from "../RowHoverActions";
 
@@ -54,7 +58,7 @@ function LevelIndicators({ level }: { level: number }) {
 		<div className="flex self-stretch shrink-0">
 			{Array.from({ length: level }).map((_, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: static visual dividers that never reorder
-				<div key={i} className="w-3 self-stretch border-r border-border" />
+				<div key={i} className="w-3 self-stretch border-r border-line" />
 			))}
 		</div>
 	);
@@ -83,8 +87,13 @@ export function FileItem({
 }: FileItemProps) {
 	const { t } = useTranslation();
 	const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+	const [showHistoryDialog, setShowHistoryDialog] = useState(false);
 	const { activeFileKey } = useScrollContext();
 	const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const { workspaceId } = useParams({ strict: false });
+	const selectFile = useChangesStore((s) => s.selectFile);
+	const canShowHistory =
+		!!worktreePath && file.status !== "untracked" && file.status !== "added";
 
 	const fileName = getFileName(file.path);
 	const statusBadgeColor = getStatusColor(file.status);
@@ -221,8 +230,8 @@ export function FileItem({
 			{...fileDragProps}
 			className={cn(
 				"group w-full flex items-stretch gap-1 px-1.5 text-left rounded-sm",
-				"hover:bg-accent/50 cursor-pointer transition-colors",
-				isHighlighted && "bg-accent",
+				"hover:bg-hover cursor-pointer transition-colors",
+				isHighlighted && "bg-accent-tint",
 			)}
 		>
 			{hasIndent && <LevelIndicators level={level} />}
@@ -252,14 +261,10 @@ export function FileItem({
 					{showStatsDisplay && (
 						<span className="flex items-center gap-0.5 text-[10px] font-mono shrink-0 whitespace-nowrap opacity-60">
 							{file.additions > 0 && (
-								<span className="text-green-600 dark:text-green-500">
-									+{file.additions}
-								</span>
+								<span className="text-success">+{file.additions}</span>
 							)}
 							{file.deletions > 0 && (
-								<span className="text-red-600 dark:text-red-400">
-									-{file.deletions}
-								</span>
+								<span className="text-destructive">-{file.deletions}</span>
 							)}
 						</span>
 					)}
@@ -278,7 +283,7 @@ export function FileItem({
 		<>
 			<ContextMenu>
 				<ContextMenuTrigger asChild>{fileContent}</ContextMenuTrigger>
-				<ContextMenuContent className="w-48">
+				<ContextMenuContent className="w-52">
 					<ContextMenuItem onClick={copyPath}>
 						<VscClippy className="mr-2 size-4" />
 						{t("v1Changes.fileItem.copyPath")}
@@ -296,6 +301,15 @@ export function FileItem({
 						<VscLinkExternal className="mr-2 size-4" />
 						{t("v1Changes.fileItem.openInEditor")}
 					</ContextMenuItem>
+					{canShowHistory && (
+						<>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={() => setShowHistoryDialog(true)}>
+								<VscHistory className="mr-2 size-4" />
+								{t("v1Changes.fileHistory.showHistory")}
+							</ContextMenuItem>
+						</>
+					)}
 
 					{(onStage || onUnstage || onDiscard) && <ContextMenuSeparator />}
 
@@ -343,6 +357,20 @@ export function FileItem({
 				}
 				confirmDisabled={!onDiscard || isActioning}
 			/>
+
+			{canShowHistory && worktreePath && (
+				<FileHistoryDialog
+					open={showHistoryDialog}
+					onOpenChange={setShowHistoryDialog}
+					worktreePath={worktreePath}
+					filePath={file.path}
+					selectedCommitHash={commitHash ?? null}
+					onSelectCommit={(hash) => {
+						if (!workspaceId || !absolutePath) return;
+						selectFile(workspaceId, absolutePath, file, "committed", hash);
+					}}
+				/>
+			)}
 		</>
 	);
 }

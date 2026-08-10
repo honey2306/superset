@@ -65,6 +65,7 @@ class StubStreamSource implements AcpSessionStreamSource {
 		if (backlog === null) {
 			input.onEnvelope({
 				seq: this.journal.latestSeq,
+				epoch: this.journal.epoch,
 				sessionId: SESSION_ID,
 				ts: Date.now(),
 				frame: { kind: "reset", reason: "journal_evicted" },

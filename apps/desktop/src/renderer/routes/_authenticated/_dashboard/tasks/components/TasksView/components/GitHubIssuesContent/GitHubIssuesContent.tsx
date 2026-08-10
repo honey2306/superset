@@ -193,7 +193,7 @@ export function GitHubIssuesContent({
 	if (!projectFilter) {
 		return (
 			<div className="flex h-full items-center justify-center p-8">
-				<div className="flex flex-col items-center gap-2 text-muted-foreground text-center">
+				<div className="flex flex-col items-center gap-2 text-fg-mute text-center">
 					<GoIssueOpened className="h-8 w-8" />
 					<span className="text-sm">Select a project to see issues.</span>
 				</div>
@@ -210,12 +210,12 @@ export function GitHubIssuesContent({
 
 	return (
 		<div className="@container flex flex-col h-full overflow-hidden">
-			<div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30 shrink-0">
-				<GoIssueOpened className="size-3.5 text-muted-foreground" />
-				<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+			<div className="flex items-center gap-2 px-4 py-2 border-b bg-hover/30 shrink-0">
+				<GoIssueOpened className="size-3.5 text-fg-mute" />
+				<span className="text-xs font-semibold uppercase tracking-wider text-fg-mute">
 					GitHub issues
 				</span>
-				<span className="ml-auto text-xs text-muted-foreground tabular-nums">
+				<span className="ml-auto text-xs text-fg-mute tabular-nums">
 					{countLabel}
 				</span>
 				<Button
@@ -249,12 +249,12 @@ export function GitHubIssuesContent({
 				/>
 				<label
 					htmlFor={showClosedId}
-					className="cursor-pointer select-none text-muted-foreground"
+					className="cursor-pointer select-none text-fg-mute"
 				>
 					Show closed
 				</label>
 				{isFetching && !isInitialLoad && (
-					<span className="ml-auto text-muted-foreground">Loading…</span>
+					<span className="ml-auto text-fg-mute">Loading…</span>
 				)}
 			</div>
 
@@ -266,19 +266,19 @@ export function GitHubIssuesContent({
 				)}
 
 				{repoMismatch && (
-					<div className="px-4 py-3 text-sm text-muted-foreground select-text cursor-text">
+					<div className="px-4 py-3 text-sm text-fg-mute select-text cursor-text">
 						Issue URL must match {repoMismatch}.
 					</div>
 				)}
 
 				{isInitialLoad ? (
-					<div className="flex h-full items-center justify-center gap-2 p-8 text-muted-foreground">
+					<div className="flex h-full items-center justify-center gap-2 p-8 text-fg-mute">
 						<LuRefreshCw className="size-4 animate-spin" />
 						<span className="text-sm">Loading issues…</span>
 					</div>
 				) : totalCount === 0 && !isFetching && !error ? (
 					<div className="flex h-full items-center justify-center p-8">
-						<span className="text-sm text-muted-foreground">
+						<span className="text-sm text-fg-mute">
 							{showClosed ? "No issues found." : "No open issues."}
 						</span>
 					</div>
@@ -292,7 +292,7 @@ export function GitHubIssuesContent({
 								// biome-ignore lint/a11y/useSemanticElements: row contains nested action buttons, so the outer element is a div with role/tabIndex
 								<div
 									key={issue.issueNumber}
-									className="group flex items-center gap-3 px-4 h-9 cursor-pointer border-b border-border/50 hover:bg-accent/50"
+									className="group flex items-center gap-3 px-4 h-9 cursor-pointer border-b border-line/50 hover:bg-hover"
 									onClick={() => handleOpenPreview(issue.issueNumber)}
 									onKeyDown={(e) => {
 										if (e.target !== e.currentTarget) return;
@@ -325,17 +325,17 @@ export function GitHubIssuesContent({
 										className={
 											isClosed
 												? "size-4 shrink-0 text-violet-500"
-												: "size-4 shrink-0 text-emerald-500"
+												: "size-4 shrink-0 text-success"
 										}
 									/>
-									<span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+									<span className="shrink-0 font-mono text-xs text-fg-mute tabular-nums">
 										#{issue.issueNumber}
 									</span>
 									<span className="min-w-0 flex-1 truncate text-sm font-medium">
 										{issue.title}
 									</span>
 									{issue.authorLogin && (
-										<span className="hidden shrink-0 text-xs text-muted-foreground @md:inline">
+										<span className="hidden shrink-0 text-xs text-fg-mute @md:inline">
 											{issue.authorLogin}
 										</span>
 									)}
@@ -373,7 +373,7 @@ export function GitHubIssuesContent({
 						{hasNextPage && (
 							<div
 								ref={sentinelRef}
-								className="flex items-center justify-center py-3 text-xs text-muted-foreground"
+								className="flex items-center justify-center py-3 text-xs text-fg-mute"
 							>
 								{isFetchingNextPage ? "Loading more…" : ""}
 							</div>

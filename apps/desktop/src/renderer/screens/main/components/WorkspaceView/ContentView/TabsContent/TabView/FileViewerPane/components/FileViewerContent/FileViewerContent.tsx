@@ -275,7 +275,7 @@ export function FileViewerContent({
 	if (viewMode === "diff") {
 		if (isLoadingDiff) {
 			return (
-				<div className="flex h-full items-center justify-center text-muted-foreground">
+				<div className="flex h-full items-center justify-center text-fg-mute">
 					Loading diff...
 				</div>
 			);
@@ -283,7 +283,7 @@ export function FileViewerContent({
 
 		if (!diffData) {
 			return (
-				<div className="flex h-full items-center justify-center text-muted-foreground">
+				<div className="flex h-full items-center justify-center text-fg-mute">
 					No diff available
 				</div>
 			);
@@ -372,7 +372,7 @@ export function FileViewerContent({
 	if (viewMode === "rendered" && isImage) {
 		if (isLoadingImage) {
 			return (
-				<div className="flex h-full items-center justify-center text-muted-foreground">
+				<div className="flex h-full items-center justify-center text-fg-mute">
 					<LuLoader className="mr-2 h-4 w-4 animate-spin" />
 					<span>Loading image...</span>
 				</div>
@@ -390,7 +390,7 @@ export function FileViewerContent({
 							: "Image not found";
 
 			return (
-				<div className="flex h-full items-center justify-center text-muted-foreground">
+				<div className="flex h-full items-center justify-center text-fg-mute">
 					{errorMessage}
 				</div>
 			);
@@ -410,7 +410,7 @@ export function FileViewerContent({
 
 	if (isLoadingRaw) {
 		return (
-			<div className="flex h-full items-center justify-center text-muted-foreground">
+			<div className="flex h-full items-center justify-center text-fg-mute">
 				Loading...
 			</div>
 		);
@@ -427,7 +427,7 @@ export function FileViewerContent({
 						: "File not found";
 
 		return (
-			<div className="flex h-full items-center justify-center text-muted-foreground">
+			<div className="flex h-full items-center justify-center text-fg-mute">
 				{errorMessage}
 			</div>
 		);

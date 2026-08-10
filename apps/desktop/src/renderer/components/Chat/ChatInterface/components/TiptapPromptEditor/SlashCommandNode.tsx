@@ -31,6 +31,7 @@ function SlashCommandChip({
 	const hasArgs = argumentHint.trim().length > 0;
 
 	const inputRef = useRef<HTMLInputElement>(null);
+	const selectedOptionRef = useRef<HTMLDivElement>(null);
 	const [isEditing, setIsEditing] = useState(hasArgs);
 	// Which item is highlighted in the dropdown — owned here so arrow keys work
 	const [selectedValue, setSelectedValue] = useState<string>(
@@ -54,6 +55,13 @@ function SlashCommandChip({
 			setSelectedValue(filteredOptions[0] ?? "");
 		}
 	}, [filteredOptions, selectedValue]);
+
+	// Arrow-key navigation is owned by the chip input, so cmdk does not perform
+	// its usual active-item scrolling for us.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: selectedValue changes which option owns the ref
+	useEffect(() => {
+		selectedOptionRef.current?.scrollIntoView({ block: "nearest" });
+	}, [selectedValue]);
 
 	// Focus input (with rAF so Tiptap's DOM commit has settled) whenever edit mode opens
 	useEffect(() => {
@@ -230,8 +238,8 @@ function SlashCommandChip({
 						tabIndex={-1}
 						contentEditable={false}
 						className={cn(
-							"inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-mono text-xs select-none transition-colors cursor-default",
-							selected ? "bg-muted-foreground/15" : "bg-muted-foreground/10",
+							"inline-flex items-center gap-0.5 rounded-ds-3 px-1.5 py-0.5 font-mono text-xs select-none transition-colors cursor-default",
+							selected ? "bg-fg-mute/15" : "bg-fg-mute/10",
 						)}
 						onClick={handleChipClick}
 						onDoubleClick={handleChipDoubleClick}
@@ -240,15 +248,15 @@ function SlashCommandChip({
 								handleChipClick(e as unknown as React.MouseEvent);
 						}}
 					>
-						<span className="text-muted-foreground">/</span>
-						<span className="text-foreground/90">{name}</span>
+						<span className="text-fg-mute">/</span>
+						<span className="text-fg-mute">{name}</span>
 						{hasArgs && (
 							<>
-								<span className="text-muted-foreground/60">:</span>
+								<span className="text-fg-mute/60">:</span>
 								{isEditing ? (
 									<input
 										ref={inputRef}
-										className="bg-transparent border-none outline-none text-foreground/90 placeholder:text-muted-foreground/40 leading-none"
+										className="bg-transparent border-none outline-none text-fg-mute placeholder:text-fg-mute/40 leading-none"
 										style={{ width: `${displayWidth}ch` }}
 										value={args}
 										placeholder={placeholder}
@@ -262,7 +270,7 @@ function SlashCommandChip({
 									<span
 										className={cn(
 											"leading-none",
-											args ? "text-foreground/90" : "text-muted-foreground/40",
+											args ? "text-fg-mute" : "text-fg-mute/40",
 										)}
 									>
 										{args || placeholder}
@@ -274,9 +282,11 @@ function SlashCommandChip({
 				</PopoverAnchor>
 				{argumentOptions.length > 0 && (
 					<PopoverContent
-						className="w-56 p-0"
+						className="w-80 max-w-[calc(100vw-2rem)] overflow-hidden border-accent-solid/35 p-0 shadow-xl"
 						side="top"
 						align="start"
+						sideOffset={6}
+						avoidCollisions={false}
 						onOpenAutoFocus={(e) => e.preventDefault()}
 					>
 						<Command
@@ -284,17 +294,21 @@ function SlashCommandChip({
 							onValueChange={setSelectedValue}
 							shouldFilter={false}
 						>
-							<CommandList>
+							<CommandList className="max-h-60 scroll-py-1">
 								<CommandEmpty>{t("slashCommand.noMatch")}</CommandEmpty>
-								<CommandGroup>
+								<CommandGroup className="p-1">
 									{filteredOptions.map((opt) => (
 										<CommandItem
 											key={opt}
+											ref={
+												opt === selectedValue ? selectedOptionRef : undefined
+											}
 											value={opt}
+											className="relative min-w-0 py-2 pl-3 data-[selected=true]:bg-accent-tint data-[selected=true]:text-fg data-[selected=true]:before:absolute data-[selected=true]:before:inset-y-1 data-[selected=true]:before:left-0 data-[selected=true]:before:w-0.5 data-[selected=true]:before:rounded-full data-[selected=true]:before:bg-accent-solid data-[selected=true]:before:content-['']"
 											onSelect={() => handleSelectOption(opt)}
 											onMouseDown={(e) => e.preventDefault()}
 										>
-											{opt}
+											<span className="truncate">{opt}</span>
 										</CommandItem>
 									))}
 								</CommandGroup>

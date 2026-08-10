@@ -1,9 +1,7 @@
 #!/usr/bin/env bun
 
-// Enforces unified versioning: every version is a plain MAJOR.MINOR.PATCH (no
-// prerelease suffixes), UNIFIED_PACKAGES entries must equal each other and sit
-// at or above desktop within its minor line — CLI hotfixes lead desktop by
-// patches until the next desktop release catches up. pty-daemon is excluded.
+// Enforces unified versioning: desktop and every UNIFIED_PACKAGES entry use the
+// same plain MAJOR.MINOR.PATCH version. pty-daemon is excluded.
 
 import {
 	assertUnified,
@@ -22,9 +20,7 @@ export async function runCheck(): Promise<boolean> {
 		console.error(
 			`\nVersion drift detected. Unified rule: ${DESKTOP_PACKAGE} == ${UNIFIED_PACKAGES.join(" == ")}`,
 		);
-		console.error(
-			"(CLI hotfixes may lead desktop by plain patches within its minor line).",
-		);
+
 		return false;
 	}
 

@@ -63,18 +63,18 @@ export function FileDiffHeader({
 	return (
 		<div
 			className={cn(
-				"group flex items-center gap-2 px-3 py-1.5 w-full text-left sticky top-0 z-10 bg-muted",
+				"group flex items-center gap-2 px-3 py-1.5 w-full text-left sticky top-0 z-10 bg-hover",
 			)}
 		>
 			<button
 				type="button"
 				onClick={onToggleExpanded}
-				className="shrink-0 p-0.5 -ml-1 rounded hover:bg-accent transition-colors"
+				className="shrink-0 p-0.5 -ml-1 rounded hover:bg-accent-tint transition-colors"
 			>
 				{isExpanded ? (
-					<LuChevronDown className="size-4 text-muted-foreground" />
+					<LuChevronDown className="size-4 text-fg-mute" />
 				) : (
-					<LuChevronRight className="size-4 text-muted-foreground" />
+					<LuChevronRight className="size-4 text-fg-mute" />
 				)}
 			</button>
 
@@ -86,7 +86,7 @@ export function FileDiffHeader({
 				<TooltipTrigger asChild>
 					<button
 						type="button"
-						className="group/filename flex items-center gap-1 text-xs truncate min-w-0 hover:underline hover:text-primary cursor-pointer font-mono"
+						className="group/filename flex items-center gap-1 text-xs truncate min-w-0 hover:underline hover:text-accent-solid cursor-pointer font-mono"
 						onClick={onOpenInEditor}
 						aria-label={t("v1Changes.fileDiffHeader.openInEditor", {
 							path: file.path,
@@ -106,10 +106,10 @@ export function FileDiffHeader({
 					<button
 						type="button"
 						onClick={onCopyPath}
-						className="shrink-0 rounded p-1 text-muted-foreground/60 transition-colors hover:text-muted-foreground hover:bg-accent"
+						className="shrink-0 rounded p-1 text-fg-faint transition-colors hover:text-fg-mute hover:bg-accent-tint"
 					>
 						{isCopied ? (
-							<LuCheck className="size-3.5 text-green-500" />
+							<LuCheck className="size-3.5 text-success" />
 						) : (
 							<LuCopy className="size-3.5" />
 						)}
@@ -134,8 +134,8 @@ export function FileDiffHeader({
 							className={cn(
 								"shrink-0 rounded p-1 transition-colors",
 								isEditing
-									? "text-primary bg-accent"
-									: "text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent",
+									? "text-accent-solid bg-accent-tint"
+									: "text-fg-faint hover:text-fg-mute hover:bg-accent-tint",
 							)}
 						>
 							<LuPencil className="size-3.5" />
@@ -154,12 +154,12 @@ export function FileDiffHeader({
 			{showStats && (
 				<span className="flex items-center gap-1 text-xs font-mono shrink-0">
 					{file.additions > 0 && (
-						<span className="text-green-600 dark:text-green-500">
+						<span className="text-success dark:text-success">
 							+{file.additions}
 						</span>
 					)}
 					{file.deletions > 0 && (
-						<span className="text-red-600 dark:text-red-400">
+						<span className="text-destructive dark:text-destructive">
 							-{file.deletions}
 						</span>
 					)}
@@ -180,7 +180,7 @@ export function FileDiffHeader({
 				/>
 				<label
 					htmlFor={`viewed-${fileKey}`}
-					className="text-muted-foreground cursor-pointer"
+					className="text-fg-mute cursor-pointer"
 				>
 					{t("v1Changes.fileDiffHeader.viewed")}
 				</label>

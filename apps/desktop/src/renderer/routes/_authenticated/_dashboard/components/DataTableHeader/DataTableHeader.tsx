@@ -8,7 +8,7 @@ import type { ComponentProps } from "react";
  * with `position: sticky`.
  */
 export const DATA_TABLE_HEAD_CELL =
-	"h-8 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80";
+	"h-8 text-[10px] font-semibold uppercase tracking-wider text-fg-mute/80";
 
 export function DataTableHeader({
 	className,

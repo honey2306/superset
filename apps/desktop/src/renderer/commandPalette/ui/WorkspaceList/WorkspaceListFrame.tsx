@@ -102,7 +102,8 @@ function V1WorkspaceList({ query }: { query: string }) {
 							onSelect={() => handleSelect(workspace.id)}
 							className={cn(
 								ROW_CLASS,
-								currentPath === `/workspace/${workspace.id}` && "bg-accent/50",
+								currentPath === `/workspace/${workspace.id}` &&
+									"bg-accent-tint/50",
 							)}
 						>
 							<span className="flex w-4 shrink-0 items-center justify-center">
@@ -114,7 +115,7 @@ function V1WorkspaceList({ query }: { query: string }) {
 							<span className="min-w-0 flex-1 truncate font-normal">
 								{workspace.name}
 							</span>
-							<span className="flex min-w-0 max-w-48 items-center gap-1 text-muted-foreground text-xs">
+							<span className="flex min-w-0 max-w-48 items-center gap-1 text-fg-mute text-xs">
 								<LuGitBranch className="!size-3 shrink-0" />
 								<span className="truncate">{workspace.branch}</span>
 							</span>

@@ -30,7 +30,7 @@ export function RowHoverActions({ actions }: RowHoverActionsProps) {
 							variant="ghost"
 							size="icon"
 							className={cn(
-								"size-5 hover:bg-accent",
+								"size-5 hover:bg-hover",
 								action.isDestructive && "hover:text-destructive",
 							)}
 							onClick={(e) => {

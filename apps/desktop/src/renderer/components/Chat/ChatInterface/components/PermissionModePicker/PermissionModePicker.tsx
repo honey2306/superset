@@ -62,7 +62,7 @@ export function PermissionModePicker({
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<PromptInputButton
-					className={`${PILL_BUTTON_CLASS} px-2 gap-1 text-xs text-foreground`}
+					className={`${PILL_BUTTON_CLASS} px-2 gap-1 text-xs text-fg`}
 				>
 					<ActiveIcon className="size-3.5 opacity-60" />
 					<span>{active.label}</span>
@@ -82,9 +82,7 @@ export function PermissionModePicker({
 							<Icon className="size-4 shrink-0" />
 							<div className="flex flex-1 flex-col gap-0.5">
 								<span className="text-sm font-medium">{mode.label}</span>
-								<span className="text-xs text-muted-foreground">
-									{mode.description}
-								</span>
+								<span className="text-xs text-fg-mute">{mode.description}</span>
 							</div>
 							{isActive && <CheckIcon className="size-4 shrink-0" />}
 						</DropdownMenuItem>

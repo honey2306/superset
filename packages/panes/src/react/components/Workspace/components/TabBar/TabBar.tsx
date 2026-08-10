@@ -50,7 +50,7 @@ function AddTabButton<_TData>({
 }) {
 	const button = (
 		<Button
-			className="ml-1.5 size-7 rounded-md border border-border/60 bg-muted/30 px-1 text-muted-foreground shadow-none hover:bg-accent/60 hover:text-foreground"
+			className="ml-1 size-6 rounded-ds-3 border-0 bg-transparent px-1 text-fg-faint shadow-none hover:bg-hover hover:text-fg"
 			onClick={onAddTab}
 			size="icon"
 			type="button"
@@ -178,7 +178,7 @@ export function TabBar<TData>({
 				// the content below. `drag`: the bar doubles as the Electron
 				// window-drag region (empty areas only — interactive clusters opt out
 				// with `no-drag`).
-				className="drag group/root-tabs flex h-10 min-w-0 shrink-0 items-stretch"
+				className="drag group/root-tabs flex h-[34px] min-w-0 shrink-0 items-stretch"
 			>
 				<div className="no-drag flex h-full w-10 shrink-0 items-center justify-center">
 					<AddTabButton
@@ -199,13 +199,12 @@ export function TabBar<TData>({
 	return (
 		<div
 			ref={setRootRef}
-			// The bottom border is drawn on the bar's leaf elements (inactive tabs,
-			// the add-button cluster, the trailing region, and the flex filler) rather
-			// than the root, so the active tab can leave a real 1px gap and flow into
-			// the content below. `drag`: the bar doubles as the Electron window-drag
-			// region (empty areas only — the tabs track and button clusters opt out
-			// with `no-drag`).
-			className="drag group/root-tabs flex h-10 min-w-0 shrink-0 items-stretch bg-border/30"
+			// Underline-style tab bar: no shade of its own, a single hairline at
+			// the bottom of the bar, and the active tab paints a highlight-colored
+			// underline over that hairline. `drag`: the bar doubles as the
+			// Electron window-drag region (empty areas only — the tabs track and
+			// button clusters opt out with `no-drag`).
+			className="drag group/root-tabs flex h-[34px] min-w-0 shrink-0 items-stretch border-b border-line bg-surface"
 		>
 			<OverflowFadeContainer
 				observeChildren
@@ -218,7 +217,8 @@ export function TabBar<TData>({
 				>
 					{tabs.map((tab, i) => (
 						<div
-							className="h-full shrink-0"
+							className="relative h-full shrink-0"
+							data-tab-slot
 							key={tab.id}
 							style={{ width: TAB_WIDTH }}
 						>
@@ -240,25 +240,23 @@ export function TabBar<TData>({
 					))}
 					{insertLineLeft !== null && (
 						<div
-							className="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-primary opacity-85"
+							className="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-accent-solid opacity-85"
 							style={{ left: insertLineLeft }}
 						/>
 					)}
 					{!hasHorizontalOverflow && (
-						<div className="flex h-full w-10 shrink-0 items-center justify-center border-b border-border">
+						<div className="flex h-full w-10 shrink-0 items-center justify-center">
 							<AddTabButton
 								renderAddTabMenu={renderAddTabMenu}
 								onAddTab={onAddTab}
 							/>
 						</div>
 					)}
-					{/* Carries the bar's bottom border across the empty space to the
-					    right of the tabs (collapses to 0 when the tabs overflow). */}
-					<div className="h-full flex-1 border-b border-border" />
+					<div className="h-full flex-1" />
 				</div>
 			</OverflowFadeContainer>
 			{hasHorizontalOverflow && (
-				<div className="no-drag flex h-full w-10 shrink-0 items-center justify-center border-b border-border bg-border/30">
+				<div className="no-drag flex h-full w-10 shrink-0 items-center justify-center">
 					<AddTabButton
 						renderAddTabMenu={renderAddTabMenu}
 						onAddTab={onAddTab}
@@ -266,7 +264,7 @@ export function TabBar<TData>({
 				</div>
 			)}
 			{renderTabBarTrailing && (
-				<div className="no-drag flex h-full shrink-0 items-center border-b border-border px-1">
+				<div className="no-drag flex h-full shrink-0 items-center px-1">
 					{renderTabBarTrailing()}
 				</div>
 			)}

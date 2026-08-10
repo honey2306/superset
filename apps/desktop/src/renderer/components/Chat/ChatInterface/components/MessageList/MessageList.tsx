@@ -61,7 +61,7 @@ function FileChip({
 	);
 
 	return (
-		<div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
+		<div className="inline-flex items-center gap-1.5 rounded-ds-3 border border-line bg-background px-2 py-1 text-xs text-fg-mute">
 			{icon}
 			<span className="max-w-[150px] truncate">
 				{filename || t("chat.attachment")}
@@ -155,7 +155,7 @@ export function MessageList({
 													<img
 														src={p.url}
 														alt={p.filename || t("chat.attachedImage")}
-														className="max-h-48 rounded-lg object-contain"
+														className="max-h-48 rounded-ds-5 object-contain"
 													/>
 												</button>
 											))}
@@ -183,7 +183,7 @@ export function MessageList({
 										</div>
 									)}
 									{hasNonTaskContent && (
-										<div className="max-w-[85%] overflow-x-auto rounded-lg bg-muted px-4 py-2.5 text-sm text-foreground whitespace-pre-wrap">
+										<div className="max-w-[85%] overflow-x-auto rounded-ds-5 bg-hover px-4 py-2.5 text-sm text-fg whitespace-pre-wrap">
 											{otherSegments.map((segment, segIdx) => {
 												if (segment.type === "text") {
 													return (
@@ -234,7 +234,7 @@ export function MessageList({
 							<Message key={msg.id} from={msg.role}>
 								<MessageContent>
 									{showThinking ? (
-										<ShimmerLabel className="text-sm text-muted-foreground">
+										<ShimmerLabel className="text-sm text-fg-mute">
 											{t("chat.thinkingEllipsis")}
 										</ShimmerLabel>
 									) : (
@@ -264,8 +264,8 @@ export function MessageList({
 								workspaceCwd={workspaceCwd}
 								onAnswer={onAnswer}
 							/>
-							<div className="flex items-center gap-2 text-xs text-muted-foreground">
-								<span className="rounded border border-border bg-muted px-1.5 py-0.5 font-medium uppercase tracking-wide">
+							<div className="flex items-center gap-2 text-xs text-fg-mute">
+								<span className="rounded border border-line bg-hover px-1.5 py-0.5 font-medium uppercase tracking-wide">
 									{t("chat.interrupted")}
 								</span>
 								<span>{t("chat.responseStopped")}</span>
@@ -276,7 +276,7 @@ export function MessageList({
 				{isThinking && messages[messages.length - 1]?.role === "user" && (
 					<Message from="assistant">
 						<MessageContent>
-							<ShimmerLabel className="text-sm text-muted-foreground">
+							<ShimmerLabel className="text-sm text-fg-mute">
 								{t("chat.thinkingEllipsis")}
 							</ShimmerLabel>
 						</MessageContent>

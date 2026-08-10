@@ -54,7 +54,7 @@ export function MarkdownSearch({
 	if (!isOpen) return null;
 
 	return (
-		<div className="absolute top-1 right-1 z-10 flex items-center max-w-[calc(100%-0.5rem)] rounded bg-popover/95 pl-2 pr-0.5 shadow-lg ring-1 ring-border/40 backdrop-blur">
+		<div className="absolute top-1 right-1 z-10 flex items-center max-w-[calc(100%-0.5rem)] rounded bg-surface-sunk/95 pl-2 pr-0.5 shadow-lg ring-1 ring-line/40 backdrop-blur">
 			<input
 				ref={inputRef}
 				type="text"
@@ -62,10 +62,10 @@ export function MarkdownSearch({
 				onChange={(e) => onQueryChange(e.target.value)}
 				onKeyDown={handleKeyDown}
 				placeholder="Find"
-				className="h-6 min-w-0 w-28 flex-shrink bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+				className="h-6 min-w-0 w-28 flex-shrink bg-transparent text-sm text-fg placeholder:text-fg-mute focus:outline-none"
 			/>
 			{query && (
-				<span className="text-xs text-muted-foreground whitespace-nowrap px-1">
+				<span className="text-xs text-fg-mute whitespace-nowrap px-1">
 					{matchCount === 0
 						? "No results"
 						: `${activeMatchIndex + 1} of ${matchCount}`}
@@ -79,8 +79,8 @@ export function MarkdownSearch({
 							onClick={() => onCaseSensitiveChange(!caseSensitive)}
 							className={`rounded p-1 transition-colors ${
 								caseSensitive
-									? "bg-primary/20 text-foreground"
-									: "text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
+									? "bg-accent-tint text-fg"
+									: "text-fg-mute hover:bg-fg-mute/20 hover:text-fg"
 							}`}
 						>
 							<PiTextAa className="size-3.5" />
@@ -93,7 +93,7 @@ export function MarkdownSearch({
 						<button
 							type="button"
 							onClick={onFindPrevious}
-							className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground"
+							className="rounded p-1 text-fg-mute transition-colors hover:bg-fg-mute/20 hover:text-fg"
 						>
 							<HiChevronUp className="size-3.5" />
 						</button>
@@ -105,7 +105,7 @@ export function MarkdownSearch({
 						<button
 							type="button"
 							onClick={onFindNext}
-							className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground"
+							className="rounded p-1 text-fg-mute transition-colors hover:bg-fg-mute/20 hover:text-fg"
 						>
 							<HiChevronDown className="size-3.5" />
 						</button>
@@ -117,7 +117,7 @@ export function MarkdownSearch({
 						<button
 							type="button"
 							onClick={onClose}
-							className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground"
+							className="rounded p-1 text-fg-mute transition-colors hover:bg-fg-mute/20 hover:text-fg"
 						>
 							<HiMiniXMark className="size-3.5" />
 						</button>

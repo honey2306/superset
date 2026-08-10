@@ -46,10 +46,10 @@ const LAST_RUN_META: Record<
 	SelectAutomationRun["status"],
 	{ dot: string; label: string; failed?: boolean }
 > = {
-	dispatched: { dot: "bg-emerald-500", label: "ran" },
-	dispatching: { dot: "bg-amber-500", label: "running" },
-	skipped_offline: { dot: "bg-red-500", label: "failed", failed: true },
-	dispatch_failed: { dot: "bg-red-500", label: "failed", failed: true },
+	dispatched: { dot: "bg-success-tint", label: "ran" },
+	dispatching: { dot: "bg-warning", label: "running" },
+	skipped_offline: { dot: "bg-destructive", label: "failed", failed: true },
+	dispatch_failed: { dot: "bg-destructive", label: "failed", failed: true },
 };
 
 export function AutomationRow({
@@ -103,7 +103,7 @@ export function AutomationRow({
 							openDetail();
 						}
 					}}
-					className="group/row h-10 cursor-pointer border-border/50 text-sm outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
+					className="group/row h-10 cursor-pointer border-line/50 text-sm outline-none transition-colors hover:bg-hover focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-accent-tint focus-visible:ring-inset"
 				>
 					<TableCell className="pl-4">
 						<span className="flex min-w-0 items-center gap-2">
@@ -111,14 +111,14 @@ export function AutomationRow({
 								className={cn(
 									"inline-block size-2 shrink-0 rounded-full",
 									automation.enabled
-										? "bg-emerald-500"
-										: "border border-muted-foreground/60",
+										? "bg-success-tint"
+										: "border border-fg-mute/60",
 								)}
 							/>
 							<span
 								className={cn(
 									"min-w-0 truncate font-medium",
-									!automation.enabled && "text-muted-foreground",
+									!automation.enabled && "text-fg-mute",
 								)}
 								title={automation.name}
 							>
@@ -134,14 +134,14 @@ export function AutomationRow({
 
 					{showOwner && (
 						<TableCell
-							className="truncate text-xs text-muted-foreground"
+							className="truncate text-xs text-fg-mute"
 							title={owner?.email ?? undefined}
 						>
 							{owner?.name ?? owner?.email ?? "—"}
 						</TableCell>
 					)}
 
-					<TableCell className="text-xs text-muted-foreground">
+					<TableCell className="text-xs text-fg-mute">
 						<span className="flex min-w-0 items-center gap-1.5">
 							{project ? (
 								<ProjectThumbnail
@@ -154,7 +154,7 @@ export function AutomationRow({
 						</span>
 					</TableCell>
 
-					<TableCell className="text-xs text-muted-foreground">
+					<TableCell className="text-xs text-fg-mute">
 						<CellWithIcon
 							icon={
 								automation.v2WorkspaceId ? (
@@ -167,14 +167,14 @@ export function AutomationRow({
 						/>
 					</TableCell>
 
-					<TableCell className="text-xs text-muted-foreground">
+					<TableCell className="text-xs text-fg-mute">
 						<CellWithIcon
 							icon={<HiOutlineComputerDesktop className="size-3 shrink-0" />}
 							label={hostLabel}
 						/>
 					</TableCell>
 
-					<TableCell className="text-xs text-muted-foreground">
+					<TableCell className="text-xs text-fg-mute">
 						<AgentCell
 							agentId={automation.agent}
 							hostId={automation.targetHostId ?? null}
@@ -182,13 +182,13 @@ export function AutomationRow({
 					</TableCell>
 
 					<TableCell
-						className="truncate text-xs text-muted-foreground"
+						className="truncate text-xs text-fg-mute"
 						title={scheduleLabel}
 					>
 						{scheduleLabel}
 					</TableCell>
 
-					<TableCell className="text-xs text-muted-foreground">
+					<TableCell className="text-xs text-fg-mute">
 						{lastRunStatus ? (
 							(() => {
 								const meta = LAST_RUN_META[lastRunStatus];
@@ -196,7 +196,7 @@ export function AutomationRow({
 									<span
 										className={cn(
 											"flex items-center gap-1.5",
-											meta.failed && "text-red-600 dark:text-red-400",
+											meta.failed && "text-destructive dark:text-destructive",
 										)}
 									>
 										<span

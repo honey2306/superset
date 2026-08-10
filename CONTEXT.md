@@ -39,3 +39,12 @@ identity always resolve through the owning host.
 The single authority for terminal sessions and their lifecycle. Workspace
 Provisioning can request an initial session through this Interface; panes and
 tabs only attach to session IDs returned by the runtime.
+
+## Tool Call Projection
+
+The agent-independent, renderable view of an ACP tool call. It guarantees every
+client receives required `kind`, `status`, `title`, and `locations` fields after
+folding, regardless of which Agent adapter authored the underlying ACP frames.
+Adapter-specific `rawInput`, `rawOutput`, and `_meta` remain available for
+specialized details and diagnostics, but clients do not interpret them to
+derive primary Tool Call presentation.

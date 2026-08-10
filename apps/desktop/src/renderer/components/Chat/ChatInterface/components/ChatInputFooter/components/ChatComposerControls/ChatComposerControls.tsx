@@ -76,11 +76,11 @@ export function ChatComposerControls({
 					onClick={canAbort ? onStop : undefined}
 				>
 					{canAbort ? (
-						<SquareIcon className="size-3.5 text-muted-foreground" />
+						<SquareIcon className="size-3.5 text-fg-mute" />
 					) : submitStatus === "submitted" || submitDisabled ? (
-						<Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
+						<Loader2Icon className="size-3.5 animate-spin text-fg-mute" />
 					) : (
-						<ArrowUpIcon className="size-3.5 text-muted-foreground" />
+						<ArrowUpIcon className="size-3.5 text-fg-mute" />
 					)}
 				</PromptInputSubmit>
 			</div>

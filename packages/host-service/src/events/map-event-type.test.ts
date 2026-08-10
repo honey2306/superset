@@ -55,4 +55,9 @@ describe("mapEventType", () => {
 		expect(mapEventType("PermissionResult")).toBe("Start");
 		expect(mapEventType("Interrupt")).toBe("Stop");
 	});
+
+	it("maps Grok's snake_case lifecycle events", () => {
+		expect(mapEventType("post_tool_use_failure")).toBe("Start");
+		expect(mapEventType("session_end")).toBe("Detached");
+	});
 });

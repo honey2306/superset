@@ -87,9 +87,9 @@ export function CollapsedWorkspaceItem({
 			}}
 			onMouseEnter={onMouseEnter}
 			className={cn(
-				"relative flex items-center justify-center size-8 rounded-md",
+				"relative flex items-center justify-center size-8 rounded-ds-3",
 				"transition-colors",
-				isActive ? "bg-muted hover:bg-muted" : "hover:bg-muted/50",
+				isActive ? "bg-hover hover:bg-hover" : "hover:bg-hover/50",
 			)}
 		>
 			<WorkspaceIcon
@@ -112,9 +112,7 @@ export function CollapsedWorkspaceItem({
 						</TooltipTrigger>
 						<TooltipContent side="right" className="flex flex-col gap-0.5">
 							<span className="font-medium">local</span>
-							<span className="text-xs text-muted-foreground font-mono">
-								{branch}
-							</span>
+							<span className="text-xs text-fg-mute font-mono">{branch}</span>
 						</TooltipContent>
 					</Tooltip>
 					<ContextMenuContent>

@@ -1,5 +1,8 @@
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { SEARCH_RESULT_LIMIT } from "../../constants";
+import { fileSearchQueryKey } from "../../fileQueryKeys";
 
 interface UseFileSearchParams {
 	workspaceId: string | undefined;
@@ -17,21 +20,30 @@ export function useFileSearch({
 	limit = SEARCH_RESULT_LIMIT,
 }: UseFileSearchParams) {
 	const trimmedQuery = searchTerm.trim();
-
-	const { data: searchResults, isFetching } =
-		electronTrpc.filesystem.searchFiles.useQuery(
-			{
-				workspaceId: workspaceId ?? "",
+	const hostUrl = useWorkspaceHostUrl(workspaceId ?? null);
+	const { data: searchResults, isFetching } = useQuery({
+		queryKey: [
+			...fileSearchQueryKey(hostUrl, workspaceId),
+			trimmedQuery,
+			includePattern,
+			excludePattern,
+			limit,
+		],
+		enabled: Boolean(hostUrl && workspaceId && trimmedQuery.length > 0),
+		queryFn: () => {
+			if (!hostUrl || !workspaceId) {
+				throw new Error("Workspace host is unavailable");
+			}
+			return getHostServiceClientByUrl(hostUrl).filesystem.searchFiles.query({
+				workspaceId,
 				query: trimmedQuery,
 				includePattern,
 				excludePattern,
 				limit,
-			},
-			{
-				enabled: Boolean(workspaceId) && trimmedQuery.length > 0,
-				placeholderData: (previous) => previous ?? { matches: [] },
-			},
-		);
+			});
+		},
+		placeholderData: keepPreviousData,
+	});
 
 	const results =
 		searchResults?.matches.map((match) => ({

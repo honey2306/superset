@@ -73,15 +73,15 @@ export function SecretRow({
 	return (
 		<div
 			className={cn(
-				"flex items-center px-4 py-4 border-b last:border-b-0 group hover:bg-accent/30 transition-colors",
+				"flex items-center px-4 py-4 border-b last:border-b-0 group hover:bg-accent-tint/30 transition-colors",
 				isDeleting && "opacity-50 pointer-events-none",
 			)}
 		>
 			<div className="flex items-center justify-center size-9 rounded-full border bg-background shrink-0">
 				{secret.sensitive ? (
-					<HiLockClosed className="h-4 w-4 text-muted-foreground" />
+					<HiLockClosed className="h-4 w-4 text-fg-mute" />
 				) : (
-					<HiOutlineCodeBracket className="h-4 w-4 text-muted-foreground" />
+					<HiOutlineCodeBracket className="h-4 w-4 text-fg-mute" />
 				)}
 			</div>
 
@@ -90,7 +90,7 @@ export function SecretRow({
 					{secret.key}
 				</span>
 				{secret.sensitive && (
-					<span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+					<span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-hover text-fg-mute shrink-0">
 						{t("secrets.sensitive")}
 					</span>
 				)}
@@ -99,7 +99,7 @@ export function SecretRow({
 			<div className="flex items-center gap-1.5 shrink-0">
 				{!secret.sensitive &&
 					(isEmpty ? (
-						<span className="text-sm text-muted-foreground italic">
+						<span className="text-sm text-fg-mute italic">
 							{t("secrets.empty")}
 						</span>
 					) : (
@@ -107,7 +107,7 @@ export function SecretRow({
 							<button
 								type="button"
 								onClick={() => setIsRevealed(!isRevealed)}
-								className="text-muted-foreground hover:text-foreground transition-colors p-1"
+								className="text-fg-mute hover:text-fg transition-colors p-1"
 							>
 								{isRevealed ? (
 									<HiEyeSlash className="h-4 w-4" />
@@ -123,7 +123,7 @@ export function SecretRow({
 											onClick={handleCopy}
 											onMouseEnter={() => setValueHovered(true)}
 											onMouseLeave={() => setValueHovered(false)}
-											className="font-mono text-sm text-muted-foreground max-w-[200px] truncate rounded px-1 py-0.5 hover:bg-accent transition-colors cursor-pointer"
+											className="font-mono text-sm text-fg-mute max-w-[200px] truncate rounded px-1 py-0.5 hover:bg-accent-tint transition-colors cursor-pointer"
 										>
 											{secret.value}
 										</button>
@@ -133,7 +133,7 @@ export function SecretRow({
 									</TooltipContent>
 								</Tooltip>
 							) : (
-								<span className="font-mono text-sm text-muted-foreground max-w-[200px] truncate">
+								<span className="font-mono text-sm text-fg-mute max-w-[200px] truncate">
 									{
 										"\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
 									}
@@ -143,7 +143,7 @@ export function SecretRow({
 					))}
 			</div>
 
-			<div className="flex items-center justify-end gap-2 flex-1 basis-0 text-xs text-muted-foreground">
+			<div className="flex items-center justify-end gap-2 flex-1 basis-0 text-xs text-fg-mute">
 				<span>
 					{t("secrets.addedOn", {
 						date: new Intl.DateTimeFormat(locale, {

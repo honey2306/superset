@@ -9,7 +9,7 @@ import {
 	HiOutlineShieldCheck,
 	HiOutlineSparkles,
 } from "react-icons/hi2";
-import { LuBrain, LuGitBranch, LuKeyboard } from "react-icons/lu";
+import { LuBrain, LuGitBranch, LuKeyboard, LuSmartphone } from "react-icons/lu";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
@@ -31,12 +31,13 @@ type SettingsRoute =
 	| "/settings/git"
 	| "/settings/terminal"
 	| "/settings/models"
+	| "/settings/phone"
 	| "/settings/permissions"
 	| "/settings/projects";
 
 interface SectionItem {
 	id: SettingsRoute;
-	section: SettingsSection;
+	section?: SettingsSection;
 	labelKey: MessageKey;
 	icon: React.ReactNode;
 	macOnly?: boolean;
@@ -115,6 +116,11 @@ const SECTION_GROUPS: SectionGroup[] = [
 		labelKey: "settings.group.system",
 		items: [
 			{
+				id: "/settings/phone",
+				labelKey: "settings.phoneAccess",
+				icon: <LuSmartphone className="h-4 w-4" />,
+			},
+			{
 				id: "/settings/permissions",
 				section: "permissions",
 				labelKey: "settings.permissions",
@@ -141,17 +147,22 @@ export function GeneralSettings({ matchCounts }: GeneralSettingsProps) {
 			{SECTION_GROUPS.map((group, groupIndex) => {
 				const platformItems = group.items.filter(
 					(item) =>
-						(!item.macOnly || isMac) && allowedSections.has(item.section),
+						(!item.macOnly || isMac) &&
+						(item.section === undefined || allowedSections.has(item.section)),
 				);
 				const filteredItems = matchCounts
-					? platformItems.filter((item) => (matchCounts[item.section] ?? 0) > 0)
+					? platformItems.filter(
+							(item) =>
+								item.section !== undefined &&
+								(matchCounts[item.section] ?? 0) > 0,
+						)
 					: platformItems;
 
 				if (filteredItems.length === 0) return null;
 
 				return (
 					<div key={group.labelKey} className={cn(groupIndex > 0 && "mt-4")}>
-						<h2 className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-[0.1em] px-3 mb-1">
+						<h2 className="text-[10px] font-medium text-fg-faint uppercase tracking-[0.1em] px-3 mb-1">
 							{t(group.labelKey)}
 						</h2>
 						<nav className="flex flex-col">
@@ -160,23 +171,25 @@ export function GeneralSettings({ matchCounts }: GeneralSettingsProps) {
 									to: section.id,
 									fuzzy: true,
 								});
-								const count = matchCounts?.[section.section];
+								const count = section.section
+									? matchCounts?.[section.section]
+									: undefined;
 
 								return (
 									<Link
 										key={section.id}
 										to={section.id}
 										className={cn(
-											"flex items-center gap-3 px-3 py-1.5 text-sm rounded-md transition-colors text-left",
+											"flex items-center gap-3 px-3 py-1.5 text-sm rounded-ds-3 transition-colors text-left",
 											isActive
-												? "bg-accent text-accent-foreground"
-												: "text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground",
+												? "bg-accent-tint text-accent-foreground"
+												: "text-fg-mute hover:bg-hover hover:text-accent-foreground",
 										)}
 									>
 										{section.icon}
 										<span className="flex-1">{t(section.labelKey)}</span>
 										{count !== undefined && count > 0 && (
-											<span className="text-xs text-muted-foreground bg-accent/50 px-1.5 py-0.5 rounded">
+											<span className="text-xs text-fg-mute bg-accent-tint/50 px-1.5 py-0.5 rounded">
 												{count}
 											</span>
 										)}

@@ -29,7 +29,7 @@ export function ListMembersToolCall({ part }: ListMembersToolCallProps) {
 			icon={UsersIcon}
 			details={
 				<div className="space-y-2">
-					<div className="text-muted-foreground">
+					<div className="text-fg-mute">
 						{t("chat.tool.membersCount", { count: members.length })}
 					</div>
 					{members.length > 0 ? (
@@ -52,8 +52,8 @@ export function ListMembersToolCall({ part }: ListMembersToolCallProps) {
 										key={memberId ?? `${name}-${email ?? "unknown"}`}
 										className="rounded border bg-background/70 px-2 py-1"
 									>
-										<div className="font-medium text-foreground">{name}</div>
-										<div className="text-muted-foreground">
+										<div className="font-medium text-fg">{name}</div>
+										<div className="text-fg-mute">
 											{email ?? t("chat.tool.noEmail")}
 											{role ? ` • ${role}` : ""}
 										</div>
@@ -62,7 +62,7 @@ export function ListMembersToolCall({ part }: ListMembersToolCallProps) {
 							})}
 						</div>
 					) : (
-						<div className="text-muted-foreground">
+						<div className="text-fg-mute">
 							{t("chat.tool.noMembersInResult")}
 						</div>
 					)}

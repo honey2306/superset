@@ -1,105 +1,87 @@
 # Releasing
 
-The release toolchain is `scripts/release/*.ts` (TypeScript, run by Bun — no build
-step). One entry point: **`bun run release`**. Design/rationale lives in
+The release toolchain is `scripts/release/*.ts` (TypeScript, run by Bun — no
+build step). The entry point is **`bun run release`**. Design/rationale lives in
 [`plans/20260709-unified-version-bumping.md`](../../plans/20260709-unified-version-bumping.md).
 
 ## Model
 
-- **desktop == host-service == cli** at each desktop release — one unified plain
-  version, enforced by `bun run check:versions` (CI-gated). Publishing a desktop
-  release fires `release-cli-lockstep.yml`, which tags the matching plain
-  `cli-v<version>` so the standalone CLI ships in lockstep automatically.
-- **CLI hotfixes lead by a patch.** Between desktop releases, a CLI-only fix bumps
-  a plain patch above the current CLI (`1.14.1 → 1.14.2`), within desktop's minor
-  line, until the next desktop release catches up.
-- **No prerelease suffixes.** A suffix sorts *below* the release (so `superset
-  update` won't deliver it) and fails the host-service min-version floor
-  (`semver.satisfies` excludes prereleases). Everything stays plain.
-- **pty-daemon** is on its own `0.x` track, bumped only with `--daemon`.
+- **desktop == host-service** at each desktop release. One unified plain version
+  is enforced by `bun run check:versions`.
+- **pty-daemon** is on its own `0.x` track and is bumped only with `--daemon`.
+- The standalone CLI is not part of this distribution.
 
 ## Commands
 
 | Command | When |
 | --- | --- |
-| `bun run release` | Interactive menu (TTY only). |
-| `bun run release desktop [version]` | New app release. Moves desktop + host-service + cli together + publishes matching `cli-v`. Draft by default. |
-| `bun run release cli [version]` | CLI-only hotfix **between** desktop releases → plain patch above the current CLI. |
-| `… --daemon` | Also ship a pty-daemon fix (patch-bumps it on `0.x`). |
-| `bun run release check` | Verify versions are unified (exit 1 on drift). |
+| `bun run release` | Interactive desktop release menu (TTY only). |
+| `bun run release desktop [version]` | New desktop release. Moves desktop + host-service together. Draft by default. |
+| `… --daemon` | Also patch-bump and ship pty-daemon. |
+| `bun run release check` | Verify desktop and host-service versions match. |
 
-`version` for a desktop release is `MAJOR.MINOR.PATCH` (or omit for the
-patch/minor/major menu). See `bun run release desktop --help`.
+`version` is `MAJOR.MINOR.PATCH`. For automation, always pass it explicitly.
 
 ## Cut from a release branch (not `main`)
 
-Releases are cut on a **dedicated release branch**, not on `main` and not on your
-feature branch. Two ways:
+Releases are cut on a dedicated release branch, not on `main` or a feature
+branch.
 
-**A — release a specific commit (canary-style).** Provisions an ephemeral release
-branch from the commit in a worktree, applies the version bump there, tags,
-pushes, and opens the bump PR; your working tree is untouched:
+### Release a specific commit
 
-```bash
-bun run release desktop 1.15.0 <commit-sha>   # commit to release (e.g. a main SHA)
-```
-
-**B — from a release branch you're on.** Bumps the version, pushes the branch,
-opens a PR, and tags:
+This provisions an ephemeral release branch from the commit, applies the version
+bump, tags, pushes, and opens the bump PR; the current worktree is untouched:
 
 ```bash
-git switch -c release-1.15.0
-bun run release desktop 1.15.0
+bun run release desktop 1.17.1 <main-commit-sha>
 ```
 
-Either way, the `desktop-v<version>` tag triggers `release-desktop.yml`, and both
-open a `chore(desktop): bump version to <version>` PR into `main` — merge it (or
-pass `--merge`) so `main` carries the released version. Leaving it unmerged only
-drifts `main`'s `package.json`: the next release reads the latest `desktop-v` tag,
-not `package.json`.
-
-## Desktop: draft → publish
-
-Draft by default — nothing reaches users until you publish. Review the draft, then:
+### Release from an existing release branch
 
 ```bash
-gh release edit desktop-v1.15.0 --draft=false      # publish
-# or in one shot:
-bun run release desktop 1.15.0 --publish [--merge] # auto-publish (+ merge the PR)
+git switch -c release-1.17.1
+bun run release desktop 1.17.1
 ```
 
-Once published (non-draft), it becomes `/releases/latest`, which the desktop
-auto-updater reads. Publishing (either way) also triggers
-`release-cli-lockstep.yml`, which tags `cli-v<version>` and ships the matching
-standalone CLI — no manual CLI step.
+Either path creates `desktop-v<version>`, triggering `release-desktop.yml`, and
+opens `chore(desktop): bump version to <version>` into `main`. Merge the bump PR
+so `main` records the released version.
 
-## When the daemon guard blocks
+## Draft → publish
 
-```
-✗ pty-daemon/src changed since its last version bump … but this release
-  doesn't bump the daemon.
-```
-
-The daemon changed but you're not bumping it → old daemons won't update. Re-run
-with `--daemon` (for a desktop release you can instead ship the daemon fix via
-`bun run release cli --daemon`).
-
-## Re-cut / clean up a release
+Desktop releases are drafts by default. Review artifacts before publishing:
 
 ```bash
-gh release delete cli-v1.14.0-2 --yes --cleanup-tag   # delete release + remote tag
-git tag -d cli-v1.14.0-2                               # delete local tag
-# then re-run the release, or pass --republish (desktop) to recreate the same version
+gh release edit desktop-v1.17.1 --draft=false
 ```
 
-Re-cutting an **older** `cli-v` tag is safe: `release-cli.yml` only moves the
-rolling `cli-latest` pointer (and Homebrew) forward, never backward.
+Or publish and merge the bump PR automatically:
+
+```bash
+bun run release desktop 1.17.1 <commit-sha> --publish --merge
+```
+
+A published release becomes `/releases/latest`, which the desktop auto-updater
+uses.
+
+## Daemon guard
+
+If the release reports that `pty-daemon/src` changed since its last version bump,
+rerun with `--daemon` so existing installations receive the daemon update.
+
+## Re-cut / cleanup
+
+```bash
+gh release delete desktop-v1.17.1 --yes --cleanup-tag
+git tag -d desktop-v1.17.1
+```
+
+Then rerun the release or pass `--republish` to recreate the same version.
 
 ## Agent / non-interactive
 
-Every action is reachable via flags; prompts only fire on a TTY. Pass a version
-explicitly and add `--republish` to skip the tag-exists prompt. Flows also export
-`runDesktop(args)` / `runCli(args)` for programmatic use.
+All actions are available through flags. Pass a version explicitly; use
+`--republish` only when intentionally replacing an existing tag.
 
 ## Prerequisites
 

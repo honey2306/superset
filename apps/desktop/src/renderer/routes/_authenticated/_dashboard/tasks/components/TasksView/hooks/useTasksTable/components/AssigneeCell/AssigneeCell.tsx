@@ -67,7 +67,7 @@ export function AssigneeCell({ info }: AssigneeCellProps) {
 							image={task.assigneeAvatarUrl}
 						/>
 					) : (
-						<HiOutlineUserCircle className="size-5 text-muted-foreground" />
+						<HiOutlineUserCircle className="size-5 text-fg-mute" />
 					)}
 				</button>
 			</DropdownMenuTrigger>
@@ -81,10 +81,10 @@ export function AssigneeCell({ info }: AssigneeCellProps) {
 						onSelect={() => handleSelectUser(null)}
 						className="flex items-center gap-2"
 					>
-						<HiOutlineUserCircle className="size-5 text-muted-foreground shrink-0" />
+						<HiOutlineUserCircle className="size-5 text-fg-mute shrink-0" />
 						<span className="text-sm">{t("tasks.noAssignee")}</span>
 						{!assigneeId && !task.assigneeExternalId && (
-							<span className="ml-auto text-xs text-muted-foreground">✓</span>
+							<span className="ml-auto text-xs text-fg-mute">✓</span>
 						)}
 					</DropdownMenuItem>
 					{users.map((user) => (
@@ -96,12 +96,10 @@ export function AssigneeCell({ info }: AssigneeCellProps) {
 							<Avatar size="xs" fullName={user.name} image={user.image} />
 							<div className="flex flex-col">
 								<span className="text-sm">{user.name}</span>
-								<span className="text-xs text-muted-foreground">
-									{user.email}
-								</span>
+								<span className="text-xs text-fg-mute">{user.email}</span>
 							</div>
 							{user.id === assigneeId && (
-								<span className="ml-auto text-xs text-muted-foreground">✓</span>
+								<span className="ml-auto text-xs text-fg-mute">✓</span>
 							)}
 						</DropdownMenuItem>
 					))}

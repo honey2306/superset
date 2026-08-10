@@ -1,0 +1,400 @@
+/* dracula-theme.css — Dracula Colorful theme overrides for the F01 pane
+ *
+ * Standard Dracula palette:
+ *   Background     #282a36
+ *   Current line   #44475a
+ *   Foreground     #f8f8f2
+ *   Comment        #6272a4
+ *   Cyan           #8be9fd
+ *   Green          #50fa7b
+ *   Orange         #ffb86c
+ *   Pink           #ff79c6   ← primary accent
+ *   Purple         #bd93f9
+ *   Red            #ff5555
+ *   Yellow         #f1fa8c
+ *
+ * Applied under [data-theme="dracula"] on the .fu pane container.
+ */
+
+[data-theme="dracula"] .fu {
+	/* Core surface */
+	--fu-bg: #282a36;
+	--fu-panel: #2d2f3f;
+	--fu-panel-2: #343746;
+	--fu-fg: #f8f8f2;
+	--fu-fg-2: #d0d3e0;
+	--fu-muted: #6272a4;
+	--fu-dim: #44475a;
+	--fu-line: rgba(98, 114, 164, 0.18);
+	--fu-line-hi: rgba(98, 114, 164, 0.36);
+
+	/* Primary accent = pink; secondary = cyan */
+	--fu-amber: #ff79c6;
+	--fu-amber-dim: rgba(255, 121, 198, 0.14);
+	--fu-teal: #8be9fd;
+	--fu-teal-dim: rgba(139, 233, 253, 0.12);
+
+	/* Signal colors — full Dracula palette across tool kinds */
+	--fu-user: #8be9fd; /* cyan for user */
+	--fu-user-dim: rgba(139, 233, 253, 0.12);
+	--fu-ok: #50fa7b;
+	--fu-warn: #ffb86c;
+	--fu-danger: #ff5555;
+	--fu-purple: #bd93f9;
+	--fu-yellow: #f1fa8c;
+}
+
+/* Header — pink agent chip glow */
+[data-theme="dracula"] .fu__hd {
+	background: linear-gradient(to bottom, #313344, #282a36);
+}
+[data-theme="dracula"] .fu-chip {
+	background: rgba(255, 121, 198, 0.14);
+	border-color: rgba(255, 121, 198, 0.36);
+	color: #ff79c6;
+	box-shadow: 0 0 12px rgba(255, 121, 198, 0.15);
+}
+[data-theme="dracula"] .fu-chip .dot {
+	background: #50fa7b;
+	box-shadow: 0 0 6px rgba(80, 250, 123, 0.6);
+}
+
+/* Slim rail — dracula purple accent */
+[data-theme="dracula"] .fu__rail {
+	background: #21222c;
+}
+[data-theme="dracula"] .fu__rail .r-item.active {
+	color: #ff79c6;
+}
+[data-theme="dracula"] .fu__rail .r-item.active::before {
+	background: #ff79c6;
+}
+
+/* Message avatars — user cyan, agent pink, thinking muted */
+[data-theme="dracula"] .fu-msg--user .fu-msg__avatar {
+	background: rgba(139, 233, 253, 0.14);
+	color: #8be9fd;
+	border-color: rgba(139, 233, 253, 0.36);
+}
+[data-theme="dracula"] .fu-msg--assistant .fu-msg__avatar {
+	background: rgba(255, 121, 198, 0.14);
+	color: #ff79c6;
+	border-color: rgba(255, 121, 198, 0.36);
+}
+
+/* Tool card kind colors — map to Dracula palette */
+[data-theme="dracula"] .fu-tool {
+	background: #2d2f3f;
+}
+[data-theme="dracula"] .fu-tool.kind-read .fu-tool__ic {
+	background: rgba(139, 233, 253, 0.14);
+	color: #8be9fd;
+}
+[data-theme="dracula"] .fu-tool.kind-read .fu-tool__kind {
+	color: #8be9fd;
+	border-color: rgba(139, 233, 253, 0.36);
+	background: rgba(139, 233, 253, 0.06);
+}
+
+[data-theme="dracula"] .fu-tool.kind-edit .fu-tool__ic {
+	background: rgba(255, 184, 108, 0.14);
+	color: #ffb86c;
+}
+[data-theme="dracula"] .fu-tool.kind-edit .fu-tool__kind {
+	color: #ffb86c;
+	border-color: rgba(255, 184, 108, 0.36);
+	background: rgba(255, 184, 108, 0.06);
+}
+
+[data-theme="dracula"] .fu-tool.kind-search .fu-tool__ic {
+	background: rgba(189, 147, 249, 0.14);
+	color: #bd93f9;
+}
+[data-theme="dracula"] .fu-tool.kind-search .fu-tool__kind {
+	color: #bd93f9;
+	border-color: rgba(189, 147, 249, 0.36);
+	background: rgba(189, 147, 249, 0.06);
+}
+
+[data-theme="dracula"] .fu-tool.kind-execute .fu-tool__ic {
+	background: rgba(80, 250, 123, 0.14);
+	color: #50fa7b;
+}
+[data-theme="dracula"] .fu-tool.kind-execute .fu-tool__kind {
+	color: #50fa7b;
+	border-color: rgba(80, 250, 123, 0.36);
+	background: rgba(80, 250, 123, 0.06);
+}
+
+[data-theme="dracula"] .fu-tool.kind-delete .fu-tool__ic {
+	background: rgba(255, 85, 85, 0.14);
+	color: #ff5555;
+}
+[data-theme="dracula"] .fu-tool.kind-delete .fu-tool__kind {
+	color: #ff5555;
+	border-color: rgba(255, 85, 85, 0.36);
+	background: rgba(255, 85, 85, 0.06);
+}
+
+[data-theme="dracula"] .fu-tool__hd {
+	background: linear-gradient(180deg, rgba(189, 147, 249, 0.03), transparent);
+}
+[data-theme="dracula"] .fu-tool__body {
+	background: #21222c;
+	color: #d0d3e0;
+}
+[data-theme="dracula"] .fu-tool__meta.ok {
+	color: #50fa7b;
+}
+[data-theme="dracula"] .fu-tool__meta.warn {
+	color: #ffb86c;
+}
+[data-theme="dracula"] .fu-tool__meta.ok .dot {
+	background: #50fa7b;
+}
+[data-theme="dracula"] .fu-tool__meta.warn .dot {
+	background: #ffb86c;
+}
+[data-theme="dracula"] .fu-tool__foot .auto {
+	color: #50fa7b;
+}
+
+/* Diff — Dracula-style + and − rows */
+[data-theme="dracula"] .fu-diff {
+	background: #21222c;
+}
+[data-theme="dracula"] .fu-diff__body .diff-line.add {
+	background: rgba(80, 250, 123, 0.08);
+}
+[data-theme="dracula"] .fu-diff__body .diff-line.del {
+	background: rgba(255, 85, 85, 0.08);
+}
+[data-theme="dracula"] .fu-diff__body .diff-line .diff-add {
+	color: #50fa7b;
+}
+[data-theme="dracula"] .fu-diff__body .diff-line .diff-del {
+	color: #ff5555;
+}
+[data-theme="dracula"] .fu-diff__hd .stat .plus {
+	color: #50fa7b;
+}
+[data-theme="dracula"] .fu-diff__hd .stat .minus {
+	color: #ff5555;
+}
+
+/* Plan — cyan section anchor + green complete + orange in-progress */
+[data-theme="dracula"] .fu-plan {
+	background: #2d2f3f;
+}
+[data-theme="dracula"] .fu-plan__hd {
+	color: #8be9fd;
+}
+[data-theme="dracula"] .fu-plan__item.done .box {
+	background: #50fa7b;
+	border-color: #50fa7b;
+	color: #282a36;
+}
+[data-theme="dracula"] .fu-plan__item.now .box {
+	border-color: #ffb86c;
+	background: rgba(255, 184, 108, 0.14);
+	color: #ffb86c;
+}
+[data-theme="dracula"] .fu-plan__item .pri.hi {
+	background: rgba(255, 85, 85, 0.14);
+	color: #ff5555;
+}
+[data-theme="dracula"] .fu-plan__item .pri.md {
+	background: rgba(255, 184, 108, 0.14);
+	color: #ffb86c;
+}
+[data-theme="dracula"] .fu-plan__item .pri.lo {
+	background: rgba(98, 114, 164, 0.18);
+	color: #6272a4;
+}
+
+/* Permission — pink pulse (identity-signature color) */
+[data-theme="dracula"] .fu-perm {
+	border-color: rgba(255, 121, 198, 0.55);
+	background: linear-gradient(
+		180deg,
+		rgba(255, 121, 198, 0.14),
+		rgba(255, 121, 198, 0.03)
+	);
+	box-shadow: 0 0 32px rgba(255, 121, 198, 0.12);
+}
+[data-theme="dracula"] .fu-perm__hd {
+	color: #ff79c6;
+}
+[data-theme="dracula"] .fu-perm__hd .pulse {
+	background: #ff79c6;
+	animation: pulse-pink 1.6s infinite;
+}
+@keyframes pulse-pink {
+	0% {
+		box-shadow: 0 0 0 0 rgba(255, 121, 198, 0.6);
+	}
+	70% {
+		box-shadow: 0 0 0 8px rgba(255, 121, 198, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(255, 121, 198, 0);
+	}
+}
+[data-theme="dracula"] .fu-perm__q code {
+	color: #ff79c6;
+	background: rgba(0, 0, 0, 0.4);
+}
+[data-theme="dracula"] .fu-perm__opt {
+	background: rgba(40, 42, 54, 0.7);
+	border-color: rgba(98, 114, 164, 0.28);
+}
+[data-theme="dracula"] .fu-perm__opt:hover {
+	border-color: #ff79c6;
+}
+[data-theme="dracula"] .fu-perm__opt .k {
+	color: #ff79c6;
+	border-color: rgba(255, 121, 198, 0.4);
+}
+
+/* Composer — pink glyph + pink send button */
+[data-theme="dracula"] .fu__composer {
+	background: linear-gradient(to top, #2d2f3f, #282a36);
+}
+[data-theme="dracula"] .fu__composer .box {
+	background: rgba(33, 34, 44, 0.5);
+}
+[data-theme="dracula"] .fu__composer .box:focus-within {
+	border-color: rgba(255, 121, 198, 0.5);
+}
+[data-theme="dracula"] .fu__composer .prompt-row .glyph {
+	color: #ff79c6;
+}
+[data-theme="dracula"] .fu__composer .toolbar .slash {
+	color: #ff79c6;
+}
+[data-theme="dracula"] .fu__composer .toolbar .at {
+	color: #8be9fd;
+}
+[data-theme="dracula"] .fu__composer .send-btn {
+	background: rgba(255, 121, 198, 0.16);
+	color: #ff79c6;
+	border-color: rgba(255, 121, 198, 0.4);
+}
+
+/* Status line — pink mode badge, gradient bar cyan → pink */
+[data-theme="dracula"] .fu__status {
+	background: #21222c;
+}
+[data-theme="dracula"] .fu__status .seg.mode {
+	background: rgba(255, 121, 198, 0.14);
+	color: #ff79c6;
+	border-color: rgba(255, 121, 198, 0.36);
+}
+[data-theme="dracula"] .fu__status .seg.mode.plan {
+	background: rgba(139, 233, 253, 0.14);
+	color: #8be9fd;
+	border-color: rgba(139, 233, 253, 0.36);
+}
+[data-theme="dracula"] .fu__status .bar__fill {
+	background: linear-gradient(to right, #8be9fd, #bd93f9, #ff79c6);
+}
+[data-theme="dracula"] .fu__status .cost {
+	color: #f1fa8c;
+}
+[data-theme="dracula"] .fu__status .branch {
+	color: #8be9fd;
+}
+[data-theme="dracula"] .fu__status .conn {
+	color: #50fa7b;
+}
+
+/* Palette overlay — dracula-tinted */
+[data-theme="dracula"] .fu-palette,
+[data-theme="dracula"] .v3-shell__frame .fu-palette {
+	background: #21222c;
+	border-color: rgba(255, 121, 198, 0.36);
+	box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.6);
+}
+[data-theme="dracula"] .fu-palette__item .cmd {
+	color: #ff79c6;
+}
+[data-theme="dracula"] .fu-palette__item:hover,
+[data-theme="dracula"] .fu-palette__item.sel {
+	background: rgba(255, 121, 198, 0.1);
+}
+[data-theme="dracula"] .fu-palette__item.file .cmd {
+	color: #8be9fd;
+}
+
+/* Streaming cursor in dracula */
+[data-theme="dracula"] .fu__body .streaming-cursor::after {
+	color: #ff79c6;
+}
+
+/* Head buttons */
+[data-theme="dracula"] .fu__hd .head-btn.awaiting {
+	color: #ff79c6;
+	border-color: rgba(255, 121, 198, 0.4);
+	background: rgba(255, 121, 198, 0.14);
+}
+
+/* Outer shell — Dracula backdrop */
+body[data-theme="dracula"] {
+	background: #191a21;
+}
+body[data-theme="dracula"] .v3-shell__title b {
+	color: #ff79c6;
+}
+body[data-theme="dracula"] .v3-shell__back {
+	color: #8be9fd;
+	border-color: rgba(139, 233, 253, 0.28);
+}
+body[data-theme="dracula"] .v3-shell__back:hover {
+	background: rgba(139, 233, 253, 0.06);
+}
+body[data-theme="dracula"] .v3-shell__frame {
+	background: #282a36;
+	box-shadow:
+		0 40px 100px rgba(0, 0, 0, 0.7),
+		0 0 0 1px rgba(255, 121, 198, 0.08),
+		0 0 60px rgba(189, 147, 249, 0.06);
+}
+
+/* Theme switcher control */
+.theme-switch {
+	display: inline-flex;
+	gap: 4px;
+	padding: 3px;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 6px;
+	margin-left: 12px;
+	font-family: var(--font-mono);
+}
+.theme-switch button {
+	background: transparent;
+	border: none;
+	color: rgba(255, 255, 255, 0.55);
+	font: inherit;
+	font-size: 10.5px;
+	padding: 3px 10px;
+	border-radius: 4px;
+	cursor: pointer;
+	letter-spacing: 0.04em;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.theme-switch button:hover {
+	color: #eaeaee;
+}
+.theme-switch button.active {
+	background: rgba(255, 255, 255, 0.08);
+	color: #eaeaee;
+}
+.theme-switch .swatch {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	display: inline-block;
+}

@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>ACP · Jump to last user message</title>
+<style>
+	:root {
+		--acp-bg: #282a36;
+		--acp-panel: #2d2f3f;
+		--acp-panel-2: #343746;
+		--acp-fg: #f8f8f2;
+		--acp-fg-2: #d0d3e0;
+		--acp-muted: #6272a4;
+		--acp-dim: #44475a;
+		--acp-line: rgba(98, 114, 164, 0.18);
+		--acp-line-hi: rgba(98, 114, 164, 0.36);
+		--acp-pink: #ff79c6;
+		--acp-pink-dim: rgba(255, 121, 198, 0.14);
+		--acp-cyan: #8be9fd;
+		--acp-cyan-dim: rgba(139, 233, 253, 0.12);
+		--acp-green: #50fa7b;
+		--acp-orange: #ffb86c;
+		--acp-purple: #bd93f9;
+		--acp-font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+	}
+	* { box-sizing: border-box; }
+	html, body { margin: 0; padding: 0; height: 100%; }
+	body {
+		background: #16171f;
+		color: var(--acp-fg);
+		font-family: var(--acp-font-mono);
+		font-size: 13px;
+		padding: 32px 32px 32px 32px;
+	}
+	.stack {
+		max-width: 900px;
+		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		gap: 28px;
+	}
+	.stack__intro {
+		color: var(--acp-muted);
+		font-size: 12px;
+		line-height: 1.6;
+		margin: 0;
+		max-width: 640px;
+	}
+	.variant-card {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.variant-card__label {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--acp-muted);
+	}
+	.variant-card__label b {
+		color: var(--acp-cyan);
+		font-weight: 500;
+	}
+	.variant-card__label .desc {
+		color: var(--acp-muted);
+		text-transform: none;
+		letter-spacing: 0;
+		font-size: 11px;
+		flex: 1;
+		text-align: right;
+	}
+
+	/* --- Fake ACP pane frame --- */
+	.pane {
+		background: var(--acp-bg);
+		border: 1px solid var(--acp-line);
+		border-radius: 12px;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+	}
+	.pane--mini {
+		height: 260px;
+	}
+
+	.pane__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 16px;
+		border-bottom: 1px solid var(--acp-line);
+		color: var(--acp-muted);
+		font-size: 11px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+	.pane__header em {
+		color: var(--acp-pink);
+		font-style: normal;
+	}
+
+	/* --- Timeline (scrollable list of messages) --- */
+	.timeline-wrap {
+		flex: 1;
+		position: relative;
+		min-height: 0;
+	}
+	.timeline {
+		position: absolute;
+		inset: 0;
+		overflow-y: auto;
+		padding: 20px 16px 24px;
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		scroll-behavior: smooth;
+	}
+	.timeline::-webkit-scrollbar { width: 8px; }
+	.timeline::-webkit-scrollbar-thumb {
+		background: var(--acp-line-hi);
+		border-radius: 4px;
+	}
+
+	.acp-msg { display: flex; flex-direction: column; gap: 4px; scroll-margin-top: 12px; }
+	.acp-msg[data-role="user"] { align-items: flex-end; }
+	.acp-msg__author {
+		font-size: 10px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--acp-muted);
+		padding: 0 4px;
+	}
+	.acp-msg[data-role="user"] .acp-msg__author { color: var(--acp-cyan); }
+	.acp-msg[data-role="agent"] .acp-msg__author { color: var(--acp-pink); }
+	.acp-msg__bubble {
+		max-width: 68ch;
+		padding: 10px 14px;
+		border-radius: 10px;
+		background: var(--acp-panel);
+		border: 1px solid var(--acp-line);
+		line-height: 1.65;
+		color: var(--acp-fg-2);
+	}
+	.acp-msg[data-role="user"] .acp-msg__bubble {
+		background: rgba(139, 233, 253, 0.06);
+		border-color: rgba(139, 233, 253, 0.22);
+		color: var(--acp-fg);
+	}
+	.acp-msg .chip {
+		display: inline-block;
+		padding: 1px 6px;
+		border: 1px solid var(--acp-line-hi);
+		border-radius: 4px;
+		color: var(--acp-pink);
+		font-size: 12px;
+	}
+
+	/* Brief highlight when jumped-to */
+	.acp-msg[data-role="user"].is-flashed .acp-msg__bubble {
+		animation: flash 1.1s ease-out;
+	}
+	@keyframes flash {
+		0%   { box-shadow: 0 0 0 0 rgba(139, 233, 253, 0.55); }
+		40%  { box-shadow: 0 0 0 6px rgba(139, 233, 253, 0.22); }
+		100% { box-shadow: 0 0 0 0 rgba(139, 233, 253, 0); }
+	}
+
+	/* --- Composer wrap: relative anchor for floating pieces --- */
+	.composer-wrap {
+		position: relative;
+		flex-shrink: 0;
+		padding: 0 16px 16px;
+	}
+
+	/* Existing "scroll to bottom" button — lives INSIDE the scroll container.
+	   Shown here so you can see it and the new button coexist. */
+	.acp-pane__jump {
+		position: absolute;
+		bottom: 12px;
+		right: 12px;
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		background: var(--acp-panel);
+		border: 1px solid var(--acp-line-hi);
+		color: var(--acp-pink);
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+		z-index: 15;
+		transition: background 120ms ease;
+	}
+	.acp-pane__jump:hover { background: var(--acp-panel-2); }
+	.acp-pane__jump[hidden] { display: none; }
+	.acp-pane__jump svg { width: 16px; height: 16px; }
+
+	/* NEW BUTTON — shared base */
+	.jump-to-user {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		background: var(--acp-panel);
+		border: 1px solid var(--acp-line-hi);
+		color: var(--acp-cyan);
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 20;
+		box-shadow: 0 4px 14px rgba(0,0,0,0.38);
+		transition: transform 120ms ease, background 120ms ease, color 120ms ease, opacity 160ms ease;
+	}
+	.jump-to-user:hover {
+		background: var(--acp-panel-2);
+		color: var(--acp-fg);
+		transform: translateY(-1px);
+	}
+	.jump-to-user:active { transform: translateY(0); }
+	.jump-to-user:focus-visible {
+		outline: 2px solid var(--acp-cyan);
+		outline-offset: 2px;
+	}
+	.jump-to-user[hidden] { display: none; }
+	.jump-to-user svg { width: 14px; height: 14px; }
+
+	/* Variant A: float on LEFT side above composer (mirror of existing pink ↓ on right) */
+	.pane[data-variant="left"] .jump-to-user {
+		position: absolute;
+		left: 22px;
+		bottom: calc(100% + 8px);
+	}
+
+	/* Variant B: mutually exclusive with existing button.
+	   When agent is answering / user is at bottom → hide pink ↓, show cyan ↑ (right/bottom on composer, same slot).
+	   When user scrolls up → hide cyan ↑, show pink ↓ (in timeline). Only one visible at a time. */
+	.pane[data-variant="mutex"] .jump-to-user {
+		position: absolute;
+		right: 22px;
+		bottom: calc(100% + 8px);
+	}
+
+	/* ============ Inline variants ============ */
+	.inline-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		font-family: var(--acp-font-mono);
+		color: var(--acp-cyan);
+		padding: 0;
+		transition: color 120ms ease, background 120ms ease, opacity 120ms ease;
+	}
+	.inline-btn:focus-visible {
+		outline: 2px solid var(--acp-cyan);
+		outline-offset: 2px;
+		border-radius: 4px;
+	}
+	.inline-btn[hidden] { display: none; }
+	.inline-btn svg { width: 12px; height: 12px; }
+
+	/* C1: ghost icon — quietest, matches › prompt glyph aesthetic */
+	.inline-btn.v-ghost {
+		width: 22px;
+		height: 22px;
+		justify-content: center;
+		color: var(--acp-muted);
+		border-radius: 4px;
+	}
+	.inline-btn.v-ghost:hover {
+		color: var(--acp-cyan);
+		background: var(--acp-cyan-dim);
+	}
+
+	/* C2: bordered — visually paired with Send button style */
+	.inline-btn.v-bordered {
+		padding: 3px 8px;
+		border: 1px solid var(--acp-line-hi);
+		border-radius: 6px;
+		color: var(--acp-cyan);
+		font-size: 11px;
+	}
+	.inline-btn.v-bordered:hover {
+		background: var(--acp-cyan-dim);
+		border-color: var(--acp-cyan);
+	}
+
+	/* C3: terminal-shortcut — reads like a keyboard hint  [⌘↑] */
+	.inline-btn.v-shortcut {
+		padding: 2px 6px;
+		font-size: 11px;
+		color: var(--acp-muted);
+		letter-spacing: 0.02em;
+	}
+	.inline-btn.v-shortcut kbd {
+		font-family: inherit;
+		font-size: 10px;
+		padding: 1px 4px;
+		border: 1px solid var(--acp-line-hi);
+		border-radius: 3px;
+		background: var(--acp-panel-2);
+		color: var(--acp-fg-2);
+	}
+	.inline-btn.v-shortcut:hover kbd {
+		color: var(--acp-cyan);
+		border-color: var(--acp-cyan);
+	}
+
+	/* C4: chip — pill with icon + text, echoes slash-command chips */
+	.inline-btn.v-chip {
+		padding: 3px 9px 3px 7px;
+		border: 1px solid var(--acp-cyan);
+		border-radius: 999px;
+		font-size: 11px;
+		background: var(--acp-cyan-dim);
+		color: var(--acp-cyan);
+	}
+	.inline-btn.v-chip:hover {
+		background: rgba(139, 233, 253, 0.22);
+	}
+
+	/* C5: text-only — hyperlink-y, monospace terminal vibe */
+	.inline-btn.v-text {
+		font-size: 11px;
+		color: var(--acp-muted);
+		letter-spacing: 0.04em;
+	}
+	.inline-btn.v-text:hover {
+		color: var(--acp-cyan);
+	}
+	.inline-btn.v-text::before {
+		content: "↑ ";
+		font-family: var(--acp-font-mono);
+	}
+
+	/* Composer bar */
+	.composer {
+		border: 1px solid var(--acp-line);
+		border-radius: 10px;
+		background: rgba(45, 47, 63, 0.6);
+		padding: 10px 12px;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.composer__prompt {
+		color: var(--acp-pink);
+		opacity: 0.7;
+	}
+	.composer__input {
+		flex: 1;
+		color: var(--acp-muted);
+	}
+	.composer__send {
+		border: 1px solid var(--acp-line-hi);
+		background: transparent;
+		color: var(--acp-pink);
+		font-family: var(--acp-font-mono);
+		padding: 4px 12px;
+		border-radius: 6px;
+		cursor: pointer;
+	}
+
+	/* Inline btn: native tooltip via aria-label handled by browser title attr fallback */
+</style>
+</head>
+<body>
+
+<div class="stack">
+	<p class="stack__intro">
+		内联到 composer 里的 5 种样式。老按钮 (pink ↓) 依然只在向上滚脱离底部时出现,
+		完全独立;新按钮 (cyan ↑) 只在 composer 里,与 Send 按钮同一行。
+		每个卡片都是独立可交互的 mini ACP pane,点击右下 Send 也不会真的发送,
+		滚动一下就能看到两个按钮的关系。
+	</p>
+
+	<!-- === C1: ghost icon === -->
+	<div class="variant-card">
+		<div class="variant-card__label">
+			<b>C1 · Ghost icon</b>
+			<span class="desc">最安静。22px 圆形透明底,hover 才亮起。像 composer 里其它 utility 按钮。</span>
+		</div>
+		<div class="pane pane--mini" data-variant-id="c1">
+			<div class="timeline-wrap">
+				<div class="timeline"></div>
+				<button class="acp-pane__jump" type="button" aria-label="回到底部" hidden>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+				</button>
+			</div>
+			<div class="composer-wrap">
+				<form class="composer" onsubmit="event.preventDefault()">
+					<span class="composer__prompt">›</span>
+					<span class="composer__input">Message agent…</span>
+					<button class="inline-btn v-ghost" type="button" aria-label="跳到上一条我的消息" data-jumpuser>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+					</button>
+					<button class="composer__send" type="submit">Send</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<!-- === C2: bordered icon === -->
+	<div class="variant-card">
+		<div class="variant-card__label">
+			<b>C2 · Bordered icon</b>
+			<span class="desc">和 Send 按钮同款描边圆角, 视觉配对。</span>
+		</div>
+		<div class="pane pane--mini" data-variant-id="c2">
+			<div class="timeline-wrap">
+				<div class="timeline"></div>
+				<button class="acp-pane__jump" type="button" aria-label="回到底部" hidden>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+				</button>
+			</div>
+			<div class="composer-wrap">
+				<form class="composer" onsubmit="event.preventDefault()">
+					<span class="composer__prompt">›</span>
+					<span class="composer__input">Message agent…</span>
+					<button class="inline-btn v-bordered" type="button" aria-label="跳到上一条我的消息" data-jumpuser>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+					</button>
+					<button class="composer__send" type="submit">Send</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<!-- === C3: shortcut hint === -->
+	<div class="variant-card">
+		<div class="variant-card__label">
+			<b>C3 · Keyboard shortcut</b>
+			<span class="desc">读起来像键盘提示 [⌘↑]。既是按钮又教了快捷键, 终端味浓。</span>
+		</div>
+		<div class="pane pane--mini" data-variant-id="c3">
+			<div class="timeline-wrap">
+				<div class="timeline"></div>
+				<button class="acp-pane__jump" type="button" aria-label="回到底部" hidden>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+				</button>
+			</div>
+			<div class="composer-wrap">
+				<form class="composer" onsubmit="event.preventDefault()">
+					<span class="composer__prompt">›</span>
+					<span class="composer__input">Message agent…</span>
+					<button class="inline-btn v-shortcut" type="button" aria-label="跳到上一条我的消息" data-jumpuser>
+						<kbd>⌘</kbd><kbd>↑</kbd>
+					</button>
+					<button class="composer__send" type="submit">Send</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<!-- === C4: chip === -->
+	<div class="variant-card">
+		<div class="variant-card__label">
+			<b>C4 · Chip</b>
+			<span class="desc">圆角胶囊 + 图标 + 文字, 呼应 slash-command 那种 chip。</span>
+		</div>
+		<div class="pane pane--mini" data-variant-id="c4">
+			<div class="timeline-wrap">
+				<div class="timeline"></div>
+				<button class="acp-pane__jump" type="button" aria-label="回到底部" hidden>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+				</button>
+			</div>
+			<div class="composer-wrap">
+				<form class="composer" onsubmit="event.preventDefault()">
+					<span class="composer__prompt">›</span>
+					<span class="composer__input">Message agent…</span>
+					<button class="inline-btn v-chip" type="button" aria-label="跳到上一条我的消息" data-jumpuser>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+						my last
+					</button>
+					<button class="composer__send" type="submit">Send</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<!-- === C5: text-only === -->
+	<div class="variant-card">
+		<div class="variant-card__label">
+			<b>C5 · Text-only</b>
+			<span class="desc">最克制。muted 文字, hover 变 cyan。像终端里的 hint。</span>
+		</div>
+		<div class="pane pane--mini" data-variant-id="c5">
+			<div class="timeline-wrap">
+				<div class="timeline"></div>
+				<button class="acp-pane__jump" type="button" aria-label="回到底部" hidden>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+				</button>
+			</div>
+			<div class="composer-wrap">
+				<form class="composer" onsubmit="event.preventDefault()">
+					<span class="composer__prompt">›</span>
+					<span class="composer__input">Message agent…</span>
+					<button class="inline-btn v-text" type="button" aria-label="跳到上一条我的消息" data-jumpuser>
+						last prompt
+					</button>
+					<button class="composer__send" type="submit">Send</button>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const messages = [
+		{ role: "user", text: "帮我看一下 host-service 的 branch listing, 好像 detached HEAD 状态没处理好" },
+		{ role: "agent", text: "查了下 apps/desktop/src/lib/trpc/routers/changes/branches.ts, 里面 listBranches 用了 git for-each-ref, detached HEAD 会返回空 refname。要不要我在 mapper 里补一个 fallback?" },
+		{ role: "user", text: "先给我看看 mapper 长啥样, 别急着改" },
+		{ role: "agent", text: "mapper 是 branches.ts:87-142, 它把 for-each-ref 的 output split 之后按 tab 拆字段。detached HEAD 时 refname 是空字符串, 目前直接过滤掉了。相关测试在 branches.test.ts:210, 只覆盖了 attached 场景。" },
+		{ role: "agent", text: "我可以: 1) 保留 detached HEAD entry, 用 (detached) 作为 name; 2) 加一个 isDetached 标志给前端展示。" },
+		{ role: "user", text: "方案 2, 再加个测试。测试放在 describe 'detached HEAD' 里, mock 一下 for-each-ref 的输出" },
+		{ role: "agent", text: "已加 isDetached 字段, 更新 GitBranch 类型和前端 branch chip 展示。测试 3 个: detached without upstream / detached at tag / regular attached。都过了。" },
+		{ role: "agent", text: "另外 branch-menu-redesign 那边应该也要接一下这个字段, 你要顺便改吗?" },
+		{ role: "user", text: "对, 顺便改, 但保守点 — 只加个小 tag, 别动布局" },
+		{ role: "agent", text: "在 BranchMenu.tsx 里现在的 branch item 右侧加了一个 (detached) 小 tag, 用 --acp-muted 色, 不动其它布局。截图我 mock 好了。" },
+		{ role: "user", text: "好, 帮我跑一下 lint 和 typecheck" },
+		{ role: "agent", text: "lint 0 warnings, typecheck 通过。要不要我提个 commit?" },
+		{ role: "user", text: "先别 commit, 我要在输入框上面加个功能, 点一下能跳到上一条用户消息 — 大概像你现在演示的这个按钮" },
+	];
+
+	function setupPane(pane) {
+		const timeline = pane.querySelector(".timeline");
+		const scrollBottomBtn = pane.querySelector(".acp-pane__jump");
+		const jumpBtn = pane.querySelector("[data-jumpuser]");
+
+		// fill messages
+		for (const m of messages) {
+			const wrap = document.createElement("div");
+			wrap.className = "acp-msg";
+			wrap.dataset.role = m.role;
+			const author = document.createElement("div");
+			author.className = "acp-msg__author";
+			author.textContent = m.role === "user" ? "YOU" : "CLAUDE";
+			const bubble = document.createElement("div");
+			bubble.className = "acp-msg__bubble";
+			bubble.innerHTML = m.text.replace(/(\/[a-z-]+)/g, '<span class="chip">$1</span>');
+			wrap.appendChild(author);
+			wrap.appendChild(bubble);
+			timeline.appendChild(wrap);
+		}
+
+		function isAtBottom() {
+			return timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight < 8;
+		}
+		function hasUserMessages() {
+			return timeline.querySelectorAll('.acp-msg[data-role="user"]').length > 0;
+		}
+		function refreshVisibility() {
+			scrollBottomBtn.hidden = isAtBottom();
+			jumpBtn.hidden = !hasUserMessages();
+		}
+		function doJumpToUser() {
+			const userMsgs = timeline.querySelectorAll('.acp-msg[data-role="user"]');
+			if (!userMsgs.length) return;
+			const target = userMsgs[userMsgs.length - 1];
+			target.scrollIntoView({ behavior: "smooth", block: "start" });
+			target.classList.remove("is-flashed");
+			void target.offsetWidth;
+			target.classList.add("is-flashed");
+		}
+
+		timeline.addEventListener("scroll", refreshVisibility, { passive: true });
+		scrollBottomBtn.addEventListener("click", () => {
+			timeline.scrollTo({ top: timeline.scrollHeight, behavior: "smooth" });
+		});
+		jumpBtn.addEventListener("click", doJumpToUser);
+
+		// start at bottom
+		requestAnimationFrame(() => {
+			timeline.scrollTop = timeline.scrollHeight;
+			refreshVisibility();
+		});
+	}
+
+	document.querySelectorAll(".pane").forEach(setupPane);
+</script>
+
+</body>
+</html>

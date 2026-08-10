@@ -85,28 +85,26 @@ export function PromptGroupAdvancedOptions({
 	return (
 		<Collapsible open={showAdvanced} onOpenChange={onShowAdvancedChange}>
 			<div className="flex items-center justify-between">
-				<CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+				<CollapsibleTrigger className="flex items-center gap-1 text-xs text-fg-mute hover:text-fg transition-colors">
 					<HiChevronDown
 						className={`size-3 transition-transform ${showAdvanced ? "" : "-rotate-90"}`}
 					/>
 					{t("workspace.advancedOptions")}
 				</CollapsibleTrigger>
 				{shortcutHint && (
-					<span className="text-[11px] text-muted-foreground/50">
-						{shortcutHint}
-					</span>
+					<span className="text-[11px] text-fg-faint">{shortcutHint}</span>
 				)}
 			</div>
 			<CollapsibleContent className="pt-3 space-y-3">
 				<div className="space-y-1.5">
 					<div className="flex items-center justify-between">
-						<label htmlFor="branch" className="text-xs text-muted-foreground">
+						<label htmlFor="branch" className="text-xs text-fg-mute">
 							{t("workspace.branchName")}
 						</label>
 						<button
 							type="button"
 							onClick={onEditPrefix}
-							className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+							className="inline-flex items-center gap-1 text-xs text-fg-mute hover:text-fg transition-colors"
 						>
 							<HiOutlinePencil className="size-3" />
 							<span>{t("workspace.editPrefix")}</span>
@@ -124,11 +122,11 @@ export function PromptGroupAdvancedOptions({
 
 				{showCompareBaseBranch && (
 					<div className="space-y-1.5">
-						<span className="text-xs text-muted-foreground">
+						<span className="text-xs text-fg-mute">
 							{t("project.baseBranch")}
 						</span>
 						{isBranchesError ? (
-							<div className="flex items-center gap-2 h-8 px-3 rounded-md border border-destructive/50 bg-destructive/10 text-destructive text-xs">
+							<div className="flex items-center gap-2 h-8 px-3 rounded-ds-3 border border-destructive/50 bg-destructive/10 text-destructive text-xs">
 								{t("workspace.failedLoadBranches")}
 							</div>
 						) : (
@@ -145,18 +143,18 @@ export function PromptGroupAdvancedOptions({
 										disabled={isBranchesLoading}
 									>
 										<span className="flex items-center gap-2 truncate">
-											<GoGitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+											<GoGitBranch className="size-3.5 shrink-0 text-fg-mute" />
 											<span className="truncate font-mono text-sm">
 												{effectiveCompareBaseBranch ||
 													t("workspace.selectBaseBranch")}
 											</span>
 											{effectiveCompareBaseBranch === defaultBranch && (
-												<span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+												<span className="text-[10px] text-fg-mute bg-hover px-1.5 py-0.5 rounded">
 													{t("workspace.defaultBranch")}
 												</span>
 											)}
 										</span>
-										<HiChevronUpDown className="size-4 shrink-0 text-muted-foreground" />
+										<HiChevronUpDown className="size-4 shrink-0 text-fg-mute" />
 									</Button>
 								</PopoverTrigger>
 								<PopoverContent
@@ -182,17 +180,17 @@ export function PromptGroupAdvancedOptions({
 													className="flex items-center justify-between"
 												>
 													<span className="flex items-center gap-2 truncate">
-														<GoGitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+														<GoGitBranch className="size-3.5 shrink-0 text-fg-mute" />
 														<span className="truncate">{branch.name}</span>
 														{branch.name === defaultBranch && (
-															<span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+															<span className="text-[10px] text-fg-mute bg-hover px-1.5 py-0.5 rounded">
 																{t("workspace.defaultBranch")}
 															</span>
 														)}
 													</span>
 													<span className="flex items-center gap-2 shrink-0">
 														{branch.lastCommitDate > 0 && (
-															<span className="text-xs text-muted-foreground">
+															<span className="text-xs text-fg-mute">
 																{formatRelativeTime(
 																	branch.lastCommitDate,
 																	relativeTimeLabels,
@@ -200,7 +198,7 @@ export function PromptGroupAdvancedOptions({
 															</span>
 														)}
 														{effectiveCompareBaseBranch === branch.name && (
-															<HiCheck className="size-4 text-primary" />
+															<HiCheck className="size-4 text-accent-solid" />
 														)}
 													</span>
 												</CommandItem>
@@ -215,10 +213,7 @@ export function PromptGroupAdvancedOptions({
 
 				{!hideSetupScript && (
 					<div className="flex items-center justify-between">
-						<Label
-							htmlFor="run-setup-script"
-							className="text-xs text-muted-foreground"
-						>
+						<Label htmlFor="run-setup-script" className="text-xs text-fg-mute">
 							{t("workspace.runSetupScript")}
 						</Label>
 						<Switch

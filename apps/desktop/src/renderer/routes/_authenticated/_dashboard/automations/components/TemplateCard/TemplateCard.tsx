@@ -30,7 +30,7 @@ export function TemplateCard({
 					onSelect(template);
 				}
 			}}
-			className="py-4 cursor-pointer transition-all duration-150 hover:border-border/80 hover:bg-accent/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+			className="py-4 cursor-pointer transition-all duration-150 hover:border-line/80 hover:bg-hover hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-tint"
 		>
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2 text-sm">

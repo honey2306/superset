@@ -76,7 +76,7 @@ export function EditSecretDialog({
 					<DialogTitle>{t("secrets.editTitle")}</DialogTitle>
 					<DialogDescription>
 						{t("secrets.updateValueFor")}{" "}
-						<code className="font-mono font-semibold text-foreground">
+						<code className="font-mono font-semibold text-fg">
 							{secret.key}
 						</code>
 					</DialogDescription>
@@ -88,7 +88,7 @@ export function EditSecretDialog({
 						<Input
 							value={secret.key}
 							disabled
-							className="font-mono text-sm bg-muted"
+							className="font-mono text-sm bg-hover"
 						/>
 					</div>
 

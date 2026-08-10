@@ -49,11 +49,14 @@ export function NewItemInput({
 
 	return (
 		<div
-			className={cn("flex items-center gap-1 px-1 h-7", "bg-accent rounded-sm")}
+			className={cn(
+				"flex items-center gap-1 px-1 h-7",
+				"bg-accent-tint rounded-sm",
+			)}
 			style={{ paddingLeft: `${level * TREE_INDENT + 4}px` }}
 		>
 			<span className="w-4 h-4 shrink-0" />
-			<Icon className="size-4 shrink-0 text-amber-500" />
+			<Icon className="size-4 shrink-0 text-warning" />
 			<input
 				type="text"
 				value={value}
@@ -74,7 +77,7 @@ export function NewItemInput({
 				onClick={handleSubmit}
 				className="p-0.5 hover:bg-background/50 rounded"
 			>
-				<LuCheck className="size-3 text-muted-foreground" />
+				<LuCheck className="size-3 text-fg-mute" />
 			</button>
 			<button
 				type="button"
@@ -84,7 +87,7 @@ export function NewItemInput({
 				}}
 				className="p-0.5 hover:bg-background/50 rounded"
 			>
-				<LuX className="size-3 text-muted-foreground" />
+				<LuX className="size-3 text-fg-mute" />
 			</button>
 		</div>
 	);

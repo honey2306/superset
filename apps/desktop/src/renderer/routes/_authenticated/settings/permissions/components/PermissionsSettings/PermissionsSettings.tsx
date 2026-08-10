@@ -42,7 +42,7 @@ function PermissionRow({
 		<div className="flex items-center justify-between gap-6">
 			<div className="min-w-0 flex-1 space-y-0.5">
 				<Label className="text-sm font-medium">{label}</Label>
-				<p className="text-xs text-muted-foreground">{description}</p>
+				<p className="text-xs text-fg-mute">{description}</p>
 			</div>
 			<div className="flex items-center gap-3 shrink-0">
 				<StatusBadge granted={granted} />
@@ -94,7 +94,7 @@ export function PermissionsSettings({
 		<div className="p-6 max-w-4xl w-full mx-auto">
 			<div className="mb-8">
 				<h2 className="text-xl font-semibold">{t("settings.permissions")}</h2>
-				<p className="text-sm text-muted-foreground mt-1">
+				<p className="text-sm text-fg-mute mt-1">
 					{t("permissions.description")}
 				</p>
 			</div>

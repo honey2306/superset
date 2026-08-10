@@ -152,7 +152,7 @@ export function PRLinkCommand({
 						/>
 						<label
 							htmlFor={showClosedId}
-							className="cursor-pointer select-none text-xs text-muted-foreground"
+							className="cursor-pointer select-none text-xs text-fg-mute"
 						>
 							{t("workspace.showClosed")}
 						</label>
@@ -208,7 +208,7 @@ export function PRLinkCommand({
 											key={pr.prNumber}
 											value={`${pr.prNumber}-${pr.title}`}
 											onSelect={() => handleSelect(pr)}
-											className="group items-start gap-3 rounded-md px-2.5 py-2"
+											className="group items-start gap-3 rounded-ds-3 px-2.5 py-2"
 										>
 											<PRIcon
 												state={state}
@@ -218,13 +218,13 @@ export function PRLinkCommand({
 												<span className="truncate text-sm leading-snug">
 													{pr.title}
 												</span>
-												<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+												<span className="flex items-center gap-1.5 text-[11px] text-fg-mute">
 													<span className="font-mono">#{pr.prNumber}</span>
 													<span aria-hidden>·</span>
 													<span className="capitalize">{stateLabel}</span>
 												</span>
 											</div>
-											<span className="ml-2 hidden shrink-0 self-center text-[11px] text-muted-foreground group-data-[selected=true]:inline">
+											<span className="ml-2 hidden shrink-0 self-center text-[11px] text-fg-mute group-data-[selected=true]:inline">
 												↵
 											</span>
 										</CommandItem>

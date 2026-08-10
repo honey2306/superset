@@ -13,6 +13,7 @@ import {
 	gitFetchBaseRefTask,
 	gitStatusSnapshotTask,
 } from "../../../workers/tasks/git";
+import { updateLocalWorkspace } from "../../../workspaces/local-workspace-store";
 import { protectedProcedure, queryProcedure, router } from "../../index";
 import { resolveGithubRepo } from "../workspace-creation/shared/project-helpers";
 import type {
@@ -39,6 +40,7 @@ import {
 	parseGraphQLThreads,
 	REVIEW_THREADS_QUERY,
 } from "./utils/graphql";
+import { wouldMergeConflict } from "./utils/merge-preflight";
 import { resolveWorktreePath } from "./utils/resolve-worktree";
 
 // Front-door cap for commit-file diffs. Statuses are admitted by
@@ -84,6 +86,38 @@ function resolveGitTaskEnv(
 	worktreePath: string,
 ): Promise<Record<string, string>> {
 	return createGitEnvResolver(ctx.credentials)(worktreePath);
+}
+
+async function assertValidBranchName(
+	git: Awaited<ReturnType<HostServiceContext["git"]>>,
+	branch: string,
+): Promise<void> {
+	if (!branch.trim() || branch.startsWith("-")) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Invalid branch name",
+		});
+	}
+	try {
+		await git.raw(["check-ref-format", "--branch", branch]);
+	} catch {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Invalid branch name",
+		});
+	}
+}
+
+function updateWorkspaceBranch(
+	ctx: HostServiceContext,
+	workspaceId: string,
+	branch: string,
+): void {
+	updateLocalWorkspace(
+		{ db: ctx.db, catalog: ctx.catalog, eventBus: ctx.eventBus },
+		workspaceId,
+		{ branch },
+	);
 }
 
 function assertSafeRelativePath(filePath: string): void {
@@ -141,7 +175,135 @@ export const gitRouter = router({
 					});
 			} catch {}
 
-			return { branches };
+			let remoteBranches: string[] = [];
+			try {
+				const raw = await git.raw([
+					"for-each-ref",
+					"refs/remotes/origin/",
+					"--format=%(refname:short)",
+				]);
+				remoteBranches = raw
+					.trim()
+					.split("\n")
+					.filter((name) => name && name !== "origin" && name !== "origin/HEAD")
+					.map((name) => name.replace(/^origin\//, ""));
+			} catch {}
+
+			return { branches, remoteBranches };
+		}),
+
+	fetchBranches: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			const git = await ctx.git(worktreePath);
+			await git.fetch(["--all", "--prune"]);
+			return { success: true };
+		}),
+
+	switchBranch: protectedProcedure
+		.input(z.object({ workspaceId: z.string(), branch: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			const git = await ctx.git(worktreePath);
+			await assertValidBranchName(git, input.branch);
+			await git.raw(["switch", input.branch]);
+			updateWorkspaceBranch(ctx, input.workspaceId, input.branch);
+			return { success: true };
+		}),
+
+	createBranch: protectedProcedure
+		.input(z.object({ workspaceId: z.string(), branch: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			const git = await ctx.git(worktreePath);
+			await assertValidBranchName(git, input.branch);
+			await git.raw(["switch", "-c", input.branch]);
+			updateWorkspaceBranch(ctx, input.workspaceId, input.branch);
+			return { success: true };
+		}),
+
+	checkoutRemoteBranch: protectedProcedure
+		.input(z.object({ workspaceId: z.string(), branch: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			const git = await ctx.git(worktreePath);
+			await assertValidBranchName(git, input.branch);
+			await git.raw(["switch", "--track", `origin/${input.branch}`]);
+			updateWorkspaceBranch(ctx, input.workspaceId, input.branch);
+			return { success: true };
+		}),
+
+	pullBranch: protectedProcedure
+		.input(z.object({ workspaceId: z.string(), branch: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			const git = await ctx.git(worktreePath);
+			await assertValidBranchName(git, input.branch);
+
+			const currentBranch = (
+				await git.revparse(["--abbrev-ref", "HEAD"])
+			).trim();
+			if (currentBranch === input.branch) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Use the current branch pull action for this branch",
+				});
+			}
+
+			const tracking = (
+				await git.raw([
+					"for-each-ref",
+					"--format=%(upstream:remotename)%09%(upstream:remoteref)%09%(upstream)",
+					`refs/heads/${input.branch}`,
+				])
+			).trim();
+			const [remote, remoteRef, upstreamRef] = tracking.split("\t");
+			if (!remote || !remoteRef || !upstreamRef) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: `Branch ${input.branch} has no upstream branch`,
+				});
+			}
+
+			// Fetch directly into the non-current local ref. Git only permits a
+			// fast-forward here and refuses branches checked out by another worktree,
+			// so this cannot disturb either the current worktree or another workspace.
+			await git.raw([
+				"fetch",
+				remote,
+				`${remoteRef}:${upstreamRef}`,
+				`${remoteRef}:refs/heads/${input.branch}`,
+			]);
+			return { success: true };
+		}),
+
+	mergeBranch: protectedProcedure
+		.input(z.object({ workspaceId: z.string(), branch: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			const git = await ctx.git(worktreePath);
+			await assertValidBranchName(git, input.branch);
+			if (await wouldMergeConflict(git, input.branch)) {
+				throw new TRPCError({
+					code: "CONFLICT",
+					message: `Merging ${input.branch} would produce conflicts`,
+				});
+			}
+			try {
+				await git.raw(["merge", "--", input.branch]);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				if (message.toLowerCase().includes("conflict")) {
+					// A ref or the worktree changed between preflight and merge. Restore the
+					// pre-merge state so callers retain the same no-conflict-side-effects
+					// guarantee as the normal preflight path.
+					await git.raw(["merge", "--abort"]).catch(() => {});
+					throw new TRPCError({ code: "CONFLICT", message });
+				}
+				throw error;
+			}
+			return { success: true };
 		}),
 
 	getStatus: queryProcedure

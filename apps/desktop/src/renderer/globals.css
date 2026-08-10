@@ -4,60 +4,206 @@
 
 @source "./**/*.{ts,tsx}";
 @source "../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../../packages/panes/src/**/*.{ts,tsx}";
 @source "../../../../packages/ui/node_modules/streamdown/dist/*.js";
 
 /**
- * Theme CSS Variables
+ * Theme CSS Variables — this file is the runtime mirror of the design
+ * system at designs/superset-design-system/. Every value below is derived
+ * from that DS's tokens (colors / spacing / radius / shadow / typography /
+ * motion). The theme store overrides the shadcn slots via applyUIColors
+ * after boot; keep pre-hydration values here in sync with the built-in
+ * themes so the app never flashes.
  *
- * Dark theme fallback values are used by default.
- * Light theme fallback values are applied when .light class is present.
- * The theme store will override these via JavaScript when a theme is applied.
- * This ensures the app looks correct during initial load before hydration.
+ * Design contract (Dracula-derived, applies to every theme):
+ *   - Pink is a tint / dot / ring / focus / current-item bg — never a full
+ *     fill except for the `.highlight` bar and pill primary button labels.
+ *   - Numbers, code, branches, kbd, timestamps render in `--font-mono`.
+ *   - `--accent` = pink-tint 14% (not the full pink); `--sidebar-primary` /
+ *     `--highlight` = full pink for the exceptions above.
  */
 :root {
-	/* Default to dark (ember) theme colors as fallback */
-	--background: #151110;
-	--foreground: #eae8e6;
-	--card: #201e1c;
-	--card-foreground: #eae8e6;
-	--popover: #201e1c;
-	--popover-foreground: #eae8e6;
-	--primary: #eae8e6;
-	--primary-foreground: #151110;
-	--secondary: #2a2827;
-	--secondary-foreground: #eae8e6;
-	--muted: #2a2827;
-	--muted-foreground: #a8a5a3;
-	--accent: #2a2827;
-	--accent-foreground: #eae8e6;
-	--tertiary: #1a1716;
-	--tertiary-active: #252220;
-	--destructive: #cc4444;
-	--destructive-foreground: #ffcccc;
-	--border: #2a2827;
-	--input: #2a2827;
-	--ring: #3a3837;
-	--chart-1: #e07850;
-	--chart-2: #50a878;
-	--chart-3: #d4a84b;
-	--chart-4: #7b68ee;
-	--chart-5: #dc6b6b;
+	/* ============================================================
+	   1. shadcn slots — pre-hydration Dracula fallback.
+	   Kept in sync with apps/desktop/src/shared/themes/built-in/dracula.ts.
+	   ============================================================ */
+	--background: #1e1f29;
+	--foreground: #f8f8f2;
+	--card: #282a36;
+	--card-foreground: #f8f8f2;
+	--popover: #21222c;
+	--popover-foreground: #f8f8f2;
+	--primary: #f8f8f2;
+	--primary-foreground: #282a36;
+	--secondary: #44475a;
+	--secondary-foreground: #f8f8f2;
+	--muted: #44475a;
+	--muted-foreground: #d0d3e0;
+	/* Accent = pink-tint. `bg-accent` should read as a soft highlight, not
+	 * a solid fill. The foreground goes on top of the tint. */
+	--accent: color-mix(in oklch, #ff79c6 14%, transparent);
+	--accent-foreground: #ff79c6;
+	--tertiary: #21222c;
+	--tertiary-active: #343746;
+	--destructive: #ff5555;
+	--destructive-foreground: #ffe4e4;
+	--border: #44475a;
+	--input: #44475a;
+	--ring: #ff79c6;
+	--chart-1: #ff79c6;
+	--chart-2: #bd93f9;
+	--chart-3: #50fa7b;
+	--chart-4: #ffb86c;
+	--chart-5: #8be9fd;
 	--radius: 0.625rem;
-	--sidebar: #1a1716;
-	--sidebar-foreground: #eae8e6;
-	--sidebar-primary: #e07850;
-	--sidebar-primary-foreground: #151110;
-	--sidebar-accent: #252220;
-	--sidebar-accent-foreground: #eae8e6;
-	--sidebar-border: #2a2827;
-	--sidebar-ring: #3a3837;
-	--highlight-match: rgba(224, 120, 80, 0.2);
-	--highlight-active: rgba(224, 120, 80, 0.5);
-	--highlight: #e07850;
-	--highlight-foreground: #151110;
+	--sidebar: #21222c;
+	--sidebar-foreground: #f8f8f2;
+	--sidebar-primary: #ff79c6;
+	--sidebar-primary-foreground: #282a36;
+	--sidebar-accent: #343746;
+	--sidebar-accent-foreground: #f8f8f2;
+	--sidebar-border: #44475a;
+	--sidebar-ring: #ff79c6;
+	--highlight-match: rgba(255, 121, 198, 0.2);
+	--highlight-active: rgba(255, 121, 198, 0.55);
+	--highlight: #ff79c6;
+	--highlight-foreground: #282a36;
+
+	/* ============================================================
+	   2. DS extended palette — semantic surfaces & text ladders.
+	   Consumed by components that need more nuance than shadcn's
+	   binary card/popover split (sidebar tint, deep page bg, etc.).
+	   ============================================================ */
+	--ds-page-bg: #1e1f29;
+	--ds-surface: #282a36;
+	--ds-surface-elev: color-mix(in oklch, #21222c 92%, #fff 8%);
+	--ds-surface-sunk: #21222c;
+	--ds-overlay-scrim: rgba(0, 0, 0, 0.42);
+
+	--fg: #f8f8f2;
+	--fg-mute: color-mix(in oklch, #f8f8f2 55%, transparent);
+	--fg-faint: color-mix(in oklch, #f8f8f2 38%, transparent);
+	--fg-inverse: #1e1f29;
+
+	--line: color-mix(in oklch, #f8f8f2 10%, transparent);
+	--line-strong: color-mix(in oklch, #f8f8f2 18%, transparent);
+	--hover: color-mix(in oklch, #f8f8f2 6%, transparent);
+	--selected: color-mix(in oklch, #f8f8f2 10%, transparent);
+
+	--accent-solid: #ff79c6;
+	--accent-2: #bd93f9;
+	--accent-tint: color-mix(in oklch, #ff79c6 14%, transparent);
+	--accent-line: color-mix(in oklch, #ff79c6 55%, transparent);
+	--accent-glow: color-mix(in oklch, #ff79c6 55%, transparent);
+
+	--success: #50fa7b;
+	--warning: #ffb86c;
+	--danger: #ff5555;
+	--info: #8be9fd;
+	--success-tint: color-mix(in oklch, #50fa7b 12%, transparent);
+	--warning-tint: color-mix(in oklch, #ffb86c 12%, transparent);
+	--danger-tint: color-mix(in oklch, #ff5555 14%, transparent);
+	--info-tint: color-mix(in oklch, #8be9fd 14%, transparent);
+
+	--ring-halo: color-mix(in oklch, #ff79c6 22%, transparent);
+
+	/* ============================================================
+	   3. DS typography scale (import from tokens/typography.css)
+	   ============================================================ */
+	--font-mono:
+		"SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+
+	--fs-9: 9.5px;
+	--fs-10: 10.5px;
+	--fs-11: 11px;
+	--fs-12: 12px;
+	--fs-13: 13px;
+	--fs-14: 14px;
+	--fs-16: 16px;
+	--fs-18: 18px;
+	--fs-22: 22px;
+	--fs-28: 28px;
+	--fs-36: 36px;
+
+	--fw-regular: 400;
+	--fw-medium: 500;
+	--fw-semibold: 600;
+	--fw-bold: 700;
+
+	--lh-tight: 1.2;
+	--lh-snug: 1.35;
+	--lh-body: 1.55;
+	--lh-loose: 1.75;
+
+	--ls-eyebrow: 0.16em;
+	--ls-caps: 0.14em;
+	--ls-title: -0.02em;
+	--ls-mono: -0.005em;
+
+	/* ============================================================
+	   4. DS spacing scale (4-based, with 2/6/10 half-steps)
+	   ============================================================ */
+	--s-1: 2px;
+	--s-2: 4px;
+	--s-3: 6px;
+	--s-4: 8px;
+	--s-5: 10px;
+	--s-6: 12px;
+	--s-7: 14px;
+	--s-8: 16px;
+	--s-10: 20px;
+	--s-12: 24px;
+	--s-14: 28px;
+	--s-16: 32px;
+	--s-20: 40px;
+	--s-24: 48px;
+	--s-32: 64px;
+	--s-40: 80px;
+
+	/* ============================================================
+	   5. DS radius scale
+	   ============================================================ */
+	--r-1: 3px;
+	--r-2: 4px;
+	--r-3: 6px;
+	--r-4: 8px;
+	--r-5: 10px;
+	--r-6: 12px;
+	--r-7: 14px;
+	--r-8: 16px;
+	--r-pill: 999px;
+
+	/* ============================================================
+	   6. DS shadow scale (dark-mode calibrated)
+	   ============================================================ */
+	--shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+	--shadow-2: 0 4px 12px -4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+	--shadow-3:
+		0 12px 32px -12px rgba(0, 0, 0, 0.55), 0 2px 8px -2px rgba(0, 0, 0, 0.35),
+		0 0 0 1px var(--line);
+	--shadow-4:
+		0 24px 60px -18px rgba(0, 0, 0, 0.62), 0 4px 14px rgba(0, 0, 0, 0.32),
+		0 0 0 1px var(--line);
+
+	--glow-accent: 0 0 0 3px var(--accent-tint);
+	--glow-ring: 0 0 0 3px var(--ring-halo);
+
+	/* ============================================================
+	   7. DS motion
+	   ============================================================ */
+	--dur-instant: 80ms;
+	--dur-quick: 120ms;
+	--dur-base: 180ms;
+	--dur-slow: 260ms;
+
+	--ease-standard: cubic-bezier(0.2, 0.7, 0.3, 1);
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+	--ease-emphatic: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Light theme fallback values - applied before hydration if user has light theme saved */
+/* Light theme fallback — same DS contract (pink-tint accent, mono numbers,
+ * hairline borders) but on a light canvas. */
 :root.light {
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.145 0 0);
@@ -71,15 +217,15 @@
 	--secondary-foreground: oklch(0.205 0 0);
 	--muted: oklch(0.97 0 0);
 	--muted-foreground: oklch(0.556 0 0);
-	--accent: oklch(0.97 0 0);
-	--accent-foreground: oklch(0.205 0 0);
+	--accent: color-mix(in oklch, #ff79c6 12%, transparent);
+	--accent-foreground: #d13a91;
 	--tertiary: oklch(0.95 0.003 40);
 	--tertiary-active: oklch(0.9 0.003 40);
 	--destructive: oklch(0.577 0.245 27.325);
 	--destructive-foreground: oklch(0.985 0 0);
 	--border: oklch(0.922 0 0);
 	--input: oklch(0.922 0 0);
-	--ring: oklch(0.708 0 0);
+	--ring: #ff79c6;
 	--chart-1: oklch(0.646 0.222 41.116);
 	--chart-2: oklch(0.6 0.118 184.704);
 	--chart-3: oklch(0.398 0.07 227.392);
@@ -87,19 +233,51 @@
 	--chart-5: oklch(0.769 0.188 70.08);
 	--sidebar: oklch(0.985 0 0);
 	--sidebar-foreground: oklch(0.145 0 0);
-	--sidebar-primary: oklch(0.205 0 0);
+	--sidebar-primary: #ff79c6;
 	--sidebar-primary-foreground: oklch(0.985 0 0);
 	--sidebar-accent: oklch(0.97 0 0);
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
-	--sidebar-ring: oklch(0.708 0 0);
-	--highlight-match: rgba(255, 211, 61, 0.35);
-	--highlight-active: rgba(255, 150, 50, 0.55);
-	--highlight: oklch(0.646 0.222 41.116);
+	--sidebar-ring: #ff79c6;
+	--highlight-match: rgba(255, 121, 198, 0.25);
+	--highlight-active: rgba(255, 121, 198, 0.55);
+	--highlight: #ff79c6;
 	--highlight-foreground: oklch(0.985 0 0);
+
+	/* DS extended palette — light-canvas remap. Text ladders go dark-on-white,
+	 * hairlines are near-black at 10/18%. */
+	--ds-page-bg: oklch(0.985 0 0);
+	--ds-surface: #ffffff;
+	--ds-surface-elev: #ffffff;
+	--ds-surface-sunk: oklch(0.97 0 0);
+	--ds-overlay-scrim: rgba(0, 0, 0, 0.32);
+
+	--fg: oklch(0.145 0 0);
+	--fg-mute: color-mix(in oklch, oklch(0.145 0 0) 62%, transparent);
+	--fg-faint: color-mix(in oklch, oklch(0.145 0 0) 42%, transparent);
+	--fg-inverse: #ffffff;
+
+	--line: color-mix(in oklch, oklch(0.145 0 0) 10%, transparent);
+	--line-strong: color-mix(in oklch, oklch(0.145 0 0) 18%, transparent);
+	--hover: color-mix(in oklch, oklch(0.145 0 0) 5%, transparent);
+	--selected: color-mix(in oklch, oklch(0.145 0 0) 8%, transparent);
+
+	--ring-halo: color-mix(in oklch, #ff79c6 22%, transparent);
 }
 
 @theme inline {
+	/* CJK-friendly font stacks. Latin first so each script picks the correct
+	 * face — without this, Tailwind 4's default `ui-sans-serif` lets Electron
+	 * on macOS fall back to Hiragino Sans / STHeiti for Chinese runs, which
+	 * reads geometric and doesn't sit right next to SF Pro Latin. */
+	--font-sans:
+		-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+		"Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Segoe UI",
+		system-ui, sans-serif;
+	--font-mono:
+		"SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+
+	/* shadcn slots */
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
@@ -140,6 +318,50 @@
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-highlight: var(--highlight);
 	--color-highlight-foreground: var(--highlight-foreground);
+
+	/* DS extended palette — expose as tw utilities.
+	 * Use: bg-surface-elev, text-fg-mute, border-line-strong, ring-accent-solid,
+	 * bg-accent-tint, text-success, bg-danger-tint, etc. */
+	--color-page-bg: var(--ds-page-bg);
+	--color-surface: var(--ds-surface);
+	--color-surface-elev: var(--ds-surface-elev);
+	--color-surface-sunk: var(--ds-surface-sunk);
+	--color-fg: var(--fg);
+	--color-fg-mute: var(--fg-mute);
+	--color-fg-faint: var(--fg-faint);
+	--color-fg-inverse: var(--fg-inverse);
+	--color-line: var(--line);
+	--color-line-strong: var(--line-strong);
+	--color-hover: var(--hover);
+	--color-selected: var(--selected);
+	--color-accent-solid: var(--accent-solid);
+	--color-accent-2: var(--accent-2);
+	--color-accent-tint: var(--accent-tint);
+	--color-accent-line: var(--accent-line);
+	--color-success: var(--success);
+	--color-warning: var(--warning);
+	--color-danger: var(--danger);
+	--color-info: var(--info);
+	--color-success-tint: var(--success-tint);
+	--color-warning-tint: var(--warning-tint);
+	--color-danger-tint: var(--danger-tint);
+	--color-info-tint: var(--info-tint);
+
+	/* DS radius utilities */
+	--radius-pill: var(--r-pill);
+	--radius-ds-1: var(--r-1);
+	--radius-ds-2: var(--r-2);
+	--radius-ds-3: var(--r-3);
+	--radius-ds-4: var(--r-4);
+	--radius-ds-5: var(--r-5);
+	--radius-ds-6: var(--r-6);
+	--radius-ds-7: var(--r-7);
+
+	/* DS shadow utilities */
+	--shadow-ds-1: var(--shadow-1);
+	--shadow-ds-2: var(--shadow-2);
+	--shadow-ds-3: var(--shadow-3);
+	--shadow-ds-4: var(--shadow-4);
 }
 
 @layer base {
@@ -154,6 +376,35 @@
 
 	body {
 		@apply bg-background text-foreground;
+		/* CJK-friendly font stack — Latin first so each script gets correct
+		 * glyphs. Without this, Electron on macOS picks Hiragino / STHeiti for
+		 * some Chinese runs, which reads as visibly wrong next to SF Pro. */
+		font-family:
+			-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+			"Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Segoe UI",
+			system-ui, sans-serif;
+	}
+
+	/* Top tab bar — faint hairlines between adjacent tabs. Only a hovered tab
+	   hides the hairlines on both of its sides so the hover tint reads as one
+	   continuous surface. The active tab keeps its hairlines so the current
+	   tab's boundaries stay visible on both sides. See
+	   packages/panes/.../TabBar.tsx and TabItem.tsx. */
+	[data-tab-slot] + [data-tab-slot]::before {
+		content: "";
+		position: absolute;
+		left: 0;
+		top: 8px;
+		bottom: 8px;
+		width: 1px;
+		background: var(--border);
+		opacity: 0.7;
+		pointer-events: none;
+		transition: opacity 120ms ease;
+	}
+	[data-tab-slot] + [data-tab-slot]:has([data-tab-item]:hover)::before,
+	[data-tab-slot]:has(+ [data-tab-slot] [data-tab-item]:hover)::before {
+		opacity: 0;
 	}
 
 	html,

@@ -96,3 +96,14 @@ describe("kimi agent registration", () => {
 		expect(preset?.promptArgs).toEqual(["-p"]);
 	});
 });
+
+describe("grok agent registration", () => {
+	it("registers Grok with its approval flag and positional prompt transport", () => {
+		expect(AGENT_TYPES).toContain("grok");
+		expect(AGENT_LABELS.grok).toBe("Grok");
+		const preset = getPresetById("grok");
+		expect(preset?.command).toBe("grok");
+		expect(preset?.args).toEqual(["--always-approve"]);
+		expect(preset?.promptArgs).toEqual([]);
+	});
+});

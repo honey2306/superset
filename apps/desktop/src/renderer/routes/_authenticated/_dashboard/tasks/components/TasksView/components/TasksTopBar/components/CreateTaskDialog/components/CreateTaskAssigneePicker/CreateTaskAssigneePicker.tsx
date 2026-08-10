@@ -61,7 +61,7 @@ export function CreateTaskAssigneePicker({
 			<PopoverTrigger asChild>
 				<button
 					type="button"
-					className="flex h-9 items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-3 text-sm transition-colors hover:bg-muted/60"
+					className="flex h-9 items-center gap-2 rounded-full border border-line/60 bg-hover/30 px-3 text-sm transition-colors hover:bg-hover/60"
 				>
 					{selectedUser ? (
 						<>
@@ -74,11 +74,11 @@ export function CreateTaskAssigneePicker({
 						</>
 					) : (
 						<>
-							<HiOutlineUserCircle className="size-4 text-muted-foreground" />
-							<span className="text-muted-foreground">Assignee</span>
+							<HiOutlineUserCircle className="size-4 text-fg-mute" />
+							<span className="text-fg-mute">Assignee</span>
 						</>
 					)}
-					<HiChevronDown className="size-3.5 text-muted-foreground" />
+					<HiChevronDown className="size-3.5 text-fg-mute" />
 				</button>
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-64 p-0">
@@ -109,7 +109,7 @@ export function CreateTaskAssigneePicker({
 										<Avatar size="xs" fullName={user.name} image={user.image} />
 										<div className="flex min-w-0 flex-1 flex-col">
 											<span className="truncate text-sm">{user.name}</span>
-											<span className="truncate text-xs text-muted-foreground">
+											<span className="truncate text-xs text-fg-mute">
 												{user.email}
 											</span>
 										</div>

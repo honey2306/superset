@@ -82,7 +82,7 @@ export function WorkspaceHoverCardContent({
 				)}
 				{branchName && (
 					<div className="space-y-0.5">
-						<span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+						<span className="text-[10px] uppercase tracking-wide text-fg-mute">
 							{t("workspace.branch")}
 						</span>
 						<div className="flex items-center gap-1.5">
@@ -90,7 +90,7 @@ export function WorkspaceHoverCardContent({
 								<button
 									type="button"
 									onClick={() => onEditBranchClick(branchName)}
-									className={`group/branch flex min-w-0 flex-1 items-center gap-1 font-mono break-all text-left hover:text-foreground hover:underline ${hasCustomAlias ? "text-xs" : "text-sm"}`}
+									className={`group/branch flex min-w-0 flex-1 items-center gap-1 font-mono break-all text-left hover:text-fg hover:underline ${hasCustomAlias ? "text-xs" : "text-sm"}`}
 									title={t("workspace.renameBranch")}
 								>
 									<span className="break-all">{branchName}</span>
@@ -111,7 +111,7 @@ export function WorkspaceHoverCardContent({
 									href={`${repoUrl}/tree/${branchName}`}
 									target="_blank"
 									rel="noopener noreferrer"
-									className="shrink-0 text-muted-foreground hover:text-foreground"
+									className="shrink-0 text-fg-mute hover:text-fg"
 									title={t("workspace.openBranchGithub")}
 									onClick={(e) => e.stopPropagation()}
 								>
@@ -125,7 +125,7 @@ export function WorkspaceHoverCardContent({
 					</div>
 				)}
 				{worktreeInfo?.createdAt && (
-					<span className="text-xs text-muted-foreground block">
+					<span className="text-xs text-fg-mute block">
 						{new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
 							-Math.max(
 								1,
@@ -141,7 +141,7 @@ export function WorkspaceHoverCardContent({
 			</div>
 
 			{needsRebase && (
-				<div className="flex items-center gap-2 text-amber-500 text-xs bg-amber-500/10 px-2 py-1.5 rounded-md">
+				<div className="flex items-center gap-2 text-warning text-xs bg-warning-tint px-2 py-1.5 rounded-ds-3">
 					<LuTriangleAlert
 						className="size-3.5 shrink-0"
 						strokeWidth={STROKE_WIDTH}
@@ -153,7 +153,7 @@ export function WorkspaceHoverCardContent({
 			)}
 
 			{isLoadingGithub ? (
-				<div className="flex items-center gap-2 text-muted-foreground pt-2 border-t border-border">
+				<div className="flex items-center gap-2 text-fg-mute pt-2 border-t border-line">
 					<LuLoaderCircle
 						className="size-3 animate-spin"
 						strokeWidth={STROKE_WIDTH}
@@ -161,10 +161,10 @@ export function WorkspaceHoverCardContent({
 					<span className="text-xs">{t("workspace.loadingPr")}</span>
 				</div>
 			) : pr ? (
-				<div className="pt-2 border-t border-border space-y-2">
+				<div className="pt-2 border-t border-line space-y-2">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-1.5 flex-wrap">
-							<span className="text-xs font-medium text-muted-foreground">
+							<span className="text-xs font-medium text-fg-mute">
 								#{pr.number}
 							</span>
 							<PRStatusBadge state={pr.state} />
@@ -176,10 +176,8 @@ export function WorkspaceHoverCardContent({
 							)}
 						</div>
 						<div className="flex items-center gap-1.5 text-xs font-mono shrink-0">
-							<span className="text-emerald-500">+{pr.additions}</span>
-							<span className="text-destructive-foreground">
-								-{pr.deletions}
-							</span>
+							<span className="text-success">+{pr.additions}</span>
+							<span className="text-destructive">-{pr.deletions}</span>
 						</div>
 					</div>
 
@@ -217,10 +215,8 @@ export function WorkspaceHoverCardContent({
 					{previewButton}
 				</div>
 			) : repoUrl ? (
-				<div className="pt-2 border-t border-border space-y-2">
-					<div className="text-xs text-muted-foreground">
-						No PR for this branch
-					</div>
+				<div className="pt-2 border-t border-line space-y-2">
+					<div className="text-xs text-fg-mute">No PR for this branch</div>
 					{previewButton}
 				</div>
 			) : null}

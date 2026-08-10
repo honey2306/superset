@@ -85,6 +85,12 @@ export class PtySubprocessFrameDecoder {
 				const payloadLength = this.header.readUInt32LE(1);
 
 				if (payloadLength > MAX_FRAME_BYTES) {
+					// Reset before surfacing the malformed header so a later chunk can
+					// re-synchronize instead of rethrowing this stale length forever.
+					this.headerOffset = 0;
+					this.frameType = null;
+					this.payload = null;
+					this.payloadOffset = 0;
 					throw new Error(
 						`PtySubprocess IPC frame too large: ${payloadLength} bytes`,
 					);

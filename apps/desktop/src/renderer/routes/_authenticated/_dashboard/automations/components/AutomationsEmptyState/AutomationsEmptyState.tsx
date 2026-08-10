@@ -22,14 +22,14 @@ export function AutomationsEmptyState({
 				<h2 className="text-base font-semibold tracking-tight">
 					{t("automations.startTemplate")}
 				</h2>
-				<p className="text-sm text-muted-foreground">
+				<p className="text-sm text-fg-mute">
 					{t("automations.startTemplateDescription")}
 				</p>
 			</div>
 			{AUTOMATION_TEMPLATE_CATEGORIES.map((category) => (
 				<Fragment key={category.id}>
 					<section className="flex flex-col gap-3">
-						<h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+						<h3 className="text-xs font-medium uppercase tracking-wider text-fg-mute">
 							{localizeAutomationCategory(category.id, t)}
 						</h3>
 						<div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">

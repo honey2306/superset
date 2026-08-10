@@ -25,7 +25,7 @@ export function WindowControls() {
 			<button
 				type="button"
 				aria-label={t("dashboard.minimizeWindow")}
-				className="no-drag flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+				className="no-drag flex h-8 w-8 items-center justify-center rounded-ds-3 text-fg-mute transition-colors hover:bg-hover hover:text-fg"
 				onClick={handleMinimize}
 			>
 				<HiMiniMinus className="h-3.5 w-3.5" />
@@ -33,7 +33,7 @@ export function WindowControls() {
 			<button
 				type="button"
 				aria-label={t("dashboard.maximizeWindow")}
-				className="no-drag flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+				className="no-drag flex h-8 w-8 items-center justify-center rounded-ds-3 text-fg-mute transition-colors hover:bg-hover hover:text-fg"
 				onClick={handleMaximize}
 			>
 				<HiMiniStop className="h-3 w-3" />
@@ -41,7 +41,7 @@ export function WindowControls() {
 			<button
 				type="button"
 				aria-label={t("dashboard.closeWindow")}
-				className="no-drag flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive hover:text-destructive-foreground"
+				className="no-drag flex h-8 w-8 items-center justify-center rounded-ds-3 text-fg-mute transition-colors hover:bg-destructive hover:text-destructive-foreground"
 				onClick={handleClose}
 			>
 				<HiMiniXMark className="h-3.5 w-3.5" />

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ACP Empty · Banner Variants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Berkeley+Mono&display=swap" rel="stylesheet" />
+<style>
+	:root {
+		--acp-bg: #282a36;
+		--acp-bg-2: #21222c;
+		--acp-fg: #f8f8f2;
+		--acp-fg-2: #d0d3e0;
+		--acp-fg-3: #7982a1;
+		--acp-pink: #ff79c6;
+		--acp-purple: #bd93f9;
+		--acp-cyan: #8be9fd;
+		--acp-green: #50fa7b;
+		--acp-yellow: #f1fa8c;
+		--acp-orange: #ffb86c;
+		--acp-red: #ff5555;
+		--acp-comment: #6272a4;
+		--acp-font-mono: "JetBrains Mono", "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		--acp-font-banner: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+	}
+	* { box-sizing: border-box; }
+	html, body { margin: 0; padding: 0; background: #14151b; color: var(--acp-fg); }
+	body {
+		font-family: var(--acp-font-mono);
+		font-size: 13px;
+		line-height: 1.6;
+		padding: 40px 32px 96px;
+	}
+	.page-title {
+		display: flex; align-items: baseline; gap: 16px;
+		font-size: 12px; color: var(--acp-fg-3); text-transform: uppercase; letter-spacing: 0.14em;
+		margin-bottom: 24px;
+	}
+	.page-title strong { color: var(--acp-fg); font-weight: 600; letter-spacing: 0.04em; }
+	.controls {
+		position: sticky; top: 0; z-index: 10;
+		display: flex; align-items: center; gap: 12px;
+		padding: 12px 16px; margin: 0 -16px 32px;
+		background: rgba(20, 21, 27, 0.86); backdrop-filter: blur(12px);
+		border-bottom: 1px solid rgba(255,255,255,0.06);
+	}
+	.controls__label { color: var(--acp-fg-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; }
+	.controls__group { display: inline-flex; gap: 4px; padding: 4px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
+	.controls__btn {
+		font: inherit; font-size: 12px;
+		padding: 6px 12px; border: 0; background: transparent; color: var(--acp-fg-2);
+		border-radius: 5px; cursor: pointer;
+		transition: background 0.12s, color 0.12s;
+	}
+	.controls__btn:hover { color: var(--acp-fg); background: rgba(255,255,255,0.04); }
+	.controls__btn[aria-pressed="true"] { background: var(--acp-purple); color: #1a1130; font-weight: 600; }
+	.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+	.grid > .card--wide { grid-column: 1 / -1; }
+	.card {
+		display: flex; flex-direction: column;
+		background: var(--acp-bg);
+		border: 1px solid rgba(255,255,255,0.06);
+		border-radius: 12px;
+		overflow: hidden;
+	}
+	.card__head {
+		display: flex; align-items: baseline; gap: 12px;
+		padding: 14px 20px 12px;
+		background: rgba(0,0,0,0.18);
+		border-bottom: 1px solid rgba(255,255,255,0.04);
+		font-size: 11px; color: var(--acp-fg-3); text-transform: uppercase; letter-spacing: 0.14em;
+	}
+	.card__head strong { color: var(--acp-fg); font-weight: 600; letter-spacing: 0.06em; text-transform: none; font-size: 13px; }
+	.card__head .card__id { color: var(--acp-comment); font-variant-numeric: tabular-nums; }
+	.card__body {
+		flex: 1; display: flex; flex-direction: column;
+		padding: 32px 28px 26px;
+		min-height: 300px;
+	}
+	.card__note {
+		margin-top: 22px; padding-top: 14px;
+		border-top: 1px dashed rgba(255,255,255,0.06);
+		font-size: 11px; color: var(--acp-fg-3); letter-spacing: 0.02em;
+	}
+	.banner {
+		font-family: var(--acp-font-banner);
+		font-weight: 400;
+		font-variant-ligatures: none;
+		font-feature-settings: "liga" 0, "calt" 0;
+		white-space: pre;
+		line-height: 1.0;
+		letter-spacing: 0;
+		margin: 0 0 24px;
+		overflow: hidden;
+	}
+	.banner--gradient {
+		background: linear-gradient(105deg, var(--acp-pink) 0%, var(--acp-purple) 55%, var(--acp-cyan) 100%);
+		background-clip: text;
+		-webkit-background-clip: text;
+		color: transparent;
+	}
+	.banner--pink { color: var(--acp-pink); }
+	.banner--cyan { color: var(--acp-cyan); }
+	.banner--purple { color: var(--acp-purple); }
+	.banner--warm  { color: var(--acp-fg-2); }
+	.banner--outline {
+		color: transparent;
+		text-shadow:
+			0 0 0.6px var(--acp-pink),
+			-1px 0 0 var(--acp-pink),
+			1px 0 0 var(--acp-pink),
+			0 -1px 0 var(--acp-pink),
+			0 1px 0 var(--acp-pink),
+			0 0 12px rgba(255,121,198,0.35);
+	}
+	.banner--v1 { font-size: 13px; }
+	.banner--v2 { font-size: 13px; }
+	.banner--v3 { font-size: 14px; }
+	.banner--v4 { font-size: 20px; }
+	.banner--v5 { font-size: 22px; letter-spacing: -0.02em; }
+
+	/* Boot log — visually identical to production */
+	.boot-log { font-size: 12px; line-height: 1.75; }
+	.boot-line { display: flex; gap: 8px; }
+	.boot-line[data-tone="green"]  { color: var(--acp-green); }
+	.boot-line[data-tone="cyan"]   { color: var(--acp-cyan); }
+	.boot-line[data-tone="purple"] { color: var(--acp-purple); }
+	.boot-line[data-tone="pink"]   { color: var(--acp-pink); }
+	.boot-check { color: var(--acp-fg-2); flex: 0 0 auto; }
+	.boot-cursor { margin-top: 4px; color: var(--acp-fg-2); display: flex; gap: 6px; }
+	.boot-cursor .blink {
+		color: var(--acp-pink);
+		animation: cursor-blink 1s steps(2, start) infinite;
+	}
+	@keyframes cursor-blink { 50% { opacity: 0; } }
+
+	.foot {
+		margin-top: 44px;
+		font-size: 11px;
+		color: var(--acp-fg-3);
+		letter-spacing: 0.02em;
+	}
+	.foot code {
+		background: rgba(255,255,255,0.04);
+		padding: 1px 6px;
+		border-radius: 3px;
+		color: var(--acp-fg-2);
+	}
+	@media (max-width: 900px) {
+		.grid { grid-template-columns: 1fr; }
+	}
+</style>
+</head>
+<body>
+	<div class="page-title">
+		<strong>ACP Empty · Banner Variants</strong>
+		<span>五版对比 · 大字字体探索</span>
+	</div>
+
+	<div class="controls">
+		<span class="controls__label">Agent name</span>
+		<div class="controls__group" role="tablist" aria-label="Agent name">
+			<button class="controls__btn" type="button" data-name="CLAUDE" aria-pressed="true">CLAUDE</button>
+			<button class="controls__btn" type="button" data-name="CODEX"  aria-pressed="false">CODEX</button>
+			<button class="controls__btn" type="button" data-name="PI"     aria-pressed="false">PI</button>
+		</div>
+	</div>
+
+	<div class="grid">
+		<section class="card">
+			<div class="card__head"><span class="card__id">01</span> <strong>ANSI Shadow · Aurora</strong> <span>Claude Code CLI 官方启动风格 · 渐变</span></div>
+			<div class="card__body">
+				<pre class="banner banner--v1 banner--gradient" data-font="ansiShadow"></pre>
+				<div class="boot-log" data-boot></div>
+				<div class="card__note">6 行厚实块字模,pink → purple → cyan 斜向渐变。Claude Code、Codex CLI 启动横幅都是这套字体,信息量高但依旧精致。</div>
+			</div>
+		</section>
+
+		<section class="card">
+			<div class="card__head"><span class="card__id">02</span> <strong>ANSI Shadow · Solid</strong> <span>纯单色版</span></div>
+			<div class="card__body">
+				<pre class="banner banner--v2 banner--pink" data-font="ansiShadow"></pre>
+				<div class="boot-log" data-boot></div>
+				<div class="card__note">同字模,只用 <code style="background:rgba(255,255,255,0.04);padding:0 4px;border-radius:2px">--acp-pink</code> 单色。比 01 更克制、终端感更强,和 boot log 色阶更统一。</div>
+			</div>
+		</section>
+
+		<section class="card">
+			<div class="card__head"><span class="card__id">03</span> <strong>Slant · Mono</strong> <span>斜体 · 速度感</span></div>
+			<div class="card__body">
+				<pre class="banner banner--v3 banner--warm" data-font="slant"></pre>
+				<div class="boot-log" data-boot></div>
+				<div class="card__note">5 行 figlet Slant 字体。字重轻、笔画细,像素点感更弱,类似 CLI 里 <code style="background:rgba(255,255,255,0.04);padding:0 4px;border-radius:2px">figlet -f slant</code> 的效果。</div>
+			</div>
+		</section>
+
+		<section class="card">
+			<div class="card__head"><span class="card__id">04</span> <strong>Small · Compact</strong> <span>4 行紧凑</span></div>
+			<div class="card__body">
+				<pre class="banner banner--v4 banner--cyan" data-font="small"></pre>
+				<div class="boot-log" data-boot></div>
+				<div class="card__note">只有 3 行的半格块字体,极简且省垂直空间。适合窄 pane 或希望大字不抢镜的场景。</div>
+			</div>
+		</section>
+
+		<section class="card card--wide">
+			<div class="card__head"><span class="card__id">05</span> <strong>ANSI Shadow · Neon Outline</strong> <span>描边 + 光晕</span></div>
+			<div class="card__body">
+				<pre class="banner banner--v5 banner--outline" data-font="ansiShadow"></pre>
+				<div class="boot-log" data-boot></div>
+				<div class="card__note">同 01 字模,CSS text-shadow 制成霓虹描边 + 外发光。视觉存在感最强,适合更"品牌化"的启动屏。</div>
+			</div>
+		</section>
+	</div>
+
+	<div class="foot">
+		字模数据在 <code>fonts.js</code>,渲染逻辑在 <code>render.js</code>。切换顶部 Agent name 会同步刷新所有 5 版横幅。
+	</div>
+
+<script src="fonts.js"></script>
+<script src="render.js"></script>
+</body>
+</html>

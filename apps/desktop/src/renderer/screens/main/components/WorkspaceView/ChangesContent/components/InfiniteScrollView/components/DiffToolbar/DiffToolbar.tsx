@@ -71,8 +71,8 @@ export function DiffToolbar({
 }: DiffToolbarProps) {
 	const { t } = useTranslation();
 	return (
-		<div className="flex items-center gap-3 px-3 py-2.5 border-b border-r border-border bg-background sticky top-0 z-30">
-			<div className="flex items-center gap-3 text-xs text-muted-foreground flex-1">
+		<div className="flex items-center gap-3 px-3 py-2.5 border-b border-r border-line bg-background sticky top-0 z-30">
+			<div className="flex items-center gap-3 text-xs text-fg-mute flex-1">
 				<span>
 					{viewedCount}/{totalFiles} {t("v1Changes.toolbar.viewed")}
 				</span>
@@ -80,12 +80,12 @@ export function DiffToolbar({
 					<span className="flex items-center gap-1 font-mono">
 						{totalFiles} {t("v1Changes.toolbar.files")}
 						{totalAdditions > 0 && (
-							<span className="text-green-600 dark:text-green-500">
+							<span className="text-success dark:text-success">
 								+{totalAdditions}
 							</span>
 						)}
 						{totalDeletions > 0 && (
-							<span className="text-red-600 dark:text-red-400">
+							<span className="text-destructive dark:text-destructive">
 								-{totalDeletions}
 							</span>
 						)}
@@ -115,7 +115,7 @@ export function DiffToolbar({
 						type="button"
 						onClick={onNavigatePrev}
 						disabled={isFirstFile}
-						className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:pointer-events-none"
+						className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-fg-mute transition-colors hover:text-fg hover:bg-accent-tint disabled:opacity-30 disabled:pointer-events-none"
 						aria-label={t("v1Changes.toolbar.prevFile")}
 					>
 						<LuChevronUp className="size-3.5" />
@@ -126,15 +126,15 @@ export function DiffToolbar({
 						<DropdownMenuTrigger asChild>
 							<button
 								type="button"
-								className="flex items-center gap-1.5 rounded px-2 py-0.5 text-xs transition-colors hover:bg-accent"
+								className="flex items-center gap-1.5 rounded px-2 py-0.5 text-xs transition-colors hover:bg-accent-tint"
 							>
-								<span className="text-foreground font-medium">
+								<span className="text-fg font-medium">
 									{currentSection.label}
 								</span>
-								<span className="text-muted-foreground font-mono tabular-nums">
+								<span className="text-fg-mute font-mono tabular-nums">
 									{indexWithinSection + 1}/{currentSection.count}
 								</span>
-								<LuChevronDown className="size-3 text-muted-foreground" />
+								<LuChevronDown className="size-3 text-fg-mute" />
 							</button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="center" className="min-w-[160px]">
@@ -144,11 +144,12 @@ export function DiffToolbar({
 									onClick={() => onNavigateToSection(section.category)}
 									className={cn(
 										"flex items-center justify-between gap-4",
-										section.category === currentSection.category && "bg-accent",
+										section.category === currentSection.category &&
+											"bg-accent-tint",
 									)}
 								>
 									<span>{section.label}</span>
-									<span className="text-muted-foreground font-mono text-xs tabular-nums">
+									<span className="text-fg-mute font-mono text-xs tabular-nums">
 										{section.count}
 									</span>
 								</DropdownMenuItem>
@@ -160,7 +161,7 @@ export function DiffToolbar({
 						type="button"
 						onClick={onNavigateNext}
 						disabled={isLastFile}
-						className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:pointer-events-none"
+						className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-fg-mute transition-colors hover:text-fg hover:bg-accent-tint disabled:opacity-30 disabled:pointer-events-none"
 						aria-label={t("v1Changes.toolbar.nextFile")}
 					>
 						{t("v1Changes.toolbar.next")}
@@ -176,10 +177,8 @@ export function DiffToolbar({
 							type="button"
 							onClick={onToggleFocusMode}
 							className={cn(
-								"rounded p-1 transition-colors hover:bg-accent",
-								focusMode
-									? "text-foreground"
-									: "text-muted-foreground/60 hover:text-muted-foreground",
+								"rounded p-1 transition-colors hover:bg-accent-tint",
+								focusMode ? "text-fg" : "text-fg-faint hover:text-fg-mute",
 							)}
 							aria-label={
 								focusMode
@@ -206,7 +205,7 @@ export function DiffToolbar({
 									diffViewMode === "side-by-side" ? "inline" : "side-by-side",
 								)
 							}
-							className="rounded p-1 text-muted-foreground/60 transition-colors hover:text-muted-foreground hover:bg-accent"
+							className="rounded p-1 text-fg-faint transition-colors hover:text-fg-mute hover:bg-accent-tint"
 							aria-label={
 								diffViewMode === "side-by-side"
 									? t("v1Changes.toolbar.switchToInlineDiff")
@@ -232,10 +231,10 @@ export function DiffToolbar({
 							type="button"
 							onClick={onToggleHideUnchangedRegions}
 							className={cn(
-								"rounded p-1 transition-colors hover:bg-accent",
+								"rounded p-1 transition-colors hover:bg-accent-tint",
 								hideUnchangedRegions
-									? "text-foreground"
-									: "text-muted-foreground/60 hover:text-muted-foreground",
+									? "text-fg"
+									: "text-fg-faint hover:text-fg-mute",
 							)}
 							aria-label={
 								hideUnchangedRegions

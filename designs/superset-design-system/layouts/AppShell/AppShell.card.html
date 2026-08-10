@@ -1,0 +1,54 @@
+<!-- @dsCard group="Layout" viewport="720x360" name="AppShell" subtitle="chrome 34 · main 1fr · status 24 · z-index ladder" -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="../../components.css" />
+</head>
+<body>
+  <div id="root" style="padding:16px 20px"></div>
+  <script type="text/babel" src="../../../../foundations-noop"></script>
+  <script>
+    const label = (text) => `<span style="font-family:var(--font-mono);font-size:10px;color:var(--fg-faint);letter-spacing:var(--ls-mono)">${text}</span>`;
+    document.getElementById("root").innerHTML = `
+      <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--page-bg)">
+        <div style="height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;background:color-mix(in oklch, var(--page-bg) 90%, #000 10%);border-bottom:1px solid var(--line)">
+          <span style="width:12px;height:12px;border-radius:999px;background:#ff5f57"></span>
+          <span style="width:12px;height:12px;border-radius:999px;background:#febc2e"></span>
+          <span style="width:12px;height:12px;border-radius:999px;background:#28c840"></span>
+          ${label("chrome · 34px · drag region")}
+        </div>
+        <div style="display:grid;grid-template-columns:44px 260px 1fr 320px;height:220px">
+          <div style="background:var(--surface-sunk);border-right:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:8px;align-items:center">
+            <span style="width:24px;height:24px;background:var(--hover);border-radius:6px"></span>
+            <span style="width:24px;height:24px;background:var(--accent-tint);border-radius:6px"></span>
+            <span style="width:24px;height:24px;background:var(--hover);border-radius:6px"></span>
+            <div style="margin-top:auto">${label("44")}</div>
+          </div>
+          <div style="background:var(--surface);border-right:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px">
+            <div style="height:20px;background:var(--hover);border-radius:4px"></div>
+            <div style="height:16px;background:var(--hover);border-radius:4px;width:80%"></div>
+            <div style="height:16px;background:var(--accent-tint);border-radius:4px"></div>
+            <div style="height:16px;background:var(--hover);border-radius:4px;width:70%"></div>
+            <div style="margin-top:auto">${label("260 · resizable 220-480")}</div>
+          </div>
+          <div style="background:var(--page-bg);padding:12px;display:flex;align-items:flex-end">
+            ${label("main · 1fr")}
+          </div>
+          <div style="background:var(--surface);border-left:1px solid var(--line);padding:12px;display:flex;align-items:flex-end">
+            ${label("right · 0-420 · optional")}
+          </div>
+        </div>
+        <div style="height:24px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:var(--surface-sunk);border-top:1px solid var(--line);font-family:var(--font-mono);font-size:10px;color:var(--fg-faint)">
+          <span>● host · idle</span>
+          <span>status bar · 24px</span>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-family:var(--font-mono);font-size:10px;color:var(--fg-faint);display:flex;gap:16px;flex-wrap:wrap">
+        <span>z-toast &gt; z-tooltip &gt; z-modal &gt; z-modal-scrim &gt; z-overlay &gt; z-dropdown &gt; z-rail</span>
+      </div>
+    `;
+  </script>
+</body>
+</html>

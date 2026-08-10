@@ -13,7 +13,9 @@ function Label({
 		<LabelPrimitive.Root
 			data-slot="label"
 			className={cn(
-				"flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
+				// DS Label: muted eyebrow-cased text, semibold, mono-tabular width
+				// for form-field alignment. The required `*` is added by caller.
+				"flex items-center gap-1.5 text-[11px] leading-tight font-medium text-fg-mute select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
 				className,
 			)}
 			{...props}

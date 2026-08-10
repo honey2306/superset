@@ -17,9 +17,7 @@ export function LanguageSection() {
 	return (
 		<div>
 			<h3 className="text-sm font-medium mb-1">{t("language.name")}</h3>
-			<p className="text-xs text-muted-foreground mb-3">
-				{t("language.description")}
-			</p>
+			<p className="text-xs text-fg-mute mb-3">{t("language.description")}</p>
 			<Select
 				value={locale}
 				onValueChange={(value) => setLocale(value as Locale)}

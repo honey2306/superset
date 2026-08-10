@@ -52,7 +52,7 @@ export function AddTabButton({
 						<>
 							<Button
 								variant="ghost"
-								className="h-7 rounded-l-none pl-2 pr-1.5 gap-1 text-xs border border-border/60 bg-muted/30 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+								className="h-7 rounded-l-none pl-2 pr-1.5 gap-1 text-xs border border-line/60 bg-hover/30 text-fg-mute hover:bg-hover hover:text-fg"
 								onClick={onAddTerminal}
 							>
 								<BsTerminalPlus className="size-3.5" />
@@ -62,7 +62,7 @@ export function AddTabButton({
 								<Button
 									variant="ghost"
 									size="icon"
-									className="size-7 rounded-l-none border border-l-0 border-border/60 bg-muted/30 px-1 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+									className="size-7 rounded-l-none border border-l-0 border-line/60 bg-hover/30 px-1 text-fg-mute hover:bg-hover hover:text-fg"
 								>
 									<HiMiniChevronDown className="size-3" />
 								</Button>
@@ -73,7 +73,7 @@ export function AddTabButton({
 							<Button
 								variant="ghost"
 								size="icon"
-								className="size-7 px-1 rounded-md border border-border/60 bg-muted/30 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+								className="size-7 px-1 rounded-ds-3 border border-line/60 bg-hover/30 text-fg-mute hover:bg-hover hover:text-fg"
 							>
 								<LuPlus className="size-3.5" strokeWidth={1.8} />
 							</Button>

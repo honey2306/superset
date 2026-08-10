@@ -176,7 +176,7 @@ export function IssueLinkCommand({
 						/>
 						<label
 							htmlFor={showClosedId}
-							className="cursor-pointer select-none text-xs text-muted-foreground"
+							className="cursor-pointer select-none text-xs text-fg-mute"
 						>
 							{t("issueLink.showClosed")}
 						</label>
@@ -215,7 +215,7 @@ export function IssueLinkCommand({
 													task.externalUrl ?? undefined,
 												)
 											}
-											className="group items-start gap-3 rounded-md px-2.5 py-2"
+											className="group items-start gap-3 rounded-ds-3 px-2.5 py-2"
 										>
 											<span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
 												{status ? (
@@ -232,7 +232,7 @@ export function IssueLinkCommand({
 												<span className="truncate text-sm leading-snug">
 													{task.title}
 												</span>
-												<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+												<span className="flex items-center gap-1.5 text-[11px] text-fg-mute">
 													<span className="font-mono">{task.slug}</span>
 													{status ? (
 														<>
@@ -242,7 +242,7 @@ export function IssueLinkCommand({
 													) : null}
 												</span>
 											</div>
-											<span className="ml-2 hidden shrink-0 self-center text-[11px] text-muted-foreground group-data-[selected=true]:inline">
+											<span className="ml-2 hidden shrink-0 self-center text-[11px] text-fg-mute group-data-[selected=true]:inline">
 												↵
 											</span>
 										</CommandItem>

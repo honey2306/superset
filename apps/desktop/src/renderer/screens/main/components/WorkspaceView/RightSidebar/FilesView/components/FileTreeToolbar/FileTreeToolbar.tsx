@@ -78,20 +78,27 @@ export function FileTreeToolbar({
 	}, [onSearchChange]);
 
 	return (
-		<div className="flex flex-col gap-1 px-2 py-1.5 border-b border-border">
+		<div className="flex flex-col gap-1 px-2 py-1.5 border-b border-line">
 			<div className="relative">
 				<Input
 					type="text"
 					placeholder={t("files.search")}
 					value={localSearchTerm}
 					onChange={handleSearchChange}
-					className="h-7 text-xs pr-7"
+					/*
+					 * DS Input's default `bg-surface-elev` (≈#24252f) sits on top of
+					 * `--sidebar` (#21222c) at only ~2% luminance delta, which reads
+					 * as a muddy same-tone panel instead of a search field. Swap in
+					 * `bg-surface` (#282a36) so the field visibly lifts off the
+					 * sidebar without changing DS defaults elsewhere.
+					 */
+					className="h-7 text-xs pr-7 bg-surface"
 				/>
 				{localSearchTerm && (
 					<button
 						type="button"
 						onClick={handleClearSearch}
-						className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted-foreground/20 transition-colors"
+						className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded text-fg-mute hover:text-fg hover:bg-fg-mute/20 transition-colors"
 					>
 						<LuX className="size-3.5" />
 					</button>

@@ -127,7 +127,7 @@ export function IconUploadField({
 						? t("project.replaceIcon")
 						: t("project.uploadIcon")
 			}
-			className="size-9 rounded-md border overflow-hidden flex items-center justify-center text-muted-foreground transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
+			className="size-9 rounded-ds-3 border overflow-hidden flex items-center justify-center text-fg-mute transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
 		>
 			{iconUrl ? (
 				<img

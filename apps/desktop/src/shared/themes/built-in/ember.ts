@@ -33,8 +33,9 @@ export const darkTheme: Theme = {
 		mutedForeground: "#a8a5a3",
 
 		// Accent - warm highlight
-		accent: "#2a2827",
-		accentForeground: "#eae8e6",
+		// Accent — brand orange tint (14%), never a fill.
+		accent: "rgba(224, 120, 80, 0.14)",
+		accentForeground: "#e07850",
 
 		// Tertiary - panel backgrounds
 		tertiary: "#1a1716",
@@ -47,15 +48,15 @@ export const darkTheme: Theme = {
 		// Borders - subtle warm gray
 		border: "#2a2827",
 		input: "#2a2827",
-		ring: "#3a3837",
+		ring: "#e07850",
 
 		// Sidebar - slightly lighter than background
 		sidebar: "#1a1716",
 		sidebarForeground: "#eae8e6",
 		sidebarPrimary: "#e07850",
 		sidebarPrimaryForeground: "#151110",
-		sidebarAccent: "#252220",
-		sidebarAccentForeground: "#eae8e6",
+		sidebarAccent: "rgba(224, 120, 80, 0.14)",
+		sidebarAccentForeground: "#e07850",
 		sidebarBorder: "#2a2827",
 		sidebarRing: "#3a3837",
 

@@ -26,13 +26,13 @@ export function PortsList() {
 	};
 
 	return (
-		<div className="pt-3 border-t border-border">
-			<div className="group text-[11px] uppercase tracking-wider text-muted-foreground/70 px-3 pb-2 font-medium flex items-center gap-1.5 w-full hover:text-muted-foreground transition-colors">
+		<div className="pt-3 border-t border-line">
+			<div className="group text-[11px] uppercase tracking-wider text-fg-faint px-3 pb-2 font-medium flex items-center gap-1.5 w-full hover:text-fg-mute transition-colors">
 				<button
 					type="button"
 					aria-expanded={!isCollapsed}
 					onClick={toggleCollapsed}
-					className="flex items-center gap-1.5 focus-visible:text-muted-foreground focus-visible:outline-none"
+					className="flex items-center gap-1.5 focus-visible:text-fg-mute focus-visible:outline-none"
 				>
 					<LuChevronRight
 						className={`size-3 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
@@ -47,7 +47,7 @@ export function PortsList() {
 						<button
 							type="button"
 							onClick={handleOpenPortsDocs}
-							className="ml-auto p-0.5 rounded hover:bg-muted/50 opacity-0 group-hover:opacity-100 transition-opacity"
+							className="ml-auto p-0.5 rounded hover:bg-hover/50 opacity-0 group-hover:opacity-100 transition-opacity"
 						>
 							<LuCircleHelp className="size-3" strokeWidth={STROKE_WIDTH} />
 						</button>

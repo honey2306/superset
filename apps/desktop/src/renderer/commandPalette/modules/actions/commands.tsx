@@ -7,18 +7,17 @@ import {
 	KeyboardIcon,
 	PaletteIcon,
 	PanelLeftIcon,
-	PanelRightIcon,
 	RefreshCwIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
 import { env } from "renderer/env.renderer";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { electronQueryClient } from "renderer/providers/ElectronTRPCProvider";
-import { useRightSidebarToggleIntent } from "renderer/stores/right-sidebar-toggle-intent";
 import { SYSTEM_THEME_ID, useThemeStore } from "renderer/stores/theme/store";
 import { useWorkspaceSidebarStore } from "renderer/stores/workspace-sidebar-state";
 import type { Command, CommandProvider } from "../../core/types";
 import { ThemeFrame } from "../../ui/ThemeFrame/ThemeFrame";
+import { checkResourcesCommand } from "../resources/commands";
 
 function cycleTheme(): void {
 	const current = useThemeStore.getState().activeThemeId;
@@ -55,6 +54,7 @@ export const actionsProvider: CommandProvider = {
 				run: () => cycleTheme(),
 				renderFrame: () => <ThemeFrame />,
 			},
+			checkResourcesCommand,
 			{
 				id: "actions.toggleLeftSidebar",
 				title: "Toggle left sidebar",
@@ -64,17 +64,6 @@ export const actionsProvider: CommandProvider = {
 				run: () => useWorkspaceSidebarStore.getState().toggleOpen(),
 			},
 		];
-
-		if (context.workspace) {
-			commands.push({
-				id: "actions.toggleRightSidebar",
-				title: "Toggle right sidebar",
-				section: "actions",
-				icon: PanelRightIcon,
-				hotkeyId: "TOGGLE_SIDEBAR",
-				run: () => useRightSidebarToggleIntent.getState().request(),
-			});
-		}
 
 		commands.push(
 			{

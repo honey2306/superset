@@ -188,8 +188,8 @@ export function GroupItem({
 	const tabStyles = cn(
 		"flex items-center gap-2 transition-all w-full shrink-0 pl-3 pr-8 h-full",
 		isActive
-			? "text-foreground bg-border/30"
-			: "text-muted-foreground/70 hover:text-muted-foreground hover:bg-tertiary/20",
+			? "text-fg bg-line/30"
+			: "text-fg-mute/70 hover:text-fg-mute hover:bg-tertiary/20",
 	);
 
 	const startEditing = () => {
@@ -213,9 +213,9 @@ export function GroupItem({
 						drag(drop(node));
 					}}
 					className={cn(
-						"group relative flex items-center shrink-0 h-full border-r border-border",
-						isOver && canDrop && "bg-primary/5",
-						isDragging && "opacity-50 text-muted-foreground/50",
+						"group relative flex items-center shrink-0 h-full border-r border-line",
+						isOver && canDrop && "bg-accent-tint",
+						isDragging && "opacity-50 text-fg-mute/50",
 					)}
 					style={{ cursor: isDragging ? "grabbing" : undefined }}
 				>
@@ -227,7 +227,7 @@ export function GroupItem({
 								onSubmit={handleSave}
 								onCancel={() => setIsEditing(false)}
 								maxLength={64}
-								className="text-sm w-full min-w-0 px-1 py-0.5 rounded border border-border bg-background text-foreground outline-none focus:ring-1 focus:ring-ring"
+								className="text-sm w-full min-w-0 px-1 py-0.5 rounded border border-line bg-background text-fg outline-none focus:ring-1 focus:ring-ring"
 							/>
 						</div>
 					) : (
@@ -264,7 +264,7 @@ export function GroupItem({
 												e.stopPropagation();
 												onClose();
 											}}
-											className="cursor-pointer size-6 hover:bg-muted"
+											className="cursor-pointer size-6 hover:bg-hover"
 											aria-label="Close pane"
 										>
 											<HiMiniXMark className="size-4" />

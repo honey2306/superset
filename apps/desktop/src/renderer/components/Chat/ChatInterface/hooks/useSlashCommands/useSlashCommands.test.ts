@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
+	filterSlashCommands,
+	getSlashCommandSelectionBehavior,
 	resolveCommandAction,
+	resolveSlashCommandArgumentOptions,
 	type SlashCommand,
-	shouldSuppressSlashMenuForCommittedCommand,
 	sortSlashCommandMatches,
 } from "./useSlashCommands";
 
@@ -89,36 +91,69 @@ describe("sortSlashCommandMatches", () => {
 	});
 });
 
-describe("shouldSuppressSlashMenuForCommittedCommand", () => {
-	it("suppresses menu for exact command match with argument hint", () => {
-		expect(
-			shouldSuppressSlashMenuForCommittedCommand("model", [
-				createCommand({
-					name: "model",
-					aliases: [],
-					argumentHint: "[<model-id-or-name>]",
-				}),
-			]),
-		).toBe(true);
+describe("slash command selection behavior", () => {
+	it("opens a second-level picker for commands with enumerated options", () => {
+		const command = createCommand({ name: "mode", argumentHint: "<mode>" });
+		const composerCommand = {
+			...command,
+			argumentOptions: ["default", "plan"],
+		};
+		expect(getSlashCommandSelectionBehavior(composerCommand)).toBe("choose");
+		expect(resolveSlashCommandArgumentOptions(composerCommand, [])).toEqual([
+			"default",
+			"plan",
+		]);
 	});
 
-	it("does not suppress menu for exact command match without argument hint", () => {
+	it("uses inline input for free-form arguments", () => {
 		expect(
-			shouldSuppressSlashMenuForCommittedCommand("new", [
-				createCommand({ name: "new", aliases: [], argumentHint: "" }),
-			]),
-		).toBe(false);
+			getSlashCommandSelectionBehavior(
+				createCommand({ name: "search", argumentHint: "<query>" }),
+			),
+		).toBe("input");
 	});
 
-	it("does not suppress menu for partial matches", () => {
+	it("falls back to live model names for the model command", () => {
+		const command = {
+			...createCommand({ name: "model", argumentHint: "<model>" }),
+			action: { type: "set_model" as const, argument: "" },
+		};
 		expect(
-			shouldSuppressSlashMenuForCommittedCommand("mod", [
-				createCommand({
-					name: "model",
-					aliases: ["m"],
-					argumentHint: "[<model-id-or-name>]",
-				}),
-			]),
-		).toBe(false);
+			resolveSlashCommandArgumentOptions(command, ["Opus", "Sonnet"]),
+		).toEqual(["Opus", "Sonnet"]);
+	});
+});
+
+describe("filterSlashCommands", () => {
+	const commands = [
+		createCommand({
+			name: "model",
+			aliases: ["m"],
+			argumentHint: "[<model-id-or-name>]",
+		}),
+		createCommand({
+			name: "mode",
+			argumentHint: "<default|plan|accept-edits>",
+		}),
+	];
+
+	it("keeps an exact command match visible and ranks it first", () => {
+		const matches = filterSlashCommands(commands, "mode").map(
+			(command) => command.name,
+		);
+		expect(matches).toContain("mode");
+		expect(matches[0]).toBe("mode");
+	});
+
+	it("matches command aliases", () => {
+		const commandsWithDistinctAlias = [
+			createCommand({ name: "model", aliases: ["mdl"] }),
+			createCommand({ name: "mode" }),
+		];
+		expect(
+			filterSlashCommands(commandsWithDistinctAlias, "mdl").map(
+				(command) => command.name,
+			),
+		).toEqual(["model"]);
 	});
 });

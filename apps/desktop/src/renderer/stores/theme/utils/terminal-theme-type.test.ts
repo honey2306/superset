@@ -10,34 +10,34 @@ const mockLocalStorage = {
 	clear: () => mockStorage.clear(),
 };
 
-// @ts-expect-error - mocking global localStorage
-globalThis.localStorage = mockLocalStorage;
-
 describe("resolveTerminalThemeType", () => {
 	beforeEach(() => {
 		mockStorage.clear();
 	});
 
 	it("prefers active theme type when provided", () => {
-		localStorage.setItem("theme-type", "dark");
-		const result = resolveTerminalThemeType({ activeThemeType: "light" });
+		mockLocalStorage.setItem("theme-type", "dark");
+		const result = resolveTerminalThemeType({
+			activeThemeType: "light",
+			storage: mockLocalStorage,
+		});
 		expect(result).toBe("light");
 	});
 
 	it("falls back to persisted theme-type when active theme is unavailable", () => {
-		localStorage.setItem("theme-type", "light");
-		const result = resolveTerminalThemeType();
+		mockLocalStorage.setItem("theme-type", "light");
+		const result = resolveTerminalThemeType({ storage: mockLocalStorage });
 		expect(result).toBe("light");
 	});
 
 	it("falls back to dark when persisted theme-type is invalid", () => {
-		localStorage.setItem("theme-type", "invalid");
-		const result = resolveTerminalThemeType();
+		mockLocalStorage.setItem("theme-type", "invalid");
+		const result = resolveTerminalThemeType({ storage: mockLocalStorage });
 		expect(result).toBe("dark");
 	});
 
 	it("falls back to dark when localStorage is empty", () => {
-		const result = resolveTerminalThemeType();
+		const result = resolveTerminalThemeType({ storage: mockLocalStorage });
 		expect(result).toBe("dark");
 	});
 });

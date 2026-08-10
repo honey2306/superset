@@ -45,7 +45,7 @@ export function AssigneeProperty({ task }: AssigneePropertyProps) {
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
-					className="flex items-center gap-2 hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors w-full"
+					className="flex items-center gap-2 hover:bg-hover/50 rounded px-1 py-0.5 -mx-1 transition-colors w-full"
 				>
 					{task.assignee ? (
 						<>
@@ -56,7 +56,7 @@ export function AssigneeProperty({ task }: AssigneePropertyProps) {
 									className="w-5 h-5 rounded-full"
 								/>
 							) : (
-								<div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs">
+								<div className="w-5 h-5 rounded-full bg-hover flex items-center justify-center text-xs">
 									{task.assignee.name?.charAt(0).toUpperCase() ?? "?"}
 								</div>
 							)}
@@ -71,19 +71,19 @@ export function AssigneeProperty({ task }: AssigneePropertyProps) {
 									className="w-5 h-5 rounded-full"
 								/>
 							) : (
-								<div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs">
+								<div className="w-5 h-5 rounded-full bg-hover flex items-center justify-center text-xs">
 									{task.assigneeDisplayName?.charAt(0).toUpperCase() ?? "?"}
 								</div>
 							)}
 							<span className="text-sm">
 								{task.assigneeDisplayName || "External"}{" "}
-								<span className="text-muted-foreground">(external)</span>
+								<span className="text-fg-mute">(external)</span>
 							</span>
 						</>
 					) : (
 						<>
-							<HiOutlineUserCircle className="w-5 h-5 text-muted-foreground" />
-							<span className="text-sm text-muted-foreground">Unassigned</span>
+							<HiOutlineUserCircle className="w-5 h-5 text-fg-mute" />
+							<span className="text-sm text-fg-mute">Unassigned</span>
 						</>
 					)}
 				</button>
@@ -94,10 +94,10 @@ export function AssigneeProperty({ task }: AssigneePropertyProps) {
 						onSelect={() => handleSelectUser(null)}
 						className="flex items-center gap-2"
 					>
-						<HiOutlineUserCircle className="w-5 h-5 text-muted-foreground shrink-0" />
+						<HiOutlineUserCircle className="w-5 h-5 text-fg-mute shrink-0" />
 						<span className="text-sm">No assignee</span>
 						{!task.assigneeId && !task.assigneeExternalId && (
-							<span className="ml-auto text-xs text-muted-foreground">✓</span>
+							<span className="ml-auto text-xs text-fg-mute">✓</span>
 						)}
 					</DropdownMenuItem>
 					{users.map((user) => (
@@ -109,12 +109,10 @@ export function AssigneeProperty({ task }: AssigneePropertyProps) {
 							<Avatar size="xs" fullName={user.name} image={user.image} />
 							<div className="flex flex-col">
 								<span className="text-sm">{user.name}</span>
-								<span className="text-xs text-muted-foreground">
-									{user.email}
-								</span>
+								<span className="text-xs text-fg-mute">{user.email}</span>
 							</div>
 							{user.id === task.assigneeId && (
-								<span className="ml-auto text-xs text-muted-foreground">✓</span>
+								<span className="ml-auto text-xs text-fg-mute">✓</span>
 							)}
 						</DropdownMenuItem>
 					))}

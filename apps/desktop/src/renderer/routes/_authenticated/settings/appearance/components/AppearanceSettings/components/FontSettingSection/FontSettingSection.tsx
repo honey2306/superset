@@ -14,6 +14,7 @@ import {
 import { FontFamilyCombobox } from "./components/FontFamilyCombobox";
 import { FontPreview } from "./components/FontPreview";
 import { useSystemFonts } from "./hooks/useSystemFonts";
+import { toFontWeightOverride } from "./utils/toFontWeightOverride";
 
 const VARIANT_CONFIG = {
 	editor: {
@@ -51,13 +52,9 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 		onMutate: async (input) => {
 			await utils.settings.getFontSettings.cancel();
 			const previous = utils.settings.getFontSettings.getData();
-			utils.settings.getFontSettings.setData(undefined, (old) => ({
-				terminalFontFamily: old?.terminalFontFamily ?? null,
-				terminalFontSize: old?.terminalFontSize ?? null,
-				editorFontFamily: old?.editorFontFamily ?? null,
-				editorFontSize: old?.editorFontSize ?? null,
-				...input,
-			}));
+			utils.settings.getFontSettings.setData(undefined, (old) =>
+				old ? { ...old, ...input } : old,
+			);
 			return { previous };
 		},
 		onError: (_err, _vars, context) => {
@@ -81,6 +78,9 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 
 	const currentFamily = fontSettings?.[config.familyKey] ?? null;
 	const currentSize = fontSettings?.[config.sizeKey] ?? null;
+	const prefix = variant === "terminal" ? "terminal" : "editor";
+	const update = (key: string, value: boolean | number | string | null) =>
+		setFontSettings.mutate({ [key]: value });
 
 	const handleFontFamilyChange = useCallback(
 		(value: string | null) => {
@@ -110,7 +110,7 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 	return (
 		<div>
 			<h3 className="text-sm font-medium mb-1">{t(config.titleKey)}</h3>
-			<p className="text-xs text-muted-foreground mb-3">
+			<p className="text-xs text-fg-mute mb-3">
 				{t(config.descriptionKey)}
 				{variant === "terminal" && (
 					<>
@@ -119,7 +119,7 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 							href="https://www.nerdfonts.com"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="text-primary hover:underline"
+							className="text-accent-solid hover:underline"
 						>
 							Nerd Fonts
 						</a>{" "}
@@ -168,6 +168,121 @@ export function FontSettingSection({ variant }: FontSettingSectionProps) {
 					>
 						{t("common.reset")}
 					</Button>
+				)}
+			</div>
+			<div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+				<div>
+					Line height
+					<Input
+						type="number"
+						min={1}
+						max={2.5}
+						step={0.1}
+						value={
+							(fontSettings?.[
+								`${prefix}LineHeight` as keyof typeof fontSettings
+							] as number | null) ?? 1.5
+						}
+						onChange={(e) =>
+							update(`${prefix}LineHeight`, Number(e.target.value))
+						}
+					/>
+				</div>
+				<div>
+					Letter spacing
+					<Input
+						type="number"
+						min={-2}
+						max={4}
+						step={0.1}
+						value={
+							(fontSettings?.[
+								`${prefix}LetterSpacing` as keyof typeof fontSettings
+							] as number | null) ?? 0
+						}
+						onChange={(e) =>
+							update(`${prefix}LetterSpacing`, Number(e.target.value))
+						}
+					/>
+				</div>
+				<div>
+					Weight
+					<select
+						className="w-full h-9 border rounded px-2"
+						value={
+							(fontSettings?.[
+								`${prefix}FontWeight` as keyof typeof fontSettings
+							] as number | null) ?? 400
+						}
+						onChange={(e) =>
+							update(
+								`${prefix}FontWeight`,
+								toFontWeightOverride(Number(e.target.value)),
+							)
+						}
+					>
+						{[100, 200, 300, 400, 500, 600, 700, 800, 900].map((weight) => (
+							<option key={weight} value={weight}>
+								{weight}
+							</option>
+						))}
+					</select>
+				</div>
+				<label className="flex items-center gap-2 pt-5">
+					<input
+						type="checkbox"
+						checked={
+							(fontSettings?.[
+								`${prefix}Ligatures` as keyof typeof fontSettings
+							] as boolean | null) ?? true
+						}
+						onChange={(e) => update(`${prefix}Ligatures`, e.target.checked)}
+					/>
+					Ligatures
+				</label>
+				{variant === "terminal" && (
+					<>
+						<label>
+							Contrast
+							<select
+								className="w-full h-9 border rounded px-2"
+								value={fontSettings?.terminalMinimumContrast ?? 1}
+								onChange={(e) =>
+									update("terminalMinimumContrast", Number(e.target.value))
+								}
+							>
+								{[1, 3, 4.5, 7].map((value) => (
+									<option key={value} value={value}>
+										{value}
+									</option>
+								))}
+							</select>
+						</label>
+						<label>
+							Cursor
+							<select
+								className="w-full h-9 border rounded px-2"
+								value={fontSettings?.terminalCursorStyle ?? "block"}
+								onChange={(e) => update("terminalCursorStyle", e.target.value)}
+							>
+								{["block", "bar", "underline"].map((value) => (
+									<option key={value} value={value}>
+										{value}
+									</option>
+								))}
+							</select>
+						</label>
+						<label className="flex items-center gap-2">
+							<input
+								type="checkbox"
+								checked={fontSettings?.terminalCursorBlink ?? true}
+								onChange={(e) =>
+									update("terminalCursorBlink", e.target.checked)
+								}
+							/>
+							Blink cursor
+						</label>
+					</>
 				)}
 			</div>
 			<div className="mt-3">

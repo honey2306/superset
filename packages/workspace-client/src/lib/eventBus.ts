@@ -18,7 +18,8 @@ type EventType =
 	| "workspace:changed"
 	| "project:changed"
 	| "catalog:changed"
-	| "workspace-operation:changed";
+	| "workspace-operation:changed"
+	| "acp-session:changed";
 
 interface FsEventsPayload {
 	events: FsWatchEvent[];
@@ -104,6 +105,24 @@ export interface CatalogChangedPayload {
 	revision: CatalogChangedMessage["revision"];
 }
 
+type AcpSessionChangedMessage = Extract<
+	ServerMessage,
+	{ type: "acp-session:changed" }
+>;
+
+/**
+ * ACP session status transition for the given workspace. `sessionId`
+ * identifies which session changed; `eventType` disambiguates `changed`
+ * (status transition) from `deleted` (session closed). `status` is absent
+ * for `deleted`.
+ */
+export interface AcpSessionChangedPayload {
+	sessionId: AcpSessionChangedMessage["sessionId"];
+	eventType: AcpSessionChangedMessage["eventType"];
+	status?: AcpSessionChangedMessage["status"];
+	occurredAt: AcpSessionChangedMessage["occurredAt"];
+}
+
 type WorkspaceOperationChangedMessage = Extract<
 	ServerMessage,
 	{ type: "workspace-operation:changed" }
@@ -142,7 +161,12 @@ type EventListener<T extends EventType> = T extends "fs:events"
 											operationId: string,
 											payload: WorkspaceOperationChangedPayload,
 										) => void
-									: never;
+									: T extends "acp-session:changed"
+										? (
+												workspaceId: string,
+												payload: AcpSessionChangedPayload,
+											) => void
+										: never;
 
 interface ListenerEntry {
 	type: EventType;
@@ -198,7 +222,8 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 			message.type === "agent:lifecycle" ||
 			message.type === "terminal:lifecycle" ||
 			message.type === "port:changed" ||
-			message.type === "workspace:changed"
+			message.type === "workspace:changed" ||
+			message.type === "acp-session:changed"
 				? message.workspaceId
 				: message.type === "project:changed"
 					? message.projectId
@@ -276,6 +301,16 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 					operationId: message.operationId,
 					revision: message.revision,
 					operation: message.operation,
+				},
+			);
+		} else if (message.type === "acp-session:changed") {
+			(entry.callback as EventListener<"acp-session:changed">)(
+				message.workspaceId,
+				{
+					sessionId: message.sessionId,
+					eventType: message.eventType,
+					...(message.status !== undefined ? { status: message.status } : {}),
+					occurredAt: message.occurredAt,
 				},
 			);
 		}

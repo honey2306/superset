@@ -70,6 +70,10 @@ export const listSessionsInput = z.object({
 export const createSessionInput = z.object({
 	sessionId: sessionIdSchema,
 	workspaceId: z.string().min(1),
+	/** Omitted deliberately remains Claude, preserving the existing shell. */
+	harness: z
+		.enum(["claude-agent-acp", "codex-app-server", "pi-acp", "myflicker-acp"])
+		.optional(),
 });
 
 export const getSessionInput = z.object({
@@ -84,6 +88,8 @@ export const getMessagesInput = z.object({
 
 export const promptInput = z.object({
 	sessionId: sessionIdSchema,
+	/** Optional client-generated id: retrying it must not start a second turn. */
+	commandId: z.string().min(1).max(128).optional(),
 	prompt: z.array(contentBlockSchema).min(1),
 });
 
@@ -97,6 +103,11 @@ export const cancelInput = z.object({
 	sessionId: sessionIdSchema,
 });
 
+/** Permanently closes an ACP session and removes its recoverable history. */
+export const closeSessionInput = z.object({
+	sessionId: sessionIdSchema,
+});
+
 export const setModeInput = z.object({
 	sessionId: sessionIdSchema,
 	modeId: z.string().min(1),
@@ -106,6 +117,36 @@ export const setConfigOptionInput = z.object({
 	sessionId: sessionIdSchema,
 	configId: z.string().min(1),
 	value: z.union([z.string(), z.boolean()]),
+});
+
+const queueIdSchema = z.string().min(1);
+
+export const enqueuePromptInput = z.object({
+	sessionId: sessionIdSchema,
+	commandId: z.string().min(1).max(128).optional(),
+	prompt: z.array(contentBlockSchema).min(1),
+});
+
+export const sendNowInput = enqueuePromptInput;
+
+export const removeQueuedPromptInput = z.object({
+	sessionId: sessionIdSchema,
+	queueId: queueIdSchema,
+});
+
+export const reorderQueueInput = z.object({
+	sessionId: sessionIdSchema,
+	orderedIds: z.array(queueIdSchema).min(1),
+});
+
+export const editQueuedPromptInput = z.object({
+	sessionId: sessionIdSchema,
+	queueId: queueIdSchema,
+	prompt: z.array(contentBlockSchema).min(1),
+});
+
+export const clearQueueInput = z.object({
+	sessionId: sessionIdSchema,
 });
 
 // ---------------------------------------------------------------------------
@@ -144,6 +185,10 @@ export interface SessionsPage {
 	enabled: boolean;
 }
 
+export interface EnqueuePromptResult {
+	queueId: string;
+}
+
 export interface AcpSessionsApi {
 	get(input: { sessionId: string }): Promise<SessionScopedState>;
 	getMessages(input: {
@@ -153,6 +198,7 @@ export interface AcpSessionsApi {
 	}): Promise<MessagesPage>;
 	prompt(input: {
 		sessionId: string;
+		commandId?: string;
 		prompt: ContentBlock[];
 	}): Promise<PromptAccepted>;
 	respondToPermission(input: {
@@ -161,10 +207,52 @@ export interface AcpSessionsApi {
 		outcome: RequestPermissionOutcome;
 	}): Promise<RespondToPermissionResult>;
 	cancel(input: { sessionId: string }): Promise<void>;
+	close(input: { sessionId: string }): Promise<void>;
 	setMode(input: { sessionId: string; modeId: string }): Promise<void>;
 	setConfigOption(input: {
 		sessionId: string;
 		configId: string;
 		value: string | boolean;
 	}): Promise<void>;
+
+	// ── Follow-up queue (host-managed) ───────────────────────────────────
+	/**
+	 * Queue a prompt to run after the current turn (and any prior queued
+	 * prompts) finishes. If no turn is in flight and the queue is empty,
+	 * host may drain it immediately.
+	 */
+	enqueuePrompt(input: {
+		sessionId: string;
+		commandId?: string;
+		prompt: ContentBlock[];
+	}): Promise<EnqueuePromptResult>;
+	/**
+	 * Cancel the current turn and immediately run this prompt. Works for
+	 * every adapter — host does `cancel + drain` atomically so no other
+	 * queued prompt races in front. If the session is idle, behaves as
+	 * `prompt`.
+	 */
+	sendNow(input: {
+		sessionId: string;
+		commandId?: string;
+		prompt: ContentBlock[];
+	}): Promise<PromptAccepted>;
+	removeQueuedPrompt(input: {
+		sessionId: string;
+		queueId: string;
+	}): Promise<void>;
+	/**
+	 * Full reorder — the payload lists every queued id in the intended new
+	 * order. Host rejects on length mismatch or unknown / duplicate ids.
+	 */
+	reorderQueue(input: {
+		sessionId: string;
+		orderedIds: string[];
+	}): Promise<void>;
+	editQueuedPrompt(input: {
+		sessionId: string;
+		queueId: string;
+		prompt: ContentBlock[];
+	}): Promise<void>;
+	clearQueue(input: { sessionId: string }): Promise<void>;
 }

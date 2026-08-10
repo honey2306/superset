@@ -10,7 +10,11 @@ import {
 } from "../workspaces/utils/base-branch-config";
 import { getCurrentBranch } from "../workspaces/utils/git";
 import { getSimpleGitWithShellPath } from "../workspaces/utils/git-client";
-import { gitSwitchBranch } from "./security/git-commands";
+import {
+	gitCheckoutRemoteBranch,
+	gitCreateAndSwitchBranch,
+	gitSwitchBranch,
+} from "./security/git-commands";
 import {
 	assertRegisteredWorktree,
 	getRegisteredWorktree,
@@ -84,23 +88,43 @@ export const createBranchesRouter = () => {
 				}),
 			)
 			.mutation(async ({ input }): Promise<{ success: boolean }> => {
-				const worktree = getRegisteredWorktree(input.worktreePath);
 				await gitSwitchBranch(input.worktreePath, input.branch);
+				updateRegisteredWorktreeBranch(input.worktreePath, input.branch);
+				return { success: true };
+			}),
 
-				const gitStatus = worktree.gitStatus
-					? { ...worktree.gitStatus, branch: input.branch }
-					: null;
+		createBranch: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+					branch: z.string(),
+				}),
+			)
+			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				await gitCreateAndSwitchBranch(input.worktreePath, input.branch);
+				updateRegisteredWorktreeBranch(input.worktreePath, input.branch);
+				return { success: true };
+			}),
 
-				localDb
-					.update(worktrees)
-					.set({
-						branch: input.branch,
-						baseBranch: null,
-						gitStatus,
-					})
-					.where(eq(worktrees.path, input.worktreePath))
-					.run();
+		checkoutRemoteBranch: publicProcedure
+			.input(
+				z.object({
+					worktreePath: z.string(),
+					branch: z.string(),
+				}),
+			)
+			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				await gitCheckoutRemoteBranch(input.worktreePath, input.branch);
+				updateRegisteredWorktreeBranch(input.worktreePath, input.branch);
+				return { success: true };
+			}),
 
+		fetchBranches: publicProcedure
+			.input(z.object({ worktreePath: z.string() }))
+			.mutation(async ({ input }): Promise<{ success: boolean }> => {
+				assertRegisteredWorktree(input.worktreePath);
+				const git = await getSimpleGitWithShellPath(input.worktreePath);
+				await git.fetch(["--all", "--prune"]);
 				clearStatusCacheForWorktree(input.worktreePath);
 				return { success: true };
 			}),
@@ -145,6 +169,23 @@ export const createBranchesRouter = () => {
 			}),
 	});
 };
+
+function updateRegisteredWorktreeBranch(
+	worktreePath: string,
+	branch: string,
+): void {
+	const worktree = getRegisteredWorktree(worktreePath);
+	const gitStatus = worktree.gitStatus
+		? { ...worktree.gitStatus, branch }
+		: null;
+
+	localDb
+		.update(worktrees)
+		.set({ branch, baseBranch: null, gitStatus })
+		.where(eq(worktrees.path, worktreePath))
+		.run();
+	clearStatusCacheForWorktree(worktreePath);
+}
 
 async function getLocalBranchesWithDates(
 	git: SimpleGit,

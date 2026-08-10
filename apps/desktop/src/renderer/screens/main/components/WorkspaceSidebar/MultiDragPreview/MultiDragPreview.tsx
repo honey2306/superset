@@ -20,7 +20,7 @@ export function MultiDragPreview() {
 				top: drag.offset.y - 12,
 			}}
 		>
-			<div className="bg-primary text-primary-foreground text-xs font-medium px-2 py-1 rounded-full shadow-md">
+			<div className="bg-accent-solid text-accent-foreground text-xs font-medium px-2 py-1 rounded-full shadow-md">
 				{drag.count} workspaces
 			</div>
 		</div>

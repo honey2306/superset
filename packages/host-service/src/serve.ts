@@ -1,3 +1,7 @@
+import type { IncomingMessage } from "node:http";
+import { dirname, join } from "node:path";
+import type { Duplex } from "node:stream";
+import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { createApp } from "./app";
 import { getSupervisor, startDaemonBootstrap } from "./daemon";
@@ -13,6 +17,16 @@ import { installProcessSafetyNet } from "./safety";
 import { startTerminalBaseEnvResolution } from "./terminal/env";
 import { startTerminalReaper } from "./terminal/reaper";
 import { connectRelay } from "./tunnel";
+
+function resolveDefaultWebAppDir(): string | undefined {
+	try {
+		// packages/host-service/dist/... at runtime; walk up to package root.
+		const here = dirname(fileURLToPath(import.meta.url));
+		return join(here, "..", "public", "web");
+	} catch {
+		return undefined;
+	}
+}
 
 async function main(): Promise<void> {
 	console.log(
@@ -56,6 +70,7 @@ async function main(): Promise<void> {
 			cloudApiUrl: env.SUPERSET_API_URL,
 			migrationsFolder: env.HOST_MIGRATIONS_FOLDER,
 			allowedOrigins: env.CORS_ORIGINS ?? [],
+			webAppDir: env.SUPERSET_WEB_APP_DIR ?? resolveDefaultWebAppDir(),
 		},
 		providers: {
 			auth: authProvider,
@@ -111,6 +126,18 @@ async function main(): Promise<void> {
 				hostServiceSecret: env.HOST_SERVICE_SECRET,
 			});
 		}
+	});
+	// Node detaches its own socket error handler before emitting `upgrade`, while
+	// @hono/node-ws awaits app.request() before it adopts the socket. Keep a
+	// listener through that gap so a peer ECONNRESET cannot terminate the process.
+	server.on("upgrade", (request: IncomingMessage, socket: Duplex) => {
+		// Query strings can contain the host-service secret for relayed requests.
+		const requestPath = request.url?.split("?")[0] ?? "<unknown>";
+		socket.on("error", (error: NodeJS.ErrnoException) => {
+			console.warn(
+				`[host-service] upgrade socket error (${error.code ?? error.message}) on ${requestPath} from ${request.socket.remoteAddress ?? "<unknown>"}`,
+			);
+		});
 	});
 	injectWebSocket(server);
 }

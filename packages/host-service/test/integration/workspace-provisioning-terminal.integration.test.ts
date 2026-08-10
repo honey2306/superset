@@ -191,6 +191,88 @@ describe("workspaceProvisioning terminal + compensation (M2)", () => {
 		expect(operation.warnings[0]?.code).toBe("TERMINAL_BEST_EFFORT_FAILED");
 	});
 
+	test("setup/command completion gates agents even when setup is best-effort", async () => {
+		fx = boot();
+		const terminal = createInMemoryTerminalRuntime();
+		terminal.failNext(new Error("setup exited 17"));
+		const provisioning = new WorkspaceProvisioning({
+			db: fx.db,
+			catalog: fx.catalog,
+			eventBus: null,
+			runner: runnerFromCatalog(fx.catalog),
+			terminalRuntime: terminal,
+		});
+
+		const { operation } = await provisioning.begin({
+			idempotencyKey: `k:${randomUUID()}`,
+			project: { kind: "existing", projectId: randomUUID() },
+			source: { kind: "main" },
+			// Agent first deliberately: dependency order is semantic, not input
+			// order, so a failed setup cannot quietly start it.
+			initialSessions: [
+				{
+					key: "agent",
+					kind: "agent",
+					agent: "claude",
+					prompt: "work",
+					requirement: "best-effort",
+				},
+				{
+					key: "setup",
+					kind: "command",
+					command: "false",
+					requirement: "best-effort",
+				},
+			],
+		});
+
+		expect(operation.state).toBe("failed");
+		expect(operation.failure?.message).toContain("setup exited 17");
+		expect(terminal.calls).toHaveLength(1);
+		expect(terminal.calls[0]?.intent.kind).toBe("command");
+		expect(terminal.calls[0]?.awaitCommandCompletion).toBe(true);
+	});
+
+	test("starts agents only after successful setup/command completion", async () => {
+		fx = boot();
+		const terminal = createInMemoryTerminalRuntime();
+		const provisioning = new WorkspaceProvisioning({
+			db: fx.db,
+			catalog: fx.catalog,
+			eventBus: null,
+			runner: runnerFromCatalog(fx.catalog),
+			terminalRuntime: terminal,
+		});
+
+		const { operation } = await provisioning.begin({
+			idempotencyKey: `k:${randomUUID()}`,
+			project: { kind: "existing", projectId: randomUUID() },
+			source: { kind: "main" },
+			initialSessions: [
+				{
+					key: "agent",
+					kind: "agent",
+					agent: "claude",
+					prompt: "work",
+					requirement: "required",
+				},
+				{
+					key: "setup",
+					kind: "command",
+					command: "echo ready",
+					requirement: "best-effort",
+				},
+			],
+		});
+
+		expect(operation.state).toBe("succeeded");
+		expect(terminal.calls.map((call) => call.intent.kind)).toEqual([
+			"command",
+			"agent",
+		]);
+		expect(terminal.calls[0]?.awaitCommandCompletion).toBe(true);
+	});
+
 	test("terminal id journaled per intent — same operation re-drives adopt the same daemon session id", async () => {
 		fx = boot();
 		const journal = new OperationJournal(fx.db);

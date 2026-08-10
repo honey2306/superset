@@ -44,7 +44,7 @@ export function ConfigRow({
 				{title}
 			</Label>
 			{description ? (
-				<p className="text-xs text-muted-foreground -mt-1">{description}</p>
+				<p className="text-xs text-fg-mute -mt-1">{description}</p>
 			) : null}
 			<div className="flex items-center gap-2">
 				<div className="min-w-0 flex-1">{field}</div>

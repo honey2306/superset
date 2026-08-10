@@ -1,4 +1,5 @@
 import type { PaneDefinition } from "@superset/panes";
+import { BUILTIN_AGENT_LABELS } from "@superset/shared/agent-catalog";
 import { confirmCloseTerminals } from "renderer/lib/terminal/confirm-close-terminals";
 import type { V1PanesPaneData } from "./types";
 
@@ -99,6 +100,56 @@ export function buildV1PanesLifecycleRegistry(
 		},
 		onAfterClose: (pane) => {
 			killTerminal(pane.id);
+		},
+	};
+}
+
+export interface V1PanesAcpLifecycleDeps {
+	closeAcpSession: (sessionId: string) => Promise<void>;
+}
+
+export function buildV1PanesAcpLifecycleRegistry(
+	deps: V1PanesAcpLifecycleDeps,
+): Pick<
+	PaneDefinition<V1PanesPaneData>,
+	"getTitle" | "onBeforeClose" | "onAfterClose"
+> {
+	const { closeAcpSession } = deps;
+	return {
+		getTitle: (pane) => {
+			const acp = pane.data.acp;
+			return (
+				acp?.title ??
+				(acp ? BUILTIN_AGENT_LABELS[acp.agentDefinitionId] : "Claude")
+			);
+		},
+
+		onBeforeClose: async (pane) => {
+			const sessionId = pane.data.acp?.sessionId;
+			if (!sessionId) return true;
+			try {
+				// ACP has one close action: closing the pane permanently closes the
+				// session. Await it here so a failed close leaves the pane visible.
+				await closeAcpSession(sessionId);
+				return true;
+			} catch (error) {
+				console.warn(`[ACP] failed to close session ${sessionId}`, error);
+				import("@superset/ui/sonner")
+					.then(({ toast }) => toast.error("Could not close agent session."))
+					.catch(() => {});
+				return false;
+			}
+		},
+
+		// Closing the whole tab bypasses per-pane onBeforeClose (see
+		// packages/panes/.../Workspace.tsx `closeTab`), so without this hook the
+		// host session would linger and its status would keep the sidebar
+		// indicator lit. Best-effort and idempotent: when `onBeforeClose` already
+		// closed the session (per-pane close path), a NotFound here is expected.
+		onAfterClose: (pane) => {
+			const sessionId = pane.data.acp?.sessionId;
+			if (!sessionId) return;
+			void closeAcpSession(sessionId).catch(() => {});
 		},
 	};
 }

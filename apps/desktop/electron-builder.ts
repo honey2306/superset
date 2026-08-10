@@ -74,6 +74,11 @@ const config: Configuration = {
 			to: "resources/bin",
 			filter: ["**/*"],
 		},
+		{
+			from: "dist/resources/web",
+			to: "resources/web",
+			filter: ["**/*"],
+		},
 	],
 
 	files: [

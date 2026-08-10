@@ -45,6 +45,7 @@ mise.toml
 
 # Temporary files
 .tmp/
+.codeflicker/
 
 # Turbo
 .turbo
@@ -98,3 +99,6 @@ superset-dev-data-fusion/
 
 # Local-only plans (not tracked)
 plans/local/
+
+# apps/web build output (served by host-service under /app/*)
+packages/host-service/public/web/

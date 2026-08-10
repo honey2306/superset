@@ -70,9 +70,7 @@ export function PRButton({
 		mergePRMutation.mutate({ worktreePath, strategy });
 
 	if (isLoading) {
-		return (
-			<VscLoading className="w-4 h-4 animate-spin text-muted-foreground" />
-		);
+		return <VscLoading className="w-4 h-4 animate-spin text-fg-mute" />;
 	}
 
 	if (!pr) {
@@ -80,7 +78,7 @@ export function PRButton({
 			return (
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<span className="flex items-center ml-auto text-muted-foreground/40">
+						<span className="flex items-center ml-auto text-fg-faint">
 							<VscGitPullRequest className="w-4 h-4" />
 						</span>
 					</TooltipTrigger>
@@ -103,9 +101,9 @@ export function PRButton({
 						disabled={isCreatePending}
 					>
 						{isCreatePending ? (
-							<VscLoading className="w-4 h-4 animate-spin text-muted-foreground" />
+							<VscLoading className="w-4 h-4 animate-spin text-fg-mute" />
 						) : (
-							<VscGitPullRequest className="w-4 h-4 text-muted-foreground" />
+							<VscGitPullRequest className="w-4 h-4 text-fg-mute" />
 						)}
 					</button>
 				</TooltipTrigger>
@@ -125,35 +123,31 @@ export function PRButton({
 				className="flex items-center gap-1 ml-auto hover:opacity-80 transition-opacity"
 			>
 				<PRIcon state={pr.state} className="w-4 h-4" />
-				<span className="text-xs text-muted-foreground font-mono">
-					#{pr.number}
-				</span>
+				<span className="text-xs text-fg-mute font-mono">#{pr.number}</span>
 			</a>
 		);
 	}
 
 	return (
 		<div
-			className="flex items-center ml-auto rounded border border-border overflow-hidden"
+			className="flex items-center ml-auto rounded border border-line overflow-hidden"
 			aria-busy={mergePRMutation.isPending}
 		>
 			<a
 				href={pr.url}
 				target="_blank"
 				rel="noopener noreferrer"
-				className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-accent transition-colors"
+				className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-accent-tint transition-colors"
 			>
 				<PRIcon state={pr.state} className="w-4 h-4" />
-				<span className="text-xs text-muted-foreground font-mono">
-					#{pr.number}
-				</span>
+				<span className="text-xs text-fg-mute font-mono">#{pr.number}</span>
 			</a>
-			<div className="w-px h-full bg-border" />
+			<div className="w-px h-full bg-line" />
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<button
 						type="button"
-						className="flex items-center px-1 py-0.5 hover:bg-accent transition-colors"
+						className="flex items-center px-1 py-0.5 hover:bg-accent-tint transition-colors"
 						disabled={mergePRMutation.isPending}
 						aria-label={
 							mergePRMutation.isPending
@@ -162,14 +156,14 @@ export function PRButton({
 						}
 					>
 						{mergePRMutation.isPending ? (
-							<VscLoading className="size-3 animate-spin text-muted-foreground" />
+							<VscLoading className="size-3 animate-spin text-fg-mute" />
 						) : (
-							<VscChevronDown className="size-3 text-muted-foreground" />
+							<VscChevronDown className="size-3 text-fg-mute" />
 						)}
 					</button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-44">
-					<DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+					<DropdownMenuLabel className="text-xs text-fg-mute font-normal">
 						{t("v1Changes.pr.mergeLabel")}
 					</DropdownMenuLabel>
 					<DropdownMenuItem

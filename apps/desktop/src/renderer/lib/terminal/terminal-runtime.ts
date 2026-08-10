@@ -18,14 +18,20 @@ import {
 	wrapWrite,
 } from "./parser-idle-gate";
 import { loadAddons } from "./terminal-addons";
+import {
+	removeTerminalStatePersistedAt,
+	TERMINAL_BUFFER_KEY_PREFIX,
+	TERMINAL_DIMS_KEY_PREFIX,
+	touchTerminalStatePersistedAt,
+} from "./terminal-buffer-gc";
 import { installImagePasteFallback } from "./terminal-image-paste-fallback";
 import { installTerminalKeyEventHandler } from "./terminal-key-event-handler";
 import { getTerminalParkingContainer } from "./terminal-parking";
 import { installInputModeReclaimer } from "./terminalInputModeReclaimer";
 
 const SERIALIZE_SCROLLBACK = 1000;
-const STORAGE_KEY_PREFIX = "terminal-buffer:";
-const DIMS_KEY_PREFIX = "terminal-dims:";
+const STORAGE_KEY_PREFIX = TERMINAL_BUFFER_KEY_PREFIX;
+const DIMS_KEY_PREFIX = TERMINAL_DIMS_KEY_PREFIX;
 const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 32;
 const RESIZE_DEBOUNCE_MS = 75;
@@ -45,6 +51,8 @@ export interface TerminalRuntime {
 	lastCols: number;
 	lastRows: number;
 	_disposeAddons: (() => void) | null;
+	_setLigaturesEnabled: ((enabled: boolean) => void) | null;
+	ligaturesEnabled: boolean;
 	_disposeImagePasteFallback: (() => void) | null;
 }
 
@@ -62,14 +70,18 @@ function createTerminal(
 	const terminal = new XTerm({
 		cols,
 		rows,
-		cursorBlink: true,
+		cursorBlink: appearance.cursorBlink,
 		fontFamily: appearance.fontFamily,
 		fontSize: appearance.fontSize,
+		lineHeight: appearance.lineHeight,
+		letterSpacing: appearance.letterSpacing,
+		fontWeight: appearance.fontWeight,
+		minimumContrastRatio: appearance.minimumContrastRatio,
 		theme: appearance.theme,
 		allowProposedApi: true,
 		scrollback: DEFAULT_TERMINAL_SCROLLBACK,
 		macOptionIsMeta: false,
-		cursorStyle: "block",
+		cursorStyle: appearance.cursorStyle,
 		cursorInactiveStyle: "outline",
 		vtExtensions: { kittyKeyboard: true },
 		scrollbar: { showScrollbar: false },
@@ -90,6 +102,7 @@ function persistBuffer(
 	try {
 		const data = serializeAddon.serialize({ scrollback: SERIALIZE_SCROLLBACK });
 		localStorage.setItem(`${STORAGE_KEY_PREFIX}${terminalId}`, data);
+		touchTerminalStatePersistedAt(terminalId);
 		return true;
 	} catch {
 		return false;
@@ -99,7 +112,10 @@ function persistBuffer(
 function restoreBuffer(terminalId: string, terminal: XTerm) {
 	try {
 		const data = localStorage.getItem(`${STORAGE_KEY_PREFIX}${terminalId}`);
-		if (data) terminal.write(data);
+		if (data) {
+			terminal.write(data);
+			touchTerminalStatePersistedAt(terminalId);
+		}
 	} catch {}
 }
 
@@ -121,6 +137,7 @@ export function tryPersistRuntimeState(runtime: TerminalRuntime): boolean {
 function clearPersistedBuffer(terminalId: string) {
 	try {
 		localStorage.removeItem(`${STORAGE_KEY_PREFIX}${terminalId}`);
+		removeTerminalStatePersistedAt(terminalId);
 	} catch {}
 }
 
@@ -285,7 +302,9 @@ export function createRuntime(
 
 	// Activate Unicode 11 widths (inside loadAddons) before restoring the buffer,
 	// else CJK/emoji/ZWJ widths get baked wrong into the replay. (#3572)
-	const addonsResult = loadAddons(terminal);
+	const addonsResult = loadAddons(terminal, {
+		ligatures: appearance.ligatures,
+	});
 	if (options.initialBuffer !== undefined) {
 		terminal.write(options.initialBuffer);
 	} else {
@@ -312,6 +331,8 @@ export function createRuntime(
 		lastCols: cols,
 		lastRows: rows,
 		_disposeAddons: addonsResult.dispose,
+		_setLigaturesEnabled: addonsResult.setLigaturesEnabled,
+		ligaturesEnabled: appearance.ligatures,
 		_disposeImagePasteFallback: disposeImagePasteFallback,
 	};
 }
@@ -379,12 +400,24 @@ export function updateRuntimeAppearance(
 
 	const fontChanged =
 		terminal.options.fontFamily !== appearance.fontFamily ||
-		terminal.options.fontSize !== appearance.fontSize;
+		terminal.options.fontSize !== appearance.fontSize ||
+		terminal.options.lineHeight !== appearance.lineHeight ||
+		terminal.options.letterSpacing !== appearance.letterSpacing ||
+		terminal.options.fontWeight !== appearance.fontWeight ||
+		runtime.ligaturesEnabled !== appearance.ligatures;
+	runtime._setLigaturesEnabled?.(appearance.ligatures);
+	runtime.ligaturesEnabled = appearance.ligatures;
+	terminal.options.minimumContrastRatio = appearance.minimumContrastRatio;
+	terminal.options.cursorStyle = appearance.cursorStyle;
+	terminal.options.cursorBlink = appearance.cursorBlink;
 
 	if (fontChanged) {
 		applyTerminalFontFamilyCssVariable(runtime.wrapper, appearance.fontFamily);
 		terminal.options.fontFamily = appearance.fontFamily;
 		terminal.options.fontSize = appearance.fontSize;
+		terminal.options.lineHeight = appearance.lineHeight;
+		terminal.options.letterSpacing = appearance.letterSpacing;
+		terminal.options.fontWeight = appearance.fontWeight;
 		measureAndResize(runtime, onResize);
 		// The freshly-selected font may still be loading — schedule a follow-up
 		// refit once it resolves so dimensions track the rendered glyphs.
@@ -407,6 +440,7 @@ export function disposeRuntime(
 	runtime._disposeImagePasteFallback = null;
 	runtime._disposeAddons?.();
 	runtime._disposeAddons = null;
+	runtime._setLigaturesEnabled = null;
 	runtime._disposeResizeObserver?.();
 	runtime._disposeResizeObserver = null;
 	runtime.resizeObserver?.disconnect();

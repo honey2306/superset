@@ -92,7 +92,7 @@ export function SubmitPromptDialog({
 					<div className="flex flex-col gap-2">
 						<Label htmlFor="submit-prompt-name">
 							{t("dashboard.yourName")}{" "}
-							<span className="font-normal text-muted-foreground">
+							<span className="font-normal text-fg-mute">
 								{t("dashboard.promptCreditHint")}
 							</span>
 						</Label>

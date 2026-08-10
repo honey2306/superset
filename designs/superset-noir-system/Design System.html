@@ -1,0 +1,1368 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>Superset Noir · Design System</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Superset Noir · Design System · v1.0
+   ------------------------------------------------------------
+   Foundations → Components → Patterns → Motion → A11y → Tokens
+   ============================================================ */
+
+:root {
+  /* Ink · 中性深阶 */
+  --ink-0:#0a080b; --ink-1:#0f0d10; --ink-2:#16131a; --ink-3:#1a171d;
+  --ink-4:#221e26; --ink-5:#2a2531; --ink-6:#3a3441; --ink-7:#4a4353;
+
+  /* Text · 文字阶 */
+  --text-1:#eae8f0; --text-2:#b8b3c4; --text-3:#8a8395; --text-4:#625a6d; --text-5:#3f394a;
+
+  /* Rose · Signature (哑光粉,不是热粉) */
+  --rose-50:#fbeff5; --rose-100:#f7dbe8; --rose-200:#e5a3c8; --rose-300:#d685b3;
+  --rose-400:#b8618f; --rose-500:#8a4468; --rose-600:#5f2f48;
+
+  /* Violet · Support */
+  --violet-100:#d9ccf2; --violet-200:#b8a3e5; --violet-300:#9682c8;
+
+  /* Semantic */
+  --success:#7dd88f; --success-bg:rgba(125,216,143,0.10); --success-line:rgba(125,216,143,0.25);
+  --warning:#e8c26a; --warning-bg:rgba(232,194,106,0.10); --warning-line:rgba(232,194,106,0.25);
+  --danger:#e08585;  --danger-bg:rgba(224,133,133,0.10);  --danger-line:rgba(224,133,133,0.28);
+  --info:#7fb8d8;    --info-bg:rgba(127,184,216,0.10);    --info-line:rgba(127,184,216,0.25);
+
+  /* Radius */
+  --r-1:4px; --r-2:6px; --r-3:10px; --r-4:12px; --r-5:16px; --r-6:20px; --r-full:999px;
+
+  /* Space 4pt */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-7:32px; --s-8:40px; --s-9:56px; --s-10:72px; --s-11:96px;
+
+  /* Type */
+  --font-ui:"Inter", -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-mono:"JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+
+  --lh-tight:1.2; --lh-normal:1.5; --lh-relaxed:1.65; --lh-loose:1.8;
+
+  /* Shadow */
+  --shadow-xs:0 1px 1px rgba(0,0,0,0.20);
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.30);
+  --shadow-md:0 4px 16px rgba(0,0,0,0.35);
+  --shadow-lg:0 20px 60px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.02);
+  --shadow-rose:0 0 0 3px rgba(229,163,200,0.15);
+  --shadow-focus:0 0 0 2px var(--ink-0), 0 0 0 4px var(--rose-200);
+  --shadow-danger:0 0 0 3px rgba(224,133,133,0.20);
+
+  /* Motion */
+  --dur-1:80ms; --dur-2:150ms; --dur-3:240ms; --dur-4:400ms;
+  --ease-standard:cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized:cubic-bezier(0.3, 0, 0, 1);
+  --ease-decel:cubic-bezier(0, 0, 0.2, 1);
+
+  /* z */
+  --z-nav:10; --z-sticky:20; --z-popover:40; --z-toast:60; --z-modal:80;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--ink-0);color:var(--text-1);font-family:var(--font-ui);font-size:14px;line-height:var(--lh-normal);-webkit-font-smoothing:antialiased;letter-spacing:-0.005em}
+body{padding:var(--s-10) var(--s-8) var(--s-11)}
+code,kbd{font-family:var(--font-mono);font-size:0.88em}
+button{font-family:inherit}
+
+/* ---------- Nav ---------- */
+.nav{position:sticky;top:0;z-index:var(--z-sticky);background:rgba(10,8,11,0.85);backdrop-filter:blur(14px) saturate(120%);-webkit-backdrop-filter:blur(14px) saturate(120%);border-bottom:1px solid var(--ink-5);margin:calc(-1 * var(--s-10)) calc(-1 * var(--s-8)) var(--s-9);padding:var(--s-4) var(--s-8)}
+.nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:var(--s-5)}
+.brand{display:flex;align-items:center;gap:var(--s-2);font-family:var(--font-mono);font-size:12.5px;letter-spacing:0.06em;color:var(--text-2)}
+.brand .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:10.5px;background:rgba(229,163,200,0.10);color:var(--rose-200);border:1px solid rgba(229,163,200,0.22);border-radius:var(--r-full);letter-spacing:0.08em}
+.nav ul{list-style:none;display:flex;gap:var(--s-2);margin-left:auto;flex-wrap:wrap}
+.nav a{display:inline-block;padding:6px 12px;border-radius:var(--r-full);color:var(--text-3);font-size:12.5px;text-decoration:none;transition:color var(--dur-2) var(--ease-standard), background var(--dur-2) var(--ease-standard)}
+.nav a:hover{color:var(--text-1);background:var(--ink-3)}
+.nav a.on{color:var(--rose-200);background:rgba(229,163,200,0.10)}
+
+/* ---------- Page frame ---------- */
+.page{max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:var(--s-11)}
+
+/* Hero */
+.hero{display:flex;flex-direction:column;gap:var(--s-3)}
+.hero .eyebrow{font-family:var(--font-mono);font-size:11px;color:var(--rose-200);letter-spacing:0.14em;text-transform:uppercase}
+.hero h1{font-size:44px;font-weight:600;letter-spacing:-0.022em;line-height:1.10;color:var(--text-1)}
+.hero p{color:var(--text-2);font-size:15px;line-height:var(--lh-relaxed);max-width:720px}
+.hero .meta{display:flex;align-items:center;gap:var(--s-4);padding-top:var(--s-3);color:var(--text-3);font-size:12.5px;font-family:var(--font-mono);flex-wrap:wrap}
+.hero .meta .dot{width:6px;height:6px;border-radius:50%;background:var(--rose-200);box-shadow:0 0 8px var(--rose-200)}
+.hero .meta em{font-style:normal;color:var(--text-2)}
+
+/* Section */
+.section{display:flex;flex-direction:column;gap:var(--s-6);scroll-margin-top:var(--s-11)}
+.section-head{display:flex;align-items:baseline;gap:var(--s-4);padding-bottom:var(--s-3);border-bottom:1px solid var(--ink-5)}
+.section-head .num{font-family:var(--font-mono);font-size:12px;color:var(--rose-200);letter-spacing:0.08em}
+.section-head h2{font-size:24px;font-weight:500;letter-spacing:-0.015em;color:var(--text-1)}
+.section-head p{margin-left:auto;color:var(--text-3);font-size:12.5px;font-family:var(--font-mono)}
+.sub{display:flex;flex-direction:column;gap:var(--s-4)}
+.sub h3{font-size:15px;font-weight:500;color:var(--text-1);letter-spacing:-0.005em}
+.sub .lead{color:var(--text-3);font-size:12.5px;line-height:var(--lh-relaxed);max-width:640px}
+
+/* Grid helpers */
+.g-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-5)}
+.g-3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s-5)}
+.g-4{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s-4)}
+.g-6{display:grid;grid-template-columns:repeat(6,1fr);gap:var(--s-3)}
+@media (max-width:900px){.g-2,.g-3,.g-4,.g-6{grid-template-columns:1fr 1fr}}
+@media (max-width:600px){.g-2,.g-3,.g-4,.g-6{grid-template-columns:1fr}}
+
+/* Card surface */
+.surface{background:var(--ink-2);border-radius:var(--r-4);padding:var(--s-6);display:flex;flex-direction:column;gap:var(--s-4)}
+.surface--lift{background:var(--ink-3);border:1px solid var(--ink-5)}
+.surface--outline{background:transparent;border:1px solid var(--ink-5)}
+.surface--tint{background:linear-gradient(135deg, rgba(229,163,200,0.06), rgba(0,0,0,0.30));border:1px solid rgba(229,163,200,0.14)}
+.surface-title{font-family:var(--font-mono);font-size:11px;color:var(--text-3);letter-spacing:0.08em;text-transform:uppercase}
+.row{display:flex;gap:var(--s-3);align-items:center;flex-wrap:wrap}
+.col{display:flex;flex-direction:column;gap:var(--s-3)}
+.divider{height:1px;background:var(--ink-5);border:none;width:100%}
+
+/* Swatch */
+.swatch{border-radius:var(--r-4);padding:var(--s-6) var(--s-4) var(--s-4);min-height:112px;display:flex;flex-direction:column;justify-content:flex-end;gap:var(--s-1);border:1px solid rgba(255,255,255,0.02)}
+.swatch .role{font-family:var(--font-mono);font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;opacity:0.6}
+.swatch .name{font-size:14px;font-weight:500}
+.swatch .hex{font-family:var(--font-mono);font-size:11.5px;opacity:0.7;margin-top:2px}
+.swatch.light .role,.swatch.light .name,.swatch.light .hex{color:var(--ink-1);opacity:unset}
+.swatch.light .role,.swatch.light .hex{opacity:0.55}
+
+/* Type samples */
+.type-block{background:var(--ink-2);border-radius:var(--r-4);padding:var(--s-6);display:flex;flex-direction:column;gap:var(--s-5)}
+.type-row{display:grid;grid-template-columns:150px 1fr auto;align-items:baseline;gap:var(--s-5);padding-bottom:var(--s-4);border-bottom:1px solid var(--ink-5)}
+.type-row:last-child{border-bottom:none;padding-bottom:0}
+.type-row .label{font-family:var(--font-mono);font-size:11.5px;color:var(--text-3);letter-spacing:0.03em}
+.type-row .meta{font-family:var(--font-mono);font-size:11px;color:var(--text-4)}
+.t-display{font-size:44px;font-weight:600;letter-spacing:-0.022em;line-height:1.08;color:var(--text-1)}
+.t-h1{font-size:28px;font-weight:600;letter-spacing:-0.015em;line-height:1.2;color:var(--text-1)}
+.t-h2{font-size:20px;font-weight:500;letter-spacing:-0.010em;line-height:1.3;color:var(--text-1)}
+.t-h3{font-size:16px;font-weight:500;letter-spacing:-0.005em;line-height:1.35;color:var(--text-1)}
+.t-body-lg{font-size:15px;line-height:var(--lh-relaxed);color:var(--text-1)}
+.t-body{font-size:14px;line-height:var(--lh-normal);color:var(--text-1)}
+.t-body-sm{font-size:12.5px;line-height:var(--lh-normal);color:var(--text-2)}
+.t-caption{font-size:11.5px;letter-spacing:0.02em;color:var(--text-3)}
+.t-mono{font-family:var(--font-mono);font-size:12.5px;color:var(--rose-200)}
+
+/* Radius */
+.radius-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--s-3)}
+@media (max-width:900px){.radius-grid{grid-template-columns:repeat(4,1fr)}}
+.radius-tile{aspect-ratio:1;background:var(--ink-3);border:1px solid var(--ink-5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s-1);font-family:var(--font-mono);font-size:11px;color:var(--text-3)}
+.radius-tile strong{color:var(--text-1);font-family:var(--font-ui);font-size:12.5px;font-weight:500}
+
+/* Spacing */
+.spacing-block{background:var(--ink-2);border-radius:var(--r-4);padding:var(--s-5) var(--s-6);display:flex;flex-direction:column;gap:var(--s-3)}
+.spacing-row{display:grid;grid-template-columns:60px 1fr 200px;align-items:center;gap:var(--s-4);font-family:var(--font-mono);font-size:12px;color:var(--text-3)}
+.spacing-row .bar{height:6px;background:var(--rose-200);border-radius:3px;opacity:0.85}
+.spacing-row strong{color:var(--text-1);font-family:var(--font-mono);font-size:12.5px;font-weight:500}
+
+/* Shadow tiles */
+.shadow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s-4)}
+@media (max-width:900px){.shadow-grid{grid-template-columns:1fr 1fr}}
+.shadow-tile{aspect-ratio:1.6;border-radius:var(--r-4);background:var(--ink-3);display:flex;align-items:center;justify-content:center;color:var(--text-3);font-family:var(--font-mono);font-size:12px}
+
+/* Motion easings */
+.easing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s-4)}
+@media (max-width:900px){.easing-grid{grid-template-columns:1fr}}
+.easing-tile{background:var(--ink-2);border-radius:var(--r-4);padding:var(--s-5);display:flex;flex-direction:column;gap:var(--s-4);position:relative;overflow:hidden}
+.easing-tile .lane{position:relative;height:24px;background:var(--ink-3);border-radius:12px;overflow:hidden}
+.easing-tile .puck{position:absolute;top:4px;left:4px;width:16px;height:16px;border-radius:50%;background:var(--rose-200);box-shadow:0 0 12px rgba(229,163,200,0.6);animation-duration:1400ms;animation-iteration-count:infinite;animation-direction:alternate}
+.easing-tile[data-e="standard"] .puck{animation-name:slide;animation-timing-function:var(--ease-standard)}
+.easing-tile[data-e="emphasized"] .puck{animation-name:slide;animation-timing-function:var(--ease-emphasized)}
+.easing-tile[data-e="decel"] .puck{animation-name:slide;animation-timing-function:var(--ease-decel)}
+@keyframes slide{from{left:4px}to{left:calc(100% - 20px)}}
+.easing-tile code{color:var(--text-2)}
+
+/* Icon grid */
+.icon-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:var(--s-3)}
+@media (max-width:900px){.icon-grid{grid-template-columns:repeat(4,1fr)}}
+.icon-tile{aspect-ratio:1;background:var(--ink-2);border-radius:var(--r-3);display:flex;align-items:center;justify-content:center;color:var(--text-2);position:relative;transition:color var(--dur-2) var(--ease-standard), background var(--dur-2) var(--ease-standard)}
+.icon-tile:hover{color:var(--rose-200);background:var(--ink-3)}
+.icon-tile svg{width:20px;height:20px;stroke-width:1.5;fill:none;stroke:currentColor}
+.icon-tile .lbl{position:absolute;bottom:5px;font-family:var(--font-mono);font-size:9.5px;color:var(--text-4);opacity:0.7}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:var(--s-2);padding:8px 14px;font-family:var(--font-ui);font-size:13px;font-weight:500;line-height:1;border:1px solid transparent;border-radius:var(--r-full);cursor:pointer;transition:background var(--dur-2) var(--ease-standard), color var(--dur-2) var(--ease-standard), border-color var(--dur-2) var(--ease-standard), box-shadow var(--dur-2) var(--ease-standard), transform var(--dur-2) var(--ease-standard)}
+.btn:active{transform:translateY(0.5px)}
+.btn:focus-visible{outline:none;box-shadow:var(--shadow-focus)}
+.btn[disabled],.btn.is-disabled{opacity:0.45;cursor:not-allowed}
+.btn-primary{background:var(--rose-200);color:var(--ink-0);border-color:var(--rose-200)}
+.btn-primary:hover{background:var(--rose-100)}
+.btn-primary:active{background:var(--rose-300)}
+.btn-secondary{background:var(--ink-4);color:var(--text-1);border-color:var(--ink-5)}
+.btn-secondary:hover{background:var(--ink-5)}
+.btn-ghost{background:transparent;color:var(--text-2)}
+.btn-ghost:hover{background:var(--ink-4);color:var(--text-1)}
+.btn-danger{background:var(--danger-bg);color:var(--danger);border-color:var(--danger-line)}
+.btn-danger:hover{background:rgba(224,133,133,0.18)}
+.btn-sm{padding:5px 10px;font-size:11.5px}
+.btn-lg{padding:11px 20px;font-size:14px}
+.btn-icon{padding:8px;width:32px;height:32px;justify-content:center}
+.btn-icon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.5}
+
+/* ---------- Input ---------- */
+.input,.textarea,.select{background:var(--ink-4);border:1px solid var(--ink-5);border-radius:var(--r-3);padding:10px 14px;font-family:var(--font-ui);font-size:13.5px;color:var(--text-1);width:100%;outline:none;transition:border-color var(--dur-2) var(--ease-standard), box-shadow var(--dur-2) var(--ease-standard)}
+.input::placeholder,.textarea::placeholder{color:var(--text-4)}
+.input:hover,.textarea:hover,.select:hover{border-color:var(--ink-6)}
+.input:focus,.textarea:focus,.select:focus{border-color:var(--rose-200);box-shadow:var(--shadow-rose)}
+.input.is-error{border-color:var(--danger);box-shadow:var(--shadow-danger)}
+.textarea{min-height:100px;line-height:var(--lh-normal);resize:vertical}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;color:var(--text-3);font-family:var(--font-mono);letter-spacing:0.02em}
+.field .hint{font-size:11.5px;color:var(--text-3)}
+.field .hint.err{color:var(--danger)}
+.input-with-icon{position:relative}
+.input-with-icon svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--text-3);fill:none;stroke-width:1.5;pointer-events:none}
+.input-with-icon .input{padding-left:34px}
+
+/* Select native — but skinned */
+.select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg, transparent 50%, var(--text-3) 50%), linear-gradient(135deg, var(--text-3) 50%, transparent 50%);background-position:calc(100% - 16px) 50%, calc(100% - 10px) 50%;background-size:6px 6px, 6px 6px;background-repeat:no-repeat;padding-right:32px}
+
+/* Switch */
+.switch{position:relative;display:inline-flex;align-items:center;gap:var(--s-3);cursor:pointer;user-select:none}
+.switch input{position:absolute;opacity:0;pointer-events:none}
+.switch .track{width:34px;height:20px;border-radius:var(--r-full);background:var(--ink-5);position:relative;transition:background var(--dur-2) var(--ease-standard)}
+.switch .thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text-2);transition:transform var(--dur-2) var(--ease-standard), background var(--dur-2) var(--ease-standard);box-shadow:var(--shadow-sm)}
+.switch input:checked ~ .track{background:var(--rose-200)}
+.switch input:checked ~ .track .thumb{transform:translateX(14px);background:var(--ink-0)}
+.switch input:focus-visible ~ .track{box-shadow:var(--shadow-focus)}
+
+/* Checkbox / Radio */
+.check,.radio{display:inline-flex;align-items:center;gap:var(--s-2);cursor:pointer;user-select:none;color:var(--text-1);font-size:13.5px}
+.check input,.radio input{position:absolute;opacity:0;pointer-events:none}
+.check .box,.radio .box{width:16px;height:16px;background:var(--ink-4);border:1px solid var(--ink-6);display:flex;align-items:center;justify-content:center;transition:background var(--dur-2) var(--ease-standard), border-color var(--dur-2) var(--ease-standard)}
+.check .box{border-radius:4px}
+.radio .box{border-radius:50%}
+.check input:checked ~ .box{background:var(--rose-200);border-color:var(--rose-200)}
+.check input:checked ~ .box::after{content:"";width:8px;height:4px;border-left:2px solid var(--ink-0);border-bottom:2px solid var(--ink-0);transform:rotate(-45deg);margin-top:-2px}
+.radio input:checked ~ .box{border-color:var(--rose-200)}
+.radio input:checked ~ .box::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--rose-200)}
+.check input:focus-visible ~ .box,.radio input:focus-visible ~ .box{box-shadow:var(--shadow-focus)}
+
+/* Segmented */
+.segmented{display:inline-flex;background:var(--ink-3);border:1px solid var(--ink-5);border-radius:var(--r-full);padding:3px;gap:2px}
+.segmented button{border:none;background:transparent;color:var(--text-3);padding:6px 12px;font-size:12px;font-family:var(--font-ui);border-radius:var(--r-full);cursor:pointer;transition:background var(--dur-2) var(--ease-standard), color var(--dur-2) var(--ease-standard)}
+.segmented button:hover{color:var(--text-1)}
+.segmented button.on{background:var(--ink-5);color:var(--rose-200)}
+
+/* Slider */
+.slider-wrap{display:flex;flex-direction:column;gap:var(--s-2)}
+input[type="range"].slider{-webkit-appearance:none;appearance:none;width:100%;background:transparent}
+input[type="range"].slider:focus{outline:none}
+input[type="range"].slider::-webkit-slider-runnable-track{height:4px;background:linear-gradient(to right, var(--rose-200) var(--v,50%), var(--ink-5) var(--v,50%));border-radius:2px}
+input[type="range"].slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:var(--rose-200);border:2px solid var(--ink-0);margin-top:-6px;cursor:pointer;box-shadow:0 0 8px rgba(229,163,200,0.5)}
+
+/* Chip / Tag */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--ink-4);color:var(--text-2);font-family:var(--font-mono);font-size:11px;letter-spacing:0.02em;border-radius:var(--r-1);white-space:nowrap}
+.chip-rose{background:rgba(229,163,200,0.10);color:var(--rose-200);border:1px solid rgba(229,163,200,0.20)}
+.chip-outline{background:transparent;border:1px solid var(--ink-6);color:var(--text-2)}
+.chip-success{background:var(--success-bg);color:var(--success);border:1px solid var(--success-line)}
+.chip-warning{background:var(--warning-bg);color:var(--warning);border:1px solid var(--warning-line)}
+.chip-danger{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-line)}
+.chip-info{background:var(--info-bg);color:var(--info);border:1px solid var(--info-line)}
+.chip .dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:0.8}
+
+/* Pill */
+.pill{display:inline-flex;align-items:center;gap:var(--s-2);padding:5px 12px;background:rgba(229,163,200,0.08);border:1px solid rgba(229,163,200,0.30);color:var(--rose-200);font-family:var(--font-ui);font-size:12px;font-weight:500;border-radius:var(--r-full)}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--rose-200);box-shadow:0 0 8px var(--rose-200)}
+
+/* Avatar */
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg, var(--rose-300), var(--violet-300));color:var(--ink-0);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;letter-spacing:0.02em;flex:none;border:1px solid rgba(0,0,0,0.35)}
+.avatar-lg{width:40px;height:40px;font-size:14px}
+.avatar-stack{display:inline-flex}
+.avatar-stack .avatar{margin-left:-8px;box-shadow:0 0 0 2px var(--ink-2)}
+.avatar-stack .avatar:first-child{margin-left:0}
+
+/* Kbd */
+kbd.k{display:inline-flex;align-items:center;justify-content:center;min-width:20px;padding:1px 6px;font-family:var(--font-mono);font-size:11px;color:var(--text-2);background:var(--ink-3);border:1px solid var(--ink-5);border-bottom-color:var(--ink-6);border-radius:4px;line-height:1.4}
+
+/* List */
+.list{display:flex;flex-direction:column}
+.list-item{display:flex;align-items:center;gap:var(--s-3);padding:10px 14px;border-radius:var(--r-2);color:var(--text-1);font-size:13.5px;position:relative;cursor:pointer;transition:background var(--dur-2) var(--ease-standard), color var(--dur-2) var(--ease-standard)}
+.list-item:hover{background:var(--ink-4)}
+.list-item.active{background:var(--ink-4);color:var(--text-1)}
+.list-item.active::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;border-radius:2px;background:var(--rose-200);box-shadow:0 0 8px rgba(229,163,200,0.5)}
+.list-item .ic{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;stroke-width:1.5;opacity:0.85}
+.list-item .meta{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-3)}
+
+/* Table */
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table thead th{font-family:var(--font-mono);font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;text-align:left;padding:10px 14px;border-bottom:1px solid var(--ink-5)}
+.table tbody td{padding:12px 14px;border-bottom:1px solid var(--ink-3);color:var(--text-1)}
+.table tbody tr:hover td{background:var(--ink-3)}
+.table tbody tr:last-child td{border-bottom:none}
+.table .muted{color:var(--text-3);font-family:var(--font-mono);font-size:12px}
+
+/* Progress */
+.progress{position:relative;height:6px;background:var(--ink-4);border-radius:3px;overflow:hidden}
+.progress .bar{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg, var(--rose-300), var(--rose-200));border-radius:3px;transition:width var(--dur-3) var(--ease-standard)}
+.progress-ind{background:linear-gradient(90deg, transparent 0%, var(--rose-200) 40%, var(--rose-200) 60%, transparent 100%);animation:sweep 1400ms linear infinite;width:40%}
+@keyframes sweep{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+.circle-progress{--pct:66;width:56px;height:56px;border-radius:50%;background:conic-gradient(var(--rose-200) calc(var(--pct)*1%), var(--ink-4) 0);display:flex;align-items:center;justify-content:center;position:relative}
+.circle-progress::after{content:"";position:absolute;inset:6px;background:var(--ink-2);border-radius:50%}
+.circle-progress span{position:relative;font-family:var(--font-mono);font-size:12px;color:var(--text-1)}
+
+/* Skeleton */
+.skel{background:linear-gradient(90deg, var(--ink-3) 0%, var(--ink-4) 50%, var(--ink-3) 100%);background-size:200% 100%;border-radius:var(--r-2);animation:shim 1400ms linear infinite}
+@keyframes shim{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Tabs */
+.tabs{display:flex;gap:var(--s-1);border-bottom:1px solid var(--ink-5)}
+.tabs button{background:transparent;border:none;color:var(--text-3);font-family:var(--font-ui);font-size:13px;padding:8px 12px;position:relative;cursor:pointer;transition:color var(--dur-2) var(--ease-standard)}
+.tabs button:hover{color:var(--text-1)}
+.tabs button.on{color:var(--rose-200)}
+.tabs button.on::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;background:var(--rose-200);border-radius:2px 2px 0 0}
+
+/* Tooltip */
+.tooltip{position:relative;display:inline-flex}
+.tooltip .tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--ink-3);border:1px solid var(--ink-5);color:var(--text-1);font-size:12px;padding:5px 9px;border-radius:var(--r-2);white-space:nowrap;box-shadow:var(--shadow-md);pointer-events:none;opacity:1}
+.tooltip .tip::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--ink-5)}
+
+/* Dialog & Popover */
+.dialog{background:var(--ink-2);border:1px solid var(--ink-5);border-radius:var(--r-5);box-shadow:var(--shadow-lg);padding:var(--s-6);display:flex;flex-direction:column;gap:var(--s-4);max-width:420px;width:100%}
+.dialog h3{font-size:16px;font-weight:500;color:var(--text-1)}
+.dialog p{color:var(--text-2);font-size:13.5px;line-height:var(--lh-relaxed)}
+.dialog .actions{display:flex;gap:var(--s-2);justify-content:flex-end}
+
+.popover{background:var(--ink-3);border:1px solid var(--ink-5);border-radius:var(--r-4);padding:var(--s-2);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;gap:2px;min-width:220px}
+.popover .item{display:flex;align-items:center;gap:var(--s-2);padding:7px 10px;border-radius:var(--r-2);font-size:13px;color:var(--text-1);cursor:pointer;transition:background var(--dur-1) var(--ease-standard)}
+.popover .item:hover{background:var(--ink-4)}
+.popover .item .k{margin-left:auto;color:var(--text-3);font-family:var(--font-mono);font-size:11px}
+.popover .item.danger{color:var(--danger)}
+.popover .sep{height:1px;background:var(--ink-5);margin:4px 2px}
+.popover .head{padding:6px 10px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-3);letter-spacing:0.08em;text-transform:uppercase}
+
+/* Toast */
+.toast{display:flex;gap:var(--s-3);align-items:flex-start;padding:12px 14px;background:var(--ink-3);border:1px solid var(--ink-5);border-radius:var(--r-4);box-shadow:var(--shadow-md);max-width:360px}
+.toast .lead{width:6px;align-self:stretch;border-radius:3px;background:var(--rose-200)}
+.toast.info .lead{background:var(--info)}
+.toast.warn .lead{background:var(--warning)}
+.toast.err .lead{background:var(--danger)}
+.toast.ok .lead{background:var(--success)}
+.toast .body{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.toast .body .t{font-size:13.5px;color:var(--text-1);font-weight:500}
+.toast .body .d{font-size:12.5px;color:var(--text-3);line-height:var(--lh-relaxed)}
+.toast .close{color:var(--text-4);font-family:var(--font-mono);font-size:14px;cursor:pointer}
+
+/* Callout */
+.callout{display:flex;gap:var(--s-3);padding:14px 16px;border-radius:var(--r-4);border:1px solid var(--ink-5);background:var(--ink-2);color:var(--text-1);font-size:13px;line-height:var(--lh-relaxed)}
+.callout .ic{width:16px;height:16px;stroke:var(--rose-200);fill:none;stroke-width:1.6;flex:none;margin-top:2px}
+.callout.info{background:var(--info-bg);border-color:var(--info-line)}
+.callout.info .ic{stroke:var(--info)}
+.callout.warn{background:var(--warning-bg);border-color:var(--warning-line)}
+.callout.warn .ic{stroke:var(--warning)}
+.callout.err{background:var(--danger-bg);border-color:var(--danger-line)}
+.callout.err .ic{stroke:var(--danger)}
+.callout.ok{background:var(--success-bg);border-color:var(--success-line)}
+.callout.ok .ic{stroke:var(--success)}
+
+/* Scenario band */
+.scenario{background:linear-gradient(135deg, rgba(229,163,200,0.08), rgba(0,0,0,0.4));border-radius:var(--r-5);padding:var(--s-5) var(--s-6);display:flex;align-items:center;gap:var(--s-5);border:1px solid rgba(229,163,200,0.15)}
+.scenario-label{background:rgba(229,163,200,0.15);color:var(--rose-200);padding:4px 10px;border-radius:var(--r-full);font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:0.10em;flex:none}
+.scenario p{color:var(--text-2);font-size:13px;flex:1}
+.scenario-actions{display:flex;gap:var(--s-2);flex-wrap:wrap}
+.scenario-actions .btn{padding:6px 12px;font-size:12px}
+
+/* Code */
+.code-panel{background:var(--ink-2);border-radius:var(--r-4);padding:var(--s-5) var(--s-6);font-family:var(--font-mono);font-size:13px;line-height:1.8}
+.code-panel .path{color:var(--text-3);padding-bottom:var(--s-4);margin-bottom:var(--s-3);border-bottom:1px solid var(--ink-5);font-size:12px}
+.code-panel .path .file{color:var(--rose-200)}
+.code-panel .line{display:flex;gap:var(--s-4)}
+.code-panel .num{color:var(--text-4);user-select:none;min-width:20px;text-align:right}
+.code-panel .kw{color:var(--rose-200)} .code-panel .fn{color:var(--rose-300)} .code-panel .str{color:var(--warning)} .code-panel .type{color:var(--violet-200)} .code-panel .comment{color:var(--text-4);font-style:italic} .code-panel .plain{color:var(--text-1)} .code-panel .prop{color:var(--info)}
+
+/* Density stripe */
+.stripe{height:10px;border-radius:5px;overflow:hidden;display:flex;border:1px solid var(--ink-5)}
+.stripe span{display:block}
+
+/* Sidebar demo */
+.sidebar{background:var(--ink-2);border-radius:var(--r-5);border:1px solid var(--ink-5);padding:var(--s-3);width:220px;display:flex;flex-direction:column;gap:var(--s-1)}
+.sidebar .row-brand{display:flex;align-items:center;gap:var(--s-2);padding:8px 10px;color:var(--text-2);font-family:var(--font-mono);font-size:12px}
+.sidebar .row-brand .logo{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg, var(--rose-200), var(--violet-300))}
+.sidebar .grp{padding:8px 10px 4px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-3);letter-spacing:0.08em;text-transform:uppercase}
+.sidebar .row-item{display:flex;align-items:center;gap:var(--s-2);padding:7px 10px;border-radius:var(--r-2);color:var(--text-2);font-size:13px;cursor:pointer;position:relative;transition:background var(--dur-2) var(--ease-standard), color var(--dur-2) var(--ease-standard)}
+.sidebar .row-item:hover{background:var(--ink-3);color:var(--text-1)}
+.sidebar .row-item.on{color:var(--text-1);background:var(--ink-4)}
+.sidebar .row-item.on::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;background:var(--rose-200);border-radius:2px;box-shadow:0 0 8px rgba(229,163,200,0.5)}
+.sidebar .row-item svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5}
+.sidebar .row-item .meta{margin-left:auto;font-family:var(--font-mono);font-size:10.5px;color:var(--text-4)}
+
+/* Command palette */
+.cp{background:var(--ink-3);border:1px solid var(--ink-5);border-radius:var(--r-5);box-shadow:var(--shadow-lg);width:100%;max-width:520px;padding:var(--s-2);display:flex;flex-direction:column;gap:2px}
+.cp .cp-input{display:flex;align-items:center;gap:var(--s-2);padding:10px 12px;color:var(--text-2);font-size:13.5px}
+.cp .cp-input svg{width:14px;height:14px;stroke:var(--text-3);fill:none;stroke-width:1.6}
+.cp .cp-input input{flex:1;background:transparent;border:none;outline:none;color:var(--text-1);font-family:var(--font-ui);font-size:14px}
+.cp .grp{padding:6px 10px;font-family:var(--font-mono);font-size:10.5px;color:var(--text-3);letter-spacing:0.08em;text-transform:uppercase}
+.cp .row{display:flex;align-items:center;gap:var(--s-2);padding:7px 12px;border-radius:var(--r-2);cursor:pointer;color:var(--text-1);font-size:13.5px}
+.cp .row:hover{background:var(--ink-4)}
+.cp .row.on{background:rgba(229,163,200,0.10);color:var(--rose-200);border:1px solid rgba(229,163,200,0.22)}
+.cp .row svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5}
+.cp .row .kbd{margin-left:auto;display:flex;gap:4px}
+
+/* Diff card */
+.diff{background:var(--ink-2);border-radius:var(--r-4);border:1px solid var(--ink-5);overflow:hidden;font-family:var(--font-mono);font-size:12.5px}
+.diff .h{display:flex;align-items:center;gap:var(--s-2);padding:10px 14px;border-bottom:1px solid var(--ink-5);color:var(--text-3);font-size:12px}
+.diff .h .file{color:var(--rose-200)}
+.diff .h .stat-plus{color:var(--success)}
+.diff .h .stat-minus{color:var(--danger)}
+.diff .h .spacer{flex:1}
+.diff pre{padding:10px 0;margin:0;line-height:1.7}
+.diff .row{display:grid;grid-template-columns:36px 36px 1fr;gap:0;padding:0 12px}
+.diff .row .n{color:var(--text-4);user-select:none;text-align:right;padding-right:8px}
+.diff .row.add{background:rgba(125,216,143,0.08);color:var(--text-1)}
+.diff .row.add .n{color:var(--success)}
+.diff .row.rm{background:rgba(224,133,133,0.08);color:var(--text-1)}
+.diff .row.rm .n{color:var(--danger)}
+
+/* Empty state */
+.empty{display:flex;flex-direction:column;align-items:center;gap:var(--s-3);padding:var(--s-9) var(--s-6);text-align:center;background:var(--ink-2);border-radius:var(--r-5);border:1px dashed var(--ink-5)}
+.empty .art{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg, rgba(229,163,200,0.14), rgba(0,0,0,0.35));display:flex;align-items:center;justify-content:center;color:var(--rose-200)}
+.empty .art svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5}
+.empty h4{font-size:16px;font-weight:500;color:var(--text-1)}
+.empty p{color:var(--text-3);font-size:13px;max-width:340px;line-height:var(--lh-relaxed)}
+
+/* Focus / a11y demo */
+.a11y-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-4)}
+@media (max-width:900px){.a11y-grid{grid-template-columns:1fr}}
+.contrast-row{display:grid;grid-template-columns:1fr 60px;align-items:center;gap:var(--s-3);padding:8px 12px;background:var(--ink-3);border-radius:var(--r-2);font-family:var(--font-mono);font-size:12px}
+.contrast-row .ratio{color:var(--text-2);text-align:right}
+.contrast-row .pass{color:var(--success)} .contrast-row .warn{color:var(--warning)} .contrast-row .fail{color:var(--danger)}
+
+/* Tokens JSON */
+.tokens{background:var(--ink-2);border-radius:var(--r-4);padding:var(--s-5) var(--s-6);font-family:var(--font-mono);font-size:12.5px;line-height:1.7;color:var(--text-2);white-space:pre;overflow-x:auto}
+.tokens .k{color:var(--rose-200)}
+.tokens .v{color:var(--warning)}
+.tokens .c{color:var(--text-4);font-style:italic}
+
+/* Foot */
+.foot{color:var(--text-3);font-size:12.5px;line-height:var(--lh-relaxed);max-width:720px}
+.foot strong{color:var(--text-2)}
+.foot code{color:var(--rose-200);background:rgba(229,163,200,0.08);padding:1px 6px;border-radius:3px}
+
+/* Principles grid */
+.principles{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s-4)}
+@media (max-width:900px){.principles{grid-template-columns:1fr 1fr}}
+@media (max-width:600px){.principles{grid-template-columns:1fr}}
+.principle{background:var(--ink-2);border-radius:var(--r-4);padding:var(--s-5);display:flex;flex-direction:column;gap:var(--s-2)}
+.principle .n{font-family:var(--font-mono);color:var(--rose-200);font-size:11px;letter-spacing:0.08em}
+.principle h3{font-size:15px;font-weight:500;letter-spacing:-0.005em;color:var(--text-1)}
+.principle p{font-size:12.5px;color:var(--text-3);line-height:var(--lh-relaxed)}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <span class="brand">SUPERSET · NOIR <span class="badge">DESIGN SYSTEM · v1.0</span></span>
+    <ul>
+      <li><a href="#foundations" class="on">Foundations</a></li>
+      <li><a href="#components">Components</a></li>
+      <li><a href="#patterns">Patterns</a></li>
+      <li><a href="#motion">Motion</a></li>
+      <li><a href="#a11y">A11y</a></li>
+      <li><a href="#tokens">Tokens</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="page">
+
+  <div class="hero">
+    <span class="eyebrow">Superset Design System</span>
+    <h1>Noir — 一份能落地的深色设计系统</h1>
+    <p>从 token 到组件到模式,一整套黑与哑光粉的语言。用底色分层不用边框,粉是情绪不是结构,150ms 过渡 + 15% focus ring,细节决定"高级感"。</p>
+    <div class="meta">
+      <span class="dot"></span>
+      <span>v1.0 · 2026-08-09</span>
+      <em>·</em>
+      <span>7 模块 · 60+ token · 24 组件 · 6 模式</span>
+    </div>
+  </div>
+
+  <div class="principles">
+    <div class="principle"><span class="n">01 · Depth</span><h3>用底色分层,不用边框</h3><p>ink-1 → ink-4 的暗阶承担分层,边框只在真正需要分隔时用。屏幕更安静。</p></div>
+    <div class="principle"><span class="n">02 · Rest</span><h3>密度低,呼吸感</h3><p>行高 1.5-1.65,4pt 网格,留白是内容不是浪费。</p></div>
+    <div class="principle"><span class="n">03 · Warmth</span><h3>粉是情绪,不是结构</h3><p>rose-200 只在关键交互点、状态、光标、选中标 — "感到温度",而不是"看到粉色"。</p></div>
+    <div class="principle"><span class="n">04 · Craft</span><h3>细节比对比度更重要</h3><p>过渡 150ms、focus 掺 15% 粉、hover 提亮一档。工艺感来自这些微差。</p></div>
+  </div>
+
+  <!-- ============= FOUNDATIONS ============= -->
+  <div class="section" id="foundations">
+    <div class="section-head"><span class="num">01</span><h2>Foundations</h2><p>Color · Type · Radius · Space · Shadow · Icon</p></div>
+
+    <!-- Color · Ink -->
+    <div class="sub">
+      <h3>Color · Ink 中性阶</h3>
+      <p class="lead">8 档暗阶,用于结构分层。相邻阶差 ≤ 6% 亮度,视觉柔和;跨 2-3 阶用来区分层级。</p>
+      <div class="g-4">
+        <div class="swatch" style="background:var(--ink-0)"><span class="role">ink-0 · frame</span><span class="name">Page frame</span><span class="hex">#0a080b</span></div>
+        <div class="swatch" style="background:var(--ink-1)"><span class="role">ink-1 · bg</span><span class="name">App background</span><span class="hex">#0f0d10</span></div>
+        <div class="swatch" style="background:var(--ink-2)"><span class="role">ink-2 · panel</span><span class="name">Sidebar / panel</span><span class="hex">#16131a</span></div>
+        <div class="swatch" style="background:var(--ink-3)"><span class="role">ink-3 · card</span><span class="name">Card · popover</span><span class="hex">#1a171d</span></div>
+        <div class="swatch" style="background:var(--ink-4)"><span class="role">ink-4 · input</span><span class="name">Input · hover</span><span class="hex">#221e26</span></div>
+        <div class="swatch" style="background:var(--ink-5)"><span class="role">ink-5 · border</span><span class="name">Border · subtle</span><span class="hex">#2a2531</span></div>
+        <div class="swatch" style="background:var(--ink-6)"><span class="role">ink-6 · edge</span><span class="name">Border · visible</span><span class="hex">#3a3441</span></div>
+        <div class="swatch" style="background:var(--ink-7)"><span class="role">ink-7 · outline</span><span class="name">Focus outline base</span><span class="hex">#4a4353</span></div>
+      </div>
+    </div>
+
+    <!-- Color · Rose -->
+    <div class="sub">
+      <h3>Color · Rose 品牌粉</h3>
+      <p class="lead">哑光粉,不是热粉。100 用于极浅背景,200 是品牌色 (focus / accent),300 body-safe,400 用在小面积深色 CTA,500-600 用作粉底的深阴影。</p>
+      <div class="g-4">
+        <div class="swatch light" style="background:var(--rose-50)"><span class="role">rose-50</span><span class="name">Wash</span><span class="hex">#fbeff5</span></div>
+        <div class="swatch light" style="background:var(--rose-100)"><span class="role">rose-100</span><span class="name">Soft wash</span><span class="hex">#f7dbe8</span></div>
+        <div class="swatch light" style="background:var(--rose-200)"><span class="role">rose-200 · signature</span><span class="name">Primary rose</span><span class="hex">#e5a3c8</span></div>
+        <div class="swatch light" style="background:var(--rose-300)"><span class="role">rose-300</span><span class="name">Body-safe</span><span class="hex">#d685b3</span></div>
+        <div class="swatch" style="background:var(--rose-400)"><span class="role">rose-400</span><span class="name">Deep</span><span class="hex">#b8618f</span></div>
+        <div class="swatch" style="background:var(--rose-500)"><span class="role">rose-500</span><span class="name">Deeper</span><span class="hex">#8a4468</span></div>
+        <div class="swatch" style="background:var(--rose-600)"><span class="role">rose-600</span><span class="name">Shadow</span><span class="hex">#5f2f48</span></div>
+        <div class="swatch" style="background:var(--violet-300)"><span class="role">violet-300</span><span class="name">Support</span><span class="hex">#9682c8</span></div>
+      </div>
+    </div>
+
+    <!-- Color · Text -->
+    <div class="sub">
+      <h3>Color · Text 文字阶</h3>
+      <p class="lead">从 body → placeholder 五档,配合 ink-1 背景,text-1 对比度 12:1,text-4 只做 disabled 用,不承担阅读。</p>
+      <div class="g-4">
+        <div class="surface"><span class="surface-title">text-1 · body</span><span class="t-body" style="color:var(--text-1)">首要文字 · 12.6:1</span><code style="color:var(--text-3);font-size:11px">#eae8f0</code></div>
+        <div class="surface"><span class="surface-title">text-2 · secondary</span><span class="t-body" style="color:var(--text-2)">次要文字 · 7.2:1</span><code style="color:var(--text-3);font-size:11px">#b8b3c4</code></div>
+        <div class="surface"><span class="surface-title">text-3 · caption</span><span class="t-body" style="color:var(--text-3)">辅助 / 说明 · 4.6:1</span><code style="color:var(--text-3);font-size:11px">#8a8395</code></div>
+        <div class="surface"><span class="surface-title">text-4 · disabled</span><span class="t-body" style="color:var(--text-4)">占位 · 禁用 · 2.9:1</span><code style="color:var(--text-3);font-size:11px">#625a6d</code></div>
+      </div>
+    </div>
+
+    <!-- Color · Semantic -->
+    <div class="sub">
+      <h3>Color · Semantic 语义色</h3>
+      <p class="lead">四色语义,每色三档:base(文字/icon)、bg(10% 透明)、line(25% 透明)。永远不用高饱和,避免破坏深色沉稳。</p>
+      <div class="g-4">
+        <div class="callout ok"><svg class="ic" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></svg><div><b style="color:var(--success)">Success · #7dd88f</b><p style="color:var(--text-3);font-size:11.5px;margin-top:2px;font-family:var(--font-mono)">build passed · 12s</p></div></div>
+        <div class="callout warn"><svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M4.93 19h14.14a2 2 0 0 0 1.73-3l-7.07-12a2 2 0 0 0-3.46 0L3.2 16a2 2 0 0 0 1.73 3z"/></svg><div><b style="color:var(--warning)">Warning · #e8c26a</b><p style="color:var(--text-3);font-size:11.5px;margin-top:2px;font-family:var(--font-mono)">3 tests skipped</p></div></div>
+        <div class="callout err"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg><div><b style="color:var(--danger)">Danger · #e08585</b><p style="color:var(--text-3);font-size:11.5px;margin-top:2px;font-family:var(--font-mono)">type error · index.ts:42</p></div></div>
+        <div class="callout info"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg><div><b style="color:var(--info)">Info · #7fb8d8</b><p style="color:var(--text-3);font-size:11.5px;margin-top:2px;font-family:var(--font-mono)">上游新增 3 commit</p></div></div>
+      </div>
+    </div>
+
+    <!-- Type -->
+    <div class="sub">
+      <h3>Type · 字号阶</h3>
+      <p class="lead">Inter 承担界面,JetBrains Mono 承担代码/时间戳/键位/编号。display 40px 起步,body 14 base,-0.005 → -0.02 em 的负字距递增。</p>
+      <div class="type-block">
+        <div class="type-row"><span class="label">display · 44 / 600</span><span class="t-display">Noir 是一种呼吸方式</span><span class="meta">Inter · -0.022em · 1.08</span></div>
+        <div class="type-row"><span class="label">h1 · 28 / 600</span><span class="t-h1">A pull request awaits your review</span><span class="meta">Inter · -0.015em · 1.2</span></div>
+        <div class="type-row"><span class="label">h2 · 20 / 500</span><span class="t-h2">feat(desktop): sidebar rail hover</span><span class="meta">Inter · -0.010em · 1.3</span></div>
+        <div class="type-row"><span class="label">h3 · 16 / 500</span><span class="t-h3">Section title · component group</span><span class="meta">Inter · -0.005em · 1.35</span></div>
+        <div class="type-row"><span class="label">body-lg · 15 / 400</span><span class="t-body-lg">让文字自己发光。这一版把边框、阴影、饱和度全压下去,留白承担节奏。</span><span class="meta">Inter · 1.65</span></div>
+        <div class="type-row"><span class="label">body · 14 / 400</span><span class="t-body">Superset · workspace · feat/acp-agent-control-plane · +383 lines</span><span class="meta">Inter · 1.5</span></div>
+        <div class="type-row"><span class="label">body-sm · 12.5 / 400</span><span class="t-body-sm">Row 描述、二级信息、卡片副标。</span><span class="meta">Inter · 1.5</span></div>
+        <div class="type-row"><span class="label">caption · 11.5 / 400</span><span class="t-caption">Updated 2 hours ago · 2 approved · 1 pending review</span><span class="meta">Inter · 0.02em</span></div>
+        <div class="type-row"><span class="label">mono · 12.5</span><span class="t-mono">import { useBranchMenu } from "./hooks/useBranchMenu";</span><span class="meta">JetBrains Mono</span></div>
+      </div>
+    </div>
+
+    <!-- Radius -->
+    <div class="sub">
+      <h3>Radius · 圆角</h3>
+      <p class="lead">从 4 到 999 七档。桌面主基调偏 10-16,pill 只给 CTA / status 用,不滥用。</p>
+      <div class="radius-grid">
+        <div class="radius-tile" style="border-radius:var(--r-1)"><strong>4</strong>chip · tag</div>
+        <div class="radius-tile" style="border-radius:var(--r-2)"><strong>6</strong>btn-sm</div>
+        <div class="radius-tile" style="border-radius:var(--r-3)"><strong>10</strong>input · btn</div>
+        <div class="radius-tile" style="border-radius:var(--r-4)"><strong>12</strong>card</div>
+        <div class="radius-tile" style="border-radius:var(--r-5)"><strong>16</strong>dialog</div>
+        <div class="radius-tile" style="border-radius:var(--r-6)"><strong>20</strong>hero</div>
+        <div class="radius-tile" style="border-radius:var(--r-full)"><strong>999</strong>pill</div>
+      </div>
+    </div>
+
+    <!-- Spacing -->
+    <div class="sub">
+      <h3>Space · 4pt 网格</h3>
+      <p class="lead">从 4 到 96,11 档统一变量。行/列/组之间三种主间距:12(row inner)、20(card inner)、32-56(section)。</p>
+      <div class="spacing-block">
+        <div class="spacing-row"><strong>4</strong><span class="bar" style="width:4px"></span><span>xs · icon inner</span></div>
+        <div class="spacing-row"><strong>8</strong><span class="bar" style="width:8px"></span><span>sm · chip inner · button gap</span></div>
+        <div class="spacing-row"><strong>12</strong><span class="bar" style="width:12px"></span><span>md · list row · card inner</span></div>
+        <div class="spacing-row"><strong>16</strong><span class="bar" style="width:16px"></span><span>lg · section item gap</span></div>
+        <div class="spacing-row"><strong>20</strong><span class="bar" style="width:20px"></span><span>xl · card padding</span></div>
+        <div class="spacing-row"><strong>24</strong><span class="bar" style="width:24px"></span><span>2xl · panel padding</span></div>
+        <div class="spacing-row"><strong>32</strong><span class="bar" style="width:32px"></span><span>3xl · module gap</span></div>
+        <div class="spacing-row"><strong>56</strong><span class="bar" style="width:56px"></span><span>4xl · section top</span></div>
+        <div class="spacing-row"><strong>96</strong><span class="bar" style="width:96px"></span><span>5xl · page margin</span></div>
+      </div>
+    </div>
+
+    <!-- Shadow -->
+    <div class="sub">
+      <h3>Shadow · 层次</h3>
+      <p class="lead">深色下阴影不做"抬起",做"落定"。四档 shadow + rose-focus + danger-focus,只在浮层/焦点上用。</p>
+      <div class="shadow-grid">
+        <div class="shadow-tile" style="box-shadow:var(--shadow-xs)">shadow-xs</div>
+        <div class="shadow-tile" style="box-shadow:var(--shadow-sm)">shadow-sm</div>
+        <div class="shadow-tile" style="box-shadow:var(--shadow-md)">shadow-md</div>
+        <div class="shadow-tile" style="box-shadow:var(--shadow-lg)">shadow-lg</div>
+        <div class="shadow-tile" style="box-shadow:var(--shadow-rose);background:var(--ink-4)">rose focus</div>
+        <div class="shadow-tile" style="box-shadow:var(--shadow-focus);background:var(--ink-4)">keyboard focus</div>
+        <div class="shadow-tile" style="box-shadow:var(--shadow-danger);background:var(--ink-4)">danger focus</div>
+        <div class="shadow-tile" style="box-shadow:none">no shadow</div>
+      </div>
+    </div>
+
+    <!-- Icons -->
+    <div class="sub">
+      <h3>Icon · 图标系统</h3>
+      <p class="lead">1.5 stroke width,20 / 16 双尺寸,24 网格。stroke:currentColor 让每个图标继承所在语境的色。悬停 → rose-200。</p>
+      <div class="icon-grid">
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg><span class="lbl">menu</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="lbl">search</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">plus</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span class="lbl">check</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="lbl">close</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg><span class="lbl">chevron</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg><span class="lbl">clock</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M4 4h16v10H5.5L4 15.5z"/></svg><span class="lbl">comment</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8M18 8a4 4 0 0 1-4 4h-2"/></svg><span class="lbl">branch</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="lbl">list</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg><span class="lbl">settings</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 10l7-7 7 7"/></svg><span class="lbl">upload</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M12 21V3M5 14l7 7 7-7"/></svg><span class="lbl">download</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg><span class="lbl">time</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M6 4h8l4 4v12H6z"/><path d="M14 4v4h4"/></svg><span class="lbl">file</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span class="lbl">grid</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============= COMPONENTS ============= -->
+  <div class="section" id="components">
+    <div class="section-head"><span class="num">02</span><h2>Components</h2><p>24 组件 · 表单 · 反馈 · 导航 · 展示</p></div>
+
+    <!-- Buttons -->
+    <div class="sub">
+      <h3>Buttons</h3>
+      <p class="lead">Primary 只有一个 —— rose 深色 CTA;secondary 是"任何时候都可以点"的动作;ghost 消解在语境里;danger 只在破坏性操作用。所有按钮 pill 圆角。</p>
+      <div class="g-2">
+        <div class="surface">
+          <span class="surface-title">Variant · Primary / Secondary / Ghost / Danger</span>
+          <div class="row">
+            <button class="btn btn-primary">Merge PR</button>
+            <button class="btn btn-secondary">Request changes</button>
+            <button class="btn btn-ghost">Cancel</button>
+            <button class="btn btn-danger">Force delete</button>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary btn-sm">Sm</button>
+            <button class="btn btn-primary">Md</button>
+            <button class="btn btn-primary btn-lg">Lg</button>
+            <button class="btn btn-primary" disabled>Disabled</button>
+          </div>
+        </div>
+        <div class="surface">
+          <span class="surface-title">Icon-only · Loading · With icon</span>
+          <div class="row">
+            <button class="btn btn-secondary btn-icon"><svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
+            <button class="btn btn-secondary btn-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+            <button class="btn btn-primary btn-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button class="btn btn-secondary">
+              <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8M18 8a4 4 0 0 1-4 4h-2"/></svg>
+              feat/kro-suite
+            </button>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary">
+              <span class="loader" style="width:12px;height:12px;border:2px solid var(--ink-0);border-top-color:transparent;border-radius:50%;animation:spin 800ms linear infinite;display:inline-block"></span>
+              Deploying…
+            </button>
+            <button class="btn btn-secondary">
+              <span style="width:6px;height:6px;background:var(--success);border-radius:50%;box-shadow:0 0 8px var(--success)"></span>
+              Connected
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+    <!-- Form controls -->
+    <div class="sub">
+      <h3>Form Controls</h3>
+      <p class="lead">Input / Select / Textarea / Switch / Checkbox / Radio / Segmented / Slider — 每个控件的 focus 环用 rose,error 用 danger,禁用降至 45%。</p>
+      <div class="g-2">
+        <div class="surface">
+          <span class="surface-title">Input · Textarea · Select</span>
+          <div class="field">
+            <label>Branch name</label>
+            <div class="input-with-icon">
+              <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8M18 8a4 4 0 0 1-4 4h-2"/></svg>
+              <input class="input" type="text" placeholder="feat/new-branch" />
+            </div>
+            <span class="hint">支持 kebab-case,自动带 <code>feat/</code> 前缀</span>
+          </div>
+          <div class="field">
+            <label>Focused</label>
+            <input class="input" type="text" value="feat/noir-system" style="border-color:var(--rose-200);box-shadow:var(--shadow-rose)" />
+          </div>
+          <div class="field">
+            <label>Error</label>
+            <input class="input is-error" type="text" value="Feat/Wrong-Case" />
+            <span class="hint err">分支名必须为 kebab-case</span>
+          </div>
+        </div>
+        <div class="surface">
+          <span class="surface-title">Textarea · Select</span>
+          <div class="field">
+            <label>Commit message</label>
+            <textarea class="textarea" placeholder="feat(desktop): describe what changed and why…"></textarea>
+          </div>
+          <div class="field">
+            <label>Base branch</label>
+            <select class="select">
+              <option>main</option>
+              <option>develop</option>
+              <option>release/2026.08</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="g-2">
+        <div class="surface">
+          <span class="surface-title">Switch · Checkbox · Radio</span>
+          <div class="col">
+            <label class="switch"><input type="checkbox" checked><span class="track"><span class="thumb"></span></span><span>Auto-merge when checks pass</span></label>
+            <label class="switch"><input type="checkbox"><span class="track"><span class="thumb"></span></span><span>Delete branch after merge</span></label>
+            <hr class="divider">
+            <label class="check"><input type="checkbox" checked><span class="box"></span><span>Sign commits</span></label>
+            <label class="check"><input type="checkbox"><span class="box"></span><span>Rebase before merge</span></label>
+            <hr class="divider">
+            <div class="row" style="gap:var(--s-4)">
+              <label class="radio"><input type="radio" name="strat" checked><span class="box"></span><span>Squash</span></label>
+              <label class="radio"><input type="radio" name="strat"><span class="box"></span><span>Merge commit</span></label>
+              <label class="radio"><input type="radio" name="strat"><span class="box"></span><span>Rebase</span></label>
+            </div>
+          </div>
+        </div>
+        <div class="surface">
+          <span class="surface-title">Segmented · Slider</span>
+          <div class="row">
+            <div class="segmented">
+              <button class="on">Local</button>
+              <button>Remote</button>
+              <button>All</button>
+            </div>
+          </div>
+          <div class="row" style="gap:var(--s-2);flex-wrap:wrap">
+            <div class="segmented">
+              <button>1d</button>
+              <button class="on">7d</button>
+              <button>30d</button>
+              <button>All</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Sidebar density</label>
+            <div class="slider-wrap">
+              <input type="range" class="slider" min="0" max="100" value="65" style="--v:65%" oninput="this.style.setProperty('--v', this.value + '%')" />
+              <div class="row" style="justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--text-3)">
+                <span>compact</span><span>65%</span><span>spacious</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Badges chips avatar kbd -->
+    <div class="sub">
+      <h3>Chip · Pill · Avatar · Kbd</h3>
+      <p class="lead">状态/元信息通过 chip 传递,pill 承担"活跃/连接"这种带 dot 的持续状态。avatar 用 rose→violet 渐变兜底,永远不用灰头像。</p>
+      <div class="g-2">
+        <div class="surface">
+          <span class="surface-title">Chip variants</span>
+          <div class="row">
+            <span class="chip">default</span>
+            <span class="chip-rose chip">rose · signature</span>
+            <span class="chip chip-outline">outline</span>
+            <span class="chip chip-success"><span class="dot"></span>success</span>
+            <span class="chip chip-warning"><span class="dot"></span>warning</span>
+            <span class="chip chip-danger"><span class="dot"></span>danger</span>
+            <span class="chip chip-info"><span class="dot"></span>info</span>
+          </div>
+          <div class="row">
+            <span class="chip">↑ 3</span>
+            <span class="chip">↓ 2</span>
+            <span class="chip">2h ago</span>
+            <span class="chip">+383 lines</span>
+          </div>
+          <div class="row">
+            <span class="pill"><span class="dot"></span>Active</span>
+            <span class="pill" style="color:var(--text-2);background:transparent;border-color:var(--ink-5)">
+              <span class="dot" style="background:var(--text-3);box-shadow:none"></span>Idle
+            </span>
+          </div>
+        </div>
+        <div class="surface">
+          <span class="surface-title">Avatar · Kbd</span>
+          <div class="row">
+            <div class="avatar-stack">
+              <span class="avatar">WF</span>
+              <span class="avatar" style="background:linear-gradient(135deg, var(--violet-300), var(--info))">JL</span>
+              <span class="avatar" style="background:linear-gradient(135deg, var(--warning), var(--rose-400))">MA</span>
+              <span class="avatar" style="background:var(--ink-4);color:var(--text-2);border:1px solid var(--ink-5)">+2</span>
+            </div>
+            <span class="avatar avatar-lg">WF</span>
+          </div>
+          <div class="row">
+            <kbd class="k">⌘</kbd><kbd class="k">K</kbd>
+            <span style="color:var(--text-3);font-family:var(--font-mono);font-size:11px">command palette</span>
+          </div>
+          <div class="row">
+            <kbd class="k">⌘</kbd><kbd class="k">⇧</kbd><kbd class="k">B</kbd>
+            <span style="color:var(--text-3);font-family:var(--font-mono);font-size:11px">switch branch</span>
+          </div>
+          <div class="row">
+            <kbd class="k">Esc</kbd>
+            <span style="color:var(--text-3);font-family:var(--font-mono);font-size:11px">close popover</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback -->
+    <div class="sub">
+      <h3>Feedback · Callout · Toast · Progress · Skeleton</h3>
+      <p class="lead">通知走 toast,持续说明走 callout,进度走 rose 条(线性 / 圆环 / 骨架屏)。</p>
+      <div class="g-2">
+        <div class="surface">
+          <span class="surface-title">Callout</span>
+          <div class="callout info"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v4h1"/></svg><div><b>上游有新 3 个 commit</b> <span style="color:var(--text-3)">— 建议 rebase 后再推。</span></div></div>
+          <div class="callout warn"><svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M4.93 19h14.14a2 2 0 0 0 1.73-3l-7.07-12a2 2 0 0 0-3.46 0L3.2 16a2 2 0 0 0 1.73 3z"/></svg><div><b>3 tests skipped</b> <span style="color:var(--text-3)">— 请检查 <code>desktop.test.ts</code> 中的 <code>describe.skip</code>。</span></div></div>
+          <div class="callout err"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg><div><b>Type error</b> <span style="color:var(--text-3)">— <code>index.ts:42</code>: 参数 <code>workspaceId</code> 应为 string,收到 undefined。</span></div></div>
+        </div>
+        <div class="surface">
+          <span class="surface-title">Toast stack</span>
+          <div class="toast ok"><span class="lead"></span><div class="body"><span class="t">Branch published</span><span class="d">feat/noir-system → origin, 12s</span></div><span class="close">×</span></div>
+          <div class="toast info"><span class="lead"></span><div class="body"><span class="t">Merged upstream</span><span class="d">3 commits from main into current branch</span></div><span class="close">×</span></div>
+          <div class="toast err"><span class="lead"></span><div class="body"><span class="t">Push failed</span><span class="d">remote rejected: non-fast-forward. Try pull --rebase.</span></div><span class="close">×</span></div>
+        </div>
+      </div>
+
+      <div class="g-2">
+        <div class="surface">
+          <span class="surface-title">Progress · determinate</span>
+          <div class="col">
+            <div><span class="t-caption">Cloning superset · 62%</span><div class="progress" style="margin-top:8px"><span class="bar" style="width:62%"></span></div></div>
+            <div><span class="t-caption">Building electron · 34%</span><div class="progress" style="margin-top:8px"><span class="bar" style="width:34%"></span></div></div>
+            <div><span class="t-caption">Indexing · indeterminate</span><div class="progress" style="margin-top:8px"><span class="bar progress-ind"></span></div></div>
+          </div>
+          <div class="row" style="gap:var(--s-5)">
+            <div class="circle-progress" style="--pct:32"><span>32%</span></div>
+            <div class="circle-progress" style="--pct:66"><span>66%</span></div>
+            <div class="circle-progress" style="--pct:88"><span>88%</span></div>
+          </div>
+        </div>
+        <div class="surface">
+          <span class="surface-title">Skeleton</span>
+          <div class="col">
+            <div class="row"><div class="skel" style="width:32px;height:32px;border-radius:50%"></div><div class="col" style="flex:1;gap:6px"><div class="skel" style="height:12px;width:60%"></div><div class="skel" style="height:10px;width:35%"></div></div></div>
+            <div class="skel" style="height:12px;width:100%"></div>
+            <div class="skel" style="height:12px;width:85%"></div>
+            <div class="skel" style="height:12px;width:60%"></div>
+            <hr class="divider">
+            <div class="skel" style="height:80px;border-radius:var(--r-3)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation · Tabs / List / Menu -->
+    <div class="sub">
+      <h3>Navigation · Tabs · Menu · List</h3>
+      <p class="lead">Tabs 是"平级切换",List 是"选中项 + 上下文",Menu 是"操作集合"。选中态永远靠 2px rose 左标 + ink-4 底。</p>
+      <div class="g-3">
+        <div class="surface">
+          <span class="surface-title">Tabs</span>
+          <div class="tabs">
+            <button class="on">Overview</button>
+            <button>Changes <span class="chip" style="padding:1px 6px;margin-left:6px">12</span></button>
+            <button>Reviewers</button>
+            <button>Checks</button>
+          </div>
+          <div style="color:var(--text-3);font-size:12.5px;padding:var(--s-2) 0">Tab 内容会渲染在这里,只有下划线跟随。</div>
+        </div>
+        <div class="surface">
+          <span class="surface-title">List · active rail</span>
+          <div class="list">
+            <div class="list-item"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16v10H5.5L4 15.5z"/></svg>Files<span class="meta">⌘ 1</span></div>
+            <div class="list-item active"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search<span class="meta">⌘ 2</span></div>
+            <div class="list-item"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8M18 8a4 4 0 0 1-4 4h-2"/></svg>Git<span class="meta">⌘ 3</span></div>
+            <div class="list-item"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/></svg>Debug<span class="meta">⌘ 4</span></div>
+          </div>
+        </div>
+        <div class="surface" style="align-items:flex-start;gap:0">
+          <span class="surface-title" style="margin-bottom:var(--s-3)">Menu · popover</span>
+          <div class="popover">
+            <div class="head">操作</div>
+            <div class="item"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Checkout branch<span class="k">↵</span></div>
+            <div class="item"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5" viewBox="0 0 24 24"><path d="M12 3v18M5 10l7-7 7 7"/></svg>Push to remote<span class="k">⌘⇧P</span></div>
+            <div class="item"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5" viewBox="0 0 24 24"><path d="M4 6h16v10H5.5L4 15.5z"/></svg>Copy branch name<span class="k">⌘C</span></div>
+            <div class="sep"></div>
+            <div class="item danger"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>Delete branch</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overlays -->
+    <div class="sub">
+      <h3>Overlays · Dialog · Tooltip · Popover</h3>
+      <p class="lead">浮层用 shadow-lg + 1px 边框稳定视觉,tooltip 12px 顶部箭头,dialog 16px 圆角。</p>
+      <div class="g-3">
+        <div class="surface"><span class="surface-title">Tooltip</span>
+          <div class="row" style="justify-content:center;padding:var(--s-8) 0">
+            <span class="tooltip">
+              <button class="btn btn-secondary btn-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+              <span class="tip">新建分支 · ⌘⇧B</span>
+            </span>
+          </div>
+        </div>
+        <div class="surface"><span class="surface-title">Dialog</span>
+          <div class="dialog" style="max-width:none">
+            <h3>删除分支 <code style="color:var(--rose-200)">feat/kro-suite</code>?</h3>
+            <p>这个分支已经合并到 main。删除本地引用不会影响远程,可以随时通过 git reflog 恢复。</p>
+            <div class="actions">
+              <button class="btn btn-ghost">取消</button>
+              <button class="btn btn-danger">删除</button>
+            </div>
+          </div>
+        </div>
+        <div class="surface"><span class="surface-title">Popover · form</span>
+          <div class="popover" style="min-width:auto">
+            <div class="head">新建分支</div>
+            <div style="padding:var(--s-2)">
+              <input class="input" type="text" value="feat/quick-fix" style="border-color:var(--rose-200);box-shadow:var(--shadow-rose)" />
+            </div>
+            <div style="padding:0 var(--s-2)" class="row">
+              <span class="t-caption">Base:</span><span class="chip-rose chip">main</span>
+            </div>
+            <div class="sep"></div>
+            <div style="padding:var(--s-2)" class="row">
+              <button class="btn btn-ghost btn-sm" style="margin-left:auto">取消</button>
+              <button class="btn btn-primary btn-sm">创建 · ↵</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data display · Table / Diff -->
+    <div class="sub">
+      <h3>Data · Table · Diff</h3>
+      <p class="lead">表格 hover 一档提亮不加边;diff 用 8% 语义色底,行号跟着色。</p>
+      <div class="surface" style="padding:0;overflow:hidden">
+        <table class="table">
+          <thead>
+            <tr><th>Branch</th><th>Status</th><th>Author</th><th>Updated</th><th style="text-align:right">Ahead / Behind</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="chip-rose chip">feat/kro-suite</span></td><td><span class="chip chip-success"><span class="dot"></span>ready</span></td><td><div class="row" style="gap:var(--s-2)"><span class="avatar" style="width:22px;height:22px;font-size:10px">WF</span> wufan17</div></td><td class="muted">2h ago</td><td class="muted" style="text-align:right">↑ 3 · ↓ 0</td></tr>
+            <tr><td>backup/pre-filter-ui-v2</td><td><span class="chip chip-warning"><span class="dot"></span>stale</span></td><td><div class="row" style="gap:var(--s-2)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:linear-gradient(135deg, var(--violet-300), var(--info))">JL</span> jl</div></td><td class="muted">5h ago</td><td class="muted" style="text-align:right">↑ 0 · ↓ 12</td></tr>
+            <tr><td>bugfix/duplicate-dele…</td><td><span class="chip chip-info"><span class="dot"></span>reviewing</span></td><td><div class="row" style="gap:var(--s-2)"><span class="avatar" style="width:22px;height:22px;font-size:10px;background:linear-gradient(135deg, var(--warning), var(--rose-400))">MA</span> ma</div></td><td class="muted">yesterday</td><td class="muted" style="text-align:right">↑ 1 · ↓ 2</td></tr>
+            <tr><td>electron-final</td><td><span class="chip chip-danger"><span class="dot"></span>conflict</span></td><td><div class="row" style="gap:var(--s-2)"><span class="avatar" style="width:22px;height:22px;font-size:10px">WF</span> wufan17</div></td><td class="muted">3d</td><td class="muted" style="text-align:right">↓ 4</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="diff">
+        <div class="h">
+          <svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.5;color:var(--text-3)" viewBox="0 0 24 24"><path d="M6 4h8l4 4v12H6z"/><path d="M14 4v4h4"/></svg>
+          <span class="file">apps/desktop/globals.css</span>
+          <div class="spacer"></div>
+          <span class="stat-plus">+7</span>
+          <span class="stat-minus">−2</span>
+        </div>
+        <pre>
+<span class="row"><span class="n">12</span><span class="n"> </span><span>  --radius: 10px;</span></span>
+<span class="row rm"><span class="n">13</span><span class="n">-</span><span>  --primary: hsl(280, 90%, 55%);</span></span>
+<span class="row rm"><span class="n">14</span><span class="n">-</span><span>  --background: #0f0f10;</span></span>
+<span class="row add"><span class="n"> </span><span class="n">13</span><span>  --primary: var(--rose-200);</span></span>
+<span class="row add"><span class="n"> </span><span class="n">14</span><span>  --background: var(--ink-1);</span></span>
+<span class="row add"><span class="n"> </span><span class="n">15</span><span>  --focus-ring: 0 0 0 3px rgba(229,163,200,0.15);</span></span>
+<span class="row"><span class="n">15</span><span class="n">16</span><span>}</span></span>
+</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============= PATTERNS ============= -->
+  <div class="section" id="patterns">
+    <div class="section-head"><span class="num">03</span><h2>Patterns</h2><p>组件组合出的场景语言</p></div>
+
+    <!-- Sidebar -->
+    <div class="sub">
+      <h3>Sidebar · 主导航</h3>
+      <p class="lead">220px 宽,ink-2 面板,rose 左标承担 active。分组标题小 caps 灰,项内 icon 与 label 12/13px。</p>
+      <div class="row" style="align-items:flex-start;gap:var(--s-6);flex-wrap:wrap">
+        <div class="sidebar">
+          <div class="row-brand"><div class="logo"></div>SUPERSET</div>
+          <div class="grp">Workspace</div>
+          <div class="row-item on">
+            <svg viewBox="0 0 24 24"><path d="M4 6h16v10H5.5L4 15.5z"/></svg>
+            Chat<span class="meta">⌘1</span>
+          </div>
+          <div class="row-item">
+            <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/></svg>
+            Terminal<span class="meta">⌘2</span>
+          </div>
+          <div class="row-item">
+            <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+            Files<span class="meta">⌘3</span>
+          </div>
+          <div class="grp">Source Control</div>
+          <div class="row-item">
+            <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8M18 8a4 4 0 0 1-4 4h-2"/></svg>
+            Branches<span class="meta">42</span>
+          </div>
+          <div class="row-item">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            Changes<span class="meta">12</span>
+          </div>
+          <div class="row-item">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
+            History
+          </div>
+          <div class="grp">Team</div>
+          <div class="row-item">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+            Reviewers
+          </div>
+          <div class="row-item">
+            <svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+            Settings
+          </div>
+        </div>
+
+        <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:var(--s-3)">
+          <div class="callout"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><div><b>选中态规则</b><p style="color:var(--text-3);font-size:12.5px;margin-top:2px">仅一项 active 时显示 rose 左标。次级列表(子路由)沿用同一规则,但左标改为 1px + 无光晕。</p></div></div>
+          <div class="callout"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><div><b>宽度层级</b><p style="color:var(--text-3);font-size:12.5px;margin-top:2px">220 (default) · 260 (comfortable) · 56 (icon-only rail)。宽度切换 240ms emphasized。</p></div></div>
+          <div class="callout"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg><div><b>meta 位数</b><p style="color:var(--text-3);font-size:12.5px;margin-top:2px">右侧计数超过 3 位数用 <code>99+</code>。0 不显示 chip,不让"空计数"占位。</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Command palette -->
+    <div class="sub">
+      <h3>Command Palette · ⌘K</h3>
+      <p class="lead">rose ring 光标行 + 分组标题小 caps。快捷键右靠齐,禁用项灰化 45%。</p>
+      <div class="row" style="justify-content:center;padding:var(--s-4) 0">
+        <div class="cp">
+          <div class="cp-input">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input value="switch branch" />
+            <span class="chip">Command</span>
+          </div>
+          <div class="grp">Branch</div>
+          <div class="row on">
+            <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8M18 8a4 4 0 0 1-4 4h-2"/></svg>
+            Switch branch
+            <span class="kbd" style="margin-left:auto"><kbd class="k">⌘</kbd><kbd class="k">⇧</kbd><kbd class="k">B</kbd></span>
+          </div>
+          <div class="row">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            New branch from current
+            <span class="kbd" style="margin-left:auto"><kbd class="k">⌘</kbd><kbd class="k">N</kbd></span>
+          </div>
+          <div class="grp">Workspace</div>
+          <div class="row">
+            <svg viewBox="0 0 24 24"><path d="M4 6h16v10H5.5L4 15.5z"/></svg>
+            Open chat
+            <span class="kbd" style="margin-left:auto"><kbd class="k">⌘</kbd><kbd class="k">1</kbd></span>
+          </div>
+          <div class="row" style="opacity:0.45">
+            <svg viewBox="0 0 24 24"><path d="M12 3v18M5 10l7-7 7 7"/></svg>
+            Push to remote
+            <span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-3)">unavailable · offline</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Branch menu (scenario) -->
+    <div class="sub">
+      <h3>Branch Menu · Popover · 参考图对齐</h3>
+      <p class="lead">左边 code + 面包屑,右边 popover(搜索 · 计数 · 分支列表)。选中行 rose 深底 + 边,ahead/behind 用 mono。</p>
+      <div class="scenario">
+        <span class="scenario-label">SCENARIO</span>
+        <p>选一个初始状态。任何时候都可以左键 pill 打开分支列表,或在列表里右键任意分支查看操作菜单。</p>
+        <div class="scenario-actions">
+          <button class="btn btn-secondary">Pill 关闭</button>
+          <button class="btn btn-primary">Popover 打开</button>
+          <button class="btn btn-secondary">右键其他分支</button>
+          <button class="btn btn-secondary">右键当前分支</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:var(--s-6);align-items:start">
+        <div class="code-panel">
+          <div class="path">apps / desktop / src / renderer / <span class="file">BranchMenu.tsx</span> · on <span style="color:var(--rose-200)">feat/kro-suite</span></div>
+          <div class="line"><span class="num">1</span><span class="comment">// apps/desktop/…/BranchMenu.tsx</span></div>
+          <div class="line"><span class="num">2</span><span class="kw">import</span> <span class="plain">{ useBranchMenu }</span> <span class="kw">from</span> <span class="str">"./hooks/useBranchMenu"</span><span class="plain">;</span></div>
+          <div class="line"><span class="num">3</span></div>
+          <div class="line"><span class="num">4</span><span class="kw">export function</span> <span class="fn">BranchMenu</span><span class="plain">({ workspaceId }: </span><span class="type">BranchMenuProps</span><span class="plain">) {</span></div>
+          <div class="line"><span class="num">5</span><span class="plain">  </span><span class="kw">const</span> <span class="plain">{ current, locals, remotes, actions } = </span><span class="fn">useBranchMenu</span><span class="plain">(workspaceId);</span></div>
+          <div class="line"><span class="num">6</span></div>
+          <div class="line"><span class="num">7</span><span class="plain">  </span><span class="kw">return</span> <span class="plain">(</span></div>
+          <div class="line"><span class="num">8</span><span class="plain">    &lt;</span><span class="type">BranchPopover</span></div>
+          <div class="line"><span class="num">9</span><span class="plain">      </span><span class="prop">current</span><span class="plain">={current}</span></div>
+          <div class="line"><span class="num">10</span><span class="plain">      </span><span class="prop">locals</span><span class="plain">={locals}</span></div>
+          <div class="line"><span class="num">11</span><span class="plain">      </span><span class="prop">onSwitch</span><span class="plain">={actions.switch}</span></div>
+          <div class="line"><span class="num">12</span><span class="plain">    /&gt;</span></div>
+          <div class="line"><span class="num">13</span><span class="plain">  );</span></div>
+          <div class="line"><span class="num">14</span><span class="plain">}</span></div>
+        </div>
+        <div class="surface--lift" style="border-radius:var(--r-4);padding:var(--s-3);display:flex;flex-direction:column;gap:var(--s-1)">
+          <div style="display:flex;align-items:center;gap:var(--s-2);padding:4px 12px;margin-bottom:4px">
+            <span class="chip-rose chip">feat/kro-suite</span>
+            <div style="margin-left:auto;display:flex;gap:4px">
+              <span class="chip">☰</span><span class="chip">↻</span>
+            </div>
+          </div>
+          <div style="padding:8px 12px;background:var(--ink-4);border-radius:var(--r-2);font-family:var(--font-mono);font-size:12px;color:var(--text-3);margin-bottom:var(--s-2);display:flex;align-items:center;gap:var(--s-2)">🔍 跳转、或输入名称新建…</div>
+          <div style="display:flex;align-items:center;padding:4px 12px;color:var(--text-3);font-size:11.5px">
+            <span>本地分支 · 11</span>
+            <button class="btn btn-primary btn-sm" style="margin-left:auto">+ 新建</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--s-3);padding:8px 12px;border-radius:var(--r-2);font-size:13px;background:rgba(229,163,200,0.10);color:var(--rose-200);border:1px solid rgba(229,163,200,0.25)">
+            <span style="font-family:var(--font-mono)">└</span><span>feat/kro-suite</span>
+            <span style="margin-left:auto;font-family:var(--font-mono);font-size:11px">↑ 3 · ✓</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--s-3);padding:8px 12px;border-radius:var(--r-2);font-size:13px"><span style="font-family:var(--font-mono);color:var(--text-3)">└</span><span>backup/pre-filter-kro-su…</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-3)">2h ago</span></div>
+          <div style="display:flex;align-items:center;gap:var(--s-3);padding:8px 12px;border-radius:var(--r-2);font-size:13px"><span style="font-family:var(--font-mono);color:var(--text-3)">└</span><span>backup/pre-filter-ui-v2</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-3)">5h</span></div>
+          <div style="display:flex;align-items:center;gap:var(--s-3);padding:8px 12px;border-radius:var(--r-2);font-size:13px"><span style="font-family:var(--font-mono);color:var(--text-3)">└</span><span>bugfix/duplicate-dele…</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-3)">↑ 1 · yesterday</span></div>
+          <div style="display:flex;align-items:center;gap:var(--s-3);padding:8px 12px;border-radius:var(--r-2);font-size:13px"><span style="font-family:var(--font-mono);color:var(--text-3)">└</span><span>electron-final</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-3)">↓ 4 · 3d</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state · Form · PR -->
+    <div class="sub">
+      <h3>Empty · Form · PR card</h3>
+      <p class="lead">空态给出下一步操作,不用"无数据"的冷字。表单场景 label 与 field 12px 灰 → 输入 14px 白,层次清晰。</p>
+      <div class="g-3">
+        <div class="empty">
+          <div class="art"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M6 8v8M18 8a4 4 0 0 1-4 4h-2"/></svg></div>
+          <h4>还没有分支</h4>
+          <p>从 <code style="color:var(--rose-200)">main</code> 分出去,或从当前修改快速新建一条分支。</p>
+          <div class="row">
+            <button class="btn btn-primary btn-sm">+ 新建分支</button>
+            <button class="btn btn-ghost btn-sm">克隆仓库</button>
+          </div>
+        </div>
+        <div class="surface">
+          <span class="surface-title">New PR · form</span>
+          <div class="field"><label>Title</label><input class="input" value="feat(desktop): sidebar noir refresh" /></div>
+          <div class="field"><label>Base ← Compare</label>
+            <div class="row"><select class="select" style="flex:1"><option>main</option></select><span style="color:var(--text-3)">←</span><select class="select" style="flex:1"><option>feat/kro-suite</option></select></div>
+          </div>
+          <div class="field"><label>Reviewers</label>
+            <div class="row"><span class="chip"><span class="avatar" style="width:16px;height:16px;font-size:9px">WF</span> wufan17 ×</span><span class="chip"><span class="avatar" style="width:16px;height:16px;font-size:9px;background:linear-gradient(135deg, var(--violet-300), var(--info))">JL</span> jl ×</span><button class="btn btn-ghost btn-sm">+ 添加</button></div>
+          </div>
+          <div class="row" style="justify-content:flex-end;padding-top:var(--s-2)"><button class="btn btn-ghost">草稿</button><button class="btn btn-primary">Create PR</button></div>
+        </div>
+        <div class="surface surface--tint">
+          <div class="row"><span class="chip-rose chip">#4213</span><span class="chip chip-success"><span class="dot"></span>ready to merge</span></div>
+          <h3 style="font-size:15px;font-weight:500;color:var(--text-1)">feat(desktop): sidebar noir refresh</h3>
+          <p class="t-body-sm">把侧栏切换为 Noir 语言:ink-2 底、rose 左标、220px 宽,与命令面板保持一致。</p>
+          <hr class="divider">
+          <div class="row" style="justify-content:space-between">
+            <div class="avatar-stack">
+              <span class="avatar" style="width:22px;height:22px;font-size:10px">WF</span>
+              <span class="avatar" style="width:22px;height:22px;font-size:10px;background:linear-gradient(135deg, var(--violet-300), var(--info))">JL</span>
+            </div>
+            <div class="row" style="gap:var(--s-3);color:var(--text-3);font-family:var(--font-mono);font-size:11px">
+              <span>+383 −92</span><span>·</span><span>12 files</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Density map -->
+    <div class="sub">
+      <h3>Presence Map · 色彩密度</h3>
+      <p class="lead">rose 占屏不超过 8%。粉不是被撒开,是被派到岗:focus / 光标 / 选中标 / 状态点 / 单个 CTA。</p>
+      <div class="stripe">
+        <span style="background:var(--rose-200);flex:6"></span>
+        <span style="background:var(--ink-4);flex:20"></span>
+        <span style="background:var(--ink-3);flex:24"></span>
+        <span style="background:var(--ink-2);flex:25"></span>
+        <span style="background:var(--ink-1);flex:25"></span>
+      </div>
+      <p class="t-caption">rose 6% · ink-4 20% · ink-3 24% · ink-2 25% · ink-1 25%</p>
+    </div>
+  </div>
+
+  <!-- ============= MOTION ============= -->
+  <div class="section" id="motion">
+    <div class="section-head"><span class="num">04</span><h2>Motion</h2><p>时长 · 缓动 · 使用位置</p></div>
+    <div class="sub">
+      <h3>Duration · 4 档</h3>
+      <p class="lead">80(即时反馈)· 150(基础过渡)· 240(强调 / popover)· 400(页面级)。所有超过 400 的动画都属可疑,先问是否必要。</p>
+      <div class="g-4">
+        <div class="surface"><span class="surface-title">dur-1 · 80ms</span><p class="t-body-sm">键位按下、chip hover、可拖拽反馈。</p><code style="font-size:11px;color:var(--rose-200)">--dur-1: 80ms</code></div>
+        <div class="surface"><span class="surface-title">dur-2 · 150ms</span><p class="t-body-sm">按钮、输入、tab 切换、tooltip 淡入。</p><code style="font-size:11px;color:var(--rose-200)">--dur-2: 150ms</code></div>
+        <div class="surface"><span class="surface-title">dur-3 · 240ms</span><p class="t-body-sm">popover、dialog、sidebar 宽度、tabs 内容切换。</p><code style="font-size:11px;color:var(--rose-200)">--dur-3: 240ms</code></div>
+        <div class="surface"><span class="surface-title">dur-4 · 400ms</span><p class="t-body-sm">页面切换、workspace 迁移、full-screen overlay。</p><code style="font-size:11px;color:var(--rose-200)">--dur-4: 400ms</code></div>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>Easing · 3 条曲线</h3>
+      <p class="lead">standard 是默认;emphasized 用在"值得强调"的元素(dialog / branch popover);decel 用在从屏幕外进入。</p>
+      <div class="easing-grid">
+        <div class="easing-tile" data-e="standard">
+          <div class="row" style="justify-content:space-between"><span class="surface-title">standard</span><code style="color:var(--text-2);font-size:11px">cubic-bezier(.2,0,0,1)</code></div>
+          <div class="lane"><span class="puck"></span></div>
+          <p class="t-caption">日常过渡的默认选择。</p>
+        </div>
+        <div class="easing-tile" data-e="emphasized">
+          <div class="row" style="justify-content:space-between"><span class="surface-title">emphasized</span><code style="color:var(--text-2);font-size:11px">cubic-bezier(.3,0,0,1)</code></div>
+          <div class="lane"><span class="puck"></span></div>
+          <p class="t-caption">进入更快、结束更平,给关键浮层"仪式感"。</p>
+        </div>
+        <div class="easing-tile" data-e="decel">
+          <div class="row" style="justify-content:space-between"><span class="surface-title">decelerate</span><code style="color:var(--text-2);font-size:11px">cubic-bezier(0,0,.2,1)</code></div>
+          <div class="lane"><span class="puck"></span></div>
+          <p class="t-caption">从屏幕外进入的元素专用(toast、抽屉)。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============= A11Y ============= -->
+  <div class="section" id="a11y">
+    <div class="section-head"><span class="num">05</span><h2>Accessibility</h2><p>对比 · 焦点 · 状态可读</p></div>
+    <div class="sub">
+      <h3>Contrast · 常用组合</h3>
+      <p class="lead">默认背景是 ink-1(#0f0d10)。text-1/2 满足 WCAG AA,text-3 是最小可读边界;rose-200 只在 text-1 尺寸或 accent 用。</p>
+      <div class="a11y-grid">
+        <div class="col">
+          <div class="contrast-row"><span style="color:var(--text-1)">text-1 on ink-1</span><span class="ratio pass">12.6 · AAA</span></div>
+          <div class="contrast-row"><span style="color:var(--text-2)">text-2 on ink-1</span><span class="ratio pass">7.2 · AAA</span></div>
+          <div class="contrast-row"><span style="color:var(--text-3)">text-3 on ink-1</span><span class="ratio pass">4.6 · AA</span></div>
+          <div class="contrast-row"><span style="color:var(--text-4)">text-4 on ink-1</span><span class="ratio warn">2.9 · UI-only</span></div>
+        </div>
+        <div class="col">
+          <div class="contrast-row"><span style="color:var(--rose-200)">rose-200 on ink-1</span><span class="ratio pass">7.4 · AAA</span></div>
+          <div class="contrast-row"><span style="color:var(--rose-200)">rose-200 on ink-3</span><span class="ratio pass">6.8 · AAA</span></div>
+          <div class="contrast-row"><span style="color:var(--ink-0);background:var(--rose-200);padding:8px 12px;border-radius:var(--r-2)">ink-0 on rose-200 (primary btn)</span><span class="ratio pass">12.2 · AAA</span></div>
+          <div class="contrast-row"><span style="color:var(--danger)">danger on ink-1</span><span class="ratio pass">5.9 · AA</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>Focus · 键盘可见性</h3>
+      <p class="lead">键盘 focus 必须可见 —— shadow-focus 双层环(ink-0 内 · rose-200 外),视觉上"从背景独立",不是随便加个 outline。</p>
+      <div class="row" style="gap:var(--s-4);padding:var(--s-4) 0">
+        <button class="btn btn-primary" style="box-shadow:var(--shadow-focus)">Focused primary</button>
+        <button class="btn btn-secondary" style="box-shadow:var(--shadow-focus)">Focused secondary</button>
+        <input class="input" style="width:auto;max-width:220px;border-color:var(--rose-200);box-shadow:var(--shadow-rose)" value="Focused input" />
+        <label class="switch"><input type="checkbox" checked><span class="track" style="box-shadow:var(--shadow-focus)"><span class="thumb"></span></span><span>Focused switch</span></label>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>State · 不只用颜色</h3>
+      <p class="lead">状态要同时有 <strong>颜色 + 图标 + 文本</strong>。色盲友好、屏幕阅读器友好。</p>
+      <div class="row">
+        <span class="chip chip-success"><span class="dot"></span>✓ Ready</span>
+        <span class="chip chip-warning"><span class="dot"></span>! Stale</span>
+        <span class="chip chip-danger"><span class="dot"></span>× Conflict</span>
+        <span class="chip chip-info"><span class="dot"></span>↺ Reviewing</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============= TOKENS ============= -->
+  <div class="section" id="tokens">
+    <div class="section-head"><span class="num">06</span><h2>Tokens</h2><p>可直接映射的 JSON</p></div>
+    <p class="foot">下面这份可直接落到 Tailwind theme / shadcn CSS 变量 / 主题 JSON。左侧是 token 键,右侧是值。</p>
+    <div class="tokens"><span class="c">// superset-noir.tokens.json — v1.0 · 2026-08-09</span>
+{
+  <span class="k">"color"</span>: {
+    <span class="k">"ink"</span>: {
+      <span class="k">"0"</span>: <span class="v">"#0a080b"</span>, <span class="k">"1"</span>: <span class="v">"#0f0d10"</span>, <span class="k">"2"</span>: <span class="v">"#16131a"</span>, <span class="k">"3"</span>: <span class="v">"#1a171d"</span>,
+      <span class="k">"4"</span>: <span class="v">"#221e26"</span>, <span class="k">"5"</span>: <span class="v">"#2a2531"</span>, <span class="k">"6"</span>: <span class="v">"#3a3441"</span>, <span class="k">"7"</span>: <span class="v">"#4a4353"</span>
+    },
+    <span class="k">"text"</span>: {
+      <span class="k">"1"</span>: <span class="v">"#eae8f0"</span>, <span class="k">"2"</span>: <span class="v">"#b8b3c4"</span>, <span class="k">"3"</span>: <span class="v">"#8a8395"</span>, <span class="k">"4"</span>: <span class="v">"#625a6d"</span>, <span class="k">"5"</span>: <span class="v">"#3f394a"</span>
+    },
+    <span class="k">"rose"</span>: {
+      <span class="k">"50"</span>: <span class="v">"#fbeff5"</span>, <span class="k">"100"</span>: <span class="v">"#f7dbe8"</span>, <span class="k">"200"</span>: <span class="v">"#e5a3c8"</span>, <span class="k">"300"</span>: <span class="v">"#d685b3"</span>,
+      <span class="k">"400"</span>: <span class="v">"#b8618f"</span>, <span class="k">"500"</span>: <span class="v">"#8a4468"</span>, <span class="k">"600"</span>: <span class="v">"#5f2f48"</span>
+    },
+    <span class="k">"violet"</span>: { <span class="k">"100"</span>: <span class="v">"#d9ccf2"</span>, <span class="k">"200"</span>: <span class="v">"#b8a3e5"</span>, <span class="k">"300"</span>: <span class="v">"#9682c8"</span> },
+    <span class="k">"semantic"</span>: {
+      <span class="k">"success"</span>: <span class="v">"#7dd88f"</span>, <span class="k">"warning"</span>: <span class="v">"#e8c26a"</span>,
+      <span class="k">"danger"</span>:  <span class="v">"#e08585"</span>, <span class="k">"info"</span>:    <span class="v">"#7fb8d8"</span>
+    }
+  },
+  <span class="k">"radius"</span>: { <span class="k">"1"</span>: <span class="v">"4px"</span>, <span class="k">"2"</span>: <span class="v">"6px"</span>, <span class="k">"3"</span>: <span class="v">"10px"</span>, <span class="k">"4"</span>: <span class="v">"12px"</span>, <span class="k">"5"</span>: <span class="v">"16px"</span>, <span class="k">"6"</span>: <span class="v">"20px"</span>, <span class="k">"full"</span>: <span class="v">"999px"</span> },
+  <span class="k">"space"</span>:  { <span class="k">"1"</span>: <span class="v">"4px"</span>, <span class="k">"2"</span>: <span class="v">"8px"</span>, <span class="k">"3"</span>: <span class="v">"12px"</span>, <span class="k">"4"</span>: <span class="v">"16px"</span>, <span class="k">"5"</span>: <span class="v">"20px"</span>, <span class="k">"6"</span>: <span class="v">"24px"</span>, <span class="k">"7"</span>: <span class="v">"32px"</span>, <span class="k">"8"</span>: <span class="v">"40px"</span>, <span class="k">"9"</span>: <span class="v">"56px"</span>, <span class="k">"10"</span>: <span class="v">"72px"</span>, <span class="k">"11"</span>: <span class="v">"96px"</span> },
+  <span class="k">"type"</span>: {
+    <span class="k">"font"</span>: { <span class="k">"ui"</span>: <span class="v">"Inter, -apple-system, PingFang SC, Noto Sans SC, sans-serif"</span>, <span class="k">"mono"</span>: <span class="v">"JetBrains Mono, SF Mono, ui-monospace, Menlo, monospace"</span> },
+    <span class="k">"size"</span>: { <span class="k">"display"</span>: <span class="v">"44px"</span>, <span class="k">"h1"</span>: <span class="v">"28px"</span>, <span class="k">"h2"</span>: <span class="v">"20px"</span>, <span class="k">"h3"</span>: <span class="v">"16px"</span>, <span class="k">"bodyLg"</span>: <span class="v">"15px"</span>, <span class="k">"body"</span>: <span class="v">"14px"</span>, <span class="k">"bodySm"</span>: <span class="v">"12.5px"</span>, <span class="k">"caption"</span>: <span class="v">"11.5px"</span>, <span class="k">"mono"</span>: <span class="v">"12.5px"</span> },
+    <span class="k">"weight"</span>: { <span class="k">"regular"</span>: <span class="v">"400"</span>, <span class="k">"medium"</span>: <span class="v">"500"</span>, <span class="k">"semibold"</span>: <span class="v">"600"</span> },
+    <span class="k">"lineHeight"</span>: { <span class="k">"tight"</span>: <span class="v">"1.2"</span>, <span class="k">"normal"</span>: <span class="v">"1.5"</span>, <span class="k">"relaxed"</span>: <span class="v">"1.65"</span>, <span class="k">"loose"</span>: <span class="v">"1.8"</span> },
+    <span class="k">"tracking"</span>: { <span class="k">"tight"</span>: <span class="v">"-0.022em"</span>, <span class="k">"snug"</span>: <span class="v">"-0.015em"</span>, <span class="k">"normal"</span>: <span class="v">"-0.005em"</span>, <span class="k">"caption"</span>: <span class="v">"0.02em"</span>, <span class="k">"caps"</span>: <span class="v">"0.08em"</span> }
+  },
+  <span class="k">"shadow"</span>: {
+    <span class="k">"xs"</span>: <span class="v">"0 1px 1px rgba(0,0,0,0.20)"</span>,
+    <span class="k">"sm"</span>: <span class="v">"0 1px 2px rgba(0,0,0,0.30)"</span>,
+    <span class="k">"md"</span>: <span class="v">"0 4px 16px rgba(0,0,0,0.35)"</span>,
+    <span class="k">"lg"</span>: <span class="v">"0 20px 60px rgba(0,0,0,0.50), 0 0 0 1px rgba(255,255,255,0.02)"</span>,
+    <span class="k">"rose"</span>:  <span class="v">"0 0 0 3px rgba(229,163,200,0.15)"</span>,
+    <span class="k">"focus"</span>: <span class="v">"0 0 0 2px #0a080b, 0 0 0 4px #e5a3c8"</span>
+  },
+  <span class="k">"motion"</span>: {
+    <span class="k">"duration"</span>: { <span class="k">"1"</span>: <span class="v">"80ms"</span>, <span class="k">"2"</span>: <span class="v">"150ms"</span>, <span class="k">"3"</span>: <span class="v">"240ms"</span>, <span class="k">"4"</span>: <span class="v">"400ms"</span> },
+    <span class="k">"easing"</span>: {
+      <span class="k">"standard"</span>:   <span class="v">"cubic-bezier(.2,0,0,1)"</span>,
+      <span class="k">"emphasized"</span>: <span class="v">"cubic-bezier(.3,0,0,1)"</span>,
+      <span class="k">"decel"</span>:      <span class="v">"cubic-bezier(0,0,.2,1)"</span>
+    }
+  },
+  <span class="k">"z"</span>: { <span class="k">"nav"</span>: <span class="v">10</span>, <span class="k">"sticky"</span>: <span class="v">20</span>, <span class="k">"popover"</span>: <span class="v">40</span>, <span class="k">"toast"</span>: <span class="v">60</span>, <span class="k">"modal"</span>: <span class="v">80</span> }
+}</div>
+    <p class="foot">
+      · <strong>下一步落地</strong>:<code>packages/ui</code> 导出 Tailwind preset(rose · ink · text 三组 palette 加上 semantic);Superset 桌面端 <code>globals.css</code> 覆盖 <code>--radius</code>、字体、shadow-focus。<br>
+      · <strong>组件迁移优先级</strong>:①按钮 pill 化 → ②输入 rose focus → ③侧栏 rose 左标 → ④命令面板 → ⑤分支菜单。<br>
+      · 需要 <code>dracula-noir.json</code>、<code>globals-noir.patch.css</code>、或者按 shadcn CSS 变量输出 <code>:root</code> 覆盖片段告诉我,直接生成。
+    </p>
+  </div>
+
+</div>
+
+<script>
+  // scroll spy for nav
+  const links = document.querySelectorAll('.nav a');
+  const sections = [...links].map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === `#${e.target.id}`));
+      }
+    });
+  }, { rootMargin: '-40% 0px -55% 0px', threshold: 0 });
+  sections.forEach(s => io.observe(s));
+</script>
+
+
+</body>
+</html>

@@ -125,9 +125,7 @@ export function GetTaskToolCall({ part }: GetTaskToolCallProps) {
 							}
 						/>
 					) : (
-						<div className="text-muted-foreground">
-							{t("chat.tool.noTaskObject")}
-						</div>
+						<div className="text-fg-mute">{t("chat.tool.noTaskObject")}</div>
 					)}
 				</div>
 			}

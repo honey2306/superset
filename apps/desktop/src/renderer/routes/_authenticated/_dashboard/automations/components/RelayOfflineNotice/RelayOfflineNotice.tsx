@@ -8,11 +8,11 @@ interface RelayOfflineNoticeProps {
 }
 
 const WRAPPER_CLASS =
-	"flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-foreground/85 select-text cursor-text";
+	"flex flex-wrap items-center gap-x-4 gap-y-2 rounded-ds-3 border border-warning/40 bg-warning/10 px-3 py-2 text-xs leading-relaxed text-fg-mute select-text cursor-text";
 
 const ICON = (
 	<LuTriangleAlert
-		className="mt-0.5 size-3.5 shrink-0 text-amber-500"
+		className="mt-0.5 size-3.5 shrink-0 text-warning"
 		aria-hidden="true"
 	/>
 );

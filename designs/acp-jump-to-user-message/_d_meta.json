@@ -1,0 +1,18 @@
+{
+	"type": "design",
+	"designSystems": [],
+	"primaryDesignSystem": null,
+	"assets": {
+		"Jump Button": {
+			"versions": [
+				{
+					"path": "Jump Button.html",
+					"createdAt": "2026-08-08T15:26:57.958Z",
+					"status": "approved"
+				}
+			]
+		}
+	},
+	"createdAt": "2026-08-08T15:26:57.959Z",
+	"updatedAt": "2026-08-08T15:54:00.903Z"
+}

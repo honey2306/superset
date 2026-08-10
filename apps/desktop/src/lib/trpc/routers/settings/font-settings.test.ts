@@ -56,11 +56,11 @@ describe("font settings validation", () => {
 			expect(result.success).toBe(false);
 		});
 
-		it("rejects non-integer font sizes", () => {
+		it("accepts half-pixel font sizes", () => {
 			const result = setFontSettingsSchema.safeParse({
 				terminalFontSize: 14.5,
 			});
-			expect(result.success).toBe(false);
+			expect(result.success).toBe(true);
 		});
 
 		it("accepts null font size (reset)", () => {

@@ -13,11 +13,11 @@ export function ReviewStatus({
 	const config = {
 		approved: {
 			label: t("workspace.reviewApproved"),
-			className: "bg-emerald-500/15 text-emerald-500",
+			className: "bg-success-tint text-success",
 		},
 		changes_requested: {
 			label: t("workspace.reviewChangesRequested"),
-			className: "bg-destructive/15 text-destructive-foreground",
+			className: "bg-danger-tint text-destructive",
 		},
 		pending: {
 			label:
@@ -26,7 +26,7 @@ export function ReviewStatus({
 							reviewers: requestedReviewers.join(", "),
 						})
 					: t("workspace.reviewPending"),
-			className: "bg-amber-500/15 text-amber-500",
+			className: "bg-warning-tint text-warning",
 		},
 	};
 
@@ -34,7 +34,7 @@ export function ReviewStatus({
 
 	return (
 		<span
-			className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md shrink-0 truncate max-w-[200px] ${className}`}
+			className={`text-[10px] font-medium px-1.5 py-0.5 rounded-ds-3 shrink-0 truncate max-w-[200px] ${className}`}
 			title={label}
 		>
 			{label}

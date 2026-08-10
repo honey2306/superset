@@ -28,7 +28,7 @@ export function SkillToolCall({ part, skillName }: SkillToolCallProps) {
 							{t("chat.tool.failedToLoadSkill")}
 						</p>
 					) : (
-						<p className="text-xs text-muted-foreground">
+						<p className="text-xs text-fg-mute">
 							{t("chat.tool.successfullyLoadedSkill")}
 						</p>
 					)}

@@ -23,14 +23,14 @@ function renderColorSwatch(colorValue: string, variant: ColorSelectorVariant) {
 			className={cn(
 				"relative inline-flex shrink-0 items-center justify-center rounded-full border",
 				variant === "inline" ? "size-5" : "size-3.5",
-				isDefault ? "border-border bg-background" : "border-border/50",
+				isDefault ? "border-line bg-background" : "border-line/50",
 			)}
 			style={isDefault ? undefined : { backgroundColor: colorValue }}
 		>
 			{isDefault ? (
 				<span
 					className={cn(
-						"rounded-full bg-muted-foreground/35",
+						"rounded-full bg-fg-mute/35",
 						variant === "inline" ? "size-2.5" : "size-1.5",
 					)}
 				/>
@@ -62,7 +62,7 @@ export function ColorSelector({
 							{renderColorSwatch(color.value, variant)}
 							<span>{color.name}</span>
 							{isSelected ? (
-								<HiCheck className="ml-auto size-3.5 text-muted-foreground" />
+								<HiCheck className="ml-auto size-3.5 text-fg-mute" />
 							) : null}
 						</ContextMenuItem>
 					);

@@ -70,3 +70,38 @@ describe("EventBus port events", () => {
 		expect(sentMessages).toHaveLength(2);
 	});
 });
+
+describe("EventBus workspace listeners", () => {
+	it("notifies internal listeners without letting one failure block the broadcast", () => {
+		const eventBus = createEventBus();
+		const received: string[] = [];
+		const unsubscribe = eventBus.onWorkspaceChanged((event) => {
+			received.push(event.workspaceId);
+		});
+		eventBus.onWorkspaceChanged(() => {
+			throw new Error("listener failure");
+		});
+
+		const originalError = console.error;
+		console.error = () => {};
+		try {
+			eventBus.broadcastWorkspaceChanged({
+				workspaceId: "workspace-1",
+				eventType: "created",
+				workspace: null,
+				occurredAt: Date.now(),
+			});
+			unsubscribe();
+			eventBus.broadcastWorkspaceChanged({
+				workspaceId: "workspace-2",
+				eventType: "created",
+				workspace: null,
+				occurredAt: Date.now(),
+			});
+		} finally {
+			console.error = originalError;
+		}
+
+		expect(received).toEqual(["workspace-1"]);
+	});
+});

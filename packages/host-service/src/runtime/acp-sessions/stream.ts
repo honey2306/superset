@@ -11,14 +11,9 @@ export interface AcpSessionStreamSource {
 	subscribe(input: {
 		sessionId: string;
 		since?: number;
+		epoch?: string;
 		onEnvelope: (envelope: SessionUpdateEnvelope) => void;
-	}): () => void;
-	/**
-	 * Resurrect a persisted-but-offline session before attaching (the manager
-	 * implements this; journal-backed test stubs may omit it). Resolving
-	 * without effect for live/dead/unknown ids is expected — `subscribe`
-	 * raises its own NotFound for the unknown case.
-	 */
+	}): (() => void) | Promise<() => void>;
 	ensureLive?(sessionId: string): Promise<void>;
 }
 
@@ -70,6 +65,7 @@ function sendReset(socket: StreamSocket, sessionId: string, reason: string) {
 	if (socket.readyState !== SOCKET_OPEN) return;
 	const envelope: SessionUpdateEnvelope = {
 		seq: 0,
+		epoch: "reset",
 		sessionId,
 		ts: Date.now(),
 		frame: { kind: "reset", reason },
@@ -97,6 +93,7 @@ export function registerAcpSessionStreamRoute({
 		upgradeWebSocket((c) => {
 			const sessionId = c.req.param("sessionId") ?? "";
 			const sinceRaw = c.req.query("since") ?? undefined;
+			const epoch = c.req.query("epoch") ?? undefined;
 			let unsubscribe: (() => void) | null = null;
 			let closed = false;
 			const detach = () => {
@@ -114,11 +111,12 @@ export function registerAcpSessionStreamRoute({
 						socket.close(1008, "invalid since cursor");
 						return;
 					}
-					const attach = () => {
+					const attach = async () => {
 						try {
-							unsubscribe = sessions.subscribe({
+							const nextUnsubscribe = await sessions.subscribe({
 								sessionId,
 								since,
+								epoch,
 								onEnvelope: (envelope) => {
 									if (socket.readyState !== SOCKET_OPEN) {
 										detach();
@@ -144,6 +142,11 @@ export function registerAcpSessionStreamRoute({
 									}
 								},
 							});
+							if (closed || socket.readyState !== SOCKET_OPEN) {
+								nextUnsubscribe();
+								return;
+							}
+							unsubscribe = nextUnsubscribe;
 						} catch (error) {
 							if (error instanceof AcpSessionNotFoundError) {
 								sendReset(socket, sessionId, "session_not_found");
@@ -158,22 +161,16 @@ export function registerAcpSessionStreamRoute({
 						}
 					};
 					if (!sessions.ensureLive) {
-						attach();
+						void attach();
 						return;
 					}
-					// Resurrect before attaching so a stream opened right after a
-					// host restart replays the loaded transcript instead of dying on
-					// session_not_found. onOpen can't await, so attach in the
-					// continuation — `closed` guards the socket going away meanwhile.
 					void sessions.ensureLive(sessionId).then(
 						() => {
 							if (closed || socket.readyState !== SOCKET_OPEN) return;
-							attach();
+							void attach();
 						},
 						(error) => {
 							if (closed || socket.readyState !== SOCKET_OPEN) return;
-							// The client resyncs over tRPC, where the load error is
-							// visible instead of swallowed by a socket close.
 							console.warn(
 								"[acp-sessions] stream attach: session/load failed",
 								error,

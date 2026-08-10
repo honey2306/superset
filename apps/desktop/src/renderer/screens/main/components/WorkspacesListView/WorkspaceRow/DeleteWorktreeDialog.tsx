@@ -99,7 +99,7 @@ export function DeleteWorktreeDialog({
 						Delete worktree "{worktreeName}"?
 					</AlertDialogTitle>
 					<AlertDialogDescription asChild>
-						<div className="text-muted-foreground space-y-1.5">
+						<div className="text-fg-mute space-y-1.5">
 							<span className="block">
 								This will permanently delete the worktree and its files from
 								disk.

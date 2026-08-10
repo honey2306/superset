@@ -2,9 +2,11 @@ import { Input } from "@superset/ui/input";
 import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
+import { useQuery } from "@tanstack/react-query";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 import { HiMiniXMark } from "react-icons/hi2";
+import { useHighestAcpSessionStatusAtHost } from "renderer/hooks/host-service/useAcpSessionStatuses";
 import { useHighestTerminalAgentStatusAtHost } from "renderer/hooks/host-service/useTerminalAgentStatuses";
 import {
 	useClearWorkspaceTerminalStatusesAtHost,
@@ -14,6 +16,7 @@ import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { HotkeyLabel } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useHoverGitHubStatus } from "renderer/lib/githubQueryPolicy";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
@@ -26,6 +29,7 @@ import { useWorkspaceRename } from "renderer/screens/main/hooks/useWorkspaceRena
 import { useActiveDragItemStore } from "renderer/stores/active-drag-item";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
+import { getHighestPriorityStatus } from "shared/tabs-types";
 import { CollapsedWorkspaceItem } from "./CollapsedWorkspaceItem";
 import { DeleteWorkspaceDialog } from "./components";
 import {
@@ -71,6 +75,7 @@ export function WorkspaceListItem({
 	orderedWorkspaceIds = [],
 }: WorkspaceListItemProps) {
 	const { t } = useTranslation();
+	const electronUtils = electronTrpc.useUtils();
 	const isBranchWorkspace = type === "branch";
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
@@ -89,10 +94,30 @@ export function WorkspaceListItem({
 		worktreePath,
 		forceEnabled: true,
 	});
+	const { data: pullRequestState, refetch: refetchPullRequestState } = useQuery(
+		{
+			queryKey: ["host-service", "pull-requests", hostUrl, hostWorkspaceId],
+			enabled: !!hostUrl && !!hostWorkspaceId,
+			queryFn: async () => {
+				if (!hostUrl || !hostWorkspaceId) return null;
+				const result = await getHostServiceClientByUrl(
+					hostUrl,
+				).pullRequests.getByWorkspaces.query({
+					workspaceIds: [hostWorkspaceId],
+				});
+				return result.workspaces[0] ?? null;
+			},
+		},
+	);
 	const workspaceStatus = useHighestTerminalAgentStatusAtHost(
 		hostUrl,
 		hostWorkspaceId,
 	);
+	const acpStatus = useHighestAcpSessionStatusAtHost(hostUrl, hostWorkspaceId);
+	const combinedWorkspaceStatus = getHighestPriorityStatus([
+		workspaceStatus ?? undefined,
+		acpStatus ?? undefined,
+	]);
 	const markWorkspaceTerminalsSeen = useMarkWorkspaceTerminalsSeenAtHost(
 		hostUrl,
 		hostWorkspaceId,
@@ -161,6 +186,7 @@ export function WorkspaceListItem({
 	const { showDeleteDialog, setShowDeleteDialog, handleDeleteClick } =
 		useWorkspaceDeleteHandler();
 	const { status: localChanges } = useGitChangesStatus({
+		workspaceId: id,
 		worktreePath,
 		enabled: hasHovered && !!worktreePath,
 		staleTime: GITHUB_STATUS_STALE_TIME,
@@ -254,8 +280,46 @@ export function WorkspaceListItem({
 		await copyToClipboard(branch);
 		toast.success(t("workspace.branchCopied"));
 	};
+	const openUrl = electronTrpc.external.openUrl.useMutation();
+	const refreshLinkedPullRequest = async () => {
+		await refetchPullRequestState();
+		await electronUtils.workspaces.getGitHubStatus.invalidate({
+			workspaceId: id,
+		});
+	};
+	const handleUnlinkPullRequest = async () => {
+		if (!hostUrl || !hostWorkspaceId) return;
+		try {
+			await getHostServiceClientByUrl(
+				hostUrl,
+			).pullRequests.unlinkFromWorkspace.mutate({
+				workspaceId: hostWorkspaceId,
+			});
+			toast.success("PR link removed");
+			await refreshLinkedPullRequest();
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : String(error));
+		}
+	};
+	const handleRestorePullRequest = async () => {
+		if (!hostUrl || !hostWorkspaceId) return;
+		try {
+			await getHostServiceClientByUrl(
+				hostUrl,
+			).pullRequests.restoreToWorkspace.mutate({
+				workspaceId: hostWorkspaceId,
+			});
+			toast.success("PR link restored");
+			await refreshLinkedPullRequest();
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : String(error));
+		}
+	};
 
 	const pr = githubStatus?.pr;
+	const linkedPullRequest =
+		pullRequestState?.pullRequest ??
+		(pullRequestState?.isPullRequestSuppressed ? null : pr);
 	const diffStats =
 		localDiffStats ||
 		(pr && (pr.additions > 0 || pr.deletions > 0)
@@ -273,7 +337,7 @@ export function WorkspaceListItem({
 				type={type}
 				isActive={isActive}
 				isUnread={isUnread}
-				workspaceStatus={workspaceStatus}
+				workspaceStatus={combinedWorkspaceStatus}
 				itemRef={collapsedItemRef}
 				showDeleteDialog={showDeleteDialog}
 				setShowDeleteDialog={setShowDeleteDialog}
@@ -308,19 +372,20 @@ export function WorkspaceListItem({
 			onMouseEnter={handleMouseEnter}
 			onDoubleClick={isBranchWorkspace ? undefined : rename.startRename}
 			className={cn(
-				"flex w-full pl-3 pr-2 text-sm",
-				"transition-colors text-left cursor-pointer",
-				isActive ? "hover:bg-muted" : "hover:bg-muted/50",
+				// DS: hover → --hover; active → accent-tint + 2px pink left bar.
+				"flex w-full pl-3 pr-2 text-[13px]",
+				"transition-colors duration-[120ms] text-left cursor-pointer rounded-ds-3",
+				isActive ? "hover:bg-accent-tint" : "hover:bg-hover",
 				"group relative",
 				showBranchSubtitle ? "py-1.5" : "py-2 items-center",
-				isActive && "bg-muted",
-				isSelected && "bg-primary/10 ring-1 ring-inset ring-primary/30",
+				isActive && "bg-accent-tint",
+				isSelected && "bg-accent-tint ring-1 ring-inset ring-accent-line",
 				(isDragging || isMultiDragging) && "opacity-30",
 			)}
 			style={{ cursor: isDragging ? "grabbing" : "pointer" }}
 		>
 			{isActive && (
-				<div className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary rounded-r" />
+				<div className="absolute left-0 top-1.5 bottom-1.5 w-[2px] bg-accent-solid rounded-r-sm" />
 			)}
 
 			<div
@@ -336,7 +401,7 @@ export function WorkspaceListItem({
 								isBranchWorkspace={isBranchWorkspace}
 								isActive={isActive}
 								isUnread={isUnread}
-								workspaceStatus={workspaceStatus}
+								workspaceStatus={combinedWorkspaceStatus}
 								variant="expanded"
 							/>
 						</div>
@@ -345,14 +410,14 @@ export function WorkspaceListItem({
 						{isBranchWorkspace ? (
 							<>
 								<p className="text-xs font-medium">{t("workspace.local")}</p>
-								<p className="text-xs text-muted-foreground">
+								<p className="text-xs text-fg-mute">
 									Changes are made directly in the main repository
 								</p>
 							</>
 						) : (
 							<>
 								<p className="text-xs font-medium">{t("workspace.worktree")}</p>
-								<p className="text-xs text-muted-foreground">
+								<p className="text-xs text-fg-mute">
 									Isolated copy for parallel development
 								</p>
 							</>
@@ -386,9 +451,7 @@ export function WorkspaceListItem({
 							<span
 								className={cn(
 									"truncate text-[13px] leading-tight transition-colors flex-1",
-									isActive
-										? "text-foreground font-medium"
-										: "text-foreground/80",
+									isActive ? "text-fg font-medium" : "text-fg",
 								)}
 							>
 								{isBranchWorkspace ? "local" : name || branch}
@@ -412,7 +475,7 @@ export function WorkspaceListItem({
 								<div className="hidden items-center justify-end gap-1.5 group-hover:flex">
 									{shortcutIndex !== undefined &&
 										shortcutIndex < MAX_KEYBOARD_SHORTCUT_INDEX && (
-											<span className="text-[10px] text-muted-foreground font-mono tabular-nums shrink-0">
+											<span className="text-[10px] text-fg-mute font-mono tabular-nums shrink-0">
 												⌘{shortcutIndex + 1}
 											</span>
 										)}
@@ -425,7 +488,7 @@ export function WorkspaceListItem({
 														e.stopPropagation();
 														handleDeleteClick();
 													}}
-													className="flex items-center justify-center text-muted-foreground hover:text-foreground"
+													className="flex size-4 items-center justify-center rounded-ds-2 text-fg-faint transition-colors hover:bg-hover hover:text-fg"
 													aria-label={t("workspace.closeLabel")}
 												>
 													<HiMiniXMark className="size-3.5" />
@@ -446,7 +509,7 @@ export function WorkspaceListItem({
 						{(showBranchSubtitle || pr) && (
 							<div className="flex items-center gap-2 text-[11px] w-full">
 								{showBranchSubtitle && (
-									<span className="text-muted-foreground/60 truncate font-mono leading-tight">
+									<span className="truncate text-fg-faint font-mono tracking-[var(--ls-mono)] leading-tight">
 										{branch}
 									</span>
 								)}
@@ -475,7 +538,20 @@ export function WorkspaceListItem({
 				isBranchWorkspace={isBranchWorkspace}
 				isUnread={isUnread}
 				showDeleteHotkey={isActive}
-				workspaceStatus={workspaceStatus}
+				workspaceStatus={combinedWorkspaceStatus}
+				pullRequest={
+					linkedPullRequest
+						? { url: linkedPullRequest.url, number: linkedPullRequest.number }
+						: null
+				}
+				isPullRequestSuppressed={
+					pullRequestState?.isPullRequestSuppressed ?? false
+				}
+				onOpenPullRequest={() => {
+					if (linkedPullRequest?.url) openUrl.mutate(linkedPullRequest.url);
+				}}
+				onUnlinkPullRequest={() => void handleUnlinkPullRequest()}
+				onRestorePullRequest={() => void handleRestorePullRequest()}
 				sections={sections}
 				onRename={rename.startRename}
 				onOpenInFinder={handleOpenInFinder}

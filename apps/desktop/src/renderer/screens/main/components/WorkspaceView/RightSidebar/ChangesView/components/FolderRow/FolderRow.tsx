@@ -54,7 +54,7 @@ function LevelIndicators({ level }: { level: number }) {
 		<div className="flex self-stretch shrink-0">
 			{Array.from({ length: level }).map((_, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: static visual dividers that never reorder
-				<div key={i} className="w-3 self-stretch border-r border-border/50" />
+				<div key={i} className="w-3 self-stretch border-r border-line/50" />
 			))}
 		</div>
 	);
@@ -78,7 +78,7 @@ function FolderRowHeader({
 			{!isGrouped && (
 				<VscChevronRight
 					className={cn(
-						"size-2.5 text-muted-foreground shrink-0 transition-transform duration-150",
+						"size-2.5 text-fg-mute shrink-0 transition-transform duration-150",
 						isExpanded && "rotate-90",
 					)}
 				/>
@@ -88,16 +88,14 @@ function FolderRowHeader({
 				<span
 					className={cn(
 						"truncate",
-						isGrouped
-							? "w-0 grow text-left"
-							: "flex-1 min-w-0 text-xs text-foreground",
+						isGrouped ? "w-0 grow text-left" : "flex-1 min-w-0 text-xs text-fg",
 					)}
 					dir={isGrouped ? "rtl" : undefined}
 				>
 					{name}
 				</span>
 				{fileCount !== undefined && (
-					<span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+					<span className="text-[10px] text-fg-mute shrink-0 tabular-nums">
 						{fileCount}
 					</span>
 				)}
@@ -184,7 +182,7 @@ export function FolderRow({
 			className={cn(
 				"flex-1 min-w-0 flex gap-1.5 text-left overflow-hidden",
 				"text-xs items-stretch py-0.5",
-				isGrouped && "text-muted-foreground",
+				isGrouped && "text-fg-mute",
 			)}
 		>
 			<FolderRowHeader
@@ -260,7 +258,7 @@ export function FolderRow({
 						<div
 							className={cn(
 								"group flex items-center min-w-0 rounded-sm px-1.5",
-								"hover:bg-accent/50 cursor-pointer transition-colors",
+								"hover:bg-hover cursor-pointer transition-colors",
 							)}
 						>
 							{triggerContent}
@@ -272,7 +270,7 @@ export function FolderRow({
 				<CollapsibleContent
 					className={cn(
 						"min-w-0",
-						isGrouped && "ml-1.5 border-l border-border pl-0.5",
+						isGrouped && "ml-1.5 border-l border-line pl-0.5",
 					)}
 				>
 					{children}

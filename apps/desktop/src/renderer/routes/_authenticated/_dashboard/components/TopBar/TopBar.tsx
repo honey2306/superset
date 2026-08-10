@@ -8,8 +8,8 @@ import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceProjection } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import { NavigationControls } from "../NavigationControls";
 import { SidebarToggle } from "../SidebarToggle";
+import { OpenAIUsageBadge } from "./components/OpenAIUsageBadge";
 import { OpenInMenuButton } from "./components/OpenInMenuButton";
-import { OrganizationDropdown } from "./components/OrganizationDropdown";
 import { ResourceConsumption } from "./components/ResourceConsumption";
 import { WindowControls } from "./components/WindowControls";
 
@@ -30,7 +30,7 @@ export function TopBar() {
 
 	return (
 		<div
-			className="drag gap-2 h-12 w-full flex items-center justify-between bg-muted/45 relative dark:bg-muted/35"
+			className="drag gap-2 h-12 w-full flex items-center justify-between bg-hover/45 relative dark:bg-hover/35"
 			style={barStyle}
 		>
 			<div
@@ -48,19 +48,18 @@ export function TopBar() {
 
 			<div className="flex items-center gap-3 h-full pr-4 shrink-0">
 				{!isOnline && (
-					<div className="no-drag flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+					<div className="no-drag flex items-center gap-1.5 text-xs text-fg-mute bg-hover px-2 py-1 rounded">
 						<HiOutlineWifi className="size-3.5" />
 						<span>{t("workspace.offlineLabel")}</span>
 					</div>
 				)}
+				<OpenAIUsageBadge />
 				{workspace?.worktreePath ? (
 					<OpenInMenuButton
 						worktreePath={workspace.worktreePath}
-						branch={workspace.branch}
 						projectId={workspace.projectId}
 					/>
 				) : null}
-				<OrganizationDropdown />
 				{!isMac && <WindowControls />}
 			</div>
 		</div>

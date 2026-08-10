@@ -1,7 +1,10 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { PaneDefinition, RendererContext } from "@superset/panes";
 import { createWorkspaceStore } from "@superset/panes";
-import { buildV1PanesLifecycleRegistry } from "./buildV1PanesLifecycleRegistry";
+import {
+	buildV1PanesAcpLifecycleRegistry,
+	buildV1PanesLifecycleRegistry,
+} from "./buildV1PanesLifecycleRegistry";
 import { commentPaneTitle } from "./buildV1PanesNonTerminalRegistry";
 import type { V1PanesPaneData } from "./types";
 
@@ -65,6 +68,12 @@ function buildRegistry(): Record<string, PaneDefinition<V1PanesPaneData>> {
 			renderPane: (ctx) =>
 				(ctx.pane.data.comment?.authorLogin ??
 					"no-comment") as unknown as React.ReactNode,
+		},
+		acp: {
+			getTitle: (pane) => pane.data.acp?.title ?? "Claude",
+			renderPane: (ctx) =>
+				(ctx.pane.data.acp?.sessionId ??
+					"no-session") as unknown as React.ReactNode,
 		},
 		// devtools and webview removed
 	};
@@ -180,10 +189,11 @@ describe("V1PanesWorkspace multi-kind registry", () => {
 	// `buildV1PanesNonTerminalRegistry.test.ts`.
 	//
 	// devtools and webview panes were removed for the single-user setup, so
-	// the registry now carries only the three remaining migrated kinds.
+	// the registry now carries only the four remaining migrated kinds.
 	test("the registry registers all migrated v1 pane kinds", () => {
 		const registry = buildRegistry();
 		expect(Object.keys(registry).sort()).toEqual([
+			"acp",
 			"comment",
 			"file-viewer",
 			"terminal",
@@ -267,5 +277,210 @@ describe("V1PanesWorkspace terminal onAfterClose wiring", () => {
 
 		expect(killTerminal).toHaveBeenCalledWith("pane-1");
 		expect(killTerminal).not.toHaveBeenCalledWith("different-backend-id");
+	});
+});
+
+describe("V1PanesWorkspace ACP pane storage", () => {
+	test("a panes store can hold an acp pane with sessionId", () => {
+		const store = createWorkspaceStore<V1PanesPaneData>();
+		store.getState().addTab({
+			panes: [
+				{
+					kind: "acp",
+					data: {
+						acp: {
+							sessionId: "session-abc",
+							agentDefinitionId: "claude",
+						},
+					},
+				},
+			],
+		});
+
+		const state = store.getState();
+		const tab = state.tabs[0];
+		expect(tab).toBeDefined();
+		const paneKey = Object.keys(tab.panes)[0] ?? "";
+		const pane = tab.panes[paneKey];
+		expect(pane?.kind).toBe("acp");
+		expect(pane?.data.acp?.sessionId).toBe("session-abc");
+		expect(pane?.data.acp?.agentDefinitionId).toBe("claude");
+	});
+
+	test("acp pane title falls back to 'Claude' when title is absent", () => {
+		const registry = buildRegistry();
+		const def = registry.acp;
+		expect(def).toBeDefined();
+		const pane = {
+			id: "p",
+			kind: "acp",
+			data: { acp: { sessionId: "s", agentDefinitionId: "claude" as const } },
+		} as never;
+		expect(def?.getTitle?.(pane)).toBe("Claude");
+	});
+
+	test("acp pane title uses acp.title when present", () => {
+		const registry = buildRegistry();
+		const def = registry.acp;
+		const pane = {
+			id: "p",
+			kind: "acp",
+			data: {
+				acp: {
+					sessionId: "s",
+					agentDefinitionId: "claude" as const,
+					title: "My Agent Task",
+				},
+			},
+		} as never;
+		expect(def?.getTitle?.(pane)).toBe("My Agent Task");
+	});
+
+	test("acp pane renderPane is callable with missing acp data without throwing", () => {
+		const store = createWorkspaceStore<V1PanesPaneData>();
+		store.getState().addTab({
+			panes: [{ kind: "acp", data: {} }],
+		});
+		const state = store.getState();
+		const tab = state.tabs[0];
+		const pane = tab.panes[Object.keys(tab.panes)[0] ?? ""];
+		const ctx = { store, tab, pane } as RendererContext<V1PanesPaneData>;
+		const def = buildRegistry().acp;
+		expect(() => def?.renderPane(ctx)).not.toThrow();
+	});
+});
+
+describe("V1PanesWorkspace ACP pane lifecycle", () => {
+	const closeAcpSession = mock(async (_sessionId: string) => {});
+	const pane = {
+		id: "pane-1",
+		kind: "acp",
+		data: {
+			acp: {
+				sessionId: "s-1",
+				agentDefinitionId: "claude" as const,
+				status: "idle" as const,
+			},
+		},
+	} as never;
+
+	test("closes every ACP pane through the permanent session close action", async () => {
+		const close = mock(async (_sessionId: string) => {});
+		const acpLifecycle = buildV1PanesAcpLifecycleRegistry({
+			closeAcpSession: close,
+		});
+
+		expect(await acpLifecycle.onBeforeClose?.(pane)).toBe(true);
+		expect(close).toHaveBeenCalledWith("s-1");
+	});
+
+	test("keeps the pane open when permanent session close fails", async () => {
+		const acpLifecycle = buildV1PanesAcpLifecycleRegistry({
+			closeAcpSession: mock(async () => {
+				throw new Error("host disconnected");
+			}),
+		});
+
+		expect(await acpLifecycle.onBeforeClose?.(pane)).toBe(false);
+	});
+
+	test("permits closing malformed ACP panes without a session id", async () => {
+		const acpLifecycle = buildV1PanesAcpLifecycleRegistry({
+			closeAcpSession,
+		});
+
+		expect(
+			await acpLifecycle.onBeforeClose?.({
+				id: "pane-without-session",
+				kind: "acp",
+				data: {},
+			} as never),
+		).toBe(true);
+		expect(closeAcpSession).not.toHaveBeenCalled();
+	});
+
+	test("closes the host session on tab-close via onAfterClose", () => {
+		const close = mock(async (_sessionId: string) => {});
+		const acpLifecycle = buildV1PanesAcpLifecycleRegistry({
+			closeAcpSession: close,
+		});
+
+		acpLifecycle.onAfterClose?.(pane);
+		expect(close).toHaveBeenCalledWith("s-1");
+	});
+
+	test("onAfterClose is a no-op when the pane has no session id", () => {
+		const close = mock(async (_sessionId: string) => {});
+		const acpLifecycle = buildV1PanesAcpLifecycleRegistry({
+			closeAcpSession: close,
+		});
+
+		acpLifecycle.onAfterClose?.({
+			id: "pane-without-session",
+			kind: "acp",
+			data: {},
+		} as never);
+		expect(close).not.toHaveBeenCalled();
+	});
+
+	test("getTitle returns acp title when present", () => {
+		const acpLifecycle = buildV1PanesAcpLifecycleRegistry({
+			closeAcpSession,
+		});
+		const pane = {
+			id: "p",
+			kind: "acp",
+			data: {
+				acp: {
+					sessionId: "s",
+					agentDefinitionId: "claude" as const,
+					title: "Refactor tests",
+				},
+			},
+		} as never;
+		expect(acpLifecycle.getTitle?.(pane)).toBe("Refactor tests");
+	});
+
+	test("getTitle falls back to the configured agent label when title is absent", () => {
+		const acpLifecycle = buildV1PanesAcpLifecycleRegistry({
+			closeAcpSession,
+		});
+		const pane = {
+			id: "p",
+			kind: "acp",
+			data: { acp: { sessionId: "s", agentDefinitionId: "claude" as const } },
+		} as never;
+		expect(acpLifecycle.getTitle?.(pane)).toBe("Claude");
+	});
+
+	test("getTitle uses each built-in agent label when title is absent", () => {
+		const acpLifecycle = buildV1PanesAcpLifecycleRegistry({
+			closeAcpSession,
+		});
+		for (const [agentDefinitionId, label] of [
+			["claude", "Claude"],
+			["codex", "Codex"],
+			["pi", "Pi"],
+			["myflicker", "MyFlicker"],
+		] as const) {
+			const pane = {
+				id: "p",
+				kind: "acp",
+				data: { acp: { sessionId: "s", agentDefinitionId } },
+			} as never;
+			expect(acpLifecycle.getTitle?.(pane)).toBe(label);
+		}
+	});
+
+	test("getTitle falls back to 'Claude' when acp data is absent", () => {
+		const acpLifecycle = buildV1PanesAcpLifecycleRegistry({
+			closeAcpSession,
+		});
+		const pane = {
+			id: "p",
+			kind: "acp",
+			data: {},
+		} as never;
+		expect(acpLifecycle.getTitle?.(pane)).toBe("Claude");
 	});
 });

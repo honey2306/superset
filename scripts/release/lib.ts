@@ -1,6 +1,6 @@
 // Shared release primitives — the single source of truth for which packages
 // track the desktop version and how versions are written, diffed, and checked.
-// Consumed by release.ts (entry point), desktop.ts, cli.ts, and check-versions.ts.
+// Consumed by release.ts (entry point), desktop.ts, and check-versions.ts.
 //
 // Add a package to UNIFIED_PACKAGES here and every flow + the CI check follows,
 // so the bundle can't drift. See plans/20260709-unified-version-bumping.md.
@@ -13,18 +13,17 @@ import semver from "semver";
 // Desktop is the ceiling (a plain MAJOR.MINOR.PATCH release) and is NOT unified
 // below. pty-daemon is intentionally excluded (its own 0.x track).
 export const DESKTOP_PACKAGE = "apps/desktop";
-export const UNIFIED_PACKAGES = ["packages/host-service", "packages/cli"];
+export const UNIFIED_PACKAGES = ["packages/host-service"];
 export const DAEMON_PACKAGE = "packages/pty-daemon";
 
 // name -> src dir, for the release diff report.
 export const RELEASE_COMPONENTS: { name: string; dir: string }[] = [
 	{ name: "desktop", dir: "apps/desktop/src" },
 	{ name: "host-service", dir: "packages/host-service/src" },
-	{ name: "cli", dir: "packages/cli/src" },
 	{ name: "pty-daemon", dir: "packages/pty-daemon/src" },
 ];
 
-export type Stream = "desktop" | "cli";
+export type Stream = "desktop";
 
 // --- logging -----------------------------------------------------------------
 const C = {
@@ -51,25 +50,8 @@ export function isPlainRelease(v: string): boolean {
 	return PLAIN_SEMVER.test(v);
 }
 
-/** Highest of the given versions by semver precedence. */
-export function maxVersion(versions: string[]): string {
-	return versions.reduce((a, b) => (semver.gte(a, b) ? a : b));
-}
-
-/** Next interim CLI hotfix: a plain patch above the current CLI. Between desktop
- * releases the CLI leads desktop by patches (desktop 1.14.1 → cli 1.14.2, 1.14.3);
- * the next desktop release catches up. PLAIN — no prerelease suffix — because a
- * suffix would (a) sort BELOW the release so `superset update` won't deliver it
- * and (b) fail the host-service min-version floor (semver.satisfies excludes
- * prereleases). See plans/20260709-unified-version-bumping.md. */
-export function nextCliHotfix(current: string): string {
-	return incrementPatch(current);
-}
-
-/** Errors if the unified packages aren't plain, don't match each other, or drift
- * from desktop. A desktop release sets cli == host == desktop; CLI hotfixes lead
- * by plain patches within desktop's minor line (never a different minor, never
- * below desktop). Empty array = valid. */
+/** Errors if a unified package is not a plain release or differs from the
+ * desktop version. Empty array = valid. */
 export function unifiedErrors(
 	desktop: string,
 	entries: { name: string; version: string }[],
@@ -80,49 +62,25 @@ export function unifiedErrors(
 			`desktop version '${desktop}' is not a plain MAJOR.MINOR.PATCH release`,
 		);
 	}
-	let first: string | undefined;
 	for (const { name, version } of entries) {
 		if (!isPlainRelease(version)) {
 			errors.push(
-				`${name} '${version}' must be plain MAJOR.MINOR.PATCH (no prerelease suffix — suffixes fail the host-service min-version floor)`,
+				`${name} '${version}' must be plain MAJOR.MINOR.PATCH (no prerelease suffix)`,
 			);
 		}
-		if (first === undefined) first = version;
-		else if (version !== first) {
-			errors.push(
-				`${name} '${version}' != '${first}' (unified packages must match)`,
-			);
-		}
-	}
-	if (first && isPlainRelease(first) && isPlainRelease(desktop)) {
-		if (semver.lt(first, desktop)) {
-			errors.push(`cli/host '${first}' is below desktop '${desktop}'`);
-		} else if (
-			semver.major(first) !== semver.major(desktop) ||
-			semver.minor(first) !== semver.minor(desktop)
-		) {
-			errors.push(
-				`cli/host '${first}' must stay in desktop '${desktop}' minor line (patch-ahead only)`,
-			);
+		if (version !== desktop) {
+			errors.push(`${name} '${version}' != desktop '${desktop}'`);
 		}
 	}
 	return errors;
 }
 
-/** Newest well-formed tag for a stream, filtering malformed historical tags
- * (e.g. desktop-vdesktop-v0.0.14). Uses semver ordering (prerelease < release). */
-export function latestReleaseTag(
-	tags: string[],
-	stream: Stream,
-): string | undefined {
-	const prefix = stream === "desktop" ? "desktop-v" : "cli-v";
-	const re =
-		stream === "desktop"
-			? /^desktop-v\d+\.\d+\.\d+$/
-			: /^cli-v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/;
+/** Newest well-formed desktop tag, filtering malformed historical tags. */
+export function latestReleaseTag(tags: string[]): string | undefined {
+	const prefix = "desktop-v";
 	const versions = tags
-		.filter((t) => re.test(t))
-		.map((t) => t.slice(prefix.length))
+		.filter((tag) => /^desktop-v\d+\.\d+\.\d+$/.test(tag))
+		.map((tag) => tag.slice(prefix.length))
 		.sort(semver.rcompare);
 	return versions[0] ? `${prefix}${versions[0]}` : undefined;
 }
@@ -201,10 +159,9 @@ async function tagList(root: string, pattern: string): Promise<string[]> {
 
 export async function previousReleaseTag(
 	root: string,
-	stream: Stream,
+	_stream: Stream,
 ): Promise<string | undefined> {
-	const pattern = stream === "desktop" ? "desktop-v*" : "cli-v*";
-	return latestReleaseTag(await tagList(root, pattern), stream);
+	return latestReleaseTag(await tagList(root, "desktop-v*"));
 }
 
 async function tagResolves(root: string, tag: string): Promise<boolean> {

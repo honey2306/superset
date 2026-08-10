@@ -13,7 +13,10 @@ function Switch({
 		<SwitchPrimitive.Root
 			data-slot="switch"
 			className={cn(
-				"peer data-[state=checked]:bg-primary data-[state=unchecked]:bg-input focus-visible:border-ring focus-visible:ring-ring/50 dark:data-[state=unchecked]:bg-input/80 inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+				// DS Switch: 18px tall × 30px, r-pill, unchecked = --line bg,
+				// checked = accent-line bg (pink 55%). Thumb is 14px --fg dot,
+				// slides 12px on toggle. Focus fires DS accent glow.
+				"peer inline-flex h-[18px] w-[30px] shrink-0 items-center rounded-full border-0 bg-line data-[state=checked]:bg-accent-line focus-visible:ring-[3px] focus-visible:ring-accent-tint transition-colors duration-[120ms] outline-none disabled:cursor-not-allowed disabled:opacity-50",
 				className,
 			)}
 			{...props}
@@ -21,7 +24,7 @@ function Switch({
 			<SwitchPrimitive.Thumb
 				data-slot="switch-thumb"
 				className={cn(
-					"bg-background dark:data-[state=unchecked]:bg-foreground dark:data-[state=checked]:bg-primary-foreground pointer-events-none block size-4 rounded-full ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0",
+					"bg-fg pointer-events-none block size-[14px] translate-x-[2px] rounded-full ring-0 transition-transform duration-[120ms] data-[state=checked]:translate-x-[14px]",
 				)}
 			/>
 		</SwitchPrimitive.Root>

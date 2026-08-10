@@ -44,7 +44,7 @@ export function WorktreeLocationPicker({
 		<div className="flex items-center justify-between">
 			<div className="space-y-0.5">
 				<Label className="text-sm font-medium">{t("path.directory")}</Label>
-				<code className="text-xs bg-muted px-1.5 py-0.5 rounded text-foreground block mt-1">
+				<code className="text-xs bg-hover px-1.5 py-0.5 rounded text-fg block mt-1">
 					{currentPath ?? defaultPathLabel}
 				</code>
 			</div>

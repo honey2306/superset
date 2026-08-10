@@ -79,7 +79,7 @@ export function CommentCodeBlock({
 
 	if (!language) {
 		return (
-			<code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
+			<code className="rounded bg-hover px-1.5 py-0.5 font-mono text-sm">
 				{children}
 			</code>
 		);
@@ -92,7 +92,7 @@ export function CommentCodeBlock({
 			}
 			language={language}
 			PreTag="div"
-			className="rounded-md text-sm"
+			className="rounded-ds-3 text-sm"
 		>
 			{codeString}
 		</SyntaxHighlighter>

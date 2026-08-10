@@ -52,6 +52,10 @@ mock.module("./host-service-manifest", () => ({
 }));
 
 const pollHealthCheckMock = mock(() => Promise.resolve(true));
+const showAlertMock = mock(async () => ({
+	response: 0,
+	checkboxChecked: false,
+}));
 
 const realHostServiceUtils = await import("./host-service-utils");
 mock.module("./host-service-utils", () => ({
@@ -70,7 +74,7 @@ mock.module("electron", () => ({
 		getAppPath: () => "/tmp/app",
 	},
 	dialog: {
-		showErrorBox: mock(),
+		showMessageBox: showAlertMock,
 	},
 }));
 
@@ -90,10 +94,15 @@ mock.module("@superset/shared/host-info", () => ({
 }));
 mock.module("./local-db", () => ({
 	localDb: {
-		select: () => ({ from: () => ({ get: () => null }) }),
+		select: () => ({
+			from: () => ({ get: () => null, where: () => ({ get: () => null }) }),
+		}),
 	},
 }));
 
+const { HOST_SERVICE_RESPAWN_MAX_ATTEMPTS } = await import(
+	"./host-service-respawn"
+);
 const { HostServiceCoordinator } = await import("./host-service-coordinator");
 
 const baseManifest = (pid: number, endpoint = "http://127.0.0.1:55555") => ({
@@ -124,6 +133,7 @@ function resetMocks(): void {
 	readManifestMock.mockImplementation(() => manifestStore.current);
 	killedPids = [];
 	killProcessError = null;
+	showAlertMock.mockClear();
 }
 
 describe("HostServiceCoordinator preferred ports", () => {
@@ -367,6 +377,131 @@ describe("HostServiceCoordinator single-flight / adoption", () => {
 		expect(killedPids).toContainEqual({ pid: 4321, signal: "SIGTERM" });
 		expect(removeManifestMock).toHaveBeenCalled();
 		expect(internals.instances.get("org-1")).toBeUndefined();
+	});
+});
+
+describe("HostServiceCoordinator crash respawn", () => {
+	let coordinator: InstanceType<typeof HostServiceCoordinator>;
+	let internals: {
+		instances: Map<string, unknown>;
+		respawns: Map<
+			string,
+			{ attempts: number; timer: unknown; stableTimer: unknown }
+		>;
+		handleChildExit(
+			organizationId: string,
+			childPid: number,
+			code: number | null,
+			signal: NodeJS.Signals | null,
+		): void;
+	};
+	let pendingTimers: Array<{ run: () => void; delayMs: number }>;
+	let startMock: ReturnType<typeof mock>;
+
+	function trackRunning(pid: number): void {
+		internals.instances.set("org-1", {
+			pid,
+			port: 55555,
+			secret: "secret",
+			status: "running",
+			owned: true,
+		});
+	}
+
+	async function flushTimer(): Promise<void> {
+		const timer = pendingTimers.shift();
+		if (!timer) throw new Error("no respawn timer was scheduled");
+		timer.run();
+		await Promise.resolve();
+		await Promise.resolve();
+	}
+
+	beforeEach(() => {
+		resetMocks();
+		testManifestRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hsc-test-"));
+		coordinator = new HostServiceCoordinator();
+		internals = coordinator as unknown as typeof internals;
+		pendingTimers = [];
+		(
+			coordinator as unknown as {
+				scheduleRespawnTimer: (
+					run: () => void,
+					delayMs: number,
+				) => ReturnType<typeof setTimeout>;
+			}
+		).scheduleRespawnTimer = (run, delayMs) => {
+			pendingTimers.push({ run, delayMs });
+			return { unref() {} } as unknown as ReturnType<typeof setTimeout>;
+		};
+		startMock = mock(async () => {
+			internals.instances.set("org-1", {
+				pid: 60001,
+				port: 60000,
+				secret: "fresh",
+				status: "running",
+				owned: true,
+			});
+			return { port: 60000, secret: "fresh", machineId: "host-1" };
+		});
+		(
+			coordinator as unknown as { startWithPreferredPorts: typeof startMock }
+		).startWithPreferredPorts = startMock;
+		coordinator.setConfigProvider(async () => spawnConfig);
+	});
+
+	afterEach(() => {
+		coordinator.stopAll();
+		fs.rmSync(testManifestRoot, { recursive: true, force: true });
+		testManifestRoot = "";
+	});
+
+	test("restarts a crashed running child with jittered backoff", async () => {
+		trackRunning(1111);
+
+		internals.handleChildExit("org-1", 1111, null, "SIGKILL");
+
+		expect(internals.respawns.get("org-1")?.attempts).toBe(1);
+		expect(pendingTimers[0]?.delayMs).toBeGreaterThanOrEqual(500);
+		expect(pendingTimers[0]?.delayMs).toBeLessThanOrEqual(1500);
+		expect(showAlertMock).not.toHaveBeenCalled();
+		await flushTimer();
+		expect(startMock).toHaveBeenCalledTimes(1);
+	});
+
+	test("does not resurrect a service after stopAll", async () => {
+		let releaseConfig: () => void = () => {};
+		coordinator.setConfigProvider(
+			() =>
+				new Promise((resolve) => {
+					releaseConfig = () => resolve(spawnConfig);
+				}),
+		);
+		trackRunning(2222);
+		internals.handleChildExit("org-1", 2222, null, "SIGKILL");
+
+		const timer = pendingTimers.shift();
+		if (!timer) throw new Error("no respawn timer was scheduled");
+		timer.run();
+		coordinator.stopAll();
+		releaseConfig();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(startMock).not.toHaveBeenCalled();
+	});
+
+	test("alerts only after the retry budget is exhausted", () => {
+		trackRunning(3333);
+		internals.respawns.set("org-1", {
+			attempts: HOST_SERVICE_RESPAWN_MAX_ATTEMPTS,
+			timer: null,
+			stableTimer: null,
+		});
+
+		internals.handleChildExit("org-1", 3333, null, "SIGKILL");
+
+		expect(showAlertMock).toHaveBeenCalledTimes(1);
+		expect(internals.respawns.has("org-1")).toBe(false);
 	});
 });
 

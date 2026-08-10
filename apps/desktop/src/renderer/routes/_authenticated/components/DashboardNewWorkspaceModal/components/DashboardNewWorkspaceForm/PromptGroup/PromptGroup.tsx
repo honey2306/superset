@@ -362,7 +362,7 @@ export function PromptGroup({
 			{/* Workspace name + branch name */}
 			<div className="flex items-center">
 				<Input
-					className="border-none bg-transparent dark:bg-transparent shadow-none text-base font-medium px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 min-w-0 flex-1"
+					className="border-none bg-transparent dark:bg-transparent shadow-none text-base font-medium px-0 h-auto focus-visible:ring-0 placeholder:text-fg-mute/40 min-w-0 flex-1"
 					placeholder={t("workspace.workspaceNameOptional")}
 					value={workspaceName}
 					onChange={(e) =>
@@ -379,7 +379,7 @@ export function PromptGroup({
 				<div className="shrink min-w-0 ml-auto max-w-[50%]">
 					<Input
 						className={cn(
-							"border-none bg-transparent dark:bg-transparent shadow-none text-xs font-mono text-muted-foreground/60 px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/30 focus:text-muted-foreground text-right placeholder:text-right overflow-hidden text-ellipsis",
+							"border-none bg-transparent dark:bg-transparent shadow-none text-xs font-mono text-fg-faint px-0 h-auto focus-visible:ring-0 placeholder:text-fg-mute/30 focus:text-fg-mute text-right placeholder:text-right overflow-hidden text-ellipsis",
 						)}
 						placeholder={branchPreview || t("workspace.branchName")}
 						value={branchName}
@@ -405,7 +405,7 @@ export function PromptGroup({
 				multiple
 				maxFiles={5}
 				maxFileSize={10 * 1024 * 1024}
-				className="[&>[data-slot=input-group]]:rounded-[13px] [&>[data-slot=input-group]]:border-[0.5px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]]:bg-foreground/[0.02]"
+				className="[&>[data-slot=input-group]]:rounded-[13px] [&>[data-slot=input-group]]:border-[0.5px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]]:bg-hover/50"
 			>
 				{(linkedPR || linkedIssues.length > 0 || visibleFiles.length > 0) && (
 					<div className="flex flex-wrap items-start gap-2 px-3 pt-3 self-stretch">
@@ -490,7 +490,7 @@ export function PromptGroup({
 							placeholder={t("workspace.noAgent")}
 							onValueChange={setSelectedAgent}
 							onBeforeConfigureAgents={closeModal}
-							triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-foreground w-auto max-w-[160px]`}
+							triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-fg w-auto max-w-[160px]`}
 							iconClassName="size-3 object-contain"
 							allowNone
 							noneLabel={t("workspace.noAgent")}
@@ -501,7 +501,7 @@ export function PromptGroup({
 								models={modelSupport.models}
 								value={selectedModel}
 								onValueChange={setSelectedModel}
-								triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-foreground w-auto max-w-[160px]`}
+								triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-fg w-auto max-w-[160px]`}
 							/>
 						)}
 						{effortSupport && (
@@ -509,7 +509,7 @@ export function PromptGroup({
 								models={effortSupport.efforts}
 								value={selectedEffort}
 								onValueChange={setSelectedEffort}
-								triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-foreground w-auto max-w-[160px]`}
+								triggerClassName={`${PILL_BUTTON_CLASS} px-1.5 gap-1 text-fg w-auto max-w-[160px]`}
 							/>
 						)}
 					</PromptInputTools>
@@ -567,14 +567,14 @@ export function PromptGroup({
 							}
 						/>
 						<PromptInputSubmit
-							className="size-[22px] rounded-full border border-transparent bg-foreground/10 shadow-none p-[5px] hover:bg-foreground/20"
+							className="size-[22px] rounded-full border border-transparent bg-hover shadow-none p-[5px] hover:bg-hover"
 							disabled={needsSetup}
 							onClick={(e) => {
 								e.preventDefault();
 								handleSubmit();
 							}}
 						>
-							<ArrowUpIcon className="size-3.5 text-muted-foreground" />
+							<ArrowUpIcon className="size-3.5 text-fg-mute" />
 						</PromptInputSubmit>
 					</div>
 				</PromptInputFooter>
@@ -603,7 +603,7 @@ export function PromptGroup({
 								animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
 								exit={{ opacity: 0, x: 8, filter: "blur(4px)" }}
 								transition={{ duration: 0.2, ease: "easeOut" }}
-								className="flex items-center gap-1 text-xs text-muted-foreground"
+								className="flex items-center gap-1 text-xs text-fg-mute"
 							>
 								<LuGitPullRequest className="size-3 shrink-0" />
 								{t("workspace.basedOnPr", { number: linkedPR.prNumber })}
@@ -628,15 +628,13 @@ export function PromptGroup({
 							type="button"
 							variant="outline"
 							size="sm"
-							className="h-6 px-2 text-[11px] text-amber-500 hover:text-amber-500"
+							className="h-6 px-2 text-[11px] text-warning hover:text-warning"
 							onClick={handleGoToSetup}
 						>
 							{t("workspace.setupProject")}
 						</Button>
 					) : (
-						<span className="text-[11px] text-muted-foreground/50">
-							{modKey}↵
-						</span>
+						<span className="text-[11px] text-fg-mute/50">{modKey}↵</span>
 					)}
 				</div>
 			</div>

@@ -50,7 +50,7 @@ export function NewTabDropZone({
 			className="relative flex items-center h-full shrink-0 pl-2"
 		>
 			{isOver && canDrop && (
-				<div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/20" />
+				<div className="absolute left-0 top-0 bottom-0 w-1 bg-accent-tint" />
 			)}
 			{children}
 		</div>

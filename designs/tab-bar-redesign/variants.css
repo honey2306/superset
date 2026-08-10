@@ -1,0 +1,106 @@
+/* ============================================================
+   Variant A · Underline (匹配右侧 Changes/Files 的语言)
+   完全 flat: 无 border, 无背景差, active 只在底部有一条 pink
+   underline (和 Files 面板的 active tab 完全同款)。
+   ============================================================ */
+.tabbar.a-underline {
+	background: var(--bg);
+	border-bottom: 1px solid var(--line);
+}
+.tabbar.a-underline .tab {
+	border-bottom: 1.5px solid transparent;
+	margin-bottom: -1px; /* overlap the bar's bottom line */
+}
+.tabbar.a-underline .tab:hover {
+	background: rgba(255, 255, 255, 0.02);
+}
+.tabbar.a-underline .tab.active {
+	border-bottom-color: var(--pink);
+}
+
+/* ============================================================
+   Variant B · Ghost fill (低对比填色)
+   Active tab 有一层 dim 底色 (--panel), 其他 tab ��明; 无 border,
+   无阴影。像 sidebar 里的 active item, 用底色微差建立层级。
+   ============================================================ */
+.tabbar.b-ghost {
+	background: var(--bg);
+	border-bottom: 1px solid var(--line);
+}
+.tabbar.b-ghost .tab {
+	border-bottom: 1px solid transparent;
+	margin-bottom: -1px;
+}
+.tabbar.b-ghost .tab:hover {
+	background: rgba(255, 255, 255, 0.025);
+}
+.tabbar.b-ghost .tab.active {
+	background: var(--panel);
+	border-bottom-color: var(--panel);
+}
+/* Faint hairline between adjacent inactive tabs — hides next to active/hover */
+.tabbar.b-ghost .tab + .tab::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 10px;
+	bottom: 10px;
+	width: 1px;
+	background: var(--line);
+	transition: opacity 120ms ease;
+}
+.tabbar.b-ghost .tab.active::before,
+.tabbar.b-ghost .tab.active + .tab::before,
+.tabbar.b-ghost .tab:hover::before,
+.tabbar.b-ghost .tab:hover + .tab::before {
+	opacity: 0;
+}
+
+/* ============================================================
+   Variant C · Left tick (跟 sidebar active 语言完全同款)
+   Active tab 左侧一根 pink 竖标记 (和左侧 sidebar 的 active item
+   同一套语言); 其余全平, 用 opacity 拉层级。
+   ============================================================ */
+.tabbar.c-tick {
+	background: var(--bg);
+	border-bottom: 1px solid var(--line);
+}
+.tabbar.c-tick .tab {
+	padding-left: 14px;
+	border-bottom: 1px solid transparent;
+	margin-bottom: -1px;
+}
+.tabbar.c-tick .tab:hover {
+	background: rgba(255, 255, 255, 0.025);
+}
+.tabbar.c-tick .tab.active {
+	background: rgba(255, 121, 198, 0.05);
+	border-bottom-color: transparent;
+}
+.tabbar.c-tick .tab.active::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 8px;
+	bottom: 8px;
+	width: 2px;
+	background: var(--pink);
+	border-radius: 0 2px 2px 0;
+}
+/* Adjacent inactive tabs: faint hairline */
+.tabbar.c-tick .tab + .tab::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 12px;
+	bottom: 12px;
+	width: 1px;
+	background: var(--line);
+	transition: opacity 120ms ease;
+}
+.tabbar.c-tick .tab.active::after,
+.tabbar.c-tick .tab.active + .tab::after,
+.tabbar.c-tick .tab:hover::after,
+.tabbar.c-tick .tab:hover + .tab::after {
+	opacity: 0;
+}

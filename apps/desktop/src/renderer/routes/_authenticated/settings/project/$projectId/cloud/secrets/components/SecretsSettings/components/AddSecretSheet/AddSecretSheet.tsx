@@ -256,16 +256,16 @@ export function AddSecretSheet({
 				<div
 					className={cn(
 						"flex-1 overflow-y-auto border-2 border-dashed border-transparent transition-colors",
-						isDragOver && "border-primary/50 bg-primary/5",
+						isDragOver && "border-primary/50 bg-accent-tint",
 					)}
 				>
 					<div className="px-6 space-y-2">
 						{/* Column headers */}
 						<div className="flex items-center gap-2">
-							<span className="flex-1 text-xs font-medium text-muted-foreground">
+							<span className="flex-1 text-xs font-medium text-fg-mute">
 								{t("secrets.key")}
 							</span>
-							<span className="flex-1 text-xs font-medium text-muted-foreground">
+							<span className="flex-1 text-xs font-medium text-fg-mute">
 								{t("secrets.value")}
 							</span>
 							{/* spacer for trash button */}
@@ -292,7 +292,7 @@ export function AddSecretSheet({
 									<Button
 										variant="ghost"
 										size="icon"
-										className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground mt-[1px]"
+										className="h-8 w-8 shrink-0 text-fg-mute hover:text-fg mt-[1px]"
 										onClick={() => removeEntry(index)}
 									>
 										<HiOutlineTrash className="h-4 w-4" />
@@ -306,7 +306,7 @@ export function AddSecretSheet({
 						<Button
 							variant="ghost"
 							size="sm"
-							className="text-muted-foreground gap-1.5"
+							className="text-fg-mute gap-1.5"
 							onClick={addEntry}
 						>
 							<HiPlus className="h-3.5 w-3.5" />
@@ -315,12 +315,12 @@ export function AddSecretSheet({
 
 						<div className="flex items-center gap-2 pt-2">
 							<Switch checked={sensitive} onCheckedChange={setSensitive} />
-							<span className="text-sm text-muted-foreground">
+							<span className="text-sm text-fg-mute">
 								{t("secrets.sensitive")}
 							</span>
 							<Tooltip>
 								<TooltipTrigger asChild>
-									<HiOutlineQuestionMarkCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+									<HiOutlineQuestionMarkCircle className="h-3.5 w-3.5 text-fg-mute cursor-help" />
 								</TooltipTrigger>
 								<TooltipContent side="right">
 									<p className="max-w-[200px] text-xs">
@@ -344,7 +344,7 @@ export function AddSecretSheet({
 							<HiOutlineArrowDownTray className="h-3.5 w-3.5" />
 							{t("secrets.importEnv")}
 						</Button>
-						<span className="text-xs text-muted-foreground">
+						<span className="text-xs text-fg-mute">
 							{t("secrets.pasteEnvHint")}
 						</span>
 						<input

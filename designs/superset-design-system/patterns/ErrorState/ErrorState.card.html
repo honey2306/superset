@@ -1,0 +1,56 @@
+<!-- @dsCard group="Patterns" viewport="720x420" name="ErrorState" subtitle="whole-surface failure · icon halo · retry" -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="../../components.css" />
+</head>
+<body>
+  <div id="root" style="padding:24px"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="../../_ds_bundle.js"></script>
+  <script type="text/babel">
+    const { Icon, Button } = window.SupersetDesignSystem_91a6da;
+    ReactDOM.createRoot(document.getElementById("root")).render(
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
+        padding: "40px 24px", textAlign: "center",
+      }}>
+        <span style={{
+          width: 48, height: 48, borderRadius: "999px",
+          background: "var(--danger-tint)", color: "var(--danger)",
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          marginBottom: 4,
+        }}>
+          <Icon name="alert" size={20} />
+        </span>
+        <div style={{ fontSize: "var(--fs-14)", fontWeight: "var(--fw-semibold)", color: "var(--fg)" }}>
+          Failed to fetch <code style={{ fontFamily: "var(--font-mono)", background: "var(--hover)", padding: "1px 5px", borderRadius: 3 }}>origin/main</code>
+        </div>
+        <div style={{ fontSize: "var(--fs-12)", color: "var(--fg-mute)", lineHeight: "var(--lh-body)", maxWidth: 380 }}>
+          Remote returned 403. Your GitHub token may have expired. Reconnect the account in Settings → Integrations, then retry.
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <Button variant="primary"><Icon name="refresh" /> Retry</Button>
+          <Button variant="ghost"><Icon name="copy" /> Copy error</Button>
+        </div>
+        <details style={{ marginTop: 12, fontSize: "var(--fs-10)", color: "var(--fg-faint)" }}>
+          <summary style={{ cursor: "pointer", fontFamily: "var(--font-mono)" }}>Technical details</summary>
+          <pre style={{
+            fontFamily: "var(--font-mono)", background: "var(--surface-sunk)",
+            padding: 10, borderRadius: 6, marginTop: 6, textAlign: "left",
+            border: "1px solid var(--line)",
+          }}>
+{`git fetch origin
+  → 403 Forbidden
+  auth-token expired at 2026-08-09T14:22Z`}
+          </pre>
+        </details>
+      </div>,
+    );
+  </script>
+</body>
+</html>

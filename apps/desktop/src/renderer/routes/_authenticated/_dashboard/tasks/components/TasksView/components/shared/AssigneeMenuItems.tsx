@@ -32,10 +32,10 @@ export function AssigneeMenuItems({
 				onSelect={() => onSelect(null)}
 				className="flex items-center gap-2"
 			>
-				<HiOutlineUserCircle className="size-5 text-muted-foreground shrink-0" />
+				<HiOutlineUserCircle className="size-5 text-fg-mute shrink-0" />
 				<span className="text-sm">{t("tasks.noAssignee")}</span>
 				{!currentAssigneeId && !hasExternalAssignee && (
-					<span className="ml-auto text-xs text-muted-foreground">✓</span>
+					<span className="ml-auto text-xs text-fg-mute">✓</span>
 				)}
 			</MenuItem>
 
@@ -50,12 +50,10 @@ export function AssigneeMenuItems({
 						<Avatar size="xs" fullName={user.name} image={user.image} />
 						<div className="flex flex-col">
 							<span className="text-sm">{user.name}</span>
-							<span className="text-xs text-muted-foreground">
-								{user.email}
-							</span>
+							<span className="text-xs text-fg-mute">{user.email}</span>
 						</div>
 						{isSelected && (
-							<span className="ml-auto text-xs text-muted-foreground">✓</span>
+							<span className="ml-auto text-xs text-fg-mute">✓</span>
 						)}
 					</MenuItem>
 				);

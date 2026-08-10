@@ -118,7 +118,7 @@ export function FileSearchResultItem({
 			style={{ height: SEARCH_RESULT_ROW_HEIGHT }}
 			className={cn(
 				"flex items-center gap-1 px-1 cursor-pointer select-none",
-				"hover:bg-accent/50 transition-colors",
+				"hover:bg-hover transition-colors",
 			)}
 			onClick={handleClick}
 			onDoubleClick={handleDoubleClick}
@@ -127,7 +127,7 @@ export function FileSearchResultItem({
 			<span className="flex items-center justify-center w-4 h-4 shrink-0" />
 			<div className="flex flex-col min-w-0 flex-1 gap-0.5">
 				<span
-					className="text-[10px] text-muted-foreground truncate"
+					className="text-[10px] text-fg-mute truncate"
 					title={entry.relativePath}
 				>
 					{folderLabelDisplay}

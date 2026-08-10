@@ -18,6 +18,7 @@ export {
 	CloudModelProvider,
 	LocalModelProvider,
 } from "./providers/model-providers";
+export { AcpDaemonClient } from "./runtime/acp-sessions";
 export type { GitCredentialProvider, GitFactory } from "./runtime/git";
 export { installProcessSafetyNet } from "./safety";
 export { startTerminalReaper } from "./terminal/reaper";

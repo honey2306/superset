@@ -91,7 +91,9 @@ class TerminalRuntimeRegistryImpl {
 			terminalId,
 			instanceId,
 			runtime: null,
-			transport: createTransport(),
+			transport: createTransport({
+				onSessionEnded: () => clearPersistedRuntimeState(terminalId),
+			}),
 			linkManager: null,
 			pendingLinkHandlers: null,
 			disposeBufferChangeListener: null,
@@ -341,6 +343,10 @@ class TerminalRuntimeRegistryImpl {
 			(entry) => entry.runtime?.terminal.buffer.active.type === "alternate",
 		);
 		for (const entry of victims) {
+			if (entry.transport.sessionEnded) {
+				this.disposeEntry(entry, { persistedState: "clear" });
+				continue;
+			}
 			if (!entry.runtime || !tryPersistRuntimeState(entry.runtime)) {
 				this.warnPersistFailureOnce(entry.terminalId);
 				continue;
@@ -379,6 +385,10 @@ class TerminalRuntimeRegistryImpl {
 		disposeTransport(entry.transport);
 		if (entry.runtime) {
 			disposeRuntime(entry.runtime, options);
+		} else if (options.persistedState === "clear") {
+			// Ended sessions can be parked without a live runtime. Their old
+			// scrollback must not be resurrected when the terminal id is reused.
+			clearPersistedRuntimeState(entry.terminalId);
 		}
 		this.deleteEntry(entry);
 	}
@@ -395,6 +405,10 @@ class TerminalRuntimeRegistryImpl {
 				)
 			: this.getEntries(terminalId);
 		for (const entry of entries) {
+			if (entry.transport.sessionEnded) {
+				this.disposeEntry(entry, { persistedState: "clear" });
+				continue;
+			}
 			if (entry.runtime && !tryPersistRuntimeState(entry.runtime)) {
 				this.warnPersistFailureOnce(entry.terminalId);
 				continue;

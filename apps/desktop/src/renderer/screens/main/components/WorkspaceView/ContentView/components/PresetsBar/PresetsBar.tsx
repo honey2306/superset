@@ -337,7 +337,7 @@ export function PresetsBar() {
 
 	return (
 		<div
-			className="flex items-center h-8 border-b border-border bg-background px-2 gap-0.5 overflow-x-auto shrink-0"
+			className="flex items-center h-8 border-b border-line bg-background px-2 gap-0.5 overflow-x-auto shrink-0"
 			style={{ scrollbarWidth: "none" }}
 		>
 			<DropdownMenu>
@@ -353,7 +353,7 @@ export function PresetsBar() {
 						side="bottom"
 						sideOffset={4}
 						showArrow={false}
-						className="rounded-sm border border-border bg-background px-1.5 py-0.5 font-medium text-muted-foreground shadow-sm"
+						className="rounded-sm border border-line bg-background px-1.5 py-0.5 font-medium text-fg-mute shadow-sm"
 					>
 						Manage Presets
 					</TooltipContent>
@@ -406,13 +406,11 @@ export function PresetsBar() {
 									{hasPreset ? (
 										<LuPin
 											className={`size-3.5 ${
-												isPinned
-													? "text-foreground"
-													: "text-muted-foreground/60"
+												isPinned ? "text-fg" : "text-fg-mute/60"
 											}`}
 										/>
 									) : (
-										<LuCirclePlus className="size-3.5 text-muted-foreground" />
+										<LuCirclePlus className="size-3.5 text-fg-mute" />
 									)}
 								</div>
 							</DropdownMenuItem>
@@ -438,7 +436,7 @@ export function PresetsBar() {
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
-			<div className="h-4 w-px bg-border mx-1 shrink-0" />
+			<div className="h-4 w-px bg-line mx-1 shrink-0" />
 			{pinnedPresets.map(({ preset, index }, pinnedIndex) => {
 				const hotkeyId = PRESET_HOTKEY_IDS[index];
 				return (

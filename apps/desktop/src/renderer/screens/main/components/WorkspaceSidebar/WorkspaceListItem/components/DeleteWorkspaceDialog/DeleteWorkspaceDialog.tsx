@@ -208,7 +208,7 @@ export function DeleteWorkspaceDialog({
 							{t("workspace.closeNamedQuestion", { name: workspaceName })}
 						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
-							<div className="text-muted-foreground space-y-1.5">
+							<div className="text-fg-mute space-y-1.5">
 								<span className="block">
 									{t("workspace.closeBranchDescription")}
 								</span>
@@ -253,7 +253,7 @@ export function DeleteWorkspaceDialog({
 						{t("workspace.removeNamedQuestion", { name: workspaceName })}
 					</AlertDialogTitle>
 					<AlertDialogDescription asChild>
-						<div className="text-muted-foreground space-y-1.5">
+						<div className="text-fg-mute space-y-1.5">
 							{isLoading ? (
 								t("workspace.checkingStatus")
 							) : !canDelete ? (
@@ -269,7 +269,7 @@ export function DeleteWorkspaceDialog({
 
 				{!isLoading && canDelete && hasWarnings && (
 					<div className="px-4 pb-2">
-						<div className="text-xs text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/20 rounded-md px-2.5 py-1.5">
+						<div className="text-xs text-warning dark:text-warning bg-warning-tint dark:bg-warning-tint border border-yellow-200 dark:border-yellow-500/20 rounded-ds-3 px-2.5 py-1.5">
 							{hasChanges && hasUnpushedCommits
 								? t("workspace.hasChangesAndUnpushed")
 								: hasChanges
@@ -291,7 +291,7 @@ export function DeleteWorkspaceDialog({
 							/>
 							<Label
 								htmlFor="delete-local-branch"
-								className="text-xs text-muted-foreground cursor-pointer select-none"
+								className="text-xs text-fg-mute cursor-pointer select-none"
 							>
 								{t("workspace.deleteLocalBranch")}
 							</Label>

@@ -99,7 +99,7 @@ export function TasksTopBar({
 
 	return (
 		<>
-			<div className="@container flex items-center justify-between border-b border-border px-4 h-11 min-w-0 shrink-0">
+			<div className="@container flex items-center justify-between border-b border-line px-4 h-11 min-w-0 shrink-0">
 				{/* Left side: tabs/filters or selection actions */}
 				<div className="flex items-center gap-2 min-w-0">
 					{hasSelection ? (
@@ -168,7 +168,7 @@ export function TasksTopBar({
 															? t("tasks.pullRequests")
 															: t("tasks.issues")
 												}
-												className="h-8 rounded-md px-2 gap-1 data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
+												className="h-8 rounded-ds-3 px-2 gap-1 data-[state=active]:bg-accent-tint data-[state=active]:text-fg data-[state=inactive]:text-fg-mute"
 											>
 												<Icon className="h-3.5 w-3.5" />
 												<span className="text-sm hidden @5xl:inline">
@@ -216,15 +216,15 @@ export function TasksTopBar({
 								<span className="hidden @4xl:inline">{t("tasks.new")}</span>
 							</Button>
 
-							<div className="flex items-center rounded-md border bg-muted/30 p-0.5">
+							<div className="flex items-center rounded-ds-3 border bg-hover/30 p-0.5">
 								<button
 									type="button"
 									title={t("tasks.tableView")}
 									className={cn(
 										"flex items-center justify-center size-6 rounded-sm transition-colors",
 										viewMode === "table"
-											? "bg-background shadow-sm text-foreground"
-											: "text-muted-foreground hover:text-foreground",
+											? "bg-background shadow-sm text-fg"
+											: "text-fg-mute hover:text-fg",
 									)}
 									onClick={() => onViewModeChange("table")}
 								>
@@ -236,8 +236,8 @@ export function TasksTopBar({
 									className={cn(
 										"flex items-center justify-center size-6 rounded-sm transition-colors",
 										viewMode === "board"
-											? "bg-background shadow-sm text-foreground"
-											: "text-muted-foreground hover:text-foreground",
+											? "bg-background shadow-sm text-fg"
+											: "text-fg-mute hover:text-fg",
 									)}
 									onClick={() => onViewModeChange("board")}
 								>
@@ -248,7 +248,7 @@ export function TasksTopBar({
 					)}
 
 					<div className="relative w-32 @2xl:w-40 @4xl:w-56 @6xl:w-64">
-						<HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+						<HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-fg-mute pointer-events-none" />
 						<Input
 							ref={searchInputRef}
 							type="text"
@@ -267,7 +267,7 @@ export function TasksTopBar({
 									searchInputRef.current?.blur();
 								}
 							}}
-							className="h-8 pl-9 pr-3 text-sm bg-muted/50 border-0 focus-visible:ring-1"
+							className="h-8 pl-9 pr-3 text-sm bg-hover/50 border-0 focus-visible:ring-1"
 						/>
 					</div>
 				</div>

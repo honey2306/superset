@@ -9,6 +9,8 @@
  *
  *   say <text>            one agent_message_chunk, end_turn
  *   tool <name>           tool_call pending → in_progress → completed + chunk
+ *   diff <path>           completed edit tool_call containing a deterministic
+ *                         ACP Diff content block (no filesystem mutation)
  *   permission <name>     tool_call + session/request_permission
  *                         (allow → completed, deny → failed), then a chunk
  *   permissions <a>,<b>   two tool calls whose permission requests are parked
@@ -39,8 +41,8 @@
  *   crash                 chunk + open tool_call, then process.exit(1)
  *   <anything else>       echoed back as `echo:<text>`
  *
- * Like the real adapter, new sessions start in bypassPermissions so the
- * manager's D14-c default-mode override is exercised on every create.
+ * Like the real adapter, new sessions start in bypassPermissions, which
+ * matches Superset's default (no per-tool approvals).
  *
  * Persistence, mirroring the real adapter's reliance on Claude Code's
  * on-disk session store: session/new mints a unique session id and every
@@ -48,8 +50,8 @@
  * keeps) is appended to `<cwd>/.fake-acp-store/<sessionId>.jsonl`. A later
  * process — the manager's restart-resurrection path — replays that file
  * verbatim via session/load before the response resolves, exactly like the
- * real adapter's replay. Loaded sessions start back in bypassPermissions so
- * the manager's on-load bypass override is exercised too.
+ * real adapter's replay. Loaded sessions come back in bypassPermissions —
+ * Superset keeps them there unless the user picked a different mode.
  *
  * Payload shapes are copied verbatim from the real adapter's construction
  * (claude-agent-acp dist: buildAvailableModes, buildConfigOptions,
@@ -112,6 +114,32 @@ const AVAILABLE_MODES = [
 let currentModeId = "bypassPermissions";
 let toolCallCounter = 0;
 let cancelActiveTurn: (() => void) | null = null;
+
+const AVAILABLE_COMMANDS: schema.AvailableCommand[] = [
+	{
+		name: "review",
+		description: "Review the current change",
+		input: { hint: "[scope]" },
+	},
+];
+
+/** The real adapter reports this catalog asynchronously after session/new/load. */
+function notifyAvailableCommands(client: {
+	notify: (
+		method: "session/update",
+		params: { sessionId: string; update: schema.SessionUpdate },
+	) => Promise<void>;
+}): void {
+	setTimeout(() => {
+		void client.notify("session/update", {
+			sessionId,
+			update: {
+				sessionUpdate: "available_commands_update",
+				availableCommands: AVAILABLE_COMMANDS,
+			},
+		});
+	}, 0);
+}
 
 /**
  * Verbatim buildConfigOptions output for a host like ours: Mode and Model
@@ -223,8 +251,9 @@ const app = agent({ name: "fake-acp-adapter" })
 	.onRequest("initialize", () => ({
 		protocolVersion: PROTOCOL_VERSION,
 	}))
-	.onRequest("session/new", () => {
+	.onRequest("session/new", (context) => {
 		sessionId = `fake-acp-${randomUUID()}`;
+		notifyAvailableCommands(context.client);
 		return {
 			sessionId,
 			modes: {
@@ -257,6 +286,7 @@ const app = agent({ name: "fake-acp-adapter" })
 				update: JSON.parse(line) as schema.SessionUpdate,
 			});
 		}
+		notifyAvailableCommands(context.client);
 		return {
 			modes: {
 				currentModeId,
@@ -337,6 +367,28 @@ const app = agent({ name: "fake-acp-adapter" })
 					status: "completed",
 				});
 				await say(`tool ${rest} done`);
+				return { stopReason: "end_turn" as const };
+			}
+
+			case "diff": {
+				toolCallCounter += 1;
+				const toolCallId = `tool-${toolCallCounter}`;
+				const path = rest || "src/example.ts";
+				await notifyUpdate({
+					sessionUpdate: "tool_call",
+					toolCallId,
+					title: `Edit ${path}`,
+					kind: "edit",
+					status: "completed",
+					content: [
+						{
+							type: "diff",
+							path,
+							oldText: "export const answer = 41;\n",
+							newText: "export const answer = 42;\n",
+						},
+					],
+				});
 				return { stopReason: "end_turn" as const };
 			}
 
@@ -457,6 +509,47 @@ const app = agent({ name: "fake-acp-adapter" })
 						? ("cancelled" as const)
 						: ("end_turn" as const),
 				};
+			}
+
+			case "claude-ask-permission": {
+				// Matches Claude ACP's AskUserQuestion fallback: an annotated
+				// tool_call_update precedes session/request_permission for the same
+				// opaque tool-use id.
+				const toolCallId = "toolu_fixture_ask";
+				await notifyUpdate({
+					sessionUpdate: "tool_call_update",
+					toolCallId,
+					title: "Pick a fixture color",
+					kind: "other",
+					status: "in_progress",
+					rawInput: {
+						questions: [
+							{
+								question: "Pick a fixture color",
+								options: ["red", "blue"],
+							},
+						],
+					},
+					_meta: { claudeCode: { toolName: "AskUserQuestion" } },
+				});
+				const response = await context.client.request(
+					"session/request_permission",
+					{
+						sessionId,
+						toolCall: { toolCallId },
+						options: [
+							{ kind: "allow_once", name: "red", optionId: "red" },
+							{ kind: "allow_once", name: "blue", optionId: "blue" },
+						],
+					},
+				);
+				await notifyUpdate({
+					sessionUpdate: "tool_call_update",
+					toolCallId,
+					status:
+						response.outcome.outcome === "selected" ? "completed" : "failed",
+				});
+				return { stopReason: "end_turn" as const };
 			}
 
 			case "ask-single":

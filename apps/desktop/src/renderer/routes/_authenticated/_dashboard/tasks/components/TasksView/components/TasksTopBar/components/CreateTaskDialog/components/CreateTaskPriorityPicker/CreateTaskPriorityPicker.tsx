@@ -36,11 +36,11 @@ export function CreateTaskPriorityPicker({
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
-					className="flex h-9 items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-3 text-sm transition-colors hover:bg-muted/60"
+					className="flex h-9 items-center gap-2 rounded-full border border-line/60 bg-hover/30 px-3 text-sm transition-colors hover:bg-hover/60"
 				>
 					<PriorityIcon priority={value} statusType={statusType} />
 					<span>{PRIORITY_LABELS[value]}</span>
-					<HiChevronDown className="size-3.5 text-muted-foreground" />
+					<HiChevronDown className="size-3.5 text-fg-mute" />
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-52 p-1">

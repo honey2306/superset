@@ -134,7 +134,7 @@ export function AssigneeFilter({ value, onChange }: AssigneeFilterProps) {
 					size="sm"
 					title={selectedUser?.name ?? t("tasks.assignee")}
 					aria-label={selectedUser?.name ?? t("tasks.assignee")}
-					className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+					className="h-8 gap-1.5 px-2 text-fg-mute hover:text-fg"
 				>
 					{selectedUser ? (
 						<>
@@ -175,10 +175,10 @@ export function AssigneeFilter({ value, onChange }: AssigneeFilterProps) {
 								key={tabOption}
 								type="button"
 								onClick={() => setTab(tabOption)}
-								className={`flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+								className={`flex-1 rounded-ds-3 px-2 py-1 text-xs font-medium transition-colors ${
 									tab === tabOption
-										? "bg-accent text-accent-foreground"
-										: "text-muted-foreground hover:text-foreground"
+										? "bg-accent-tint text-accent-foreground"
+										: "text-fg-mute hover:text-fg"
 								}`}
 							>
 								{tabOption === "all"
@@ -235,7 +235,7 @@ export function AssigneeFilter({ value, onChange }: AssigneeFilterProps) {
 												/>
 												<div className="flex flex-col min-w-0">
 													<span className="text-sm truncate">{user.name}</span>
-													<span className="text-xs text-muted-foreground truncate">
+													<span className="text-xs text-fg-mute truncate">
 														{user.email}
 													</span>
 												</div>

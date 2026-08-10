@@ -109,7 +109,7 @@ export function EnvironmentVariablesList({
 			{secrets.length > 0 && (
 				<div className="flex items-center gap-3">
 					<div className="relative flex-1">
-						<HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+						<HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-fg-mute" />
 						<Input
 							placeholder={t("secrets.searchPlaceholder")}
 							value={searchQuery}
@@ -122,7 +122,7 @@ export function EnvironmentVariablesList({
 						onValueChange={(v) => setSortOrder(v as SortOrder)}
 					>
 						<SelectTrigger className="w-[180px] shrink-0">
-							<HiArrowsUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+							<HiArrowsUpDown className="h-3.5 w-3.5 mr-1.5 text-fg-mute" />
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -137,15 +137,15 @@ export function EnvironmentVariablesList({
 			)}
 
 			{isLoading ? (
-				<div className="text-sm text-muted-foreground py-8 text-center">
+				<div className="text-sm text-fg-mute py-8 text-center">
 					{t("project.loading")}
 				</div>
 			) : filteredAndSorted.length === 0 ? (
-				<div className="text-sm text-muted-foreground py-8 text-center border rounded-md">
+				<div className="text-sm text-fg-mute py-8 text-center border rounded-ds-3">
 					{secrets.length === 0 ? t("secrets.none") : t("secrets.noMatches")}
 				</div>
 			) : (
-				<div className="border rounded-md">
+				<div className="border rounded-ds-3">
 					{filteredAndSorted.map((secret) => (
 						<SecretRow
 							key={secret.id}

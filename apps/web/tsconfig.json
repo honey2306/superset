@@ -1,0 +1,12 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"extends": "@superset/typescript/electron.json",
+	"compilerOptions": {
+		"types": ["node", "vite/client"],
+		"paths": {
+			"~/*": ["./src/*"]
+		}
+	},
+	"include": ["src/**/*", "vite.config.ts"],
+	"exclude": ["node_modules", "dist"]
+}

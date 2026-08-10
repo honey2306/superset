@@ -13,7 +13,9 @@ function Avatar({
 		<AvatarPrimitive.Root
 			data-slot="avatar"
 			className={cn(
-				"relative flex size-8 shrink-0 overflow-hidden rounded-full",
+				// DS Avatar: hairline outer ring, sunk fallback bg with mono
+				// initials. Sizes 20/24/28/32 — caller sets via className.
+				"relative flex size-6 shrink-0 overflow-hidden rounded-full border border-line bg-surface-elev",
 				className,
 			)}
 			{...props}
@@ -42,7 +44,7 @@ function AvatarFallback({
 		<AvatarPrimitive.Fallback
 			data-slot="avatar-fallback"
 			className={cn(
-				"bg-muted flex size-full items-center justify-center rounded-full",
+				"flex size-full items-center justify-center rounded-full font-mono text-[10px] font-medium tracking-[var(--ls-mono)] text-fg-mute",
 				className,
 			)}
 			{...props}

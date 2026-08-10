@@ -74,7 +74,7 @@ export function WorkspaceSidebarFooter({
 
 	if (isCollapsed) {
 		return (
-			<div className="border-t border-border p-2 flex flex-col items-center gap-1">
+			<div className="border-t border-line p-2 flex flex-col items-center gap-1">
 				<UpdatesPill isCollapsed />
 				<DropdownMenu>
 					<Tooltip delayDuration={300}>
@@ -83,7 +83,7 @@ export function WorkspaceSidebarFooter({
 								<Button
 									variant="ghost"
 									size="icon"
-									className="size-8 text-muted-foreground hover:text-foreground"
+									className="size-8 text-fg-mute hover:text-fg"
 									disabled={isLoading}
 								>
 									<LuFolderPlus className="size-4" strokeWidth={STROKE_WIDTH} />
@@ -115,13 +115,13 @@ export function WorkspaceSidebarFooter({
 	}
 
 	return (
-		<div className="border-t border-border p-2 flex items-center gap-2">
+		<div className="border-t border-line p-2 flex items-center gap-2">
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button
 						variant="ghost"
 						size="sm"
-						className="flex-1 min-w-0 justify-start gap-2 text-muted-foreground hover:text-foreground"
+						className="flex-1 min-w-0 justify-start gap-2 text-fg-mute hover:text-fg"
 						disabled={isLoading}
 					>
 						<LuFolderPlus className="w-4 h-4" strokeWidth={STROKE_WIDTH} />

@@ -56,10 +56,8 @@ export const EmojiSuggestionList = forwardRef<
 
 	if (items.length === 0) {
 		return (
-			<div className="bg-popover text-popover-foreground rounded-md border p-1 shadow-md">
-				<div className="px-2 py-1.5 text-sm text-muted-foreground">
-					No emoji found
-				</div>
+			<div className="bg-surface-sunk text-fg rounded-ds-3 border p-1 shadow-md">
+				<div className="px-2 py-1.5 text-sm text-fg-mute">No emoji found</div>
 			</div>
 		);
 	}
@@ -67,7 +65,7 @@ export const EmojiSuggestionList = forwardRef<
 	return (
 		<div
 			ref={containerRef}
-			className="bg-popover text-popover-foreground rounded-md border p-1 shadow-md overflow-hidden max-h-72 overflow-y-auto w-64"
+			className="bg-surface-sunk text-fg rounded-ds-3 border p-1 shadow-md overflow-hidden max-h-72 overflow-y-auto w-64"
 		>
 			{items.map((item, index) => {
 				const shortcode = item.shortcodes[0] ?? item.name;
@@ -78,13 +76,15 @@ export const EmojiSuggestionList = forwardRef<
 						data-index={index}
 						onClick={() => command(item)}
 						className={`relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none w-full ${
-							index === selectedIndex ? "bg-accent text-accent-foreground" : ""
+							index === selectedIndex
+								? "bg-accent-tint text-accent-foreground"
+								: ""
 						}`}
 					>
 						<span className="w-5 shrink-0 text-base leading-none">
 							{item.emoji ?? "·"}
 						</span>
-						<span className="flex-1 truncate text-left text-xs text-muted-foreground">
+						<span className="flex-1 truncate text-left text-xs text-fg-mute">
 							:{shortcode}:
 						</span>
 					</button>

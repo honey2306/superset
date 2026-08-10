@@ -63,7 +63,7 @@ export function DashboardNewWorkspaceModal() {
 					<DialogContent
 						showCloseButton={false}
 						onFocusOutside={(e) => e.preventDefault()}
-						className="bg-popover text-popover-foreground sm:max-w-[680px] flex flex-col overflow-hidden p-0"
+						className="bg-surface-sunk text-fg sm:max-w-[680px] flex flex-col overflow-hidden p-0"
 					>
 						<DashboardNewWorkspaceModalContent
 							isOpen={isOpen}

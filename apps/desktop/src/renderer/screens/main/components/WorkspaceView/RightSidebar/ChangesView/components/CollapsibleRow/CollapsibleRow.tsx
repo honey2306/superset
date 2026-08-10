@@ -37,14 +37,14 @@ export function CollapsibleRow({
 			<CollapsibleTrigger
 				className={cn(
 					"w-full flex items-center gap-1.5 px-1.5 py-1 text-left rounded-sm",
-					"hover:bg-accent/50 cursor-pointer transition-colors",
+					"hover:bg-hover cursor-pointer transition-colors",
 					triggerClassName,
 				)}
 			>
 				{showChevron && (
 					<VscChevronRight
 						className={cn(
-							"size-2.5 text-muted-foreground shrink-0 transition-transform duration-150",
+							"size-2.5 text-fg-mute shrink-0 transition-transform duration-150",
 							isExpanded && "rotate-90",
 						)}
 					/>

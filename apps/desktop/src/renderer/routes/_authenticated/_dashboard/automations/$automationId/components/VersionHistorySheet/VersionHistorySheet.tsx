@@ -145,14 +145,10 @@ export function VersionHistorySheet({
 
 					<div className="flex-1 overflow-y-auto">
 						{isLoading && (
-							<div className="p-4 text-sm text-muted-foreground">
-								Loading...
-							</div>
+							<div className="p-4 text-sm text-fg-mute">Loading...</div>
 						)}
 						{!isLoading && versions.length === 0 && (
-							<div className="p-4 text-sm text-muted-foreground">
-								No versions yet.
-							</div>
+							<div className="p-4 text-sm text-fg-mute">No versions yet.</div>
 						)}
 						{versions.map((version) => (
 							<VersionRow

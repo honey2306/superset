@@ -1,11 +1,13 @@
 import { Workspace } from "@superset/panes";
 import { useEffect } from "react";
+import { useAcpSessionStatusesAtHost } from "renderer/hooks/host-service/useAcpSessionStatuses";
 import { useTerminalAgentStatusesAtHost } from "renderer/hooks/host-service/useTerminalAgentStatuses";
 import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
 import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
 import {
 	getV1PanesTabStatus,
+	syncV1PanesAcpStatuses,
 	syncV1PanesTerminalStatuses,
 } from "./createV1PanesTerminalPaneBridge";
 import { useV1PanesDeepLinkConsumer } from "./useV1PanesDeepLinkConsumer";
@@ -36,6 +38,12 @@ import {
  * registered by `useV1PanesHotkeys`.
  */
 export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
+	const { workspace } = useCatalogWorkspace(workspaceId);
+	const { hostUrl, hostWorkspaceId } = useHostServiceTerminal({
+		workspaceId,
+		worktreePath: workspace?.worktreePath,
+		forceEnabled: true,
+	});
 	const {
 		store,
 		registry,
@@ -43,21 +51,20 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 		paneActions,
 		contextMenuActions,
 		openers,
-	} = useV1PanesWorkspace(workspaceId);
-	const { workspace } = useCatalogWorkspace(workspaceId);
-	const { hostUrl, hostWorkspaceId } = useHostServiceTerminal({
-		workspaceId,
-		worktreePath: workspace?.worktreePath,
-		forceEnabled: true,
-	});
+	} = useV1PanesWorkspace(workspaceId, { hostUrl, hostWorkspaceId });
 	const terminalStatuses = useTerminalAgentStatusesAtHost(
 		hostUrl,
 		hostWorkspaceId,
 	);
+	const acpStatuses = useAcpSessionStatusesAtHost(hostUrl, hostWorkspaceId);
 
 	useEffect(() => {
 		syncV1PanesTerminalStatuses(store, terminalStatuses);
 	}, [store, terminalStatuses]);
+
+	useEffect(() => {
+		syncV1PanesAcpStatuses(store, acpStatuses);
+	}, [store, acpStatuses]);
 
 	useV1PanesHotkeys({
 		store,

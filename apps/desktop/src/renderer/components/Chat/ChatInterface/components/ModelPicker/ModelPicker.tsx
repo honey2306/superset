@@ -63,7 +63,7 @@ export function ModelPicker({
 		<ModelSelector open={open} onOpenChange={onOpenChange}>
 			<ModelSelectorTrigger asChild>
 				<PromptInputButton
-					className={`${PILL_BUTTON_CLASS} px-2 gap-1.5 text-xs text-foreground`}
+					className={`${PILL_BUTTON_CLASS} px-2 gap-1.5 text-xs text-fg`}
 				>
 					{selectedLogo === ANTHROPIC_LOGO_PROVIDER ? (
 						<img alt="Claude" className="size-3" src={claudeIcon} />

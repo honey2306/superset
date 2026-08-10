@@ -407,7 +407,7 @@ export function FileDiffSection({
 
 	const inactivePlaceholder = (
 		<div
-			className="flex items-center justify-center text-xs text-muted-foreground bg-background"
+			className="flex items-center justify-center text-xs text-fg-mute bg-background"
 			style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 		>
 			{t("v1Changes.diffPreviewLoads")}
@@ -416,7 +416,7 @@ export function FileDiffSection({
 
 	const binaryFilePreview = (
 		<div
-			className="flex flex-col items-center justify-center gap-1 bg-background px-4 text-center text-sm text-muted-foreground"
+			className="flex flex-col items-center justify-center gap-1 bg-background px-4 text-center text-sm text-fg-mute"
 			style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 		>
 			<span className="select-text cursor-text">
@@ -429,7 +429,7 @@ export function FileDiffSection({
 	return (
 		<div
 			ref={sectionRef}
-			className="mx-2 my-2 border border-border rounded-lg overflow-hidden"
+			className="mx-2 my-2 border border-line rounded-ds-5 overflow-hidden"
 		>
 			<Collapsible open={isExpanded} onOpenChange={onToggleExpanded}>
 				<FileDiffHeader
@@ -457,7 +457,7 @@ export function FileDiffSection({
 					{isBinaryFile ? (
 						binaryFilePreview
 					) : isHiddenByDefault && !loadHiddenDiff ? (
-						<div className="flex flex-col items-center justify-center gap-3 py-8 text-muted-foreground bg-muted/30">
+						<div className="flex flex-col items-center justify-center gap-3 py-8 text-fg-mute bg-hover/30">
 							<LuFileCode className="w-8 h-8" />
 							<p className="text-sm">
 								{isGenerated
@@ -476,7 +476,7 @@ export function FileDiffSection({
 						</div>
 					) : isLoadingDiff ? (
 						<div
-							className="flex items-center justify-center text-muted-foreground bg-background"
+							className="flex items-center justify-center text-fg-mute bg-background"
 							style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 						>
 							<LuLoader className="w-4 h-4 animate-spin mr-2" />
@@ -543,7 +543,7 @@ export function FileDiffSection({
 						inactivePlaceholder
 					) : (
 						<div
-							className="flex items-center justify-center text-muted-foreground bg-background"
+							className="flex items-center justify-center text-fg-mute bg-background"
 							style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 						>
 							{diffData ? (

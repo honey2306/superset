@@ -26,7 +26,7 @@ export function WorkspaceIcon({
 	variant,
 }: WorkspaceIconProps) {
 	const overlayPosition = OVERLAY_POSITION[variant];
-	const iconColor = isActive ? "text-foreground" : "text-muted-foreground";
+	const iconColor = isActive ? "text-fg" : "text-fg-mute";
 
 	return (
 		<>
@@ -58,7 +58,7 @@ export function WorkspaceIcon({
 			)}
 			{isUnread && !workspaceStatus && (
 				<span className={cn("absolute flex size-2", overlayPosition)}>
-					<span className="relative inline-flex size-2 rounded-full bg-blue-500" />
+					<span className="relative inline-flex size-2 rounded-full bg-info" />
 				</span>
 			)}
 		</>

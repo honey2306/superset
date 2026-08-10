@@ -23,20 +23,20 @@ export function V2WorkspaceTitle({ workspaceId }: V2WorkspaceTitleProps) {
 	return (
 		<div className="flex min-w-0 max-w-full items-center gap-1.5 text-[13px] tracking-tight">
 			{name && (
-				<OverflowFadeText className="font-medium text-foreground" title={name}>
+				<OverflowFadeText className="font-medium text-fg" title={name}>
 					{name}
 				</OverflowFadeText>
 			)}
 			{name && branch && (
 				<ChevronRight
-					className="size-3 shrink-0 text-muted-foreground/40"
+					className="size-3 shrink-0 text-fg-mute/40"
 					strokeWidth={2}
 					aria-hidden="true"
 				/>
 			)}
 			{branch && (
 				<span
-					className="flex min-w-0 items-center gap-1 text-muted-foreground"
+					className="flex min-w-0 items-center gap-1 text-fg-mute"
 					title={branch}
 				>
 					<GitBranch

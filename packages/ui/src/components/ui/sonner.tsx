@@ -35,12 +35,38 @@ const Toaster = ({ ...props }: ToasterProps) => {
 					description: "overflow-y-auto",
 				},
 			}}
+			position="bottom-right"
+			offset={{ right: 20, bottom: 20 }}
+			gap={8}
+			visibleToasts={3}
 			style={
 				{
-					"--normal-bg": "var(--popover)",
-					"--normal-text": "var(--popover-foreground)",
-					"--normal-border": "var(--border)",
-					"--border-radius": "var(--radius)",
+					// DS ToastStack: bottom-right, max 3, past tense, error toasts
+					// stay open (see patterns/ToastStack). Pull colors from
+					// `--surface-sunk` so the toast has more contrast than a plain
+					// popover on any theme, and use `shadow-ds-3` for depth.
+					"--normal-bg": "var(--surface-sunk)",
+					"--normal-text": "var(--fg)",
+					"--normal-border": "var(--line)",
+					"--border-radius": "var(--r-5)",
+					"--success-bg": "var(--success-tint)",
+					"--success-border":
+						"color-mix(in oklch, var(--success) 25%, transparent)",
+					"--success-text":
+						"color-mix(in oklch, var(--success) 75%, var(--fg))",
+					"--info-bg": "var(--info-tint)",
+					"--info-border": "color-mix(in oklch, var(--info) 25%, transparent)",
+					"--info-text": "color-mix(in oklch, var(--info) 75%, var(--fg))",
+					"--warning-bg": "var(--warning-tint)",
+					"--warning-border":
+						"color-mix(in oklch, var(--warning) 25%, transparent)",
+					"--warning-text":
+						"color-mix(in oklch, var(--warning) 75%, var(--fg))",
+					"--error-bg": "var(--danger-tint)",
+					"--error-border":
+						"color-mix(in oklch, var(--danger) 25%, transparent)",
+					"--error-text": "color-mix(in oklch, var(--danger) 75%, var(--fg))",
+					boxShadow: "var(--shadow-3)",
 				} as React.CSSProperties
 			}
 			{...props}

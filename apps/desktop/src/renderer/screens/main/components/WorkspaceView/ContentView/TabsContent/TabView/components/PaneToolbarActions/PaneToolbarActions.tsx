@@ -32,7 +32,7 @@ export function PaneToolbarActions({
 					<button
 						type="button"
 						onClick={onSplitPane}
-						className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+						className="rounded p-0.5 text-fg-mute/60 transition-colors hover:text-fg-mute"
 					>
 						{splitIcon}
 					</button>
@@ -41,7 +41,7 @@ export function PaneToolbarActions({
 					side="bottom"
 					sideOffset={4}
 					showArrow={false}
-					className="rounded-sm border border-border bg-background px-1.5 py-0.5 font-medium text-muted-foreground shadow-sm"
+					className="rounded-sm border border-line bg-background px-1.5 py-0.5 font-medium text-fg-mute shadow-sm"
 				>
 					<HotkeyLabel label="Split pane" id="SPLIT_AUTO" />
 				</TooltipContent>
@@ -49,7 +49,7 @@ export function PaneToolbarActions({
 			<button
 				type="button"
 				onClick={onClosePane}
-				className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+				className="rounded p-0.5 text-fg-mute/60 transition-colors hover:text-fg-mute"
 			>
 				<HiMiniXMark className="size-3.5" />
 			</button>

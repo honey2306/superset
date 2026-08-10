@@ -52,7 +52,7 @@ export function FeaturePreview({ selectedFeature }: FeaturePreviewProps) {
 
 			<div className="flex w-full flex-col border-t bg-background px-6 py-4 items-center justify-center">
 				<div className="mb-2 flex w-full items-center justify-center gap-2">
-					<span className="text-lg font-semibold text-foreground">
+					<span className="text-lg font-semibold text-fg">
 						{selectedFeature.title}
 					</span>
 					<Badge variant="default">PRO</Badge>
@@ -62,7 +62,7 @@ export function FeaturePreview({ selectedFeature }: FeaturePreviewProps) {
 						</Badge>
 					)}
 				</div>
-				<span className="text-center text-sm font-normal text-muted-foreground">
+				<span className="text-center text-sm font-normal text-fg-mute">
 					{selectedFeature.description}
 				</span>
 			</div>

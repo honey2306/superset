@@ -148,7 +148,7 @@ export function ProjectSection({
 		cn(
 			"transition-colors rounded-sm",
 			isDropTarget && !isDragOver && "border border-dashed border-primary/20",
-			isDragOver && "bg-primary/5 border border-solid border-primary/30",
+			isDragOver && "bg-accent-tint border border-solid border-primary/30",
 		);
 
 	const handleNewWorkspace = () => {
@@ -219,7 +219,7 @@ export function ProjectSection({
 			<div
 				ref={projectHeaderRef}
 				className={cn(
-					"flex flex-col items-center py-2 border-b border-border last:border-b-0",
+					"flex flex-col items-center py-2 border-b border-line last:border-b-0",
 					isDragging && "opacity-30",
 					isDragging && "cursor-grabbing",
 				)}
@@ -321,7 +321,7 @@ export function ProjectSection({
 		<div
 			ref={projectHeaderRef}
 			className={cn(
-				"border-b border-border last:border-b-0",
+				"border-b border-line last:border-b-0",
 				isDragging && "opacity-30",
 				isDragging && "cursor-grabbing",
 			)}

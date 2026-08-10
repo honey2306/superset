@@ -49,7 +49,7 @@ export function CreateTaskToolCall({ part }: CreateTaskToolCallProps) {
 				<div className="space-y-2">
 					{created.length > 0 ? (
 						<div className="space-y-1">
-							<div className="font-medium text-foreground">
+							<div className="font-medium text-fg">
 								{t("chat.tool.createdCount", { count: created.length })}
 							</div>
 							<div className="space-y-1">
@@ -124,9 +124,7 @@ export function CreateTaskToolCall({ part }: CreateTaskToolCallProps) {
 							</div>
 						</div>
 					) : (
-						<div className="text-muted-foreground">
-							{t("chat.tool.noCreatedTasks")}
-						</div>
+						<div className="text-fg-mute">{t("chat.tool.noCreatedTasks")}</div>
 					)}
 				</div>
 			}

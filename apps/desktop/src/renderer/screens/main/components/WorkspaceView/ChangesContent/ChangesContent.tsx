@@ -18,6 +18,7 @@ export function ChangesContent() {
 	const worktreePath = workspace?.worktreePath;
 
 	const { status, isLoading, effectiveBaseBranch } = useGitChangesStatus({
+		workspaceId,
 		worktreePath,
 		refetchInterval: isChangesSidebarVisible ? undefined : 2500,
 		refetchOnWindowFocus: !isChangesSidebarVisible,
@@ -25,7 +26,7 @@ export function ChangesContent() {
 
 	if (!worktreePath) {
 		return (
-			<div className="h-full flex items-center justify-center text-muted-foreground">
+			<div className="h-full flex items-center justify-center text-fg-mute">
 				{t("v1Changes.noWorkspaceSelected")}
 			</div>
 		);
@@ -33,7 +34,7 @@ export function ChangesContent() {
 
 	if (!status && isLoading) {
 		return (
-			<div className="h-full flex items-center justify-center text-muted-foreground">
+			<div className="h-full flex items-center justify-center text-fg-mute">
 				{t("v1Changes.loadingChanges")}
 			</div>
 		);
@@ -41,7 +42,7 @@ export function ChangesContent() {
 
 	if (!status) {
 		return (
-			<div className="h-full flex select-text cursor-text items-center justify-center text-muted-foreground">
+			<div className="h-full flex select-text cursor-text items-center justify-center text-fg-mute">
 				{t("v1Changes.unableToLoad")}
 			</div>
 		);

@@ -125,6 +125,14 @@ export const BUILTIN_TERMINAL_AGENTS = [
 		nonInteractiveCommand: "pi --no-tools -p",
 	}),
 	createBuiltinTerminalAgent({
+		id: "myflicker",
+		label: "MyFlicker",
+		description:
+			"MyFlicker's coding agent with native Agent Client Protocol support.",
+		command: "mfcli",
+		nonInteractiveCommand: "mfcli --approval-mode plan -q",
+	}),
+	createBuiltinTerminalAgent({
 		id: "copilot",
 		label: "Copilot",
 		description:
@@ -151,6 +159,15 @@ export const BUILTIN_TERMINAL_AGENTS = [
 		command: "kimi",
 		promptCommand: "kimi -p",
 		promptCommandSuffix: "; kimi --auto --continue",
+		includeInDefaultTerminalPresets: true,
+	}),
+	createBuiltinTerminalAgent({
+		id: "grok",
+		label: "Grok",
+		description:
+			"xAI's coding agent for reading, editing, and running code from the terminal.",
+		command: "grok --always-approve",
+		nonInteractiveCommand: "grok --permission-mode plan -p",
 		includeInDefaultTerminalPresets: true,
 	}),
 	createBuiltinTerminalAgent({

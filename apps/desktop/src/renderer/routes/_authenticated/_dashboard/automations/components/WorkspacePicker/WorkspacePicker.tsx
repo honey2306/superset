@@ -94,7 +94,7 @@ export function WorkspacePicker({
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
 				<PickerTrigger
-					className={cn((offScope || missing) && "text-amber-500", className)}
+					className={cn((offScope || missing) && "text-warning", className)}
 					icon={
 						offScope || missing ? (
 							<LuTriangleAlert className="size-4 shrink-0" />
@@ -134,12 +134,12 @@ export function WorkspacePicker({
 								<CommandItem
 									value="__deleted__"
 									onSelect={() => setOpen(false)}
-									className="text-amber-500"
+									className="text-warning"
 								>
 									<LuTriangleAlert className="size-4" />
 									<span className="flex min-w-0 flex-col select-text cursor-text">
 										<span className="truncate">Workspace not found</span>
-										<span className="truncate text-[10px] text-amber-500/70">
+										<span className="truncate text-[10px] text-warning/70">
 											deleted or unavailable — pick another
 										</span>
 									</span>
@@ -151,12 +151,12 @@ export function WorkspacePicker({
 									value={`__pinned__${selected.id}`}
 									keywords={[selected.name]}
 									onSelect={() => setOpen(false)}
-									className="text-amber-500"
+									className="text-warning"
 								>
 									<LuTriangleAlert className="size-4" />
 									<span className="flex min-w-0 flex-col">
 										<span className="truncate">{selected.name}</span>
-										<span className="truncate text-[10px] text-amber-500/70">
+										<span className="truncate text-[10px] text-warning/70">
 											on {offScopeHostName} — won't run here
 										</span>
 									</span>

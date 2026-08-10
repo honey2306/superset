@@ -76,6 +76,7 @@ export function V1PanesPresetBar({
 	const { presets, matchedPresets, createPreset, reorderPresets } = usePresets(
 		workspace?.projectId,
 	);
+
 	const inFlightAgentTypesRef = useRef(new Set<AgentType>());
 	const isDraggingPresetRef = useRef(false);
 	const [dragPresetSnapshot, setDragPresetSnapshot] = useState<
@@ -191,7 +192,7 @@ export function V1PanesPresetBar({
 
 	return (
 		<div
-			className="flex h-8 items-center gap-0.5 border-b border-border bg-background px-2 shrink-0 overflow-x-auto"
+			className="flex h-8 items-center gap-0.5 border-b border-line bg-background px-2 shrink-0 overflow-x-auto"
 			style={{ scrollbarWidth: "none" }}
 		>
 			{pinnedPresets.map((preset, pinnedIndex) => (

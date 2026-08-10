@@ -20,15 +20,15 @@ export function ChecksSummary({ checks, status }: ChecksSummaryProps) {
 	const config = {
 		success: {
 			icon: LuCheck,
-			className: "text-emerald-500",
+			className: "text-success",
 		},
 		failure: {
 			icon: LuX,
-			className: "text-destructive-foreground",
+			className: "text-destructive",
 		},
 		pending: {
 			icon: LuLoaderCircle,
-			className: "text-amber-500",
+			className: "text-warning",
 		},
 	};
 

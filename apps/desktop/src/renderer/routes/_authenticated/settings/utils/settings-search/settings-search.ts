@@ -29,6 +29,7 @@ export const SETTING_ITEM_ID = {
 	TERMINAL_SESSIONS: "terminal-sessions",
 	TERMINAL_LINK_BEHAVIOR: "terminal-link-behavior",
 	TERMINAL_BACKGROUND_LIMIT: "terminal-background-limit",
+	TERMINAL_ACP_MODE: "terminal-acp-mode",
 
 	MODELS_ANTHROPIC: "models-anthropic",
 	MODELS_OPENAI: "models-openai",
@@ -94,6 +95,7 @@ export const SETTING_ITEM_VARIANT: Record<SettingItemId, SettingVariant> = {
 	[SETTING_ITEM_ID.TERMINAL_SESSIONS]: "shared",
 	[SETTING_ITEM_ID.TERMINAL_LINK_BEHAVIOR]: "v1",
 	[SETTING_ITEM_ID.TERMINAL_BACKGROUND_LIMIT]: "shared",
+	[SETTING_ITEM_ID.TERMINAL_ACP_MODE]: "shared",
 
 	[SETTING_ITEM_ID.MODELS_ANTHROPIC]: "shared",
 	[SETTING_ITEM_ID.MODELS_OPENAI]: "shared",
@@ -487,6 +489,27 @@ const SETTINGS_ITEM_DEFINITIONS: SettingsItemDefinition[] = [
 			"cmd",
 			"ctrl",
 			"browser",
+		],
+	},
+	{
+		id: SETTING_ITEM_ID.TERMINAL_ACP_MODE,
+		titleKey: "settingsSearch.terminal_acp_mode.title",
+		descriptionKey: "settingsSearch.terminal_acp_mode.description",
+		section: "terminal",
+		localizedKeywords: { "zh-CN": ["ACP", "代理", "预设", "协议", "会话"] },
+		keywords: [
+			"acp",
+			"agent",
+			"preset",
+			"presets",
+			"protocol",
+			"session",
+			"mode",
+			"claude",
+			"codex",
+			"pi",
+			"myflicker",
+			"launcher",
 		],
 	},
 	{

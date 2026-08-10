@@ -126,7 +126,7 @@ function DialogRow({
 					<Label htmlFor={htmlFor} className="text-sm font-medium">
 						{label}
 					</Label>
-					{hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+					{hint && <p className="text-xs text-fg-mute">{hint}</p>}
 				</div>
 				{children}
 			</div>
@@ -138,7 +138,7 @@ function DialogRow({
 				<Label htmlFor={htmlFor} className="text-sm font-medium">
 					{label}
 				</Label>
-				{hint && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
+				{hint && <p className="text-xs text-fg-mute mt-0.5">{hint}</p>}
 			</div>
 			<div className="w-72 shrink-0">{children}</div>
 		</div>
@@ -165,7 +165,7 @@ function Segmented<T extends string>({
 }: SegmentedProps<T>) {
 	return (
 		<div
-			className={`inline-flex rounded-md border border-border overflow-hidden w-full ${className ?? ""}`.trim()}
+			className={`inline-flex rounded-ds-3 border border-line overflow-hidden w-full ${className ?? ""}`.trim()}
 		>
 			{options.map((option, idx) => (
 				<button
@@ -173,11 +173,11 @@ function Segmented<T extends string>({
 					type="button"
 					onClick={() => onChange(option.value)}
 					className={`flex-1 px-3 py-1 text-xs font-medium transition-colors ${
-						idx > 0 ? "border-l border-border" : ""
+						idx > 0 ? "border-l border-line" : ""
 					} ${
 						value === option.value
-							? "bg-accent text-accent-foreground"
-							: "bg-transparent text-muted-foreground hover:bg-accent/50"
+							? "bg-accent-tint text-accent-foreground"
+							: "bg-transparent text-fg-mute hover:bg-hover"
 					}`}
 				>
 					{option.label}
@@ -385,7 +385,7 @@ export function PresetEditorDialog({
 										<Link
 											to="/settings/terminal"
 											onClick={() => onOpenChange(false)}
-											className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+											className="inline-flex shrink-0 items-center gap-1 text-xs text-fg-mute hover:text-fg"
 										>
 											{t("terminal.openAgent", {
 												name: linkedAgent?.label ?? t("terminal.agentSettings"),
@@ -404,24 +404,24 @@ export function PresetEditorDialog({
 											placeholder="claude --dangerously-skip-permissions"
 										/>
 									) : (
-										<div className="min-w-0 rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-xs">
+										<div className="min-w-0 rounded-ds-3 border border-line bg-hover/30 px-3 py-2 font-mono text-xs">
 											{liveCommands.length > 0 ? (
 												liveCommands.map((command, index) => (
 													<div
 														// biome-ignore lint/suspicious/noArrayIndexKey: stable order, duplicates allowed
 														key={index}
-														className="break-all whitespace-pre-wrap text-foreground"
+														className="break-all whitespace-pre-wrap text-fg"
 													>
 														{command || "—"}
 													</div>
 												))
 											) : (
-												<div className="text-foreground">—</div>
+												<div className="text-fg">—</div>
 											)}
 										</div>
 									)}
 									{!linkedAgent && (
-										<p className="text-xs text-muted-foreground">
+										<p className="text-xs text-fg-mute">
 											{t("terminal.linkedAgentMissing")}
 										</p>
 									)}

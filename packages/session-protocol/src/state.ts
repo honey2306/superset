@@ -1,4 +1,6 @@
 import type {
+	AvailableCommand,
+	ContentBlock,
 	PermissionOption,
 	RequestPermissionOutcome,
 	SessionConfigOption,
@@ -7,7 +9,13 @@ import type {
 	ToolCallUpdate,
 } from "./acp";
 
-export type HarnessKind = "claude-agent-acp"; // future: | "codex-acp"
+/** Runtime that owns the native session. The public ACP envelope remains
+ * stable across native ACP agents and host-side protocol bridges. */
+export type HarnessKind =
+	| "claude-agent-acp"
+	| "codex-app-server"
+	| "pi-acp"
+	| "myflicker-acp";
 
 export type SessionStatus =
 	| "starting"
@@ -37,6 +45,11 @@ export interface PendingPermission {
 	 * `makeSelectedOutcome`, instead of resolving on the first tap.
 	 */
 	multiSelect?: boolean;
+	/**
+	 * True when this card originated from an ACP form elicitation (such as
+	 * Claude Code's AskUserQuestion tool), rather than request_permission.
+	 */
+	isElicitation?: boolean;
 }
 
 /**
@@ -73,9 +86,24 @@ export function selectedOptionIds(outcome: RequestPermissionOutcome): string[] {
 	return [outcome.optionId];
 }
 
+/**
+ * A user prompt queued for the current session while another turn is in
+ * flight. Host-managed so the queue is uniform across adapters (Codex has no
+ * native turnQueue; Claude/Pi do but the host side can't observe or edit
+ * them). Not persisted — lost on host restart.
+ */
+export interface QueuedPrompt {
+	/** Host-generated uuid; stable while queued, referenced by editing ops. */
+	queueId: string;
+	prompt: ContentBlock[];
+	enqueuedAt: number;
+}
+
 export interface SessionScopedState {
 	/** Superset id (uuid) — the adapter's ACP SessionId stays host-internal. */
 	sessionId: string;
+	/** Stable journal incarnation. A cursor is valid only within this epoch. */
+	epoch: string;
 	workspaceId: string;
 	harness: HarnessKind;
 	status: SessionStatus;
@@ -89,7 +117,11 @@ export interface SessionScopedState {
 	currentMode: SessionModeState | null;
 	/** Model/effort/mode pickers, kept fresh via config_option_update. */
 	configOptions: SessionConfigOption[];
+	/** Slash-command catalog; null until the adapter has reported it. */
+	availableCommands: AvailableCommand[] | null;
 	pendingPermissions: PendingPermission[];
+	/** Follow-up prompts waiting to be sent when the current turn finishes. */
+	queuedPrompts: QueuedPrompt[];
 	cwd: string;
 	/** Seq of the latest journaled envelope; subscribe cursor. */
 	lastSeq: number;

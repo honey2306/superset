@@ -90,7 +90,7 @@ export function TasksTableView({
 						<Fragment key={row.id}>
 							{gap > 0 && <div style={{ height: gap }} />}
 							{isGroupHeader ? (
-								<div className="sticky top-0 bg-background z-10 border-b border-border/50">
+								<div className="sticky top-0 bg-background z-10 border-b border-line/50">
 									{flexRender(
 										row.getVisibleCells()[0].column.columnDef.cell,
 										row.getVisibleCells()[0].getContext(),
@@ -103,8 +103,8 @@ export function TasksTableView({
 										role="button"
 										tabIndex={0}
 										className={cn(
-											"grid items-center gap-3 px-4 h-9 cursor-pointer border-b border-border/50 hover:bg-accent/50",
-											row.getIsSelected() && "bg-accent/30",
+											"grid items-center gap-3 px-4 h-9 cursor-pointer border-b border-line/50 hover:bg-hover",
+											row.getIsSelected() && "bg-accent-tint",
 										)}
 										style={{
 											gridTemplateColumns: `auto auto ${slugColumnWidth} 1fr auto auto`,

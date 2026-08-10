@@ -3,19 +3,22 @@
 This is the current implementation reference for host-owned ACP sessions. The
 active remaining work is tracked in
 [`plans/acp-session-follow-ups.md`](../../../plans/acp-session-follow-ups.md).
-The comparison page at
-[`apps/mobile/plans/acp-vs-claude-sdk.html`](../../../apps/mobile/plans/acp-vs-claude-sdk.html)
-is a protocol comparison, not the source of truth for lifecycle behavior.
 
 ## Current Topology
 
 ```text
-mobile UI
-  -> @superset/host-client (relay HTTP + WebSocket transport)
+desktop UI (V1PanesWorkspace → AcpSessionPane)
+  -> DesktopAcpSessionClient (renderer/lib/acp-session-client)
   -> host-service acpSessions tRPC router + /acp-sessions/:id/stream
+  -> AcpDaemonClient over a per-org owner-only Unix socket
+  -> detached acp-daemon (survives host-service/Desktop restarts)
   -> AcpSessionManager
-  -> one claude-agent-acp child per active session
-  -> Claude's native on-disk session store
+  -> one selected adapter child per active session
+       Claude Code -> claude-agent-acp
+       Codex       -> bundled codex app-server bridge
+       Pi          -> bundled pi-acp bridge
+       MyFlicker   -> mfcli acp
+  -> each agent's native on-disk session store
 
 shared client code today
   @superset/session-protocol
@@ -23,18 +26,23 @@ shared client code today
     - Superset state and envelope types
     - tRPC input schemas and API interfaces
     - timeline fold and WebSocket sync client
+    - agent-independent Tool Call Projection for every renderer
     - React hooks under ./react
 ```
 
-The desktop app only decides whether to enable the harness and starts the
-host-service: canary and dev builds spawn host children with
-`SUPERSET_ACP_SESSIONS=1`, stable builds never do (see
-`apps/desktop/src/main/lib/build-channel.ts`). There is no user-facing
-setting. The desktop app does not render this ACP session UI yet.
+The desktop app enables the harness on canary and dev builds via
+`SUPERSET_ACP_SESSIONS=1` (see `apps/desktop/src/main/lib/build-channel.ts`).
+Stable builds never do. There is no user-facing setting. The desktop renders
+the ACP session UI when `acpSessions.list` returns `enabled: true`.
 
-On the current unified mobile home, long-press a workspace and choose **Live
-sessions**. That opens the workspace-scoped ACP list; the old workspace chat
-index was removed by the unified-home work and is not an entry point anymore.
+**Close semantics**: closing an ACP pane in the desktop only detaches the UI
+(unregisters the pane from the layout). It does NOT delete or suspend the
+underlying session, runtime, or native transcript. The adapter process continues to be managed by the detached ACP daemon until
+the process exits or the daemon is explicitly stopped.
+
+**Known lifecycle gap**: there is currently no suspend/forget/delete operation
+for ACP sessions. `pane close ≠ session delete`. A bounded suspend/forget
+design must be documented and implemented before the stable channel is enabled.
 
 ## Session Identity And Persistence
 
@@ -54,8 +62,8 @@ updated_at
 ```
 
 The row is registry metadata only. Host SQLite does not store message bodies,
-tool payloads, permission payloads, or journal frames. Conversation content
-remains in Claude's native session store managed behind `claude-agent-acp`.
+tool payloads, permission payloads, or journal frames. Conversation content remains in the selected agent's native session store; the
+adapter owns its session-id mapping and load behavior.
 
 Every state emission best-effort upserts the registry row. A registry write
 failure is logged and does not stop a live turn, so restart recovery is not
@@ -66,9 +74,9 @@ guaranteed if the write failed.
 ### Create
 
 1. The client mints the public session id and calls `acpSessions.create`.
-2. The host resolves the workspace id to its current worktree path.
-3. `AcpSessionManager` spawns `claude-agent-acp`, runs `initialize`, then
-   `session/new`.
+2. The ACP daemon resolves the workspace id to its current worktree path.
+3. `AcpSessionManager` spawns the selected session adapter, runs `initialize`,
+   then `session/new`.
 4. The host forces a newly created session out of the adapter's default
    `bypassPermissions` mode.
 5. The initial state frame enters the in-memory journal and the registry row is
@@ -77,35 +85,44 @@ guaranteed if the write failed.
 Create is idempotent for the same public session and workspace. Reusing a
 session id with a different workspace is a conflict.
 
-### Host Restart
+### Host Or Desktop Restart
 
-1. A new manager reads all `acp_sessions` rows into an `offline` map.
-2. `list` and `get` return those rows as `status: "offline"` without spawning a
-   process.
-3. A command, `getMessages`, or stream attach calls `ensureLive`.
-4. The manager spawns a new adapter and calls `session/load` with the persisted
-   native id and cwd.
-5. The adapter streams the complete native transcript as `session/update`
-   notifications. The manager builds a fresh bounded journal and then accepts
-   new turns.
+The detached per-organization ACP daemon owns the manager, adapter stdio,
+journal, in-flight turn promises, and pending permission callbacks. Restarting
+the host-service or Desktop disconnects only the transport client. The next
+host adopts the existing daemon socket, and stream subscriptions resume from
+their epoch/sequence cursor. Active turns and permission requests continue.
 
-An in-flight turn does not survive a host restart. Replay can recover completed
-transcript content, but pending permissions and process-local callbacks are
-gone. Any replayed tool call left open is terminalized by the host.
+Every connection performs a `hello` handshake containing the daemon protocol,
+exact bundle identity, PID, and active interaction count. An idle stale daemon is
+replaced automatically. A daemon with a running turn, Permission, or AskUser
+callback is retained until the interaction finishes so an update cannot destroy
+its resolver. Unknown protocol operations fail explicitly. Normal host/Desktop
+shutdown only disconnects; **Quit Completely** sends a forced daemon shutdown.
+Unix sockets are owner-only (`0600`), while Windows uses an organization-scoped
+named pipe.
+
+### ACP Daemon Restart
+
+If the ACP daemon itself exits, a new daemon reads all `acp_sessions` rows into
+an `offline` map. `list` and `get` expose them without spawning a process; a
+command, `getMessages`, or stream attach calls `ensureLive`, which starts the
+correct adapter and invokes `session/load` with the persisted native id and cwd.
+Completed transcript content is recovered, but a turn or permission callback
+that was live when the daemon died cannot be reconstructed. Open replayed tool
+calls are terminalized.
 
 `session/load` failure leaves the registry row offline and retryable. The stream
 route emits `reset { reason: "session_load_failed" }`; tRPC calls surface the
-load error. Mobile renders that exact error in a destructive banner and keeps
-the composer hidden until resurrection succeeds; it does not silently create a
-replacement session.
+load error. Clients must not silently create a replacement session.
 
 ### Adapter Exit
 
 An adapter exit marks the runtime `dead`, resolves pending interactions as
 cancelled, terminalizes open tool calls, and emits final state. Dead runtimes
-remain readable in memory, with at most 20 retained per host process. Their
-registry rows remain. A dead runtime is not restarted in the same host process;
-after a host restart its registry row is offline and can be loaded again.
+remain readable in memory, with at most 20 retained per daemon process. Their
+registry rows remain. A dead runtime is not restarted in the same daemon process;
+after a daemon restart its registry row is offline and can be loaded again.
 
 There is no session delete or registry garbage collection path yet.
 
@@ -119,8 +136,12 @@ Each active runtime holds:
 - subscribers;
 - a ring journal capped at 5,000 envelopes.
 
-The host does not hold a separate folded message list. The ring is bounded, so
-memory does not grow for the full lifetime of an arbitrarily long session.
+The host does not hold a separate folded message list. Clients fold ACP frames
+through `@superset/session-protocol`; that fold also creates the Tool Call
+Projection with required `kind`, `status`, `title`, and `locations` fields.
+Renderers consume those fields directly instead of interpreting adapter-specific
+`rawInput` or `_meta`. The ring is bounded, so memory does not grow for the full
+lifetime of an arbitrarily long session.
 However, the current design still gives the ring two jobs:
 
 1. recent WebSocket catch-up with `?since=<seq>`;
@@ -156,7 +177,7 @@ listener synchronously. Duplicate sequences are ignored by the client. A gap
 causes reconnect. An evicted cursor causes `journal_evicted` reset and a full
 state/history resync.
 
-A host restart creates a fresh numeric sequence space. The protocol does not
+An ACP daemon restart creates a fresh numeric sequence space. The protocol does not
 yet carry a journal incarnation id, so a pre-restart cursor whose number
 overlaps the rebuilt journal is not always distinguishable from a current
 cursor. Epoch-aware cursors are required before restart recovery can claim a
@@ -250,7 +271,11 @@ injection, but they do not prove real Claude or real-adapter compatibility. They
 cover the journal, fold, reconnect client, generic host transport, router
 mapping, fake-adapter ACP flow, WebSocket fan-out, permissions, elicitations,
 concurrent permission requests, cancellation, adapter crash, eviction resets,
-and registry-based manager resurrection.
+and registry-based manager resurrection. `acp-daemon.e2e.test.ts` additionally
+runs the bundled daemon with the production `better-sqlite3` driver and fake ACP
+adapter, disconnects and replaces the host client while Permission and AskUser
+are pending, then proves both requests remain actionable on the same daemon PID.
+It also pins shutdown draining and rejection of unsupported protocol operations.
 
 `acp-host-client.e2e.test.ts` also starts the real `createApp` HTTP/tRPC host
 behind a local relay-shaped prefix and drives it only through
@@ -269,9 +294,8 @@ native transcript. A full-device Maestro scenario is still required.
 
 Still required before treating the boundary as production-hardened:
 
-- a separate host OS process kill/respawn (the current boundary test rebuilds
-  the app/server/manager in one Bun test process);
-- the production `better-sqlite3` driver under Node;
+- a separate host OS process kill/respawn while the ACP daemon and an in-flight
+  turn remain alive, followed by cursor-based stream reattachment;
 - stale cursors across journal incarnations;
 - prompt/permission/cancel/config races;
 - slow-subscriber and retention limits;
@@ -281,7 +305,8 @@ Still required before treating the boundary as production-hardened:
 
 ## Source Map
 
-- Runtime: `packages/host-service/src/runtime/acp-sessions/`
+- Runtime and daemon protocol: `packages/host-service/src/runtime/acp-sessions/`
+- Detached daemon entry: `packages/host-service/src/runtime/acp-sessions/daemon-entry.ts`
 - Router: `packages/host-service/src/trpc/router/acp-sessions/`
 - Host DB table: `packages/host-service/src/db/schema.ts`
 - Shared contracts/sync/hooks: `packages/session-protocol/`

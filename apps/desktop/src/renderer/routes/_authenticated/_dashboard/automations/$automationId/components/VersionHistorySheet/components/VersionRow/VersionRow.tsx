@@ -31,8 +31,8 @@ export function VersionRow({
 			onClick={onSelect}
 			aria-pressed={selected}
 			className={cn(
-				"flex w-full flex-col items-start gap-px px-3 py-1.5 text-left transition-colors hover:bg-accent",
-				selected && "bg-accent",
+				"flex w-full flex-col items-start gap-px px-3 py-1.5 text-left transition-colors hover:bg-hover",
+				selected && "bg-accent-tint",
 			)}
 		>
 			<div className="flex w-full items-center gap-1.5">
@@ -50,7 +50,7 @@ export function VersionRow({
 					</Badge>
 				)}
 			</div>
-			<span className="truncate text-xs leading-tight text-muted-foreground">
+			<span className="truncate text-xs leading-tight text-fg-mute">
 				{authorName ?? "Unknown"}
 			</span>
 		</button>

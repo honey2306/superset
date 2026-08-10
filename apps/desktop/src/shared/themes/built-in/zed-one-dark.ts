@@ -39,8 +39,9 @@ export const zedOneDark: Theme = {
 		mutedForeground: "#a9afbc",
 
 		// Accent highlights
-		accent: "#454a56",
-		accentForeground: "#dce0e5",
+		// Accent — brand blue tint (14%), never a fill.
+		accent: "rgba(116, 173, 232, 0.14)",
+		accentForeground: "#74ade8",
 
 		// Tertiary (panel toolbars)
 		tertiary: "#2f343e",
@@ -53,15 +54,15 @@ export const zedOneDark: Theme = {
 		// Borders and inputs
 		border: "#464b57",
 		input: "#363c46",
-		ring: "#47679e",
+		ring: "#74ade8",
 
 		// Sidebar specific
 		sidebar: "#2f343e",
 		sidebarForeground: "#dce0e5",
 		sidebarPrimary: "#74ade8",
 		sidebarPrimaryForeground: "#ffffff",
-		sidebarAccent: "#454a56",
-		sidebarAccentForeground: "#dce0e5",
+		sidebarAccent: "rgba(116, 173, 232, 0.14)",
+		sidebarAccentForeground: "#74ade8",
 		sidebarBorder: "#464b57",
 		sidebarRing: "#47679e",
 

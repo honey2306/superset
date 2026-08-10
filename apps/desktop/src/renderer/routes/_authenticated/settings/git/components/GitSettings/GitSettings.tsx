@@ -126,7 +126,7 @@ export function GitSettings({ visibleItems }: GitSettingsProps) {
 		<div className="p-6 max-w-4xl w-full">
 			<div className="mb-8">
 				<h2 className="text-xl font-semibold">{t("settings.gitWorktrees")}</h2>
-				<p className="text-sm text-muted-foreground mt-1">
+				<p className="text-sm text-fg-mute mt-1">
 					{t("git.legacyDescription")}
 				</p>
 			</div>
@@ -141,7 +141,7 @@ export function GitSettings({ visibleItems }: GitSettingsProps) {
 							>
 								{t("git.deleteLocalBranch")}
 							</Label>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-xs text-fg-mute">
 								{t("git.deleteLocalBranchHint")}
 							</p>
 						</div>
@@ -160,9 +160,9 @@ export function GitSettings({ visibleItems }: GitSettingsProps) {
 							<Label className="text-sm font-medium">
 								{t("git.branchPrefix")}
 							</Label>
-							<p className="text-xs text-muted-foreground">
+							<p className="text-xs text-fg-mute">
 								{t("git.branchPrefixHint")}{" "}
-								<code className="bg-muted px-1.5 py-0.5 rounded text-foreground">
+								<code className="bg-hover px-1.5 py-0.5 rounded text-fg">
 									{previewPrefix
 										? `${previewPrefix}/branch-name`
 										: "branch-name"}

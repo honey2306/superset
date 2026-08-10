@@ -25,6 +25,7 @@ import {
 	LuFolderOpen,
 	LuFolderPlus,
 	LuGitBranch,
+	LuGitPullRequest,
 	LuMinus,
 	LuPencil,
 	LuX,
@@ -41,6 +42,7 @@ import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection"
 import { STROKE_WIDTH } from "../constants";
 import { RenameBranchDialog, WorkspaceHoverCardContent } from "./components";
 import { HOVER_CARD_CLOSE_DELAY, HOVER_CARD_OPEN_DELAY } from "./constants";
+import { getPullRequestMenuActions } from "./pullRequestMenuActions";
 
 interface WorkspaceContextMenuProps {
 	id: string;
@@ -59,6 +61,11 @@ interface WorkspaceContextMenuProps {
 	onSetUnread: (isUnread: boolean) => void;
 	onResetStatus: () => void;
 	onDelete: () => void;
+	pullRequest: { url: string; number: number } | null;
+	isPullRequestSuppressed: boolean;
+	onOpenPullRequest: () => void;
+	onUnlinkPullRequest: () => void;
+	onRestorePullRequest: () => void;
 	children: React.ReactNode;
 }
 
@@ -79,6 +86,11 @@ export function WorkspaceContextMenu({
 	onSetUnread,
 	onResetStatus,
 	onDelete,
+	pullRequest,
+	isPullRequestSuppressed,
+	onOpenPullRequest,
+	onUnlinkPullRequest,
+	onRestorePullRequest,
 	children,
 }: WorkspaceContextMenuProps) {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
@@ -98,6 +110,10 @@ export function WorkspaceContextMenu({
 		() => createContextMenuDeleteDialogCoordinator(onDelete),
 		[onDelete],
 	);
+	const pullRequestActions = getPullRequestMenuActions({
+		hasLinkedPullRequest: pullRequest !== null,
+		isPullRequestSuppressed,
+	});
 
 	const handleContextMenuOpenChange = (open: boolean) => {
 		setIsContextMenuOpen(open);
@@ -155,6 +171,35 @@ export function WorkspaceContextMenu({
 			)}
 		</ContextMenuItem>
 	);
+	const pullRequestMenuItems = pullRequestActions.length > 0 && (
+		<>
+			<ContextMenuSeparator />
+			{pullRequestActions.includes("open") && pullRequest ? (
+				<ContextMenuItem onSelect={onOpenPullRequest}>
+					<LuGitPullRequest
+						className="size-4 mr-2"
+						strokeWidth={STROKE_WIDTH}
+					/>
+					{t("workspace.openPullRequest", { number: pullRequest.number })}
+				</ContextMenuItem>
+			) : null}
+			{pullRequestActions.includes("unlink") ? (
+				<ContextMenuItem onSelect={onUnlinkPullRequest}>
+					<LuX className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+					{t("workspace.removeLinkedPr")}
+				</ContextMenuItem>
+			) : null}
+			{pullRequestActions.includes("restore") ? (
+				<ContextMenuItem onSelect={onRestorePullRequest}>
+					<LuGitPullRequest
+						className="size-4 mr-2"
+						strokeWidth={STROKE_WIDTH}
+					/>
+					Restore linked PR
+				</ContextMenuItem>
+			) : null}
+		</>
+	);
 
 	const commonContextMenuItems = (
 		<>
@@ -174,6 +219,7 @@ export function WorkspaceContextMenu({
 				<LuGitBranch className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 				{t("workspace.copyBranch")}
 			</ContextMenuItem>
+			{pullRequestMenuItems}
 			<ContextMenuSeparator />
 			<ContextMenuSub>
 				<ContextMenuSubTrigger>

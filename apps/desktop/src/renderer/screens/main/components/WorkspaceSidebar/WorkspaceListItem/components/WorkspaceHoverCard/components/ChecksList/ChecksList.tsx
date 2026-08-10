@@ -25,7 +25,7 @@ export function ChecksList({ checks }: ChecksListProps) {
 			<button
 				type="button"
 				onClick={() => setExpanded(!expanded)}
-				className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+				className="flex items-center gap-1 text-fg-mute hover:text-fg transition-colors"
 			>
 				{expanded ? (
 					<LuChevronDown className="size-3" strokeWidth={STROKE_WIDTH} />

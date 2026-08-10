@@ -1,4 +1,5 @@
 import type { RendererContext, Tab, WorkspaceStore } from "@superset/panes";
+import type { SessionStatus } from "@superset/session-protocol";
 import { getHighestPriorityStatus, type PaneStatus } from "shared/tabs-types";
 import type { StoreApi } from "zustand/vanilla";
 import type {
@@ -24,14 +25,68 @@ export function syncV1PanesTerminalStatuses(
 	}
 }
 
+/**
+ * Reconcile ACP pane status against the workspace-level ACP session snapshot.
+ * The tab-strip status accessory reads `pane.data.acp.status`, so writes
+ * from `AcpSessionPane.onSessionMetadataChange` alone would stall until the
+ * user opens that tab — this sync runs at the workspace level and keeps the
+ * tab badge in step with the sidebar's aggregate red dot.
+ */
+export function syncV1PanesAcpStatuses(
+	store: StoreApi<WorkspaceStore<V1PanesPaneData>>,
+	statuses: ReadonlyMap<string, SessionStatus>,
+): void {
+	for (const tab of store.getState().tabs) {
+		for (const pane of Object.values(tab.panes)) {
+			if (pane.kind !== "acp") continue;
+			const acp = pane.data.acp;
+			if (!acp) continue;
+			const nextStatus = statuses.get(acp.sessionId);
+			if (nextStatus === undefined) continue;
+			if (acp.status === nextStatus) continue;
+			store.getState().setPaneData({
+				paneId: pane.id,
+				data: { ...pane.data, acp: { ...acp, status: nextStatus } },
+			});
+		}
+	}
+}
+
 export function getV1PanesTabStatus(
 	tab: Tab<V1PanesPaneData>,
 ): ReturnType<typeof getHighestPriorityStatus> {
 	return getHighestPriorityStatus(
 		Object.values(tab.panes).map((pane) =>
-			pane.kind === "terminal" ? pane.data.status : undefined,
+			pane.kind === "terminal"
+				? pane.data.status
+				: pane.kind === "acp"
+					? acpSessionStatusToPaneStatus(pane.data.acp?.status)
+					: undefined,
 		),
 	);
+}
+
+/** Maps protocol session state onto the shared tab/sidebar status vocabulary.
+ *
+ * `offline` is a dormant state — the session is persisted on the host but no
+ * adapter is attached, and any live-path call resurrects it. It is not a
+ * failure the user must act on, so it maps to `idle` (no indicator). Only
+ * `dead` — a session that actually crashed — shows the red "failed" dot.
+ */
+export function acpSessionStatusToPaneStatus(
+	status: SessionStatus | undefined,
+): PaneStatus {
+	switch (status) {
+		case "running":
+		case "starting":
+			return "working";
+		case "awaiting_permission":
+			return "permission";
+		case "dead":
+			return "failed";
+		default:
+			return "idle";
+	}
 }
 
 export function createV1PanesTerminalPaneBridge(

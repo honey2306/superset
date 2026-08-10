@@ -144,10 +144,10 @@ function OnboardingProjectPage() {
 			<Card className="flex-row items-center gap-4 p-5">
 				<ProjectIcon icon={<LuFolderOpen className="size-4.5" />} />
 				<div className="min-w-0 flex-1">
-					<p className="text-sm font-medium text-foreground">
+					<p className="text-sm font-medium text-fg">
 						{t("onboarding.openFolder")}
 					</p>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-xs text-fg-mute">
 						{t("onboarding.openFolderDescription")}
 					</p>
 				</div>
@@ -165,10 +165,10 @@ function OnboardingProjectPage() {
 				<div className="flex items-center gap-4">
 					<ProjectIcon icon={<LuGitBranch className="size-4.5" />} />
 					<div className="min-w-0 flex-1">
-						<p className="text-sm font-medium text-foreground">
+						<p className="text-sm font-medium text-fg">
 							{t("onboarding.cloneRepo")}
 						</p>
-						<p className="text-xs text-muted-foreground">
+						<p className="text-xs text-fg-mute">
 							{t("onboarding.cloneDescription")}
 						</p>
 					</div>
@@ -194,10 +194,10 @@ function OnboardingProjectPage() {
 			<Card className="flex-row items-center gap-4 p-5">
 				<ProjectIcon icon={<LuLayoutTemplate className="size-4.5" />} />
 				<div className="min-w-0 flex-1">
-					<p className="text-sm font-medium text-foreground">
+					<p className="text-sm font-medium text-fg">
 						{t("workspace.startFromTemplate")}
 					</p>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-xs text-fg-mute">
 						{t("onboarding.templateDescription")}
 					</p>
 				</div>
@@ -225,7 +225,7 @@ function OnboardingProjectPage() {
 
 function ProjectIcon({ icon }: { icon: ReactNode }) {
 	return (
-		<div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+		<div className="flex size-9 shrink-0 items-center justify-center rounded-ds-3 bg-hover text-fg-mute">
 			{icon}
 		</div>
 	);

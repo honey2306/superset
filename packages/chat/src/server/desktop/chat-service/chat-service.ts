@@ -13,6 +13,7 @@ import {
 	OPENAI_AUTH_PROVIDER_ID,
 	OPENAI_AUTH_PROVIDER_IDS,
 } from "../auth/provider-ids";
+import { type CodexUsageResult, getCodexUsage } from "../codex";
 import {
 	type AnthropicEnvVariables,
 	type AnthropicRuntimeEnv,
@@ -84,6 +85,10 @@ export class ChatService {
 		this.applyAnthropicRuntimeEnv(
 			stripAnthropicCredentialEnvVariables(persistedConfig.variables),
 		);
+	}
+
+	async getCodexUsage(): Promise<CodexUsageResult> {
+		return getCodexUsage();
 	}
 
 	async getAnthropicAuthStatus(): Promise<AuthStatus> {

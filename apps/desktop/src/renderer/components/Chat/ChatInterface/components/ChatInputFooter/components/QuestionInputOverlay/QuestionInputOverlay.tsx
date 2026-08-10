@@ -63,15 +63,13 @@ export function QuestionInputOverlay({
 	const handleSkip = () => handleSubmitAnswer("skip", "__skip__");
 
 	return (
-		<div className="flex max-h-[300px] flex-col overflow-hidden rounded-[13px] border-[0.5px] border-border bg-foreground/[0.02]">
+		<div className="flex max-h-[300px] flex-col overflow-hidden rounded-[13px] border-[0.5px] border-line bg-foreground/[0.02]">
 			{/* Question — pinned header */}
 			<div className="flex shrink-0 items-start gap-2 px-3 pt-3 pb-3">
 				<div className="flex-1 space-y-1">
-					<p className="text-sm leading-snug text-foreground">
-						{question.question}
-					</p>
+					<p className="text-sm leading-snug text-fg">{question.question}</p>
 					{question.description && (
-						<p className="text-xs leading-snug text-muted-foreground">
+						<p className="text-xs leading-snug text-fg-mute">
 							{question.description}
 						</p>
 					)}
@@ -80,7 +78,7 @@ export function QuestionInputOverlay({
 					<TooltipTrigger asChild>
 						<button
 							type="button"
-							className="-mr-0.5 shrink-0 rounded-md p-1 text-muted-foreground/50 transition-colors hover:bg-muted/40 hover:text-muted-foreground"
+							className="-mr-0.5 shrink-0 rounded-ds-3 p-1 text-fg-mute/50 transition-colors hover:bg-hover/40 hover:text-fg-mute"
 							onClick={onCancel}
 							aria-label={t("questionInput.cancel")}
 						>
@@ -102,18 +100,18 @@ export function QuestionInputOverlay({
 					{options.map((option, i) => {
 						const isChosen = submittedLabel === option.label;
 						return (
-							<div key={option.label} className="border-t border-border/60">
+							<div key={option.label} className="border-t border-line/60">
 								<button
 									type="button"
 									className={cn(
-										"group flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors",
-										isChosen ? "bg-foreground/[0.06]" : "hover:bg-muted/40",
+										"group flex w-full items-center gap-3 rounded-ds-5 px-2 py-2.5 text-left transition-colors",
+										isChosen ? "bg-foreground/[0.06]" : "hover:bg-hover/40",
 										isDisabled && !isChosen && "cursor-not-allowed opacity-40",
 									)}
 									disabled={isDisabled}
 									onClick={() => handleOption(option.label)}
 								>
-									<span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-muted/60 font-mono text-xs leading-none text-muted-foreground/70">
+									<span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-hover/60 font-mono text-xs leading-none text-fg-faint">
 										{isChosen ? (
 											<Loader2Icon className="size-3.5 animate-spin" />
 										) : (
@@ -123,9 +121,7 @@ export function QuestionInputOverlay({
 									<span
 										className={cn(
 											"text-sm transition-colors",
-											isChosen
-												? "text-foreground"
-												: "text-muted-foreground group-hover:text-foreground",
+											isChosen ? "text-fg" : "text-fg-mute group-hover:text-fg",
 										)}
 									>
 										{option.label}
@@ -140,18 +136,18 @@ export function QuestionInputOverlay({
 			{/* Text input / skip — pinned footer */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: click-to-focus affordance */}
 			<form
-				className="mx-2 mb-2 mt-px shrink-0 flex cursor-text items-center gap-3 rounded-lg bg-black/20 px-2.5 py-2 ring-1 ring-inset ring-border/60"
+				className="mx-2 mb-2 mt-px shrink-0 flex cursor-text items-center gap-3 rounded-ds-5 bg-black/20 px-2.5 py-2 ring-1 ring-inset ring-border/60"
 				onSubmit={(e) => {
 					e.preventDefault();
 					handleCustom();
 				}}
 				onClick={() => inputRef.current?.focus()}
 			>
-				<span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-muted/60">
+				<span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-hover/60">
 					{isInputRowSubmitted ? (
-						<Loader2Icon className="size-3.5 animate-spin text-muted-foreground/70" />
+						<Loader2Icon className="size-3.5 animate-spin text-fg-faint" />
 					) : (
-						<PencilIcon className="size-3.5 text-muted-foreground/70" />
+						<PencilIcon className="size-3.5 text-fg-faint" />
 					)}
 				</span>
 				<input
@@ -164,14 +160,14 @@ export function QuestionInputOverlay({
 							: t("questionInput.answerPlaceholder")
 					}
 					disabled={isDisabled}
-					className="flex-1 cursor-text bg-transparent py-1 text-sm text-foreground outline-none placeholder:text-muted-foreground/40 disabled:cursor-not-allowed"
+					className="flex-1 cursor-text bg-transparent py-1 text-sm text-fg outline-none placeholder:text-fg-mute/40 disabled:cursor-not-allowed"
 				/>
 				{!isDisabled && (
 					<div className="relative shrink-0">
 						<button
 							type="button"
 							className={cn(
-								"rounded-sm border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-all duration-150 hover:border-foreground/30 hover:text-foreground",
+								"rounded-sm border border-line px-3 py-1 text-xs font-medium text-fg-mute transition-all duration-150 hover:border-foreground/30 hover:text-fg",
 								hasCustomText ? "pointer-events-none opacity-0" : "opacity-100",
 							)}
 							onClick={(e) => {

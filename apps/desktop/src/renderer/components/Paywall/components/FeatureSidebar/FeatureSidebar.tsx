@@ -27,9 +27,9 @@ export function FeatureSidebar({
 	}, [highlightedFeatureId]);
 
 	return (
-		<div className="flex flex-col border-r bg-card">
+		<div className="flex flex-col border-r bg-surface">
 			<div className="px-5 pt-5 pb-2.5">
-				<h1 className="mb-0 text-lg font-bold text-foreground">Pro Features</h1>
+				<h1 className="mb-0 text-lg font-bold text-fg">Pro Features</h1>
 			</div>
 
 			<div className="flex flex-col gap-2.5 px-5 py-2.5">
@@ -63,8 +63,8 @@ function FeatureButton({ feature, isSelected, onSelect }: FeatureButtonProps) {
 				"group flex w-[209px] h-16 items-center gap-3 px-4 py-3.5 transition-all duration-200 ease-out",
 				"cursor-pointer text-left",
 				isSelected
-					? "bg-muted text-foreground"
-					: "text-foreground/70 hover:text-foreground hover:bg-foreground/5",
+					? "bg-hover text-fg"
+					: "text-fg-mute hover:text-fg hover:bg-fg/5",
 			)}
 		>
 			<Icon
@@ -72,20 +72,20 @@ function FeatureButton({ feature, isSelected, onSelect }: FeatureButtonProps) {
 					"shrink-0 text-xl transition-all duration-200 ease-out",
 					isSelected
 						? feature.iconColor
-						: "text-foreground/40 group-hover:text-foreground/60",
+						: "text-fg-faint group-hover:text-fg-mute",
 				)}
 			/>
 			<span className="flex flex-col">
 				<span
 					className={cn(
 						"text-sm font-semibold transition-all duration-200",
-						isSelected ? "text-foreground" : "",
+						isSelected ? "text-fg" : "",
 					)}
 				>
 					{feature.title}
 				</span>
 				{feature.comingSoon && (
-					<span className="text-[11px] text-muted-foreground font-normal">
+					<span className="text-[11px] text-fg-mute font-normal">
 						(Coming Soon)
 					</span>
 				)}

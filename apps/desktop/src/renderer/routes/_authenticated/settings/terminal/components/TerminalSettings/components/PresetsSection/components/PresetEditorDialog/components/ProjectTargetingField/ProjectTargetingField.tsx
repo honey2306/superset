@@ -92,7 +92,7 @@ export function ProjectTargetingField({
 
 	return (
 		<div className="space-y-2">
-			<div className="inline-flex w-full overflow-hidden rounded-md border border-border">
+			<div className="inline-flex w-full overflow-hidden rounded-ds-3 border border-line">
 				{segmentedOptions.map((option, idx) => (
 					<button
 						key={option.value}
@@ -101,10 +101,10 @@ export function ProjectTargetingField({
 						disabled={option.value === "specific" && projects.length === 0}
 						className={cn(
 							"flex-1 px-3 py-1 text-xs font-medium transition-colors",
-							idx > 0 && "border-l border-border",
+							idx > 0 && "border-l border-line",
 							scope === option.value
-								? "bg-accent text-accent-foreground"
-								: "bg-transparent text-muted-foreground hover:bg-accent/50",
+								? "bg-accent-tint text-accent-foreground"
+								: "bg-transparent text-fg-mute hover:bg-hover",
 							"disabled:cursor-not-allowed disabled:opacity-50",
 						)}
 					>
@@ -124,7 +124,7 @@ export function ProjectTargetingField({
 								className="h-8 w-full justify-between"
 							>
 								<span className="truncate">{buttonLabel}</span>
-								<ChevronsUpDownIcon className="size-3.5 text-muted-foreground" />
+								<ChevronsUpDownIcon className="size-3.5 text-fg-mute" />
 							</Button>
 						</PopoverTrigger>
 						<PopoverContent align="start" className="w-[280px] p-0">
@@ -148,7 +148,7 @@ export function ProjectTargetingField({
 													/>
 													<div className="min-w-0 flex-1">
 														<div className="truncate">{project.name}</div>
-														<div className="truncate text-xs text-muted-foreground">
+														<div className="truncate text-xs text-fg-mute">
 															{project.mainRepoPath}
 														</div>
 													</div>
@@ -167,7 +167,7 @@ export function ProjectTargetingField({
 						</PopoverContent>
 					</Popover>
 					{selectedProjects.length > 0 ? (
-						<p className="text-xs text-muted-foreground">
+						<p className="text-xs text-fg-mute">
 							{t("terminal.projectsSelected", {
 								count: selectedProjects.length,
 							})}
@@ -177,7 +177,7 @@ export function ProjectTargetingField({
 			) : null}
 
 			{projects.length === 0 ? (
-				<p className="text-xs text-muted-foreground">
+				<p className="text-xs text-fg-mute">
 					{t("terminal.importProjectHint")}
 				</p>
 			) : null}

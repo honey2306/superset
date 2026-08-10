@@ -102,9 +102,9 @@ export function V2OpenInMenuButton({
 							// Icon-only when the nearest @container is narrow; the branch
 							// label comes back once there's room (right sidebar is resizable,
 							// so viewport breakpoints don't apply here).
-							"group flex h-6 items-center justify-center gap-1.5 rounded-l border border-r-0 border-border/60 bg-secondary/50 px-1.5 text-xs font-medium @[240px]:pr-2",
+							"group flex h-6 items-center justify-center gap-1.5 rounded-l border border-r-0 border-line/60 bg-secondary/50 px-1.5 text-xs font-medium @[240px]:pr-2",
 							"transition-all duration-150 ease-out",
-							"hover:bg-secondary hover:border-border",
+							"hover:bg-secondary hover:border-line",
 							"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 							"active:scale-[0.98]",
 							isLoading && "opacity-50 pointer-events-none",
@@ -119,7 +119,7 @@ export function V2OpenInMenuButton({
 						)}
 						{branch && (
 							<OverflowFadeText
-								className="hidden max-w-[140px] text-muted-foreground tabular-nums @[240px]:inline-block"
+								className="hidden max-w-[140px] text-fg-mute tabular-nums @[240px]:inline-block"
 								title={branch}
 							>
 								/{branch}
@@ -136,7 +136,7 @@ export function V2OpenInMenuButton({
 								})}
 								id="OPEN_IN_APP"
 							/>
-							<span className="text-muted-foreground">{worktreePath}</span>
+							<span className="text-fg-mute">{worktreePath}</span>
 						</div>
 					) : (
 						t("dashboard.selectEditor")
@@ -151,9 +151,9 @@ export function V2OpenInMenuButton({
 						disabled={isLoading}
 						aria-label={t("dashboard.openInMenuAria")}
 						className={cn(
-							"flex items-center justify-center h-6 w-6 rounded-r border border-border/60 bg-secondary/50 text-muted-foreground",
+							"flex items-center justify-center h-6 w-6 rounded-r border border-line/60 bg-secondary/50 text-fg-mute",
 							"transition-all duration-150 ease-out",
-							"hover:bg-secondary hover:border-border hover:text-foreground",
+							"hover:bg-secondary hover:border-line hover:text-fg",
 							"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 							"active:scale-[0.98]",
 							isLoading && "opacity-50 pointer-events-none",

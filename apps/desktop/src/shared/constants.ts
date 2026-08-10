@@ -54,6 +54,7 @@ export const DEFAULT_SHOW_PRESETS_BAR = true;
 export const DEFAULT_USE_COMPACT_TERMINAL_ADD_BUTTON = true;
 export const DEFAULT_TELEMETRY_ENABLED = true;
 export const DEFAULT_SHOW_RESOURCE_MONITOR = true;
+export const DEFAULT_USE_ACP_FOR_AGENT_PRESETS = false;
 
 // External links (documentation, help resources, etc.)
 export const EXTERNAL_LINKS = {

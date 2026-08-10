@@ -84,7 +84,7 @@ function IssueDetailPage() {
 	if (!projectId) {
 		return (
 			<div className="flex-1 flex items-center justify-center">
-				<span className="text-muted-foreground">No project specified.</span>
+				<span className="text-fg-mute">No project specified.</span>
 			</div>
 		);
 	}
@@ -92,7 +92,7 @@ function IssueDetailPage() {
 	if (isLoading) {
 		return (
 			<div className="flex-1 flex items-center justify-center">
-				<span className="text-muted-foreground">Loading issue…</span>
+				<span className="text-fg-mute">Loading issue…</span>
 			</div>
 		);
 	}
@@ -134,7 +134,7 @@ function IssueDetailPage() {
 							className={
 								isClosed
 									? "size-5 shrink-0 mt-1 text-violet-500"
-									: "size-5 shrink-0 mt-1 text-emerald-500"
+									: "size-5 shrink-0 mt-1 text-success"
 							}
 						/>
 						<h1 className="text-2xl font-semibold leading-tight">
@@ -142,7 +142,7 @@ function IssueDetailPage() {
 						</h1>
 					</div>
 
-					<div className="flex items-center gap-3 text-xs text-muted-foreground mb-6">
+					<div className="flex items-center gap-3 text-xs text-fg-mute mb-6">
 						<span className="capitalize">{data.state}</span>
 						{data.author && (
 							<>
@@ -155,7 +155,7 @@ function IssueDetailPage() {
 					{data.body.trim() ? (
 						<MarkdownRenderer content={data.body} />
 					) : (
-						<p className="text-sm text-muted-foreground italic">
+						<p className="text-sm text-fg-mute italic">
 							No description provided.
 						</p>
 					)}
@@ -182,7 +182,7 @@ function Header({
 }: HeaderProps) {
 	const StateIcon = isClosed ? GoIssueClosed : GoIssueOpened;
 	return (
-		<div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
+		<div className="flex items-center gap-3 px-6 py-4 border-b border-line shrink-0">
 			<Button
 				variant="ghost"
 				size="icon"
@@ -193,11 +193,9 @@ function Header({
 				<HiArrowLeft className="w-4 h-4" />
 			</Button>
 			<StateIcon
-				className={
-					isClosed ? "size-4 text-violet-500" : "size-4 text-emerald-500"
-				}
+				className={isClosed ? "size-4 text-violet-500" : "size-4 text-success"}
 			/>
-			<span className="text-sm text-muted-foreground font-mono tabular-nums">
+			<span className="text-sm text-fg-mute font-mono tabular-nums">
 				#{issueNumber}
 			</span>
 			<div className="ml-auto flex items-center gap-1">
@@ -206,7 +204,7 @@ function Header({
 						href={url}
 						target="_blank"
 						rel="noopener noreferrer"
-						className="text-muted-foreground hover:text-foreground transition-colors p-2"
+						className="text-fg-mute hover:text-fg transition-colors p-2"
 						title="Open in GitHub"
 					>
 						<LuExternalLink className="w-4 h-4" />

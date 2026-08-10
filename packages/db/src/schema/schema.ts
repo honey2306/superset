@@ -25,6 +25,8 @@ import {
 	integrationProviderValues,
 	taskPriorityValues,
 	taskStatusEnumValues,
+	todoModeValues,
+	todoStatusValues,
 	v2ClientTypeValues,
 	v2UsersHostRoleValues,
 	v2WorkspaceTypeValues,
@@ -892,6 +894,65 @@ export type InsertAutomationPromptVersion =
 	typeof automationPromptVersions.$inferInsert;
 export type SelectAutomationPromptVersion =
 	typeof automationPromptVersions.$inferSelect;
+
+export const todoMode = pgEnum("todo_mode", todoModeValues);
+export const todoStatus = pgEnum("todo_status", todoStatusValues);
+
+export const todos = pgTable(
+	"todos",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		organizationId: uuid("organization_id")
+			.notNull()
+			.references(() => organizations.id, { onDelete: "cascade" }),
+		ownerUserId: uuid("owner_user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+
+		title: text().notNull(),
+		note: text(),
+
+		mode: todoMode().notNull(),
+
+		dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+		timezone: text().notNull(),
+
+		v2ProjectId: uuid("v2_project_id"),
+		v2WorkspaceId: uuid("v2_workspace_id"),
+		targetHostId: text("target_host_id"),
+		agent: text(),
+		prompt: text(),
+
+		status: todoStatus().notNull().default("pending"),
+
+		sessionKind: automationSessionKind("session_kind"),
+		chatSessionId: uuid("chat_session_id").references(() => chatSessions.id, {
+			onDelete: "set null",
+		}),
+		terminalSessionId: text("terminal_session_id"),
+
+		notifiedAt: timestamp("notified_at", { withTimezone: true }),
+		dispatchedAt: timestamp("dispatched_at", { withTimezone: true }),
+		doneAt: timestamp("done_at", { withTimezone: true }),
+		error: text(),
+
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow()
+			.$onUpdate(() => new Date()),
+	},
+	(t) => [
+		index("todos_dispatcher_idx").on(t.status, t.dueAt),
+		index("todos_owner_idx").on(t.ownerUserId),
+		index("todos_organization_idx").on(t.organizationId),
+	],
+);
+
+export type InsertTodo = typeof todos.$inferInsert;
+export type SelectTodo = typeof todos.$inferSelect;
 
 export const submittedPrompts = pgTable(
 	"submitted_prompts",

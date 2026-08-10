@@ -116,7 +116,7 @@ export function MessagePartsRenderer({
 				nodes.push(
 					<div
 						key={i}
-						className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+						className="flex items-start gap-2 rounded-ds-3 border border-destructive/20 bg-danger-tint px-4 py-2 text-sm text-destructive"
 					>
 						<AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" />
 						<span className="select-text">{errorPart.text}</span>

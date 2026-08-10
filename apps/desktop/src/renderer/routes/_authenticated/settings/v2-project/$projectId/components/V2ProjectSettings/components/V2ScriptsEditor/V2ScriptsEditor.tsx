@@ -281,12 +281,12 @@ export function V2ScriptsEditor({
 	if (isLoading) {
 		return (
 			<div className={cn("space-y-3", className)} aria-busy="true">
-				<div className="flex h-9 items-center gap-5 border-b border-border px-2">
+				<div className="flex h-9 items-center gap-5 border-b border-line px-2">
 					<Skeleton className="h-3 w-10" />
 					<Skeleton className="h-3 w-14" />
 					<Skeleton className="h-3 w-8" />
 				</div>
-				<Skeleton className="h-24 w-full rounded-md" />
+				<Skeleton className="h-24 w-full rounded-ds-3" />
 			</div>
 		);
 	}
@@ -294,31 +294,31 @@ export function V2ScriptsEditor({
 	return (
 		<div className={cn("space-y-3", className)}>
 			<Tabs defaultValue="setup">
-				<div className="flex items-center justify-between gap-2 border-b border-border">
+				<div className="flex items-center justify-between gap-2 border-b border-line">
 					<TabsList className="h-auto gap-0 rounded-none bg-transparent p-0">
 						<TabsTrigger
 							value="setup"
-							className="relative h-8 rounded-none border-0 bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-transparent data-[state=active]:after:bg-foreground"
+							className="relative h-8 rounded-none border-0 bg-transparent px-3 text-sm font-medium text-fg-mute shadow-none transition-colors hover:text-fg data-[state=active]:bg-transparent data-[state=active]:text-fg data-[state=active]:shadow-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-transparent data-[state=active]:after:bg-foreground"
 						>
 							Setup
 						</TabsTrigger>
 						<TabsTrigger
 							value="teardown"
-							className="relative h-8 rounded-none border-0 bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-transparent data-[state=active]:after:bg-foreground"
+							className="relative h-8 rounded-none border-0 bg-transparent px-3 text-sm font-medium text-fg-mute shadow-none transition-colors hover:text-fg data-[state=active]:bg-transparent data-[state=active]:text-fg data-[state=active]:shadow-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-transparent data-[state=active]:after:bg-foreground"
 						>
 							Teardown
 						</TabsTrigger>
 						<TabsTrigger
 							value="run"
-							className="relative h-8 rounded-none border-0 bg-transparent px-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-transparent data-[state=active]:after:bg-foreground"
+							className="relative h-8 rounded-none border-0 bg-transparent px-3 text-sm font-medium text-fg-mute shadow-none transition-colors hover:text-fg data-[state=active]:bg-transparent data-[state=active]:text-fg data-[state=active]:shadow-none after:absolute after:inset-x-0 after:-bottom-px after:h-px after:bg-transparent data-[state=active]:after:bg-foreground"
 						>
 							Run
 						</TabsTrigger>
 					</TabsList>
-					<div className="flex h-5 items-center pb-1.5 text-xs text-muted-foreground">
+					<div className="flex h-5 items-center pb-1.5 text-xs text-fg-mute">
 						{saveStatus === "saving" && <span>{t("scripts.saving")}</span>}
 						{saveStatus === "saved" && (
-							<span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+							<span className="flex items-center gap-1 text-success dark:text-success">
 								<HiCheckCircle className="h-3.5 w-3.5" />
 								{t("scripts.saved")}
 							</span>

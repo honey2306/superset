@@ -123,8 +123,8 @@ export function FileTreeItem({
 			aria-expanded={isFolder ? isExpanded : undefined}
 			className={cn(
 				"flex items-center gap-1 px-1 cursor-pointer select-none",
-				"hover:bg-accent/50 transition-colors",
-				item.isSelected() && "bg-accent",
+				"hover:bg-hover transition-colors",
+				item.isSelected() && "bg-accent-tint",
 			)}
 			onClick={handleClick}
 			onDoubleClick={handleDoubleClick}
@@ -133,9 +133,9 @@ export function FileTreeItem({
 			<span className="flex items-center justify-center w-4 h-4 shrink-0">
 				{isFolder ? (
 					isExpanded ? (
-						<LuChevronDown className="size-3.5 text-muted-foreground" />
+						<LuChevronDown className="size-3.5 text-fg-mute" />
 					) : (
-						<LuChevronRight className="size-3.5 text-muted-foreground" />
+						<LuChevronRight className="size-3.5 text-fg-mute" />
 					)
 				) : null}
 			</span>

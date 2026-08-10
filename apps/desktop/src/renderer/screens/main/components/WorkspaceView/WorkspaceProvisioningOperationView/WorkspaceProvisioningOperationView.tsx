@@ -63,25 +63,23 @@ export function WorkspaceProvisioningOperationView({
 							<HiExclamationTriangle className="size-8 text-destructive" />
 						</div>
 					) : (
-						<LuLoader className="size-12 animate-spin text-muted-foreground" />
+						<LuLoader className="size-12 animate-spin text-fg-mute" />
 					)}
 
 					<div className="space-y-2">
-						<h2 className="text-lg font-medium text-foreground">
+						<h2 className="text-lg font-medium text-fg">
 							{hasFailed
 								? t("workspace.setupFailed")
 								: t("workspace.settingUpWorkspace")}
 						</h2>
-						<p className="text-sm text-muted-foreground">{workspaceName}</p>
+						<p className="text-sm text-fg-mute">{workspaceName}</p>
 						{operation.failure?.message && (
-							<p className="mt-2 rounded-md bg-destructive/5 px-3 py-2 text-xs text-destructive/80 select-text [overflow-wrap:anywhere]">
+							<p className="mt-2 rounded-ds-3 bg-destructive/5 px-3 py-2 text-xs text-destructive/80 select-text [overflow-wrap:anywhere]">
 								{operation.failure.message}
 							</p>
 						)}
 						{operation.stage && !hasFailed && (
-							<p className="text-xs text-muted-foreground/70">
-								{operation.stage}
-							</p>
+							<p className="text-xs text-fg-mute/70">{operation.stage}</p>
 						)}
 					</div>
 
@@ -119,7 +117,7 @@ export function WorkspaceProvisioningOperationView({
 							{t("workspace.deleteNamedQuestion", { name: workspaceName })}
 						</AlertDialogTitle>
 						<AlertDialogDescription asChild>
-							<div className="text-muted-foreground">
+							<div className="text-fg-mute">
 								{t("workspace.deleteFailedDescription")}
 							</div>
 						</AlertDialogDescription>

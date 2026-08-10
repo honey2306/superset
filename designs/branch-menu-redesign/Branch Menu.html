@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dracula">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Branch Menu — Redesign</title>
+		<link rel="stylesheet" href="tokens.css" />
+		<link rel="stylesheet" href="canvas.css" />
+	</head>
+	<body>
+		<main class="page">
+			<header class="page-header">
+				<div class="page-titles">
+					<div class="eyebrow">
+						<span class="dot"></span>
+						<span>Superset · Changes 面板 · Branch Menu</span>
+					</div>
+					<h1 class="page-title">分支菜单重设计</h1>
+					<p class="page-desc">
+						三种承载方式对比：一版是把现在的 popover 精修到位；一版换成右侧完整抽屉，能放下所有元信息；一版按 Superset 已有的
+						终端/命令面板美学重写。每一版都覆盖<strong>新建</strong>、<strong>切分支（走新 workspace）</strong>、<strong>merge 策略</strong>、
+						<strong>本地/远端删除</strong>的全部交互状态。
+					</p>
+				</div>
+				<div class="page-controls">
+					<div class="state-switch" id="stateSwitch" aria-label="状态切换">
+						<button data-state="default" class="is-active">默认</button>
+						<button data-state="menu">…菜单</button>
+						<button data-state="delete">删除确认</button>
+						<button data-state="empty">空态</button>
+					</div>
+					<div class="theme-switch" id="themeSwitch" aria-label="主题切换">
+						<button data-theme="dracula" class="is-active">Dracula</button>
+						<button data-theme="ember">Ember</button>
+						<button data-theme="zed">Zed</button>
+						<button data-theme="light">Light</button>
+					</div>
+				</div>
+			</header>
+
+			<section class="variants" id="variants">
+				<!-- ============================================================ -->
+				<!-- Variant A -->
+				<!-- ============================================================ -->
+				<article class="variant" data-variant="a">
+					<header class="variant-head">
+						<span class="variant-tag">Variant A · Popover</span>
+						<h2 class="variant-name">紧凑 Popover</h2>
+						<p class="variant-desc">
+							保留头栏图标入口，重排层级：新建输入位于顶部、搜索与过滤合并、每行 hover 才露出操作，鼠标不动的时候近乎无噪。
+						</p>
+					</header>
+					<div class="stage">
+						<div class="stage-anchor">
+							<div class="a-popover" data-el="a">
+								<div class="a-head">
+									<div class="a-title-row">
+										<div class="a-title">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+											<span>分支</span>
+										</div>
+										<span class="a-count">14</span>
+									</div>
+									<div class="a-new">
+										<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+											<path d="M8 3v10M3 8h10" />
+										</svg>
+										<input placeholder="从 HEAD 新建分支…" value="" />
+										<span class="kbd">↵</span>
+									</div>
+									<div class="a-search-row">
+										<div class="search" style="flex: 1">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="7" cy="7" r="4.5" />
+												<path d="m11 11 3 3" />
+											</svg>
+											<input placeholder="搜索分支" />
+										</div>
+										<div class="filter-tabs">
+											<button class="is-active">全部</button>
+											<button>本地</button>
+											<button>远端</button>
+										</div>
+									</div>
+								</div>
+
+								<div class="a-list">
+									<div class="a-row is-current">
+										<span class="a-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<div class="a-meta">
+											<div class="a-name">
+												<span>feat/acp-agent-control-plane</span>
+												<span class="pill is-current">current</span>
+											</div>
+											<div class="a-sub">
+												<span>local · tracked</span>
+												<span class="sep">·</span>
+												<span>↑2 ↓0</span>
+											</div>
+										</div>
+										<div class="a-actions">
+											<button class="icon-btn" title="设为基础分支">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+													<path d="m3 8 3 3 7-7" />
+												</svg>
+											</button>
+										</div>
+									</div>
+
+									<div class="a-row">
+										<span class="a-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<div class="a-meta">
+											<div class="a-name">
+												<span>main</span>
+												<span class="pill is-base">
+													<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="width: 8px; height: 8px">
+														<path d="m3 8 3 3 7-7" />
+													</svg>
+													base
+												</span>
+												<span class="pill is-default">default</span>
+											</div>
+											<div class="a-sub"><span>local · tracked</span></div>
+										</div>
+										<div class="a-actions">
+											<button class="ghost-btn is-primary" title="在新 workspace 中打开">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+													<path d="M6 3H3v10h10v-3M9 3h4v4M8 8l5-5" />
+												</svg>
+												Open
+											</button>
+											<button class="icon-btn" title="更多">
+												<svg viewBox="0 0 16 16" fill="currentColor">
+													<circle cx="3" cy="8" r="1.4" />
+													<circle cx="8" cy="8" r="1.4" />
+													<circle cx="13" cy="8" r="1.4" />
+												</svg>
+											</button>
+										</div>
+									</div>
+
+									<div class="a-row is-focused">
+										<span class="a-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<div class="a-meta">
+											<div class="a-name">
+												<span>feat/branch-menu</span>
+											</div>
+											<div class="a-sub">
+												<span>local</span>
+												<span class="sep">·</span>
+												<span>另一个 workspace 在用</span>
+											</div>
+										</div>
+										<div class="a-actions">
+											<button class="ghost-btn is-primary">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+													<path d="M6 3H3v10h10v-3M9 3h4v4M8 8l5-5" />
+												</svg>
+												Open
+											</button>
+											<button class="icon-btn" title="更多" data-open="menu-a">
+												<svg viewBox="0 0 16 16" fill="currentColor">
+													<circle cx="3" cy="8" r="1.4" />
+													<circle cx="8" cy="8" r="1.4" />
+													<circle cx="13" cy="8" r="1.4" />
+												</svg>
+											</button>
+										</div>
+
+										<!-- floating menu overlay -->
+										<div class="menu" data-menu>
+											<div class="menu-label">分支</div>
+											<div class="menu-item">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+													<path d="m3 8 3 3 7-7" />
+												</svg>
+												<span>设为基础分支</span>
+											</div>
+											<div class="menu-sep"></div>
+											<div class="menu-label">合并</div>
+											<div class="menu-item">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<circle cx="4" cy="4" r="2" />
+													<circle cx="12" cy="12" r="2" />
+													<path d="M4 6c0 4 4 6 8 6" />
+												</svg>
+												<span>合并到当前</span>
+											</div>
+											<div class="menu-item">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<circle cx="4" cy="4" r="2" />
+													<circle cx="12" cy="12" r="2" />
+													<path d="M4 6c0 4 4 6 8 6" />
+												</svg>
+												<span>Merge --no-ff</span>
+											</div>
+											<div class="menu-item">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<path d="M3 3h10v3l-5 4v3l-5-4z" />
+												</svg>
+												<span>Squash merge</span>
+											</div>
+											<div class="menu-sep"></div>
+											<div class="menu-item is-danger" data-open="dialog-a">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<path d="M3 5h10M6 5V3h4v2M5 5v9h6V5" />
+												</svg>
+												<span>删除本地分支</span>
+											</div>
+											<div class="menu-item is-danger">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<path d="M3 5h10M6 5V3h4v2M5 5v9h6V5" />
+												</svg>
+												<span>删除 origin 上的分支</span>
+											</div>
+										</div>
+									</div>
+
+									<div class="a-row">
+										<span class="a-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<div class="a-meta">
+											<div class="a-name">
+												<span>fix/git-panel-tab-order</span>
+											</div>
+											<div class="a-sub"><span>local · tracked</span></div>
+										</div>
+									</div>
+
+									<div class="a-row">
+										<span class="a-icon" style="opacity: 0.4">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<path d="M8 2v3m0 6v3M2 8h3m6 0h3" />
+												<circle cx="8" cy="8" r="2" />
+											</svg>
+										</span>
+										<div class="a-meta">
+											<div class="a-name">
+												<span style="opacity: 0.85">release/1.19</span>
+											</div>
+											<div class="a-sub"><span>origin</span></div>
+										</div>
+									</div>
+
+									<div class="a-row">
+										<span class="a-icon" style="opacity: 0.4">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<path d="M8 2v3m0 6v3M2 8h3m6 0h3" />
+												<circle cx="8" cy="8" r="2" />
+											</svg>
+										</span>
+										<div class="a-meta">
+											<div class="a-name">
+												<span style="opacity: 0.85">chore/tanstack-upgrade</span>
+											</div>
+											<div class="a-sub"><span>origin</span></div>
+										</div>
+									</div>
+								</div>
+
+								<div class="a-footer">
+									<span class="a-footer-hint">
+										<span class="kbd">↵</span>
+										打开 · <span class="kbd">⇧↵</span> 设为 base
+									</span>
+									<span class="a-footer-hint">
+										<span class="kbd">Esc</span>
+									</span>
+								</div>
+
+								<!-- state: empty overlay -->
+								<div class="dialog-backdrop hidden" data-empty>
+									<div style="text-align: center; color: var(--muted-foreground); font-size: 12px">
+										<div style="font-size: 28px; opacity: 0.35; margin-bottom: 8px">⌥</div>
+										<div>没有匹配的分支</div>
+										<div style="opacity: 0.6; margin-top: 4px">在上方输入创建一个</div>
+									</div>
+								</div>
+
+								<!-- state: delete dialog overlay -->
+								<div class="dialog-backdrop hidden" data-dialog="a">
+									<div class="dialog">
+										<div class="dialog-body">
+											<div class="dialog-title">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+													<path d="M8 2 1 14h14z" />
+													<path d="M8 6v4M8 12v.5" />
+												</svg>
+												<span>删除本地分支 <code style="font-family: var(--font-mono); font-size: 11.5px">feat/branch-menu</code>？</span>
+											</div>
+											<p class="dialog-desc">
+												使用 <code>git branch -D</code>，未合并的改动会丢失。此操作无法撤销。
+											</p>
+										</div>
+										<div class="dialog-actions">
+											<button class="btn btn-ghost" data-close-dialog>取消</button>
+											<button class="btn btn-danger">删除</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="stage-caption">340×自适应 · Popover · 悬浮才显示操作</div>
+					</div>
+				</article>
+
+				<!-- ============================================================ -->
+				<!-- Variant B -->
+				<!-- ============================================================ -->
+				<article class="variant" data-variant="b">
+					<header class="variant-head">
+						<span class="variant-tag">Variant B · Side drawer</span>
+						<h2 class="variant-name">右侧抽屉</h2>
+						<p class="variant-desc">
+							更宽、更多元信息：每个分支带 ahead/behind、最后作者、"另一个 workspace 打开"标签。新建分支变成显眼的
+							渐变 CTA，与列表分离。适合喜欢在此面板长时间停留、跨分支比对的用户。
+						</p>
+					</header>
+					<div class="stage">
+						<div class="stage-anchor">
+							<div class="b-drawer" data-el="b">
+								<div class="b-head">
+									<div class="b-title-row">
+										<div class="b-title">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+											<span>分支</span>
+											<span class="a-count" style="margin-left: 4px">14</span>
+										</div>
+										<div style="display: flex; gap: 4px">
+											<button class="icon-btn" title="Fetch">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<path d="M2 8a6 6 0 0 1 11-3.5" />
+													<path d="M13 2v3h-3" />
+													<path d="M14 8a6 6 0 0 1-11 3.5" />
+													<path d="M3 14v-3h3" />
+												</svg>
+											</button>
+											<button class="icon-btn" title="关闭">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+													<path d="m4 4 8 8m0-8-8 8" />
+												</svg>
+											</button>
+										</div>
+									</div>
+
+									<div class="b-cta">
+										<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9">
+											<path d="M8 3v10M3 8h10" />
+										</svg>
+										<input placeholder="从 feat/acp-agent-control-plane 新建分支…" value="" />
+										<span class="b-cta-hint"><kbd>↵</kbd></span>
+									</div>
+
+									<div class="b-toolbar">
+										<div class="search" style="flex: 1">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="7" cy="7" r="4.5" />
+												<path d="m11 11 3 3" />
+											</svg>
+											<input placeholder="搜索分支" />
+										</div>
+										<div class="filter-tabs">
+											<button class="is-active">全部</button>
+											<button>本地</button>
+											<button>远端</button>
+										</div>
+									</div>
+								</div>
+
+								<div class="b-scroll">
+									<div class="b-section-label">
+										<span>Current</span>
+									</div>
+									<div class="b-row is-current">
+										<span class="b-row-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<div class="b-row-meta">
+											<div class="b-row-name">
+												<span>feat/acp-agent-control-plane</span>
+												<span class="pill is-current">current</span>
+											</div>
+											<div class="b-row-sub">
+												<span>@wufan · 3h ago</span>
+												<span class="chip-row" style="opacity: 1">
+													<span style="color: var(--success)">↑2</span>
+													<span class="sep">·</span>
+													<span>tracked</span>
+												</span>
+											</div>
+										</div>
+										<div class="b-row-actions">
+											<button class="ghost-btn is-primary">Set base</button>
+										</div>
+									</div>
+
+									<div class="b-section-label">
+										<span>Recent</span>
+										<span class="count">6</span>
+									</div>
+
+									<div class="b-row">
+										<span class="b-row-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<div class="b-row-meta">
+											<div class="b-row-name">
+												<span>main</span>
+												<span class="pill is-base">
+													<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="width: 8px; height: 8px">
+														<path d="m3 8 3 3 7-7" />
+													</svg>
+													base
+												</span>
+												<span class="pill is-default">default</span>
+											</div>
+											<div class="b-row-sub"><span>@ci-bot · 12m ago</span></div>
+										</div>
+										<div class="b-row-actions">
+											<button class="ghost-btn is-primary" title="在新 workspace 中打开">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+													<path d="M6 3H3v10h10v-3M9 3h4v4M8 8l5-5" />
+												</svg>
+												Open
+											</button>
+											<button class="icon-btn" title="合并到当前">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<circle cx="4" cy="4" r="2" />
+													<circle cx="12" cy="12" r="2" />
+													<path d="M4 6c0 4 4 6 8 6" />
+												</svg>
+											</button>
+											<button class="icon-btn" title="更多">
+												<svg viewBox="0 0 16 16" fill="currentColor">
+													<circle cx="3" cy="8" r="1.4" />
+													<circle cx="8" cy="8" r="1.4" />
+													<circle cx="13" cy="8" r="1.4" />
+												</svg>
+											</button>
+										</div>
+									</div>
+
+									<div class="b-row" style="position: relative">
+										<span class="b-row-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<div class="b-row-meta">
+											<div class="b-row-name">
+												<span>feat/branch-menu</span>
+											</div>
+											<div class="b-row-sub">
+												<span>@wufan · 2h ago</span>
+												<span class="diverge">
+													<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" style="width: 10px; height: 10px">
+														<path d="M8 3v10M3 8h10" />
+													</svg>
+													另一个 workspace
+												</span>
+											</div>
+										</div>
+										<div class="b-row-actions">
+											<button class="ghost-btn is-primary" data-open="menu-b">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+													<path d="M6 3H3v10h10v-3M9 3h4v4M8 8l5-5" />
+												</svg>
+												Open
+											</button>
+											<button class="icon-btn" title="合并到当前">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<circle cx="4" cy="4" r="2" />
+													<circle cx="12" cy="12" r="2" />
+													<path d="M4 6c0 4 4 6 8 6" />
+												</svg>
+											</button>
+											<button class="icon-btn" title="更多" data-open="menu-b">
+												<svg viewBox="0 0 16 16" fill="currentColor">
+													<circle cx="3" cy="8" r="1.4" />
+													<circle cx="8" cy="8" r="1.4" />
+													<circle cx="13" cy="8" r="1.4" />
+												</svg>
+											</button>
+										</div>
+
+										<div class="menu" data-menu style="right: 6px; top: 32px">
+											<div class="menu-label">合并策略</div>
+											<div class="menu-item">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<circle cx="4" cy="4" r="2" />
+													<circle cx="12" cy="12" r="2" />
+													<path d="M4 6c0 4 4 6 8 6" />
+												</svg>
+												<span>合并到当前</span>
+												<span class="kbd">FF</span>
+											</div>
+											<div class="menu-item">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<circle cx="4" cy="4" r="2" />
+													<circle cx="12" cy="12" r="2" />
+													<path d="M4 6c0 4 4 6 8 6" />
+												</svg>
+												<span>Merge (no-ff)</span>
+											</div>
+											<div class="menu-item">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<path d="M3 3h10v3l-5 4v3l-5-4z" />
+												</svg>
+												<span>Squash merge</span>
+											</div>
+											<div class="menu-sep"></div>
+											<div class="menu-item is-danger" data-open="dialog-b">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<path d="M3 5h10M6 5V3h4v2M5 5v9h6V5" />
+												</svg>
+												<span>删除本地分支</span>
+											</div>
+											<div class="menu-item is-danger">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+													<path d="M3 5h10M6 5V3h4v2M5 5v9h6V5" />
+												</svg>
+												<span>删除 origin 上的分支</span>
+											</div>
+										</div>
+									</div>
+
+									<div class="b-row">
+										<span class="b-row-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<div class="b-row-meta">
+											<div class="b-row-name"><span>fix/git-panel-tab-order</span></div>
+											<div class="b-row-sub"><span>@wufan · yesterday</span></div>
+										</div>
+									</div>
+
+									<div class="b-section-label">
+										<span>Remote</span>
+										<span class="count">7</span>
+									</div>
+									<div class="b-row">
+										<span class="b-row-icon" style="opacity: 0.55">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<path d="M8 2v3m0 6v3M2 8h3m6 0h3" />
+												<circle cx="8" cy="8" r="2" />
+											</svg>
+										</span>
+										<div class="b-row-meta">
+											<div class="b-row-name" style="opacity: 0.85"><span>release/1.19</span></div>
+											<div class="b-row-sub"><span>origin · 3d ago</span></div>
+										</div>
+									</div>
+									<div class="b-row">
+										<span class="b-row-icon" style="opacity: 0.55">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<path d="M8 2v3m0 6v3M2 8h3m6 0h3" />
+												<circle cx="8" cy="8" r="2" />
+											</svg>
+										</span>
+										<div class="b-row-meta">
+											<div class="b-row-name" style="opacity: 0.85"><span>chore/tanstack-upgrade</span></div>
+											<div class="b-row-sub"><span>origin · 5d ago</span></div>
+										</div>
+									</div>
+								</div>
+
+								<div class="b-footer">
+									<span><kbd class="kbd">↵</kbd> 打开分支到新 workspace</span>
+									<span><kbd class="kbd">⌘⌫</kbd> 删除</span>
+								</div>
+
+								<div class="dialog-backdrop hidden" data-empty>
+									<div style="text-align: center; color: var(--muted-foreground); font-size: 12px">
+										<div style="font-size: 28px; opacity: 0.35; margin-bottom: 8px">⌥</div>
+										<div>没有匹配的分支</div>
+										<div style="opacity: 0.6; margin-top: 4px">在顶部输入名称即可新建</div>
+									</div>
+								</div>
+
+								<div class="dialog-backdrop hidden" data-dialog="b">
+									<div class="dialog">
+										<div class="dialog-body">
+											<div class="dialog-title">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+													<path d="M8 2 1 14h14z" />
+													<path d="M8 6v4M8 12v.5" />
+												</svg>
+												<span>删除本地分支 <code style="font-family: var(--font-mono); font-size: 11.5px">feat/branch-menu</code>？</span>
+											</div>
+											<p class="dialog-desc">
+												使用 <code>git branch -D</code>，未合并的改动会丢失。此操作无法撤销。
+											</p>
+										</div>
+										<div class="dialog-actions">
+											<button class="btn btn-ghost" data-close-dialog>取消</button>
+											<button class="btn btn-danger">删除</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="stage-caption">380×560 · 抽屉 · 显示 ahead/behind / 作者时间</div>
+					</div>
+				</article>
+
+				<!-- ============================================================ -->
+				<!-- Variant C -->
+				<!-- ============================================================ -->
+				<article class="variant" data-variant="c">
+					<header class="variant-head">
+						<span class="variant-tag">Variant C · Command palette</span>
+						<h2 class="variant-name">终端命令面板</h2>
+						<p class="variant-desc">
+							跟 Superset 里 ACP Terminal Agent、Sidebar Terminal 一脉相承的美学。等宽字体、面板底部展示所选分支
+							的元信息 preview（用键值 + commit list），键盘为主的操作方式。
+						</p>
+					</header>
+					<div class="stage">
+						<div class="stage-anchor">
+							<div class="c-shell" data-el="c">
+								<div class="c-titlebar">
+									<div class="lights">
+										<span></span><span></span><span></span>
+									</div>
+									<span style="margin-left: 6px">branch › feat/acp-agent-control-plane</span>
+								</div>
+
+								<div class="c-prompt">
+									<span class="caret">›</span>
+									<input placeholder="搜索、切换、或输入 :new <name>" value="" />
+									<span style="font-size: 10px; opacity: 0.7">14 refs</span>
+								</div>
+
+								<div class="c-hint">↑↓ 选择 · ↵ 打开分支到新 workspace · ⌘↵ 合并 · ⌘⌫ 删除 · Esc 关闭</div>
+
+								<div class="c-scroll">
+									<div class="c-item">
+										<span class="c-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<span class="c-name">
+											<span class="name">feat/acp-agent-control-plane</span>
+											<span class="tag is-current">current</span>
+										</span>
+										<span class="c-badge"><span class="ahead">↑2</span></span>
+									</div>
+
+									<div class="c-item is-selected">
+										<span class="c-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<span class="c-name">
+											<span class="name">main</span>
+											<span class="tag is-base">base</span>
+										</span>
+										<span class="c-badge">2h ago</span>
+									</div>
+
+									<div class="c-item">
+										<span class="c-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<span class="c-name">
+											<span class="name">feat/<span class="highlight">branch-menu</span></span>
+											<span class="tag">local</span>
+										</span>
+										<span class="c-badge">
+											<span class="ahead">↑4</span>
+											<span class="behind">↓1</span>
+										</span>
+									</div>
+
+									<div class="c-item">
+										<span class="c-icon">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6v4a2 2 0 0 0 2 2h4" />
+											</svg>
+										</span>
+										<span class="c-name">
+											<span class="name">fix/git-panel-tab-order</span>
+										</span>
+										<span class="c-badge">yesterday</span>
+									</div>
+
+									<div class="c-item">
+										<span class="c-icon" style="opacity: 0.5">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<path d="M8 2v3m0 6v3M2 8h3m6 0h3" />
+												<circle cx="8" cy="8" r="2" />
+											</svg>
+										</span>
+										<span class="c-name">
+											<span class="name" style="opacity: 0.75">release/1.19</span>
+											<span class="tag">origin</span>
+										</span>
+										<span class="c-badge">3d ago</span>
+									</div>
+								</div>
+
+								<div class="c-preview">
+									<div class="head">preview · main</div>
+									<div class="row"><span class="key">tip</span><span class="val">7fd1a60</span></div>
+									<div class="row"><span class="key">author</span><span class="val">ci-bot &lt;bots@superset.dev&gt;</span></div>
+									<div class="row"><span class="key">tracked</span><span class="val">origin/main · fast-forward</span></div>
+									<div class="row" style="margin-top: 4px"><span class="key">recent</span><span class="val">4 commits</span></div>
+									<div class="commits">
+										<div>7fd1a60 chore(release): bump 1.18.4 → 1.18.5</div>
+										<div>4c22be9 fix(host): guard PR sweep against stdout overflow</div>
+										<div>2b8149f feat(desktop): file history dialog</div>
+									</div>
+								</div>
+
+								<div class="c-footer">
+									<span><span class="kbd">↵</span> open</span>
+									<span><span class="kbd">⌘↵</span> merge</span>
+									<span><span class="kbd">⌘⇧B</span> set base</span>
+									<span style="margin-left: auto"><span class="kbd">?</span> help</span>
+								</div>
+
+								<div class="dialog-backdrop hidden" data-empty>
+									<div style="text-align: center; color: var(--muted-foreground); font-family: var(--font-mono); font-size: 12px">
+										<div style="opacity: 0.6">no refs match</div>
+										<div style="opacity: 0.5; margin-top: 6px">try :new &lt;name&gt;</div>
+									</div>
+								</div>
+
+								<div class="dialog-backdrop hidden" data-dialog="c">
+									<div class="dialog">
+										<div class="dialog-body">
+											<div class="dialog-title">
+												<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+													<path d="M8 2 1 14h14z" />
+													<path d="M8 6v4M8 12v.5" />
+												</svg>
+												<span>删除本地分支 <code style="font-family: var(--font-mono); font-size: 11.5px">feat/branch-menu</code>？</span>
+											</div>
+											<p class="dialog-desc">
+												使用 <code>git branch -D</code>，未合并的改动会丢失。此操作无法撤销。
+											</p>
+										</div>
+										<div class="dialog-actions">
+											<button class="btn btn-ghost" data-close-dialog>取消</button>
+											<button class="btn btn-danger">删除</button>
+										</div>
+									</div>
+								</div>
+
+								<div class="dialog-backdrop hidden" data-menu-c>
+									<div class="menu" style="position: relative; right: auto; top: auto">
+										<div class="menu-label">选中的分支：main</div>
+										<div class="menu-item">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
+												<path d="M6 3H3v10h10v-3M9 3h4v4M8 8l5-5" />
+											</svg>
+											<span>打开到新 workspace</span>
+											<span class="kbd">↵</span>
+										</div>
+										<div class="menu-item">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<circle cx="4" cy="4" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<path d="M4 6c0 4 4 6 8 6" />
+											</svg>
+											<span>Merge into current</span>
+											<span class="kbd">⌘↵</span>
+										</div>
+										<div class="menu-item">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<path d="M3 3h10v3l-5 4v3l-5-4z" />
+											</svg>
+											<span>Squash merge</span>
+										</div>
+										<div class="menu-sep"></div>
+										<div class="menu-item is-danger">
+											<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+												<path d="M3 5h10M6 5V3h4v2M5 5v9h6V5" />
+											</svg>
+											<span>删除本地分支</span>
+											<span class="kbd">⌘⌫</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="stage-caption">460×自适应 · 命令面板 · 键盘优先 + 底部 preview</div>
+					</div>
+				</article>
+			</section>
+		</main>
+
+		<script src="app.js"></script>
+	</body>
+</html>

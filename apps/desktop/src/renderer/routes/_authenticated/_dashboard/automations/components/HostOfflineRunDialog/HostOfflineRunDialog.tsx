@@ -35,7 +35,7 @@ export function HostOfflineRunDialog({
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<LuTriangleAlert
-							className="size-4 shrink-0 text-amber-500"
+							className="size-4 shrink-0 text-warning"
 							aria-hidden="true"
 						/>
 						Target host is offline
@@ -52,7 +52,7 @@ export function HostOfflineRunDialog({
 							) : (
 								<p>
 									The run was skipped because{" "}
-									<span className="font-medium text-foreground">
+									<span className="font-medium text-fg">
 										{remoteHost?.name ?? "the target host"}
 									</span>{" "}
 									isn't connected to the Superset relay. Make sure relay access

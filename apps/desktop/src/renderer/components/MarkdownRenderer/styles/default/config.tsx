@@ -14,30 +14,30 @@ export const defaultConfig: MarkdownStyleConfig = {
 		),
 		table: ({ children }) => (
 			<div className="overflow-x-auto my-4">
-				<table className="w-max min-w-full divide-y divide-border">
+				<table className="w-max min-w-full divide-y divide-line">
 					{children}
 				</table>
 			</div>
 		),
 		th: ({ children }) => (
-			<th className="px-4 py-2 text-left text-sm font-semibold bg-muted align-top">
+			<th className="px-4 py-2 text-left text-sm font-semibold bg-hover align-top">
 				{children}
 			</th>
 		),
 		td: ({ children }) => (
-			<td className="px-4 py-2 text-sm border-t border-border align-top">
+			<td className="px-4 py-2 text-sm border-t border-line align-top">
 				{children}
 			</td>
 		),
 		blockquote: ({ children }) => (
-			<blockquote className="border-l-4 border-muted-foreground/30 pl-4 italic my-4">
+			<blockquote className="border-l-4 border-fg-faint pl-4 italic my-4">
 				{children}
 			</blockquote>
 		),
 		a: ({ href, children }) => (
 			<a
 				href={href}
-				className="text-primary underline underline-offset-2 hover:text-primary/80"
+				className="text-accent-solid underline underline-offset-2 hover:text-accent-solid/80"
 				target="_blank"
 				rel="noopener noreferrer"
 			>
@@ -48,10 +48,10 @@ export const defaultConfig: MarkdownStyleConfig = {
 			<SafeImage
 				src={src}
 				alt={alt}
-				className="max-w-full h-auto rounded-md my-4"
+				className="max-w-full h-auto rounded-ds-3 my-4"
 			/>
 		),
-		hr: () => <hr className="my-8 border-border" />,
+		hr: () => <hr className="my-8 border-line" />,
 		li: ({ children, className }) => {
 			const isTaskItem = className?.includes("task-list-item");
 			return (

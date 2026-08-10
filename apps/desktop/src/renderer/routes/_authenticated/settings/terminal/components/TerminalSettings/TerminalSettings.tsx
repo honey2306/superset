@@ -5,6 +5,7 @@ import {
 	SETTING_ITEM_ID,
 	type SettingItemId,
 } from "../../../utils/settings-search";
+import { AcpPresetLaunchSetting } from "./components/AcpPresetLaunchSetting";
 import { BackgroundTerminalsSetting } from "./components/BackgroundTerminalsSetting";
 import { LinkBehaviorSetting } from "./components/LinkBehaviorSetting";
 import { PresetsSection } from "./components/PresetsSection";
@@ -67,14 +68,16 @@ export function TerminalSettings({
 		SETTING_ITEM_ID.TERMINAL_BACKGROUND_LIMIT,
 		visibleItems,
 	);
+	const showAcpPresetLaunch = isItemVisible(
+		SETTING_ITEM_ID.TERMINAL_ACP_MODE,
+		visibleItems,
+	);
 
 	return (
 		<div className="p-6 max-w-6xl w-full">
 			<div className="mb-8">
 				<h2 className="text-xl font-semibold">{t("settings.terminal")}</h2>
-				<p className="text-sm text-muted-foreground mt-1">
-					{t("terminal.description")}
-				</p>
+				<p className="text-sm text-fg-mute mt-1">{t("terminal.description")}</p>
 			</div>
 
 			<SectionList>
@@ -88,6 +91,9 @@ export function TerminalSettings({
 						pendingCreateProjectId={pendingCreateProjectId}
 						onPendingCreateProjectIdChange={onPendingCreateProjectIdChange}
 					/>
+				)}
+				{showAcpPresetLaunch && (
+					<AcpPresetLaunchSetting key="acp-preset-launch" />
 				)}
 				{showLinkBehavior && <LinkBehaviorSetting key="link-behavior" />}
 				{showBackgroundLimit && (

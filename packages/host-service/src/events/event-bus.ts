@@ -24,6 +24,10 @@ interface ClientState {
 	fsSubscriptions: Map<string, FsSubscription>;
 }
 
+type WorkspaceChangedListener = (
+	message: Omit<Extract<ServerMessage, { type: "workspace:changed" }>, "type">,
+) => void;
+
 function sendMessage(socket: WsSocket, message: ServerMessage): void {
 	if (socket.readyState !== 1) return;
 	socket.send(JSON.stringify(message));
@@ -65,6 +69,8 @@ export interface EventBusOptions {
  */
 export class EventBus {
 	private readonly clients = new Map<WsSocket, ClientState>();
+	private readonly workspaceChangedListeners =
+		new Set<WorkspaceChangedListener>();
 	private readonly gitWatcher: GitWatcher;
 	private readonly filesystem: WorkspaceFilesystemManager;
 	private removeGitListener: (() => void) | null = null;
@@ -193,7 +199,22 @@ export class EventBus {
 			"type"
 		>,
 	): void {
+		for (const listener of this.workspaceChangedListeners) {
+			try {
+				listener(message);
+			} catch (error) {
+				console.error("[event-bus] workspace-changed listener failed", {
+					error,
+				});
+			}
+		}
 		this.broadcast({ type: "workspace:changed", ...message });
+	}
+
+	/** Subscribe host-internal consumers to workspace lifecycle events. */
+	onWorkspaceChanged(listener: WorkspaceChangedListener): () => void {
+		this.workspaceChangedListeners.add(listener);
+		return () => this.workspaceChangedListeners.delete(listener);
 	}
 
 	/**
@@ -215,6 +236,21 @@ export class EventBus {
 	 */
 	broadcastCatalogChanged(revision: number): void {
 		this.broadcast({ type: "catalog:changed", revision });
+	}
+
+	/**
+	 * Fan out ACP session status transitions. Broadcast to all clients — the
+	 * workspace-client filters by `workspaceId` on the receiving side, matching
+	 * the `agent:lifecycle` pattern. The per-session `/acp-sessions/:sessionId/
+	 * stream` remains authoritative for pane-level detail.
+	 */
+	broadcastAcpSessionChanged(
+		message: Omit<
+			Extract<ServerMessage, { type: "acp-session:changed" }>,
+			"type"
+		>,
+	): void {
+		this.broadcast({ type: "acp-session:changed", ...message });
 	}
 
 	/**

@@ -1,0 +1,151 @@
+/* ============================================================
+   Theme tokens — mirrored from designs/tab-bar-redesign
+   Default = Dracula; toggle via [data-theme] on <html>
+   ============================================================ */
+
+:root,
+:root[data-theme="dracula"] {
+	--background: #282a36;
+	--foreground: #f8f8f2;
+	--card: #2d2f3f;
+	--popover: #21222c;
+	--primary: #ff79c6;
+	--secondary: #44475a;
+	--muted: #44475a;
+	--muted-foreground: #d0d3e0;
+	--accent: #6272a4;
+	--tertiary: #21222c;
+	--tertiary-active: #343746;
+	--border: #44475a;
+	--ring: #6272a4;
+	--highlight: #ff79c6;
+	--highlight-2: #bd93f9;
+	--success: #50fa7b;
+	--warning: #ffb86c;
+	--danger: #ff5555;
+	--page-bg: #1e1f29;
+
+	--border-strong: rgba(189, 147, 249, 0.55);
+	--border-subtle: rgba(98, 114, 164, 0.22);
+	--hover-bg: rgba(255, 255, 255, 0.045);
+	--active-glow: rgba(255, 121, 198, 0.55);
+
+	--font-ui:
+		-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+		"Noto Sans SC", "Segoe UI", system-ui, sans-serif;
+	--font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+
+:root[data-theme="ember"] {
+	--background: #151110;
+	--foreground: #eae8e6;
+	--card: #201e1c;
+	--popover: #201e1c;
+	--primary: #eae8e6;
+	--secondary: #2a2827;
+	--muted: #2a2827;
+	--muted-foreground: #a8a5a3;
+	--accent: #2a2827;
+	--tertiary: #1a1716;
+	--tertiary-active: #252220;
+	--border: #2a2827;
+	--ring: #3a3837;
+	--highlight: #e07850;
+	--highlight-2: #e07850;
+	--success: #7ec699;
+	--warning: #d4a574;
+	--danger: #d97070;
+	--page-bg: #0e0c0b;
+
+	--border-strong: #3a3736;
+	--border-subtle: #221f1e;
+	--hover-bg: rgba(255, 255, 255, 0.025);
+	--active-glow: rgba(224, 120, 80, 0.6);
+}
+
+:root[data-theme="zed"] {
+	--background: #282c33;
+	--foreground: #dce0e5;
+	--card: #2f343d;
+	--popover: #21252b;
+	--primary: #74ade8;
+	--secondary: #3a3f4b;
+	--muted: #3a3f4b;
+	--muted-foreground: #abb2bf;
+	--accent: #454a56;
+	--tertiary: #21252b;
+	--tertiary-active: #2c313a;
+	--border: #464b57;
+	--ring: #5c6370;
+	--highlight: #74ade8;
+	--highlight-2: #c678dd;
+	--success: #98c379;
+	--warning: #e5c07b;
+	--danger: #e06c75;
+	--page-bg: #1c1f24;
+
+	--border-strong: rgba(116, 173, 232, 0.5);
+	--border-subtle: rgba(70, 75, 87, 0.5);
+	--hover-bg: rgba(255, 255, 255, 0.04);
+	--active-glow: rgba(116, 173, 232, 0.5);
+}
+
+:root[data-theme="light"] {
+	--background: #ffffff;
+	--foreground: #1a1c23;
+	--card: #ffffff;
+	--popover: #ffffff;
+	--primary: #5b6cff;
+	--secondary: #f2f3f7;
+	--muted: #f5f6fa;
+	--muted-foreground: #6b7280;
+	--accent: #eef0f6;
+	--tertiary: #f6f7fa;
+	--tertiary-active: #ebedf3;
+	--border: #e4e6ec;
+	--ring: #b8bec7;
+	--highlight: #5b6cff;
+	--highlight-2: #7c5cff;
+	--success: #2f9e6b;
+	--warning: #d18b2c;
+	--danger: #d64545;
+	--page-bg: #f3f4f8;
+
+	--border-strong: rgba(91, 108, 255, 0.6);
+	--border-subtle: rgba(0, 0, 0, 0.06);
+	--hover-bg: rgba(0, 0, 0, 0.035);
+	--active-glow: rgba(91, 108, 255, 0.4);
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	background: var(--page-bg);
+	color: var(--foreground);
+	font-family: var(--font-ui);
+	font-size: 13px;
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+button {
+	font-family: inherit;
+	color: inherit;
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+}
+
+::selection {
+	background: var(--highlight);
+	color: var(--background);
+}

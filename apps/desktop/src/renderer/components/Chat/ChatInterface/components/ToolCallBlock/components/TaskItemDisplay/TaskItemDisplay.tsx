@@ -90,17 +90,17 @@ function renderContent(props: TaskItemDisplayProps, t: TranslateFn) {
 	return (
 		<TaskItem className="space-y-1.5 text-xs">
 			<div className="flex items-center gap-1.5 min-w-0">
-				<div className="truncate text-sm font-medium text-foreground">
+				<div className="truncate text-sm font-medium text-fg">
 					{props.title}
 				</div>
 				{hasSlug ? (
-					<span className="text-[11px] text-muted-foreground shrink-0">
+					<span className="text-[11px] text-fg-mute shrink-0">
 						#{props.slug}
 					</span>
 				) : null}
 			</div>
 			{metadataText ? (
-				<div className="text-muted-foreground line-clamp-1">{metadataText}</div>
+				<div className="text-fg-mute line-clamp-1">{metadataText}</div>
 			) : null}
 			{labels.length > 0 ? (
 				<div className="flex flex-wrap gap-1">
@@ -121,14 +121,10 @@ function renderContent(props: TaskItemDisplayProps, t: TranslateFn) {
 				</div>
 			) : null}
 			{hasText(props.description) ? (
-				<div className="line-clamp-2 text-muted-foreground">
-					{props.description}
-				</div>
+				<div className="line-clamp-2 text-fg-mute">{props.description}</div>
 			) : null}
 			{showTaskIdLine ? (
-				<div className="text-[11px] text-muted-foreground/80">
-					{props.taskId}
-				</div>
+				<div className="text-[11px] text-fg-mute/80">{props.taskId}</div>
 			) : null}
 		</TaskItem>
 	);
@@ -137,8 +133,8 @@ function renderContent(props: TaskItemDisplayProps, t: TranslateFn) {
 export function TaskItemDisplay(props: TaskItemDisplayProps) {
 	const { t } = useTranslation();
 	const className = cn(
-		"w-full rounded border border-border/60 bg-background/60 px-2.5 py-2 text-left",
-		props.onClick ? "transition-colors hover:bg-accent/30" : undefined,
+		"w-full rounded border border-line/60 bg-background/60 px-2.5 py-2 text-left",
+		props.onClick ? "transition-colors hover:bg-hover" : undefined,
 	);
 
 	if (props.onClick) {

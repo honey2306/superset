@@ -47,7 +47,7 @@ export function StatusFilter({ value, onChange }: StatusFilterProps) {
 					size="sm"
 					title={selected.label}
 					aria-label={selected.label}
-					className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+					className="h-8 gap-1.5 px-2 text-fg-mute hover:text-fg"
 				>
 					<SelectedIcon className="size-3.5" />
 					<span className="text-sm hidden @4xl:inline">{selected.label}</span>

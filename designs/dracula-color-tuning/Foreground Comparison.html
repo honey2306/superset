@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>Dracula Colorful v2 — 字体色对比</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --page-bg: #14151c;
+    --page-fg: #e6e6f0;
+    --page-muted: #8a8fa8;
+    --divider: #2a2c38;
+    --font-ui: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui);
+    background: var(--page-bg);
+    color: var(--page-fg);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+    padding: 40px 32px 80px;
+  }
+  h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 8px; }
+  .lede { color: var(--page-muted); font-size: 14px; max-width: 780px; margin: 0 0 24px; }
+  .lede code { font-family: var(--font-mono); font-size: 12.5px; color: #bd93f9; background: rgba(189, 147, 249, 0.08); padding: 1px 6px; border-radius: 4px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin: 32px 0 48px;
+  }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .col-title {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 0 4px 10px;
+    border-bottom: 1px solid var(--divider);
+    margin-bottom: 14px;
+  }
+  .col-title .name { font-size: 13.5px; font-weight: 600; letter-spacing: 0.01em; }
+  .col-title .tag { font-size: 11px; color: var(--page-muted); font-family: var(--font-mono); }
+
+  .demo {
+    border-radius: 10px;
+    background: var(--bg);
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 20px 22px;
+    display: flex; flex-direction: column; gap: 16px;
+    color: var(--fg);
+    font-family: var(--font-ui);
+  }
+
+  .demo .title { font-size: 18px; font-weight: 600; letter-spacing: -0.005em; margin: 0; }
+  .demo .subtitle { font-size: 13px; color: var(--muted-fg); margin: 0; }
+
+  .stack {
+    display: flex; flex-direction: column; gap: 4px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .stack .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .stack .k { font-size: 13px; }
+  .stack .v { font-size: 12.5px; color: var(--muted-fg); font-family: var(--font-mono); }
+
+  .paragraph {
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--fg);
+  }
+  .paragraph .em { color: var(--primary); font-weight: 500; }
+  .paragraph .dim { color: var(--muted-fg); }
+
+  .list {
+    display: flex; flex-direction: column; gap: 2px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .list-item {
+    padding: 9px 12px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+  }
+  .list-item + .list-item { border-top: 1px solid var(--border); }
+  .list-item .ic { width: 14px; height: 14px; border-radius: 3px; background: var(--muted-fg); opacity: 0.55; flex: none; }
+  .list-item .meta { margin-left: auto; font-size: 11.5px; color: var(--muted-fg); font-family: var(--font-mono); }
+  .list-item.active { background: var(--active); }
+  .list-item.active .ic { background: var(--primary); opacity: 1; }
+
+  .input {
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 11px;
+    font-size: 13px;
+    color: var(--fg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .input .ph { color: var(--muted-fg); }
+
+  .btnrow { display: flex; gap: 8px; }
+  .btn {
+    padding: 7px 12px; border-radius: 6px;
+    font-size: 12.5px; font-family: var(--font-ui);
+    border: 1px solid transparent;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn.primary { background: var(--primary); color: var(--primary-fg); font-weight: 500; }
+  .btn.ghost { background: transparent; color: var(--fg); border-color: var(--border); }
+  .btn.destructive { background: transparent; color: var(--destructive); border-color: var(--border); }
+
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 500;
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  .swatchrow {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .swatch-card {
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .swatch-card .role { font-size: 10.5px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.06em; }
+  .swatch-card .hex { font-family: var(--font-mono); font-size: 12px; }
+
+  /* Compare table */
+  .tokens {
+    margin-top: 24px;
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 12.5px;
+  }
+  .tokens h2 { font-size: 15px; font-weight: 600; margin: 0; padding: 14px 18px; background: #1a1c26; border-bottom: 1px solid var(--divider); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    text-align: left; padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    border-bottom: 1px solid var(--divider);
+    vertical-align: middle;
+  }
+  th { font-weight: 600; color: var(--page-muted); font-family: var(--font-ui); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td.name { font-family: var(--font-ui); font-weight: 500; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; }
+  .chip .box { width: 16px; height: 16px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); }
+  .note { color: var(--page-muted); font-size: 12.5px; margin-top: 20px; }
+</style>
+</head>
+<body>
+  <h1>字体色调整 — 前后对比</h1>
+  <p class="lede">
+    上一版只动了 <code>mutedForeground</code>,主文字保持了 <code>#f8f8f2</code>。底色抬亮后主文字对比度太生硬(纯白 vs 蓝紫底,略刺眼),
+    次要文字层级也拉不开。这一版给三层文字都做了重新平衡,并加入了轻微蓝紫倾向和整体的色相呼应。
+  </p>
+
+  <div class="grid">
+    <!-- Original -->
+    <div style="
+      --bg: #282a36;
+      --card: #21222c;
+      --border: #44475a;
+      --input: #343746;
+      --fg: #f8f8f2;
+      --muted-fg: #6272a4;
+      --primary: #bd93f9;
+      --primary-fg: #282a36;
+      --accent: #a9598c;
+      --accent-fg: #f8f8f2;
+      --destructive: #ff5555;
+      --active: #44475a;
+    ">
+      <div class="col-title"><div class="name">v1 · 底色改了,字色没动</div><div class="tag">上一版</div></div>
+      <div class="demo">
+        <div>
+          <p class="title">Pull Request #218</p>
+          <p class="subtitle">feat(desktop): add hover state to sidebar items</p>
+        </div>
+        <p class="paragraph">
+          Refactor the <span class="em">sidebar rail</span> to react to keyboard focus, not just pointer hover.
+          <span class="dim">This aligns behavior with the branch menu redesign shipped last week.</span>
+        </p>
+        <div class="stack">
+          <div class="row"><span class="k">Author</span><span class="v">wufan</span></div>
+          <div class="row"><span class="k">Reviewers</span><span class="v">2 approved · 1 pending</span></div>
+          <div class="row"><span class="k">Updated</span><span class="v">2h ago</span></div>
+        </div>
+        <div class="list">
+          <div class="list-item active"><span class="ic"></span>Overview<span class="meta">⌘ 1</span></div>
+          <div class="list-item"><span class="ic"></span>Commits<span class="meta">⌘ 2</span></div>
+          <div class="list-item"><span class="ic"></span>Files changed<span class="meta">⌘ 3</span></div>
+        </div>
+        <div class="input"><span class="ph">Filter by file, author, or SHA…</span></div>
+        <div class="btnrow">
+          <button class="btn primary">Merge</button>
+          <button class="btn ghost">Request changes</button>
+          <button class="btn destructive">Close</button>
+          <span class="badge" style="margin-left:auto">Ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- v2 -->
+    <div style="
+      --bg: #282a36;
+      --card: #2b2e42;
+      --border: #3d4160;
+      --input: #343a52;
+      --fg: #eef0fa;
+      --muted-fg: #8b98c8;
+      --primary: #bd93f9;
+      --primary-fg: #1a1b26;
+      --accent: #c66aa0;
+      --accent-fg: #1a1b26;
+      --destructive: #ff6b6b;
+      --active: #4a4f70;
+    ">
+      <div class="col-title"><div class="name">v2 · 字体色也调</div><div class="tag">当前推荐</div></div>
+      <div class="demo">
+        <div>
+          <p class="title">Pull Request #218</p>
+          <p class="subtitle">feat(desktop): add hover state to sidebar items</p>
+        </div>
+        <p class="paragraph">
+          Refactor the <span class="em">sidebar rail</span> to react to keyboard focus, not just pointer hover.
+          <span class="dim">This aligns behavior with the branch menu redesign shipped last week.</span>
+        </p>
+        <div class="stack">
+          <div class="row"><span class="k">Author</span><span class="v">wufan</span></div>
+          <div class="row"><span class="k">Reviewers</span><span class="v">2 approved · 1 pending</span></div>
+          <div class="row"><span class="k">Updated</span><span class="v">2h ago</span></div>
+        </div>
+        <div class="list">
+          <div class="list-item active"><span class="ic"></span>Overview<span class="meta">⌘ 1</span></div>
+          <div class="list-item"><span class="ic"></span>Commits<span class="meta">⌘ 2</span></div>
+          <div class="list-item"><span class="ic"></span>Files changed<span class="meta">⌘ 3</span></div>
+        </div>
+        <div class="input"><span class="ph">Filter by file, author, or SHA…</span></div>
+        <div class="btnrow">
+          <button class="btn primary">Merge</button>
+          <button class="btn ghost">Request changes</button>
+          <button class="btn destructive">Close</button>
+          <span class="badge" style="margin-left:auto">Ready</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="tokens">
+    <h2>字体色改动明细</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Token</th>
+          <th>v1</th>
+          <th>v2</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="name">foreground / cardForeground / sidebarForeground / popoverForeground / secondaryForeground</td>
+          <td><span class="chip"><span class="box" style="background:#f8f8f2"></span>#f8f8f2</span></td>
+          <td><span class="chip"><span class="box" style="background:#eef0fa"></span>#eef0fa</span></td>
+          <td>主文字 · 略降白度,轻微蓝紫倾向,和 sidebar/card 呼应,减少直白反差</td>
+        </tr>
+        <tr>
+          <td class="name">mutedForeground</td>
+          <td><span class="chip"><span class="box" style="background:#6272a4"></span>#6272a4</span></td>
+          <td><span class="chip"><span class="box" style="background:#8b98c8"></span>#8b98c8</span></td>
+          <td>次要文字 · 在提亮的底色上原色几乎看不见,这版把亮度拉起,层级更清晰</td>
+        </tr>
+        <tr>
+          <td class="name">primaryForeground / accentForeground / highlightForeground / sidebarPrimaryForeground / sidebarAccentForeground</td>
+          <td><span class="chip"><span class="box" style="background:#282a36"></span>#282a36</span></td>
+          <td><span class="chip"><span class="box" style="background:#1a1b26"></span>#1a1b26</span></td>
+          <td>紫底/粉底上的深色字 · 加深一档以提高 primary 按钮上文字的对比度</td>
+        </tr>
+        <tr>
+          <td class="name">accent</td>
+          <td><span class="chip"><span class="box" style="background:#a9598c"></span>#a9598c</span></td>
+          <td><span class="chip"><span class="box" style="background:#c66aa0"></span>#c66aa0</span></td>
+          <td>Accent 底色也顺手提亮 · 原色在新底色上偏暗</td>
+        </tr>
+        <tr>
+          <td class="name">destructive</td>
+          <td><span class="chip"><span class="box" style="background:#ff5555"></span>#ff5555</span></td>
+          <td><span class="chip"><span class="box" style="background:#ff6b6b"></span>#ff6b6b</span></td>
+          <td>危险色 · 微调,和整体亮度线保持一致</td>
+        </tr>
+        <tr>
+          <td class="name">terminal foreground / white / cursor</td>
+          <td><span class="chip"><span class="box" style="background:#f8f8f2"></span>#f8f8f2</span></td>
+          <td><span class="chip"><span class="box" style="background:#eef0fa"></span>#eef0fa</span></td>
+          <td>终端主文字同步 UI</td>
+        </tr>
+        <tr>
+          <td class="name">terminal brightBlack (次要终端文字)</td>
+          <td><span class="chip"><span class="box" style="background:#6272a4"></span>#6272a4</span></td>
+          <td><span class="chip"><span class="box" style="background:#8b98c8"></span>#8b98c8</span></td>
+          <td>同步 mutedForeground</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <p class="note">
+    · <strong>没动</strong>的:primary <code>#bd93f9</code>、chart1–5、terminal 里的 red/green/yellow/blue/cyan/magenta —— Dracula 的"多彩感"守住。<br>
+    · 如果你觉得主文字还想再亮一点(接近 <code>#f5f6ff</code>)或者再暗一点(<code>#dadcec</code>),告诉我具体感觉,我按你的方向再拉一档。
+  </p>
+</body>
+</html>

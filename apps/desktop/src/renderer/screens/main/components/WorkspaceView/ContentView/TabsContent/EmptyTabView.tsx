@@ -136,7 +136,7 @@ export function EmptyTabView({
 				{workspace && (
 					<button
 						type="button"
-						className="mx-auto mt-6 flex items-center gap-1 text-xs text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+						className="mx-auto mt-6 flex items-center gap-1 text-xs text-fg-mute/50 transition-colors hover:text-fg-mute"
 						onClick={handleDeleteClick}
 					>
 						<LuTrash2 className="size-3" />

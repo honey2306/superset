@@ -465,6 +465,25 @@ describe("terminal-ws-transport", () => {
 		expect(socket.reconnectCount).toBe(before + 1);
 	});
 
+	test("marks a session-gone server error as ended only once", () => {
+		let ended = 0;
+		const transport = createTransport({ onSessionEnded: () => ended++ });
+		const terminal = createMockTerminal();
+		connect(transport, terminal, "ws://host/terminal/t1");
+		const socket = FakeRelaySocket.instances.at(-1);
+		if (!socket) throw new Error("expected relay socket instance");
+		socket.open();
+		socket.message(
+			JSON.stringify({
+				type: "error",
+				message: "session-gone",
+				code: "session-gone",
+			}),
+		);
+		expect(transport.sessionEnded).toBe(true);
+		expect(ended).toBe(1);
+	});
+
 	test("forces a reconnect on the wall-clock gap after sleep/wake", () => {
 		jest.useFakeTimers();
 		setSystemTime(new Date("2026-01-01T00:00:00Z"));

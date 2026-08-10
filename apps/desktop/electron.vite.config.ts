@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
@@ -8,6 +9,7 @@ import { config } from "dotenv";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import injectProcessEnvPlugin from "rollup-plugin-inject-process-env";
 import tsconfigPathsPlugin from "vite-tsconfig-paths";
+import { patchPiAcpBundle } from "../../packages/host-service/src/runtime/acp-sessions/pi-acp-bundle";
 import { dependencies, resources, version } from "./package.json";
 import { mainExternalizedDependencies } from "./runtime-dependencies";
 import {
@@ -21,6 +23,31 @@ import {
 config({ path: resolve(__dirname, "../../.env"), override: true, quiet: true });
 
 const DEV_SERVER_PORT = Number(process.env.DESKTOP_VITE_PORT);
+const moduleRequire = createRequire(import.meta.url);
+const piAcpEntry = moduleRequire.resolve("pi-acp");
+
+function piAcpBridgePlugin() {
+	return {
+		name: "pi-acp-bridge",
+		transform(code: string, id: string) {
+			if (id !== piAcpEntry) return null;
+			// pi-acp's terminal-login branch uses top-level await for a dynamic
+			// built-in import. Electron's main bundle is CJS, so make that import
+			// static before Rollup renders this standalone subprocess entry.
+			return patchPiAcpBundle(
+				code
+					.replace(
+						"#!/usr/bin/env node",
+						'#!/usr/bin/env node\nimport { spawnSync as piAcpSpawnSync } from "node:child_process";',
+					)
+					.replace(
+						'const { spawnSync: spawnSync2 } = await import("child_process");',
+						"const spawnSync2 = piAcpSpawnSync;",
+					),
+			);
+		},
+	};
+}
 
 // Validate required env vars at build time using the Zod schema (single source of truth)
 await import("./src/main/env.main");
@@ -45,7 +72,7 @@ const sentryPlugin = process.env.SENTRY_AUTH_TOKEN
 
 export default defineConfig({
 	main: {
-		plugins: [tsconfigPaths, copyResourcesPlugin()],
+		plugins: [tsconfigPaths, copyResourcesPlugin(), piAcpBridgePlugin()],
 
 		define: {
 			"process.env.NODE_ENV": defineEnv(process.env.NODE_ENV, "production"),
@@ -117,6 +144,17 @@ export default defineConfig({
 					// host-service worker thread — emitted side-by-side with
 					// host-service.js so the pool's script resolution finds it.
 					"host-worker": resolve("src/main/host-worker/index.ts"),
+					// Detached ACP owner — survives host-service/Desktop restarts while
+					// retaining active turns and pending permission callbacks.
+					"acp-daemon": resolve(
+						"../../packages/host-service/src/runtime/acp-sessions/daemon-entry.ts",
+					),
+					// ACP protocol bridges are subprocesses, so emit standalone entries
+					// beside acp-daemon.js where AcpSessionManager resolves them.
+					"codex-app-server-acp": resolve(
+						"../../packages/host-service/src/runtime/acp-sessions/codex-app-server-acp.ts",
+					),
+					"pi-acp": piAcpEntry,
 				},
 				output: {
 					dir: resolve(devPath, "main"),

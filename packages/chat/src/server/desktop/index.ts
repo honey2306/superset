@@ -16,6 +16,14 @@ export {
 export { ChatService } from "./chat-service";
 export type { AnthropicEnvVariables } from "./chat-service/anthropic-env-config";
 export type { AuthStatus } from "./chat-service/auth-storage-types";
+export type {
+	CodexUsageResult,
+	CodexUsageSnapshot,
+	CodexUsageUnavailable,
+	CodexUsageUnavailableReason,
+	CodexUsageWindow,
+} from "./codex";
+export { getCodexUsage } from "./codex";
 export type { ChatServiceRouter } from "./router";
 export { createChatServiceRouter } from "./router";
 export type { SlashCommand } from "./slash-commands";

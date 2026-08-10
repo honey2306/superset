@@ -1,12 +1,19 @@
 import {
 	cancelInput,
+	clearQueueInput,
+	closeSessionInput,
 	createSessionInput,
 	decodeMessagesCursor,
+	editQueuedPromptInput,
+	enqueuePromptInput,
 	getMessagesInput,
 	getSessionInput,
 	listSessionsInput,
 	promptInput,
+	removeQueuedPromptInput,
+	reorderQueueInput,
 	respondToPermissionInput,
+	sendNowInput,
 	setConfigOptionInput,
 	setModeInput,
 } from "@superset/session-protocol";
@@ -59,12 +66,14 @@ function rethrowMapped(error: unknown): never {
  * mastra `chat` router, which stays untouched.
  */
 export const acpSessionsRouter = router({
-	list: protectedProcedure.input(listSessionsInput).query(({ ctx, input }) => {
-		if (!ctx.runtime.acpSessionsEnabled) {
-			return { items: [], nextCursor: null, enabled: false };
-		}
-		return ctx.runtime.acpSessions.list(input);
-	}),
+	list: protectedProcedure
+		.input(listSessionsInput)
+		.query(async ({ ctx, input }) => {
+			if (!ctx.runtime.acpSessionsEnabled) {
+				return { items: [], nextCursor: null, enabled: false };
+			}
+			return await ctx.runtime.acpSessions.list(input);
+		}),
 
 	create: gatedProcedure
 		.input(createSessionInput)
@@ -76,18 +85,14 @@ export const acpSessionsRouter = router({
 			}
 		}),
 
-	get: gatedProcedure.input(getSessionInput).query(({ ctx, input }) => {
+	get: gatedProcedure.input(getSessionInput).query(async ({ ctx, input }) => {
 		try {
-			return ctx.runtime.acpSessions.get(input.sessionId);
+			return await ctx.runtime.acpSessions.get(input.sessionId);
 		} catch (error) {
 			rethrowMapped(error);
 		}
 	}),
 
-	// Every live-path procedure below awaits ensureLive first: a session
-	// persisted before a host restart is `offline` until something needs its
-	// adapter, at which point the manager resurrects it via session/load.
-	// `list` and `get` stay passive so browsing sessions spawns nothing.
 	getMessages: gatedProcedure
 		.input(getMessagesInput)
 		.query(async ({ ctx, input }) => {
@@ -104,7 +109,7 @@ export const acpSessionsRouter = router({
 			}
 			try {
 				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
-				return ctx.runtime.acpSessions.getMessages({
+				return await ctx.runtime.acpSessions.getMessages({
 					sessionId: input.sessionId,
 					beforeSeq,
 					limit: input.limit,
@@ -120,7 +125,7 @@ export const acpSessionsRouter = router({
 	prompt: gatedProcedure.input(promptInput).mutation(async ({ ctx, input }) => {
 		try {
 			await ctx.runtime.acpSessions.ensureLive(input.sessionId);
-			const { accepted } = ctx.runtime.acpSessions.prompt(input);
+			const { accepted } = await ctx.runtime.acpSessions.prompt(input);
 			return { accepted };
 		} catch (error) {
 			rethrowMapped(error);
@@ -132,7 +137,7 @@ export const acpSessionsRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			try {
 				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
-				return ctx.runtime.acpSessions.respondToPermission(input);
+				return await ctx.runtime.acpSessions.respondToPermission(input);
 			} catch (error) {
 				rethrowMapped(error);
 			}
@@ -146,6 +151,16 @@ export const acpSessionsRouter = router({
 			rethrowMapped(error);
 		}
 	}),
+
+	close: gatedProcedure
+		.input(closeSessionInput)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				await ctx.runtime.acpSessions.close(input);
+			} catch (error) {
+				rethrowMapped(error);
+			}
+		}),
 
 	setMode: gatedProcedure
 		.input(setModeInput)
@@ -164,6 +179,72 @@ export const acpSessionsRouter = router({
 			try {
 				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
 				await ctx.runtime.acpSessions.setConfigOption(input);
+			} catch (error) {
+				rethrowMapped(error);
+			}
+		}),
+
+	enqueuePrompt: gatedProcedure
+		.input(enqueuePromptInput)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
+				return ctx.runtime.acpSessions.enqueuePrompt(input);
+			} catch (error) {
+				rethrowMapped(error);
+			}
+		}),
+
+	sendNow: gatedProcedure
+		.input(sendNowInput)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
+				return await ctx.runtime.acpSessions.sendNow(input);
+			} catch (error) {
+				rethrowMapped(error);
+			}
+		}),
+
+	removeQueuedPrompt: gatedProcedure
+		.input(removeQueuedPromptInput)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
+				ctx.runtime.acpSessions.removeQueuedPrompt(input);
+			} catch (error) {
+				rethrowMapped(error);
+			}
+		}),
+
+	reorderQueue: gatedProcedure
+		.input(reorderQueueInput)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
+				ctx.runtime.acpSessions.reorderQueue(input);
+			} catch (error) {
+				rethrowMapped(error);
+			}
+		}),
+
+	editQueuedPrompt: gatedProcedure
+		.input(editQueuedPromptInput)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
+				ctx.runtime.acpSessions.editQueuedPrompt(input);
+			} catch (error) {
+				rethrowMapped(error);
+			}
+		}),
+
+	clearQueue: gatedProcedure
+		.input(clearQueueInput)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
+				ctx.runtime.acpSessions.clearQueue(input);
 			} catch (error) {
 				rethrowMapped(error);
 			}

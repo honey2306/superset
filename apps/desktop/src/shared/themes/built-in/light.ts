@@ -23,35 +23,37 @@ export const lightTheme: Theme = {
 		secondaryForeground: "oklch(0.205 0 0)",
 		muted: "oklch(0.97 0 0)",
 		mutedForeground: "oklch(0.556 0 0)",
-		accent: "oklch(0.93 0 0)",
-		accentForeground: "oklch(0.205 0 0)",
+		// Accent — pink stays a tint (same DS rule as Dracula, applied to
+		// a light canvas). `bg-accent` reads as a soft brand highlight.
+		accent: "rgba(255, 121, 198, 0.12)",
+		accentForeground: "#d13a91",
 		tertiary: "oklch(0.95 0.003 40)",
 		tertiaryActive: "oklch(0.90 0.003 40)",
 		destructive: "oklch(0.577 0.245 27.325)",
 		destructiveForeground: "oklch(0.985 0 0)",
 		border: "oklch(0.922 0 0)",
 		input: "oklch(0.922 0 0)",
-		ring: "oklch(0.708 0 0)",
+		ring: "#ff79c6",
 		sidebar: "oklch(0.985 0 0)",
 		sidebarForeground: "oklch(0.145 0 0)",
-		sidebarPrimary: "oklch(0.205 0 0)",
+		sidebarPrimary: "#ff79c6",
 		sidebarPrimaryForeground: "oklch(0.985 0 0)",
-		sidebarAccent: "oklch(0.97 0 0)",
-		sidebarAccentForeground: "oklch(0.205 0 0)",
+		sidebarAccent: "rgba(255, 121, 198, 0.12)",
+		sidebarAccentForeground: "#d13a91",
 		sidebarBorder: "oklch(0.922 0 0)",
-		sidebarRing: "oklch(0.708 0 0)",
-		chart1: "oklch(0.646 0.222 41.116)",
+		sidebarRing: "#ff79c6",
+		chart1: "#ff79c6",
 		chart2: "oklch(0.6 0.118 184.704)",
 		chart3: "oklch(0.398 0.07 227.392)",
 		chart4: "oklch(0.828 0.189 84.429)",
 		chart5: "oklch(0.769 0.188 70.08)",
 
-		// Search highlights
-		highlightMatch: "rgba(255, 211, 61, 0.35)",
-		highlightActive: "rgba(255, 150, 50, 0.55)",
+		// Search highlights — same pink tint on a light canvas
+		highlightMatch: "rgba(255, 121, 198, 0.25)",
+		highlightActive: "rgba(255, 121, 198, 0.55)",
 
-		// Brand highlight - warm chart-1 orange
-		highlight: "oklch(0.646 0.222 41.116)",
+		// Brand highlight — pink
+		highlight: "#ff79c6",
 		highlightForeground: "oklch(0.985 0 0)",
 	},
 

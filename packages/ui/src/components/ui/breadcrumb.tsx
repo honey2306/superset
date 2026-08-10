@@ -8,11 +8,13 @@ function Breadcrumb({ ...props }: React.ComponentProps<"nav">) {
 }
 
 function BreadcrumbList({ className, ...props }: React.ComponentProps<"ol">) {
+	// DS Breadcrumb: mono trail. Last segment reads full --fg, prior segments
+	// muted with hover to --fg. Chevron separator, no bullet.
 	return (
 		<ol
 			data-slot="breadcrumb-list"
 			className={cn(
-				"text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm break-words sm:gap-2.5",
+				"text-fg-mute font-mono tracking-[var(--ls-mono)] flex flex-wrap items-center gap-1.5 text-[11px] break-words sm:gap-2",
 				className,
 			)}
 			{...props}
@@ -42,7 +44,10 @@ function BreadcrumbLink({
 	return (
 		<Comp
 			data-slot="breadcrumb-link"
-			className={cn("hover:text-foreground transition-colors", className)}
+			className={cn(
+				"hover:text-fg transition-colors duration-[120ms] cursor-pointer",
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -57,7 +62,7 @@ function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
 			role="link"
 			aria-disabled="true"
 			aria-current="page"
-			className={cn("text-foreground font-normal", className)}
+			className={cn("text-fg font-medium", className)}
 			{...props}
 		/>
 	);

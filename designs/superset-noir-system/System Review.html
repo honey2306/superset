@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>Superset Noir · 设计系统 v1</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============================================ */
+  /* Superset Noir · Design System Tokens */
+  /* ============================================ */
+  :root {
+    /* Color · Neutral (dark ladder) */
+    --ink-0:  #0a080b;   /* darkest — page frame */
+    --ink-1:  #0f0d10;   /* app background */
+    --ink-2:  #16131a;   /* sidebar / secondary panels */
+    --ink-3:  #1a171d;   /* card / popover */
+    --ink-4:  #221e26;   /* input / hover */
+    --ink-5:  #2a2531;   /* border-1 · subtle */
+    --ink-6:  #3a3441;   /* border-2 · visible */
+
+    /* Color · Text ladder (warm off-white → mauve) */
+    --text-1: #eae8f0;   /* body */
+    --text-2: #b8b3c4;   /* secondary */
+    --text-3: #8a8395;   /* tertiary / captions */
+    --text-4: #625a6d;   /* placeholder / disabled */
+
+    /* Color · Signature · Muted Rose */
+    --rose-100: #f7dbe8;
+    --rose-200: #e5a3c8;   /* signature */
+    --rose-300: #d685b3;
+    --rose-400: #b8618f;
+    --rose-500: #8a4468;
+
+    /* Color · Signature · Support Violet */
+    --violet-200: #b8a3e5;
+    --violet-300: #9682c8;
+
+    /* Color · Semantic */
+    --success: #7dd88f;
+    --warning: #e8c26a;
+    --danger:  #e08585;
+    --info:    #7fb8d8;
+
+    /* Radius scale */
+    --r-1: 4px;    /* chip / tag */
+    --r-2: 6px;    /* small button */
+    --r-3: 10px;   /* input */
+    --r-4: 12px;   /* card */
+    --r-5: 16px;   /* dialog / large card */
+    --r-6: 20px;   /* hero */
+    --r-full: 999px; /* pill */
+
+    /* Spacing (4pt) */
+    --s-1: 4px;
+    --s-2: 8px;
+    --s-3: 12px;
+    --s-4: 16px;
+    --s-5: 20px;
+    --s-6: 24px;
+    --s-7: 32px;
+    --s-8: 40px;
+    --s-9: 56px;
+    --s-10: 72px;
+
+    /* Type */
+    --font-ui: "Inter", -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+    --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+
+    /* Line-height ladder */
+    --lh-tight: 1.2;
+    --lh-normal: 1.5;
+    --lh-relaxed: 1.65;
+    --lh-loose: 1.8;
+
+    /* Shadow (very subtle, mostly for popover) */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.25);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.35);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02);
+    --shadow-rose: 0 0 0 3px rgba(229, 163, 200, 0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--ink-0);
+    color: var(--text-1);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: var(--lh-normal);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
+  }
+  body { padding: var(--s-10) var(--s-8) var(--s-10); }
+  code { font-family: var(--font-mono); font-size: 0.88em; }
+
+  /* Page frame */
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-10);
+  }
+
+  /* Hero */
+  .hero { display: flex; flex-direction: column; gap: var(--s-3); }
+  .hero .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--rose-200);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .hero h1 {
+    font-family: var(--font-ui);
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--text-1);
+  }
+  .hero p {
+    color: var(--text-2);
+    font-size: 15px;
+    line-height: var(--lh-relaxed);
+    max-width: 700px;
+  }
+  .hero .meta {
+    display: flex;
+    align-items: center;
+    gap: var(--s-4);
+    padding-top: var(--s-2);
+    color: var(--text-3);
+    font-size: 12.5px;
+    font-family: var(--font-mono);
+  }
+  .hero .meta .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--rose-200); }
+
+  /* Section framing */
+  .section { display: flex; flex-direction: column; gap: var(--s-6); }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-4);
+    padding-bottom: var(--s-3);
+    border-bottom: 1px solid var(--ink-5);
+  }
+  .section-head .num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--rose-200);
+    letter-spacing: 0.06em;
+  }
+  .section-head h2 {
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    color: var(--text-1);
+  }
+  .section-head p {
+    margin-left: auto;
+    color: var(--text-3);
+    font-size: 12.5px;
+    font-family: var(--font-mono);
+  }
+
+  /* Color ladders */
+  .ladder-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--s-4);
+  }
+  @media (max-width: 900px) { .ladder-grid { grid-template-columns: 1fr 1fr; } }
+
+  .swatch {
+    border-radius: var(--r-4);
+    padding: var(--s-6) var(--s-4) var(--s-4);
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: var(--s-1);
+  }
+  .swatch .role {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+  .swatch .name { font-size: 14px; font-weight: 500; }
+  .swatch .hex { font-family: var(--font-mono); font-size: 12px; opacity: 0.7; margin-top: var(--s-1); }
+  .swatch.light .role, .swatch.light .name, .swatch.light .hex { color: var(--ink-1); opacity: unset; }
+  .swatch.light .role, .swatch.light .hex { opacity: 0.55; }
+
+  /* Type scale */
+  .type-block {
+    background: var(--ink-2);
+    border-radius: var(--r-4);
+    padding: var(--s-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-5);
+  }
+  .type-row {
+    display: grid;
+    grid-template-columns: 140px 1fr auto;
+    align-items: baseline;
+    gap: var(--s-5);
+    padding-bottom: var(--s-4);
+    border-bottom: 1px solid var(--ink-5);
+  }
+  .type-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .type-row .label {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text-3);
+    letter-spacing: 0.03em;
+  }
+  .type-row .meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-4);
+  }
+  .t-display { font-size: 40px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: var(--text-1); }
+  .t-h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-1); }
+  .t-h2 { font-size: 20px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; color: var(--text-1); }
+  .t-body-lg { font-size: 15px; line-height: var(--lh-relaxed); color: var(--text-1); }
+  .t-body { font-size: 14px; line-height: var(--lh-normal); color: var(--text-1); }
+  .t-body-sm { font-size: 12.5px; line-height: var(--lh-normal); color: var(--text-2); }
+  .t-caption { font-size: 11.5px; letter-spacing: 0.02em; color: var(--text-3); }
+  .t-mono { font-family: var(--font-mono); font-size: 12.5px; color: var(--rose-200); }
+
+  /* Radius scale */
+  .radius-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: var(--s-3);
+  }
+  @media (max-width: 900px) { .radius-grid { grid-template-columns: repeat(4, 1fr); } }
+  .radius-tile {
+    aspect-ratio: 1;
+    background: var(--ink-3);
+    border: 1px solid var(--ink-5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-1);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-3);
+  }
+  .radius-tile strong { color: var(--text-1); font-family: var(--font-ui); font-size: 12.5px; font-weight: 500; }
+
+  /* Spacing scale */
+  .spacing-block {
+    background: var(--ink-2);
+    border-radius: var(--r-4);
+    padding: var(--s-5) var(--s-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+  .spacing-row {
+    display: grid;
+    grid-template-columns: 60px 1fr 60px;
+    align-items: center;
+    gap: var(--s-4);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .spacing-row .bar { height: 6px; background: var(--rose-200); border-radius: 3px; opacity: 0.85; }
+  .spacing-row strong { color: var(--text-1); font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; }
+
+  /* Components row */
+  .components {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-5);
+  }
+  @media (max-width: 900px) { .components { grid-template-columns: 1fr; } }
+  .demo-card {
+    background: var(--ink-2);
+    border-radius: var(--r-4);
+    padding: var(--s-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+  }
+  .demo-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .demo-body { display: flex; flex-direction: column; gap: var(--s-3); }
+  .demo-row { display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: 8px 14px;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    border: 1px solid transparent;
+    border-radius: var(--r-full);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+  .btn-primary {
+    background: var(--rose-200);
+    color: var(--ink-0);
+    border-color: var(--rose-200);
+  }
+  .btn-primary:hover { background: var(--rose-100); }
+  .btn-secondary {
+    background: var(--ink-4);
+    color: var(--text-1);
+    border-color: var(--ink-5);
+  }
+  .btn-secondary:hover { background: var(--ink-5); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-2);
+  }
+  .btn-ghost:hover { background: var(--ink-4); color: var(--text-1); }
+
+  /* Input */
+  .input {
+    background: var(--ink-4);
+    border: 1px solid var(--ink-5);
+    border-radius: var(--r-3);
+    padding: 10px 14px;
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    color: var(--text-1);
+    width: 100%;
+    outline: none;
+    transition: all 150ms ease;
+  }
+  .input::placeholder { color: var(--text-4); }
+  .input:focus {
+    border-color: var(--rose-200);
+    box-shadow: var(--shadow-rose);
+  }
+
+  /* Chip / Tag */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    padding: 4px 10px;
+    background: var(--ink-4);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    border-radius: var(--r-1);
+  }
+  .chip-rose {
+    background: rgba(229, 163, 200, 0.10);
+    color: var(--rose-200);
+    border: 1px solid rgba(229, 163, 200, 0.20);
+  }
+  .chip-outline {
+    background: transparent;
+    border: 1px solid var(--ink-6);
+    color: var(--text-2);
+  }
+
+  /* Pill (rose ring) */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: 5px 12px;
+    background: rgba(229, 163, 200, 0.08);
+    border: 1px solid rgba(229, 163, 200, 0.30);
+    color: var(--rose-200);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: var(--r-full);
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--rose-200); box-shadow: 0 0 8px var(--rose-200); }
+
+  /* List item */
+  .list {
+    display: flex;
+    flex-direction: column;
+  }
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: 10px 14px;
+    border-radius: var(--r-2);
+    color: var(--text-1);
+    font-size: 13.5px;
+    position: relative;
+  }
+  .list-item:hover { background: var(--ink-4); }
+  .list-item.active {
+    background: var(--ink-4);
+    color: var(--text-1);
+  }
+  .list-item.active::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 6px; bottom: 6px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--rose-200);
+    box-shadow: 0 0 8px rgba(229, 163, 200, 0.5);
+  }
+  .list-item .ic {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    background: currentColor;
+    opacity: 0.6;
+    flex: none;
+  }
+  .list-item .meta {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-3);
+  }
+
+  /* Scenario module (like reference image) */
+  .scenario {
+    background: linear-gradient(135deg, rgba(229, 163, 200, 0.08), rgba(0, 0, 0, 0.4));
+    border-radius: var(--r-5);
+    padding: var(--s-5) var(--s-6);
+    display: flex;
+    align-items: center;
+    gap: var(--s-5);
+    border: 1px solid rgba(229, 163, 200, 0.15);
+  }
+  .scenario-label {
+    background: rgba(229, 163, 200, 0.15);
+    color: var(--rose-200);
+    padding: 4px 10px;
+    border-radius: var(--r-full);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    flex: none;
+  }
+  .scenario p { color: var(--text-2); font-size: 13px; flex: 1; }
+  .scenario-actions { display: flex; gap: var(--s-2); flex-wrap: wrap; }
+  .scenario-actions .btn { padding: 6px 12px; font-size: 12px; }
+
+  /* Code preview */
+  .code-panel {
+    background: var(--ink-2);
+    border-radius: var(--r-4);
+    padding: var(--s-5) var(--s-6);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .code-panel .path {
+    color: var(--text-3);
+    padding-bottom: var(--s-4);
+    margin-bottom: var(--s-3);
+    border-bottom: 1px solid var(--ink-5);
+    font-size: 12px;
+  }
+  .code-panel .path .file { color: var(--rose-200); }
+  .code-panel .line { display: flex; gap: var(--s-4); }
+  .code-panel .num { color: var(--text-4); user-select: none; min-width: 20px; text-align: right; }
+  .code-panel .kw { color: var(--rose-200); }
+  .code-panel .fn { color: var(--rose-300); }
+  .code-panel .str { color: var(--warning); }
+  .code-panel .type { color: var(--violet-200); }
+  .code-panel .comment { color: var(--text-4); font-style: italic; }
+  .code-panel .plain { color: var(--text-1); }
+  .code-panel .prop { color: var(--info); }
+
+  /* Popover mock */
+  .popover-mock {
+    background: var(--ink-3);
+    border-radius: var(--r-4);
+    padding: var(--s-3);
+    box-shadow: var(--shadow-lg);
+    display: flex; flex-direction: column; gap: var(--s-1);
+    border: 1px solid var(--ink-5);
+  }
+  .popover-mock .search {
+    padding: 8px 12px;
+    background: var(--ink-4);
+    border-radius: var(--r-2);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-3);
+    margin-bottom: var(--s-2);
+    display: flex; align-items: center; gap: var(--s-2);
+  }
+  .popover-mock .head {
+    display: flex; align-items: center;
+    padding: 4px 12px;
+    color: var(--text-3);
+    font-size: 11.5px;
+  }
+  .popover-mock .head .cnt { font-family: var(--font-mono); }
+
+  .branch-row {
+    display: flex; align-items: center;
+    gap: var(--s-3);
+    padding: 8px 12px;
+    border-radius: var(--r-2);
+    font-size: 13px;
+  }
+  .branch-row:hover { background: var(--ink-4); }
+  .branch-row.selected {
+    background: rgba(229, 163, 200, 0.10);
+    color: var(--rose-200);
+    border: 1px solid rgba(229, 163, 200, 0.25);
+  }
+  .branch-row .b-icon { font-family: var(--font-mono); color: var(--text-3); }
+  .branch-row.selected .b-icon { color: var(--rose-200); }
+  .branch-row .ahead {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-3);
+  }
+  .branch-row.selected .ahead { color: var(--rose-200); }
+  .branch-row .check { color: var(--rose-200); font-family: var(--font-mono); }
+
+  /* Density stripe */
+  .stripe {
+    height: 10px; border-radius: 5px; overflow: hidden;
+    display: flex; border: 1px solid var(--ink-5);
+  }
+  .stripe span { display: block; }
+
+  .foot {
+    color: var(--text-3);
+    font-size: 12.5px;
+    line-height: var(--lh-relaxed);
+    max-width: 700px;
+  }
+  .foot strong { color: var(--text-2); }
+  .foot code { color: var(--rose-200); background: rgba(229, 163, 200, 0.08); padding: 1px 6px; border-radius: 3px; }
+
+  /* Grid of principles */
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--s-4);
+  }
+  @media (max-width: 900px) { .principles { grid-template-columns: 1fr 1fr; } }
+  .principle {
+    background: var(--ink-2);
+    border-radius: var(--r-4);
+    padding: var(--s-5);
+    display: flex; flex-direction: column; gap: var(--s-2);
+  }
+  .principle .n {
+    font-family: var(--font-mono);
+    color: var(--rose-200);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+  .principle h3 { font-size: 15px; font-weight: 500; letter-spacing: -0.005em; color: var(--text-1); }
+  .principle p { font-size: 12.5px; color: var(--text-3); line-height: var(--lh-relaxed); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <span class="eyebrow">Superset Design System</span>
+    <h1>Noir · v1</h1>
+    <p>一套面向 Superset 的完整深色设计系统 —— 从色阶、字体、圆角到组件语言。灵感来自 Linear / Zed / Cron 的"高级墨调",粉色作为情感 accent 而非结构色。</p>
+    <div class="meta"><span class="dot"></span> <span>2026-08-09 · v1 draft · 5 modules</span></div>
+  </div>
+
+  <!-- Design Principles -->
+  <div class="section">
+    <div class="section-head">
+      <span class="num">01</span>
+      <h2>设计原则</h2>
+      <p>先立心,再落形</p>
+    </div>
+    <div class="principles">
+      <div class="principle">
+        <span class="n">01 · Depth</span>
+        <h3>用底色分层,不用边框</h3>
+        <p>层级靠 ink-1 → ink-4 的暗阶渐变实现,减少视觉噪音。边框只在真正需要"分隔"时使用。</p>
+      </div>
+      <div class="principle">
+        <span class="n">02 · Rest</span>
+        <h3>密度低,呼吸感</h3>
+        <p>行高 1.5–1.65,间距用 4pt 网格,不追求填满信息。留白是内容。</p>
+      </div>
+      <div class="principle">
+        <span class="n">03 · Warmth</span>
+        <h3>粉是情绪,不是结构</h3>
+        <p>rose-200 只出现在关键交互点、状态、光标、选中标 —— 让人"感到温度"而非"看到粉色"。</p>
+      </div>
+      <div class="principle">
+        <span class="n">04 · Craft</span>
+        <h3>细节比对比度更重要</h3>
+        <p>过渡 150ms、focus ring 掺 15% 粉、hover 提亮一档。细节决定"高级感"。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scenario module (mirroring the reference) -->
+  <div class="section">
+    <div class="section-head">
+      <span class="num">02</span>
+      <h2>Scenario 模块 · 引用参考图</h2>
+      <p>还原参考图的"故事条"</p>
+    </div>
+    <div class="scenario">
+      <span class="scenario-label">SCENARIO</span>
+      <p>选一个初始状态。任何时候都可以左键 pill 打开分支列表,或在列表里右键任意分支查看操作菜单。</p>
+      <div class="scenario-actions">
+        <button class="btn btn-secondary">Pill 关闭</button>
+        <button class="btn btn-primary">Popover 打开</button>
+        <button class="btn btn-secondary">右键其他分支</button>
+        <button class="btn btn-secondary">右键当前分支</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Color -->
+  <div class="section">
+    <div class="section-head">
+      <span class="num">03</span>
+      <h2>色阶 · Color Ladders</h2>
+      <p>7 档 ink · 4 档 text · 5 档 rose</p>
+    </div>
+
+    <!-- Ink ladder -->
+    <p class="t-caption" style="color: var(--text-3); margin-top: -8px">Ink · 中性深阶(用于结构分层)</p>
+    <div class="ladder-grid">
+      <div class="swatch" style="background: var(--ink-0)">
+        <span class="role">ink-0 · frame</span>
+        <span class="name">Page frame</span>
+        <span class="hex">#0a080b</span>
+      </div>
+      <div class="swatch" style="background: var(--ink-1)">
+        <span class="role">ink-1 · bg</span>
+        <span class="name">App background</span>
+        <span class="hex">#0f0d10</span>
+      </div>
+      <div class="swatch" style="background: var(--ink-2)">
+        <span class="role">ink-2 · panel</span>
+        <span class="name">Sidebar panel</span>
+        <span class="hex">#16131a</span>
+      </div>
+      <div class="swatch" style="background: var(--ink-3)">
+        <span class="role">ink-3 · card</span>
+        <span class="name">Card · popover</span>
+        <span class="hex">#1a171d</span>
+      </div>
+      <div class="swatch" style="background: var(--ink-4)">
+        <span class="role">ink-4 · input</span>
+        <span class="name">Input · hover</span>
+        <span class="hex">#221e26</span>
+      </div>
+      <div class="swatch" style="background: var(--ink-5)">
+        <span class="role">ink-5 · border</span>
+        <span class="name">Border · subtle</span>
+        <span class="hex">#2a2531</span>
+      </div>
+      <div class="swatch" style="background: var(--ink-6)">
+        <span class="role">ink-6 · edge</span>
+        <span class="name">Border · visible</span>
+        <span class="hex">#3a3441</span>
+      </div>
+      <div class="swatch light" style="background: var(--text-1)">
+        <span class="role">text-1</span>
+        <span class="name">Body text</span>
+        <span class="hex">#eae8f0</span>
+      </div>
+    </div>
+
+    <!-- Rose ladder -->
+    <p class="t-caption" style="color: var(--text-3); margin-top: 12px">Rose · Signature(哑光粉,不是热粉)</p>
+    <div class="ladder-grid">
+      <div class="swatch light" style="background: var(--rose-100)">
+        <span class="role">rose-100</span>
+        <span class="name">Wash · softest</span>
+        <span class="hex">#f7dbe8</span>
+      </div>
+      <div class="swatch light" style="background: var(--rose-200)">
+        <span class="role">rose-200 · signature</span>
+        <span class="name">Primary rose</span>
+        <span class="hex">#e5a3c8</span>
+      </div>
+      <div class="swatch light" style="background: var(--rose-300)">
+        <span class="role">rose-300</span>
+        <span class="name">Body-safe</span>
+        <span class="hex">#d685b3</span>
+      </div>
+      <div class="swatch" style="background: var(--rose-400)">
+        <span class="role">rose-400</span>
+        <span class="name">Deep</span>
+        <span class="hex">#b8618f</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Type -->
+  <div class="section">
+    <div class="section-head">
+      <span class="num">04</span>
+      <h2>字体 · Type Scale</h2>
+      <p>Inter · JetBrains Mono</p>
+    </div>
+    <div class="type-block">
+      <div class="type-row">
+        <span class="label">display · 40 / 600</span>
+        <span class="t-display">高级从容,不喧哗</span>
+        <span class="meta">Inter · -0.02em · 1.1</span>
+      </div>
+      <div class="type-row">
+        <span class="label">heading · 28 / 600</span>
+        <span class="t-h1">A pull request awaits your review</span>
+        <span class="meta">Inter · -0.015em · 1.2</span>
+      </div>
+      <div class="type-row">
+        <span class="label">subheading · 20 / 500</span>
+        <span class="t-h2">feat(desktop): sidebar rail hover states</span>
+        <span class="meta">Inter · -0.01em · 1.3</span>
+      </div>
+      <div class="type-row">
+        <span class="label">body-lg · 15 / 400</span>
+        <span class="t-body-lg">你的注意力应该在内容上,不在装饰上。这一版把边框、阴影、饱和度全都压下去,让文字自己发光。</span>
+        <span class="meta">Inter · 1.65</span>
+      </div>
+      <div class="type-row">
+        <span class="label">body · 14 / 400</span>
+        <span class="t-body">Superset · workspace · feat/acp-agent-control-plane · +383 lines</span>
+        <span class="meta">Inter · 1.5</span>
+      </div>
+      <div class="type-row">
+        <span class="label">caption · 11.5 / 400</span>
+        <span class="t-caption">Updated 2 hours ago · 2 approved · 1 pending review</span>
+        <span class="meta">Inter · 0.02em</span>
+      </div>
+      <div class="type-row">
+        <span class="label">mono · 12.5</span>
+        <span class="t-mono">import { useBranchMenu } from "./hooks/useBranchMenu";</span>
+        <span class="meta">JetBrains Mono</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Radius -->
+  <div class="section">
+    <div class="section-head">
+      <span class="num">05</span>
+      <h2>圆角 · Radius Scale</h2>
+      <p>大圆角 = 现代感 = 高级</p>
+    </div>
+    <div class="radius-grid">
+      <div class="radius-tile" style="border-radius: var(--r-1)"><strong>4</strong>chip · tag</div>
+      <div class="radius-tile" style="border-radius: var(--r-2)"><strong>6</strong>btn-sm</div>
+      <div class="radius-tile" style="border-radius: var(--r-3)"><strong>10</strong>input · btn</div>
+      <div class="radius-tile" style="border-radius: var(--r-4)"><strong>12</strong>card</div>
+      <div class="radius-tile" style="border-radius: var(--r-5)"><strong>16</strong>dialog</div>
+      <div class="radius-tile" style="border-radius: var(--r-6)"><strong>20</strong>hero</div>
+      <div class="radius-tile" style="border-radius: var(--r-full)"><strong>999</strong>pill</div>
+    </div>
+    <p class="t-caption" style="color: var(--text-3)">
+      对比现状:Superset 默认 <code style="font-family: var(--font-mono); color: var(--rose-200)">--radius: 10px</code>,建议保持 10px 但派生规则改为:sm 6 · md 8 · lg 12 · xl 16 —— 让卡片视觉上升一档。
+    </p>
+  </div>
+
+  <!-- Spacing -->
+  <div class="section">
+    <div class="section-head">
+      <span class="num">06</span>
+      <h2>间距 · 4pt Grid</h2>
+      <p>密度调低一档</p>
+    </div>
+    <div class="spacing-block">
+      <div class="spacing-row"><strong>4</strong><span class="bar" style="width: 4px"></span><span>xs · icon inner</span></div>
+      <div class="spacing-row"><strong>8</strong><span class="bar" style="width: 8px"></span><span>sm · chip inner · button gap</span></div>
+      <div class="spacing-row"><strong>12</strong><span class="bar" style="width: 12px"></span><span>md · list row · card inner</span></div>
+      <div class="spacing-row"><strong>16</strong><span class="bar" style="width: 16px"></span><span>lg · section gap</span></div>
+      <div class="spacing-row"><strong>20</strong><span class="bar" style="width: 20px"></span><span>xl · card padding</span></div>
+      <div class="spacing-row"><strong>24</strong><span class="bar" style="width: 24px"></span><span>2xl · panel padding</span></div>
+      <div class="spacing-row"><strong>32</strong><span class="bar" style="width: 32px"></span><span>3xl · module gap</span></div>
+      <div class="spacing-row"><strong>56</strong><span class="bar" style="width: 56px"></span><span>4xl · section top</span></div>
+    </div>
+  </div>
+
+  <!-- Components -->
+  <div class="section">
+    <div class="section-head">
+      <span class="num">07</span>
+      <h2>组件 · Components</h2>
+      <p>按钮 · 输入 · 徽章 · Popover</p>
+    </div>
+    <div class="components">
+      <!-- Buttons -->
+      <div class="demo-card">
+        <span class="demo-title">Buttons · pill radius</span>
+        <div class="demo-row">
+          <button class="btn btn-primary">Merge</button>
+          <button class="btn btn-secondary">Request changes</button>
+          <button class="btn btn-ghost">Cancel</button>
+        </div>
+        <div class="demo-row">
+          <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px">Pill 打开</button>
+          <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px">Pill 关闭</button>
+        </div>
+      </div>
+
+      <!-- Inputs -->
+      <div class="demo-card">
+        <span class="demo-title">Input · rose focus ring</span>
+        <input class="input" type="text" placeholder="搜索分支、或输入名称新建…" />
+        <input class="input" type="text" value="feat/new-branch" style="border-color: var(--rose-200); box-shadow: var(--shadow-rose)" />
+      </div>
+
+      <!-- Chips -->
+      <div class="demo-card">
+        <span class="demo-title">Chip · tag</span>
+        <div class="demo-row">
+          <span class="chip">local</span>
+          <span class="chip">main</span>
+          <span class="chip-rose chip">feat/kro-suite</span>
+          <span class="chip chip-outline">2h ago</span>
+          <span class="chip">↑ 3</span>
+          <span class="chip">↓ 2</span>
+        </div>
+        <div class="demo-row">
+          <span class="pill"><span class="dot"></span>Active</span>
+          <span class="pill" style="color: var(--text-2); background: transparent; border-color: var(--ink-5)">
+            <span class="dot" style="background: var(--text-3); box-shadow: none"></span>Idle
+          </span>
+        </div>
+      </div>
+
+      <!-- List -->
+      <div class="demo-card">
+        <span class="demo-title">List · rose active rail</span>
+        <div class="list">
+          <div class="list-item"><span class="ic"></span>Files<span class="meta">⌘ 1</span></div>
+          <div class="list-item active"><span class="ic"></span>Search<span class="meta">⌘ 2</span></div>
+          <div class="list-item"><span class="ic"></span>Git<span class="meta">⌘ 3</span></div>
+          <div class="list-item"><span class="ic"></span>Debug<span class="meta">⌘ 4</span></div>
+        </div>
+      </div>
+
+      <!-- Popover (branch menu style) -->
+      <div class="demo-card" style="grid-column: 1 / -1;">
+        <span class="demo-title">Popover · branch menu (mirroring reference)</span>
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--s-6); align-items: start;">
+          <!-- Code panel like ref -->
+          <div class="code-panel">
+            <div class="path">
+              apps / desktop / src / renderer / <span class="file">BranchMenu.tsx</span> · on <span style="color: var(--rose-200)">feat/kro-suite</span>
+            </div>
+            <div class="line"><span class="num">1</span><span class="comment">// apps/desktop/.../BranchMenu.tsx</span></div>
+            <div class="line"><span class="num">2</span><span class="kw">import</span> <span class="plain">{ useBranchMenu }</span> <span class="kw">from</span> <span class="str">"./hooks/useBranchMenu"</span><span class="plain">;</span></div>
+            <div class="line"><span class="num">3</span></div>
+            <div class="line"><span class="num">4</span><span class="kw">export function</span> <span class="fn">BranchMenu</span><span class="plain">({ workspaceId }: </span><span class="type">BranchMenuProps</span><span class="plain">) {</span></div>
+            <div class="line"><span class="num">5</span><span class="plain">  </span><span class="kw">const</span> <span class="plain">{ current, locals, remotes, actions } = </span><span class="fn">useBranchMenu</span><span class="plain">(workspaceId);</span></div>
+            <div class="line"><span class="num">6</span></div>
+            <div class="line"><span class="num">7</span><span class="plain">  </span><span class="kw">return</span> <span class="plain">(</span></div>
+            <div class="line"><span class="num">8</span><span class="plain">    &lt;</span><span class="type">BranchPopover</span></div>
+            <div class="line"><span class="num">9</span><span class="plain">      </span><span class="prop">current</span><span class="plain">={current}</span></div>
+            <div class="line"><span class="num">10</span><span class="plain">      </span><span class="prop">locals</span><span class="plain">={locals}</span></div>
+            <div class="line"><span class="num">11</span><span class="plain">      </span><span class="prop">onSwitch</span><span class="plain">={actions.switch}</span></div>
+            <div class="line"><span class="num">12</span><span class="plain">    /&gt;</span></div>
+            <div class="line"><span class="num">13</span><span class="plain">  );</span></div>
+            <div class="line"><span class="num">14</span><span class="plain">}</span></div>
+          </div>
+
+          <!-- Popover -->
+          <div class="popover-mock">
+            <div style="display: flex; align-items: center; gap: var(--s-2); padding: 4px 12px; margin-bottom: 4px">
+              <span class="chip-rose chip">feat/kro-suite</span>
+              <div style="margin-left: auto; display: flex; gap: 4px">
+                <span class="chip">☰</span>
+                <span class="chip">↻</span>
+              </div>
+            </div>
+            <div class="search">🔍 跳转、或输入名称新建…</div>
+            <div class="head">
+              <span>本地分支 · 11</span>
+              <button class="btn btn-primary" style="margin-left: auto; padding: 4px 12px; font-size: 11.5px">+ 新建</button>
+            </div>
+            <div class="branch-row selected">
+              <span class="b-icon">└</span>
+              <span>feat/kro-suite</span>
+              <span class="ahead">↑ 3</span>
+              <span class="check">✓</span>
+            </div>
+            <div class="branch-row">
+              <span class="b-icon">└</span>
+              <span>backup/pre-filter-kro-su…</span>
+              <span class="ahead">2h ago</span>
+            </div>
+            <div class="branch-row">
+              <span class="b-icon">└</span>
+              <span>backup/pre-filter-ui-v2</span>
+              <span class="ahead">5h</span>
+            </div>
+            <div class="branch-row">
+              <span class="b-icon">└</span>
+              <span>bugfix/duplicate-dele…</span>
+              <span class="ahead">↑ 1 · yesterday</span>
+            </div>
+            <div class="branch-row">
+              <span class="b-icon">└</span>
+              <span>bugfix/reap-legacy-orpha…</span>
+              <span class="ahead">↓ 2 · 2d</span>
+            </div>
+            <div class="branch-row">
+              <span class="b-icon">└</span>
+              <span>electron-final</span>
+              <span class="ahead">↓ 4 · 3d</span>
+            </div>
+            <div class="branch-row">
+              <span class="b-icon">└</span>
+              <span>feat/alt_updater</span>
+              <span class="ahead">↑ 2 · 3d</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Density stripe -->
+  <div class="section">
+    <div class="section-head">
+      <span class="num">08</span>
+      <h2>色彩密度 · Presence Map</h2>
+      <p>rose 占屏应 &lt; 8%</p>
+    </div>
+    <div class="stripe">
+      <span style="background: var(--rose-200); flex: 6"></span>
+      <span style="background: var(--ink-4); flex: 20"></span>
+      <span style="background: var(--ink-3); flex: 24"></span>
+      <span style="background: var(--ink-2); flex: 25"></span>
+      <span style="background: var(--ink-1); flex: 25"></span>
+    </div>
+    <p class="t-caption" style="color: var(--text-3)">
+      rose 6% · ink-4 20% · ink-3 24% · ink-2 25% · ink-1 25%
+      <br>
+      粉不是"被撒开",是"被派到岗":focus ring · 光标 · 选中标 · PRO 徽章 · 单个 CTA · scenario 标签 · 关键字高亮。
+    </p>
+  </div>
+
+  <!-- Foot -->
+  <div class="section">
+    <div class="section-head">
+      <span class="num">09</span>
+      <h2>下一步</h2>
+      <p>系统 → 主题 → 项目</p>
+    </div>
+    <p class="foot">
+      · 这份系统涵盖 <strong>色阶 / 字体 / 圆角 / 间距 / 组件</strong>,每一层都有 token 支撑,可以直接映射到 Superset 的现有基础设施。<br>
+      · <strong>主题 JSON</strong> 承载颜色(ink → background/card/muted;rose → primary/highlight;text → foreground 系列)。<br>
+      · <strong>globals.css</strong> 承载圆角(<code>--radius</code>)、字体(<code>font-family</code>)、间距对应 Tailwind 配置。<br>
+      · <strong>UI 组件微调</strong> 修改 button variant 的 padding/radius,让 pill 按钮真正圆起来。<br>
+      · 如果方向对了,我下一步产出:①  <code>dracula-noir.json</code>(主题文件);②  <code>globals-noir.patch.css</code>(圆角/字体覆盖片段);③ 每个组件的<strong>改动清单</strong>(哪些 variant 要动)。
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

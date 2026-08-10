@@ -73,7 +73,7 @@ export function WorkspaceSidebar({
 	);
 
 	return (
-		<SidebarDropZone className="flex flex-col h-full bg-muted/45 dark:bg-muted/35">
+		<SidebarDropZone className="flex flex-col h-full bg-hover/45 dark:bg-hover/35">
 			<WorkspaceSidebarHeader isCollapsed={isCollapsed} />
 
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: mousedown on empty sidebar space clears selection */}
@@ -101,7 +101,7 @@ export function WorkspaceSidebar({
 				))}
 
 				{groups.length === 0 && !isCollapsed && (
-					<div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
+					<div className="flex flex-col items-center justify-center h-32 text-fg-mute text-sm">
 						<span>{t("workspace.none")}</span>
 						<span className="text-xs mt-1">{t("workspace.noneHint")}</span>
 					</div>
