@@ -79,9 +79,7 @@ export function WorkspaceProvisioningOperationView({
 							</p>
 						)}
 						{operation.stage && !hasFailed && (
-							<p className="text-xs text-fg-mute/70">
-								{operation.stage}
-							</p>
+							<p className="text-xs text-fg-mute/70">{operation.stage}</p>
 						)}
 					</div>
 

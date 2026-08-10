@@ -141,9 +141,7 @@ export function SlashCommandPreviewPopover({
 						{parsedInput?.commandName}
 					</span>
 					{commandDescription && (
-						<span className="truncate text-fg-faint">
-							{commandDescription}
-						</span>
+						<span className="truncate text-fg-faint">{commandDescription}</span>
 					)}
 				</div>
 				<div className="space-y-1">

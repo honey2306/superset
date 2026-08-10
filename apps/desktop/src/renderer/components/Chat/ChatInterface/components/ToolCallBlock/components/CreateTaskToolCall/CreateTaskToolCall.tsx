@@ -124,9 +124,7 @@ export function CreateTaskToolCall({ part }: CreateTaskToolCallProps) {
 							</div>
 						</div>
 					) : (
-						<div className="text-fg-mute">
-							{t("chat.tool.noCreatedTasks")}
-						</div>
+						<div className="text-fg-mute">{t("chat.tool.noCreatedTasks")}</div>
 					)}
 				</div>
 			}

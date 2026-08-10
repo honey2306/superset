@@ -22,9 +22,7 @@ export function FileResultItem({
 		>
 			<FileIcon fileName={fileName} className="size-3.5 shrink-0" />
 			<span className="max-w-[252px] truncate font-medium">{fileName}</span>
-			<span className="truncate text-fg-mute text-xs">
-				{relativePath}
-			</span>
+			<span className="truncate text-fg-mute text-xs">{relativePath}</span>
 			<kbd className="ml-auto hidden shrink-0 text-xs text-fg-mute group-data-[selected=true]:block">
 				↵
 			</kbd>

@@ -47,9 +47,7 @@ export function FileViewerPaneTitle({
 					onClick={() => copyToClipboard(filePath)}
 					className={cn(
 						"flex min-w-0 items-center gap-2 truncate text-xs transition-colors",
-						isActive
-							? "text-fg hover:text-fg"
-							: "text-fg-mute hover:text-fg",
+						isActive ? "text-fg hover:text-fg" : "text-fg-mute hover:text-fg",
 						!isPinned && "italic",
 					)}
 				>

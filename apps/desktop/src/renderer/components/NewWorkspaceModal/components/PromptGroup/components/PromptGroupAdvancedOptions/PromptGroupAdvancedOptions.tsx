@@ -92,9 +92,7 @@ export function PromptGroupAdvancedOptions({
 					{t("workspace.advancedOptions")}
 				</CollapsibleTrigger>
 				{shortcutHint && (
-					<span className="text-[11px] text-fg-faint">
-						{shortcutHint}
-					</span>
+					<span className="text-[11px] text-fg-faint">{shortcutHint}</span>
 				)}
 			</div>
 			<CollapsibleContent className="pt-3 space-y-3">
@@ -215,10 +213,7 @@ export function PromptGroupAdvancedOptions({
 
 				{!hideSetupScript && (
 					<div className="flex items-center justify-between">
-						<Label
-							htmlFor="run-setup-script"
-							className="text-xs text-fg-mute"
-						>
+						<Label htmlFor="run-setup-script" className="text-xs text-fg-mute">
 							{t("workspace.runSetupScript")}
 						</Label>
 						<Switch

@@ -182,8 +182,8 @@ export function TabItem<TData>({
 								<Button
 									aria-label="Close tab"
 									className={cn(
-									"pointer-events-none size-[18px] cursor-pointer rounded-ds-2 border-0 text-fg-faint opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
-									"hover:bg-hover hover:text-fg",
+										"pointer-events-none size-[18px] cursor-pointer rounded-ds-2 border-0 text-fg-faint opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+										"hover:bg-hover hover:text-fg",
 									)}
 									onClick={(event) => {
 										event.stopPropagation();

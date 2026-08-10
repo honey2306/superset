@@ -52,9 +52,7 @@ export function DeleteTaskToolCall({ part }: DeleteTaskToolCallProps) {
 							</div>
 						</div>
 					) : (
-						<div className="text-fg-mute">
-							{t("chat.tool.noDeletedTasks")}
-						</div>
+						<div className="text-fg-mute">{t("chat.tool.noDeletedTasks")}</div>
 					)}
 				</div>
 			}

@@ -144,7 +144,8 @@ export function DiffToolbar({
 									onClick={() => onNavigateToSection(section.category)}
 									className={cn(
 										"flex items-center justify-between gap-4",
-										section.category === currentSection.category && "bg-accent-tint",
+										section.category === currentSection.category &&
+											"bg-accent-tint",
 									)}
 								>
 									<span>{section.label}</span>
@@ -177,9 +178,7 @@ export function DiffToolbar({
 							onClick={onToggleFocusMode}
 							className={cn(
 								"rounded p-1 transition-colors hover:bg-accent-tint",
-								focusMode
-									? "text-fg"
-									: "text-fg-faint hover:text-fg-mute",
+								focusMode ? "text-fg" : "text-fg-faint hover:text-fg-mute",
 							)}
 							aria-label={
 								focusMode

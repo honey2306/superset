@@ -11,9 +11,7 @@ export function RemoteWorkspacesDemo() {
 							<div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
 							<div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
 						</div>
-						<span className="text-xs text-fg-mute ml-1">
-							Remote Workspaces
-						</span>
+						<span className="text-xs text-fg-mute ml-1">Remote Workspaces</span>
 					</div>
 				</div>
 
@@ -23,9 +21,7 @@ export function RemoteWorkspacesDemo() {
 							<div className="w-10 h-10 rounded-ds-5 bg-fg/10 flex items-center justify-center">
 								<HiOutlineComputerDesktop className="size-5 text-fg-mute" />
 							</div>
-							<span className="text-[10px] text-fg-mute">
-								This Mac
-							</span>
+							<span className="text-[10px] text-fg-mute">This Mac</span>
 						</div>
 						<div className="flex items-center gap-1">
 							<div className="w-6 h-px bg-fg/20" />

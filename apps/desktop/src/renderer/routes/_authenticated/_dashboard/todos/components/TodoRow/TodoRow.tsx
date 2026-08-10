@@ -201,7 +201,9 @@ function ModePill({ mode }: { mode: SelectTodo["mode"] }) {
 		<span
 			className={cn(
 				"inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
-				isAuto ? "bg-accent-tint text-accent-solid" : "bg-hover/50 text-fg-mute",
+				isAuto
+					? "bg-accent-tint text-accent-solid"
+					: "bg-hover/50 text-fg-mute",
 			)}
 		>
 			{isAuto ? "AUTO" : "REMIND"}

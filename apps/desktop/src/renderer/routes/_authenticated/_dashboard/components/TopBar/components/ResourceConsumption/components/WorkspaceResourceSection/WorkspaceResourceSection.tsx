@@ -245,10 +245,7 @@ export function WorkspaceResourceSection({
 											<UsageSeverityBadge severity={workspaceSeverity} />
 										</div>
 										<div
-											className={cn(
-												METRIC_COLS,
-												"text-[12px] text-fg-mute",
-											)}
+											className={cn(METRIC_COLS, "text-[12px] text-fg-mute")}
 										>
 											<span className={CPU_COL}>
 												{formatCpu(workspace.cpu)}

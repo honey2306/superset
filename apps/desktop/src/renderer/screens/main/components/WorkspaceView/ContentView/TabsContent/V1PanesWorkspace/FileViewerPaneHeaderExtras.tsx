@@ -115,9 +115,7 @@ export function FileViewerPaneHeaderExtras({
 								onClick={toggleHideUnchangedRegions}
 								className={cn(
 									"rounded p-0.5 transition-colors hover:text-fg-mute",
-									hideUnchangedRegions
-										? "text-fg"
-										: "text-fg-mute/60",
+									hideUnchangedRegions ? "text-fg" : "text-fg-mute/60",
 								)}
 							>
 								<TbFold className="size-3.5" />

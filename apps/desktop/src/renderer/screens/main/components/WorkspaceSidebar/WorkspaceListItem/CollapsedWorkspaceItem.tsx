@@ -112,9 +112,7 @@ export function CollapsedWorkspaceItem({
 						</TooltipTrigger>
 						<TooltipContent side="right" className="flex flex-col gap-0.5">
 							<span className="font-medium">local</span>
-							<span className="text-xs text-fg-mute font-mono">
-								{branch}
-							</span>
+							<span className="text-xs text-fg-mute font-mono">{branch}</span>
 						</TooltipContent>
 					</Tooltip>
 					<ContextMenuContent>

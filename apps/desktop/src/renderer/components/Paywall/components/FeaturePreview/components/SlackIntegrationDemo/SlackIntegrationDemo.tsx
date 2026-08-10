@@ -21,9 +21,7 @@ export function SlackIntegrationDemo() {
 				<div className="flex items-center justify-between border-line/50 border-b bg-hover/80 px-4 py-3">
 					<div className="flex items-center gap-2">
 						<FaSlack className="size-4 text-violet-400" />
-						<span className="font-medium text-fg text-xs">
-							#engineering
-						</span>
+						<span className="font-medium text-fg text-xs">#engineering</span>
 					</div>
 					<span className="rounded bg-fg/10 px-2 py-0.5 text-fg-mute text-xs">
 						Live

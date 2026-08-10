@@ -25,18 +25,10 @@ export function PlanBlock({ plan }: { plan: PlanData }) {
 				<ul className="space-y-1.5 text-sm">
 					{plan.steps.map((step) => (
 						<li key={step.label} className="flex items-center gap-2">
-							<span
-								className={
-									step.done ? "text-success" : "text-fg-mute"
-								}
-							>
+							<span className={step.done ? "text-success" : "text-fg-mute"}>
 								{step.done ? "\u2713" : "\u25CB"}
 							</span>
-							<span
-								className={
-									step.done ? "text-fg-mute line-through" : ""
-								}
-							>
+							<span className={step.done ? "text-fg-mute line-through" : ""}>
 								{step.label}
 							</span>
 						</li>

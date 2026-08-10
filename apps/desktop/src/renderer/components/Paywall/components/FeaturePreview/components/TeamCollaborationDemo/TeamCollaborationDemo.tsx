@@ -58,14 +58,10 @@ export function TeamCollaborationDemo() {
 							<div key={item.id} className="flex items-center gap-2 text-xs">
 								<HiCheck className="w-3 h-3 text-success shrink-0" />
 								<span className="text-fg-mute">
-									<span className="text-fg font-medium">
-										{item.user}
-									</span>{" "}
+									<span className="text-fg font-medium">{item.user}</span>{" "}
 									{item.action}
 								</span>
-								<span className="text-fg-faint ml-auto">
-									{item.time}
-								</span>
+								<span className="text-fg-faint ml-auto">{item.time}</span>
 							</div>
 						))}
 					</div>

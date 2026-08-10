@@ -14,9 +14,7 @@ export function FileDropOverlay({ visible }: FileDropOverlayProps) {
 			<div className="flex size-8 items-center justify-center rounded-full bg-muted-foreground/20">
 				<UploadIcon className="size-4 text-fg-mute" />
 			</div>
-			<p className="font-medium text-fg text-sm">
-				{t("fileDrop.title")}
-			</p>
+			<p className="font-medium text-fg text-sm">{t("fileDrop.title")}</p>
 			<p className="text-fg-mute text-xs">{t("fileDrop.subtitle")}</p>
 		</div>
 	);

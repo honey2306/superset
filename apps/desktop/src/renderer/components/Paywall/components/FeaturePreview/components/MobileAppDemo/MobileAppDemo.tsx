@@ -108,9 +108,7 @@ export function MobileAppDemo() {
 					{/* Input bar */}
 					<div className="absolute bottom-6 left-4 right-4">
 						<div className="flex items-center gap-2 px-4 py-3 bg-fg/10 rounded-full border border-line">
-							<span className="text-sm text-fg-mute flex-1">
-								Message...
-							</span>
+							<span className="text-sm text-fg-mute flex-1">Message...</span>
 							<div className="w-8 h-8 rounded-full bg-info flex items-center justify-center">
 								<svg
 									className="w-4 h-4 text-white"

@@ -406,9 +406,7 @@ export function PresetsBar() {
 									{hasPreset ? (
 										<LuPin
 											className={`size-3.5 ${
-												isPinned
-													? "text-fg"
-													: "text-fg-mute/60"
+												isPinned ? "text-fg" : "text-fg-mute/60"
 											}`}
 										/>
 									) : (

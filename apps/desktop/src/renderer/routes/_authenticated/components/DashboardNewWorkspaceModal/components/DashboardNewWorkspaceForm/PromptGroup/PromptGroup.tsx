@@ -634,9 +634,7 @@ export function PromptGroup({
 							{t("workspace.setupProject")}
 						</Button>
 					) : (
-						<span className="text-[11px] text-fg-mute/50">
-							{modKey}↵
-						</span>
+						<span className="text-[11px] text-fg-mute/50">{modKey}↵</span>
 					)}
 				</div>
 			</div>

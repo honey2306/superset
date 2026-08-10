@@ -140,9 +140,7 @@ export function ListTasksToolCall({ part }: ListTasksToolCallProps) {
 							})}
 						</div>
 					) : (
-						<div className="text-fg-mute">
-							{t("chat.tool.noTasksInResult")}
-						</div>
+						<div className="text-fg-mute">{t("chat.tool.noTasksInResult")}</div>
 					)}
 				</div>
 			}

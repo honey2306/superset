@@ -175,9 +175,7 @@ export function UpdateTaskToolCall({ part }: UpdateTaskToolCallProps) {
 							</div>
 						</div>
 					) : (
-						<div className="text-fg-mute">
-							{t("chat.tool.noUpdatedTasks")}
-						</div>
+						<div className="text-fg-mute">{t("chat.tool.noUpdatedTasks")}</div>
 					)}
 				</div>
 			}

@@ -56,9 +56,7 @@ export function MergedPortBadge({ port }: MergedPortBadgeProps) {
 								</span>
 							</>
 						) : (
-							<span className="font-mono text-fg-mute">
-								{port.port}
-							</span>
+							<span className="font-mono text-fg-mute">{port.port}</span>
 						)}
 					</button>
 					<button

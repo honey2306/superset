@@ -67,9 +67,7 @@ export function QuestionInputOverlay({
 			{/* Question — pinned header */}
 			<div className="flex shrink-0 items-start gap-2 px-3 pt-3 pb-3">
 				<div className="flex-1 space-y-1">
-					<p className="text-sm leading-snug text-fg">
-						{question.question}
-					</p>
+					<p className="text-sm leading-snug text-fg">{question.question}</p>
 					{question.description && (
 						<p className="text-xs leading-snug text-fg-mute">
 							{question.description}
@@ -123,9 +121,7 @@ export function QuestionInputOverlay({
 									<span
 										className={cn(
 											"text-sm transition-colors",
-											isChosen
-												? "text-fg"
-												: "text-fg-mute group-hover:text-fg",
+											isChosen ? "text-fg" : "text-fg-mute group-hover:text-fg",
 										)}
 									>
 										{option.label}

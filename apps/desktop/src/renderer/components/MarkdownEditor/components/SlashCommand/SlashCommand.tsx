@@ -141,9 +141,7 @@ const SlashCommandList = forwardRef<SlashCommandListRef, SlashCommandListProps>(
 		if (items.length === 0) {
 			return (
 				<div className="bg-surface-sunk text-fg rounded-ds-3 border p-1 shadow-md">
-					<div className="px-2 py-1.5 text-sm text-fg-mute">
-						No results
-					</div>
+					<div className="px-2 py-1.5 text-sm text-fg-mute">No results</div>
 				</div>
 			);
 		}

@@ -177,9 +177,7 @@ export function WorkspaceHoverCardContent({
 						</div>
 						<div className="flex items-center gap-1.5 text-xs font-mono shrink-0">
 							<span className="text-success">+{pr.additions}</span>
-							<span className="text-destructive">
-								-{pr.deletions}
-							</span>
+							<span className="text-destructive">-{pr.deletions}</span>
 						</div>
 					</div>
 
@@ -218,9 +216,7 @@ export function WorkspaceHoverCardContent({
 				</div>
 			) : repoUrl ? (
 				<div className="pt-2 border-t border-line space-y-2">
-					<div className="text-xs text-fg-mute">
-						No PR for this branch
-					</div>
+					<div className="text-xs text-fg-mute">No PR for this branch</div>
 					{previewButton}
 				</div>
 			) : null}

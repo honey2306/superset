@@ -161,9 +161,7 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 						className={cn(
 							"relative flex size-8 items-center justify-center rounded-ds-3",
 							"animate-in fade-in duration-300",
-							isBusy
-								? "cursor-default text-fg-mute"
-								: "hover:bg-hover",
+							isBusy ? "cursor-default text-fg-mute" : "hover:bg-hover",
 						)}
 						style={
 							isDissolving

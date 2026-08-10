@@ -127,9 +127,7 @@ export function OAuthDialog({
 										autoFocus
 									/>
 								</InputGroup>
-								<p className="text-fg-mute text-xs">
-									{provider.codeHint}
-								</p>
+								<p className="text-fg-mute text-xs">{provider.codeHint}</p>
 							</div>
 						</div>
 					) : !isPreparing ? (

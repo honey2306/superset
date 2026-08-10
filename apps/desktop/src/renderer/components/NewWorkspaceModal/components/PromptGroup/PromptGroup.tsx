@@ -432,9 +432,7 @@ function CompareBaseBranchPickerInline({
 									<GoGitBranch className="size-3.5 shrink-0 text-fg-mute" />
 								);
 							} else {
-								icon = (
-									<GoGlobe className="size-3.5 shrink-0 text-fg-mute" />
-								);
+								icon = <GoGlobe className="size-3.5 shrink-0 text-fg-mute" />;
 							}
 
 							return (

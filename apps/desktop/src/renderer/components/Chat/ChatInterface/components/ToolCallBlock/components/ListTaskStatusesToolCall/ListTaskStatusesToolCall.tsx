@@ -88,9 +88,7 @@ export function ListTaskStatusesToolCall({
 														style={{ backgroundColor: statusColor }}
 													/>
 												)}
-												<div className="font-medium text-fg">
-													{name}
-												</div>
+												<div className="font-medium text-fg">{name}</div>
 											</div>
 											<div className="flex flex-wrap gap-1">
 												{type ? (

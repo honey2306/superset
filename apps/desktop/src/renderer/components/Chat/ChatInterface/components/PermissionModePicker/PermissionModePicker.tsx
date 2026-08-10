@@ -82,9 +82,7 @@ export function PermissionModePicker({
 							<Icon className="size-4 shrink-0" />
 							<div className="flex flex-1 flex-col gap-0.5">
 								<span className="text-sm font-medium">{mode.label}</span>
-								<span className="text-xs text-fg-mute">
-									{mode.description}
-								</span>
+								<span className="text-xs text-fg-mute">{mode.description}</span>
 							</div>
 							{isActive && <CheckIcon className="size-4 shrink-0" />}
 						</DropdownMenuItem>

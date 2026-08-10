@@ -121,14 +121,10 @@ function renderContent(props: TaskItemDisplayProps, t: TranslateFn) {
 				</div>
 			) : null}
 			{hasText(props.description) ? (
-				<div className="line-clamp-2 text-fg-mute">
-					{props.description}
-				</div>
+				<div className="line-clamp-2 text-fg-mute">{props.description}</div>
 			) : null}
 			{showTaskIdLine ? (
-				<div className="text-[11px] text-fg-mute/80">
-					{props.taskId}
-				</div>
+				<div className="text-[11px] text-fg-mute/80">{props.taskId}</div>
 			) : null}
 		</TaskItem>
 	);

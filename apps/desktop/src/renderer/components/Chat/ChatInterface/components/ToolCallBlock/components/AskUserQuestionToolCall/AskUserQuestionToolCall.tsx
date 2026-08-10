@@ -270,9 +270,7 @@ export function AskUserQuestionToolCall({
 				: (isCancelledByError || isCancelledByStop) && questions.length > 0
 					? questions.map((q) => (
 							<div key={q.question} className="space-y-1 px-3 py-2">
-								<div className="text-xs text-fg-mute">
-									{q.question}
-								</div>
+								<div className="text-xs text-fg-mute">{q.question}</div>
 								<div className="flex items-center gap-1 text-sm text-destructive">
 									<CircleXIcon className="h-3 w-3 shrink-0" />
 									{t("chat.tool.abortedByUser")}
