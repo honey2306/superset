@@ -77,7 +77,7 @@ export function SupersetToolCall({
 			{hasDetails ? (
 				<div className="space-y-1 pl-2">
 					{details ? (
-						<div className="rounded border bg-muted/20 ps-2 text-xs">
+						<div className="rounded border bg-hover/20 ps-2 text-xs">
 							{details}
 						</div>
 					) : null}

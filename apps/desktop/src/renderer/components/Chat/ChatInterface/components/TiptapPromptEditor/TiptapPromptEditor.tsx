@@ -768,7 +768,7 @@ export const TiptapPromptEditor = forwardRef<
 						}}
 					>
 						{focusShortcutText && !isFocused && (
-							<span className="pointer-events-none absolute top-0 right-3 flex h-full items-center text-xs text-muted-foreground/50">
+							<span className="pointer-events-none absolute top-0 right-3 flex h-full items-center text-xs text-fg-mute/50">
 								{t("chatInput.focusHint", { shortcut: focusShortcutText })}
 							</span>
 						)}

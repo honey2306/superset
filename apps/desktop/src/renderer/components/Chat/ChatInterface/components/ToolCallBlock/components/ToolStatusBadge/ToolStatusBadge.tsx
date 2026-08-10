@@ -3,7 +3,7 @@ import type { ComponentType } from "react";
 
 const VARIANT_CLASSES = {
 	default: "",
-	success: "text-emerald-500",
+	success: "text-success",
 	danger: "text-destructive",
 } as const;
 

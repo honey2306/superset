@@ -21,7 +21,7 @@ export function LinkedTaskChip({ slug }: LinkedTaskChipProps) {
 	const title = taskData && taskData.length > 0 ? taskData[0].title : null;
 
 	return (
-		<div className="flex items-center gap-2.5 rounded-ds-3 border border-border/50 bg-muted/60 px-3 py-2 text-sm select-none">
+		<div className="flex items-center gap-2.5 rounded-ds-3 border border-line/50 bg-hover/60 px-3 py-2 text-sm select-none">
 			<div className="flex size-7 shrink-0 items-center justify-center rounded-ds-3 bg-foreground/10 p-0.5">
 				<LinearIcon className="size-5 rounded-sm" />
 			</div>

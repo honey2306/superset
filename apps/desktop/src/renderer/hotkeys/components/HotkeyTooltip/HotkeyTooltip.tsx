@@ -26,7 +26,7 @@ export function HotkeyTooltip({
 				side={side}
 				sideOffset={4}
 				showArrow={false}
-				className="rounded-sm border border-border bg-background px-1.5 py-0.5 font-medium text-muted-foreground shadow-sm"
+				className="rounded-sm border border-line bg-background px-1.5 py-0.5 font-medium text-fg-mute shadow-sm"
 			>
 				{text}
 			</TooltipContent>

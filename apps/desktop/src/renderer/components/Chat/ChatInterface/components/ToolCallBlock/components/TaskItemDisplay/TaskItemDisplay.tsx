@@ -126,7 +126,7 @@ function renderContent(props: TaskItemDisplayProps, t: TranslateFn) {
 				</div>
 			) : null}
 			{showTaskIdLine ? (
-				<div className="text-[11px] text-muted-foreground/80">
+				<div className="text-[11px] text-fg-mute/80">
 					{props.taskId}
 				</div>
 			) : null}
@@ -137,8 +137,8 @@ function renderContent(props: TaskItemDisplayProps, t: TranslateFn) {
 export function TaskItemDisplay(props: TaskItemDisplayProps) {
 	const { t } = useTranslation();
 	const className = cn(
-		"w-full rounded border border-border/60 bg-background/60 px-2.5 py-2 text-left",
-		props.onClick ? "transition-colors hover:bg-accent/30" : undefined,
+		"w-full rounded border border-line/60 bg-background/60 px-2.5 py-2 text-left",
+		props.onClick ? "transition-colors hover:bg-hover" : undefined,
 	);
 
 	if (props.onClick) {
