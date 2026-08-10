@@ -15,8 +15,8 @@ function FileMentionChip({ node, selected }: NodeViewProps) {
 			<span
 				contentEditable={false}
 				className={cn(
-					"inline-flex items-center gap-1 rounded-ds-3 px-1.5 py-0.5 font-mono text-xs text-foreground/90 select-none cursor-default transition-colors",
-					selected ? "bg-muted-foreground/15" : "bg-muted-foreground/10",
+					"inline-flex items-center gap-1 rounded-ds-3 px-1.5 py-0.5 font-mono text-xs text-fg-mute select-none cursor-default transition-colors",
+					selected ? "bg-fg-mute/15" : "bg-fg-mute/10",
 				)}
 			>
 				<span className="text-fg-mute">@</span>

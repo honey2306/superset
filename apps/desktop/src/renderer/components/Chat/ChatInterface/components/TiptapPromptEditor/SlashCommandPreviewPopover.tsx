@@ -137,7 +137,7 @@ export function SlashCommandPreviewPopover({
 					<span className="flex size-4.5 shrink-0 items-center justify-center rounded bg-hover font-mono text-[11px]">
 						/
 					</span>
-					<span className="font-mono text-foreground/90">
+					<span className="font-mono text-fg-mute">
 						{parsedInput?.commandName}
 					</span>
 					{commandDescription && (
@@ -150,7 +150,7 @@ export function SlashCommandPreviewPopover({
 					<div className="text-[11px] uppercase tracking-wide text-fg-faint">
 						{t("slashCommand.promptPreviewLower")}
 					</div>
-					<div className="max-h-24 overflow-y-auto whitespace-pre-wrap rounded border border-border/60 bg-hover/30 px-2 py-1.5 font-mono text-[11px] text-fg-mute">
+					<div className="max-h-24 overflow-y-auto whitespace-pre-wrap rounded border border-line/60 bg-hover/30 px-2 py-1.5 font-mono text-[11px] text-fg-mute">
 						{previewPrompt}
 					</div>
 				</div>

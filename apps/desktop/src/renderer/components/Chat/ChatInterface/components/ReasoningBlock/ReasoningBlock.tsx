@@ -19,7 +19,7 @@ export function ReasoningBlock({ reasoning }: ReasoningBlockProps) {
 				<BrainIcon className="size-3" />
 				<span>{t("chat.thinking")}</span>
 			</CollapsibleTrigger>
-			<CollapsibleContent className="mt-1 ml-5 text-xs text-fg-mute whitespace-pre-wrap border-l border-border/40 pl-3">
+			<CollapsibleContent className="mt-1 ml-5 text-xs text-fg-mute whitespace-pre-wrap border-l border-line/40 pl-3">
 				{reasoning}
 			</CollapsibleContent>
 		</Collapsible>

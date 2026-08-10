@@ -34,7 +34,7 @@ export function SlashCommandMenu<T extends ComposerSlashCommand>({
 			side="top"
 			align="start"
 			sideOffset={4}
-			className="w-[var(--radix-popover-trigger-width)] overflow-hidden border-accent-solid/35 bg-popover/95 p-0 text-xs shadow-xl"
+			className="w-[var(--radix-popover-trigger-width)] overflow-hidden border-accent-solid/35 bg-surface-sunk/95 p-0 text-xs shadow-xl"
 			onOpenAutoFocus={(e) => e.preventDefault()}
 			onCloseAutoFocus={(e) => e.preventDefault()}
 		>
@@ -53,10 +53,10 @@ export function SlashCommandMenu<T extends ComposerSlashCommand>({
 							type="button"
 							role="option"
 							aria-selected={isSelected}
-							className={`relative flex w-full cursor-pointer items-center rounded-sm px-3 py-2 text-left text-foreground outline-none transition-colors before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-accent-solid before:transition-opacity before:content-[''] ${
+							className={`relative flex w-full cursor-pointer items-center rounded-sm px-3 py-2 text-left text-fg outline-none transition-colors before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-accent-solid before:transition-opacity before:content-[''] ${
 								isSelected
-									? "bg-accent before:opacity-100"
-									: "before:opacity-0 hover:bg-muted/40"
+									? "bg-accent-tint before:opacity-100"
+									: "before:opacity-0 hover:bg-hover/40"
 							}`}
 							onMouseEnter={() => onHover(index)}
 							onMouseDown={(e) => {
@@ -71,9 +71,9 @@ export function SlashCommandMenu<T extends ComposerSlashCommand>({
 									</span>
 									{cmd.name}
 								</span>
-								<span className="ml-auto flex shrink-0 items-center gap-2 pl-3 font-mono text-[10px] text-muted-foreground">
+								<span className="ml-auto flex shrink-0 items-center gap-2 pl-3 font-mono text-[10px] text-fg-mute">
 									{cmd.kind === "builtin" && (
-										<span className="rounded-sm border border-border/70 bg-muted/40 px-1 py-0.5 uppercase leading-none">
+										<span className="rounded-sm border border-line/70 bg-hover/40 px-1 py-0.5 uppercase leading-none">
 											{t("slashCommand.builtin")}
 										</span>
 									)}

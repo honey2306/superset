@@ -238,8 +238,8 @@ function SlashCommandChip({
 						tabIndex={-1}
 						contentEditable={false}
 						className={cn(
-							"inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-mono text-xs select-none transition-colors cursor-default",
-							selected ? "bg-muted-foreground/15" : "bg-muted-foreground/10",
+							"inline-flex items-center gap-0.5 rounded-ds-3 px-1.5 py-0.5 font-mono text-xs select-none transition-colors cursor-default",
+							selected ? "bg-fg-mute/15" : "bg-fg-mute/10",
 						)}
 						onClick={handleChipClick}
 						onDoubleClick={handleChipDoubleClick}
@@ -248,15 +248,15 @@ function SlashCommandChip({
 								handleChipClick(e as unknown as React.MouseEvent);
 						}}
 					>
-						<span className="text-muted-foreground">/</span>
-						<span className="text-foreground/90">{name}</span>
+						<span className="text-fg-mute">/</span>
+						<span className="text-fg-mute">{name}</span>
 						{hasArgs && (
 							<>
-								<span className="text-muted-foreground/60">:</span>
+								<span className="text-fg-mute/60">:</span>
 								{isEditing ? (
 									<input
 										ref={inputRef}
-										className="bg-transparent border-none outline-none text-foreground/90 placeholder:text-muted-foreground/40 leading-none"
+										className="bg-transparent border-none outline-none text-fg-mute placeholder:text-fg-mute/40 leading-none"
 										style={{ width: `${displayWidth}ch` }}
 										value={args}
 										placeholder={placeholder}
@@ -270,7 +270,7 @@ function SlashCommandChip({
 									<span
 										className={cn(
 											"leading-none",
-											args ? "text-foreground/90" : "text-muted-foreground/40",
+											args ? "text-fg-mute" : "text-fg-mute/40",
 										)}
 									>
 										{args || placeholder}
@@ -304,7 +304,7 @@ function SlashCommandChip({
 												opt === selectedValue ? selectedOptionRef : undefined
 											}
 											value={opt}
-											className="relative min-w-0 py-2 pl-3 data-[selected=true]:bg-accent data-[selected=true]:text-foreground data-[selected=true]:before:absolute data-[selected=true]:before:inset-y-1 data-[selected=true]:before:left-0 data-[selected=true]:before:w-0.5 data-[selected=true]:before:rounded-full data-[selected=true]:before:bg-accent-solid data-[selected=true]:before:content-['']"
+											className="relative min-w-0 py-2 pl-3 data-[selected=true]:bg-accent-tint data-[selected=true]:text-fg data-[selected=true]:before:absolute data-[selected=true]:before:inset-y-1 data-[selected=true]:before:left-0 data-[selected=true]:before:w-0.5 data-[selected=true]:before:rounded-full data-[selected=true]:before:bg-accent-solid data-[selected=true]:before:content-['']"
 											onSelect={() => handleSelectOption(opt)}
 											onMouseDown={(e) => e.preventDefault()}
 										>

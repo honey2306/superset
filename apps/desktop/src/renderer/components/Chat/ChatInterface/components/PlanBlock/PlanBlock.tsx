@@ -27,7 +27,7 @@ export function PlanBlock({ plan }: { plan: PlanData }) {
 						<li key={step.label} className="flex items-center gap-2">
 							<span
 								className={
-									step.done ? "text-green-500" : "text-fg-mute"
+									step.done ? "text-success" : "text-fg-mute"
 								}
 							>
 								{step.done ? "\u2713" : "\u25CB"}
