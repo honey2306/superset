@@ -138,7 +138,10 @@ export async function bumpDaemonPatch(
 
 /** Keep bun.lock's workspace versions consistent so --frozen CI installs pass. */
 export async function refreshLockfile(root: string): Promise<void> {
-	await $`bun install --lockfile-only`.cwd(root).quiet().nothrow();
+	await $`bun install --lockfile-only --registry https://registry.npmjs.org`
+		.cwd(root)
+		.quiet()
+		.nothrow();
 }
 
 /** Sync local tags with origin so tag-derived version checks reflect published
