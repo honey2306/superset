@@ -40,7 +40,6 @@
 		"clean:workspaces": "turbo clean",
 		"release": "bun scripts/release/release.ts",
 		"release:desktop": "bun scripts/release/desktop.ts",
-		"release:cli": "bun scripts/release/cli.ts",
 		"release:canary": "./scripts/release-canary.sh",
 		"check:versions": "bun scripts/release/check-versions.ts",
 		"typecheck:release": "tsc -p scripts/release/tsconfig.json",

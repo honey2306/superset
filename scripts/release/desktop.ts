@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-// Desktop app release: bumps desktop + host-service + cli to one unified version
+// Desktop app release: bumps desktop + host-service to one unified version
 // (and, with --daemon, patch-bumps pty-daemon), tags desktop-v<version> to
 // trigger release-desktop.yml, monitors the build, and leaves a draft (or
 // publishes with --publish). See plans/20260709-unified-version-bumping.md and
@@ -189,7 +189,7 @@ async function handleExistingTag(
 	success("Deleted existing tag");
 }
 
-/** Bump host-service + cli (+ daemon) to the unified version and commit. */
+/** Bump host-service (+ daemon) to the unified version and commit. */
 async function bumpUnified(
 	root: string,
 	version: string,
@@ -201,11 +201,10 @@ async function bumpUnified(
 	await guardDaemonBump(
 		root,
 		withDaemon,
-		"Re-run with --daemon, or ship the daemon change via 'bun run release cli --daemon'.",
+		"Re-run with --daemon to include the pty-daemon patch bump.",
 	);
 
 	const hostOld = readVersion(root, "packages/host-service");
-	const cliOld = readVersion(root, "packages/cli");
 	await syncUnified(root, version);
 
 	let daemonMsg = "";
@@ -217,7 +216,7 @@ async function bumpUnified(
 	}
 	await refreshLockfile(root);
 	return {
-		message: `host-service ${hostOld} -> ${version}, cli ${cliOld} -> ${version}${daemonMsg}`,
+		message: `host-service ${hostOld} -> ${version}${daemonMsg}`,
 		daemonAdd,
 	};
 }
@@ -261,7 +260,7 @@ async function releaseFromHead(
 			withDaemon,
 			"desktop",
 		);
-		await $`git add ${`${DESKTOP_DIR}/package.json`} packages/host-service/package.json packages/cli/package.json ${daemonAdd} bun.lock`;
+		await $`git add ${`${DESKTOP_DIR}/package.json`} packages/host-service/package.json ${daemonAdd} bun.lock`;
 		await $`git commit -m ${`chore(desktop): bump version to ${version} (${message})`}`;
 		success(`Committed version bump (${message})`);
 	} else {
@@ -322,7 +321,7 @@ async function releaseFromCommit(
 				withDaemon,
 				"desktop",
 			);
-			await $`git add ${`${DESKTOP_DIR}/package.json`} packages/host-service/package.json packages/cli/package.json ${daemonAdd} bun.lock`.cwd(
+			await $`git add ${`${DESKTOP_DIR}/package.json`} packages/host-service/package.json ${daemonAdd} bun.lock`.cwd(
 				worktree,
 			);
 			await $`git commit -m ${`chore(desktop): bump version to ${version} (${message})`}`.cwd(
@@ -391,13 +390,9 @@ async function monitorAndPublish(
 		return;
 	}
 
-	const version = tag.replace(/^desktop-v/, "");
 	if (opts.autoPublish) {
 		await $`gh release edit ${tag} --draft=false`;
 		success("Release published!");
-		info(
-			`release-cli-lockstep.yml will tag cli-v${version} and ship the matching standalone CLI.`,
-		);
 		if (opts.autoMerge && opts.prNumber) {
 			const r =
 				await $`gh pr merge ${opts.prNumber} --squash --delete-branch`.nothrow();
@@ -409,9 +404,6 @@ async function monitorAndPublish(
 		success("Draft release created!");
 		console.log(`\nReview: ${url}`);
 		console.log(`Publish with: gh release edit ${tag} --draft=false`);
-		console.log(
-			`Publishing auto-tags cli-v${version} and ships the standalone CLI (release-cli-lockstep.yml).`,
-		);
 	}
 }
 
