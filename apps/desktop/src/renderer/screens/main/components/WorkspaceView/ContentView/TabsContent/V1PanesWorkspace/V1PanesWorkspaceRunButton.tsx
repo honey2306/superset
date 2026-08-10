@@ -140,16 +140,16 @@ export function V1PanesWorkspaceRunButton({
 				onClick={() => void handleRun()}
 				aria-label={isRunning ? "Stop workspace run" : "Run workspace"}
 				className={cn(
-					"flex items-center gap-1.5 h-6 px-1.5 sm:px-2 rounded-l border border-r-0 border-border/60 bg-secondary/50 text-xs font-medium",
+					"flex items-center gap-1.5 h-6 px-1.5 sm:px-2 rounded-l border border-r-0 border-line/60 bg-secondary/50 text-xs font-medium",
 					"transition-all duration-150 ease-out",
-					"hover:bg-secondary hover:border-border",
+					"hover:bg-secondary hover:border-line",
 					"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 					"active:scale-[0.98]",
 					isRunning
-						? "text-emerald-300 border-emerald-500/25 bg-emerald-500/10"
+						? "text-success border-success/25 bg-success-tint"
 						: hasRunCommand
-							? "text-foreground"
-							: "text-muted-foreground/80 border-border/40 bg-secondary/40",
+							? "text-fg"
+							: "text-fg-mute/80 border-line/40 bg-secondary/40",
 				)}
 			>
 				{isRunning ? (
@@ -169,13 +169,13 @@ export function V1PanesWorkspaceRunButton({
 						size="icon"
 						aria-label="Run options"
 						className={cn(
-							"flex items-center justify-center h-6 w-6 rounded-l-none rounded-r border border-border/60 bg-secondary/50 text-muted-foreground",
+							"flex items-center justify-center h-6 w-6 rounded-l-none rounded-r border border-line/60 bg-secondary/50 text-fg-mute",
 							"transition-all duration-150 ease-out",
-							"hover:bg-secondary hover:border-border hover:text-foreground",
+							"hover:bg-secondary hover:border-line hover:text-fg",
 							"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 							"active:scale-[0.98]",
 							isRunning &&
-								"text-emerald-300 border-emerald-500/25 bg-emerald-500/10 hover:bg-emerald-500/20",
+								"text-success border-success/25 bg-success-tint hover:bg-success-tint",
 						)}
 					>
 						<HiChevronDown className="size-3.5" />

@@ -60,12 +60,12 @@ const MOD_KEY = navigator.platform.toLowerCase().includes("mac")
 function terminalStatusClass(status: V1PanesPaneData["status"]): string {
 	switch (status) {
 		case "working":
-			return "text-amber-500";
+			return "text-warning";
 		case "review":
-			return "text-emerald-500";
+			return "text-success";
 		case "permission":
 		case "failed":
-			return "text-red-500";
+			return "text-destructive";
 		default:
 			return "";
 	}
@@ -288,7 +288,7 @@ function useV1PanesRegistry(
 				const file = ctx.pane.data.fileViewer;
 				if (!file || !workspace?.worktreePath) {
 					return (
-						<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+						<div className="flex h-full items-center justify-center text-sm text-fg-mute">
 							File unavailable
 						</div>
 					);
@@ -337,7 +337,7 @@ function useV1PanesRegistry(
 				const c = ctx.pane.data.comment;
 				if (!c) {
 					return (
-						<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+						<div className="flex h-full items-center justify-center text-sm text-fg-mute">
 							No comment selected
 						</div>
 					);
@@ -373,11 +373,11 @@ function useV1PanesRegistry(
 				<Bot
 					className={`size-3.5 ${
 						ctx.pane.data.acp?.status === "running"
-							? "text-emerald-500"
+							? "text-success"
 							: ctx.pane.data.acp?.status === "awaiting_permission"
-								? "text-amber-500"
+								? "text-warning"
 								: ctx.pane.data.acp?.status === "dead"
-									? "text-red-500"
+									? "text-destructive"
 									: ""
 					}`}
 				/>
@@ -400,7 +400,7 @@ function useV1PanesRegistry(
 				const acpData = ctx.pane.data.acp;
 				if (!acpData || !hostUrl) {
 					return (
-						<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+						<div className="flex h-full items-center justify-center text-sm text-fg-mute">
 							{!hostUrl ? "Host unavailable" : "ACP session data missing"}
 						</div>
 					);

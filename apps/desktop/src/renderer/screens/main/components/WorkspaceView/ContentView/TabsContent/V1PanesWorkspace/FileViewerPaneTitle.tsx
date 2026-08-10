@@ -48,13 +48,13 @@ export function FileViewerPaneTitle({
 					className={cn(
 						"flex min-w-0 items-center gap-2 truncate text-xs transition-colors",
 						isActive
-							? "text-foreground hover:text-foreground"
-							: "text-muted-foreground hover:text-foreground",
+							? "text-fg hover:text-fg"
+							: "text-fg-mute hover:text-fg",
 						!isPinned && "italic",
 					)}
 				>
 					<FileText className="size-3.5 shrink-0" />
-					{isDirty && <span className="text-amber-500">●</span>}
+					{isDirty && <span className="text-warning">●</span>}
 					<span className="truncate">{fileName}</span>
 				</button>
 			</TooltipTrigger>
