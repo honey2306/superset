@@ -122,6 +122,130 @@ export const hostSettings = sqliteTable("host_settings", {
 	branchPrefixCustom: text("branch_prefix_custom"),
 });
 
+/**
+ * Desktop-local task records. These intentionally have no organization/user
+ * foreign keys: the host database is the ownership boundary and must remain
+ * usable when the cloud API is unavailable.
+ */
+export const localTodos = sqliteTable(
+	"local_todos",
+	{
+		id: text().primaryKey(),
+		title: text().notNull(),
+		note: text(),
+		mode: text().notNull(),
+		dueAt: integer("due_at").notNull(),
+		timezone: text().notNull(),
+		v2ProjectId: text("v2_project_id"),
+		v2WorkspaceId: text("v2_workspace_id"),
+		targetHostId: text("target_host_id"),
+		agent: text(),
+		prompt: text(),
+		status: text().notNull().default("pending"),
+		sessionKind: text("session_kind"),
+		chatSessionId: text("chat_session_id"),
+		terminalSessionId: text("terminal_session_id"),
+		notifiedAt: integer("notified_at"),
+		dispatchedAt: integer("dispatched_at"),
+		doneAt: integer("done_at"),
+		error: text(),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		updatedAt: integer("updated_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("local_todos_due_idx").on(table.status, table.dueAt),
+		index("local_todos_workspace_idx").on(table.v2WorkspaceId),
+	],
+);
+
+export const localAutomations = sqliteTable(
+	"local_automations",
+	{
+		id: text().primaryKey(),
+		name: text().notNull(),
+		prompt: text().notNull(),
+		agent: text().notNull(),
+		targetHostId: text("target_host_id"),
+		v2ProjectId: text("v2_project_id"),
+		v2WorkspaceId: text("v2_workspace_id"),
+		rrule: text().notNull(),
+		dtstart: integer("dtstart").notNull(),
+		timezone: text().notNull(),
+		enabled: integer({ mode: "boolean" }).notNull().default(true),
+		mcpScopeJson: text("mcp_scope_json").notNull().default("[]"),
+		nextRunAt: integer("next_run_at").notNull(),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+		updatedAt: integer("updated_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("local_automations_due_idx").on(table.enabled, table.nextRunAt),
+		index("local_automations_workspace_idx").on(table.v2WorkspaceId),
+	],
+);
+
+export const localAutomationRuns = sqliteTable(
+	"local_automation_runs",
+	{
+		id: text().primaryKey(),
+		automationId: text("automation_id")
+			.notNull()
+			.references(() => localAutomations.id, { onDelete: "cascade" }),
+		title: text().notNull(),
+		scheduledFor: integer("scheduled_for").notNull(),
+		v2WorkspaceId: text("v2_workspace_id"),
+		sessionKind: text("session_kind"),
+		chatSessionId: text("chat_session_id"),
+		terminalSessionId: text("terminal_session_id"),
+		status: text().notNull(),
+		error: text(),
+		dispatchedAt: integer("dispatched_at"),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		uniqueIndex("local_automation_runs_dedup_idx").on(
+			table.automationId,
+			table.scheduledFor,
+		),
+		index("local_automation_runs_history_idx").on(
+			table.automationId,
+			table.createdAt,
+		),
+	],
+);
+
+export const localAutomationPromptVersions = sqliteTable(
+	"local_automation_prompt_versions",
+	{
+		id: text().primaryKey(),
+		automationId: text("automation_id")
+			.notNull()
+			.references(() => localAutomations.id, { onDelete: "cascade" }),
+		content: text().notNull(),
+		contentHash: text("content_hash").notNull(),
+		source: text().notNull(),
+		restoredFromVersionId: text("restored_from_version_id"),
+		createdAt: integer("created_at")
+			.notNull()
+			.$defaultFn(() => Date.now()),
+	},
+	(table) => [
+		index("local_automation_prompt_versions_history_idx").on(
+			table.automationId,
+			table.createdAt,
+		),
+	],
+);
+
 export const pullRequests = sqliteTable(
 	"pull_requests",
 	{

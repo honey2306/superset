@@ -16,6 +16,22 @@ export const temporaryHandler: SourceHandler = async (context) => {
 	}
 	const singletonKey = request.project.singletonKey;
 	const repoPath = join(homedir(), "Superset", "temporary");
+	const claimTemporaryIdentity = (project: {
+		id: string;
+		kind: string | null;
+		singletonKey: string | null;
+	}) => {
+		if (project.kind === "temporary" && project.singletonKey === singletonKey) {
+			return;
+		}
+		const updated = ctx.catalog.updateProject(project.id, {
+			kind: "temporary",
+			singletonKey,
+		});
+		if (!updated) {
+			throw new Error(`Temporary project disappeared: ${project.id}`);
+		}
+	};
 	const existing =
 		ctx.db.query.projects
 			.findFirst({
@@ -28,6 +44,7 @@ export const temporaryHandler: SourceHandler = async (context) => {
 			})
 			.sync();
 	if (existing) {
+		claimTemporaryIdentity(existing);
 		const main = ctx.db.query.workspaces
 			.findFirst({
 				where: (w, { and, eq }) =>

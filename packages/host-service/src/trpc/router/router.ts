@@ -12,6 +12,7 @@ import { githubRouter } from "./github";
 import { healthRouter } from "./health";
 import { hostRouter } from "./host";
 import { issuesRouter } from "./issues";
+import { automationsRouter, todosRouter } from "./local-tasks/local-tasks";
 import { notificationsRouter } from "./notifications";
 import { phoneRouter } from "./phone";
 import { portsRouter } from "./ports";
@@ -31,6 +32,8 @@ export const appRouter = router({
 	acpSessions: acpSessionsRouter,
 	agents: agentsRouter,
 	attachments: attachmentsRouter,
+	automation: automationsRouter,
+	automations: automationsRouter,
 	auth: authRouter,
 	health: healthRouter,
 	host: hostRouter,
@@ -49,6 +52,8 @@ export const appRouter = router({
 	settings: settingsRouter,
 	terminal: terminalRouter,
 	terminalAgents: terminalAgentsRouter,
+	todo: todosRouter,
+	todos: todosRouter,
 	workspace: workspaceRouter,
 	workspaces: workspacesRouter,
 	workspaceCatalog: workspaceCatalogRouter,

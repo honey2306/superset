@@ -1913,7 +1913,7 @@
     },
     {
       "name": "--surface-elev",
-      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-popover) 92%,\n\t\t#fff 8%\n\t)",
+      "value": "color-mix(\n\t\tin oklch,\n\t\tvar(--dracula-bg-deep) 92%,\n\t\tvar(--dracula-fg) 8%\n\t)",
       "kind": "color",
       "definedIn": "tokens/colors.css",
       "annotation": "color"

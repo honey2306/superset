@@ -21,7 +21,7 @@ import {
 	initTerminalBaseEnv,
 	resolveTerminalBaseEnv,
 } from "@superset/host-service/terminal-env";
-import { connectRelay } from "@superset/host-service/tunnel";
+import { ensureHostAndConnectRelay } from "@superset/host-service/tunnel";
 import { loadToken } from "lib/trpc/routers/auth/utils/auth-functions";
 import { writeManifest } from "main/lib/host-service-manifest";
 import { env } from "./env";
@@ -139,8 +139,8 @@ async function main(): Promise<void> {
 				}
 			}
 
-			if (env.RELAY_URL && env.ORGANIZATION_ID) {
-				void connectRelay({
+			if (env.ORGANIZATION_ID) {
+				void ensureHostAndConnectRelay({
 					api,
 					relayUrl: env.RELAY_URL,
 					localPort: info.port,

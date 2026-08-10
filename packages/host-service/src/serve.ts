@@ -16,7 +16,7 @@ import { LocalModelProvider } from "./providers/model-providers";
 import { installProcessSafetyNet } from "./safety";
 import { startTerminalBaseEnvResolution } from "./terminal/env";
 import { startTerminalReaper } from "./terminal/reaper";
-import { connectRelay } from "./tunnel";
+import { ensureHostAndConnectRelay } from "./tunnel";
 
 function resolveDefaultWebAppDir(): string | undefined {
 	try {
@@ -116,8 +116,8 @@ async function main(): Promise<void> {
 
 		startTerminalReaper(db);
 
-		if (env.RELAY_URL) {
-			void connectRelay({
+		if (env.ORGANIZATION_ID) {
+			void ensureHostAndConnectRelay({
 				api,
 				relayUrl: env.RELAY_URL,
 				localPort: info.port,

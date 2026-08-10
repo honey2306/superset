@@ -15,6 +15,7 @@ import {
 	useWorkspaceProvisioningAdapter,
 } from "renderer/stores/workspace-launch";
 import { STROKE_WIDTH } from "../constants";
+import { isTemporaryWorkspaceActive } from "./utils/isTemporaryWorkspaceActive";
 
 interface WorkspaceSidebarHeaderProps {
 	isCollapsed?: boolean;
@@ -48,7 +49,10 @@ export function WorkspaceSidebarHeader({
 	}, [projects, workspaces]);
 	const isAutomationsOpen = !!matchRoute({ to: "/automations", fuzzy: true });
 	const isTodosOpen = !!matchRoute({ to: "/todos", fuzzy: true });
-	const isTemporaryWorkspaceOpen = workspaceId === temporaryWorkspace?.id;
+	const isTemporaryWorkspaceOpen = isTemporaryWorkspaceActive(
+		workspaceId,
+		temporaryWorkspace?.id,
+	);
 
 	const { alertCount: todoAlertCount } = useTodoAlerts();
 	const hasTodoAlerts = todoAlertCount > 0;

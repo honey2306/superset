@@ -9,15 +9,22 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@superset/ui/popover";
 import { useState } from "react";
 import { HiCheck } from "react-icons/hi2";
-import { LuFolder } from "react-icons/lu";
+import { LuClock3, LuFolder } from "react-icons/lu";
 import { PickerTrigger } from "renderer/components/PickerTrigger";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import type { ProjectOption } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/PromptGroup/types";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
+
+interface TemporaryTargetOption {
+	isSelected: boolean;
+	onSelect: () => void;
+}
 
 interface ProjectPickerProps {
 	selectedProject: ProjectOption | undefined;
 	recentProjects: ProjectOption[];
 	onSelectProject: (projectId: string) => void;
+	temporaryTarget?: TemporaryTargetOption;
 	className?: string;
 }
 
@@ -25,9 +32,11 @@ export function ProjectPicker({
 	selectedProject,
 	recentProjects,
 	onSelectProject,
+	temporaryTarget,
 	className,
 }: ProjectPickerProps) {
 	const [open, setOpen] = useState(false);
+	const { t } = useTranslation();
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -35,7 +44,9 @@ export function ProjectPicker({
 				<PickerTrigger
 					className={className}
 					icon={
-						selectedProject ? (
+						temporaryTarget?.isSelected ? (
+							<LuClock3 className="size-5 shrink-0" />
+						) : selectedProject ? (
 							<ProjectThumbnail
 								projectName={selectedProject.name}
 								iconUrl={selectedProject.iconUrl}
@@ -45,7 +56,11 @@ export function ProjectPicker({
 							<LuFolder className="size-5 shrink-0" />
 						)
 					}
-					label={selectedProject?.name ?? "Select project"}
+					label={
+						temporaryTarget?.isSelected
+							? t("workspace.temporaryWorkspace")
+							: (selectedProject?.name ?? "Select project")
+					}
 				/>
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-60 p-0">
@@ -54,6 +69,21 @@ export function ProjectPicker({
 					<CommandList>
 						<CommandEmpty>No projects found.</CommandEmpty>
 						<CommandGroup>
+							{temporaryTarget && (
+								<CommandItem
+									value="__temporary_workspace__"
+									onSelect={() => {
+										temporaryTarget.onSelect();
+										setOpen(false);
+									}}
+								>
+									<LuClock3 className="size-4" />
+									{t("workspace.temporaryWorkspace")}
+									{temporaryTarget.isSelected && (
+										<HiCheck className="ml-auto size-4" />
+									)}
+								</CommandItem>
+							)}
 							{recentProjects.map((project) => (
 								<CommandItem
 									key={project.id}

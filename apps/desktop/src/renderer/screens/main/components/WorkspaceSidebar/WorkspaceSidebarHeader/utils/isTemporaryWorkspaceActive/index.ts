@@ -1,0 +1,1 @@
+export { isTemporaryWorkspaceActive } from "./isTemporaryWorkspaceActive";

@@ -8,27 +8,33 @@ import {
 	DialogTitle,
 } from "@superset/ui/dialog";
 import { toast } from "@superset/ui/sonner";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LuX } from "react-icons/lu";
 import { EmojiTextInput } from "renderer/components/EmojiTextInput";
 import { MarkdownEditor } from "renderer/components/MarkdownEditor";
 import { useRecentProjects } from "renderer/hooks/host-projects/useRecentProjects";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
-import { useV2AgentChoices } from "renderer/hooks/useV2AgentChoices";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { localAutomationKeys } from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
 import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
+import { useCatalogProjects } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import {
+	useWorkspaceLaunch,
+	useWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 import { hideAll as hideAllTippy } from "tippy.js";
+import { useAutomationAgentChoices } from "../../hooks/useAutomationAgentChoices";
 import { useProjectFileSearch } from "../../hooks/useProjectFileSearch";
 import type { AutomationTemplate } from "../../templates";
 import { AgentPicker } from "../AgentPicker";
 import { ProjectPicker } from "../ProjectPicker";
-import { RelayOfflineNotice } from "../RelayOfflineNotice";
 import { SchedulePicker } from "../SchedulePicker";
 import { WorkspacePicker } from "../WorkspacePicker";
 import { TemplateGalleryPanel } from "./components/TemplateGalleryPanel";
+import { canCreateAutomation } from "./utils/canCreateAutomation";
 
 export type AutomationCreatedPayload = { id: string; name: string };
 
@@ -51,6 +57,7 @@ export function CreateAutomationDialog({
 	initialTemplate,
 }: CreateAutomationDialogProps) {
 	const { t } = useTranslation();
+	const queryClient = useQueryClient();
 	const [view, setView] = useState<"compose" | "gallery">("compose");
 	const [name, setName] = useState("");
 	const [prompt, setPrompt] = useState("");
@@ -61,17 +68,16 @@ export function CreateAutomationDialog({
 	const [agent, setAgent] = useState<string | null>(null);
 	const [rrule, setRrule] = useState(DEFAULT_RRULE);
 	const [v2WorkspaceId, setV2WorkspaceId] = useState<string | null>(null);
+	const [isTemporaryTarget, setIsTemporaryTarget] = useState(false);
 
-	const { localHostId, localHostIsOnline } = useWorkspaceHostOptions();
+	const { localHostId } = useWorkspaceHostOptions();
+	const provisioningAdapter = useWorkspaceProvisioningAdapter();
+	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
 	const targetHostId = hostId ?? localHostId;
-	// The local device is only dispatchable once relay access is enabled in
-	// Settings > Security; block creation until then. Offline remote hosts
-	// only warn — they may reconnect by the time a run is scheduled.
-	const localRelayBlocked =
-		targetHostId === localHostId && localHostIsOnline === false;
 	const hostUrl = useHostUrl(targetHostId);
-	const { agents: hostAgents } = useV2AgentChoices(hostUrl);
+	const { agents: hostAgents } = useAutomationAgentChoices(hostUrl);
 	const recentProjects = useRecentProjects();
+	const { projects: catalogProjects } = useCatalogProjects();
 	const searchFiles = useProjectFileSearch({
 		hostId,
 		projectId: selectedProjectId,
@@ -80,6 +86,12 @@ export function CreateAutomationDialog({
 		(project) => project.id === selectedProjectId,
 	);
 	const selectedAgent = hostAgents.find((option) => option.id === agent);
+	const temporaryProject = catalogProjects.find(
+		(project) => project.kind === "temporary",
+	);
+	const isTemporaryTargetProvisioning = !!workspaceLaunch.pending(
+		"temporary-workspace:default",
+	);
 
 	useEffect(() => {
 		if (agent && hostAgents.some((option) => option.id === agent)) return;
@@ -87,7 +99,7 @@ export function CreateAutomationDialog({
 		if (fallback !== agent) setAgent(fallback);
 	}, [agent, hostAgents]);
 
-	// Default to first project once the Electric-synced list lands.
+	// Default to the first locally available project once the list resolves.
 	useEffect(() => {
 		if (!open) return;
 		if (selectedProjectId) return;
@@ -143,6 +155,7 @@ export function CreateAutomationDialog({
 			setAgent(null);
 			setRrule(DEFAULT_RRULE);
 			setV2WorkspaceId(null);
+			setIsTemporaryTarget(false);
 			appliedTemplateRef.current = null;
 			appliedAgentForTemplateRef.current = null;
 		}
@@ -153,19 +166,23 @@ export function CreateAutomationDialog({
 			if (!selectedAgent) throw new Error(t("automations.noAgentSelected"));
 			if (!selectedProjectId)
 				throw new Error(t("automations.noProjectSelected"));
-			return apiTrpcClient.automation.create.mutate({
+			if (!hostUrl) throw new Error("Local host service is unavailable");
+			return getHostServiceClientByUrl(hostUrl).automations.create.mutate({
 				name,
 				prompt,
 				agent: selectedAgent.id,
 				targetHostId: targetHostId ?? null,
 				v2ProjectId: selectedProjectId,
-				v2WorkspaceId,
+				v2WorkspaceId: isTemporaryTarget ? null : v2WorkspaceId,
 				rrule: rrule.trim(),
 				timezone: DEFAULT_TIMEZONE,
 				mcpScope: [],
 			});
 		},
 		onSuccess: (result) => {
+			queryClient.invalidateQueries({
+				queryKey: localAutomationKeys.automations(hostUrl),
+			});
 			toast.success(t("automations.created", { name: result.name }));
 			onCreated({ id: result.id, name: result.name });
 		},
@@ -178,21 +195,21 @@ export function CreateAutomationDialog({
 		if (!createMutation.isError) return null;
 		const error = createMutation.error;
 		if (!(error instanceof Error)) return t("automations.createFailed");
-		// Raw Postgres errors are multi-line SQL dumps — keep the first line only.
+		// Keep local service errors concise in the dialog.
 		const firstLine = error.message.split("\n")[0]?.trim();
 		if (!firstLine) return t("automations.createFailed");
 		return firstLine.length > 160 ? `${firstLine.slice(0, 160)}…` : firstLine;
 	})();
 
-	const canSubmit =
-		name.trim().length > 0 &&
-		prompt.trim().length > 0 &&
-		!!selectedProjectId &&
-		!!targetHostId &&
-		!!selectedAgent &&
-		rrule.trim().length > 0 &&
-		!localRelayBlocked &&
-		!createMutation.isPending;
+	const canSubmit = canCreateAutomation({
+		name,
+		prompt,
+		projectId: selectedProjectId,
+		hostId: targetHostId,
+		agentId: selectedAgent?.id ?? null,
+		rrule,
+		isPending: createMutation.isPending || isTemporaryTargetProvisioning,
+	});
 
 	const handleTemplatePicked = (template: AutomationTemplate) => {
 		applyTemplate(template);
@@ -265,8 +282,6 @@ export function CreateAutomationDialog({
 									searchFiles={searchFiles}
 								/>
 
-								<RelayOfflineNotice hostId={targetHostId} className="mt-2" />
-
 								{humanReadableCreateError && (
 									<p className="text-destructive text-sm mt-2 line-clamp-2">
 										{humanReadableCreateError}
@@ -283,6 +298,7 @@ export function CreateAutomationDialog({
 										onSelectHostId={(next) => {
 											setHostId(next);
 											setV2WorkspaceId(null);
+											setIsTemporaryTarget(false);
 										}}
 									/>
 									<ProjectPicker
@@ -292,15 +308,71 @@ export function CreateAutomationDialog({
 										onSelectProject={(id) => {
 											setSelectedProjectId(id);
 											setV2WorkspaceId(null);
+											setIsTemporaryTarget(false);
+										}}
+										temporaryTarget={{
+											isSelected: isTemporaryTarget,
+											onSelect: () => {
+												setHostId(null);
+												setV2WorkspaceId(null);
+												if (temporaryProject) {
+													setSelectedProjectId(temporaryProject.id);
+													setIsTemporaryTarget(true);
+													return;
+												}
+												if (!provisioningAdapter) {
+													toast.error("Could not create temporary workspace");
+													return;
+												}
+												setSelectedProjectId(null);
+												setIsTemporaryTarget(false);
+												void workspaceLaunch
+													.begin({
+														adapter: provisioningAdapter,
+														request: {
+															idempotencyKey: "temporary-workspace:default",
+															project: {
+																kind: "temporary",
+																singletonKey: "default",
+															},
+															source: { kind: "main" },
+														},
+													})
+													.then((operation) => {
+														if (
+															operation.state === "failed" ||
+															!operation.projectId
+														)
+															throw new Error(
+																operation.failure?.message ??
+																	"Workspace provisioning failed",
+															);
+														setSelectedProjectId(operation.projectId);
+														setIsTemporaryTarget(true);
+													})
+													.catch((error) =>
+														toast.error(
+															"Could not create temporary workspace",
+															{
+																description:
+																	error instanceof Error
+																		? error.message
+																		: String(error),
+															},
+														),
+													);
+											},
 										}}
 									/>
-									<WorkspacePicker
-										className="w-[160px]"
-										hostId={targetHostId ?? null}
-										projectId={selectedProjectId}
-										value={v2WorkspaceId}
-										onChange={setV2WorkspaceId}
-									/>
+									{!isTemporaryTarget && (
+										<WorkspacePicker
+											className="w-[160px]"
+											hostId={targetHostId ?? null}
+											projectId={selectedProjectId}
+											value={v2WorkspaceId}
+											onChange={setV2WorkspaceId}
+										/>
+									)}
 									<SchedulePicker
 										className="w-[164px]"
 										rrule={rrule}

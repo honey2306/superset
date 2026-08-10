@@ -1,4 +1,3 @@
-import type { SelectTodo } from "@superset/db/schema";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -21,17 +20,22 @@ import { Input } from "@superset/ui/input";
 import { Kbd } from "@superset/ui/kbd";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
-import { useLiveQuery } from "@tanstack/react-db";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { LuListTodo, LuPlus, LuSearch } from "react-icons/lu";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import {
+	type LocalTodo,
+	localAutomationKeys,
+	useLocalTodos,
+} from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
 import { useTodoAlerts } from "renderer/routes/_authenticated/_dashboard/hooks/useTodoAlerts";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { CreateTodoDialog } from "./components/CreateTodoDialog";
 import { TodoRow } from "./components/TodoRow";
+import { getTodoContentState } from "./todoContentState";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/todos/")({
 	component: TodosPage,
@@ -82,7 +86,7 @@ const BUCKETS: BucketMeta[] = [
 	},
 ];
 
-function bucketOf(todo: SelectTodo, now: Date): BucketKey {
+function bucketOf(todo: LocalTodo, now: Date): BucketKey {
 	if (todo.status === "dispatch_failed" || todo.status === "skipped_offline") {
 		return "overdue";
 	}
@@ -106,21 +110,19 @@ function bucketOf(todo: SelectTodo, now: Date): BucketKey {
 
 function TodosPage() {
 	const { t } = useTranslation();
-	const collections = useCollections();
+	const hostUrl = useHostUrl(null);
+	const queryClient = useQueryClient();
 	const { markAlertsSeen } = useTodoAlerts();
 
 	const [createOpen, setCreateOpen] = useState(false);
-	const [pendingDelete, setPendingDelete] = useState<SelectTodo | null>(null);
+	const [pendingDelete, setPendingDelete] = useState<LocalTodo | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 
 	useEffect(() => {
 		markAlertsSeen();
 	}, [markAlertsSeen]);
 
-	const { data: rows = [] } = useLiveQuery(
-		(q) => q.from({ t: collections.todos }).select(({ t }) => ({ ...t })),
-		[collections.todos],
-	);
+	const { data: rows = [], isPending } = useLocalTodos();
 
 	// Recompute the reference "now" whenever the todo set changes so that
 	// bucket assignments and relative labels are fresh at render time.
@@ -129,7 +131,7 @@ function TodosPage() {
 
 	const visibleTodos = useMemo(() => {
 		const q = searchQuery.trim().toLowerCase();
-		return (rows as SelectTodo[])
+		return rows
 			.filter((todo) => todo.status !== "canceled" && todo.status !== "done")
 			.filter((todo) => {
 				if (!q) return true;
@@ -144,7 +146,7 @@ function TodosPage() {
 	}, [rows, searchQuery]);
 
 	const grouped = useMemo(() => {
-		const groups: Record<BucketKey, SelectTodo[]> = {
+		const groups: Record<BucketKey, LocalTodo[]> = {
 			overdue: [],
 			today: [],
 			week: [],
@@ -157,10 +159,17 @@ function TodosPage() {
 	}, [visibleTodos, now]);
 
 	const totalCount = visibleTodos.length;
+	const contentState = getTodoContentState(rows.length, !isPending);
 
 	const deleteMutation = useMutation({
-		mutationFn: (id: string) => apiTrpcClient.todo.delete.mutate({ id }),
+		mutationFn: (id: string) => {
+			if (!hostUrl) throw new Error("Local host service is unavailable");
+			return getHostServiceClientByUrl(hostUrl).todos.delete.mutate({ id });
+		},
 		onSuccess: () => {
+			queryClient.invalidateQueries({
+				queryKey: localAutomationKeys.todos(hostUrl),
+			});
 			toast.success(t("todos.deleted"));
 			setPendingDelete(null);
 		},
@@ -214,7 +223,7 @@ function TodosPage() {
 			</header>
 
 			<div className="flex flex-1 flex-col overflow-y-auto">
-				{totalCount === 0 ? (
+				{contentState === "loading" ? null : contentState === "empty" ? (
 					<Empty className="my-auto">
 						<EmptyHeader>
 							<EmptyMedia>

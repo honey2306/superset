@@ -5,8 +5,6 @@ import {
 } from "@electric-sql/client";
 import type {
 	SelectAgentCommand,
-	SelectAutomation,
-	SelectAutomationRun,
 	SelectChatSession,
 	SelectGithubPullRequest,
 	SelectGithubRepository,
@@ -20,7 +18,6 @@ import type {
 	SelectTaskStatus,
 	SelectTeam,
 	SelectTeamMember,
-	SelectTodo,
 	SelectUser,
 	SelectV2Client,
 	SelectV2Host,
@@ -48,6 +45,8 @@ import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { env } from "renderer/env.renderer";
 import { track } from "renderer/lib/analytics";
 import { getAuthToken, getJwt } from "renderer/lib/auth-client";
+import { authenticatedElectricFetch } from "renderer/lib/authenticated-electric-fetch";
+import { authenticatedTrpcFetch } from "renderer/lib/authenticated-trpc-fetch";
 import { refreshJwtAfterUnauthorized } from "renderer/lib/jwt-refresh";
 import { reclaimTerminalStateForQuota } from "renderer/lib/terminal/terminal-buffer-gc";
 import superjson from "superjson";
@@ -154,9 +153,6 @@ export interface OrgCollections {
 	chatSessions: Collection<SelectChatSession>;
 	githubRepositories: Collection<SelectGithubRepository>;
 	githubPullRequests: Collection<SelectGithubPullRequest>;
-	automations: Collection<SelectAutomation>;
-	automationRuns: Collection<SelectAutomationRun>;
-	todos: Collection<SelectTodo>;
 	v2SidebarProjects: Collection<
 		DashboardSidebarProjectRow,
 		string,
@@ -205,6 +201,7 @@ function getCollectionsCacheKey(organizationId: string): string {
 const apiClient = createTRPCProxyClient<AppRouter>({
 	links: [
 		httpBatchLink({
+			fetch: authenticatedTrpcFetch,
 			url: `${env.NEXT_PUBLIC_API_URL}/api/trpc`,
 			headers: () => {
 				const token = getAuthToken();
@@ -217,7 +214,11 @@ const apiClient = createTRPCProxyClient<AppRouter>({
 
 const electricHeaders = {
 	Authorization: () => {
-		const token = getJwt();
+		// The persisted Better Auth session token is available before the
+		// short-lived Electric JWT has finished refreshing on cold start.
+		// Sending it prevents every shape from making an unauthenticated first
+		// request and permanently stopping on Electric's missing-header error.
+		const token = getJwt() ?? getAuthToken();
 		return token ? `Bearer ${token}` : "";
 	},
 };
@@ -253,6 +254,7 @@ const organizationsCollection = createPersistedElectricCollection(
 	electricCollectionOptions<SelectOrganization>({
 		id: "organizations",
 		shapeOptions: {
+			fetchClient: authenticatedElectricFetch,
 			url: electricUrl,
 			params: { table: "auth.organizations" },
 			headers: electricHeaders,
@@ -268,6 +270,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectTask>({
 			id: `tasks-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "tasks",
@@ -298,6 +301,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectTaskStatus>({
 			id: `task_statuses-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "task_statuses",
@@ -315,6 +319,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectProject>({
 			id: `projects-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "projects",
@@ -332,6 +337,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectV2Host>({
 			id: `v2_hosts-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "v2_hosts",
@@ -370,6 +376,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectV2Client>({
 			id: `v2_clients-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "v2_clients",
@@ -389,6 +396,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectV2UsersHosts>({
 			id: `v2_users_hosts-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "v2_users_hosts",
@@ -437,6 +445,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectV2Workspace>({
 			id: `v2_workspaces-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "v2_workspaces",
@@ -463,6 +472,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectWorkspace>({
 			id: `workspaces-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "workspaces",
@@ -480,6 +490,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectMember>({
 			id: `members-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "auth.members",
@@ -497,6 +508,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectUser>({
 			id: `users-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "auth.users",
@@ -514,6 +526,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectInvitation>({
 			id: `invitations-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "auth.invitations",
@@ -531,6 +544,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectTeam>({
 			id: `teams-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "auth.teams",
@@ -548,6 +562,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectTeamMember>({
 			id: `team-members-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "auth.team_members",
@@ -565,6 +580,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectAgentCommand>({
 			id: `agent_commands-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "agent_commands",
@@ -590,6 +606,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<IntegrationConnectionDisplay>({
 			id: `integration_connections-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "integration_connections",
@@ -607,6 +624,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectSubscription>({
 			id: `subscriptions-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "subscriptions",
@@ -624,6 +642,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<ApiKeyDisplay>({
 			id: `apikeys-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "auth.apikeys",
@@ -641,6 +660,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectChatSession>({
 			id: `chat_sessions-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "chat_sessions",
@@ -668,6 +688,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectGithubRepository>({
 			id: `github_repositories-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "github_repositories",
@@ -685,6 +706,7 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		electricCollectionOptions<SelectGithubPullRequest>({
 			id: `github_pull_requests-${organizationId}`,
 			shapeOptions: {
+				fetchClient: authenticatedElectricFetch,
 				url: electricUrl,
 				params: {
 					table: "github_pull_requests",
@@ -697,59 +719,6 @@ function createOrgCollections(organizationId: string): OrgCollections {
 			getKey: (item) => item.id,
 		}),
 	);
-
-	const automations = createPersistedElectricCollection(
-		electricCollectionOptions<SelectAutomation>({
-			id: `automations-${organizationId}`,
-			shapeOptions: {
-				url: electricUrl,
-				params: {
-					table: "automations",
-					organizationId,
-				},
-				headers: electricHeaders,
-				columnMapper,
-				onError: handleElectricSyncError,
-			},
-			getKey: (item) => item.id,
-		}),
-	);
-
-	const automationRuns = createPersistedElectricCollection(
-		electricCollectionOptions<SelectAutomationRun>({
-			id: `automation_runs-${organizationId}`,
-			shapeOptions: {
-				url: electricUrl,
-				params: {
-					table: "automation_runs",
-					organizationId,
-				},
-				headers: electricHeaders,
-				columnMapper,
-				onError: handleElectricSyncError,
-			},
-			getKey: (item) => item.id,
-		}),
-	);
-
-	const todos = createPersistedElectricCollection(
-		electricCollectionOptions<SelectTodo>({
-			id: `todos-${organizationId}`,
-			shapeOptions: {
-				url: electricUrl,
-				params: {
-					table: "todos",
-					organizationId,
-				},
-				headers: electricHeaders,
-				columnMapper,
-				onError: handleElectricSyncError,
-			},
-			getKey: (item) => item.id,
-		}),
-	);
-	todos.createIndex((todo) => todo.status, basicIndexConfig);
-	todos.createIndex((todo) => todo.ownerUserId, basicIndexConfig);
 
 	const v2SidebarProjects = createIndexedCollection(
 		localStorageCollectionOptions(
@@ -867,9 +836,6 @@ function createOrgCollections(organizationId: string): OrgCollections {
 		chatSessions,
 		githubRepositories,
 		githubPullRequests,
-		automations,
-		automationRuns,
-		todos,
 		v2SidebarProjects,
 		v2WorkspaceLocalState,
 		v2SidebarSections,

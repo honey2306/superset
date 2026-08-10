@@ -1,20 +1,22 @@
-import type { SelectAutomation } from "@superset/db/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { EmojiTextInput } from "renderer/components/EmojiTextInput";
 import { MarkdownEditor } from "renderer/components/MarkdownEditor";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import type { LocalAutomation } from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
 import { useProjectFileSearch } from "../../../hooks/useProjectFileSearch";
 
 export function AutomationBody({
 	automation,
 }: {
-	automation: SelectAutomation;
+	automation: LocalAutomation;
 }) {
 	const [name, setName] = useState(automation.name);
 	const [prompt, setPrompt] = useState(automation.prompt);
 	const lastSyncedPromptRef = useRef(automation.prompt);
 	const queryClient = useQueryClient();
+	const hostUrl = useHostUrl(null);
 
 	useEffect(() => {
 		if (automation.prompt !== lastSyncedPromptRef.current) {
@@ -24,16 +26,23 @@ export function AutomationBody({
 	}, [automation.prompt]);
 
 	const updateMutation = useMutation({
-		mutationFn: (patch: { name?: string }) =>
-			apiTrpcClient.automation.update.mutate({ id: automation.id, ...patch }),
+		mutationFn: (patch: { name?: string }) => {
+			if (!hostUrl) throw new Error("Local host service is unavailable");
+			return getHostServiceClientByUrl(hostUrl).automations.update.mutate({
+				id: automation.id,
+				...patch,
+			});
+		},
 	});
 
 	const setPromptMutation = useMutation({
-		mutationFn: (next: string) =>
-			apiTrpcClient.automation.setPrompt.mutate({
+		mutationFn: (next: string) => {
+			if (!hostUrl) throw new Error("Local host service is unavailable");
+			return getHostServiceClientByUrl(hostUrl).automations.setPrompt.mutate({
 				id: automation.id,
 				prompt: next,
-			}),
+			});
+		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({
 				queryKey: ["automation-versions", automation.id],

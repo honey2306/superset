@@ -76,7 +76,11 @@
 	   ============================================================ */
 	--ds-page-bg: #1e1f29;
 	--ds-surface: #282a36;
-	--ds-surface-elev: color-mix(in oklch, #21222c 92%, #fff 8%);
+	--ds-surface-elev: color-mix(
+		in oklch,
+		var(--background) 92%,
+		var(--foreground) 8%
+	);
 	--ds-surface-sunk: #21222c;
 	--ds-overlay-scrim: rgba(0, 0, 0, 0.42);
 
