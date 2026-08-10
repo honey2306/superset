@@ -17,12 +17,13 @@ let cleanup: typeof import("@testing-library/react/pure").cleanup;
 let fireEvent: typeof import("@testing-library/react/pure").fireEvent;
 let render: typeof import("@testing-library/react/pure").render;
 let screen: typeof import("@testing-library/react/pure").screen;
+let waitFor: typeof import("@testing-library/react/pure").waitFor;
 
 type EditorProps = ComponentProps<typeof TiptapPromptEditor>;
 
 beforeAll(async () => {
 	await ensureHappyDom();
-	({ act, cleanup, fireEvent, render, screen } = await import(
+	({ act, cleanup, fireEvent, render, screen, waitFor } = await import(
 		"@testing-library/react/pure"
 	));
 	({ PromptInputProvider } = await import(
@@ -132,9 +133,10 @@ describe("TiptapPromptEditor shortcuts after an image paste", () => {
 });
 
 describe("TiptapPromptEditor deletion", () => {
-	test("allows the final character to be deleted", () => {
-		const { input } = renderEditor({}, "x");
-		expect(input.textContent).toBe("x");
+	test("allows the final character to be deleted", async () => {
+		const { input, ref } = renderEditor({}, "x");
+		await waitFor(() => expect(input.textContent).toBe("x"));
+		act(() => ref.current?.focus());
 
 		fireEvent.keyDown(input, { key: "Backspace" });
 

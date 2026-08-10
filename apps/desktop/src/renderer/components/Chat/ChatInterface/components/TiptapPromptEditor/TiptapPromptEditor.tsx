@@ -134,8 +134,11 @@ export const TiptapPromptEditor = forwardRef<
 	const controllerRef = useRef(controller);
 	controllerRef.current = controller;
 
-	// Track value last set FROM the editor → controller to break feedback loops
-	const lastEditorSyncedValue = useRef("");
+	// Track value last set FROM the editor → controller to break feedback loops.
+	// Seed it from the provider so useEditor can render restored drafts on its
+	// first paint without waiting for the external-sync effect.
+	const initialControllerValueRef = useRef(controller.textInput.value);
+	const lastEditorSyncedValue = useRef(initialControllerValueRef.current);
 
 	// IME composition guard (prevents submit while CJK input is pending)
 	const isComposingRef = useRef(false);
@@ -224,6 +227,9 @@ export const TiptapPromptEditor = forwardRef<
 	// ── Build editor ─────────────────────────────────────────────────────────
 	const editor = useEditor({
 		immediatelyRender: false,
+		content: initialControllerValueRef.current
+			? parseTextToEditorContent(initialControllerValueRef.current)
+			: undefined,
 
 		onFocus: () => setIsFocused(true),
 		onBlur: () => setIsFocused(false),
@@ -270,6 +276,18 @@ export const TiptapPromptEditor = forwardRef<
 
 						Backspace: () => {
 							const { state } = this.editor;
+							// ProseMirror's base keymap can leave the final text character in
+							// place in contenteditable implementations that do not emit a
+							// native beforeinput deletion. Handle that boundary explicitly.
+							const { $from, empty } = state.selection;
+							if (
+								empty &&
+								state.doc.textContent.length === 1 &&
+								$from.parentOffset === 1
+							) {
+								return this.editor.commands.clearContent();
+							}
+
 							// Only remove attachment when editor is completely empty
 							const para = state.doc.firstChild;
 							const docIsEmpty =
