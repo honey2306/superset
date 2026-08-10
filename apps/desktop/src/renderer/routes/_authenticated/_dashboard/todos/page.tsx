@@ -62,21 +62,21 @@ const BUCKETS: BucketMeta[] = [
 	{
 		key: "today",
 		labelKey: "todos.bucketToday",
-		dotClass: "bg-amber-500",
-		pillTextClass: "text-amber-400",
-		pillBgClass: "bg-amber-500/10",
+		dotClass: "bg-warning",
+		pillTextClass: "text-warning",
+		pillBgClass: "bg-warning-tint",
 	},
 	{
 		key: "week",
 		labelKey: "todos.bucketWeek",
-		dotClass: "bg-sky-500",
-		pillTextClass: "text-sky-400",
-		pillBgClass: "bg-sky-500/10",
+		dotClass: "bg-info",
+		pillTextClass: "text-info",
+		pillBgClass: "bg-info-tint",
 	},
 	{
 		key: "later",
 		labelKey: "todos.bucketLater",
-		dotClass: "bg-muted-foreground",
+		dotClass: "bg-fg-mute",
 		pillTextClass: "text-fg-mute",
 		pillBgClass: "bg-hover/40",
 	},
@@ -249,7 +249,7 @@ function TodosPage() {
 											{items.length}
 										</span>
 									</div>
-									<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-ds-3 border border-line bg-surface">
+									<ul className="flex flex-col divide-y divide-line overflow-hidden rounded-ds-3 border border-line bg-surface">
 										{items.map((todo) => (
 											<TodoRow
 												key={todo.id}
@@ -316,7 +316,7 @@ function BucketPill({ bucket, count }: BucketPillProps) {
 			<span
 				className={cn(
 					"inline-block size-1.5 rounded-full",
-					isEmpty ? "bg-muted-foreground/50" : bucket.dotClass,
+					isEmpty ? "bg-fg-mute/50" : bucket.dotClass,
 				)}
 			/>
 			<span className={isEmpty ? "text-fg-mute" : bucket.pillTextClass}>

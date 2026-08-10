@@ -428,7 +428,7 @@ function ProjectPage() {
 											<span className="font-mono">
 												{generatedBranchName || "branch-name"}
 											</span>
-											<span className="text-muted-foreground/50">
+											<span className="text-fg-mute/50">
 												{t("workspace.fromBranch")}
 											</span>
 											<span className="font-mono">
@@ -441,7 +441,7 @@ function ProjectPage() {
 										open={showAdvanced}
 										onOpenChange={setShowAdvanced}
 									>
-										<CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground/80 hover:text-fg-mute transition-colors py-1">
+										<CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-fg-mute/80 hover:text-fg-mute transition-colors py-1">
 											<HiChevronDown
 												className={`size-3 transition-transform duration-200 ${showAdvanced ? "" : "-rotate-90"}`}
 											/>
@@ -587,7 +587,7 @@ function ProjectPage() {
 													{setupDefaults.projectSummary}
 												</p>
 											)}
-											<div className="overflow-hidden rounded-ds-5 border bg-surface/40 divide-y divide-border/60">
+											<div className="overflow-hidden rounded-ds-5 border bg-surface/40 divide-y divide-line/60">
 												{actions.map((action) => (
 													<label
 														key={action.id}
@@ -693,7 +693,7 @@ function ProjectPage() {
 										open={teardownOpen}
 										onOpenChange={setTeardownOpen}
 									>
-										<CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground/80 hover:text-fg-mute transition-colors py-1">
+										<CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-fg-mute/80 hover:text-fg-mute transition-colors py-1">
 											<HiChevronDown
 												className={`size-3 transition-transform duration-200 ${teardownOpen ? "" : "-rotate-90"}`}
 											/>

@@ -310,7 +310,7 @@ export function RunIssuesInWorkspacePopover({
 												/>
 												<span className="flex-1 truncate">{project.name}</span>
 												{project.needsSetup === true && (
-													<span className="text-[10px] text-amber-500">
+													<span className="text-[10px] text-warning">
 														not set up
 													</span>
 												)}

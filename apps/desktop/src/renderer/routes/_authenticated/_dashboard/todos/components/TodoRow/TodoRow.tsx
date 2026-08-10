@@ -66,8 +66,8 @@ function statusDotClass(
 	if (status === "dispatching") return "bg-info-tint animate-pulse";
 	if (status === "dispatched") return "bg-success-tint";
 	if (isOverdue) return "bg-destructive";
-	if (status === "notified") return "bg-amber-500";
-	return "bg-muted-foreground/40";
+	if (status === "notified") return "bg-warning";
+	return "bg-fg-mute/40";
 }
 
 const STATUS_LABEL_KEYS: Partial<Record<SelectTodo["status"], MessageKey>> = {
@@ -201,7 +201,7 @@ function ModePill({ mode }: { mode: SelectTodo["mode"] }) {
 		<span
 			className={cn(
 				"inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide",
-				isAuto ? "bg-pink-500/15 text-pink-400" : "bg-hover/50 text-fg-mute",
+				isAuto ? "bg-accent-tint text-accent-solid" : "bg-hover/50 text-fg-mute",
 			)}
 		>
 			{isAuto ? "AUTO" : "REMIND"}

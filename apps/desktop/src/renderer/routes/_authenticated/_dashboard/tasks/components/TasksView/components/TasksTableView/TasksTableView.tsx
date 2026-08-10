@@ -104,7 +104,7 @@ export function TasksTableView({
 										tabIndex={0}
 										className={cn(
 											"grid items-center gap-3 px-4 h-9 cursor-pointer border-b border-line/50 hover:bg-hover",
-											row.getIsSelected() && "bg-accent/30",
+											row.getIsSelected() && "bg-accent-tint",
 										)}
 										style={{
 											gridTemplateColumns: `auto auto ${slugColumnWidth} 1fr auto auto`,
