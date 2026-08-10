@@ -120,7 +120,7 @@ function ScriptTextarea({
 				className={cn(
 					"relative rounded-ds-5 border transition-colors",
 					isDragOver
-						? "border-primary bg-accent-tint"
+						? "border-accent-solid bg-accent-tint"
 						: "border-line hover:border-line/80",
 				)}
 				onDragOver={handleDragOver}
@@ -356,7 +356,7 @@ export function ScriptsEditor({ projectId, className }: ScriptsEditorProps) {
 					</h3>
 					{saveStatus === "saving" && (
 						<span className="text-xs text-fg-mute flex items-center gap-1">
-							<span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+							<span className="inline-block h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />
 							{t("common.saving")}
 						</span>
 					)}

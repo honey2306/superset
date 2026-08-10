@@ -123,13 +123,13 @@ export function CompareBaseBranchPicker({
 				>
 					<GoGitBranch className="size-3 shrink-0" />
 					{isBranchesLoading && branches.length === 0 ? (
-						<span className="h-2.5 w-14 rounded-sm bg-muted-foreground/15 animate-pulse" />
+						<span className="h-2.5 w-14 rounded-sm bg-fg-mute/15 animate-pulse" />
 					) : effectiveCompareBaseBranch ? (
 						<span className="font-mono truncate">
 							{effectiveCompareBaseBranch}
 						</span>
 					) : (
-						<span className="truncate text-muted-foreground/80">
+						<span className="truncate text-fg-mute/80">
 							{t("workspace.selectBaseBranch")}
 						</span>
 					)}
@@ -202,7 +202,7 @@ export function CompareBaseBranchPicker({
 									className="group items-start gap-3 rounded-ds-3 px-2.5 py-2"
 								>
 									{isWorktree ? (
-										<LuFolderOpen className="mt-0.5 size-4 shrink-0 text-primary/80" />
+										<LuFolderOpen className="mt-0.5 size-4 shrink-0 text-accent-solid/80" />
 									) : isRemoteOnly ? (
 										<GoGlobe className="mt-0.5 size-4 shrink-0 text-fg-faint" />
 									) : (
@@ -236,7 +236,7 @@ export function CompareBaseBranchPicker({
 											{isWorktree && (
 												<>
 													<span aria-hidden>·</span>
-													<span className="text-primary/80">
+													<span className="text-accent-solid/80">
 														{t("workspace.worktreeFilter")}
 													</span>
 												</>
