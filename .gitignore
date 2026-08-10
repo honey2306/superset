@@ -45,6 +45,7 @@ mise.toml
 
 # Temporary files
 .tmp/
+.codeflicker/
 
 # Turbo
 .turbo

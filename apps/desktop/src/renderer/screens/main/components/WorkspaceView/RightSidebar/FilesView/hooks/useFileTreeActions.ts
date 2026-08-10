@@ -1,6 +1,10 @@
+import type { AppRouter } from "@superset/host-service";
 import { toast } from "@superset/ui/sonner";
+import { useMutation } from "@tanstack/react-query";
+import type { inferRouterInputs } from "@trpc/server";
 import { useCallback } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	getBaseName,
@@ -9,6 +13,8 @@ import {
 	resolveNewDirectoryTarget,
 	resolveNewFileTarget,
 } from "../utils/new-item-paths";
+
+type FilesystemInputs = inferRouterInputs<AppRouter>["filesystem"];
 
 interface UseFileTreeActionsProps {
 	workspaceId: string | undefined;
@@ -22,12 +28,33 @@ export function useFileTreeActions({
 	onRefresh,
 }: UseFileTreeActionsProps) {
 	const { t } = useTranslation();
-	const writeFileMutation = electronTrpc.filesystem.writeFile.useMutation();
-	const createDirectoryMutation =
-		electronTrpc.filesystem.createDirectory.useMutation();
-	const movePathMutation = electronTrpc.filesystem.movePath.useMutation();
-	const deletePathMutation = electronTrpc.filesystem.deletePath.useMutation();
-	const copyPathMutation = electronTrpc.filesystem.copyPath.useMutation();
+	const hostUrl = useWorkspaceHostUrl(workspaceId ?? null);
+	const requireClient = useCallback(() => {
+		if (!hostUrl) {
+			throw new Error("Workspace host is unavailable");
+		}
+		return getHostServiceClientByUrl(hostUrl);
+	}, [hostUrl]);
+	const writeFileMutation = useMutation({
+		mutationFn: (input: FilesystemInputs["writeFile"]) =>
+			requireClient().filesystem.writeFile.mutate(input),
+	});
+	const createDirectoryMutation = useMutation({
+		mutationFn: (input: FilesystemInputs["createDirectory"]) =>
+			requireClient().filesystem.createDirectory.mutate(input),
+	});
+	const movePathMutation = useMutation({
+		mutationFn: (input: FilesystemInputs["movePath"]) =>
+			requireClient().filesystem.movePath.mutate(input),
+	});
+	const deletePathMutation = useMutation({
+		mutationFn: (input: FilesystemInputs["deletePath"]) =>
+			requireClient().filesystem.deletePath.mutate(input),
+	});
+	const copyPathMutation = useMutation({
+		mutationFn: (input: FilesystemInputs["copyPath"]) =>
+			requireClient().filesystem.copyPath.mutate(input),
+	});
 
 	const createFile = useCallback(
 		(parentAbsolutePath: string, name: string, content = "") => {

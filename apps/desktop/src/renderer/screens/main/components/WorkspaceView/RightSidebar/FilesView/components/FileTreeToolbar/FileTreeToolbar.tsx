@@ -85,7 +85,14 @@ export function FileTreeToolbar({
 					placeholder={t("files.search")}
 					value={localSearchTerm}
 					onChange={handleSearchChange}
-					className="h-7 text-xs pr-7"
+					/*
+					 * DS Input's default `bg-surface-elev` (≈#24252f) sits on top of
+					 * `--sidebar` (#21222c) at only ~2% luminance delta, which reads
+					 * as a muddy same-tone panel instead of a search field. Swap in
+					 * `bg-surface` (#282a36) so the field visibly lifts off the
+					 * sidebar without changing DS defaults elsewhere.
+					 */
+					className="h-7 text-xs pr-7 bg-surface"
 				/>
 				{localSearchTerm && (
 					<button

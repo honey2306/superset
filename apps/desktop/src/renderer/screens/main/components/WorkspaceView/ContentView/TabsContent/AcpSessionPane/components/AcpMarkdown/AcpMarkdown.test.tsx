@@ -24,7 +24,7 @@ describe("AcpMarkdown", () => {
 		expect(messageResponseCalls[0]).toMatchObject({
 			animated: false,
 			isAnimating: false,
-			className: "acp-md",
+			className: "acp-md select-text cursor-text",
 			children: markdown,
 		});
 	});

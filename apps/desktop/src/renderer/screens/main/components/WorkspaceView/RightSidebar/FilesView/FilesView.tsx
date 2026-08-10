@@ -11,10 +11,13 @@ import {
 	ContextMenuItem,
 	ContextMenuTrigger,
 } from "@superset/ui/context-menu";
+import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuFile, LuFolder } from "react-icons/lu";
+import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
@@ -34,6 +37,7 @@ import { FileTreeToolbar } from "./components/FileTreeToolbar";
 import { NewItemInput } from "./components/NewItemInput";
 import { RenameInput } from "./components/RenameInput";
 import { ROW_HEIGHT, TREE_INDENT } from "./constants";
+import { fileSearchQueryKey } from "./fileQueryKeys";
 import { useFileSearch } from "./hooks/useFileSearch";
 import { useFileTreeActions } from "./hooks/useFileTreeActions";
 import type { NewItemMode } from "./types";
@@ -162,7 +166,10 @@ export function FilesView() {
 		expandedPathsToRestore: new Set<string>(),
 	});
 
-	const trpcUtils = electronTrpc.useUtils();
+	const hostUrl = useWorkspaceHostUrl(workspaceId ?? null);
+	const hostUrlRef = useRef(hostUrl);
+	hostUrlRef.current = hostUrl;
+	const queryClient = useQueryClient();
 
 	const tree = useTree<DirectoryEntry>({
 		rootItemId: "root",
@@ -210,8 +217,12 @@ export function FilesView() {
 				if (!dirPath) return [];
 
 				try {
-					const { entries } = await trpcUtils.filesystem.listDirectory.fetch({
-						workspaceId: workspaceId ?? "",
+					const currentHostUrl = hostUrlRef.current;
+					if (!currentHostUrl || !workspaceId) return [];
+					const { entries } = await getHostServiceClientByUrl(
+						currentHostUrl,
+					).filesystem.listDirectory.query({
+						workspaceId,
 						absolutePath: dirPath,
 					});
 					const nextEntries = entries.map((entry) => ({
@@ -234,18 +245,23 @@ export function FilesView() {
 		features: [asyncDataLoaderFeature, selectionFeature, expandAllFeature],
 	});
 
-	const prevWorktreePathRef = useRef(worktreePath);
+	const filesystemTargetKey =
+		hostUrl && worktreePath ? `${hostUrl}\0${worktreePath}` : null;
+	const previousFilesystemTargetKeyRef = useRef(filesystemTargetKey);
 	useEffect(() => {
+		// Headless Tree caches the first root load. Catalog identity and host
+		// routing become ready independently, so that first load can legitimately
+		// return no children. Reload whenever the complete host+root target first
+		// becomes available or changes.
 		if (
-			worktreePath &&
-			prevWorktreePathRef.current !== worktreePath &&
-			prevWorktreePathRef.current !== undefined
+			filesystemTargetKey &&
+			previousFilesystemTargetKeyRef.current !== filesystemTargetKey
 		) {
 			entryCacheRef.current.clear();
 			tree.getItemInstance("root")?.invalidateChildrenIds();
 		}
-		prevWorktreePathRef.current = worktreePath;
-	}, [worktreePath, tree]);
+		previousFilesystemTargetKeyRef.current = filesystemTargetKey;
+	}, [filesystemTargetKey, tree]);
 
 	const refreshVisibleDirectories = useCallback(() => {
 		entryCacheRef.current.clear();
@@ -255,8 +271,10 @@ export function FilesView() {
 				item.invalidateChildrenIds();
 			}
 		}
-		void trpcUtils.filesystem.searchFiles.invalidate();
-	}, [tree, trpcUtils]);
+		void queryClient.invalidateQueries({
+			queryKey: fileSearchQueryKey(hostUrl, workspaceId),
+		});
+	}, [hostUrl, queryClient, tree, workspaceId]);
 
 	const invalidateDirectoryByPath = useCallback(
 		(directoryPath: string) => {
@@ -349,13 +367,22 @@ export function FilesView() {
 				}
 
 				if (pending.invalidateSearch) {
-					void trpcUtils.filesystem.searchFiles.invalidate();
+					void queryClient.invalidateQueries({
+						queryKey: fileSearchQueryKey(hostUrl, workspaceId),
+					});
 				}
 
 				void restoreExpandedDirectories(tree, pending.expandedPathsToRestore);
 			}, 75);
 		},
-		[invalidateDirectoryByPath, refreshVisibleDirectories, tree, trpcUtils],
+		[
+			hostUrl,
+			invalidateDirectoryByPath,
+			queryClient,
+			refreshVisibleDirectories,
+			tree,
+			workspaceId,
+		],
 	);
 
 	useEffect(() => {

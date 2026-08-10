@@ -373,6 +373,16 @@
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+	/* The desktop shell sets `html, body { user-select: none }` in
+	   renderer/globals.css. Timeline content (agent markdown, code blocks,
+	   diff context, plan text, permission summaries, unknown-block JSON,
+	   …) must be selectable and copyable, so opt the whole timeline
+	   subtree back into text selection here. Descendants that need to stay
+	   unselectable (code gutter line numbers, jump-to-latest button, boot
+	   ASCII art) already declare their own `user-select: none`. */
+	user-select: text;
+	-webkit-user-select: text;
+	cursor: auto;
 }
 .acp-timeline__working {
 	display: inline-flex;

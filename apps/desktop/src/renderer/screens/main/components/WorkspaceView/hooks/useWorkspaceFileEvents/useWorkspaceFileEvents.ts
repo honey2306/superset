@@ -1,5 +1,6 @@
+import type { FsWatchEvent } from "@superset/workspace-fs/client";
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useWorkspaceEvent } from "renderer/hooks/host-service/useWorkspaceEvent";
 import { toRelativeWorkspacePath } from "shared/absolute-paths";
 import type { FileSystemChangeEvent } from "shared/file-tree-types";
 
@@ -103,42 +104,27 @@ export function useWorkspaceFileEventBridge(
 		() => 0,
 	);
 
-	electronTrpc.filesystem.watchPath.useSubscription(
-		{
-			workspaceId,
-			absolutePath: worktreePath ?? "",
-		},
-		{
-			enabled:
-				enabled &&
-				Boolean(workspaceId) &&
-				Boolean(worktreePath) &&
-				listenerCount > 0,
-			onError: (error) => {
-				console.error("[useWorkspaceFileEvents] watch failed:", {
-					workspaceId,
-					error,
-				});
-			},
-			onData: (payload) => {
-				if (!worktreePath) {
-					return;
-				}
+	useWorkspaceEvent(
+		"fs:events",
+		workspaceId,
+		(event: FsWatchEvent) => {
+			if (!worktreePath) {
+				return;
+			}
 
-				for (const event of payload.events) {
-					const nextEvent: FileSystemChangeEvent = {
-						type: event.kind as FileSystemChangeEvent["type"],
-						absolutePath: event.absolutePath,
-						oldAbsolutePath: event.oldAbsolutePath,
-						relativePath: toEventRelativePath(worktreePath, event.absolutePath),
-						oldRelativePath: event.oldAbsolutePath
-							? toEventRelativePath(worktreePath, event.oldAbsolutePath)
-							: undefined,
-						revision: 0,
-					};
-					emitWorkspaceFileEvent(workspaceId, nextEvent);
-				}
-			},
+			const nextEvent: FileSystemChangeEvent = {
+				type: event.kind,
+				absolutePath: event.absolutePath,
+				oldAbsolutePath: event.oldAbsolutePath,
+				relativePath: toEventRelativePath(worktreePath, event.absolutePath),
+				oldRelativePath: event.oldAbsolutePath
+					? toEventRelativePath(worktreePath, event.oldAbsolutePath)
+					: undefined,
+				isDirectory: event.isDirectory,
+				revision: 0,
+			};
+			emitWorkspaceFileEvent(workspaceId, nextEvent);
 		},
+		enabled && Boolean(workspaceId && worktreePath && listenerCount > 0),
 	);
 }
