@@ -77,13 +77,30 @@ jobs:
       - name: Build arm64 DMG
         working-directory: apps/desktop
         env:
-          CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          MAC_APPLE_ID: ${{ secrets.APPLE_ID }}
+          MAC_APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          MAC_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TARGET_ARCH: arm64
-        run: bun run package -- --publish never --config ${{ inputs.electron_builder_config }} --mac dmg --arm64
+        run: |
+          if [[ -n "$MAC_CERTIFICATE" && -n "$MAC_CERTIFICATE_PASSWORD" ]]; then
+            export CSC_LINK="$MAC_CERTIFICATE"
+            export CSC_KEY_PASSWORD="$MAC_CERTIFICATE_PASSWORD"
+          else
+            echo "Building unsigned DMG: macOS signing credentials are unavailable."
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+
+          if [[ -n "$MAC_APPLE_ID" && -n "$MAC_APPLE_ID_PASSWORD" && -n "$MAC_APPLE_TEAM_ID" ]]; then
+            export APPLE_ID="$MAC_APPLE_ID"
+            export APPLE_APP_SPECIFIC_PASSWORD="$MAC_APPLE_ID_PASSWORD"
+            export APPLE_TEAM_ID="$MAC_APPLE_TEAM_ID"
+          else
+            echo "Skipping notarization: Apple notarization credentials are unavailable."
+          fi
+
+          bun run package -- --publish never --config ${{ inputs.electron_builder_config }} --mac dmg --arm64
 
       - name: Verify DMG
         working-directory: apps/desktop

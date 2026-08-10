@@ -6,6 +6,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Configuration } from "electron-builder";
+import { shouldNotarizeMacBuild } from "./mac-build-credentials";
 import pkg from "./package.json";
 import {
 	packagedAsarUnpackGlobs,
@@ -22,6 +23,7 @@ const dmgBackgroundPath = join(
 	pkg.resources,
 	"build/installer/background.tiff",
 );
+const shouldNotarize = shouldNotarizeMacBuild();
 
 const config: Configuration = {
 	appId: "com.superset.desktop",
@@ -116,7 +118,9 @@ const config: Configuration = {
 		target: "default",
 		hardenedRuntime: true,
 		gatekeeperAssess: false,
-		notarize: true,
+		// Credential-free CI builds intentionally produce an unsigned DMG.
+		// electron-builder otherwise attempts notarization with empty secret values.
+		notarize: shouldNotarize,
 		entitlements: join(pkg.resources, "build/entitlements.mac.plist"),
 		entitlementsInherit: join(
 			pkg.resources,
