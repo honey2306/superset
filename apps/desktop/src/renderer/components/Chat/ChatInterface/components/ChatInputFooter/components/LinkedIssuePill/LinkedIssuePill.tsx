@@ -60,7 +60,7 @@ export function LinkedIssuePill({
 				tabIndex: 0,
 				"aria-label": t("linkedIssue.openTask", { title }),
 			})}
-			className="group flex items-center gap-2.5 rounded-ds-3 border border-border/50 bg-muted/60 px-3 py-2 text-sm transition-all select-none hover:bg-accent-tint hover:ring-1 hover:ring-border dark:hover:bg-hover"
+			className="group flex items-center gap-2.5 rounded-ds-3 border border-line/50 bg-hover/60 px-3 py-2 text-sm transition-all select-none hover:bg-accent-tint hover:ring-1 hover:ring-border dark:hover:bg-hover"
 			style={{ cursor: taskId || url ? "pointer" : "default" }}
 		>
 			<div className="relative flex size-7 shrink-0 items-center justify-center rounded-ds-3 bg-foreground/10 p-0.5">

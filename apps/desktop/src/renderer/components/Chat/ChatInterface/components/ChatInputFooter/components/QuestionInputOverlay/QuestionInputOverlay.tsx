@@ -80,7 +80,7 @@ export function QuestionInputOverlay({
 					<TooltipTrigger asChild>
 						<button
 							type="button"
-							className="-mr-0.5 shrink-0 rounded-ds-3 p-1 text-muted-foreground/50 transition-colors hover:bg-hover/40 hover:text-fg-mute"
+							className="-mr-0.5 shrink-0 rounded-ds-3 p-1 text-fg-mute/50 transition-colors hover:bg-hover/40 hover:text-fg-mute"
 							onClick={onCancel}
 							aria-label={t("questionInput.cancel")}
 						>
@@ -102,7 +102,7 @@ export function QuestionInputOverlay({
 					{options.map((option, i) => {
 						const isChosen = submittedLabel === option.label;
 						return (
-							<div key={option.label} className="border-t border-border/60">
+							<div key={option.label} className="border-t border-line/60">
 								<button
 									type="button"
 									className={cn(
@@ -113,7 +113,7 @@ export function QuestionInputOverlay({
 									disabled={isDisabled}
 									onClick={() => handleOption(option.label)}
 								>
-									<span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-muted/60 font-mono text-xs leading-none text-fg-faint">
+									<span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-hover/60 font-mono text-xs leading-none text-fg-faint">
 										{isChosen ? (
 											<Loader2Icon className="size-3.5 animate-spin" />
 										) : (
@@ -147,7 +147,7 @@ export function QuestionInputOverlay({
 				}}
 				onClick={() => inputRef.current?.focus()}
 			>
-				<span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-muted/60">
+				<span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-hover/60">
 					{isInputRowSubmitted ? (
 						<Loader2Icon className="size-3.5 animate-spin text-fg-faint" />
 					) : (
@@ -164,7 +164,7 @@ export function QuestionInputOverlay({
 							: t("questionInput.answerPlaceholder")
 					}
 					disabled={isDisabled}
-					className="flex-1 cursor-text bg-transparent py-1 text-sm text-fg outline-none placeholder:text-muted-foreground/40 disabled:cursor-not-allowed"
+					className="flex-1 cursor-text bg-transparent py-1 text-sm text-fg outline-none placeholder:text-fg-mute/40 disabled:cursor-not-allowed"
 				/>
 				{!isDisabled && (
 					<div className="relative shrink-0">

@@ -21,11 +21,11 @@ interface McpOverviewPickerProps {
 function getStateClassName(state: McpServerOverviewItem["state"]): string {
 	switch (state) {
 		case "enabled":
-			return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+			return "border-success bg-success-tint text-success dark:text-success";
 		case "disabled":
-			return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300";
+			return "border-warning bg-warning-tint text-warning dark:text-warning";
 		default:
-			return "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300";
+			return "border-destructive/30 bg-destructive/10 text-destructive dark:text-destructive";
 	}
 }
 
@@ -66,7 +66,7 @@ export function McpOverviewPicker({
 	return (
 		<ModelSelector open={open} onOpenChange={onOpenChange}>
 			<ModelSelectorContent className="max-w-2xl" title={t("mcp.serversTitle")}>
-				<div className="border-b border-border/60 px-4 py-3">
+				<div className="border-b border-line/60 px-4 py-3">
 					<div className="text-sm font-medium text-fg">
 						{t("mcp.serversCount", { count: servers.length })}
 					</div>
@@ -110,7 +110,7 @@ export function McpOverviewPicker({
 								</div>
 								<div className="ml-3 flex shrink-0 items-center gap-1.5">
 									{server.connected === true ? (
-										<span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+										<span className="rounded-full border border-success bg-success-tint px-2 py-0.5 text-[11px] font-medium text-success dark:text-success">
 											{t("common.connected")}
 										</span>
 									) : server.connected === false ? (

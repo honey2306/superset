@@ -29,7 +29,7 @@ export function SlashCommandParamField({
 				{required ? (
 					<span className="text-destructive">*</span>
 				) : (
-					<span className="normal-case text-[10px] text-muted-foreground/80">
+					<span className="normal-case text-[10px] text-fg-mute/80">
 						{t("slashCommand.optional")}
 					</span>
 				)}

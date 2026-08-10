@@ -291,11 +291,11 @@ export function MessageScrollbackRail({
 								const isEmphasized = emphasizedMessageId === entry.id;
 								const markerColorClass = entry.isLatest
 									? isEmphasized
-										? "bg-muted-foreground/55"
-										: "bg-muted-foreground/12"
+										? "bg-fg-mute/55"
+										: "bg-fg-mute/12"
 									: isEmphasized
 										? "bg-foreground"
-										: "bg-muted-foreground/30 hover:bg-muted-foreground/45";
+										: "bg-fg-mute/30 hover:bg-fg-mute/45";
 
 								return (
 									<button
@@ -322,7 +322,7 @@ export function MessageScrollbackRail({
 
 				<HoverCardContent
 					align="start"
-					className="w-72 border-border/70 bg-background/95 p-2 backdrop-blur-sm"
+					className="w-72 border-line/70 bg-background/95 p-2 backdrop-blur-sm"
 					side="left"
 					sideOffset={-10}
 				>
@@ -331,11 +331,11 @@ export function MessageScrollbackRail({
 							const isEmphasized = emphasizedMessageId === entry.id;
 							const entryClassName = entry.isLatest
 								? isEmphasized
-									? "bg-muted/65 text-muted-foreground/90"
-									: "text-fg-faint hover:text-muted-foreground/85"
+									? "bg-hover/65 text-fg-mute/90"
+									: "text-fg-faint hover:text-fg-mute/85"
 								: isEmphasized
-									? "bg-accent-tint text-primary/85"
-									: "text-muted-foreground/85 hover:text-foreground/90";
+									? "bg-accent-tint text-accent-solid/85"
+									: "text-fg-mute/85 hover:text-fg-mute";
 
 							return (
 								<button

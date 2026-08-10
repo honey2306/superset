@@ -47,7 +47,7 @@ export function AnthropicApiKeyDialog({
 				</DialogHeader>
 
 				<div className="space-y-4">
-					<div className="rounded-ds-5 border border-border/70 bg-muted/15 px-4 py-3 text-sm text-fg-mute">
+					<div className="rounded-ds-5 border border-line/70 bg-hover/15 px-4 py-3 text-sm text-fg-mute">
 						{t("apiKeyDialog.modeHintAnthropic")}
 					</div>
 
@@ -55,7 +55,7 @@ export function AnthropicApiKeyDialog({
 						<Label htmlFor="anthropic-api-key">
 							{t("apiKeyDialog.apiKeyLabel")}
 						</Label>
-						<InputGroup className="h-11 border-border/70 bg-muted/10">
+						<InputGroup className="h-11 border-line/70 bg-hover/10">
 							<InputGroupInput
 								id="anthropic-api-key"
 								type="password"
