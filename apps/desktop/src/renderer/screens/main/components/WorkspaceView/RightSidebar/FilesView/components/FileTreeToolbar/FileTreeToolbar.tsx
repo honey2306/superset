@@ -78,7 +78,7 @@ export function FileTreeToolbar({
 	}, [onSearchChange]);
 
 	return (
-		<div className="flex flex-col gap-1 px-2 py-1.5 border-b border-border">
+		<div className="flex flex-col gap-1 px-2 py-1.5 border-b border-line">
 			<div className="relative">
 				<Input
 					type="text"
@@ -91,7 +91,7 @@ export function FileTreeToolbar({
 					<button
 						type="button"
 						onClick={handleClearSearch}
-						className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted-foreground/20 transition-colors"
+						className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded text-fg-mute hover:text-fg hover:bg-fg-mute/20 transition-colors"
 					>
 						<LuX className="size-3.5" />
 					</button>

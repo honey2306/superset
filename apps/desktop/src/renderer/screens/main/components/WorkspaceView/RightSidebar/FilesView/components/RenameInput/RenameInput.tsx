@@ -58,7 +58,7 @@ export function RenameInput({
 
 	return (
 		<div
-			className={cn("flex items-center gap-1 px-1 h-7", "bg-accent rounded-sm")}
+			className={cn("flex items-center gap-1 px-1 h-7", "bg-accent-tint rounded-sm")}
 			style={{ paddingLeft: `${level * 16 + 4}px` }}
 		>
 			<span className="w-4 h-4 shrink-0" />
@@ -84,7 +84,7 @@ export function RenameInput({
 				onClick={handleSubmit}
 				className="p-0.5 hover:bg-background/50 rounded"
 			>
-				<LuCheck className="size-3 text-muted-foreground" />
+				<LuCheck className="size-3 text-fg-mute" />
 			</button>
 			<button
 				type="button"
@@ -94,7 +94,7 @@ export function RenameInput({
 				}}
 				className="p-0.5 hover:bg-background/50 rounded"
 			>
-				<LuX className="size-3 text-muted-foreground" />
+				<LuX className="size-3 text-fg-mute" />
 			</button>
 		</div>
 	);
