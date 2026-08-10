@@ -377,7 +377,7 @@ describe("tool call folding", () => {
 		expect(timeline.items).toHaveLength(1);
 		const item = timeline.items[0];
 		if (item?.kind !== "tool_call") throw new Error("expected tool_call");
-		expect(item.call.title).toBe("Read file");
+		expect(item.call.title).toBe("/a.ts");
 		expect(item.call.kind).toBe("read");
 		expect(item.call.status).toBe("completed");
 		expect(item.call.rawInput).toEqual({ path: "/a.ts" });

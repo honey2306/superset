@@ -26,6 +26,7 @@ shared client code today
     - Superset state and envelope types
     - tRPC input schemas and API interfaces
     - timeline fold and WebSocket sync client
+    - agent-independent Tool Call Projection for every renderer
     - React hooks under ./react
 ```
 
@@ -135,8 +136,12 @@ Each active runtime holds:
 - subscribers;
 - a ring journal capped at 5,000 envelopes.
 
-The host does not hold a separate folded message list. The ring is bounded, so
-memory does not grow for the full lifetime of an arbitrarily long session.
+The host does not hold a separate folded message list. Clients fold ACP frames
+through `@superset/session-protocol`; that fold also creates the Tool Call
+Projection with required `kind`, `status`, `title`, and `locations` fields.
+Renderers consume those fields directly instead of interpreting adapter-specific
+`rawInput` or `_meta`. The ring is bounded, so memory does not grow for the full
+lifetime of an arbitrarily long session.
 However, the current design still gives the ring two jobs:
 
 1. recent WebSocket catch-up with `?since=<seq>`;

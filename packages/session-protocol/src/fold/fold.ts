@@ -12,6 +12,10 @@ import type {
 } from "../acp";
 import type { SessionUpdateEnvelope } from "../envelope";
 import type { SessionScopedState } from "../state";
+import {
+	type CanonicalToolCall,
+	canonicalizeToolCall,
+} from "./canonical-tool-call";
 
 // ---------------------------------------------------------------------------
 // Timeline model: SessionUpdateEnvelope[] folded into renderable items.
@@ -49,7 +53,7 @@ export interface ToolCallItem {
 	kind: "tool_call";
 	/** The ACP toolCallId. */
 	id: string;
-	call: ToolCall;
+	call: CanonicalToolCall;
 	/**
 	 * Normalized terminal stream emitted by adapters such as Pi. ACP represents
 	 * its info, output deltas, and exit status as separate `_meta` frames; keep
@@ -259,7 +263,9 @@ function foldUpdate(
 			appendChunk(timeline, "thought", update.content, seq);
 			break;
 		case "tool_call":
-			upsertToolCall(timeline, update, seq, () => ({ ...update }));
+			upsertToolCall(timeline, update, seq, () =>
+				canonicalizeToolCall({ ...update }),
+			);
 			break;
 		case "tool_call_update":
 			upsertToolCall(timeline, update, seq, () =>
@@ -471,8 +477,11 @@ interface ToolCallPatch {
  * tool_call_update semantics per ACP: fields present (non-null) replace the
  * previous value; absent/null fields keep it.
  */
-function mergeToolCall(base: ToolCall, patch: ToolCallPatch): ToolCall {
-	return {
+function mergeToolCall(
+	base: CanonicalToolCall | ToolCall,
+	patch: ToolCallPatch,
+): CanonicalToolCall {
+	return canonicalizeToolCall({
 		...base,
 		toolCallId: base.toolCallId,
 		title: patch.title ?? base.title,
@@ -483,7 +492,7 @@ function mergeToolCall(base: ToolCall, patch: ToolCallPatch): ToolCall {
 		rawInput: patch.rawInput ?? base.rawInput,
 		rawOutput: patch.rawOutput ?? base.rawOutput,
 		_meta: patch._meta ?? base._meta,
-	};
+	});
 }
 
 type TerminalStreamPatch = {
@@ -600,7 +609,7 @@ function upsertToolCall(
 	timeline: FoldedTimeline,
 	patch: ToolCallPatch,
 	seq: number,
-	createCall: () => ToolCall,
+	createCall: () => CanonicalToolCall,
 ): void {
 	const terminalPatches = terminalStreamPatches(patch);
 	const mergeTerminals = (base: Record<string, TerminalStream> | undefined) =>
