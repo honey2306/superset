@@ -168,14 +168,14 @@ function TerminalRichInputInner({
 				    the mx-auto max-w keeps the card centered like the chat composer. */}
 				<div className="relative mx-auto w-full max-w-[680px] pt-2">
 					{binding && (
-						<span className="pointer-events-none absolute top-5 right-3 z-10 text-xs text-muted-foreground/50">
+						<span className="pointer-events-none absolute top-5 right-3 z-10 text-xs text-fg-mute/50">
 							{t("terminal.richInput.hotkeyToHide", {
 								hotkey: hotkeyText,
 							})}
 						</span>
 					)}
 					<PromptInput
-						className="rounded-[13px] bg-background [&>[data-slot=input-group]]:rounded-[13px] [&>[data-slot=input-group]]:border-[0.5px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]]:bg-foreground/[0.02]"
+						className="rounded-[13px] bg-background [&>[data-slot=input-group]]:rounded-[13px] [&>[data-slot=input-group]]:border-[0.5px] [&>[data-slot=input-group]]:shadow-none [&>[data-slot=input-group]]:bg-fg/[0.02]"
 						onSubmit={handleSubmit}
 						onKeyDown={(e) => {
 							if (e.key === "Escape") {
@@ -197,8 +197,8 @@ function TerminalRichInputInner({
 									terminalId={terminalId}
 								/>
 							</span>
-							<PromptInputSubmit className="size-[23px] rounded-full border border-transparent bg-foreground/10 p-[5px] shadow-none hover:bg-foreground/20">
-								<ArrowUpIcon className="size-3.5 text-muted-foreground" />
+							<PromptInputSubmit className="size-[23px] rounded-full border border-transparent bg-fg/10 p-[5px] shadow-none hover:bg-fg/20">
+								<ArrowUpIcon className="size-3.5 text-fg-mute" />
 							</PromptInputSubmit>
 						</PromptInputFooter>
 					</PromptInput>

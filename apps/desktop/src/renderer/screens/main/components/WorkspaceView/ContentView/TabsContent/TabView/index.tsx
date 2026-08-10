@@ -161,7 +161,7 @@ export function TabView({ tab }: TabViewProps) {
 
 			if (!paneInfo) {
 				return (
-					<div className="w-full h-full flex items-center justify-center text-muted-foreground">
+					<div className="w-full h-full flex items-center justify-center text-fg-mute">
 						Pane not found: {paneId}
 					</div>
 				);
@@ -171,7 +171,7 @@ export function TabView({ tab }: TabViewProps) {
 			if (paneInfo.type === "file-viewer") {
 				if (!worktreePath) {
 					return (
-						<div className="w-full h-full flex items-center justify-center text-muted-foreground">
+						<div className="w-full h-full flex items-center justify-center text-fg-mute">
 							Workspace path unavailable
 						</div>
 					);

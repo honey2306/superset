@@ -17,9 +17,9 @@ export function TerminalExitedOverlay({
 		<div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
 			<Card className="gap-3 px-2 py-4">
 				<div className="flex flex-col items-center gap-1.5 px-4 text-center">
-					<LuPower className="size-5 text-muted-foreground" />
+					<LuPower className="size-5 text-fg-mute" />
 					<p className="text-sm font-medium">Terminal exited</p>
-					<p className="text-xs text-muted-foreground">
+					<p className="text-xs text-fg-mute">
 						Process exited with code {exitCode}.
 					</p>
 				</div>
