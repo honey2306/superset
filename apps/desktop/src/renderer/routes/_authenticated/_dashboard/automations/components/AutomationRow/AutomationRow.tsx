@@ -47,7 +47,7 @@ const LAST_RUN_META: Record<
 	{ dot: string; label: string; failed?: boolean }
 > = {
 	dispatched: { dot: "bg-success-tint", label: "ran" },
-	dispatching: { dot: "bg-amber-500", label: "running" },
+	dispatching: { dot: "bg-warning", label: "running" },
 	skipped_offline: { dot: "bg-destructive", label: "failed", failed: true },
 	dispatch_failed: { dot: "bg-destructive", label: "failed", failed: true },
 };
@@ -103,7 +103,7 @@ export function AutomationRow({
 							openDetail();
 						}
 					}}
-					className="group/row h-10 cursor-pointer border-line/50 text-sm outline-none transition-colors hover:bg-hover focus-visible:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
+					className="group/row h-10 cursor-pointer border-line/50 text-sm outline-none transition-colors hover:bg-hover focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-accent-tint focus-visible:ring-inset"
 				>
 					<TableCell className="pl-4">
 						<span className="flex min-w-0 items-center gap-2">
@@ -112,7 +112,7 @@ export function AutomationRow({
 									"inline-block size-2 shrink-0 rounded-full",
 									automation.enabled
 										? "bg-success-tint"
-										: "border border-muted-foreground/60",
+										: "border border-fg-mute/60",
 								)}
 							/>
 							<span

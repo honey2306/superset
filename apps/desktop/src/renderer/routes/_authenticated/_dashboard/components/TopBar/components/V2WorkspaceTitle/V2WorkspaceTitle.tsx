@@ -29,7 +29,7 @@ export function V2WorkspaceTitle({ workspaceId }: V2WorkspaceTitleProps) {
 			)}
 			{name && branch && (
 				<ChevronRight
-					className="size-3 shrink-0 text-muted-foreground/40"
+					className="size-3 shrink-0 text-fg-mute/40"
 					strokeWidth={2}
 					aria-hidden="true"
 				/>

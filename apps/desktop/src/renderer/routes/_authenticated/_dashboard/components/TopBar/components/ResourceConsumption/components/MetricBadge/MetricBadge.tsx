@@ -9,7 +9,7 @@ interface MetricBadgeProps {
 export function MetricBadge({ label, value, tooltip }: MetricBadgeProps) {
 	const content = (
 		<div className="min-w-0 px-3 first:pl-0 last:pr-0">
-			<div className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground/80">
+			<div className="text-[10px] font-medium uppercase tracking-[0.06em] text-fg-mute/80">
 				{label}
 			</div>
 			<div className="mt-1.5 text-[15px] leading-none font-medium tabular-nums tracking-tight text-fg whitespace-nowrap">

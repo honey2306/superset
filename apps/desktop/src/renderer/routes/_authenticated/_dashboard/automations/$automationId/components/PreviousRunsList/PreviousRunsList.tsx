@@ -10,7 +10,7 @@ import {
 
 const STATUS_DOT: Record<SelectAutomationRun["status"], string> = {
 	dispatched: "bg-success-tint",
-	dispatching: "bg-amber-500",
+	dispatching: "bg-warning",
 	skipped_offline: "bg-destructive",
 	dispatch_failed: "bg-destructive",
 };

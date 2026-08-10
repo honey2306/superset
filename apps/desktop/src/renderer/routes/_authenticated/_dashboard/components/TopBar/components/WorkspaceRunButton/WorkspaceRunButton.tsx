@@ -174,10 +174,10 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 					"active:scale-[0.98]",
 					isPending && "opacity-50 pointer-events-none",
 					isRunning
-						? "text-success border-emerald-500/25 bg-success-tint/10"
+						? "text-success border-success/25 bg-success-tint/10"
 						: hasRunCommand
 							? "text-fg"
-							: "text-muted-foreground/80 border-line/40 bg-secondary/40",
+							: "text-fg-mute/80 border-line/40 bg-secondary/40",
 				)}
 			>
 				{isRunning ? (
@@ -210,9 +210,9 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 							"active:scale-[0.98]",
 							isPending && "opacity-50 pointer-events-none",
 							isRunning
-								? "text-success border-emerald-500/25 bg-success-tint/10 hover:bg-success-tint/20"
+								? "text-success border-success/25 bg-success-tint/10 hover:bg-success-tint/20"
 								: !hasRunCommand &&
-										"text-muted-foreground/80 border-line/40 bg-secondary/40",
+										"text-fg-mute/80 border-line/40 bg-secondary/40",
 						)}
 					>
 						<HiChevronDown className="size-3.5" />

@@ -269,8 +269,8 @@ function ResourceConsumptionContent({
 		hostShareSeverity === "high"
 			? "bg-destructive/80"
 			: hostShareSeverity === "elevated"
-				? "bg-amber-500/80"
-				: "bg-foreground/40";
+				? "bg-warning/80"
+				: "bg-fg/40";
 	return (
 		<PopoverContent align="start" className="w-[28rem] p-0 overflow-hidden">
 			<div className="px-3.5 pt-3 pb-3 border-b border-line/60">
@@ -283,7 +283,7 @@ function ResourceConsumptionContent({
 							<DropdownMenuTrigger asChild>
 								<button
 									type="button"
-									className="flex items-center gap-1 h-6 px-1.5 rounded text-[11px] text-fg-mute hover:text-fg hover:bg-foreground/[0.06] transition-colors"
+									className="flex items-center gap-1 h-6 px-1.5 rounded text-[11px] text-fg-mute hover:text-fg hover:bg-hover transition-colors"
 									aria-label={t("dashboard.sortWorkspaces")}
 								>
 									<HiOutlineBarsArrowDown className="h-3.5 w-3.5" />
@@ -311,7 +311,7 @@ function ResourceConsumptionContent({
 						<button
 							type="button"
 							onClick={() => refetch()}
-							className="h-6 w-6 inline-flex items-center justify-center rounded text-fg-mute hover:text-fg hover:bg-foreground/[0.06] transition-colors"
+							className="h-6 w-6 inline-flex items-center justify-center rounded text-fg-mute hover:text-fg hover:bg-hover transition-colors"
 							aria-label={t("dashboard.refreshMetrics")}
 						>
 							<HiOutlineArrowPath
@@ -323,7 +323,7 @@ function ResourceConsumptionContent({
 
 				{normalizedSnapshot && (
 					<>
-						<div className="mt-3 grid grid-cols-3 divide-x divide-border/50">
+						<div className="mt-3 grid grid-cols-3 divide-x divide-line/50">
 							<MetricBadge
 								label="CPU"
 								value={formatCpu(normalizedSnapshot.totalCpu)}

@@ -33,12 +33,12 @@ export function ResourceMetricsSummary({
 		hostShareSeverity === "high"
 			? "bg-destructive/80"
 			: hostShareSeverity === "elevated"
-				? "bg-amber-500/80"
-				: "bg-foreground/40";
+				? "bg-warning/80"
+				: "bg-fg/40";
 
 	return (
 		<>
-			<div className="grid grid-cols-3 divide-x divide-border/50">
+			<div className="grid grid-cols-3 divide-x divide-line/50">
 				<MetricBadge
 					label="CPU"
 					value={formatCpu(snapshot.totalCpu)}

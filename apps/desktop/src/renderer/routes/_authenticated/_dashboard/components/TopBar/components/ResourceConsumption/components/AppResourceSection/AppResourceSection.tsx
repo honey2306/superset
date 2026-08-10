@@ -23,14 +23,14 @@ interface SubRowProps {
 
 function SubRow({ label, cpu, memory, severity }: SubRowProps) {
 	return (
-		<div className="group flex items-center justify-between px-3.5 pl-7 py-1 hover:bg-foreground/[0.04] transition-colors">
+		<div className="group flex items-center justify-between px-3.5 pl-7 py-1 hover:bg-hover transition-colors">
 			<div className="flex items-center gap-1.5 min-w-0 mr-2">
-				<span className="text-[11px] text-muted-foreground/90 truncate min-w-0">
+				<span className="text-[11px] text-fg-mute/90 truncate min-w-0">
 					{label}
 				</span>
 				<UsageSeverityBadge severity={severity} />
 			</div>
-			<div className={cn(METRIC_COLS, "text-[11px] text-muted-foreground/80")}>
+			<div className={cn(METRIC_COLS, "text-[11px] text-fg-mute/80")}>
 				<span className={CPU_COL}>{formatCpu(cpu)}</span>
 				<span className={MEM_COL}>{formatMemory(memory)}</span>
 			</div>

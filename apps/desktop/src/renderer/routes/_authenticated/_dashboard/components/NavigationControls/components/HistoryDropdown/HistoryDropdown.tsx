@@ -48,7 +48,7 @@ function WorkspaceRow({
 
 	return (
 		<DropdownMenuItem
-			className={cn("gap-2.5", isCurrent && "bg-accent/50")}
+			className={cn("gap-2.5", isCurrent && "bg-accent-tint")}
 			onSelect={onSelect}
 		>
 			{ws ? (
@@ -99,7 +99,7 @@ function V2WorkspaceRow({
 
 	return (
 		<DropdownMenuItem
-			className={cn("gap-2.5", isCurrent && "bg-accent/50")}
+			className={cn("gap-2.5", isCurrent && "bg-accent-tint")}
 			onSelect={onSelect}
 		>
 			<span className="text-fg-mute text-xs shrink-0 w-20 text-left line-clamp-1">
@@ -140,7 +140,7 @@ function AutomationRow({
 
 	return (
 		<DropdownMenuItem
-			className={cn("gap-2.5", isCurrent && "bg-accent/50")}
+			className={cn("gap-2.5", isCurrent && "bg-accent-tint")}
 			onSelect={onSelect}
 		>
 			<span className="text-fg-mute text-xs shrink-0 w-20 text-left line-clamp-1">
@@ -189,7 +189,7 @@ function TaskRow({
 
 	return (
 		<DropdownMenuItem
-			className={cn("gap-2.5", isCurrent && "bg-accent/50")}
+			className={cn("gap-2.5", isCurrent && "bg-accent-tint")}
 			onSelect={onSelect}
 		>
 			{task ? (
