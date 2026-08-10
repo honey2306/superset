@@ -104,7 +104,7 @@ export function CommentPane({
 								className="size-4 shrink-0 rounded-full"
 							/>
 						) : (
-							<LuMessageSquare className="size-4 shrink-0 text-muted-foreground" />
+							<LuMessageSquare className="size-4 shrink-0 text-fg-mute" />
 						)}
 						<PaneTitle
 							name={paneName ?? ""}
@@ -116,7 +116,7 @@ export function CommentPane({
 								href={comment.url}
 								target="_blank"
 								rel="noopener noreferrer"
-								className="flex shrink-0 items-center gap-0.5 text-muted-foreground hover:text-foreground"
+								className="flex shrink-0 items-center gap-0.5 text-fg-mute hover:text-fg"
 								aria-label="View on GitHub"
 							>
 								<FaGithub className="size-3.5" />
@@ -133,12 +133,12 @@ export function CommentPane({
 			)}
 		>
 			{!comment ? (
-				<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+				<div className="flex h-full items-center justify-center text-sm text-fg-mute">
 					No comment selected
 				</div>
 			) : (
 				<div className="flex h-full w-full flex-col overflow-hidden">
-					<div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+					<div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
 						<Avatar className="size-5 shrink-0">
 							{comment.avatarUrl ? (
 								<AvatarImage
@@ -150,11 +150,11 @@ export function CommentPane({
 								{comment.authorLogin.slice(0, 2).toUpperCase()}
 							</AvatarFallback>
 						</Avatar>
-						<span className="text-sm font-medium text-foreground">
+						<span className="text-sm font-medium text-fg">
 							{comment.authorLogin}
 						</span>
 						{comment.path && (
-							<span className="truncate text-xs text-muted-foreground">
+							<span className="truncate text-xs text-fg-mute">
 								{comment.path}
 								{comment.line != null ? `:${comment.line}` : ""}
 							</span>
@@ -162,7 +162,7 @@ export function CommentPane({
 						<button
 							type="button"
 							onClick={handleCopyAll}
-							className="ml-auto flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+							className="ml-auto flex shrink-0 items-center gap-1 text-xs text-fg-mute hover:text-fg"
 						>
 							{copied ? (
 								<>
@@ -259,7 +259,7 @@ function CommentCodeBlock({
 
 	if (!language) {
 		return (
-			<code className="px-1.5 py-0.5 rounded bg-muted font-mono text-sm">
+			<code className="px-1.5 py-0.5 rounded bg-hover font-mono text-sm">
 				{children}
 			</code>
 		);
@@ -272,7 +272,7 @@ function CommentCodeBlock({
 			}
 			language={language}
 			PreTag="div"
-			className="rounded-md text-sm"
+			className="rounded-ds-3 text-sm"
 		>
 			{codeString}
 		</SyntaxHighlighter>
@@ -336,7 +336,7 @@ function CopyableTable({ children }: { children?: ReactNode }) {
 			<button
 				type="button"
 				onClick={handleCopy}
-				className="absolute right-0 -top-6 z-10 rounded-sm px-1.5 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
+				className="absolute right-0 -top-6 z-10 rounded-sm px-1.5 py-0.5 text-2xs text-fg-mute hover:text-fg"
 			>
 				{copied ? (
 					<span className="flex items-center gap-1">

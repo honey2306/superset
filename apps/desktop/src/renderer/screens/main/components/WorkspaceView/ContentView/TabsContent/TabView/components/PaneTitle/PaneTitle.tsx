@@ -13,7 +13,7 @@ export function PaneTitle({
 	name,
 	fallback,
 	onRename,
-	className = "truncate text-sm text-muted-foreground",
+	className = "truncate text-sm text-fg-mute",
 }: PaneTitleProps) {
 	const [isEditing, setIsEditing] = useState(false);
 	const [editValue, setEditValue] = useState("");
@@ -42,7 +42,7 @@ export function PaneTitle({
 				onCancel={() => setIsEditing(false)}
 				maxLength={64}
 				className={cn(
-					"min-w-0 rounded border border-border bg-background px-1 py-0.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-ring",
+					"min-w-0 rounded border border-line bg-background px-1 py-0.5 text-sm text-fg outline-none focus:ring-1 focus:ring-ring",
 					className,
 				)}
 			/>

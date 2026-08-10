@@ -69,11 +69,11 @@ export function FileViewerToolbar({
 							type="button"
 							onClick={handleCopyPath}
 							className={cn(
-								"truncate text-xs text-muted-foreground hover:text-foreground transition-colors text-left",
+								"truncate text-xs text-fg-mute hover:text-fg transition-colors text-left",
 								!isPinned && "italic",
 							)}
 						>
-							{isDirty && <span className="text-amber-500 mr-1">●</span>}
+							{isDirty && <span className="text-warning mr-1">●</span>}
 							{fileName}
 						</button>
 					</TooltipTrigger>
@@ -89,26 +89,26 @@ export function FileViewerToolbar({
 						value={viewMode}
 						onValueChange={onViewModeChange}
 						size="sm"
-						className="h-5 bg-muted/50 rounded-md"
+						className="h-5 bg-hover/50 rounded-ds-3"
 					>
 						{hasRenderedMode && (
 							<ToggleGroupItem
 								value="rendered"
-								className="h-5 px-1.5 text-[10px] text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+								className="h-5 px-1.5 text-[10px] text-fg-mute data-[state=on]:bg-background data-[state=on]:text-fg data-[state=on]:shadow-sm"
 							>
 								Rendered
 							</ToggleGroupItem>
 						)}
 						<ToggleGroupItem
 							value="raw"
-							className="h-5 px-1.5 text-[10px] text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+							className="h-5 px-1.5 text-[10px] text-fg-mute data-[state=on]:bg-background data-[state=on]:text-fg data-[state=on]:shadow-sm"
 						>
 							Raw
 						</ToggleGroupItem>
 						{hasDiff && (
 							<ToggleGroupItem
 								value="diff"
-								className="h-5 px-1.5 text-[10px] text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+								className="h-5 px-1.5 text-[10px] text-fg-mute data-[state=on]:bg-background data-[state=on]:text-fg data-[state=on]:shadow-sm"
 							>
 								Changes
 							</ToggleGroupItem>
@@ -128,7 +128,7 @@ export function FileViewerToolbar({
 												: "side-by-side",
 										)
 									}
-									className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+									className="rounded p-0.5 text-fg-mute/60 transition-colors hover:text-fg-mute"
 								>
 									{diffViewMode === "side-by-side" ? (
 										<TbLayoutSidebarRightFilled className="size-3.5" />
@@ -149,10 +149,10 @@ export function FileViewerToolbar({
 									type="button"
 									onClick={onToggleHideUnchangedRegions}
 									className={cn(
-										"rounded p-0.5 transition-colors hover:text-muted-foreground",
+										"rounded p-0.5 transition-colors hover:text-fg-mute",
 										hideUnchangedRegions
-											? "text-foreground"
-											: "text-muted-foreground/60",
+											? "text-fg"
+											: "text-fg-mute/60",
 									)}
 								>
 									<TbFold className="size-3.5" />
@@ -177,7 +177,7 @@ export function FileViewerToolbar({
 									<button
 										type="button"
 										onClick={onPin}
-										className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+										className="rounded p-0.5 text-fg-mute/60 transition-colors hover:text-fg-mute"
 									>
 										<TbPinFilled className="size-3" />
 									</button>

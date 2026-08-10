@@ -607,7 +607,7 @@ export function FileViewerPane({
 				embedded={embedded}
 				renderToolbar={() => <div className="h-full w-full" />}
 			>
-				<div className="flex items-center justify-center h-full text-muted-foreground">
+				<div className="flex items-center justify-center h-full text-fg-mute">
 					No file viewer state
 				</div>
 			</BasePaneWindow>
