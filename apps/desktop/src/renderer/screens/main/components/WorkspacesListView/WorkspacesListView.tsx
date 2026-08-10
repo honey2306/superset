@@ -243,9 +243,9 @@ export function WorkspacesListView() {
 	return (
 		<div className="flex-1 flex flex-col bg-surface overflow-hidden">
 			{/* Header */}
-			<div className="flex items-center gap-3 px-4 py-2 border-b border-border/50">
+			<div className="flex items-center gap-3 px-4 py-2 border-b border-line/50">
 				{/* Filter toggle */}
-				<div className="flex items-center gap-1 bg-background/50 rounded-ds-3 p-0.5">
+				<div className="flex items-center gap-1 bg-hover/50 rounded-ds-3 p-0.5">
 					{FILTER_OPTIONS.map((option) => {
 						const count =
 							option.value === "all"
@@ -262,11 +262,11 @@ export function WorkspacesListView() {
 									"px-2 py-1 text-xs rounded-ds-3 transition-colors",
 									filterMode === option.value
 										? "bg-accent-tint text-fg"
-										: "text-foreground/60 hover:text-fg",
+										: "text-fg-mute hover:text-fg",
 								)}
 							>
 								{option.label}
-								<span className="ml-1 text-foreground/40">{count}</span>
+								<span className="ml-1 text-fg-mute/40">{count}</span>
 							</button>
 						);
 					})}
@@ -274,13 +274,13 @@ export function WorkspacesListView() {
 
 				{/* Search */}
 				<div className="relative flex-1">
-					<LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/50" />
+					<LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-mute/50" />
 					<Input
 						type="text"
 						placeholder="Search..."
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
-						className="pl-9 h-8 bg-background/50"
+						className="pl-9 h-8 bg-hover/50"
 					/>
 				</div>
 
@@ -289,7 +289,7 @@ export function WorkspacesListView() {
 					variant="ghost"
 					size="icon"
 					onClick={() => navigate({ to: "/workspace" })}
-					className="size-7 text-foreground/60 hover:text-fg shrink-0"
+					className="size-7 text-fg-mute hover:text-fg shrink-0"
 				>
 					<LuX className="size-4" />
 				</Button>
@@ -300,11 +300,11 @@ export function WorkspacesListView() {
 				{projectGroups.map((group) => (
 					<div key={group.projectId}>
 						{/* Project header */}
-						<div className="sticky top-0 bg-card/95 backdrop-blur-sm px-4 py-2 border-b border-border/50">
+						<div className="sticky top-0 bg-surface/95 backdrop-blur-sm px-4 py-2 border-b border-line/50">
 							<span className="text-xs font-medium text-fg-mute">
 								{group.projectName}
 							</span>
-							<span className="text-xs text-foreground/40 ml-2">
+							<span className="text-xs text-fg-mute/40 ml-2">
 								{group.workspaces.length}
 							</span>
 						</div>
@@ -326,7 +326,7 @@ export function WorkspacesListView() {
 				))}
 
 				{filteredItems.length === 0 && (
-					<div className="flex items-center justify-center h-32 text-foreground/50 text-sm">
+					<div className="flex items-center justify-center h-32 text-fg-mute/50 text-sm">
 						{searchQuery
 							? "No workspaces match your search"
 							: filterMode === "active"

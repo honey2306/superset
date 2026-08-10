@@ -9,8 +9,8 @@ interface CheckItemRowProps {
 export function CheckItemRow({ check }: CheckItemRowProps) {
 	const statusConfig = {
 		success: { icon: LuCheck, className: "text-success" },
-		failure: { icon: LuX, className: "text-destructive-foreground" },
-		pending: { icon: LuLoaderCircle, className: "text-amber-500" },
+		failure: { icon: LuX, className: "text-destructive" },
+		pending: { icon: LuLoaderCircle, className: "text-warning" },
 		skipped: { icon: LuMinus, className: "text-fg-mute" },
 		cancelled: { icon: LuMinus, className: "text-fg-mute" },
 	};

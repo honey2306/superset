@@ -26,21 +26,21 @@ export function WorkspaceRunIndicator({
 		state === "running"
 			? "bg-success-tint"
 			: state === "stopped-by-user"
-				? "bg-muted-foreground/40"
+				? "bg-fg-mute/40"
 				: "bg-destructive";
 
 	const inlineColorClasses =
 		state === "running"
 			? "bg-success-tint text-success"
 			: state === "stopped-by-user"
-				? "bg-muted-foreground/10 text-muted-foreground/50"
+				? "bg-fg-mute/10 text-fg-mute/50"
 				: "bg-destructive text-destructive";
 
 	const toolbarColorClasses =
 		state === "running"
 			? "text-success"
 			: state === "stopped-by-user"
-				? "text-amber-300"
+				? "text-warning"
 				: "text-destructive";
 
 	if (variant === "circle") {

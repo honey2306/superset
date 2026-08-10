@@ -141,7 +141,7 @@ export function WorkspaceHoverCardContent({
 			</div>
 
 			{needsRebase && (
-				<div className="flex items-center gap-2 text-amber-500 text-xs bg-amber-500/10 px-2 py-1.5 rounded-ds-3">
+				<div className="flex items-center gap-2 text-warning text-xs bg-warning-tint px-2 py-1.5 rounded-ds-3">
 					<LuTriangleAlert
 						className="size-3.5 shrink-0"
 						strokeWidth={STROKE_WIDTH}
@@ -177,7 +177,7 @@ export function WorkspaceHoverCardContent({
 						</div>
 						<div className="flex items-center gap-1.5 text-xs font-mono shrink-0">
 							<span className="text-success">+{pr.additions}</span>
-							<span className="text-destructive-foreground">
+							<span className="text-destructive">
 								-{pr.deletions}
 							</span>
 						</div>

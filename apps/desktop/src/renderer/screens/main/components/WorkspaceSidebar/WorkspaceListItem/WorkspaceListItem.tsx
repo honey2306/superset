@@ -475,7 +475,7 @@ export function WorkspaceListItem({
 								<div className="hidden items-center justify-end gap-1.5 group-hover:flex">
 									{shortcutIndex !== undefined &&
 										shortcutIndex < MAX_KEYBOARD_SHORTCUT_INDEX && (
-											<span className="text-[10px] text-muted-foreground font-mono tabular-nums shrink-0">
+											<span className="text-[10px] text-fg-mute font-mono tabular-nums shrink-0">
 												⌘{shortcutIndex + 1}
 											</span>
 										)}

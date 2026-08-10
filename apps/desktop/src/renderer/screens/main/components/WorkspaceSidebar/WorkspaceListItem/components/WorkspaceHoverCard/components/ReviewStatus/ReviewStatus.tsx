@@ -17,7 +17,7 @@ export function ReviewStatus({
 		},
 		changes_requested: {
 			label: t("workspace.reviewChangesRequested"),
-			className: "bg-destructive/15 text-destructive-foreground",
+			className: "bg-danger-tint text-destructive",
 		},
 		pending: {
 			label:
@@ -26,7 +26,7 @@ export function ReviewStatus({
 							reviewers: requestedReviewers.join(", "),
 						})
 					: t("workspace.reviewPending"),
-			className: "bg-amber-500/15 text-amber-500",
+			className: "bg-warning-tint text-warning",
 		},
 	};
 

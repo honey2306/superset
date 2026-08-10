@@ -82,7 +82,7 @@ export function WorkspaceRow({
 			onMouseEnter={onGithubMouseEnter}
 			className={cn(
 				"flex items-center gap-3 w-full px-4 py-2 group text-left",
-				"hover:bg-background/50 transition-colors",
+				"hover:bg-hover/50 transition-colors",
 				isOpening && "opacity-50 cursor-wait",
 			)}
 		>
@@ -131,7 +131,7 @@ export function WorkspaceRow({
 			<span
 				className={cn(
 					"text-sm truncate text-fg-mute",
-					!workspace.isOpen && "text-foreground/50",
+					!workspace.isOpen && "text-fg-mute/50",
 				)}
 			>
 				{workspace.name}
@@ -149,7 +149,7 @@ export function WorkspaceRow({
 			{showDiffStats && (
 				<div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
 					<span className="text-success">+{pr.additions}</span>
-					<span className="text-destructive-foreground">-{pr.deletions}</span>
+					<span className="text-destructive">-{pr.deletions}</span>
 				</div>
 			)}
 
@@ -157,7 +157,7 @@ export function WorkspaceRow({
 			<div className="flex-1" />
 
 			{/* Time context */}
-			<span className="text-xs text-foreground/40 shrink-0 group-hover:hidden">
+			<span className="text-xs text-fg-mute/40 shrink-0 group-hover:hidden">
 				{timeText}
 			</span>
 
@@ -165,8 +165,8 @@ export function WorkspaceRow({
 			<div className="hidden group-hover:flex items-center gap-1.5 text-xs shrink-0">
 				{isOpening ? (
 					<>
-						<LuRotateCw className="size-3 animate-spin text-foreground/60" />
-						<span className="text-foreground/60">Opening...</span>
+						<LuRotateCw className="size-3 animate-spin text-fg-mute" />
+						<span className="text-fg-mute">Opening...</span>
 					</>
 				) : workspace.isOpen ? (
 					<>

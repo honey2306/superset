@@ -35,12 +35,12 @@ export function WorkspaceStatusBadge({
 		merged: {
 			icon: (
 				<LuGitMerge
-					className={cn(iconClass, "text-purple-500")}
+					className={cn(iconClass, "text-accent-solid")}
 					strokeWidth={STROKE_WIDTH}
 				/>
 			),
-			bgColor: "bg-purple-500/10",
-			hoverBgColor: "hover:bg-purple-500/30",
+			bgColor: "bg-accent-tint",
+			hoverBgColor: "hover:bg-accent-tint",
 		},
 		closed: {
 			icon: (
@@ -60,7 +60,7 @@ export function WorkspaceStatusBadge({
 				/>
 			),
 			bgColor: "bg-hover",
-			hoverBgColor: "hover:bg-muted/70",
+			hoverBgColor: "hover:bg-hover/70",
 		},
 	};
 

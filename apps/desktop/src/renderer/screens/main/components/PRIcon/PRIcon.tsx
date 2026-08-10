@@ -15,10 +15,10 @@ interface PRIconProps {
 
 const stateStyles: Record<PRState, string> = {
 	open: "text-success",
-	merged: "text-violet-500",
+	merged: "text-accent-solid",
 	closed: "text-destructive",
 	draft: "text-fg-mute",
-	queued: "text-amber-500",
+	queued: "text-warning",
 };
 
 /**
