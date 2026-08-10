@@ -1,11 +1,8 @@
-import type { SelectTodo } from "@superset/db/schema";
-import { useLiveQuery } from "@tanstack/react-db";
 import { useCallback, useMemo } from "react";
-import { authClient } from "renderer/lib/auth-client";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useTodoAlertsStore } from "renderer/stores/todo-alerts";
+import { type LocalTodo, useLocalTodos } from "../useLocalAutomationData";
 
-const ALERT_STATUSES: SelectTodo["status"][] = [
+const ALERT_STATUSES: LocalTodo["status"][] = [
 	"notified",
 	"dispatch_failed",
 	"skipped_offline",
@@ -21,23 +18,10 @@ interface TodoAlerts {
 }
 
 export function useTodoAlerts(): TodoAlerts {
-	const collections = useCollections();
-	const { data: session } = authClient.useSession();
-	const currentUserId = session?.user?.id;
 	const lastSeenAlertAt = useTodoAlertsStore((s) => s.lastSeenAlertAt);
 	const markSeen = useTodoAlertsStore((s) => s.markAlertsSeen);
 
-	const { data: rows = [] } = useLiveQuery(
-		(q) =>
-			q.from({ t: collections.todos }).select(({ t }) => ({
-				id: t.id,
-				ownerUserId: t.ownerUserId,
-				status: t.status,
-				updatedAt: t.updatedAt,
-				doneAt: t.doneAt,
-			})),
-		[collections.todos],
-	);
+	const { data: rows = [] } = useLocalTodos();
 
 	const { alertingIds, myAlertTimes } = useMemo(() => {
 		const alerts = new Set<string>();
@@ -47,13 +31,11 @@ export function useTodoAlerts(): TodoAlerts {
 			if (t.doneAt) continue;
 			if (!ALERT_STATUSES.includes(t.status)) continue;
 			alerts.add(t.id);
-			if (t.ownerUserId === currentUserId) {
-				const at = new Date(t.updatedAt as unknown as string).getTime();
-				if (Number.isFinite(at)) times.push(at);
-			}
+			const at = new Date(t.updatedAt).getTime();
+			if (Number.isFinite(at)) times.push(at);
 		}
 		return { alertingIds: alerts, myAlertTimes: times };
-	}, [rows, currentUserId]);
+	}, [rows]);
 
 	const alertCount = useMemo(
 		() => myAlertTimes.filter((at) => at > lastSeenAlertAt).length,

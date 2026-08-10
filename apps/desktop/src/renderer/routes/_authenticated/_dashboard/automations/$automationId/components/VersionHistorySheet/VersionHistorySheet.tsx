@@ -16,7 +16,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { LuX } from "react-icons/lu";
 import { MarkdownRenderer } from "renderer/components/MarkdownRenderer";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { VersionRow } from "./components/VersionRow";
 
 interface VersionHistorySheetProps {
@@ -35,6 +36,7 @@ export function VersionHistorySheet({
 	onOpenChange,
 }: VersionHistorySheetProps) {
 	const queryClient = useQueryClient();
+	const hostUrl = useHostUrl(null);
 	const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
 		null,
 	);
@@ -46,8 +48,14 @@ export function VersionHistorySheet({
 
 	const { data: versions = [], isLoading } = useQuery({
 		queryKey: versionsQueryKey,
-		queryFn: () =>
-			apiTrpcClient.automation.versions.list.query({ automationId }),
+		queryFn: () => {
+			if (!hostUrl) return [];
+			return getHostServiceClientByUrl(hostUrl).automations.versions.list.query(
+				{
+					automationId,
+				},
+			);
+		},
 		enabled: open,
 	});
 
@@ -65,7 +73,10 @@ export function VersionHistorySheet({
 		queryKey: ["automation-version-content", selectedVersionId],
 		queryFn: async () => {
 			if (!selectedVersionId) return null;
-			return apiTrpcClient.automation.versions.getContent.query({
+			if (!hostUrl) return null;
+			return getHostServiceClientByUrl(
+				hostUrl,
+			).automations.versions.getContent.query({
 				versionId: selectedVersionId,
 			});
 		},
@@ -74,8 +85,14 @@ export function VersionHistorySheet({
 	});
 
 	const restoreMutation = useMutation({
-		mutationFn: (versionId: string) =>
-			apiTrpcClient.automation.versions.restore.mutate({ versionId }),
+		mutationFn: (versionId: string) => {
+			if (!hostUrl) throw new Error("Local host service is unavailable");
+			return getHostServiceClientByUrl(
+				hostUrl,
+			).automations.versions.restore.mutate({
+				versionId,
+			});
+		},
 		onSuccess: (restored) => {
 			queryClient.invalidateQueries({ queryKey: versionsQueryKey });
 			setSelectedVersionId(restored?.id ?? null);
@@ -154,7 +171,7 @@ export function VersionHistorySheet({
 							<VersionRow
 								key={version.id}
 								authorName={version.authorName}
-								source={version.source}
+								source={version.source === "restore" ? "restore" : "human"}
 								updatedAt={new Date(version.updatedAt)}
 								selected={selectedVersionId === version.id}
 								onSelect={() => setSelectedVersionId(version.id)}

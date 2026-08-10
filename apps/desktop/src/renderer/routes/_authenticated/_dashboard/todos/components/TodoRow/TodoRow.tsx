@@ -1,15 +1,19 @@
-import type { SelectTodo } from "@superset/db/schema";
 import { Button } from "@superset/ui/button";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LuCheck, LuPlay, LuTrash2, LuTriangleAlert } from "react-icons/lu";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import type { MessageKey } from "renderer/providers/I18nProvider";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import {
+	type LocalTodo,
+	localAutomationKeys,
+} from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
 
 interface TodoRowProps {
-	todo: SelectTodo;
+	todo: LocalTodo;
 	now: Date;
 	onDeleteRequest: () => void;
 }
@@ -57,7 +61,7 @@ function useRelative(date: Date, now: Date): string {
 }
 
 function statusDotClass(
-	status: SelectTodo["status"],
+	status: LocalTodo["status"],
 	isOverdue: boolean,
 ): string {
 	if (status === "dispatch_failed" || status === "skipped_offline") {
@@ -70,7 +74,7 @@ function statusDotClass(
 	return "bg-fg-mute/40";
 }
 
-const STATUS_LABEL_KEYS: Partial<Record<SelectTodo["status"], MessageKey>> = {
+const STATUS_LABEL_KEYS: Partial<Record<LocalTodo["status"], MessageKey>> = {
 	dispatching: "todos.statusDispatching",
 	dispatched: "todos.statusDispatched",
 	skipped_offline: "todos.statusSkippedOffline",
@@ -79,6 +83,12 @@ const STATUS_LABEL_KEYS: Partial<Record<SelectTodo["status"], MessageKey>> = {
 
 export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 	const { t } = useTranslation();
+	const hostUrl = useHostUrl(null);
+	const queryClient = useQueryClient();
+	const invalidateTodos = () =>
+		queryClient.invalidateQueries({
+			queryKey: localAutomationKeys.todos(hostUrl),
+		});
 
 	const dueDate = new Date(todo.dueAt as unknown as string);
 	const dayLabel = useDayLabel(dueDate, now);
@@ -92,7 +102,13 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 	const statusLabelKey = STATUS_LABEL_KEYS[todo.status];
 
 	const runNowMutation = useMutation({
-		mutationFn: () => apiTrpcClient.todo.runNow.mutate({ id: todo.id }),
+		mutationFn: () => {
+			if (!hostUrl) throw new Error("Local host service is unavailable");
+			return getHostServiceClientByUrl(hostUrl).todos.runNow.mutate({
+				id: todo.id,
+			});
+		},
+		onSuccess: invalidateTodos,
 		onError: (error) => {
 			toast.error(
 				t("todos.runFailed", {
@@ -103,8 +119,16 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 	});
 
 	const completeMutation = useMutation({
-		mutationFn: () => apiTrpcClient.todo.complete.mutate({ id: todo.id }),
-		onSuccess: () => toast.success(t("todos.completed")),
+		mutationFn: () => {
+			if (!hostUrl) throw new Error("Local host service is unavailable");
+			return getHostServiceClientByUrl(hostUrl).todos.complete.mutate({
+				id: todo.id,
+			});
+		},
+		onSuccess: () => {
+			invalidateTodos();
+			toast.success(t("todos.completed"));
+		},
 		onError: (error) => {
 			toast.error(error instanceof Error ? error.message : "unknown");
 		},
@@ -195,7 +219,7 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 	);
 }
 
-function ModePill({ mode }: { mode: SelectTodo["mode"] }) {
+function ModePill({ mode }: { mode: LocalTodo["mode"] }) {
 	const isAuto = mode === "auto";
 	return (
 		<span

@@ -11,16 +11,36 @@ import { cn } from "@superset/ui/utils";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useMemo, useState } from "react";
 import { HiCheck } from "react-icons/hi2";
-import { LuGitBranch, LuSparkles, LuTriangleAlert } from "react-icons/lu";
+import {
+	LuClock3,
+	LuGitBranch,
+	LuSparkles,
+	LuTriangleAlert,
+} from "react-icons/lu";
 import { PickerTrigger } from "renderer/components/PickerTrigger";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import {
+	useCatalogProjects,
+	useCatalogWorkspaces,
+} from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { getWorkspaceSearchKeywords } from "./workspaceSearchKeywords";
+
+export interface TemporaryWorkspaceSelection {
+	projectId: string;
+	workspaceId: string;
+}
 
 interface WorkspacePickerProps {
 	hostId: string | null;
 	projectId: string | null;
 	value: string | null;
 	onChange: (workspaceId: string | null) => void;
+	onSelectTemporaryWorkspace?: (
+		selection: TemporaryWorkspaceSelection | null,
+	) => void;
 	className?: string;
 }
 
@@ -29,10 +49,28 @@ export function WorkspacePicker({
 	projectId,
 	value,
 	onChange,
+	onSelectTemporaryWorkspace,
 	className,
 }: WorkspacePickerProps) {
 	const [open, setOpen] = useState(false);
+	const { t } = useTranslation();
 	const collections = useCollections();
+	const { machineId } = useLocalHostService();
+	const { projects: catalogProjects } = useCatalogProjects();
+	const { workspaces: catalogWorkspaces } = useCatalogWorkspaces();
+
+	const temporaryProject = catalogProjects.find(
+		(project) => project.kind === "temporary",
+	);
+	const temporaryWorkspace = temporaryProject
+		? (catalogWorkspaces.find(
+				(workspace) =>
+					workspace.projectId === temporaryProject.id &&
+					workspace.type === "main",
+			) ?? null)
+		: null;
+	const canSelectTemporaryWorkspace =
+		!!onSelectTemporaryWorkspace && hostId === machineId;
 
 	const { workspaces: hostWorkspaces, isReady } = useHostWorkspaces();
 	const workspaceRows = useMemo(
@@ -55,10 +93,13 @@ export function WorkspacePicker({
 		() =>
 			hostId && projectId
 				? workspaceRows.filter(
-						(w) => w.hostId === hostId && w.projectId === projectId,
+						(w) =>
+							w.hostId === hostId &&
+							w.projectId === projectId &&
+							w.id !== temporaryWorkspace?.id,
 					)
 				: [],
-		[workspaceRows, hostId, projectId],
+		[workspaceRows, hostId, projectId, temporaryWorkspace?.id],
 	);
 
 	// Resolve the pinned workspace from the FULL list, not the host-scoped
@@ -130,6 +171,28 @@ export function WorkspacePicker({
 									<HiCheck className="ml-auto size-4" />
 								)}
 							</CommandItem>
+							{canSelectTemporaryWorkspace && (
+								<CommandItem
+									value="__temporary__"
+									onSelect={() => {
+										onSelectTemporaryWorkspace(
+											temporaryProject && temporaryWorkspace
+												? {
+														projectId: temporaryProject.id,
+														workspaceId: temporaryWorkspace.id,
+													}
+												: null,
+										);
+										setOpen(false);
+									}}
+								>
+									<LuClock3 className="size-4" />
+									<span>{t("workspace.temporaryWorkspace")}</span>
+									{value === temporaryWorkspace?.id && (
+										<HiCheck className="ml-auto size-4" />
+									)}
+								</CommandItem>
+							)}
 							{missing && (
 								<CommandItem
 									value="__deleted__"
@@ -166,6 +229,7 @@ export function WorkspacePicker({
 							{workspaces.map((workspace) => (
 								<CommandItem
 									key={workspace.id}
+									keywords={getWorkspaceSearchKeywords(workspace)}
 									value={workspace.name}
 									onSelect={() => {
 										onChange(workspace.id);

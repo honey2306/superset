@@ -1,0 +1,1 @@
+export { getAutomationRunDestination } from "./getAutomationRunDestination";

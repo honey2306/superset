@@ -14,6 +14,7 @@ import {
 	envOverlayPrefix,
 	sanitizePromptForPty,
 } from "@superset/shared/agent-prompt-launch";
+import { getPresetById } from "@superset/shared/host-agent-presets";
 import { TRPCError } from "@trpc/server";
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -82,10 +83,29 @@ function rowToConfig(
 	};
 }
 
+export function resolveBundledHostAgentConfig(
+	agent: string,
+): ResolvedHostAgentConfig | null {
+	const preset = getPresetById(agent);
+	if (!preset) return null;
+	return {
+		id: preset.presetId,
+		presetId: preset.presetId,
+		label: preset.label,
+		command: preset.command,
+		args: preset.args,
+		promptTransport: preset.promptTransport,
+		promptArgs: preset.promptArgs,
+		env: preset.env,
+	};
+}
+
 /**
  * Look up a HostAgentConfig by its instance id first, then fall back to the
- * lowest-`order` row matching by presetId. Preset ids are short slugs;
- * instance ids are UUIDs — they don't collide.
+ * lowest-`order` row matching by presetId. If an older config table predates
+ * a built-in preset, resolve its bundled definition so ACP-backed callers can
+ * still launch it. Preset ids are short slugs; instance ids are UUIDs — they
+ * don't collide.
  */
 export function resolveHostAgentConfig(
 	db: HostDb,
@@ -106,7 +126,7 @@ export function resolveHostAgentConfig(
 		.get();
 	if (byPreset) return rowToConfig(byPreset);
 
-	return null;
+	return resolveBundledHostAgentConfig(agent);
 }
 
 /**

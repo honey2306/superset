@@ -48,6 +48,8 @@ export interface ProjectWriteInput {
 }
 
 export interface ProjectPatch {
+	kind?: "repository" | "temporary";
+	singletonKey?: string | null;
 	name?: string;
 	repoPath?: string;
 	repoProvider?: string | null;

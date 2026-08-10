@@ -1,14 +1,10 @@
-import type { SelectAutomationRun } from "@superset/db/schema";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { formatDistanceStrict } from "date-fns";
 import { useNow } from "renderer/hooks/useNow";
-import {
-	HOST_OFFLINE_HELP,
-	isHostOfflineError,
-} from "../../../utils/hostOfflineError";
+import type { LocalAutomationRun } from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
 
-const STATUS_DOT: Record<SelectAutomationRun["status"], string> = {
+const STATUS_DOT: Record<LocalAutomationRun["status"], string> = {
 	dispatched: "bg-success-tint",
 	dispatching: "bg-warning",
 	skipped_offline: "bg-destructive",
@@ -16,7 +12,8 @@ const STATUS_DOT: Record<SelectAutomationRun["status"], string> = {
 };
 
 interface PreviousRunsListProps {
-	runs: SelectAutomationRun[];
+	runs: LocalAutomationRun[];
+	onOpenRun: (run: LocalAutomationRun) => void;
 }
 
 function formatAgo(date: Date, now: Date): string {
@@ -25,7 +22,7 @@ function formatAgo(date: Date, now: Date): string {
 	return `${formatDistanceStrict(date, now)} ago`;
 }
 
-export function PreviousRunsList({ runs }: PreviousRunsListProps) {
+export function PreviousRunsList({ runs, onOpenRun }: PreviousRunsListProps) {
 	const now = useNow();
 
 	if (runs.length === 0) {
@@ -38,11 +35,10 @@ export function PreviousRunsList({ runs }: PreviousRunsListProps) {
 				const row = (
 					<button
 						type="button"
-						disabled
-						onClick={() => {}}
+						onClick={() => onOpenRun(run)}
 						className={cn(
 							"flex w-full items-center gap-2 rounded-ds-3 px-2 py-1.5 text-left",
-							"cursor-default opacity-70",
+							"transition-colors hover:bg-hover focus-visible:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-tint",
 						)}
 					>
 						<span
@@ -70,9 +66,7 @@ export function PreviousRunsList({ runs }: PreviousRunsListProps) {
 									side="left"
 									className="max-w-xs whitespace-pre-wrap"
 								>
-									{isHostOfflineError(run.error)
-										? `${run.error}. ${HOST_OFFLINE_HELP}`
-										: run.error}
+									{run.error}
 								</TooltipContent>
 							</Tooltip>
 						) : (

@@ -11,17 +11,25 @@ import { Label } from "@superset/ui/label";
 import { RadioGroup, RadioGroupItem } from "@superset/ui/radio-group";
 import { toast } from "@superset/ui/sonner";
 import { Textarea } from "@superset/ui/textarea";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useRecentProjects } from "renderer/hooks/host-projects/useRecentProjects";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { useV2AgentChoices } from "renderer/hooks/useV2AgentChoices";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { localAutomationKeys } from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
 import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
+import { useCatalogProjects } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import {
+	useWorkspaceLaunch,
+	useWorkspaceProvisioningAdapter,
+} from "renderer/stores/workspace-launch";
 import { AgentPicker } from "../../../automations/components/AgentPicker";
 import { ProjectPicker } from "../../../automations/components/ProjectPicker";
+import { WorkspacePicker } from "../../../automations/components/WorkspacePicker";
+import { canCreateTodo } from "./utils/canCreateTodo";
 
 interface CreateTodoDialogProps {
 	open: boolean;
@@ -44,6 +52,7 @@ export function CreateTodoDialog({
 	onOpenChange,
 }: CreateTodoDialogProps) {
 	const { t } = useTranslation();
+	const queryClient = useQueryClient();
 
 	const [title, setTitle] = useState("");
 	const [note, setNote] = useState("");
@@ -54,13 +63,18 @@ export function CreateTodoDialog({
 		null,
 	);
 	const [agent, setAgent] = useState<string | null>(null);
+	const [v2WorkspaceId, setV2WorkspaceId] = useState<string | null>(null);
+	const [isTemporaryTarget, setIsTemporaryTarget] = useState(false);
 	const [prompt, setPrompt] = useState("");
 
 	const { localHostId } = useWorkspaceHostOptions();
+	const provisioningAdapter = useWorkspaceProvisioningAdapter();
+	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
 	const targetHostId = hostId ?? localHostId;
 	const hostUrl = useHostUrl(targetHostId);
 	const { agents: hostAgents } = useV2AgentChoices(hostUrl);
 	const recentProjects = useRecentProjects();
+	const { projects: catalogProjects } = useCatalogProjects();
 
 	useEffect(() => {
 		if (!open) {
@@ -71,6 +85,8 @@ export function CreateTodoDialog({
 			setHostId(null);
 			setSelectedProjectId(null);
 			setAgent(null);
+			setV2WorkspaceId(null);
+			setIsTemporaryTarget(false);
 			setPrompt("");
 		}
 	}, [open]);
@@ -98,32 +114,35 @@ export function CreateTodoDialog({
 	const selectedProject = recentProjects.find(
 		(p) => p.id === selectedProjectId,
 	);
-
-	const canSubmit =
-		title.trim().length > 0 &&
-		!!dueDate &&
-		(mode === "manual" ||
-			(!!selectedAgent &&
-				!!selectedProject &&
-				!!targetHostId &&
-				prompt.trim().length > 0));
+	const temporaryProject = catalogProjects.find(
+		(project) => project.kind === "temporary",
+	);
+	const isTemporaryTargetProvisioning = !!workspaceLaunch.pending(
+		"temporary-workspace:default",
+	);
 
 	const createMutation = useMutation({
 		mutationFn: () => {
 			if (!dueDate) throw new Error("invalid due date");
-			return apiTrpcClient.todo.create.mutate({
+			if (!hostUrl) throw new Error("Local host service is unavailable");
+			return getHostServiceClientByUrl(hostUrl).todos.create.mutate({
 				title: title.trim(),
 				note: note.trim() ? note.trim() : null,
 				mode,
 				dueAt: dueDate,
 				timezone: DEFAULT_TIMEZONE,
 				v2ProjectId: mode === "auto" ? (selectedProjectId ?? null) : null,
+				v2WorkspaceId:
+					mode === "auto" && !isTemporaryTarget ? v2WorkspaceId : null,
 				targetHostId: mode === "auto" ? (targetHostId ?? null) : null,
 				agent: mode === "auto" ? (agent ?? null) : null,
 				prompt: mode === "auto" ? prompt.trim() : null,
 			});
 		},
 		onSuccess: () => {
+			queryClient.invalidateQueries({
+				queryKey: localAutomationKeys.todos(hostUrl),
+			});
 			toast.success(t("todos.title"));
 			onOpenChange(false);
 		},
@@ -132,6 +151,19 @@ export function CreateTodoDialog({
 				error instanceof Error ? error.message : "Failed to create TODO",
 			);
 		},
+	});
+
+	const canSubmit = canCreateTodo({
+		title,
+		hasDueDate: !!dueDate,
+		mode,
+		hasAgent: !!selectedAgent,
+		hasSelectedProject: !!selectedProject,
+		isTemporaryTarget,
+		hasHost: !!targetHostId,
+		hasWorkspace: !!v2WorkspaceId,
+		prompt,
+		isPending: createMutation.isPending || isTemporaryTargetProvisioning,
 	});
 
 	return (
@@ -208,16 +240,74 @@ export function CreateTodoDialog({
 								<Label>{t("todos.hostOptional")}</Label>
 								<DevicePicker
 									hostId={hostId}
-									onSelectHostId={setHostId}
 									showLocalOnlineState
+									onSelectHostId={(nextHostId) => {
+										setHostId(nextHostId);
+										setV2WorkspaceId(null);
+										setIsTemporaryTarget(false);
+									}}
 								/>
 							</div>
 							<div className="flex flex-col gap-1.5">
 								<Label>{t("todos.projectOptional")}</Label>
 								<ProjectPicker
-									onSelectProject={setSelectedProjectId}
+									onSelectProject={(id) => {
+										setSelectedProjectId(id);
+										setV2WorkspaceId(null);
+										setIsTemporaryTarget(false);
+									}}
 									recentProjects={recentProjects}
 									selectedProject={selectedProject}
+									temporaryTarget={{
+										isSelected: isTemporaryTarget,
+										onSelect: () => {
+											setHostId(null);
+											setV2WorkspaceId(null);
+											if (temporaryProject) {
+												setSelectedProjectId(temporaryProject.id);
+												setIsTemporaryTarget(true);
+												return;
+											}
+											if (!provisioningAdapter) {
+												toast.error("Could not create temporary workspace");
+												return;
+											}
+											setSelectedProjectId(null);
+											setIsTemporaryTarget(false);
+											void workspaceLaunch
+												.begin({
+													adapter: provisioningAdapter,
+													request: {
+														idempotencyKey: "temporary-workspace:default",
+														project: {
+															kind: "temporary",
+															singletonKey: "default",
+														},
+														source: { kind: "main" },
+													},
+												})
+												.then((operation) => {
+													if (
+														operation.state === "failed" ||
+														!operation.projectId
+													)
+														throw new Error(
+															operation.failure?.message ??
+																"Workspace provisioning failed",
+														);
+													setSelectedProjectId(operation.projectId);
+													setIsTemporaryTarget(true);
+												})
+												.catch((error) =>
+													toast.error("Could not create temporary workspace", {
+														description:
+															error instanceof Error
+																? error.message
+																: String(error),
+													}),
+												);
+										},
+									}}
 								/>
 							</div>
 							<div className="flex flex-col gap-1.5">
@@ -228,6 +318,17 @@ export function CreateTodoDialog({
 									value={agent ?? ""}
 								/>
 							</div>
+							{!isTemporaryTarget && (
+								<div className="flex flex-col gap-1.5">
+									<Label>{t("automations.workspace")}</Label>
+									<WorkspacePicker
+										hostId={targetHostId}
+										projectId={selectedProjectId}
+										value={v2WorkspaceId}
+										onChange={setV2WorkspaceId}
+									/>
+								</div>
+							)}
 							<div className="flex flex-col gap-1.5">
 								<Label htmlFor="todo-prompt">{t("todos.promptField")}</Label>
 								<Textarea

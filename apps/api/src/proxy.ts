@@ -1,6 +1,7 @@
 import { getTrustedVercelPreviewOrigins } from "@superset/shared/vercel-preview-origins";
 import { type NextRequest, NextResponse } from "next/server";
 
+import { ELECTRIC_RESPONSE_HEADERS } from "./app/api/electric/protocol-headers";
 import { env } from "./env";
 
 const desktopDevPort = process.env.DESKTOP_VITE_PORT || "5173";
@@ -31,6 +32,8 @@ function getCorsHeaders(origin: string | null, deploymentOrigin: string) {
 		"Access-Control-Allow-Headers":
 			"Content-Type, Authorization, x-trpc-source, trpc-accept, Producer-Id, Producer-Epoch, Producer-Seq, Stream-Closed",
 		"Access-Control-Expose-Headers": [
+			// Electric shape protocol headers
+			...ELECTRIC_RESPONSE_HEADERS,
 			// Durable stream headers
 			"Stream-Next-Offset",
 			"Stream-Cursor",

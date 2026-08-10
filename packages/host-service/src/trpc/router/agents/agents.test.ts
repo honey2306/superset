@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { buildAgentCommandString } from "./agents";
+import {
+	buildAgentCommandString,
+	resolveBundledHostAgentConfig,
+} from "./agents";
 
 const argvConfig = {
 	id: "00000000-0000-0000-0000-000000000001",
@@ -25,6 +28,17 @@ const stdinConfig = {
 
 const RANDOM_ID = "test-1234";
 const DELIMITER = "SUPERSET_PROMPT_test1234";
+
+describe("resolveBundledHostAgentConfig", () => {
+	it("resolves the bundled mfcli preset for older config tables", () => {
+		expect(resolveBundledHostAgentConfig("myflicker")).toMatchObject({
+			id: "myflicker",
+			presetId: "myflicker",
+			label: "MyFlicker",
+			command: "mfcli",
+		});
+	});
+});
 
 describe("buildAgentCommandString", () => {
 	it("appends the prompt as a quoted positional (argv transport)", () => {

@@ -1,11 +1,10 @@
-import type { AutomationPromptSource } from "@superset/db/schema";
 import { Badge } from "@superset/ui/badge";
 import { cn } from "@superset/ui/utils";
 import { format, isSameYear } from "date-fns";
 
 interface VersionRowProps {
 	authorName: string | null;
-	source: AutomationPromptSource;
+	source: "human" | "agent" | "restore";
 	updatedAt: Date;
 	selected: boolean;
 	onSelect: () => void;
