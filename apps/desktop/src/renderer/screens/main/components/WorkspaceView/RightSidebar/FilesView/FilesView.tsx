@@ -544,7 +544,7 @@ export function FilesView() {
 
 	if (!worktreePath) {
 		return (
-			<div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
+			<div className="flex-1 flex items-center justify-center text-fg-mute text-sm p-4">
 				{t("files.noWorkspaceSelected")}
 			</div>
 		);
@@ -602,7 +602,7 @@ export function FilesView() {
 										)}
 									</div>
 								) : (
-									<div className="flex-1 flex items-center justify-center text-muted-foreground text-sm p-4">
+									<div className="flex-1 flex items-center justify-center text-fg-mute text-sm p-4">
 										{isSearchFetching
 											? t("files.searchingFiles")
 											: t("files.noMatchingFiles")}

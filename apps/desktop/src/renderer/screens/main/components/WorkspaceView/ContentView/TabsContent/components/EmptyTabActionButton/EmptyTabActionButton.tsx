@@ -19,11 +19,11 @@ export function EmptyTabActionButton({
 		<Button
 			type="button"
 			variant="ghost"
-			className="group h-9 w-full justify-between rounded-[6px] px-3 text-sm text-muted-foreground/80 transition-colors hover:bg-tertiary/60 hover:text-foreground"
+			className="group h-9 w-full justify-between rounded-[6px] px-3 text-sm text-fg-mute/80 transition-colors hover:bg-tertiary/60 hover:text-fg"
 			onClick={onClick}
 		>
 			<span className="flex items-center gap-2">
-				<span className="rounded p-1 text-muted-foreground/90 transition-colors group-hover:text-foreground">
+				<span className="rounded p-1 text-fg-mute/90 transition-colors group-hover:text-fg">
 					<Icon className="size-4" />
 				</span>
 				<span>{label}</span>
@@ -32,7 +32,7 @@ export function EmptyTabActionButton({
 				{display.map((key) => (
 					<Kbd
 						key={`${label}-${key}`}
-						className="transition-colors group-hover:bg-accent/80 group-hover:text-foreground"
+						className="transition-colors group-hover:bg-accent-tint group-hover:text-fg"
 					>
 						{key}
 					</Kbd>
