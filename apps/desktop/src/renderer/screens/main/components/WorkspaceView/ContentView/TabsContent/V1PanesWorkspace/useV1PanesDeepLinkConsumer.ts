@@ -1,8 +1,12 @@
 import type { WorkspaceStore } from "@superset/panes";
+import type { HarnessKind } from "@superset/session-protocol";
 import { getRouteApi } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
+import type { AcpAgentDefinitionId } from "renderer/lib/acp-session-launch";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import type { StoreApi } from "zustand/vanilla";
+import { openAcpSessionInPanesStore } from "./openAcpSessionInPanesStore";
 import type { V1PanesPaneData } from "./types";
 
 /**
@@ -14,6 +18,13 @@ import type { V1PanesPaneData } from "./types";
 const workspaceRoute = getRouteApi(
 	"/_authenticated/_dashboard/workspace/$workspaceId/",
 );
+
+const ACP_AGENT_BY_HARNESS = {
+	"claude-agent-acp": "claude",
+	"codex-app-server": "codex",
+	"pi-acp": "pi",
+	"myflicker-acp": "myflicker",
+} as const satisfies Record<HarnessKind, AcpAgentDefinitionId>;
 
 interface TerminalPaneLocation {
 	tabId: string;
@@ -86,13 +97,16 @@ function openUrlInWorkspace(
  */
 export function useV1PanesDeepLinkConsumer({
 	store,
-	workspaceId,
+	hostUrl,
+	hostWorkspaceId,
 }: {
 	store: StoreApi<WorkspaceStore<V1PanesPaneData>>;
-	workspaceId: string;
+	hostUrl: string | null;
+	hostWorkspaceId: string | null;
 }): void {
 	const {
 		terminalId,
+		acpSessionId,
 		focusRequestId,
 		openUrl,
 		openUrlTarget,
@@ -100,45 +114,50 @@ export function useV1PanesDeepLinkConsumer({
 	} = workspaceRoute.useSearch();
 
 	const consumedTerminalRef = useRef<Set<string>>(new Set());
+	const consumedAcpRef = useRef<Set<string>>(new Set());
 	const consumedUrlRef = useRef<Set<string>>(new Set());
 
 	// Verify the terminal session belongs to this workspace before focusing.
 	// `enabled` gates the query so we only fetch when a terminal deep link is
 	// actually present.
-	const terminalSessionsQuery =
-		electronTrpc.terminal.listSessionsForWorkspace.useQuery(
-			{ workspaceId },
-			{
-				enabled: terminalId != null,
-				refetchOnWindowFocus: false,
-			},
-		);
-
 	useEffect(() => {
-		if (!terminalId) return;
-		if (!terminalSessionsQuery.isSuccess) return;
+		if (!terminalId || !hostUrl || !hostWorkspaceId) return;
 		const key = terminalFocusConsumeKey(terminalId, focusRequestId);
 		if (consumedTerminalRef.current.has(key)) return;
-		consumedTerminalRef.current.add(key);
-		const owned = terminalSessionsQuery.data.sessions.some(
-			(session) => session.sessionId === terminalId,
-		);
-		if (!owned) {
-			console.warn(
-				"[deep-link] Ignoring terminal link for a session not in this workspace",
-				{ terminalId, workspaceId },
+		void getHostServiceClientByUrl(hostUrl)
+			.terminal.listSessions.query({ workspaceId: hostWorkspaceId })
+			.then(({ sessions }) => {
+				if (consumedTerminalRef.current.has(key)) return;
+				if (!sessions.some((session) => session.terminalId === terminalId))
+					return;
+				consumedTerminalRef.current.add(key);
+				focusOrAddTerminalPane(store, terminalId);
+			})
+			.catch((error) =>
+				console.warn("[deep-link] Terminal session open failed", error),
 			);
+	}, [store, terminalId, focusRequestId, hostUrl, hostWorkspaceId]);
+
+	useEffect(() => {
+		if (!acpSessionId || !hostUrl || consumedAcpRef.current.has(acpSessionId))
 			return;
-		}
-		focusOrAddTerminalPane(store, terminalId);
-	}, [
-		store,
-		terminalId,
-		focusRequestId,
-		terminalSessionsQuery.isSuccess,
-		terminalSessionsQuery.data,
-		workspaceId,
-	]);
+		void createDesktopAcpSessionClient(hostUrl)
+			.api.get({ sessionId: acpSessionId })
+			.then((session) => {
+				if (session.workspaceId !== hostWorkspaceId) return;
+				consumedAcpRef.current.add(acpSessionId);
+				const agentDefinitionId = ACP_AGENT_BY_HARNESS[session.harness];
+				openAcpSessionInPanesStore(store, {
+					sessionId: acpSessionId,
+					agentDefinitionId,
+					title: session.title,
+					status: session.status,
+				});
+			})
+			.catch((error) =>
+				console.warn("[deep-link] ACP session open failed", error),
+			);
+	}, [acpSessionId, hostUrl, hostWorkspaceId, store]);
 
 	useEffect(() => {
 		if (!openUrl) return;

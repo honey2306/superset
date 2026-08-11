@@ -70,7 +70,7 @@ export function runDto(row: typeof localAutomationRuns.$inferSelect) {
 
 export function localRunDestination(
 	workspaceId: string,
-	result: { kind: "terminal" | "chat"; sessionId: string },
+	result: { kind: "terminal" | "acp" | "chat"; sessionId: string },
 ) {
 	return {
 		workspaceId,
@@ -89,7 +89,13 @@ export function automatedAgentRunInput(
 	agent: string,
 	prompt: string,
 ): AgentRunInput {
-	return { workspaceId, agent, prompt, permissionMode: "full_access" };
+	return {
+		workspaceId,
+		agent,
+		prompt,
+		permissionMode: "full_access",
+		respectPresetLaunchMode: true,
+	};
 }
 
 export function recordPromptVersion(
@@ -167,7 +173,7 @@ export async function dispatchLocalAutomation(
 	runId: string;
 	workspaceId: string;
 	sessionId: string;
-	sessionKind: "terminal" | "chat";
+	sessionKind: "terminal" | "acp" | "chat";
 }> {
 	const runId = crypto.randomUUID();
 	const workspaceId = resolveLocalWorkspaceId(
@@ -221,7 +227,12 @@ export async function dispatchLocalAutomation(
 			.set({
 				status: "dispatched",
 				sessionKind: result.kind,
-				chatSessionId: result.kind === "chat" ? result.sessionId : null,
+				// ACP sessions share the durable session-id slot formerly used by
+				// chat. `sessionKind` disambiguates it for renderer deep links.
+				chatSessionId:
+					result.kind === "chat" || result.kind === "acp"
+						? result.sessionId
+						: null,
 				terminalSessionId: result.kind === "terminal" ? result.sessionId : null,
 				dispatchedAt: Date.now(),
 			})
@@ -246,7 +257,7 @@ export async function dispatchLocalTodo(
 ): Promise<{
 	workspaceId: string;
 	sessionId: string;
-	sessionKind: "terminal" | "chat";
+	sessionKind: "terminal" | "acp" | "chat";
 }> {
 	const workspaceId = resolveLocalWorkspaceId(
 		ctx.db,
@@ -291,7 +302,10 @@ export async function dispatchLocalTodo(
 			.set({
 				status: "dispatched",
 				sessionKind: result.kind,
-				chatSessionId: result.kind === "chat" ? result.sessionId : null,
+				chatSessionId:
+					result.kind === "chat" || result.kind === "acp"
+						? result.sessionId
+						: null,
 				terminalSessionId: result.kind === "terminal" ? result.sessionId : null,
 				dispatchedAt: Date.now(),
 				error: null,

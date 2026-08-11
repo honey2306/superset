@@ -20,13 +20,14 @@ describe("localRunDestination", () => {
 });
 
 describe("automatedAgentRunInput", () => {
-	test("marks unattended automation and auto-todo launches as full access", () => {
+	test("marks unattended launches as full access and respects preset mode", () => {
 		expect(automatedAgentRunInput("workspace-1", "myflicker", "do it")).toEqual(
 			{
 				workspaceId: "workspace-1",
 				agent: "myflicker",
 				prompt: "do it",
 				permissionMode: "full_access",
+				respectPresetLaunchMode: true,
 			},
 		);
 	});

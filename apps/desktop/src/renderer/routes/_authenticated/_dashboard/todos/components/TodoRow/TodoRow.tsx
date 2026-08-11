@@ -125,6 +125,7 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 				sessionKind: result.sessionKind,
 				terminalSessionId:
 					result.sessionKind === "terminal" ? result.sessionId : null,
+				chatSessionId: result.sessionKind === "acp" ? result.sessionId : null,
 			});
 			if ("reason" in destination) {
 				toast.success(t("todos.statusDispatched"));
@@ -134,7 +135,9 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 			toast.success(t("todos.statusDispatched"));
 			void navigateToWorkspace(destination.workspaceId, navigate, {
 				search: {
-					terminalId: destination.terminalId,
+					...("terminalId" in destination
+						? { terminalId: destination.terminalId }
+						: { acpSessionId: destination.acpSessionId }),
 					focusRequestId: crypto.randomUUID(),
 				},
 			});

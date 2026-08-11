@@ -82,14 +82,16 @@ function ContextMenuSubContent({
 	...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.SubContent>) {
 	return (
-		<ContextMenuPrimitive.SubContent
-			data-slot="context-menu-sub-content"
-			className={cn(
-				"bg-popover/95 backdrop-blur-[6px] text-popover-foreground border border-line data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 z-overlay min-w-[220px] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-ds-5 p-1 shadow-ds-3",
-				className,
-			)}
-			{...props}
-		/>
+		<ContextMenuPrimitive.Portal>
+			<ContextMenuPrimitive.SubContent
+				data-slot="context-menu-sub-content"
+				className={cn(
+					"bg-popover/95 backdrop-blur-[6px] text-popover-foreground border border-line data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 z-overlay min-w-[220px] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-ds-5 p-1 shadow-ds-3",
+					className,
+				)}
+				{...props}
+			/>
+		</ContextMenuPrimitive.Portal>
 	);
 }
 

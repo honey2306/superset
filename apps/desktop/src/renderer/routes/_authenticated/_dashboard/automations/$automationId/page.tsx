@@ -83,7 +83,9 @@ function AutomationDetailPage() {
 		}
 		void navigateToWorkspace(destination.workspaceId, navigate, {
 			search: {
-				terminalId: destination.terminalId,
+				...("terminalId" in destination
+					? { terminalId: destination.terminalId }
+					: { acpSessionId: destination.acpSessionId }),
 				focusRequestId: crypto.randomUUID(),
 			},
 		});
@@ -115,6 +117,7 @@ function AutomationDetailPage() {
 				sessionKind: result.sessionKind,
 				terminalSessionId:
 					result.sessionKind === "terminal" ? result.sessionId : null,
+				chatSessionId: result.sessionKind === "acp" ? result.sessionId : null,
 			});
 			if ("reason" in destination) {
 				toast.success("Running now");
@@ -123,7 +126,9 @@ function AutomationDetailPage() {
 			}
 			void navigateToWorkspace(destination.workspaceId, navigate, {
 				search: {
-					terminalId: destination.terminalId,
+					...("terminalId" in destination
+						? { terminalId: destination.terminalId }
+						: { acpSessionId: destination.acpSessionId }),
 					focusRequestId: crypto.randomUUID(),
 				},
 			});

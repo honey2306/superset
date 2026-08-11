@@ -75,7 +75,10 @@ export function CreateAutomationDialog({
 	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
 	const targetHostId = hostId ?? localHostId;
 	const hostUrl = useHostUrl(targetHostId);
-	const { agents: hostAgents } = useAutomationAgentChoices(hostUrl);
+	const { agents: hostAgents } = useAutomationAgentChoices(
+		hostUrl,
+		selectedProjectId,
+	);
 	const recentProjects = useRecentProjects();
 	const { projects: catalogProjects } = useCatalogProjects();
 	const searchFiles = useProjectFileSearch({
@@ -381,6 +384,7 @@ export function CreateAutomationDialog({
 									<AgentPicker
 										className="w-[100px]"
 										hostId={targetHostId}
+										projectId={selectedProjectId}
 										value={agent ?? ""}
 										onChange={setAgent}
 									/>

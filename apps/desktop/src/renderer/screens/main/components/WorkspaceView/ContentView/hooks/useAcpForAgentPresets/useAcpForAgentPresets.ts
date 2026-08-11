@@ -1,10 +1,27 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 
 export function useAcpForAgentPresets() {
 	const utils = electronTrpc.useUtils();
 	const { data: useAcpForAgentPresets } =
 		electronTrpc.settings.getUseAcpForAgentPresets.useQuery();
+	const hostUrl = useHostUrl(null);
+
+	// The host owns unattended automation/todo dispatch, while the source
+	// preference remains in Electron local settings. Mirror it whenever either
+	// side becomes available so host restarts cannot silently revert to terminal.
+	useEffect(() => {
+		if (!hostUrl || useAcpForAgentPresets === undefined) return;
+		void getHostServiceClientByUrl(hostUrl)
+			.settings.acpPresetLaunch.set.mutate({
+				enabled: useAcpForAgentPresets,
+			})
+			.catch((error) =>
+				console.warn("[useAcpForAgentPresets] Failed to sync host", error),
+			);
+	}, [hostUrl, useAcpForAgentPresets]);
 	const setUseAcpForAgentPresets =
 		electronTrpc.settings.setUseAcpForAgentPresets.useMutation({
 			onMutate: async ({ enabled }) => {

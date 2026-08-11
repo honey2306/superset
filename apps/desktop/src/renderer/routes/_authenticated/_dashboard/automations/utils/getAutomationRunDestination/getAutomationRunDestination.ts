@@ -2,6 +2,7 @@ type AutomationRunSession = {
 	v2WorkspaceId: string | null;
 	sessionKind: string | null;
 	terminalSessionId: string | null;
+	chatSessionId?: string | null;
 };
 
 /**
@@ -11,7 +12,10 @@ type AutomationRunSession = {
  */
 export function getAutomationRunDestination(
 	run: AutomationRunSession,
-): { workspaceId: string; terminalId: string } | { reason: string } {
+):
+	| { workspaceId: string; terminalId: string }
+	| { workspaceId: string; acpSessionId: string }
+	| { reason: string } {
 	if (!run.v2WorkspaceId) {
 		return { reason: "This run no longer has an available workspace." };
 	}
@@ -20,6 +24,9 @@ export function getAutomationRunDestination(
 			workspaceId: run.v2WorkspaceId,
 			terminalId: run.terminalSessionId,
 		};
+	}
+	if (run.sessionKind === "acp" && run.chatSessionId) {
+		return { workspaceId: run.v2WorkspaceId, acpSessionId: run.chatSessionId };
 	}
 	if (run.sessionKind === "chat") {
 		return {
