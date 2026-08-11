@@ -1,5 +1,6 @@
 import type { HostAgentConfig } from "@superset/host-service/settings";
 import type { TerminalPreset } from "@superset/local-db";
+import { getPresetById } from "@superset/shared/host-agent-presets";
 import { useMemo } from "react";
 import type { AgentSelectAgent } from "renderer/components/AgentSelect";
 import { useV2AgentConfigs } from "renderer/hooks/useV2AgentConfigs";
@@ -17,13 +18,17 @@ export function toAutomationAgentChoices(
 			const config = configs.find(
 				(candidate) => candidate.presetId === normalizedName,
 			);
-			if (!config || seen.has(config.id)) return [];
-			seen.add(config.id);
+			const bundledPreset = config ? null : getPresetById(normalizedName);
+			const resolved = config ?? bundledPreset;
+			if (!resolved) return [];
+			const id = config?.id ?? resolved.presetId;
+			if (seen.has(id)) return [];
+			seen.add(id);
 			return [
 				{
-					id: config.id,
-					label: config.label,
-					iconId: config.iconId ?? config.presetId,
+					id,
+					label: resolved.label,
+					iconId: config?.iconId ?? resolved.presetId,
 				},
 			];
 		});

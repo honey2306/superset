@@ -51,18 +51,28 @@ describe("optimizeTaskPrompt", () => {
 		});
 	});
 
-	test("wraps the original request as a one-shot execution when no model is available", async () => {
+	test("keeps the cleaned user-language request unchanged when no model is available", async () => {
 		getSmallModelMock.mockResolvedValueOnce(null as never);
-		const result = await optimizeTaskPrompt("  Do the thing later  ");
-		expect(result.optimized).toBe(false);
-		expect(result.prompt).toContain(
-			"Execute the scheduled task below once now.",
-		);
-		expect(result.prompt).toContain(
-			"Do not create, modify, or cancel another schedule or reminder",
-		);
-		expect(result.prompt).toEndWith("Original request:\nDo the thing later");
+		const request = "  每天9点帮我查一下北京的天气  ";
+		const result = await optimizeTaskPrompt(request);
+
+		// Without a model, retaining the cleaned request is the safe tradeoff:
+		// it does not mix languages, repeat the request, or discard its meaning.
+		expect(result).toEqual({
+			prompt: "每天9点帮我查一下北京的天气",
+			optimized: false,
+		});
+		expect(result.prompt).not.toContain("Original request");
+		expect(result.prompt).not.toMatch(/[A-Za-z]/);
 		expect(generateMock).not.toHaveBeenCalled();
+	});
+
+	test("uses the same cleaned fallback when generation fails", async () => {
+		generateMock.mockRejectedValueOnce(new Error("model unavailable"));
+		await expect(optimizeTaskPrompt("明天提醒我查看报告")).resolves.toEqual({
+			prompt: "明天提醒我查看报告",
+			optimized: false,
+		});
 	});
 });
 
