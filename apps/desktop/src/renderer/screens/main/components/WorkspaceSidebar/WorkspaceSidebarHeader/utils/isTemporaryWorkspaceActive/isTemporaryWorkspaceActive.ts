@@ -5,7 +5,7 @@ type WorkspaceProjectMembership = {
 	projectId: string;
 };
 
-type Project = Parameters<typeof isTemporaryProject>[0];
+type Project = Parameters<typeof isTemporaryProject>[0] & { id: string };
 
 export function isTemporaryWorkspaceActive(
 	workspaceId: string | undefined,

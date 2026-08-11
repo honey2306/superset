@@ -19,32 +19,73 @@ function config(id: string, presetId: string): HostAgentConfig {
 }
 
 describe("toAutomationAgentChoices", () => {
-	test("shows only agents linked from pinned tab-bar presets", () => {
-		const preset = (id: string, pinnedToBar = true): TerminalPreset =>
-			({
-				id,
-				name: id,
-				commands: [],
-				cwd: "",
-				pinnedToBar,
-			}) as TerminalPreset;
+	const preset = (id: string, pinnedToBar = true): TerminalPreset =>
+		({
+			id,
+			name: id,
+			commands: [],
+			cwd: "",
+			pinnedToBar,
+		}) as TerminalPreset;
+
+	test("uses the dynamic pinned preset order as its only list source", () => {
 		const result = toAutomationAgentChoices(
 			[
-				config("claude-config", "claude"),
-				config("amp-config", "amp"),
-				config("codex-config", "codex"),
+				config("first-config", "first-dynamic-agent"),
+				config("hidden-config", "hidden-dynamic-agent"),
+				config("second-config", "second-dynamic-agent"),
 			],
 			[
-				preset("claude"),
-				preset("amp", false),
-				preset("custom-command"),
-				preset("codex"),
+				preset("second-dynamic-agent"),
+				preset("hidden-dynamic-agent", false),
+				preset("first-dynamic-agent"),
 			],
 		);
 
 		expect(result.map(({ id }) => id)).toEqual([
-			"claude-config",
-			"codex-config",
+			"second-config",
+			"first-config",
+		]);
+	});
+
+	test("reflects dynamic preset additions, removals, and unpinning directly", () => {
+		const configs = [
+			config("alpha-config", "alpha"),
+			config("beta-config", "beta"),
+		];
+		const initial = [preset("alpha")];
+		const added = [...initial, preset("beta")];
+		const unpinned = [preset("alpha", false), preset("beta")];
+
+		expect(
+			toAutomationAgentChoices(configs, initial).map(({ id }) => id),
+		).toEqual(["alpha-config"]);
+		expect(
+			toAutomationAgentChoices(configs, added).map(({ id }) => id),
+		).toEqual(["alpha-config", "beta-config"]);
+		expect(
+			toAutomationAgentChoices(configs, unpinned).map(({ id }) => id),
+		).toEqual(["beta-config"]);
+	});
+
+	test("falls back to a pinned bundled MyFlicker preset missing from legacy configs", () => {
+		expect(toAutomationAgentChoices([], [preset("myflicker")])).toEqual([
+			{ id: "myflicker", label: "MyFlicker", iconId: "myflicker" },
+		]);
+	});
+
+	test("keeps configured instances over bundled fallbacks and excludes unknown shell presets", () => {
+		expect(
+			toAutomationAgentChoices(
+				[config("myflicker-config", "myflicker")],
+				[preset("myflicker"), preset("unknown-shell-preset")],
+			),
+		).toEqual([
+			{
+				id: "myflicker-config",
+				label: "myflicker",
+				iconId: "myflicker",
+			},
 		]);
 	});
 });

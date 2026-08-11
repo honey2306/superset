@@ -26,14 +26,10 @@ export interface OptimizedTaskPrompt {
 }
 
 function buildExecutionFallback(userPrompt: string): string {
-	return [
-		"Execute the scheduled task below once now.",
-		"The scheduler has already handled all timing and recurrence. Do not create, modify, or cancel another schedule or reminder, even if the original request mentions when or how often it should run.",
-		"Use the available tools when useful, then report the result in the same language as the original request.",
-		"",
-		"Original request:",
-		userPrompt,
-	].join("\n");
+	// Without a model, we cannot safely remove scheduling language across every
+	// user language. Keeping the cleaned request avoids adding a fixed-language
+	// wrapper, duplicating the task, or silently losing meaning.
+	return userPrompt;
 }
 
 /**
