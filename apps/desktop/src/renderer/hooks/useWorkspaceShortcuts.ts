@@ -1,6 +1,7 @@
 import { useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
+import { isSidebarProjectVisible } from "renderer/hooks/isSidebarProjectVisible";
 import { useHotkey } from "renderer/hotkeys";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
@@ -53,7 +54,7 @@ export function useWorkspaceShortcuts() {
 		const localByWorkspaceId = new Map(
 			localWorkspaceRows.map((row) => [row.workspaceId, row]),
 		);
-		return projects.flatMap((project) => {
+		return projects.filter(isSidebarProjectVisible).flatMap((project) => {
 			const projectWorkspaces = workspaces
 				.filter((workspace) => workspace.projectId === project.id)
 				.filter((workspace) => {

@@ -19,7 +19,8 @@ type EventType =
 	| "project:changed"
 	| "catalog:changed"
 	| "workspace-operation:changed"
-	| "acp-session:changed";
+	| "acp-session:changed"
+	| "acp-session:open-requested";
 
 interface FsEventsPayload {
 	events: FsWatchEvent[];
@@ -123,6 +124,16 @@ export interface AcpSessionChangedPayload {
 	occurredAt: AcpSessionChangedMessage["occurredAt"];
 }
 
+type AcpSessionOpenRequestedMessage = Extract<
+	ServerMessage,
+	{ type: "acp-session:open-requested" }
+>;
+
+export type AcpSessionOpenRequestedPayload = Omit<
+	AcpSessionOpenRequestedMessage,
+	"type" | "workspaceId"
+>;
+
 type WorkspaceOperationChangedMessage = Extract<
 	ServerMessage,
 	{ type: "workspace-operation:changed" }
@@ -166,7 +177,12 @@ type EventListener<T extends EventType> = T extends "fs:events"
 												workspaceId: string,
 												payload: AcpSessionChangedPayload,
 											) => void
-										: never;
+										: T extends "acp-session:open-requested"
+											? (
+													workspaceId: string,
+													payload: AcpSessionOpenRequestedPayload,
+												) => void
+											: never;
 
 interface ListenerEntry {
 	type: EventType;
@@ -223,7 +239,8 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 			message.type === "terminal:lifecycle" ||
 			message.type === "port:changed" ||
 			message.type === "workspace:changed" ||
-			message.type === "acp-session:changed"
+			message.type === "acp-session:changed" ||
+			message.type === "acp-session:open-requested"
 				? message.workspaceId
 				: message.type === "project:changed"
 					? message.projectId
@@ -312,6 +329,12 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 					...(message.status !== undefined ? { status: message.status } : {}),
 					occurredAt: message.occurredAt,
 				},
+			);
+		} else if (message.type === "acp-session:open-requested") {
+			const { type: _type, workspaceId, ...payload } = message;
+			(entry.callback as EventListener<"acp-session:open-requested">)(
+				workspaceId,
+				payload,
 			);
 		}
 	}

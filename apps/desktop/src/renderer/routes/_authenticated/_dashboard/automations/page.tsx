@@ -1,9 +1,4 @@
-import type {
-	SelectAutomation,
-	SelectUser,
-	SelectV2Host,
-} from "@superset/db/schema";
-import { COMPANY } from "@superset/shared/constants";
+import type { SelectV2Host } from "@superset/db/schema";
 import { describeSchedule } from "@superset/shared/rrule";
 import {
 	AlertDialog,
@@ -16,25 +11,17 @@ import {
 	AlertDialogTitle,
 } from "@superset/ui/alert-dialog";
 import { Button } from "@superset/ui/button";
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from "@superset/ui/empty";
 import { toast } from "@superset/ui/sonner";
 import { Table, TableBody, TableHead, TableRow } from "@superset/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@superset/ui/tabs";
 import { cn } from "@superset/ui/utils";
 import { useLiveQuery } from "@tanstack/react-db";
-import { useMutation } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { LuPlus, LuSearchX, LuTerminal, LuX } from "react-icons/lu";
+import { LuPlus } from "react-icons/lu";
 import { useRecentProjects } from "renderer/hooks/host-projects/useRecentProjects";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
-import { authClient } from "renderer/lib/auth-client";
+import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	DATA_TABLE_HEAD_CELL,
@@ -45,14 +32,21 @@ import {
 	type SortDirection,
 } from "renderer/routes/_authenticated/_dashboard/components/SortableHeader";
 import { useFailedAutomations } from "renderer/routes/_authenticated/_dashboard/hooks/useFailedAutomations";
+import {
+	type LocalAutomation,
+	localAutomationKeys,
+	useLocalAutomations,
+} from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
+import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
+import { useCatalogProjects } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { AutomationRow } from "./components/AutomationRow";
 import { AutomationsEmptyState } from "./components/AutomationsEmptyState";
 import { CreateAutomationDialog } from "./components/CreateAutomationDialog";
-import { HostOfflineRunDialog } from "./components/HostOfflineRunDialog";
 import type { AutomationTemplate } from "./templates";
-import { isHostOfflineError } from "./utils/hostOfflineError";
+import { getAutomationRunDestination } from "./utils/getAutomationRunDestination";
+import { getAutomationTargetPresentation } from "./utils/getAutomationTargetPresentation";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/automations/")(
 	{
@@ -60,52 +54,78 @@ export const Route = createFileRoute("/_authenticated/_dashboard/automations/")(
 	},
 );
 
-type Scope = "mine" | "team";
-
-type AutomationSortField = "name" | "owner" | "project" | "schedule";
+type AutomationSortField = "name" | "project" | "schedule";
 
 function AutomationsPage() {
 	const { t } = useTranslation();
 	const collections = useCollections();
-	const { data: session } = authClient.useSession();
-	const currentUserId = session?.user?.id;
+	const hostUrl = useHostUrl(null);
+	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 
 	const [createOpen, setCreateOpen] = useState(false);
 	const [initialTemplate, setInitialTemplate] =
 		useState<AutomationTemplate | null>(null);
-	const [scope, setScope] = useState<Scope>("mine");
-	const [cliHintDismissed, setCliHintDismissed] = useState(false);
-	const [pendingDelete, setPendingDelete] = useState<SelectAutomation | null>(
+	const [pendingDelete, setPendingDelete] = useState<LocalAutomation | null>(
 		null,
 	);
-	const [hostOfflineRun, setHostOfflineRun] = useState<{
-		hostId: string | null;
-	} | null>(null);
-
 	const runNowMutation = useMutation({
-		mutationFn: ({
-			id,
-		}: {
-			id: string;
-			name: string;
-			targetHostId: string | null;
-		}) => apiTrpcClient.automation.runNow.mutate({ id }),
-		onSuccess: (_, { name }) =>
-			toast.success(t("automations.runningNow", { name })),
-		onError: (error, { targetHostId }) => {
-			const message = error instanceof Error ? error.message : null;
-			if (isHostOfflineError(message)) {
-				setHostOfflineRun({ hostId: targetHostId });
+		mutationFn: ({ id }: { id: string; name: string }) => {
+			if (!hostUrl) throw new Error("Local host service is unavailable");
+			return getHostServiceClientByUrl(hostUrl).automations.runNow.mutate({
+				id,
+			});
+		},
+		onMutate: ({ id, name }) => {
+			const toastId = `automation-run-now-${id}`;
+			toast.loading(t("automations.runningNow", { name }), {
+				id: toastId,
+			});
+			return { toastId };
+		},
+		onSuccess: (result, { name }, context) => {
+			queryClient.invalidateQueries({
+				queryKey: localAutomationKeys.automations(hostUrl),
+			});
+			toast.dismiss(context?.toastId);
+			const destination = getAutomationRunDestination({
+				v2WorkspaceId: result.workspaceId,
+				sessionKind: result.sessionKind,
+				terminalSessionId:
+					result.sessionKind === "terminal" ? result.sessionId : null,
+			});
+			if ("reason" in destination) {
+				toast.success(t("automations.runningNow", { name }));
+				toast.message(destination.reason);
 				return;
 			}
-			toast.error(message ?? t("automations.runFailed"));
+			void navigateToWorkspace(destination.workspaceId, navigate, {
+				search: {
+					terminalId: destination.terminalId,
+					focusRequestId: crypto.randomUUID(),
+				},
+			});
+		},
+		onError: (error, _variables, context) => {
+			toast.dismiss(context?.toastId);
+			toast.error(
+				error instanceof Error ? error.message : t("automations.runFailed"),
+			);
 		},
 	});
 
 	const deleteMutation = useMutation({
 		mutationFn: ({ id }: { id: string; name: string }) =>
-			apiTrpcClient.automation.delete.mutate({ id }),
+			(() => {
+				if (!hostUrl) throw new Error("Local host service is unavailable");
+				return getHostServiceClientByUrl(hostUrl).automations.delete.mutate({
+					id,
+				});
+			})(),
 		onSuccess: (_, { name }) => {
+			queryClient.invalidateQueries({
+				queryKey: localAutomationKeys.automations(hostUrl),
+			});
 			setPendingDelete(null);
 			toast.success(t("automations.deleted", { name }));
 		},
@@ -115,29 +135,9 @@ function AutomationsPage() {
 			),
 	});
 
-	const { data: automationRows = [], isReady: automationsReady } = useLiveQuery(
-		(q) =>
-			q
-				.from({ a: collections.automations })
-				.orderBy(({ a }) => a.createdAt, "desc")
-				.select(({ a }) => ({ ...a })),
-		[collections.automations],
-	);
-	// Live queries can briefly surface nullish rows while syncing.
-	const automations = useMemo(
-		() => automationRows.filter((automation) => automation != null),
-		[automationRows],
-	);
+	const { data: automations = [], isPending: automationsLoading } =
+		useLocalAutomations();
 
-	const { data: userRows = [] } = useLiveQuery(
-		(q) =>
-			q.from({ u: collections.users }).select(({ u }) => ({
-				id: u.id,
-				name: u.name,
-				email: u.email,
-			})),
-		[collections.users],
-	);
 	const { lastRunStatusById, markMyFailuresSeen } = useFailedAutomations();
 
 	// Opening the page clears the sidebar failure badge; failures that sync in
@@ -147,6 +147,10 @@ function AutomationsPage() {
 	}, [markMyFailuresSeen]);
 
 	const recentProjects = useRecentProjects();
+	const { projects: catalogProjects } = useCatalogProjects();
+	const temporaryProject = catalogProjects.find(
+		(project) => project.kind === "temporary",
+	);
 	const { workspaces: hostWorkspaces } = useHostWorkspaces();
 	const { data: hostRows = [] } = useLiveQuery(
 		(q) =>
@@ -156,16 +160,6 @@ function AutomationsPage() {
 		[collections.v2Hosts],
 	);
 
-	// Live queries can briefly surface nullish rows while syncing (see #4519).
-	const usersById = useMemo(
-		() =>
-			new Map(
-				(userRows as Pick<SelectUser, "id" | "name" | "email">[])
-					.filter((u) => u != null)
-					.map((u) => [u.id, u]),
-			),
-		[userRows],
-	);
 	const projectsById = useMemo(
 		() =>
 			new Map(recentProjects.filter((p) => p != null).map((p) => [p.id, p])),
@@ -185,21 +179,7 @@ function AutomationsPage() {
 		[hostRows],
 	);
 
-	const mineCount = useMemo(
-		() =>
-			currentUserId
-				? automations.filter((a) => a.ownerUserId === currentUserId).length
-				: 0,
-		[automations, currentUserId],
-	);
-	const teamCount = automations.length - mineCount;
-
-	const visible = useMemo(() => {
-		if (!currentUserId) return automations;
-		return scope === "mine"
-			? automations.filter((a) => a.ownerUserId === currentUserId)
-			: automations.filter((a) => a.ownerUserId !== currentUserId);
-	}, [automations, scope, currentUserId]);
+	const visible = automations;
 
 	const [sortField, setSortField] = useState<AutomationSortField | null>(null);
 	const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -213,27 +193,19 @@ function AutomationsPage() {
 		}
 	};
 
-	const handleScopeChange = (value: string) => {
-		if (!value) return;
-		const next = value as Scope;
-		setScope(next);
-		// The Owner column only exists on the team tab; drop the sort with it.
-		if (next !== "team" && sortField === "owner") setSortField(null);
-	};
-
 	// Default order (no active sort) is createdAt desc from the live query.
 	const sortedVisible = useMemo(() => {
 		if (!sortField) return visible;
-		const sortValue = (automation: SelectAutomation): string => {
+		const sortValue = (automation: LocalAutomation): string => {
 			switch (sortField) {
 				case "name":
 					return automation.name;
-				case "owner": {
-					const owner = usersById.get(automation.ownerUserId);
-					return owner?.name ?? owner?.email ?? "";
-				}
 				case "project":
-					return projectsById.get(automation.v2ProjectId)?.name ?? "";
+					if (automation.v2ProjectId === temporaryProject?.id)
+						return t("workspace.temporaryWorkspace");
+					return automation.v2ProjectId
+						? (projectsById.get(automation.v2ProjectId)?.name ?? "")
+						: "";
 				case "schedule":
 					return describeSchedule(automation.rrule);
 			}
@@ -242,7 +214,14 @@ function AutomationsPage() {
 			const cmp = sortValue(a).localeCompare(sortValue(b));
 			return sortDirection === "asc" ? cmp : -cmp;
 		});
-	}, [visible, sortField, sortDirection, usersById, projectsById]);
+	}, [
+		visible,
+		sortField,
+		sortDirection,
+		projectsById,
+		temporaryProject?.id,
+		t,
+	]);
 
 	const handleSelectTemplate = (template: AutomationTemplate) => {
 		setInitialTemplate(template);
@@ -254,62 +233,20 @@ function AutomationsPage() {
 		if (!next) setInitialTemplate(null);
 	};
 
-	const colWidth = scope === "team" ? "w-[11%]" : "w-[13%]";
-	const scheduleWidth = scope === "team" ? "w-[14%]" : "w-[16%]";
+	const colWidth = "w-[13%]";
+	const scheduleWidth = "w-[16%]";
 	const lastRunWidth = "w-[9%]";
-	const showAutomationLoading = !automationsReady && visible.length === 0;
-	const showMineEmptyState =
-		automationsReady && visible.length === 0 && scope === "mine";
-	const showTeamEmptyState =
-		automationsReady && visible.length === 0 && scope === "team";
+	const showAutomationLoading = automationsLoading && visible.length === 0;
+	const showEmptyState = !automationsLoading && visible.length === 0;
 
 	return (
 		<div className="flex h-full w-full flex-1 flex-col overflow-hidden">
 			<header className="flex h-11 shrink-0 items-center justify-between border-b border-line px-4">
-				<div className="flex items-center gap-3">
-					<h1 className="text-sm font-semibold tracking-tight">
-						{t("dashboard.automations")}
-					</h1>
-					<div className="h-4 w-px bg-border" />
-					<Tabs value={scope} onValueChange={handleScopeChange}>
-						<TabsList className="h-8 bg-transparent p-0 gap-1">
-							<TabsTrigger
-								value="mine"
-								className="h-8 rounded-ds-3 px-3 data-[state=active]:bg-accent-tint data-[state=active]:text-fg data-[state=inactive]:text-fg-mute"
-							>
-								<span className="text-sm">{t("automations.mine")}</span>
-								<span className="ml-1 tabular-nums text-xs text-fg-mute">
-									{mineCount}
-								</span>
-							</TabsTrigger>
-							<TabsTrigger
-								value="team"
-								className="h-8 rounded-ds-3 px-3 data-[state=active]:bg-accent-tint data-[state=active]:text-fg data-[state=inactive]:text-fg-mute"
-							>
-								<span className="text-sm">{t("automations.team")}</span>
-								<span className="ml-1 tabular-nums text-xs text-fg-mute">
-									{teamCount}
-								</span>
-							</TabsTrigger>
-						</TabsList>
-					</Tabs>
-				</div>
+				<h1 className="text-sm font-semibold tracking-tight">
+					{t("dashboard.automations")}
+				</h1>
 
 				<div className="flex items-center gap-2">
-					<Button
-						asChild
-						variant="ghost"
-						size="sm"
-						className="h-8 text-fg-mute"
-					>
-						<a
-							href={`${COMPANY.DOCS_URL}/automations`}
-							target="_blank"
-							rel="noreferrer"
-						>
-							{t("automations.learnMore")}
-						</a>
-					</Button>
 					<Button
 						type="button"
 						variant="outline"
@@ -323,71 +260,11 @@ function AutomationsPage() {
 				</div>
 			</header>
 
-			{!cliHintDismissed && (
-				<div className="shrink-0 px-4 pt-3">
-					<div className="relative flex items-start gap-3 rounded-ds-5 border border-line bg-gradient-to-b from-accent/40 to-accent/10 py-3 pl-3.5 pr-10">
-						<div className="flex size-8 shrink-0 items-center justify-center rounded-ds-3 border border-line bg-background text-fg shadow-sm">
-							<LuTerminal className="size-4" />
-						</div>
-						<div className="min-w-0 space-y-1">
-							<p className="text-sm font-medium text-fg">
-								{t("automations.cliTitle", { cli: "superset" })}
-							</p>
-							<p className="text-sm leading-relaxed text-fg-mute">
-								{t("automations.cliDescription")}{" "}
-								<a
-									href={`${COMPANY.DOCS_URL}/cli/getting-started`}
-									target="_blank"
-									rel="noreferrer"
-									className="font-medium text-fg underline underline-offset-2 hover:text-fg-mute"
-								>
-									{t("automations.gettingStarted")}
-								</a>{" "}
-								·{" "}
-								<a
-									href={`${COMPANY.DOCS_URL}/cli/cli-reference`}
-									target="_blank"
-									rel="noreferrer"
-									className="font-medium text-fg underline underline-offset-2 hover:text-fg-mute"
-								>
-									{t("automations.cliReference")}
-								</a>
-							</p>
-						</div>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							onClick={() => setCliHintDismissed(true)}
-							aria-label={t("automations.dismiss")}
-							className="absolute right-2 top-2 size-6 text-fg-mute hover:text-fg"
-						>
-							<LuX className="size-3.5" />
-						</Button>
-					</div>
-				</div>
-			)}
-
 			<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-				{showAutomationLoading ? null : showMineEmptyState ? (
+				{showAutomationLoading ? null : showEmptyState ? (
 					<div className="flex-1 overflow-y-auto px-8 py-8">
 						<AutomationsEmptyState onSelectTemplate={handleSelectTemplate} />
 					</div>
-				) : showTeamEmptyState ? (
-					<Empty className="flex-1">
-						<EmptyHeader>
-							<EmptyMedia
-								variant="icon"
-								className="size-14 [&_svg:not([class*='size-'])]:size-7"
-							>
-								<LuSearchX />
-							</EmptyMedia>
-							<EmptyTitle>{t("automations.noTeam")}</EmptyTitle>
-							<EmptyDescription>
-								{t("automations.noTeamDescription")}
-							</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
 				) : (
 					<div className="min-h-0 flex-1">
 						<Table
@@ -405,17 +282,6 @@ function AutomationsPage() {
 											onSort={handleSort}
 										/>
 									</TableHead>
-									{scope === "team" && (
-										<TableHead className={cn(DATA_TABLE_HEAD_CELL, "w-[12%]")}>
-											<SortableHeader
-												field="owner"
-												label={t("automations.owner")}
-												sortField={sortField}
-												sortDirection={sortDirection}
-												onSort={handleSort}
-											/>
-										</TableHead>
-									)}
 									<TableHead className={cn(DATA_TABLE_HEAD_CELL, colWidth)}>
 										<SortableHeader
 											field="project"
@@ -455,12 +321,18 @@ function AutomationsPage() {
 							</DataTableHeader>
 							<TableBody>
 								{sortedVisible.map((automation) => {
+									const isTemporaryTarget =
+										automation.v2ProjectId === temporaryProject?.id;
 									const workspace = automation.v2WorkspaceId
 										? workspacesById.get(automation.v2WorkspaceId)
 										: null;
-									const workspaceLabel = !automation.v2WorkspaceId
-										? t("automations.newWorkspace")
-										: (workspace?.name ?? t("automations.deletedWorkspace"));
+									const { workspaceLabel } = getAutomationTargetPresentation({
+										isTemporaryTarget,
+										workspaceId: automation.v2WorkspaceId,
+										workspaceName: workspace?.name ?? null,
+										newWorkspaceLabel: t("automations.newWorkspace"),
+										deletedWorkspaceLabel: t("automations.deletedWorkspace"),
+									});
 									const host = automation.targetHostId
 										? hostsById.get(automation.targetHostId)
 										: null;
@@ -469,20 +341,23 @@ function AutomationsPage() {
 										<AutomationRow
 											key={automation.id}
 											automation={automation}
-											owner={usersById.get(automation.ownerUserId)}
-											showOwner={scope === "team"}
-											project={projectsById.get(automation.v2ProjectId)}
+											project={
+												automation.v2ProjectId
+													? projectsById.get(automation.v2ProjectId)
+													: undefined
+											}
+											isTemporaryTarget={isTemporaryTarget}
+											temporaryTargetLabel={t("workspace.temporaryWorkspace")}
 											workspaceLabel={workspaceLabel}
 											hostLabel={host?.name ?? t("automations.autoDevice")}
 											lastRunStatus={
 												lastRunStatusById.get(automation.id) ?? null
 											}
-											isOwner={automation.ownerUserId === currentUserId}
+											isOwner
 											onRunNow={(a) =>
 												runNowMutation.mutate({
 													id: a.id,
 													name: a.name,
-													targetHostId: a.targetHostId,
 												})
 											}
 											onDelete={setPendingDelete}
@@ -500,14 +375,6 @@ function AutomationsPage() {
 				onOpenChange={handleDialogOpenChange}
 				initialTemplate={initialTemplate}
 				onCreated={() => handleDialogOpenChange(false)}
-			/>
-
-			<HostOfflineRunDialog
-				hostId={hostOfflineRun?.hostId ?? null}
-				open={!!hostOfflineRun}
-				onOpenChange={(next) => {
-					if (!next) setHostOfflineRun(null);
-				}}
 			/>
 
 			<AlertDialog

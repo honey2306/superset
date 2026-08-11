@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { appendFileSync } from "node:fs";
 /** Deterministic offline Codex app-server JSON-RPC fixture for ACP bridge tests. */
 import { createInterface } from "node:readline";
 
@@ -9,17 +10,29 @@ function send(frame: object): void {
 	process.stdout.write(`${JSON.stringify(frame)}\n`);
 }
 
+function recordMcpConfig(method: string | undefined, params: unknown): void {
+	if (method !== "thread/start" && method !== "thread/resume") return;
+	const logPath = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+	if (!logPath) return;
+	appendFileSync(logPath, `${JSON.stringify({ method, params })}\n`);
+}
+
 createInterface({ input: process.stdin }).on("line", (line) => {
 	const frame = JSON.parse(line) as {
 		id?: string | number;
 		method?: string;
 		params?: { threadId?: string; turnId?: string };
 	};
+	recordMcpConfig(frame.method, frame.params);
 	if (frame.method === "initialize") {
 		send({ id: frame.id, result: { userAgent: "fixture/0.143.0" } });
 		return;
 	}
 	if (frame.method === "thread/start") {
+		send({ id: frame.id, result: { thread: { id: "thread-1" } } });
+		return;
+	}
+	if (frame.method === "thread/resume") {
 		send({ id: frame.id, result: { thread: { id: "thread-1" } } });
 		return;
 	}

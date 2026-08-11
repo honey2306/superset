@@ -1,11 +1,10 @@
 import { Input } from "@superset/ui/input";
 import { toast } from "@superset/ui/sonner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef } from "react";
-import { HiMiniXMark } from "react-icons/hi2";
+import { useEffect, useRef, useState } from "react";
+import { HiEllipsisHorizontal } from "react-icons/hi2";
 import { useHighestAcpSessionStatusAtHost } from "renderer/hooks/host-service/useAcpSessionStatuses";
 import { useHighestTerminalAgentStatusAtHost } from "renderer/hooks/host-service/useTerminalAgentStatuses";
 import {
@@ -13,7 +12,6 @@ import {
 	useMarkWorkspaceTerminalsSeenAtHost,
 } from "renderer/hooks/host-service/useV2NotificationStatus";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
-import { HotkeyLabel } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useHoverGitHubStatus } from "renderer/lib/githubQueryPolicy";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
@@ -31,16 +29,11 @@ import { useTabsStore } from "renderer/stores/tabs/store";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { getHighestPriorityStatus } from "shared/tabs-types";
 import { CollapsedWorkspaceItem } from "./CollapsedWorkspaceItem";
-import { DeleteWorkspaceDialog } from "./components";
-import {
-	GITHUB_STATUS_STALE_TIME,
-	MAX_KEYBOARD_SHORTCUT_INDEX,
-} from "./constants";
+import { DeleteWorkspaceDialog, RenameBranchDialog } from "./components";
+import { GITHUB_STATUS_STALE_TIME } from "./constants";
 import { useWorkspaceDnD } from "./useWorkspaceDnD";
 import { WorkspaceAheadBehind } from "./WorkspaceAheadBehind";
 import { WorkspaceContextMenu } from "./WorkspaceContextMenu";
-import { WorkspaceDiffStats } from "./WorkspaceDiffStats";
-import { WorkspaceIcon } from "./WorkspaceIcon";
 import { WorkspaceStatusBadge } from "./WorkspaceStatusBadge";
 
 interface WorkspaceListItemProps {
@@ -68,7 +61,6 @@ export function WorkspaceListItem({
 	type,
 	isUnread = false,
 	index,
-	shortcutIndex,
 	isCollapsed = false,
 	sectionId = null,
 	sections = [],
@@ -159,6 +151,9 @@ export function WorkspaceListItem({
 
 	const expandedItemRef = useRef<HTMLDivElement>(null);
 	const collapsedItemRef = useRef<HTMLButtonElement>(null);
+	const [renameBranchTarget, setRenameBranchTarget] = useState<string | null>(
+		null,
+	);
 
 	useEffect(() => {
 		if (isCollapsed) {
@@ -206,22 +201,6 @@ export function WorkspaceListItem({
 		workspaceBranch: branch,
 		workspaceId: id,
 	});
-
-	const localDiffStats = useMemo(() => {
-		if (!localChanges) return null;
-		const allFiles =
-			localChanges.againstBase.length > 0
-				? localChanges.againstBase
-				: [
-						...localChanges.staged,
-						...localChanges.unstaged,
-						...localChanges.untracked,
-					];
-		const additions = allFiles.reduce((sum, f) => sum + (f.additions || 0), 0);
-		const deletions = allFiles.reduce((sum, f) => sum + (f.deletions || 0), 0);
-		if (additions === 0 && deletions === 0) return null;
-		return { additions, deletions };
-	}, [localChanges]);
 
 	const handleClick = (e?: React.MouseEvent) => {
 		if (rename.isRenaming) return;
@@ -280,6 +259,19 @@ export function WorkspaceListItem({
 		await copyToClipboard(branch);
 		toast.success(t("workspace.branchCopied"));
 	};
+	const handleMenuButtonClick = (
+		event: React.MouseEvent<HTMLButtonElement>,
+	) => {
+		event.stopPropagation();
+		const rect = event.currentTarget.getBoundingClientRect();
+		event.currentTarget.dispatchEvent(
+			new MouseEvent("contextmenu", {
+				bubbles: true,
+				clientX: rect.left + rect.width / 2,
+				clientY: rect.top + rect.height / 2,
+			}),
+		);
+	};
 	const openUrl = electronTrpc.external.openUrl.useMutation();
 	const refreshLinkedPullRequest = async () => {
 		await refetchPullRequestState();
@@ -320,12 +312,6 @@ export function WorkspaceListItem({
 	const linkedPullRequest =
 		pullRequestState?.pullRequest ??
 		(pullRequestState?.isPullRequestSuppressed ? null : pr);
-	const diffStats =
-		localDiffStats ||
-		(pr && (pr.additions > 0 || pr.deletions > 0)
-			? { additions: pr.additions, deletions: pr.deletions }
-			: null);
-
 	const showBranchSubtitle = isBranchWorkspace || (!!name && name !== branch);
 
 	if (isCollapsed) {
@@ -373,7 +359,7 @@ export function WorkspaceListItem({
 			onDoubleClick={isBranchWorkspace ? undefined : rename.startRename}
 			className={cn(
 				// DS: hover → --hover; active → accent-tint + 2px pink left bar.
-				"flex w-full pl-3 pr-2 text-[13px]",
+				"flex w-full pl-11 pr-2 text-[13px]",
 				"transition-colors duration-[120ms] text-left cursor-pointer rounded-ds-3",
 				isActive ? "hover:bg-accent-tint" : "hover:bg-hover",
 				"group relative",
@@ -387,47 +373,6 @@ export function WorkspaceListItem({
 			{isActive && (
 				<div className="absolute left-0 top-1.5 bottom-1.5 w-[2px] bg-accent-solid rounded-r-sm" />
 			)}
-
-			<div
-				className={cn(
-					"flex flex-col items-center shrink-0 mr-2.5 gap-0.5",
-					showBranchSubtitle && "mt-0.5",
-				)}
-			>
-				<Tooltip delayDuration={500}>
-					<TooltipTrigger asChild>
-						<div className="relative size-5 flex items-center justify-center">
-							<WorkspaceIcon
-								isBranchWorkspace={isBranchWorkspace}
-								isActive={isActive}
-								isUnread={isUnread}
-								workspaceStatus={combinedWorkspaceStatus}
-								variant="expanded"
-							/>
-						</div>
-					</TooltipTrigger>
-					<TooltipContent side="right" sideOffset={8}>
-						{isBranchWorkspace ? (
-							<>
-								<p className="text-xs font-medium">{t("workspace.local")}</p>
-								<p className="text-xs text-fg-mute">
-									Changes are made directly in the main repository
-								</p>
-							</>
-						) : (
-							<>
-								<p className="text-xs font-medium">{t("workspace.worktree")}</p>
-								<p className="text-xs text-fg-mute">
-									Isolated copy for parallel development
-								</p>
-							</>
-						)}
-					</TooltipContent>
-				</Tooltip>
-				{workspaceRunState && showBranchSubtitle && (
-					<WorkspaceRunIndicator state={workspaceRunState} variant="inline" />
-				)}
-			</div>
 
 			<div className="flex-1 min-w-0">
 				{rename.isRenaming ? (
@@ -463,45 +408,23 @@ export function WorkspaceListItem({
 									behind={aheadBehind.behind}
 								/>
 							)}
+							{workspaceRunState && showBranchSubtitle && (
+								<WorkspaceRunIndicator
+									state={workspaceRunState}
+									variant="inline"
+								/>
+							)}
 
 							<div className="grid shrink-0 h-5 [&>*]:col-start-1 [&>*]:row-start-1 items-center">
-								{diffStats && (
-									<WorkspaceDiffStats
-										additions={diffStats.additions}
-										deletions={diffStats.deletions}
-										isActive={isActive}
-									/>
-								)}
-								<div className="hidden items-center justify-end gap-1.5 group-hover:flex">
-									{shortcutIndex !== undefined &&
-										shortcutIndex < MAX_KEYBOARD_SHORTCUT_INDEX && (
-											<span className="text-[10px] text-fg-mute font-mono tabular-nums shrink-0">
-												⌘{shortcutIndex + 1}
-											</span>
-										)}
-									{!isBranchWorkspace && (
-										<Tooltip delayDuration={300}>
-											<TooltipTrigger asChild>
-												<button
-													type="button"
-													onClick={(e) => {
-														e.stopPropagation();
-														handleDeleteClick();
-													}}
-													className="flex size-4 items-center justify-center rounded-ds-2 text-fg-faint transition-colors hover:bg-hover hover:text-fg"
-													aria-label={t("workspace.closeLabel")}
-												>
-													<HiMiniXMark className="size-3.5" />
-												</button>
-											</TooltipTrigger>
-											<TooltipContent side="top" sideOffset={4}>
-												<HotkeyLabel
-													label={t("workspace.closeLabel")}
-													id={isActive ? "CLOSE_WORKSPACE" : undefined}
-												/>
-											</TooltipContent>
-										</Tooltip>
-									)}
+								<div className="flex items-center justify-end gap-1.5">
+									<button
+										type="button"
+										onClick={handleMenuButtonClick}
+										className="flex size-5 items-center justify-center rounded-ds-2 text-fg-faint transition-colors hover:bg-hover hover:text-fg"
+										aria-label="Open workspace menu"
+									>
+										<HiEllipsisHorizontal className="size-4" />
+									</button>
 								</div>
 							</div>
 						</div>
@@ -534,7 +457,9 @@ export function WorkspaceListItem({
 			<WorkspaceContextMenu
 				id={id}
 				projectId={projectId}
-				name={name}
+				branch={branch}
+				hostUrl={hostUrl ?? null}
+				hostWorkspaceId={hostWorkspaceId ?? null}
 				isBranchWorkspace={isBranchWorkspace}
 				isUnread={isUnread}
 				showDeleteHotkey={isActive}
@@ -550,10 +475,12 @@ export function WorkspaceListItem({
 				onOpenPullRequest={() => {
 					if (linkedPullRequest?.url) openUrl.mutate(linkedPullRequest.url);
 				}}
+				onOpenUrl={(url) => openUrl.mutate(url)}
 				onUnlinkPullRequest={() => void handleUnlinkPullRequest()}
 				onRestorePullRequest={() => void handleRestorePullRequest()}
 				sections={sections}
 				onRename={rename.startRename}
+				onRenameBranch={() => setRenameBranchTarget(branch)}
 				onOpenInFinder={handleOpenInFinder}
 				onOpenInEditor={handleOpenInEditor}
 				onCopyPath={handleCopyPath}
@@ -575,6 +502,18 @@ export function WorkspaceListItem({
 			>
 				{content}
 			</WorkspaceContextMenu>
+			{renameBranchTarget && (
+				<RenameBranchDialog
+					workspaceId={id}
+					currentBranchName={renameBranchTarget}
+					hostUrl={hostUrl}
+					hostWorkspaceId={hostWorkspaceId}
+					open
+					onOpenChange={(open) => {
+						if (!open) setRenameBranchTarget(null);
+					}}
+				/>
+			)}
 			<DeleteWorkspaceDialog
 				workspaceId={id}
 				workspaceName={name}

@@ -6,6 +6,8 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { and, eq } from "drizzle-orm";
 import { workspaceOperationSteps, workspaces } from "../../src/db/schema";
 import { OperationJournal } from "../../src/workspace-provisioning";
@@ -18,6 +20,7 @@ import {
 	createBasicScenario,
 	createProjectScenario,
 } from "../helpers/scenarios";
+import { seedProject, seedWorkspace } from "../helpers/seed";
 
 describe("workspaceProvisioning integration (M2)", () => {
 	let dispose: (() => Promise<void>) | undefined;
@@ -27,6 +30,36 @@ describe("workspaceProvisioning integration (M2)", () => {
 			await dispose();
 			dispose = undefined;
 		}
+	});
+
+	test("repairs legacy temporary project identity when reusing its main workspace", async () => {
+		const scenario = await createBasicScenario();
+		dispose = scenario.dispose;
+		const temporaryPath = join(homedir(), "Superset", "temporary");
+		const legacyProject = seedProject(scenario.host, {
+			repoPath: temporaryPath,
+		});
+		const legacyWorkspace = seedWorkspace(scenario.host, {
+			projectId: legacyProject.id,
+			worktreePath: temporaryPath,
+			branch: "main",
+			type: "main",
+		});
+
+		const result = await scenario.host.trpc.workspaceProvisioning.begin.mutate({
+			idempotencyKey: `temporary:${randomUUID()}`,
+			project: { kind: "temporary", singletonKey: "default" },
+			source: { kind: "main" },
+		});
+
+		expect(result.operation.projectId).toBe(legacyProject.id);
+		expect(result.operation.workspaceId).toBe(legacyWorkspace.id);
+		const snapshot = await scenario.host.trpc.workspaceCatalog.snapshot.query();
+		const repairedProject = snapshot.projects.find(
+			(project) => project.id === legacyProject.id,
+		);
+		expect(repairedProject?.kind).toBe("temporary");
+		expect(repairedProject?.singletonKey).toBe("default");
 	});
 
 	test("begin: existing project + branch source materializes and returns operation", async () => {

@@ -3,6 +3,7 @@ import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { env } from "renderer/env.renderer";
 import superjson from "superjson";
 import { getAuthToken } from "./auth-client";
+import { authenticatedTrpcFetch } from "./authenticated-trpc-fetch";
 
 /**
  * HTTP tRPC client for calling the API server.
@@ -12,6 +13,7 @@ import { getAuthToken } from "./auth-client";
 export const apiTrpcClient = createTRPCProxyClient<AppRouter>({
 	links: [
 		httpBatchLink({
+			fetch: authenticatedTrpcFetch,
 			url: `${env.NEXT_PUBLIC_API_URL}/api/trpc`,
 			transformer: superjson,
 			headers: () => {

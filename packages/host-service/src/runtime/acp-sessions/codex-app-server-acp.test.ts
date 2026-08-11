@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import type { McpServer } from "@agentclientprotocol/sdk";
 import type {
 	RequestPermissionRequest,
 	RequestPermissionResponse,
@@ -7,6 +10,7 @@ import type {
 import {
 	CodexBridge,
 	codexDecisionOptions,
+	codexMcpConfig,
 	isCodexBridgeMain,
 	selectedCodexDecision,
 } from "./codex-app-server-acp";
@@ -15,6 +19,13 @@ const FIXTURE = path.join(
 	import.meta.dir,
 	"../../../test/fixtures/fake-codex-app-server.ts",
 );
+
+const BROWSER_USE_MCP: McpServer = {
+	name: "browser-use",
+	command: "/opt/local/bin/browser-use",
+	args: ["--cli-mcp"],
+	env: [{ name: "BROWSER_USE_PROFILE", value: "Superset" }],
+};
 
 function withFixture(scenario: "accept" | "decline" | "exit") {
 	const previousCommand = process.env.CODEX_APP_SERVER_COMMAND;
@@ -108,6 +119,65 @@ describe("Codex app-server approval decisions", () => {
 				options,
 			),
 		).toBe("cancel");
+	});
+});
+
+describe("Codex app-server MCP forwarding", () => {
+	test("translates ACP stdio MCP servers into per-thread Codex config", () => {
+		expect(codexMcpConfig([BROWSER_USE_MCP])).toEqual({
+			mcp_servers: {
+				"browser-use": {
+					command: "/opt/local/bin/browser-use",
+					args: ["--cli-mcp"],
+					env: { BROWSER_USE_PROFILE: "Superset" },
+				},
+			},
+		});
+	});
+
+	test("forwards config to new and resumed Codex threads", async () => {
+		const restore = withFixture("accept");
+		const logPath = path.join(
+			mkdtempSync(path.join(os.tmpdir(), "codex-mcp-")),
+			"requests.jsonl",
+		);
+		const previousLog = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+		process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = logPath;
+		try {
+			const client = {
+				notify: async () => {},
+				request: async () =>
+					({ outcome: { outcome: "cancelled" } }) as RequestPermissionResponse,
+			};
+			const started = new CodexBridge(client);
+			await started.newSession(process.cwd(), [BROWSER_USE_MCP]);
+			const resumed = new CodexBridge(client);
+			await resumed.loadSession("thread-1", process.cwd(), [BROWSER_USE_MCP]);
+
+			const requests = readFileSync(logPath, "utf8")
+				.trim()
+				.split("\n")
+				.map((line) => JSON.parse(line) as { method: string; params: unknown });
+			expect(requests).toEqual([
+				{
+					method: "thread/start",
+					params: expect.objectContaining({
+						config: codexMcpConfig([BROWSER_USE_MCP]),
+					}),
+				},
+				{
+					method: "thread/resume",
+					params: expect.objectContaining({
+						config: codexMcpConfig([BROWSER_USE_MCP]),
+					}),
+				},
+			]);
+		} finally {
+			if (previousLog === undefined)
+				delete process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+			else process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = previousLog;
+			restore();
+		}
 	});
 });
 

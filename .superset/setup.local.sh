@@ -54,7 +54,7 @@ local_check_dependencies() {
   command -v bun &> /dev/null || missing+=("bun (https://bun.sh)")
   command -v docker &> /dev/null || missing+=("docker (https://docker.com)")
   command -v jq &> /dev/null || missing+=("jq (brew install jq)")
-  command -v caddy &> /dev/null || warn "caddy not found — Electric HTTPS proxy won't work (brew install caddy && caddy trust)"
+  command -v caddy &> /dev/null || warn "caddy not found — Electric HTTP/2 proxy won't work (brew install caddy && caddy trust)"
   if [ ${#missing[@]} -gt 0 ]; then
     error "Missing dependencies:"
     for dep in "${missing[@]}"; do echo "  - $dep"; done
@@ -256,36 +256,29 @@ local_write_env() {
     write_env_var "NEXT_PUBLIC_STREAMS_URL" "http://localhost:$STREAMS_PORT"
     write_env_var "STREAMS_INTERNAL_URL" "http://127.0.0.1:$STREAMS_INTERNAL_PORT"
     echo ""
-    echo "# Electric URLs (per-workspace Electric :$LOCAL_ELECTRIC_PORT, fronted by Caddy)"
+    echo "# Electric URLs (authenticated API proxy, fronted by Caddy for HTTP/2)"
     write_env_var "ELECTRIC_URL" "http://localhost:$LOCAL_ELECTRIC_PORT/v1/shape"
-    write_env_var "NEXT_PUBLIC_ELECTRIC_URL" "https://localhost:$CADDY_ELECTRIC_PORT"
-    write_env_var "NEXT_PUBLIC_ELECTRIC_PROXY_URL" "https://localhost:$CADDY_ELECTRIC_PORT"
+    write_env_var "NEXT_PUBLIC_ELECTRIC_URL" "https://localhost:$CADDY_ELECTRIC_PORT/api/electric"
+    write_env_var "NEXT_PUBLIC_ELECTRIC_PROXY_URL" "https://localhost:$CADDY_ELECTRIC_PORT/api/electric"
     echo ""
-    echo "# Mobile (Expo) — plain-HTTP electric-proxy; RN fetch rejects Caddy's self-signed cert"
+    echo "# Mobile (Expo) — plain HTTP avoids Caddy's local self-signed certificate"
     write_env_var "EXPO_PUBLIC_API_URL" "http://localhost:$API_PORT"
-    write_env_var "EXPO_PUBLIC_ELECTRIC_URL" "http://localhost:$WRANGLER_PORT"
+    write_env_var "EXPO_PUBLIC_ELECTRIC_URL" "http://localhost:$API_PORT/api/electric"
     write_env_var "EXPO_PUBLIC_POSTHOG_KEY" "phc_local_dev_disabled"
   } >> .env
 
   cat > Caddyfile <<-CADDYEOF
 	{
+		admin off
 		auto_https disable_redirects
 	}
 
 	https://localhost:{\$CADDY_ELECTRIC_PORT} {
-		reverse_proxy localhost:{\$WRANGLER_PORT} {
+		reverse_proxy localhost:{\$API_PORT} {
 			flush_interval -1
 		}
 	}
 	CADDYEOF
-
-  cat > apps/electric-proxy/.dev.vars <<DEVVARS
-AUTH_URL=http://localhost:$API_PORT
-ELECTRIC_SHAPE_URL=http://localhost:$LOCAL_ELECTRIC_PORT/v1/shape
-ELECTRIC_SECRET=$ELECTRIC_SECRET_VALUE
-ELECTRIC_SOURCE_ID=
-ELECTRIC_SOURCE_SECRET=
-DEVVARS
 
   cat > "$SUPERSET_SCRIPT_DIR/ports.json" <<PORTSJSON
 {
@@ -300,7 +293,7 @@ DEVVARS
     { "port": $STREAMS_PORT, "label": "Streams" },
     { "port": $LOCAL_ELECTRIC_PORT, "label": "Electric" },
     { "port": $CADDY_ELECTRIC_PORT, "label": "Caddy Electric" },
-    { "port": $WRANGLER_PORT, "label": "Electric Proxy (Wrangler)" },
+    { "port": $WRANGLER_PORT, "label": "Reserved" },
     { "port": $LOCAL_PG_PORT, "label": "Postgres" },
     { "port": $LOCAL_NEON_PROXY_PORT, "label": "Neon Proxy" },
     { "port": $LOCAL_REDIS_PORT, "label": "Redis" },
@@ -309,7 +302,7 @@ DEVVARS
 }
 PORTSJSON
 
-  success "Workspace .env, Caddyfile, electric-proxy/.dev.vars, ports.json written"
+  success "Workspace .env, Caddyfile, and ports.json written"
   return 0
 }
 

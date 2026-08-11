@@ -1,10 +1,35 @@
-import type { SelectTodo } from "@superset/db/schema";
-import { useLiveQuery } from "@tanstack/react-db";
 import { useEffect, useRef } from "react";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useLocalTodos } from "../useLocalAutomationData";
+
+type TodoNotification = {
+	id: string;
+	title: string;
+	note: string | null;
+};
+
+export async function notifyAndMarkTodo(
+	todo: TodoNotification,
+	args: {
+		title: string;
+		notify: (input: {
+			title: string;
+			body: string;
+			silent: boolean;
+		}) => Promise<unknown>;
+		markNotified: (input: { id: string }) => Promise<unknown>;
+	},
+): Promise<void> {
+	await args.notify({
+		title: args.title,
+		body: todo.note ?? "",
+		silent: false,
+	});
+	await args.markNotified({ id: todo.id });
+}
 
 /**
  * Renderer-side todo notifier: watches the `todos` collection for rows that
@@ -19,23 +44,12 @@ import { useCollections } from "renderer/routes/_authenticated/providers/Collect
  */
 export function useTodoNotifier(): void {
 	const { t } = useTranslation();
-	const collections = useCollections();
+	const hostUrl = useHostUrl(null);
 	const notifiedLocallyRef = useRef<Set<string>>(new Set());
-
-	const { data: rows = [] } = useLiveQuery(
-		(q) =>
-			q.from({ t: collections.todos }).select(({ t }) => ({
-				id: t.id,
-				title: t.title,
-				note: t.note,
-				status: t.status,
-				notifiedAt: t.notifiedAt,
-				doneAt: t.doneAt,
-			})),
-		[collections.todos],
-	);
+	const { data: rows = [] } = useLocalTodos();
 
 	useEffect(() => {
+		if (!hostUrl) return;
 		const alerts = rows.filter(
 			(r): r is NonNullable<typeof r> =>
 				r != null &&
@@ -43,23 +57,26 @@ export function useTodoNotifier(): void {
 				!r.notifiedAt &&
 				!r.doneAt &&
 				!notifiedLocallyRef.current.has(r.id),
-		) as Array<Pick<SelectTodo, "id" | "title" | "note" | "status">>;
+		);
 
 		for (const todo of alerts) {
 			notifiedLocallyRef.current.add(todo.id);
 			void (async () => {
 				try {
-					await electronTrpcClient.notifications.showNative.mutate({
+					await notifyAndMarkTodo(todo, {
 						title: t("todos.notificationTitle", { title: todo.title }),
-						body: todo.note ?? "",
-						silent: false,
+						notify: (input) =>
+							electronTrpcClient.notifications.showNative.mutate(input),
+						markNotified: (input) =>
+							getHostServiceClientByUrl(hostUrl).todos.markNotified.mutate(
+								input,
+							),
 					});
-					await apiTrpcClient.todo.markNotified.mutate({ id: todo.id });
 				} catch (error) {
 					console.error("[todo-notifier] failed to notify", error);
 					notifiedLocallyRef.current.delete(todo.id);
 				}
 			})();
 		}
-	}, [rows, t]);
+	}, [hostUrl, rows, t]);
 }

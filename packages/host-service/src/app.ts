@@ -26,6 +26,7 @@ import { ChatRuntimeManager } from "./runtime/chat";
 import { WorkspaceFilesystemManager } from "./runtime/filesystem";
 import type { GitCredentialProvider } from "./runtime/git";
 import { createGitFactory } from "./runtime/git";
+import { LocalAutomationScheduler } from "./runtime/local-automations";
 import { runMainWorkspaceSweep } from "./runtime/main-workspace-sweep";
 import { PhoneAuthService } from "./runtime/phone";
 import { runProjectBackfill } from "./runtime/project-backfill";
@@ -217,6 +218,9 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 				occurredAt: event.occurredAt,
 			});
 		});
+		acpSessions.onSessionOpenRequested?.((event) => {
+			eventBus.broadcastAcpSessionOpenRequested(event);
+		});
 	}
 
 	// Workspace Catalog Module (M1) — the sole normal writer of identity
@@ -310,6 +314,17 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		pullRequests: pullRequestRuntime,
 		workspaceProvisioning,
 	};
+
+	// Local-first automations are evaluated by this host process. The scheduler
+	// operates only on host.db and the local agent runtime; it never uses the
+	// cloud API/relay, so schedules keep working while offline.
+	const localAutomationScheduler = new LocalAutomationScheduler(() => ({
+		db,
+		eventBus,
+		terminalAgentStore,
+		runtime,
+	}));
+	localAutomationScheduler.start();
 
 	// Resume sweep: any operation left `queued`/`running` from a previous
 	// process is resumed from its durable request when possible; malformed
@@ -436,6 +451,11 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		// Each step is best-effort and isolated: a throw in one cleanup must
 		// not skip the others, otherwise a flaky `.stop()` could leak the
 		// open SQLite handle for the rest of the process lifetime.
+		try {
+			localAutomationScheduler.stop();
+		} catch (err) {
+			console.warn("[host-service] localAutomationScheduler.stop failed:", err);
+		}
 		try {
 			pullRequestRuntime.stop();
 		} catch (err) {

@@ -143,6 +143,19 @@ function assertSafeRelativePath(filePath: string): void {
 }
 
 export const gitRouter = router({
+	getRemoteUrl: queryProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.query(async ({ ctx, input }) => {
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			const git = await ctx.git(worktreePath);
+			const remoteUrl = await git
+				.remote(["get-url", "origin"])
+				.catch(() => undefined);
+			return {
+				url: typeof remoteUrl === "string" ? remoteUrl.trim() || null : null,
+			};
+		}),
+
 	listBranches: queryProcedure
 		.input(z.object({ workspaceId: z.string() }))
 		.query(async ({ ctx, input }) => {
@@ -198,6 +211,43 @@ export const gitRouter = router({
 			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
 			const git = await ctx.git(worktreePath);
 			await git.fetch(["--all", "--prune"]);
+			return { success: true };
+		}),
+
+	fetchCurrentBranch: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.fetch(["--all", "--prune"]);
+			return { success: true };
+		}),
+
+	pullCurrentBranch: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.pull(["--rebase"]);
+			return { success: true };
+		}),
+
+	pushCurrentBranch: protectedProcedure
+		.input(z.object({ workspaceId: z.string(), setUpstream: z.boolean() }))
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			const branch = (await git.revparse(["--abbrev-ref", "HEAD"])).trim();
+			if (!branch || branch === "HEAD") {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Cannot push from detached HEAD",
+				});
+			}
+			const hasUpstream = await git
+				.raw(["rev-parse", "--abbrev-ref", "@{upstream}"])
+				.then(() => true)
+				.catch(() => false);
+			await git.push(
+				input.setUpstream && !hasUpstream ? ["-u", "origin", branch] : [],
+			);
 			return { success: true };
 		}),
 

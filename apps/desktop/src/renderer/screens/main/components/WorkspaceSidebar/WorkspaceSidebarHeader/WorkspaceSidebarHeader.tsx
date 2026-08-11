@@ -2,7 +2,7 @@ import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { LuClock3, LuListTodo, LuWorkflow } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTodoAlerts } from "renderer/routes/_authenticated/_dashboard/hooks/useTodoAlerts";
@@ -15,6 +15,7 @@ import {
 	useWorkspaceProvisioningAdapter,
 } from "renderer/stores/workspace-launch";
 import { STROKE_WIDTH } from "../constants";
+import { isTemporaryWorkspaceActive } from "./utils/isTemporaryWorkspaceActive";
 
 interface WorkspaceSidebarHeaderProps {
 	isCollapsed?: boolean;
@@ -34,21 +35,13 @@ export function WorkspaceSidebarHeader({
 	const { workspaces } = useCatalogWorkspaces();
 	const [isTemporaryWorkspacePending, setIsTemporaryWorkspacePending] =
 		useState(false);
-	const temporaryWorkspace = useMemo(() => {
-		const project = projects.find(
-			(candidate) => candidate.kind === "temporary",
-		);
-		if (!project) return null;
-		return (
-			workspaces.find(
-				(workspace) =>
-					workspace.projectId === project.id && workspace.type === "main",
-			) ?? null
-		);
-	}, [projects, workspaces]);
 	const isAutomationsOpen = !!matchRoute({ to: "/automations", fuzzy: true });
 	const isTodosOpen = !!matchRoute({ to: "/todos", fuzzy: true });
-	const isTemporaryWorkspaceOpen = workspaceId === temporaryWorkspace?.id;
+	const isTemporaryWorkspaceOpen = isTemporaryWorkspaceActive(
+		workspaceId,
+		workspaces,
+		projects,
+	);
 
 	const { alertCount: todoAlertCount } = useTodoAlerts();
 	const hasTodoAlerts = todoAlertCount > 0;

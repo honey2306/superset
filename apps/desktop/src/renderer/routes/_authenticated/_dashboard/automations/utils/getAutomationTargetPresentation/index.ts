@@ -1,0 +1,1 @@
+export { getAutomationTargetPresentation } from "./getAutomationTargetPresentation";

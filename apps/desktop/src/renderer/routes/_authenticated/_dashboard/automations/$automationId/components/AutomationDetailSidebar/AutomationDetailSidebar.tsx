@@ -1,18 +1,22 @@
-import type {
-	SelectAutomation,
-	SelectAutomationRun,
-} from "@superset/db/schema";
 import { formatDateTimeInTimezone } from "@superset/shared/rrule";
 import { cn } from "@superset/ui/utils";
 import { useMutation } from "@tanstack/react-query";
 import { useRecentProjects } from "renderer/hooks/host-projects/useRecentProjects";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
+import {
+	getHostServiceClientByUrl,
+	type HostServiceClient,
+} from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import type {
+	LocalAutomation,
+	LocalAutomationRun,
+} from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
 import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
+import { useCatalogProjects } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { AgentPicker } from "../../../components/AgentPicker";
 import { ProjectPicker } from "../../../components/ProjectPicker";
-import { RelayOfflineNotice } from "../../../components/RelayOfflineNotice";
 import { SchedulePicker } from "../../../components/SchedulePicker";
 import { TimezonePicker } from "../../../components/TimezonePicker";
 import { WorkspacePicker } from "../../../components/WorkspacePicker";
@@ -22,30 +26,44 @@ import { Section } from "./components/Section";
 import { SectionTitle } from "./components/SectionTitle";
 
 interface AutomationDetailSidebarProps {
-	automation: SelectAutomation;
-	recentRuns: SelectAutomationRun[];
+	automation: LocalAutomation;
+	recentRuns: LocalAutomationRun[];
+	onOpenRun: (run: LocalAutomationRun) => void;
 }
 
 export function AutomationDetailSidebar({
 	automation,
 	recentRuns,
+	onOpenRun,
 }: AutomationDetailSidebarProps) {
 	const { t } = useTranslation();
 	const recentProjects = useRecentProjects();
+	const { projects: catalogProjects } = useCatalogProjects();
 	const { localHostId } = useWorkspaceHostOptions();
 	const selectedProject = recentProjects.find(
 		(p) => p.id === automation.v2ProjectId,
 	);
+	const temporaryProject = catalogProjects.find(
+		(project) => project.kind === "temporary",
+	);
+	const isTemporaryTarget = automation.v2ProjectId === temporaryProject?.id;
 
 	const hostId = automation.targetHostId ?? localHostId ?? null;
+	const hostUrl = useHostUrl(null);
 
 	const updateMutation = useMutation({
 		mutationFn: (
 			patch: Partial<
-				Parameters<typeof apiTrpcClient.automation.update.mutate>[0]
+				Parameters<HostServiceClient["automations"]["update"]["mutate"]>[0]
 			>,
 		) =>
-			apiTrpcClient.automation.update.mutate({ id: automation.id, ...patch }),
+			(() => {
+				if (!hostUrl) throw new Error("Local host service is unavailable");
+				return getHostServiceClientByUrl(hostUrl).automations.update.mutate({
+					id: automation.id,
+					...patch,
+				});
+			})(),
 	});
 
 	const lastRunAt = recentRuns
@@ -119,36 +137,53 @@ export function AutomationDetailSidebar({
 								selectedProject={selectedProject}
 								recentProjects={recentProjects}
 								onSelectProject={(v2ProjectId) =>
-									updateMutation.mutate({ v2ProjectId })
-								}
-							/>
-						}
-					/>
-					<Row
-						label={t("automations.workspace")}
-						value={
-							<WorkspacePicker
-								className="-mr-4"
-								hostId={hostId}
-								projectId={automation.v2ProjectId}
-								value={automation.v2WorkspaceId}
-								onChange={(v2WorkspaceId) =>
 									updateMutation.mutate({
-										v2WorkspaceId,
-										// Denormalized pin: the picker is scoped to this
-										// host/project, so send both — the cloud stores them
-										// without a workspace-registry lookup.
-										...(v2WorkspaceId && hostId && automation.v2ProjectId
-											? {
-													targetHostId: hostId,
-													v2ProjectId: automation.v2ProjectId,
-												}
-											: {}),
+										v2ProjectId,
+										v2WorkspaceId: null,
 									})
 								}
+								temporaryTarget={
+									temporaryProject
+										? {
+												isSelected: isTemporaryTarget,
+												onSelect: () =>
+													updateMutation.mutate({
+														targetHostId: null,
+														v2ProjectId: temporaryProject.id,
+														v2WorkspaceId: null,
+													}),
+											}
+										: undefined
+								}
 							/>
 						}
 					/>
+					{!isTemporaryTarget && (
+						<Row
+							label={t("automations.workspace")}
+							value={
+								<WorkspacePicker
+									className="-mr-4"
+									hostId={hostId}
+									projectId={automation.v2ProjectId}
+									value={automation.v2WorkspaceId}
+									onChange={(v2WorkspaceId) =>
+										updateMutation.mutate({
+											v2WorkspaceId,
+											// Persist the picker scope with the local record so
+											// dispatch does not need a workspace-registry lookup.
+											...(v2WorkspaceId && hostId && automation.v2ProjectId
+												? {
+														targetHostId: hostId,
+														v2ProjectId: automation.v2ProjectId,
+													}
+												: {}),
+										})
+									}
+								/>
+							}
+						/>
+					)}
 					<Row
 						label={t("automations.repeats")}
 						value={
@@ -192,14 +227,13 @@ export function AutomationDetailSidebar({
 							/>
 						}
 					/>
-					<RelayOfflineNotice hostId={hostId} className="mt-2" />
 				</Section>
 			</div>
 
 			<div className="mt-6 flex min-h-0 flex-1 flex-col gap-2 pl-5 pr-3 pb-5">
 				<SectionTitle>{t("automations.previousRuns")}</SectionTitle>
 				<div className="min-h-0 flex-1 overflow-y-auto">
-					<PreviousRunsList runs={recentRuns} />
+					<PreviousRunsList runs={recentRuns} onOpenRun={onOpenRun} />
 				</div>
 			</div>
 		</aside>

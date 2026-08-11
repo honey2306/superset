@@ -72,7 +72,11 @@ function TabButton({
 	);
 }
 
-export function RightSidebar() {
+interface RightSidebarProps {
+	supportsChanges: boolean;
+}
+
+export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 	const { workspaceId } = useParams({ strict: false });
 	const { workspace } = useCatalogWorkspace(workspaceId);
 	const worktreePath = workspace?.worktreePath;
@@ -82,9 +86,8 @@ export function RightSidebar() {
 	const toggleSidebar = useSidebarStore((s) => s.toggleSidebar);
 	const setMode = useSidebarStore((s) => s.setMode);
 	const sidebarWidth = useSidebarStore((s) => s.sidebarWidth);
-	const isExpanded = currentMode === SidebarMode.Changes;
+	const isExpanded = supportsChanges && currentMode === SidebarMode.Changes;
 	const compactTabs = sidebarWidth < 250;
-	const showChangesTab = !!worktreePath;
 
 	const handleExpandToggle = () => {
 		setMode(isExpanded ? SidebarMode.Tabs : SidebarMode.Changes);
@@ -159,7 +162,7 @@ export function RightSidebar() {
 		<aside className="h-full flex flex-col overflow-hidden">
 			<div className="flex items-center bg-background shrink-0 h-10 border-b">
 				<div className="flex items-center h-full">
-					{showChangesTab && (
+					{supportsChanges && (
 						<TabButton
 							isActive={rightSidebarTab === RightSidebarTab.Changes}
 							onClick={() => setRightSidebarTab(RightSidebarTab.Changes)}
@@ -178,28 +181,30 @@ export function RightSidebar() {
 				</div>
 				<div className="flex-1" />
 				<div className="flex items-center h-10 pr-2 gap-0.5">
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								onClick={handleExpandToggle}
-								className="size-6 p-0"
-							>
-								{isExpanded ? (
-									<LuShrink className="size-3.5" />
-								) : (
-									<LuExpand className="size-3.5" />
-								)}
-							</Button>
-						</TooltipTrigger>
-						<TooltipContent side="bottom" showArrow={false}>
-							<HotkeyLabel
-								label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
-								id="OPEN_DIFF_VIEWER"
-							/>
-						</TooltipContent>
-					</Tooltip>
+					{supportsChanges && (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={handleExpandToggle}
+									className="size-6 p-0"
+								>
+									{isExpanded ? (
+										<LuShrink className="size-3.5" />
+									) : (
+										<LuExpand className="size-3.5" />
+									)}
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent side="bottom" showArrow={false}>
+								<HotkeyLabel
+									label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+									id="OPEN_DIFF_VIEWER"
+								/>
+							</TooltipContent>
+						</Tooltip>
+					)}
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<Button
@@ -217,7 +222,7 @@ export function RightSidebar() {
 					</Tooltip>
 				</div>
 			</div>
-			{showChangesTab && (
+			{supportsChanges && (
 				<div
 					className={
 						rightSidebarTab === RightSidebarTab.Changes
@@ -234,7 +239,7 @@ export function RightSidebar() {
 			)}
 			<div
 				className={
-					rightSidebarTab === RightSidebarTab.Changes && showChangesTab
+					rightSidebarTab === RightSidebarTab.Changes && supportsChanges
 						? "hidden"
 						: "flex-1 min-h-0 flex flex-col overflow-hidden"
 				}

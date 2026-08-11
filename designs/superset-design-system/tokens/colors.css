@@ -22,8 +22,8 @@
 	--surface: var(--dracula-bg); /* @kind color */
 	--surface-elev: color-mix(
 		in oklch,
-		var(--dracula-popover) 92%,
-		#fff 8%
+		var(--dracula-bg-deep) 92%,
+		var(--dracula-fg) 8%
 	); /* @kind color */
 	--surface-sunk: var(--dracula-popover); /* @kind color */
 	--overlay-scrim: rgba(0, 0, 0, 0.42); /* @kind color */

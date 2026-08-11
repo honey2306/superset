@@ -14,6 +14,7 @@ import {
 	envOverlayPrefix,
 	sanitizePromptForPty,
 } from "@superset/shared/agent-prompt-launch";
+import { getPresetById } from "@superset/shared/host-agent-presets";
 import { TRPCError } from "@trpc/server";
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -33,6 +34,28 @@ interface ResolvedHostAgentConfig {
 	promptTransport: "argv" | "stdin";
 	promptArgs: string[];
 	env: Record<string, string>;
+}
+
+export type AgentPermissionMode = "full_access";
+
+function withFullAccessArgs(
+	config: ResolvedHostAgentConfig,
+	permissionMode: AgentPermissionMode | undefined,
+): ResolvedHostAgentConfig {
+	if (permissionMode !== "full_access" || config.presetId !== "myflicker") {
+		return config;
+	}
+
+	// MyFlicker's ACP adapter documents this as its full-access mode. Do not
+	// infer flags for other presets (including custom ones): their configured
+	// command remains authoritative unless we have a verified equivalent.
+	const args = config.args.filter(
+		(arg, index, allArgs) =>
+			arg !== "--approval-mode" &&
+			!arg.startsWith("--approval-mode=") &&
+			allArgs[index - 1] !== "--approval-mode",
+	);
+	return { ...config, args: ["--approval-mode", "yolo", ...args] };
 }
 
 function parseArgv(value: string): string[] {
@@ -82,10 +105,29 @@ function rowToConfig(
 	};
 }
 
+export function resolveBundledHostAgentConfig(
+	agent: string,
+): ResolvedHostAgentConfig | null {
+	const preset = getPresetById(agent);
+	if (!preset) return null;
+	return {
+		id: preset.presetId,
+		presetId: preset.presetId,
+		label: preset.label,
+		command: preset.command,
+		args: preset.args,
+		promptTransport: preset.promptTransport,
+		promptArgs: preset.promptArgs,
+		env: preset.env,
+	};
+}
+
 /**
  * Look up a HostAgentConfig by its instance id first, then fall back to the
- * lowest-`order` row matching by presetId. Preset ids are short slugs;
- * instance ids are UUIDs — they don't collide.
+ * lowest-`order` row matching by presetId. If an older config table predates
+ * a built-in preset, resolve its bundled definition so ACP-backed callers can
+ * still launch it. Preset ids are short slugs; instance ids are UUIDs — they
+ * don't collide.
  */
 export function resolveHostAgentConfig(
 	db: HostDb,
@@ -106,7 +148,7 @@ export function resolveHostAgentConfig(
 		.get();
 	if (byPreset) return rowToConfig(byPreset);
 
-	return null;
+	return resolveBundledHostAgentConfig(agent);
 }
 
 /**
@@ -125,7 +167,9 @@ export function buildAgentCommandString(
 	rawPrompt: string,
 	modelArgs: string[] = [],
 	randomId: string = crypto.randomUUID(),
+	permissionMode?: AgentPermissionMode,
 ): string {
+	config = withFullAccessArgs(config, permissionMode);
 	const prompt = sanitizePromptForPty(rawPrompt);
 	const baseArgv = [config.command, ...config.args, ...modelArgs];
 
@@ -165,6 +209,18 @@ export interface AgentRunInput {
 	attachmentIds?: string[];
 	model?: string;
 	effort?: string;
+	/** Internal-only capability for unattended trusted dispatches. */
+	permissionMode?: AgentPermissionMode;
+}
+
+export function buildChatAgentMetadata(
+	input: Pick<AgentRunInput, "model" | "permissionMode">,
+): { model?: string; yolo?: true } | undefined {
+	if (!input.model && input.permissionMode !== "full_access") return undefined;
+	return {
+		...(input.model ? { model: input.model } : {}),
+		...(input.permissionMode === "full_access" ? { yolo: true } : {}),
+	};
 }
 
 export type AgentRunResult =
@@ -204,6 +260,7 @@ async function runChatAgent(
 ): Promise<AgentRunResult> {
 	const sessionId = crypto.randomUUID();
 	const files = await resolveAttachmentsAsFiles(input.attachmentIds ?? []);
+	const metadata = buildChatAgentMetadata(input);
 
 	await ctx.api.chat.createSession.mutate({
 		sessionId,
@@ -220,7 +277,7 @@ async function runChatAgent(
 				content: input.prompt,
 				...(files.length > 0 ? { files } : {}),
 			},
-			...(input.model ? { metadata: { model: input.model } } : {}),
+			...(metadata ? { metadata } : {}),
 		})
 		.catch((error) => {
 			console.error(
@@ -259,10 +316,13 @@ async function runTerminalAgent(
 	const prompt = buildAttachmentBlock(input.prompt, resolvedAttachments);
 	const modelArgs = buildAgentModelArgs(config.presetId, input.model);
 	const effortArgs = buildAgentEffortArgs(config.presetId, input.effort);
-	const command = buildAgentCommandString(config, prompt, [
-		...modelArgs,
-		...effortArgs,
-	]);
+	const command = buildAgentCommandString(
+		config,
+		prompt,
+		[...modelArgs, ...effortArgs],
+		undefined,
+		input.permissionMode,
+	);
 	const modelEnv = buildAgentModelEnv(config.presetId, input.model);
 	const fullCommand = `${envOverlayPrefix({ ...config.env, ...modelEnv })}${command}`;
 

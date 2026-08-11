@@ -49,6 +49,8 @@ interface ChatSendMessageInput {
 	metadata?: {
 		model?: string;
 		thinkingLevel?: ChatThinkingLevel;
+		/** Internal-only override for unattended trusted dispatches. */
+		yolo?: true;
 	};
 }
 
@@ -200,6 +202,15 @@ interface HarnessWithConfig {
 export interface ChatRuntimeManagerOptions {
 	db: HostDb;
 	runtimeResolver: ModelProviderRuntimeResolver;
+}
+
+export async function applyChatPermissionMode(
+	harness: Pick<RuntimeHarness, "setState">,
+	yolo: boolean | undefined,
+): Promise<void> {
+	// MastraCode's typed fully autonomous state is `yolo`; it auto-approves
+	// tools and is the chat equivalent of an ACP bypassPermissions mode.
+	if (yolo) await harness.setState({ yolo: true });
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -694,6 +705,7 @@ When you need to ask the user ANY question — including simple yes/no, confirma
 		if (thinkingLevel) {
 			await runtime.harness.setState({ thinkingLevel });
 		}
+		await applyChatPermissionMode(runtime.harness, input.metadata?.yolo);
 
 		return runtime.harness.sendMessage(input.payload);
 	}

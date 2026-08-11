@@ -22,6 +22,8 @@ interface RenameBranchDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onAfterRename?: (newName: string) => void;
+	hostUrl?: string | null;
+	hostWorkspaceId?: string | null;
 }
 
 export function RenameBranchDialog({
@@ -30,12 +32,17 @@ export function RenameBranchDialog({
 	open,
 	onOpenChange,
 	onAfterRename,
+	hostUrl,
+	hostWorkspaceId,
 }: RenameBranchDialogProps) {
 	const { t } = useTranslation();
 	const [value, setValue] = useState(currentBranchName);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const hostService = useLocalHostService();
-	const { activeHostUrl } = hostService;
+	const hostTarget =
+		hostUrl && hostWorkspaceId
+			? { url: hostUrl, workspaceId: hostWorkspaceId }
+			: { url: hostService.activeHostUrl, workspaceId };
 
 	useEffect(() => {
 		if (open) setValue(currentBranchName);
@@ -47,16 +54,16 @@ export function RenameBranchDialog({
 
 	const handleSubmit = async () => {
 		if (isInvalid || isSubmitting) return;
-		if (!activeHostUrl) {
+		if (!hostTarget.url) {
 			showHostServiceUnavailableToast(hostService, t, {
 				action: t("workspace.renameBranchAction"),
 			});
 			return;
 		}
 
-		const client = getHostServiceClientByUrl(activeHostUrl);
+		const client = getHostServiceClientByUrl(hostTarget.url);
 		const renamePromise = client.git.renameBranch.mutate({
-			workspaceId,
+			workspaceId: hostTarget.workspaceId,
 			oldName: currentBranchName,
 			newName: trimmed,
 		});

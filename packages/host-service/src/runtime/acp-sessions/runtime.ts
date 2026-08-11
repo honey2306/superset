@@ -28,6 +28,19 @@ export interface AcpSessionChangeEvent {
 
 export type AcpSessionChangeHandler = (event: AcpSessionChangeEvent) => void;
 
+export interface AcpSessionOpenRequestEvent {
+	workspaceId: string;
+	sessionId: string;
+	sourceSessionId: string;
+	harness: SessionScopedState["harness"];
+	reason: "context_limit" | "parallel_task" | "fresh_start" | "delegation";
+	occurredAt: number;
+}
+
+export type AcpSessionOpenRequestHandler = (
+	event: AcpSessionOpenRequestEvent,
+) => void;
+
 /**
  * Host-facing ACP control surface. The in-process manager and the detached
  * daemon client both implement this contract; callers must await operations so
@@ -109,5 +122,7 @@ export interface AcpSessionRuntime {
 	 * reconnect. Returns an unregister function.
 	 */
 	onSessionChanged?(handler: AcpSessionChangeHandler): () => void;
+	/** Best-effort desktop presentation request emitted by Superset ACP tools. */
+	onSessionOpenRequested?(handler: AcpSessionOpenRequestHandler): () => void;
 	dispose(): Promise<void>;
 }

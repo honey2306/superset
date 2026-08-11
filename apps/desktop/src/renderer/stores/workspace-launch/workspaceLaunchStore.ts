@@ -142,7 +142,16 @@ export function selectPendingOperation(
 	idempotencyKey: string,
 ): WorkspaceOperation | null {
 	const id = state.pendingByKey[idempotencyKey];
-	return id ? (state.operations[id] ?? null) : null;
+	const operation = id ? state.operations[id] : undefined;
+	return operation && isPendingOperation(operation) ? operation : null;
+}
+
+function isPendingOperation(operation: WorkspaceOperation): boolean {
+	return (
+		operation.state === "queued" ||
+		operation.state === "running" ||
+		operation.state === "compensating"
+	);
 }
 
 export function selectOperationForWorkspace(

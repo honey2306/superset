@@ -1,18 +1,17 @@
-import type {
-	SelectAutomation,
-	SelectAutomationRun,
-} from "@superset/db/schema";
 import { alert } from "@superset/ui/atoms/Alert";
 import { toast } from "@superset/ui/sonner";
-import { eq } from "@tanstack/db";
-import { useLiveQuery } from "@tanstack/react-db";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { apiTrpcClient } from "renderer/lib/api-trpc-client";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
-import { HostOfflineRunDialog } from "../components/HostOfflineRunDialog";
-import { isHostOfflineError } from "../utils/hostOfflineError";
+import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import {
+	type LocalAutomation,
+	type LocalAutomationRun,
+	localAutomationKeys,
+} from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
+import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { getAutomationRunDestination } from "../utils/getAutomationRunDestination";
 import { AutomationBody } from "./components/AutomationBody";
 import { AutomationDetailHeader } from "./components/AutomationDetailHeader";
 import { AutomationDetailSidebar } from "./components/AutomationDetailSidebar";
@@ -39,59 +38,123 @@ function AutomationDetailPage() {
 	const { automationId } = Route.useParams();
 	const { history } = Route.useSearch();
 	const navigate = useNavigate();
-	const collections = useCollections();
+	const hostUrl = useHostUrl(null);
+	const queryClient = useQueryClient();
 	const [historyOpen, setHistoryOpen] = useState(history ?? false);
-	const [hostOfflineOpen, setHostOfflineOpen] = useState(false);
 
-	const { data: automationRows, isReady: automationReady } = useLiveQuery(
-		(q) =>
-			q
-				.from({ a: collections.automations })
-				.where(({ a }) => eq(a.id, automationId))
-				.select(({ a }) => ({ ...a })),
-		[collections.automations, automationId],
-	);
-	const automation = automationRows?.[0] as SelectAutomation | undefined;
-
-	const { data: runRows = [] } = useLiveQuery(
-		(q) =>
-			q
-				.from({ r: collections.automationRuns })
-				.where(({ r }) => eq(r.automationId, automationId))
-				.orderBy(({ r }) => r.createdAt, "desc")
-				.limit(RECENT_RUNS_LIMIT)
-				.select(({ r }) => ({ ...r })),
-		[collections.automationRuns, automationId],
-	);
-	const recentRuns = runRows as SelectAutomationRun[];
+	const { data: automation, isPending: automationLoading } = useQuery({
+		queryKey: localAutomationKeys.automation(hostUrl, automationId),
+		enabled: !!hostUrl,
+		queryFn: () => {
+			if (!hostUrl) return undefined as LocalAutomation | undefined;
+			return getHostServiceClientByUrl(hostUrl).automations.get.query({
+				id: automationId,
+			});
+		},
+	});
+	const { data: recentRuns = [] } = useQuery({
+		queryKey: localAutomationKeys.runs(hostUrl, automationId),
+		enabled: !!hostUrl,
+		queryFn: () => {
+			if (!hostUrl) return [] as LocalAutomationRun[];
+			return getHostServiceClientByUrl(hostUrl).automations.listRuns.query({
+				automationId,
+				limit: RECENT_RUNS_LIMIT,
+			});
+		},
+		refetchInterval: 5_000,
+	});
+	const invalidateAutomation = () => {
+		queryClient.invalidateQueries({
+			queryKey: localAutomationKeys.automation(hostUrl, automationId),
+		});
+		queryClient.invalidateQueries({
+			queryKey: localAutomationKeys.automations(hostUrl),
+		});
+		queryClient.invalidateQueries({
+			queryKey: localAutomationKeys.runs(hostUrl, automationId),
+		});
+	};
+	const openRun = (run: LocalAutomationRun) => {
+		const destination = getAutomationRunDestination(run);
+		if ("reason" in destination) {
+			toast.error(destination.reason);
+			return;
+		}
+		void navigateToWorkspace(destination.workspaceId, navigate, {
+			search: {
+				terminalId: destination.terminalId,
+				focusRequestId: crypto.randomUUID(),
+			},
+		});
+	};
 
 	const setEnabledMutation = useMutation({
 		mutationFn: (enabled: boolean) =>
-			apiTrpcClient.automation.setEnabled.mutate({ id: automationId, enabled }),
+			(() => {
+				if (!hostUrl) throw new Error("Local host service is unavailable");
+				return getHostServiceClientByUrl(hostUrl).automations.setEnabled.mutate(
+					{ id: automationId, enabled },
+				);
+			})(),
+		onSuccess: invalidateAutomation,
 	});
 
 	const runNowMutation = useMutation({
 		mutationFn: () =>
-			apiTrpcClient.automation.runNow.mutate({ id: automationId }),
-		onSuccess: () => toast.success("Running now"),
-		onError: (error) => {
-			const message = error instanceof Error ? error.message : null;
-			if (isHostOfflineError(message)) {
-				setHostOfflineOpen(true);
+			(() => {
+				if (!hostUrl) throw new Error("Local host service is unavailable");
+				return getHostServiceClientByUrl(hostUrl).automations.runNow.mutate({
+					id: automationId,
+				});
+			})(),
+		onMutate: () => {
+			const toastId = `automation-run-now-${automationId}`;
+			toast.loading("Starting automation...", { id: toastId });
+			return { toastId };
+		},
+		onSuccess: (result, _variables, context) => {
+			invalidateAutomation();
+			toast.dismiss(context?.toastId);
+			const destination = getAutomationRunDestination({
+				v2WorkspaceId: result.workspaceId,
+				sessionKind: result.sessionKind,
+				terminalSessionId:
+					result.sessionKind === "terminal" ? result.sessionId : null,
+			});
+			if ("reason" in destination) {
+				toast.success("Running now");
+				toast.message(destination.reason);
 				return;
 			}
-			toast.error(message ?? "Failed to trigger run");
+			void navigateToWorkspace(destination.workspaceId, navigate, {
+				search: {
+					terminalId: destination.terminalId,
+					focusRequestId: crypto.randomUUID(),
+				},
+			});
+		},
+		onError: (error, _variables, context) => {
+			toast.dismiss(context?.toastId);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to trigger run",
+			);
 		},
 	});
 
 	const deleteMutation = useMutation({
 		mutationFn: () =>
-			apiTrpcClient.automation.delete.mutate({ id: automationId }),
+			(() => {
+				if (!hostUrl) throw new Error("Local host service is unavailable");
+				return getHostServiceClientByUrl(hostUrl).automations.delete.mutate({
+					id: automationId,
+				});
+			})(),
 		onSuccess: () => navigate({ to: "/automations" }),
 	});
 
 	if (!automation) {
-		if (!automationReady) return null;
+		if (automationLoading) return null;
 		return (
 			<div className="flex h-full w-full items-center justify-center text-sm text-fg-mute select-text cursor-text">
 				Automation not found.
@@ -143,12 +206,7 @@ function AutomationDetailPage() {
 			<AutomationDetailSidebar
 				automation={automation}
 				recentRuns={recentRuns}
-			/>
-
-			<HostOfflineRunDialog
-				hostId={automation.targetHostId}
-				open={hostOfflineOpen}
-				onOpenChange={setHostOfflineOpen}
+				onOpenRun={openRun}
 			/>
 
 			<VersionHistorySheet

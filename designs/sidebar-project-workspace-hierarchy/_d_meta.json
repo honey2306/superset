@@ -1,0 +1,91 @@
+{
+  "type": "design",
+  "designSystems": [
+    {
+      "name": "Superset Design System",
+      "slug": "superset-design-system",
+      "namespace": "SupersetDesignSystem_91a6da",
+      "dsFolder": "_ds/superset-design-system",
+      "sourcePath": "designs/superset-design-system"
+    }
+  ],
+  "primaryDesignSystem": "superset-design-system",
+  "createdAt": "2026-08-10T07:47:02.243Z",
+  "updatedAt": "2026-08-10T09:56:52.959Z",
+  "assets": {
+    "Sidebar Hierarchy Explorations": {
+      "versions": [
+        {
+          "path": "Sidebar Hierarchy Explorations.html",
+          "createdAt": "2026-08-10T07:54:05.715Z",
+          "status": "changes-requested",
+          "subtitle": "三版项目 / workspace 层级探索 · v1",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "path": "Sidebar Hierarchy Explorations v2.html",
+          "createdAt": "2026-08-10T08:08:10.937Z",
+          "status": "changes-requested",
+          "subtitle": "三版层级探索 · v2",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "path": "Sidebar Quiet List v3.html",
+          "createdAt": "2026-08-10T08:17:18.056Z",
+          "status": "needs-review",
+          "subtitle": "A 方向正式精修 · Quiet List v3",
+          "viewport": {
+            "width": 1000,
+            "height": 850
+          }
+        },
+        {
+          "path": "Sidebar Full App v4.html",
+          "createdAt": "2026-08-10T08:30:49.478Z",
+          "status": "needs-review",
+          "subtitle": "A 方向完整应用视图 · v4",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "path": "Sidebar Branch Actions v5.html",
+          "createdAt": "2026-08-10T09:02:07.291Z",
+          "status": "needs-review",
+          "subtitle": "workspace 分支操作重构 · v5",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "path": "Sidebar Branch Picker v6.html",
+          "createdAt": "2026-08-10T09:12:40.446Z",
+          "status": "needs-review",
+          "subtitle": "原地搜索式 branch picker · v6",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "path": "Sidebar KDev MR v7.html",
+          "createdAt": "2026-08-10T09:35:01.415Z",
+          "status": "approved",
+          "subtitle": "branch picker 延续 · KDev create_MR 外跳 · v7",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        }
+      ]
+    }
+  }
+}

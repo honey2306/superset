@@ -16,6 +16,7 @@ import { LuCpu, LuGitBranch, LuHistory } from "react-icons/lu";
 import { usePresetIcon } from "renderer/assets/app-icons/preset-icons";
 import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
 import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
+import { useLocalAutomations } from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
 import {
 	StatusIcon,
 	type StatusType,
@@ -266,16 +267,15 @@ export function HistoryDropdown() {
 		});
 	}, [hostWorkspaces, v2ProjectData]);
 
-	const { data: automationData } = useLiveQuery(
-		(q) =>
-			q
-				.from({ automations: collections.automations })
-				.select(({ automations }) => ({
-					id: automations.id,
-					name: automations.name,
-					agentId: automations.agent,
-				})),
-		[collections],
+	const { data: localAutomations = [] } = useLocalAutomations();
+	const automationData = useMemo(
+		() =>
+			localAutomations.map((automation) => ({
+				id: automation.id,
+				name: automation.name,
+				agentId: automation.agent,
+			})),
+		[localAutomations],
 	);
 
 	const { data: taskData } = useLiveQuery(

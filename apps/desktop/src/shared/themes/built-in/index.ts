@@ -1,5 +1,6 @@
 import type { Theme } from "../types";
 import { draculaTheme } from "./dracula";
+import { draculaColorfulTheme } from "./dracula-colorful";
 import { darkTheme } from "./ember";
 import { lightTheme } from "./light";
 import { monokaiTheme } from "./monokai";
@@ -8,6 +9,7 @@ import { zedOneDark } from "./zed-one-dark";
  * All built-in themes
  */
 export const builtInThemes: Theme[] = [
+	draculaColorfulTheme,
 	draculaTheme,
 	zedOneDark,
 	darkTheme,
@@ -28,4 +30,11 @@ export function getBuiltInTheme(id: string): Theme | undefined {
 }
 
 // Re-export individual themes
-export { darkTheme, draculaTheme, lightTheme, monokaiTheme, zedOneDark };
+export {
+	darkTheme,
+	draculaColorfulTheme,
+	draculaTheme,
+	lightTheme,
+	monokaiTheme,
+	zedOneDark,
+};

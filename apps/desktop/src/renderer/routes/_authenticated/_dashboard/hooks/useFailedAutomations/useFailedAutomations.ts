@@ -1,18 +1,18 @@
-import type { SelectAutomationRun } from "@superset/db/schema";
-import { useLiveQuery } from "@tanstack/react-db";
 import { useCallback, useMemo } from "react";
-import { authClient } from "renderer/lib/auth-client";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useAutomationFailuresStore } from "renderer/stores/automation-failures";
+import {
+	type LocalAutomationRun,
+	useLocalAutomations,
+} from "../useLocalAutomationData";
 
-const FAILED_STATUSES: SelectAutomationRun["status"][] = [
+const FAILED_STATUSES: LocalAutomationRun["status"][] = [
 	"skipped_offline",
 	"dispatch_failed",
 ];
 
 interface FailedAutomations {
 	/** Most recent run status per automation (absent = no runs yet). */
-	lastRunStatusById: Map<string, SelectAutomationRun["status"]>;
+	lastRunStatusById: Map<string, LocalAutomationRun["status"]>;
 	/** Automations whose most recent run failed. */
 	failedIds: Set<string>;
 	/** How many of the current user's failures the user hasn't seen yet. */
@@ -22,9 +22,6 @@ interface FailedAutomations {
 }
 
 export function useFailedAutomations(): FailedAutomations {
-	const collections = useCollections();
-	const { data: session } = authClient.useSession();
-	const currentUserId = session?.user?.id;
 	const lastSeenFailureAt = useAutomationFailuresStore(
 		(s) => s.lastSeenFailureAt,
 	);
@@ -32,58 +29,23 @@ export function useFailedAutomations(): FailedAutomations {
 		(s) => s.markFailuresSeen,
 	);
 
-	const { data: runRows = [] } = useLiveQuery(
-		(q) =>
-			q.from({ r: collections.automationRuns }).select(({ r }) => ({
-				automationId: r.automationId,
-				status: r.status,
-				createdAt: r.createdAt,
-			})),
-		[collections.automationRuns],
-	);
-	const { data: automationRows = [] } = useLiveQuery(
-		(q) =>
-			q.from({ a: collections.automations }).select(({ a }) => ({
-				id: a.id,
-				ownerUserId: a.ownerUserId,
-			})),
-		[collections.automations],
-	);
+	const { data: automationRows = [] } = useLocalAutomations();
 
 	const { lastRunStatusById, failedIds, myFailureTimes } = useMemo(() => {
-		const latest = new Map<
-			string,
-			{ status: SelectAutomationRun["status"]; at: number }
-		>();
-		for (const run of runRows) {
-			if (run == null) continue;
-			const at = new Date(run.createdAt as unknown as string).getTime();
-			const prev = latest.get(run.automationId);
-			if (!prev || at > prev.at) {
-				latest.set(run.automationId, { status: run.status, at });
-			}
-		}
-		const lastRunStatusById = new Map<string, SelectAutomationRun["status"]>();
+		const lastRunStatusById = new Map<string, LocalAutomationRun["status"]>();
 		const failedIds = new Set<string>();
-		for (const [id, run] of latest) {
-			lastRunStatusById.set(id, run.status);
-			if (FAILED_STATUSES.includes(run.status)) failedIds.add(id);
+		const myFailureTimes: number[] = [];
+		for (const automation of automationRows) {
+			const run = automation.lastRun;
+			if (!run) continue;
+			lastRunStatusById.set(automation.id, run.status);
+			if (!FAILED_STATUSES.includes(run.status)) continue;
+			failedIds.add(automation.id);
+			const at = new Date(run.createdAt).getTime();
+			if (Number.isFinite(at)) myFailureTimes.push(at);
 		}
-		// createdAt of each of the current user's failing runs. Drop non-finite
-		// times (unparseable createdAt) so one bad run can't poison the max below.
-		const myFailureTimes = currentUserId
-			? automationRows
-					.filter(
-						(a) =>
-							a != null &&
-							a.ownerUserId === currentUserId &&
-							failedIds.has(a.id),
-					)
-					.map((a) => latest.get(a.id)?.at ?? 0)
-					.filter((at) => Number.isFinite(at))
-			: [];
 		return { lastRunStatusById, failedIds, myFailureTimes };
-	}, [runRows, automationRows, currentUserId]);
+	}, [automationRows]);
 
 	const myFailedCount = useMemo(
 		() => myFailureTimes.filter((at) => at > lastSeenFailureAt).length,

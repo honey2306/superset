@@ -222,6 +222,44 @@ builds never set it and there is no user-facing setting.
 - `list` returns `{ items: [], nextCursor: null, enabled: false }`, which is the
   mobile capability probe.
 
+## Browser Use MCP
+
+The ACP daemon discovers the local Browser Use CLI once at startup and passes
+the same stdio MCP declaration to both `session/new` and `session/load`. This
+keeps the browser tool surface consistent across fresh and resumed sessions.
+Claude and Pi consume the ACP declaration directly; the bundled Codex bridge
+translates it to app-server's per-thread `config.mcp_servers` shape.
+
+By default, Browser Use is enabled only when an executable `browser-use` is
+already present on `PATH`; startup never downloads it implicitly. Set
+`SUPERSET_BROWSER_USE_MCP=0` to disable it, `=1` to allow `uvx` as a fallback,
+or `=uvx` to force `uvx browser-use@latest --cli-mcp`. Browser Use currently
+exposes `browser_exec` and `browser_screenshot` through this MCP server and
+connects to the user's local Chrome/CDP session unless configured otherwise.
+
+Superset also injects a bundled, session-scoped MCP server for conversation
+handoff and multi-agent coordination. Its contract and security boundaries are
+documented in [superset-acp-tools.md](./superset-acp-tools.md).
+
+## ACP CLI updates
+
+The detached ACP daemon schedules the native self-updaters for the external
+Claude Code (`claude update`), Codex (`codex update`), Pi (`pi update self`), and
+MyFlicker (`mfcli update`) CLIs for 02:00 local time every day. One failed or
+unavailable CLI does not prevent the others from updating. Claude Code and
+MyFlicker use the same resolved executables as ACP session launches, so
+version-manager and Homebrew/NVM paths remain consistent. When an external
+Claude Code executable is unavailable, `claude-agent-acp` falls back to the
+Claude binary bundled with its SDK. The timer is unreferenced and is disposed
+with the daemon; if the computer sleeps through 02:00, Node runs the overdue
+timer after wake. Existing sessions
+keep running their already-loaded version, while new sessions use the update.
+
+Bundled bridges (`claude-agent-acp`, `pi-acp`, and the Codex adapter) remain
+pinned build artifacts and are updated through a Superset Desktop release
+rather than mutating packaged application files at runtime. The nightly task
+updates the external agent CLI behind a bridge, not the packaged bridge itself.
+
 ## Test Coverage
 
 ### Authenticated real-Claude lane: primary evidence

@@ -1,0 +1,1 @@
+export { supportsWorkspaceChanges } from "./supportsWorkspaceChanges";

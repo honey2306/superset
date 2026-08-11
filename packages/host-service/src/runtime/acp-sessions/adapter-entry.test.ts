@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { resolveBundledAcpEntry } from "./acp-sessions";
+import { resolveAdapterProcess, resolveBundledAcpEntry } from "./acp-sessions";
 
 const tempDirectories: string[] = [];
 
@@ -42,5 +42,17 @@ describe("resolveBundledAcpEntry", () => {
 				pathToFileURL(path.join(root, "acp-daemon.js")).href,
 			),
 		).toBe(bridge);
+	});
+});
+
+test("starts mfcli ACP in its documented full-access approval mode", () => {
+	expect(
+		resolveAdapterProcess("myflicker-acp", {
+			myflickerAdapterCommand: "/opt/tools/mfcli",
+		}),
+	).toEqual({
+		command: "/opt/tools/mfcli",
+		args: ["--approval-mode", "yolo", "acp"],
+		usesElectronNode: false,
 	});
 });

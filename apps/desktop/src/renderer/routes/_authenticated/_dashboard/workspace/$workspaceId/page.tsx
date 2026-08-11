@@ -10,8 +10,11 @@ import type { WorkspaceSearchParams } from "renderer/routes/_authenticated/_dash
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { usePresetHotkeys } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/usePresetHotkeys";
 import { useWorkspaceRunCommand } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/useWorkspaceRunCommand";
+import { supportsWorkspaceChanges } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/utils/supportsWorkspaceChanges";
+import { WorkspaceLoadingState } from "renderer/routes/_authenticated/_dashboard/workspace/components/WorkspaceLoadingState";
 import type { WorkspaceProjection } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
 import {
+	useCatalogProject,
 	useCatalogWorkspace,
 	useCatalogWorkspaceNeighbours,
 } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
@@ -89,11 +92,7 @@ function WorkspacePage() {
 	const { workspace, isReady } = useCatalogWorkspace(workspaceId);
 
 	if (!isReady) {
-		return (
-			<div className="flex h-full items-center justify-center text-sm text-fg-mute">
-				Loading workspace…
-			</div>
-		);
+		return <WorkspaceLoadingState />;
 	}
 
 	if (!workspace) return <NotFound />;
@@ -120,6 +119,11 @@ function WorkspacePageContent({
 		workspaceId,
 		worktreePath: workspace?.worktreePath,
 		enabled: Boolean(workspace?.worktreePath),
+	});
+	const { project } = useCatalogProject(workspace.projectId);
+	const supportsChanges = supportsWorkspaceChanges({
+		worktreePath: workspace.worktreePath,
+		project,
 	});
 	const navigate = useNavigate();
 	const routeNavigate = Route.useNavigate();
@@ -396,6 +400,7 @@ function WorkspacePageContent({
 
 	// Open diff viewer (⌘⇧L)
 	useHotkey("OPEN_DIFF_VIEWER", () => {
+		if (!supportsChanges) return;
 		if (!isSidebarOpen) {
 			setSidebarOpen(true);
 			setSidebarMode(SidebarMode.Changes);
@@ -544,6 +549,7 @@ function WorkspacePageContent({
 					/>
 				) : (
 					<WorkspaceLayout
+						supportsChanges={supportsChanges}
 						defaultExternalApp={resolvedDefaultApp}
 						onOpenInApp={handleOpenInApp}
 						onOpenQuickOpen={handleQuickOpen}

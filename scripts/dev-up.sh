@@ -2,7 +2,8 @@
 # One-shot local dev launcher. Brings up the per-workspace docker stack
 # (postgres + neon-proxy + electric + redis + SRH), waits until neon-proxy
 # and SRH are actually serving (health != HTTP shim ready — see
-# .superset/setup.local.sh), then execs `bun run dev`.
+# .superset/setup.local.sh), starts the per-workspace Electric HTTP/2 proxy,
+# then runs `bun run dev`.
 #
 # Ctrl+C stops `bun run dev` only; containers stay up so the next launch is
 # instant. Use `bun run start:stop` to stop containers (data volume preserved)
@@ -42,9 +43,11 @@ get_env() {
 WORKSPACE_NAME="$(get_env SUPERSET_WORKSPACE_NAME)"
 LOCAL_NEON_PROXY_PORT="$(get_env LOCAL_NEON_PROXY_PORT)"
 LOCAL_SRH_PORT="$(get_env LOCAL_SRH_PORT)"
+CADDY_ELECTRIC_PORT="$(get_env CADDY_ELECTRIC_PORT)"
+API_PORT="$(get_env API_PORT)"
 
-if [ -z "$WORKSPACE_NAME" ] || [ -z "$LOCAL_NEON_PROXY_PORT" ] || [ -z "$LOCAL_SRH_PORT" ]; then
-  err "Missing SUPERSET_WORKSPACE_NAME / LOCAL_NEON_PROXY_PORT / LOCAL_SRH_PORT in .env."
+if [ -z "$WORKSPACE_NAME" ] || [ -z "$LOCAL_NEON_PROXY_PORT" ] || [ -z "$LOCAL_SRH_PORT" ] || [ -z "$CADDY_ELECTRIC_PORT" ] || [ -z "$API_PORT" ]; then
+  err "Missing local workspace ports in .env."
   err "Run ./.superset/setup.local.sh first."
   exit 1
 fi
@@ -61,6 +64,7 @@ PROJECT="superset-$(sanitize_name "$WORKSPACE_NAME")"
 command -v docker >/dev/null || { err "docker not found"; exit 1; }
 docker info >/dev/null 2>&1 || { err "docker daemon not running"; exit 1; }
 command -v bun    >/dev/null || { err "bun not found";    exit 1; }
+command -v caddy  >/dev/null || { err "caddy not found";  exit 1; }
 
 # Support --stop as a subcommand so package.json can reuse this script.
 if [ "${1:-}" = "--stop" ]; then
@@ -117,9 +121,36 @@ if [ "$srh_ready" -ne 1 ]; then
 fi
 ok "serverless-redis-http ready"
 
-# --- Hand off to `bun run dev` ----------------------------------------------
-# exec so Ctrl+C goes straight to turbo/dev processes.
+# --- Start the authenticated Electric HTTP/2 proxy ---------------------------
+echo "  Starting Electric HTTP/2 proxy :$CADDY_ELECTRIC_PORT..."
+CADDY_ELECTRIC_PORT="$CADDY_ELECTRIC_PORT" API_PORT="$API_PORT" \
+  caddy run --config "$ROOT_DIR/Caddyfile" --adapter caddyfile >"/tmp/superset-caddy-$CADDY_ELECTRIC_PORT.log" 2>&1 &
+CADDY_PID=$!
+
+cleanup() {
+  kill "$CADDY_PID" 2>/dev/null || true
+  if [ -n "${DEV_PID:-}" ]; then kill "$DEV_PID" 2>/dev/null || true; fi
+}
+trap cleanup EXIT INT TERM
+
+proxy_ready=0
+for _ in $(seq 1 30); do
+  if curl -ks --max-time 2 "https://localhost:$CADDY_ELECTRIC_PORT/" >/dev/null; then
+    proxy_ready=1
+    break
+  fi
+  sleep 0.2
+done
+if [ "$proxy_ready" -ne 1 ]; then
+  err "Electric HTTP/2 proxy did not start. See /tmp/superset-caddy-$CADDY_ELECTRIC_PORT.log"
+  exit 1
+fi
+ok "Electric HTTP/2 proxy ready"
+
+# --- Run `bun run dev` -------------------------------------------------------
 echo ""
 ok "Stack up. Handing off to \`bun run dev\`..."
 echo ""
-exec bun run dev
+bun run dev &
+DEV_PID=$!
+wait "$DEV_PID"

@@ -91,7 +91,49 @@ describe("useWorkspaceLaunchStore", () => {
 			useWorkspaceLaunchStore.getState(),
 			request.idempotencyKey,
 		);
-		expect(pending?.id).toBe(op.id);
+		expect(pending).toBeNull();
+	});
+
+	test("selects only non-terminal operations as pending", () => {
+		const operation = (
+			state: WorkspaceOperation["state"],
+		): WorkspaceOperation => ({
+			id: state,
+			revision: 1,
+			state,
+			launches: [],
+			warnings: [],
+			createdAt: 0,
+			updatedAt: 0,
+		});
+		const state = {
+			operations: {
+				queued: operation("queued"),
+				running: operation("running"),
+				compensating: operation("compensating"),
+				succeeded: operation("succeeded"),
+				failed: operation("failed"),
+				cancelled: operation("cancelled"),
+			},
+			pendingByKey: {
+				queued: "queued",
+				running: "running",
+				compensating: "compensating",
+				succeeded: "succeeded",
+				failed: "failed",
+				cancelled: "cancelled",
+			},
+			requestsByOperation: {},
+		};
+
+		expect(selectPendingOperation(state, "queued")?.state).toBe("queued");
+		expect(selectPendingOperation(state, "running")?.state).toBe("running");
+		expect(selectPendingOperation(state, "compensating")?.state).toBe(
+			"compensating",
+		);
+		expect(selectPendingOperation(state, "succeeded")).toBeNull();
+		expect(selectPendingOperation(state, "failed")).toBeNull();
+		expect(selectPendingOperation(state, "cancelled")).toBeNull();
 	});
 
 	test("selects the newest operation for a committed workspace", () => {

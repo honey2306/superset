@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sidebar Quiet List v3</title>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/colors.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/typography.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/spacing.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/radius.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/shadow.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/motion.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/z-index.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/opacity.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/border-width.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/focus.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/reset.css">
+    <link rel="stylesheet" href="_ds/superset-design-system/styles.css">
+    <style>
+      body { min-width: 300px; background: var(--page-bg); }
+      button { -webkit-tap-highlight-color: transparent; }
+      .v3-page { min-height: 100vh; display: grid; place-items: center; padding: clamp(var(--s-6), 4vw, var(--s-24)); color: var(--fg); background: var(--page-bg); }
+      .v3-canvas { width: min(100%, 760px); display: grid; grid-template-columns: 336px minmax(0, 1fr); gap: var(--s-16); align-items: center; padding: clamp(var(--s-6), 3vw, var(--s-16)); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-8); background: var(--surface-sunk); box-shadow: var(--shadow-2); }
+      .v3-frame { width: 336px; max-width: 100%; overflow: hidden; border: var(--bw-hairline) solid var(--line-strong); border-radius: var(--r-7); background: var(--surface); box-shadow: var(--shadow-2); }
+      .v3-sidebar { height: min(700px, calc(100vh - 96px)); min-height: 560px; display: flex; flex-direction: column; background: var(--surface); }
+      .v3-topbar { height: 42px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--s-4) 0 var(--s-5); border-bottom: var(--bw-hairline) solid var(--line); background: var(--surface); }
+      .v3-topbar-title { font-size: var(--fs-12); font-weight: var(--fw-semibold); letter-spacing: -.01em; }
+      .v3-top-actions { display: flex; gap: 2px; }
+      .v3-icon-button, .v3-project-action { display: inline-grid; place-items: center; border-radius: var(--r-pill); color: var(--fg-faint); transition: background var(--dur-quick) var(--ease-standard), color var(--dur-quick) var(--ease-standard); }
+      .v3-icon-button { width: 24px; height: 24px; }
+      .v3-icon-button:hover, .v3-project-action:hover { color: var(--fg); background: var(--hover); }
+      .v3-icon-button:focus-visible, .v3-project-action:focus-visible, .v3-project-title:focus-visible, .v3-workspace:focus-visible, .v3-footer-action:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+      .v3-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--s-4) var(--s-8) var(--s-5); }
+      .v3-project-group { margin-top: var(--s-8); }
+      .v3-project-group:first-child { margin-top: 0; }
+      .v3-project-header { height: 32px; display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-1); }
+      .v3-project-title { min-width: 0; flex: 1 1 auto; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); font: var(--fw-semibold) var(--fs-13) var(--font-ui); letter-spacing: -.01em; }
+      .v3-project-count { flex: 0 0 auto; color: var(--fg-faint); font: var(--fs-10) var(--font-mono); }
+      .v3-project-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 1px; margin-left: var(--s-1); }
+      .v3-project-action { width: 22px; height: 24px; }
+      .v3-project-action.is-collapsed > svg { transform: rotate(-90deg); }
+      .v3-project-action svg { transition: transform var(--dur-quick) var(--ease-standard); }
+      .v3-workspace-list { margin: 0 0 0 var(--s-4); }
+      .v3-workspace { position: relative; width: 100%; min-width: 0; min-height: 40px; display: block; overflow: hidden; padding: 5px var(--s-3); border-radius: var(--r-3); text-align: left; color: var(--fg-mute); transition: background var(--dur-quick) var(--ease-standard), color var(--dur-quick) var(--ease-standard); }
+      .v3-workspace + .v3-workspace { margin-top: 2px; }
+      .v3-workspace:hover { color: var(--fg); background: var(--hover); }
+      .v3-workspace.is-active { color: var(--fg); background: var(--accent-tint); box-shadow: inset 2px 0 0 var(--accent); }
+      .v3-workspace-title, .v3-workspace-branch { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .v3-workspace-title { font-size: var(--fs-13); font-weight: var(--fw-medium); line-height: 15px; letter-spacing: -.005em; }
+      .v3-workspace-branch { margin-top: 1px; color: var(--fg-faint); font: var(--fs-10) var(--font-mono); line-height: 13px; }
+      .v3-workspace.is-active .v3-workspace-branch { color: var(--accent-2); }
+      .v3-footer { height: 44px; flex: 0 0 auto; display: flex; align-items: center; padding: 0 var(--s-3); border-top: var(--bw-hairline) solid var(--line); }
+      .v3-footer-action { width: 100%; height: 28px; display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-2); border-radius: var(--r-3); color: var(--fg-mute); font-size: var(--fs-11); font-weight: var(--fw-medium); text-align: left; transition: background var(--dur-quick) var(--ease-standard), color var(--dur-quick) var(--ease-standard); }
+      .v3-footer-action:hover { color: var(--fg); background: var(--hover); }
+      .v3-notes { min-width: 0; align-self: center; }
+      .v3-kicker { margin: 0 0 var(--s-3); color: var(--fg-faint); font: var(--fs-10) var(--font-mono); letter-spacing: var(--ls-caps); text-transform: uppercase; }
+      .v3-heading { margin: 0; font-size: var(--fs-16); line-height: var(--lh-tight); font-weight: var(--fw-semibold); letter-spacing: var(--ls-title); }
+      .v3-rationale { max-width: 230px; margin: var(--s-2) 0 var(--s-6); color: var(--fg-mute); font-size: var(--fs-11); line-height: var(--lh-body); }
+      .v3-principles { display: grid; gap: var(--s-3); margin: 0; padding: 0; list-style: none; }
+      .v3-principle { padding-left: var(--s-3); border-left: 2px solid var(--line-strong); color: var(--fg-mute); font-size: var(--fs-10); line-height: var(--lh-snug); }
+      .v3-principle strong { display: block; margin-bottom: 1px; color: var(--fg); font-size: var(--fs-11); font-weight: var(--fw-semibold); }
+      .v3-toast-rail { position: fixed; right: var(--s-8); bottom: var(--s-8); z-index: var(--z-toast); }
+      @media (max-width: 620px) { .v3-page { place-items: start center; } .v3-canvas { width: min(100%, 380px); grid-template-columns: minmax(0, 1fr); gap: var(--s-8); padding: var(--s-5); } .v3-frame { width: 100%; } .v3-sidebar { height: min(700px, calc(100vh - 72px)); } .v3-notes { padding: 0 var(--s-2); } .v3-rationale { margin-bottom: var(--s-4); } .v3-principles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); } .v3-principle { font-size: var(--fs-9); } }
+      @media (max-width: 390px) { .v3-page { padding: var(--s-3); } .v3-canvas { padding: var(--s-3); border: 0; background: transparent; box-shadow: none; } .v3-frame { border-radius: var(--r-5); } .v3-principles { display: none; } }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0ms !important; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.quietListV3CreateRoot = ReactDOM.createRoot;
+      ReactDOM.createRoot = function () { return { render: function () {} }; };
+    </script>
+    <script src="_ds/superset-design-system/_ds_bundle.js"></script>
+    <script>ReactDOM.createRoot = window.quietListV3CreateRoot;</script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+    <script type="text/babel" src="data.jsx"></script>
+    <script type="text/babel" src="quiet-list-v3.jsx"></script>
+    <script type="text/babel" src="app-v3.jsx"></script>
+  </body>
+</html>
