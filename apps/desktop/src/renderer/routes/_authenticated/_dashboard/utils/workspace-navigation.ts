@@ -15,6 +15,7 @@ export interface WorkspaceSearchParams {
 	tabId?: string;
 	paneId?: string;
 	terminalId?: string;
+	acpSessionId?: string;
 	focusRequestId?: string;
 	openUrl?: string;
 	openUrlTarget?: "current-tab" | "new-tab";

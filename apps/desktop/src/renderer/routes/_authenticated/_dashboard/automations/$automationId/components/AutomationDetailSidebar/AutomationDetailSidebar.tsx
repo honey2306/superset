@@ -200,6 +200,7 @@ export function AutomationDetailSidebar({
 							<AgentPicker
 								className="-mr-4"
 								hostId={hostId}
+								projectId={automation.v2ProjectId}
 								value={automation.agent}
 								onChange={(id) => {
 									// The picker is scoped to `hostId`; if the automation

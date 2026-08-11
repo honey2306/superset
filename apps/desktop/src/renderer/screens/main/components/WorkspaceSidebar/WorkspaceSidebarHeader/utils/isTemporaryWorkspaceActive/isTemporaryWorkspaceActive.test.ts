@@ -3,18 +3,48 @@ import { isTemporaryWorkspaceActive } from "./isTemporaryWorkspaceActive";
 
 describe("isTemporaryWorkspaceActive", () => {
 	test("does not activate outside a workspace route while catalog data is unresolved", () => {
-		expect(isTemporaryWorkspaceActive(undefined, undefined)).toBe(false);
-		expect(isTemporaryWorkspaceActive(undefined, "temporary-workspace")).toBe(
-			false,
-		);
+		expect(isTemporaryWorkspaceActive(undefined, [], [])).toBe(false);
 	});
 
-	test("activates only for the resolved temporary workspace route", () => {
+	test("activates for any workspace belonging to a temporary project", () => {
 		expect(
-			isTemporaryWorkspaceActive("temporary-workspace", "temporary-workspace"),
+			isTemporaryWorkspaceActive(
+				"temporary-workspace",
+				[{ id: "temporary-workspace", projectId: "temporary-project" }],
+				[
+					{
+						id: "temporary-project",
+						kind: "temporary",
+						repoPath: "/tmp/Superset/temporary",
+					},
+				],
+			),
 		).toBe(true);
 		expect(
-			isTemporaryWorkspaceActive("repository-workspace", "temporary-workspace"),
+			isTemporaryWorkspaceActive(
+				"branch-workspace",
+				[{ id: "branch-workspace", projectId: "temporary-project" }],
+				[
+					{
+						id: "temporary-project",
+						kind: "repository",
+						repoPath: "/tmp/Superset/temporary",
+					},
+				],
+			),
+		).toBe(true);
+		expect(
+			isTemporaryWorkspaceActive(
+				"repository-workspace",
+				[{ id: "repository-workspace", projectId: "repository-project" }],
+				[
+					{
+						id: "repository-project",
+						kind: "repository",
+						repoPath: "/tmp/repository",
+					},
+				],
+			),
 		).toBe(false);
 	});
 });

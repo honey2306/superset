@@ -24,6 +24,7 @@ import { createTerminalSessionInternal } from "../../../terminal/terminal";
 import type { HostServiceContext } from "../../../types";
 import { protectedProcedure, router } from "../../index";
 import { resolveAttachmentPath } from "../attachments/storage";
+import { useAcpForAgentPresets } from "../settings/acp-preset-launch";
 
 interface ResolvedHostAgentConfig {
 	id: string;
@@ -211,6 +212,8 @@ export interface AgentRunInput {
 	effort?: string;
 	/** Internal-only capability for unattended trusted dispatches. */
 	permissionMode?: AgentPermissionMode;
+	/** Internal-only: local automations/todos follow the desktop ACP setting. */
+	respectPresetLaunchMode?: true;
 }
 
 export function buildChatAgentMetadata(
@@ -225,10 +228,32 @@ export function buildChatAgentMetadata(
 
 export type AgentRunResult =
 	| { kind: "terminal"; sessionId: string; label: string }
+	| { kind: "acp"; sessionId: string; label: string }
 	| { kind: "chat"; sessionId: string; label: string };
 
 const SUPERSET_AGENT_ID = "superset";
 const SUPERSET_AGENT_LABEL = "Superset";
+
+const ACP_HARNESS_BY_PRESET_ID = {
+	claude: "claude-agent-acp",
+	codex: "codex-app-server",
+	pi: "pi-acp",
+	myflicker: "myflicker-acp",
+} as const;
+
+export function getAcpHarnessForPreset(presetId: string) {
+	return ACP_HARNESS_BY_PRESET_ID[
+		presetId as keyof typeof ACP_HARNESS_BY_PRESET_ID
+	];
+}
+
+/** Pure dispatch seam: unsupported configs always retain terminal behavior. */
+export function shouldRunAgentWithAcp(
+	enabled: boolean,
+	presetId: string,
+): boolean {
+	return enabled && getAcpHarnessForPreset(presetId) !== undefined;
+}
 
 async function resolveAttachmentsAsFiles(
 	attachmentIds: string[],
@@ -370,6 +395,32 @@ async function runTerminalAgent(
 	};
 }
 
+async function runAcpAgent(
+	ctx: HostServiceContext,
+	input: AgentRunInput,
+	config: ResolvedHostAgentConfig,
+): Promise<AgentRunResult> {
+	const harness = getAcpHarnessForPreset(config.presetId);
+	if (!harness) return runTerminalAgent(ctx, input);
+	if (!ctx.runtime.acpSessionsEnabled) {
+		throw new TRPCError({
+			code: "PRECONDITION_FAILED",
+			message: "ACP sessions are disabled on this host.",
+		});
+	}
+	const sessionId = crypto.randomUUID();
+	await ctx.runtime.acpSessions.create({
+		sessionId,
+		workspaceId: input.workspaceId,
+		harness,
+	});
+	await ctx.runtime.acpSessions.prompt({
+		sessionId,
+		prompt: [{ type: "text", text: input.prompt }],
+	});
+	return { kind: "acp", sessionId, label: config.label };
+}
+
 export async function runAgentInWorkspace(
 	ctx: HostServiceContext,
 	input: AgentRunInput,
@@ -388,7 +439,12 @@ export async function runAgentInWorkspace(
 	if (input.agent === SUPERSET_AGENT_ID) {
 		return runChatAgent(ctx, input, SUPERSET_AGENT_LABEL);
 	}
-	return runTerminalAgent(ctx, input);
+	const config = resolveHostAgentConfig(ctx.db, input.agent);
+	if (!config) return runTerminalAgent(ctx, input);
+	return input.respectPresetLaunchMode &&
+		shouldRunAgentWithAcp(useAcpForAgentPresets(), config.presetId)
+		? runAcpAgent(ctx, input, config)
+		: runTerminalAgent(ctx, input);
 }
 
 export const agentsRouter = router({

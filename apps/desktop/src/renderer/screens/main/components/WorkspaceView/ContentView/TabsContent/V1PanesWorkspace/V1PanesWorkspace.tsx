@@ -77,7 +77,7 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 
 	// Consume deep-link search params (terminalId / openUrl / …) into the
 	// panes store. No-op for params that are absent.
-	useV1PanesDeepLinkConsumer({ store, workspaceId });
+	useV1PanesDeepLinkConsumer({ store, hostUrl, hostWorkspaceId });
 
 	// Register the per-workspace panes store so v1 global tabs store opener
 	// actions (e.g. `openCommentPane` from `ReviewPanel`) can route into the

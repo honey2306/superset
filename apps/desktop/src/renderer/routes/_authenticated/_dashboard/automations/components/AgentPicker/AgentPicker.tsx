@@ -17,6 +17,7 @@ import { useAutomationAgentChoices } from "../../hooks/useAutomationAgentChoices
 
 interface AgentPickerProps {
 	hostId: string | null | undefined;
+	projectId?: string | null;
 	value: string;
 	onChange: (next: string) => void;
 	className?: string;
@@ -24,13 +25,14 @@ interface AgentPickerProps {
 
 export function AgentPicker({
 	hostId,
+	projectId,
 	value,
 	onChange,
 	className,
 }: AgentPickerProps) {
 	const navigate = useNavigate();
 	const hostUrl = useHostUrl(hostId);
-	const { agents } = useAutomationAgentChoices(hostUrl);
+	const { agents } = useAutomationAgentChoices(hostUrl, projectId);
 	const isDark = useIsDarkTheme();
 	const hostMatch = agents.find((agent) => agent.id === value);
 	const presetMatch = hostMatch ? null : getPresetById(value);

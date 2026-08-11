@@ -24,6 +24,7 @@ import {
 	todoDto,
 } from "../../../runtime/local-automations";
 import { protectedProcedure, router } from "../../index";
+import { optimizeTaskPrompt } from "./utils/ai-task-prompt";
 
 const id = z.string().uuid();
 const timezone = z
@@ -114,46 +115,55 @@ export const todosRouter = router({
 	get: protectedProcedure
 		.input(z.object({ id }))
 		.query(({ ctx, input }) => todoDto(todoOrThrow(ctx, input.id))),
-	create: protectedProcedure.input(todoInput).mutation(({ ctx, input }) => {
-		const workspaceId = resolveLocalWorkspaceId(
-			ctx.db,
-			input.v2WorkspaceId ?? null,
-			input.v2ProjectId ?? null,
-		);
-		const storedWorkspaceId = isTemporaryProjectId(
-			ctx.db,
-			input.v2ProjectId ?? null,
-		)
-			? null
-			: workspaceId;
-		if (
-			input.mode === "auto" &&
-			(!input.agent || !input.prompt || !workspaceId)
-		)
-			throw new TRPCError({
-				code: "BAD_REQUEST",
-				message: "Auto todos require an agent, prompt, and local workspace.",
-			});
-		const now = Date.now();
-		const row = {
-			id: crypto.randomUUID(),
-			title: input.title,
-			note: input.note ?? null,
-			mode: input.mode,
-			dueAt: input.dueAt.getTime(),
-			timezone: input.timezone,
-			v2ProjectId: input.v2ProjectId ?? null,
-			v2WorkspaceId: storedWorkspaceId,
-			targetHostId: input.targetHostId ?? null,
-			agent: input.agent ?? null,
-			prompt: input.prompt ?? null,
-			status: "pending",
-			createdAt: now,
-			updatedAt: now,
-		};
-		ctx.db.insert(localTodos).values(row).run();
-		return todoDto(todoOrThrow(ctx, row.id));
-	}),
+	create: protectedProcedure
+		.input(todoInput)
+		.mutation(async ({ ctx, input }) => {
+			const workspaceId = resolveLocalWorkspaceId(
+				ctx.db,
+				input.v2WorkspaceId ?? null,
+				input.v2ProjectId ?? null,
+			);
+			const storedWorkspaceId = isTemporaryProjectId(
+				ctx.db,
+				input.v2ProjectId ?? null,
+			)
+				? null
+				: workspaceId;
+			if (
+				input.mode === "auto" &&
+				(!input.agent || !input.prompt?.trim() || !workspaceId)
+			)
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Auto todos require an agent, prompt, and local workspace.",
+				});
+			const optimizedPrompt =
+				input.mode === "auto" && input.prompt
+					? await optimizeTaskPrompt(input.prompt)
+					: null;
+			const now = Date.now();
+			const row = {
+				id: crypto.randomUUID(),
+				title: input.title,
+				note: input.note ?? null,
+				mode: input.mode,
+				dueAt: input.dueAt.getTime(),
+				timezone: input.timezone,
+				v2ProjectId: input.v2ProjectId ?? null,
+				v2WorkspaceId: storedWorkspaceId,
+				targetHostId: input.targetHostId ?? null,
+				agent: input.agent ?? null,
+				prompt: optimizedPrompt?.prompt ?? input.prompt?.trim() ?? null,
+				status: "pending",
+				createdAt: now,
+				updatedAt: now,
+			};
+			ctx.db.insert(localTodos).values(row).run();
+			return {
+				...todoDto(todoOrThrow(ctx, row.id)),
+				promptOptimized: optimizedPrompt?.optimized ?? false,
+			};
+		}),
 	update: protectedProcedure
 		.input(todoInput.partial().extend({ id }))
 		.mutation(({ ctx, input }) => {
@@ -309,7 +319,8 @@ export const automationsRouter = router({
 	}),
 	create: protectedProcedure
 		.input(automationInput)
-		.mutation(({ ctx, input }) => {
+		.mutation(async ({ ctx, input }) => {
+			const optimizedPrompt = await optimizeTaskPrompt(input.prompt);
 			const now = Date.now();
 			const dtstart = input.dtstart ?? new Date(now);
 			const nextRunAt = parseRrule({
@@ -331,7 +342,7 @@ export const automationsRouter = router({
 			const row = {
 				id: crypto.randomUUID(),
 				name: input.name,
-				prompt: input.prompt,
+				prompt: optimizedPrompt.prompt,
 				agent: input.agent,
 				targetHostId: input.targetHostId ?? null,
 				v2ProjectId: input.v2ProjectId ?? null,
@@ -347,7 +358,10 @@ export const automationsRouter = router({
 			};
 			ctx.db.insert(localAutomations).values(row).run();
 			recordPromptVersion(ctx.db, row.id, row.prompt, "create");
-			return automationResult(automationOrThrow(ctx, row.id));
+			return {
+				...automationResult(automationOrThrow(ctx, row.id)),
+				promptOptimized: optimizedPrompt.optimized,
+			};
 		}),
 	update: protectedProcedure
 		.input(automationInput.partial().omit({ prompt: true }).extend({ id }))

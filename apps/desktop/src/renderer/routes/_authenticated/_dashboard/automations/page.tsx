@@ -76,15 +76,22 @@ function AutomationsPage() {
 				id,
 			});
 		},
-		onSuccess: (result, { name }) => {
+		onMutate: ({ id, name }) => {
+			const toastId = `automation-run-now-${id}`;
+			toast.loading(t("automations.runningNow", { name }), { id: toastId });
+			return { toastId };
+		},
+		onSuccess: (result, { name }, context) => {
 			queryClient.invalidateQueries({
 				queryKey: localAutomationKeys.automations(hostUrl),
 			});
+			toast.dismiss(context?.toastId);
 			const destination = getAutomationRunDestination({
 				v2WorkspaceId: result.workspaceId,
 				sessionKind: result.sessionKind,
 				terminalSessionId:
 					result.sessionKind === "terminal" ? result.sessionId : null,
+				chatSessionId: result.sessionKind === "acp" ? result.sessionId : null,
 			});
 			if ("reason" in destination) {
 				toast.success(t("automations.runningNow", { name }));
@@ -93,15 +100,19 @@ function AutomationsPage() {
 			}
 			void navigateToWorkspace(destination.workspaceId, navigate, {
 				search: {
-					terminalId: destination.terminalId,
+					...("terminalId" in destination
+						? { terminalId: destination.terminalId }
+						: { acpSessionId: destination.acpSessionId }),
 					focusRequestId: crypto.randomUUID(),
 				},
 			});
 		},
-		onError: (error) =>
+		onError: (error, _variables, context) => {
+			toast.dismiss(context?.toastId);
 			toast.error(
 				error instanceof Error ? error.message : t("automations.runFailed"),
-			),
+			);
+		},
 	});
 
 	const deleteMutation = useMutation({

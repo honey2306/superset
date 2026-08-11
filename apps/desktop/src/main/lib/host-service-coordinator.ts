@@ -703,6 +703,9 @@ export class HostServiceCoordinator extends EventEmitter {
 			DESKTOP_VITE_PORT: String(sharedEnv.DESKTOP_VITE_PORT),
 			SUPERSET_HOME_DIR: SUPERSET_HOME_DIR,
 			SUPERSET_LEGACY_WORKTREE_BASE_DIR: row?.worktreeBaseDir ?? "",
+			SUPERSET_USE_ACP_FOR_AGENT_PRESETS: row?.useAcpForAgentPresets
+				? "1"
+				: "0",
 			SUPERSET_AGENT_HOOK_PORT: String(sharedEnv.DESKTOP_NOTIFICATIONS_PORT),
 			SUPERSET_AGENT_HOOK_VERSION: HOOK_PROTOCOL_VERSION,
 			AUTH_TOKEN: config.authToken,
@@ -721,17 +724,16 @@ export class HostServiceCoordinator extends EventEmitter {
 		// Remove any inherited shell value without affecting the loopback host.
 		delete childEnv.RELAY_URL;
 
-		// Pin the mfcli path for the ACP daemon's title generation. Resolving
-		// via `which` inside the augmented shell PATH beats relying on the
-		// daemon's inherited PATH — packaged Electron builds sometimes strip
-		// NVM/Homebrew entries even after applyShellEnvToProcess ran, and
-		// mfcli commonly sits under one of those. Best-effort: on failure we
-		// leave the env var unset and the daemon falls back to `mfcli` on its
-		// own PATH.
-		const mfcliPath = await resolveMfcliPath(childEnv);
-		if (mfcliPath) {
-			childEnv.SUPERSET_MFCLI_TITLE_COMMAND = mfcliPath;
-		}
+		// Pin external CLI paths using the augmented shell PATH. Packaged
+		// Electron builds sometimes lose NVM/Homebrew entries even after shell
+		// environment setup. Both lookups are best-effort and retain their
+		// existing configured values as fallbacks.
+		const [claudePath, mfcliPath] = await Promise.all([
+			resolveCliPath("claude", childEnv, childEnv.CLAUDE_CODE_EXECUTABLE),
+			resolveCliPath("mfcli", childEnv, childEnv.SUPERSET_MFCLI_TITLE_COMMAND),
+		]);
+		if (claudePath) childEnv.CLAUDE_CODE_EXECUTABLE = claudePath;
+		if (mfcliPath) childEnv.SUPERSET_MFCLI_TITLE_COMMAND = mfcliPath;
 
 		return childEnv;
 	}
@@ -941,25 +943,19 @@ export function getHostServiceCoordinator(): HostServiceCoordinator {
 	return coordinator;
 }
 
-/**
- * Resolve an absolute path to `mfcli` using the passed child env's PATH. Used
- * to pin `SUPERSET_MFCLI_TITLE_COMMAND` for the ACP daemon so title generation
- * finds mfcli even when the daemon's inherited PATH is missing NVM/Homebrew
- * entries. Returns null if the lookup fails; the daemon then relies on its
- * own PATH.
- */
-async function resolveMfcliPath(
+/** Resolve an absolute CLI path from the augmented child environment. */
+async function resolveCliPath(
+	command: string,
 	env: Record<string, string>,
+	configuredPath?: string,
 ): Promise<string | null> {
-	if (env.SUPERSET_MFCLI_TITLE_COMMAND) {
-		return env.SUPERSET_MFCLI_TITLE_COMMAND;
-	}
+	if (configuredPath) return configuredPath;
 	const probe = process.platform === "win32" ? "where" : "which";
 	try {
 		const stdout = await new Promise<string>((resolve, reject) => {
 			const child = childProcess.execFile(
 				probe,
-				["mfcli"],
+				[command],
 				{ env, timeout: 5_000, encoding: "utf8" },
 				(error, out) => {
 					if (error) reject(error);
@@ -975,7 +971,7 @@ async function resolveMfcliPath(
 		return first || null;
 	} catch (error) {
 		log.debug(
-			`[host-service-coordinator] mfcli lookup failed: ${error instanceof Error ? error.message : String(error)}`,
+			`[host-service-coordinator] ${command} lookup failed: ${error instanceof Error ? error.message : String(error)}`,
 		);
 		return null;
 	}

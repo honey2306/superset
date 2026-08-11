@@ -65,6 +65,10 @@ export const Route = createFileRoute(
 			typeof search.terminalId === "string" && search.terminalId.length > 0
 				? search.terminalId
 				: undefined,
+		acpSessionId:
+			typeof search.acpSessionId === "string" && search.acpSessionId.length > 0
+				? search.acpSessionId
+				: undefined,
 		focusRequestId:
 			typeof search.focusRequestId === "string" &&
 			search.focusRequestId.length > 0

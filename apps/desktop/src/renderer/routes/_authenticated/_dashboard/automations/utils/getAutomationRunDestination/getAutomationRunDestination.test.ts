@@ -12,6 +12,17 @@ describe("getAutomationRunDestination", () => {
 		).toEqual({ workspaceId: "workspace-1", terminalId: "terminal-1" });
 	});
 
+	test("deep-links a persisted ACP run into its workspace", () => {
+		expect(
+			getAutomationRunDestination({
+				v2WorkspaceId: "workspace-1",
+				sessionKind: "acp",
+				terminalSessionId: null,
+				chatSessionId: "acp-1",
+			}),
+		).toEqual({ workspaceId: "workspace-1", acpSessionId: "acp-1" });
+	});
+
 	test("returns explicit feedback instead of a no-op for unavailable runs", () => {
 		expect(
 			getAutomationRunDestination({

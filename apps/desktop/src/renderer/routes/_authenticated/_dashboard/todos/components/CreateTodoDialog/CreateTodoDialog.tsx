@@ -15,7 +15,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useRecentProjects } from "renderer/hooks/host-projects/useRecentProjects";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
-import { useV2AgentChoices } from "renderer/hooks/useV2AgentChoices";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { localAutomationKeys } from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
@@ -29,6 +28,7 @@ import {
 import { AgentPicker } from "../../../automations/components/AgentPicker";
 import { ProjectPicker } from "../../../automations/components/ProjectPicker";
 import { WorkspacePicker } from "../../../automations/components/WorkspacePicker";
+import { useAutomationAgentChoices } from "../../../automations/hooks/useAutomationAgentChoices";
 import { canCreateTodo } from "./utils/canCreateTodo";
 
 interface CreateTodoDialogProps {
@@ -72,7 +72,10 @@ export function CreateTodoDialog({
 	const workspaceLaunch = useWorkspaceLaunch(provisioningAdapter);
 	const targetHostId = hostId ?? localHostId;
 	const hostUrl = useHostUrl(targetHostId);
-	const { agents: hostAgents } = useV2AgentChoices(hostUrl);
+	const { agents: hostAgents } = useAutomationAgentChoices(
+		hostUrl,
+		selectedProjectId,
+	);
 	const recentProjects = useRecentProjects();
 	const { projects: catalogProjects } = useCatalogProjects();
 
@@ -314,6 +317,7 @@ export function CreateTodoDialog({
 								<Label>{t("todos.agent")}</Label>
 								<AgentPicker
 									hostId={targetHostId}
+									projectId={selectedProjectId}
 									onChange={setAgent}
 									value={agent ?? ""}
 								/>
