@@ -1,19 +1,11 @@
-import { Spinner } from "@superset/ui/spinner";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useWorkspaceCatalog } from "../../providers/WorkspaceCatalogProvider";
+import { WorkspaceLoadingState } from "./components/WorkspaceLoadingState";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/workspace/")({
 	component: WorkspaceIndexPage,
 });
-
-function LoadingSpinner() {
-	return (
-		<div className="flex h-full w-full items-center justify-center">
-			<Spinner className="size-5" />
-		</div>
-	);
-}
 
 function WorkspaceIndexPage() {
 	const navigate = useNavigate();
@@ -45,8 +37,8 @@ function WorkspaceIndexPage() {
 	}, [workspaces, isReady, navigate]);
 
 	if (hasNoWorkspaces) {
-		return <LoadingSpinner />;
+		return <WorkspaceLoadingState />;
 	}
 
-	return <LoadingSpinner />;
+	return <WorkspaceLoadingState />;
 }

@@ -6,25 +6,15 @@ import {
 	ContextMenuShortcut,
 	ContextMenuTrigger,
 } from "@superset/ui/context-menu";
-import {
-	HoverCard,
-	HoverCardContent,
-	HoverCardTrigger,
-} from "@superset/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
-import { type RefObject, useMemo, useState } from "react";
+import { type RefObject, useMemo } from "react";
 import { LuCopy, LuGitBranch, LuX } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { createContextMenuDeleteDialogCoordinator } from "renderer/react-query/workspaces/useWorkspaceDeleteHandler";
 import type { ActivePaneStatus } from "shared/tabs-types";
 import { STROKE_WIDTH } from "../constants";
-import {
-	DeleteWorkspaceDialog,
-	RenameBranchDialog,
-	WorkspaceHoverCardContent,
-} from "./components";
-import { HOVER_CARD_CLOSE_DELAY, HOVER_CARD_OPEN_DELAY } from "./constants";
+import { DeleteWorkspaceDialog } from "./components";
 import { WorkspaceIcon } from "./WorkspaceIcon";
 
 interface CollapsedWorkspaceItemProps {
@@ -66,10 +56,6 @@ export function CollapsedWorkspaceItem({
 	const deleteDialogCoordinator = useMemo(
 		() => createContextMenuDeleteDialogCoordinator(onDeleteClick),
 		[onDeleteClick],
-	);
-	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
-	const [renameBranchTarget, setRenameBranchTarget] = useState<string | null>(
-		null,
 	);
 	const deleteHotkeyText = useHotkeyDisplay("CLOSE_WORKSPACE").text;
 	const showDeleteShortcut = isActive && deleteHotkeyText !== "Unassigned";
@@ -135,50 +121,35 @@ export function CollapsedWorkspaceItem({
 
 	return (
 		<>
-			<HoverCard
-				open={isContextMenuOpen ? false : undefined}
-				openDelay={HOVER_CARD_OPEN_DELAY}
-				closeDelay={HOVER_CARD_CLOSE_DELAY}
-			>
-				<ContextMenu onOpenChange={setIsContextMenuOpen}>
-					<HoverCardTrigger asChild>
-						<ContextMenuTrigger asChild>{collapsedButton}</ContextMenuTrigger>
-					</HoverCardTrigger>
-					<ContextMenuContent
-						onCloseAutoFocus={(event) => {
-							deleteDialogCoordinator.handleCloseAutoFocus(event);
+			<ContextMenu>
+				<ContextMenuTrigger asChild>{collapsedButton}</ContextMenuTrigger>
+				<ContextMenuContent
+					onCloseAutoFocus={(event) => {
+						deleteDialogCoordinator.handleCloseAutoFocus(event);
+					}}
+				>
+					<ContextMenuItem onSelect={onCopyPath}>
+						<LuCopy className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+						Copy Path
+					</ContextMenuItem>
+					<ContextMenuItem onSelect={onCopyBranchName}>
+						<LuGitBranch className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+						Copy Branch Name
+					</ContextMenuItem>
+					<ContextMenuSeparator />
+					<ContextMenuItem
+						onSelect={() => {
+							deleteDialogCoordinator.requestOpenDeleteDialog();
 						}}
 					>
-						<ContextMenuItem onSelect={onCopyPath}>
-							<LuCopy className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-							Copy Path
-						</ContextMenuItem>
-						<ContextMenuItem onSelect={onCopyBranchName}>
-							<LuGitBranch className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-							Copy Branch Name
-						</ContextMenuItem>
-						<ContextMenuSeparator />
-						<ContextMenuItem
-							onSelect={() => {
-								deleteDialogCoordinator.requestOpenDeleteDialog();
-							}}
-						>
-							<LuX className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-							Close Workspace
-							{showDeleteShortcut && (
-								<ContextMenuShortcut>{deleteHotkeyText}</ContextMenuShortcut>
-							)}
-						</ContextMenuItem>
-					</ContextMenuContent>
-				</ContextMenu>
-				<HoverCardContent side="right" align="start" className="w-72">
-					<WorkspaceHoverCardContent
-						workspaceId={id}
-						workspaceAlias={name}
-						onEditBranchClick={setRenameBranchTarget}
-					/>
-				</HoverCardContent>
-			</HoverCard>
+						<LuX className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+						Close Workspace
+						{showDeleteShortcut && (
+							<ContextMenuShortcut>{deleteHotkeyText}</ContextMenuShortcut>
+						)}
+					</ContextMenuItem>
+				</ContextMenuContent>
+			</ContextMenu>
 			<DeleteWorkspaceDialog
 				workspaceId={id}
 				workspaceName={name}
@@ -186,16 +157,6 @@ export function CollapsedWorkspaceItem({
 				open={showDeleteDialog}
 				onOpenChange={setShowDeleteDialog}
 			/>
-			{renameBranchTarget && (
-				<RenameBranchDialog
-					workspaceId={id}
-					currentBranchName={renameBranchTarget}
-					open={renameBranchTarget !== null}
-					onOpenChange={(open) => {
-						if (!open) setRenameBranchTarget(null);
-					}}
-				/>
-			)}
 		</>
 	);
 }

@@ -3,6 +3,10 @@ import net from "node:net";
 import { eq } from "drizzle-orm";
 import { createDb } from "../../db";
 import { workspaces } from "../../db/schema";
+import {
+	AcpCliAutoUpdater,
+	acpCliUpdateCommands,
+} from "./acp-cli-auto-updater";
 import { AcpSessionManager } from "./acp-sessions";
 import { generateAcpSessionTitle } from "./acp-title-generation";
 import {
@@ -12,9 +16,13 @@ import {
 	type AcpDaemonRequest,
 	type AcpDaemonResponse,
 	type AcpDaemonSessionChangedEvent,
+	type AcpDaemonSessionOpenRequestedEvent,
 	acpDaemonSocketPath,
 } from "./daemon";
+import { browserUseMcpServerFromEnvironment } from "./local-mcp";
 import { SqliteAcpSessionPersistence } from "./persistence";
+import { supersetMcpServer } from "./superset-local-mcp";
+import { SupersetToolController } from "./superset-tools";
 
 const MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 
@@ -24,6 +32,18 @@ async function main(): Promise<void> {
 		requiredEnv("HOST_DB_PATH"),
 		requiredEnv("HOST_MIGRATIONS_FOLDER"),
 	);
+	const claudeCommand = process.env.CLAUDE_CODE_EXECUTABLE ?? "claude";
+	const mfcliCommand =
+		process.env.SUPERSET_MFCLI_ACP_COMMAND ??
+		process.env.SUPERSET_MFCLI_TITLE_COMMAND ??
+		"mfcli";
+	const cliAutoUpdater = new AcpCliAutoUpdater({
+		commands: acpCliUpdateCommands({
+			claude: claudeCommand,
+			mfcli: mfcliCommand,
+		}),
+	});
+	const socketPath = acpDaemonSocketPath(organizationId);
 	const manager = new AcpSessionManager({
 		resolveWorkspaceCwd: (workspaceId) => {
 			const workspace = db.query.workspaces
@@ -36,10 +56,28 @@ async function main(): Promise<void> {
 		adapterEntry: process.env.SUPERSET_ACP_ADAPTER_ENTRY,
 		codexAdapterEntry: process.env.SUPERSET_CODEX_ACP_ADAPTER_ENTRY,
 		piAdapterEntry: process.env.SUPERSET_PI_ACP_ADAPTER_ENTRY,
+		myflickerAdapterCommand: mfcliCommand,
+		mcpServers: [browserUseMcpServerFromEnvironment()].filter(
+			(server): server is NonNullable<typeof server> => server !== null,
+		),
+		mcpServerFactory: ({ sessionId }) => [
+			supersetMcpServer({ sessionId, daemonSocketPath: socketPath }),
+		],
 		generateTitle: ({ message }) => generateAcpSessionTitle(message),
 	});
-	const socketPath = acpDaemonSocketPath(organizationId);
 	await removeStaleSocket(socketPath);
+
+	const clientWriters = new Set<
+		(event: AcpDaemonSessionOpenRequestedEvent) => void
+	>();
+	const toolController = new SupersetToolController({
+		manager,
+		onOpenRequested: (event) => {
+			for (const write of clientWriters) {
+				write({ type: "session-open-requested", ...event });
+			}
+		},
+	});
 
 	let closing = false;
 	let server: net.Server;
@@ -47,6 +85,7 @@ async function main(): Promise<void> {
 		if (closing) return;
 		closing = true;
 		server.close();
+		cliAutoUpdater.dispose();
 		await manager.dispose();
 		if (process.platform !== "win32") {
 			try {
@@ -64,7 +103,8 @@ async function main(): Promise<void> {
 			message:
 				| AcpDaemonResponse
 				| AcpDaemonEvent
-				| AcpDaemonSessionChangedEvent,
+				| AcpDaemonSessionChangedEvent
+				| AcpDaemonSessionOpenRequestedEvent,
 		) => {
 			if (socket.destroyed || socket.writableLength > MAX_BUFFER_BYTES) {
 				socket.destroy();
@@ -72,6 +112,7 @@ async function main(): Promise<void> {
 			}
 			socket.write(`${JSON.stringify(message)}\n`);
 		};
+		clientWriters.add(write);
 		// Host-wide session-change broadcast. Every daemon client hears every
 		// session transition and filters downstream.
 		const detachSessionChanges = manager.onSessionChanged((event) => {
@@ -103,10 +144,18 @@ async function main(): Promise<void> {
 					socket.destroy(new Error("Invalid ACP daemon JSON"));
 					return;
 				}
-				void dispatch(manager, request, subscriptions, write, shutdown);
+				void dispatch(
+					manager,
+					toolController,
+					request,
+					subscriptions,
+					write,
+					shutdown,
+				);
 			}
 		});
 		const detach = () => {
+			clientWriters.delete(write);
 			for (const unsubscribe of subscriptions.values()) unsubscribe();
 			subscriptions.clear();
 			detachSessionChanges();
@@ -129,6 +178,7 @@ async function main(): Promise<void> {
 		chmodSync(socketPath, 0o600);
 	}
 	console.error(`[acp-daemon] listening at ${socketPath} (pid=${process.pid})`);
+	cliAutoUpdater.start();
 
 	process.on("SIGTERM", () => void shutdown());
 	process.on("SIGINT", () => void shutdown());
@@ -136,6 +186,7 @@ async function main(): Promise<void> {
 
 async function dispatch(
 	manager: AcpSessionManager,
+	toolController: SupersetToolController,
 	request: AcpDaemonRequest,
 	subscriptions: Map<string, () => void>,
 	write: (message: AcpDaemonResponse | AcpDaemonEvent) => void,
@@ -245,6 +296,9 @@ async function dispatch(
 				manager.clearQueue(
 					request.params as Parameters<AcpSessionManager["clearQueue"]>[0],
 				);
+				break;
+			case "supersetTool":
+				result = await toolController.execute(request.params);
 				break;
 			case "subscribe": {
 				const input = request.params as {

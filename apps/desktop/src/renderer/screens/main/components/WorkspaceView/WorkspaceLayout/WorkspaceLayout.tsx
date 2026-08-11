@@ -12,12 +12,14 @@ import { ContentView } from "../ContentView";
 import { RightSidebar } from "../RightSidebar";
 
 interface WorkspaceLayoutProps {
+	supportsChanges: boolean;
 	defaultExternalApp?: ExternalApp | null;
 	onOpenInApp: () => void;
 	onOpenQuickOpen: () => void;
 }
 
 export function WorkspaceLayout({
+	supportsChanges,
 	defaultExternalApp,
 	onOpenInApp,
 	onOpenQuickOpen,
@@ -30,7 +32,7 @@ export function WorkspaceLayout({
 	const setIsResizing = useSidebarStore((s) => s.setIsResizing);
 	const currentMode = useSidebarStore((s) => s.currentMode);
 
-	const isExpanded = currentMode === SidebarMode.Changes;
+	const isExpanded = supportsChanges && currentMode === SidebarMode.Changes;
 
 	return (
 		<ScrollProvider>
@@ -57,7 +59,7 @@ export function WorkspaceLayout({
 					className={isExpanded ? "border-l-0" : undefined}
 					onDoubleClickHandle={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
 				>
-					<RightSidebar />
+					<RightSidebar supportsChanges={supportsChanges} />
 				</ResizablePanel>
 			)}
 		</ScrollProvider>

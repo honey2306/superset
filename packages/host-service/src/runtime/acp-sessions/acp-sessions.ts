@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
+import type { McpServer } from "@agentclientprotocol/sdk";
 import {
 	client,
 	ndJsonStream,
@@ -51,7 +52,10 @@ import {
 	PI_ACP_UPDATE_NOTICE_ENV,
 	sharedPiStartupCache,
 } from "./pi-startup";
-import type { AcpSessionChangeHandler } from "./runtime";
+import type {
+	AcpSessionChangeHandler,
+	AcpSessionOpenRequestHandler,
+} from "./runtime";
 
 export class AcpSessionNotFoundError extends Error {}
 export class AcpSessionDeadError extends Error {}
@@ -205,10 +209,52 @@ function suppressPersistedPiBootstrap(
 	});
 }
 
-interface AdapterProcessSpec {
+export interface AdapterProcessSpec {
 	command: string;
 	args: string[];
 	usesElectronNode: boolean;
+}
+
+/** Resolve an ACP harness to its child-process contract. */
+export function resolveAdapterProcess(
+	harness: HarnessKind,
+	options: Pick<
+		AcpSessionManagerOptions,
+		| "adapterEntry"
+		| "codexAdapterEntry"
+		| "piAdapterEntry"
+		| "myflickerAdapterCommand"
+	> = {},
+	execPath = process.execPath,
+): AdapterProcessSpec {
+	switch (harness) {
+		case "codex-app-server":
+			return {
+				command: execPath,
+				args: [options.codexAdapterEntry ?? resolveCodexAdapterEntry()],
+				usesElectronNode: true,
+			};
+		case "pi-acp":
+			return {
+				command: execPath,
+				args: [options.piAdapterEntry ?? resolvePiAdapterEntry()],
+				usesElectronNode: true,
+			};
+		case "myflicker-acp":
+			return {
+				command: options.myflickerAdapterCommand ?? "mfcli",
+				// mfcli 0.3.14 has no ACP modes; its documented full-access mode
+				// is a CLI flag and must precede the `acp` subcommand.
+				args: ["--approval-mode", "yolo", "acp"],
+				usesElectronNode: false,
+			};
+		case "claude-agent-acp":
+			return {
+				command: execPath,
+				args: [options.adapterEntry ?? resolveAdapterEntry()],
+				usesElectronNode: true,
+			};
+	}
 }
 
 /** The slice of the SDK's request handler context parkPermission needs. */
@@ -347,10 +393,24 @@ export interface AcpSessionManagerOptions {
 	codexAdapterEntry?: string;
 	/** Test/build override for the Pi-to-ACP bridge entry point. */
 	piAdapterEntry?: string;
+	/** Per-manager adapter environment overrides, primarily for isolated tests. */
+	adapterEnv?: Record<string, string | undefined>;
 	/** Executable override for MyFlicker's native ACP server. */
 	myflickerAdapterCommand?: string;
 	/** Injected in tests; production managers share the daemon-level cache. */
 	piStartupCache?: PiStartupCache;
+	/**
+	 * Local MCP servers supplied to every ACP session setup. These are sent on
+	 * both `session/new` and `session/load`, so resumed sessions keep the same
+	 * tool surface regardless of the selected harness.
+	 */
+	mcpServers?: McpServer[];
+	/** Session-scoped MCP declarations (for tools that need source identity). */
+	mcpServerFactory?: (input: {
+		sessionId: string;
+		workspaceId: string;
+		cwd: string;
+	}) => McpServer[];
 	/**
 	 * Durable session registry. When set, every session's binding row
 	 * (workspace, adapter session id, title, stop reason) is upserted on each
@@ -399,8 +459,11 @@ export class AcpSessionManager {
 	private readonly adapterEntry: string | undefined;
 	private readonly codexAdapterEntry: string | undefined;
 	private readonly piAdapterEntry: string | undefined;
+	private readonly adapterEnv: Record<string, string | undefined>;
 	private readonly myflickerAdapterCommand: string | undefined;
 	private readonly piStartupCache: PiStartupCache;
+	private readonly mcpServers: McpServer[];
+	private readonly mcpServerFactory: AcpSessionManagerOptions["mcpServerFactory"];
 	private readonly persistence: AcpSessionPersistence | undefined;
 	private readonly generateTitle:
 		| AcpSessionManagerOptions["generateTitle"]
@@ -434,8 +497,11 @@ export class AcpSessionManager {
 		this.adapterEntry = options.adapterEntry;
 		this.codexAdapterEntry = options.codexAdapterEntry;
 		this.piAdapterEntry = options.piAdapterEntry;
+		this.adapterEnv = options.adapterEnv ?? {};
 		this.myflickerAdapterCommand = options.myflickerAdapterCommand;
 		this.piStartupCache = options.piStartupCache ?? sharedPiStartupCache;
+		this.mcpServers = options.mcpServers ?? [];
+		this.mcpServerFactory = options.mcpServerFactory;
 		this.persistence = options.persistence;
 		this.generateTitle = options.generateTitle;
 		if (this.persistence) {
@@ -1176,6 +1242,10 @@ export class AcpSessionManager {
 			}
 		}
 		const cwd = await this.resolveWorkspaceCwd(workspaceId);
+		const mcpServers = [
+			...this.mcpServers,
+			...(this.mcpServerFactory?.({ sessionId, workspaceId, cwd }) ?? []),
+		];
 		// process.execPath instead of a PATH lookup for "node": inside the
 		// packaged Electron app there is no node on PATH — the Electron binary
 		// itself runs the script when ELECTRON_RUN_AS_NODE is set (the same
@@ -1184,35 +1254,16 @@ export class AcpSessionManager {
 		// shell profile) must never reach the agent child: they silently
 		// override the user's own Claude login for the whole session. Scrubbed
 		// here — the spawn site — so every launch path is covered, not just dev.
-		const adapterProcess: AdapterProcessSpec = (() => {
-			switch (harness) {
-				case "codex-app-server":
-					return {
-						command: process.execPath,
-						args: [this.codexAdapterEntry ?? resolveCodexAdapterEntry()],
-						usesElectronNode: true,
-					};
-				case "pi-acp":
-					return {
-						command: process.execPath,
-						args: [this.piAdapterEntry ?? resolvePiAdapterEntry()],
-						usesElectronNode: true,
-					};
-				case "myflicker-acp":
-					return {
-						command: this.myflickerAdapterCommand ?? "mfcli",
-						args: ["acp"],
-						usesElectronNode: false,
-					};
-				case "claude-agent-acp":
-					return {
-						command: process.execPath,
-						args: [this.adapterEntry ?? resolveAdapterEntry()],
-						usesElectronNode: true,
-					};
-			}
-		})();
-		const env: Record<string, string | undefined> = { ...process.env };
+		const adapterProcess = resolveAdapterProcess(harness, {
+			adapterEntry: this.adapterEntry,
+			codexAdapterEntry: this.codexAdapterEntry,
+			piAdapterEntry: this.piAdapterEntry,
+			myflickerAdapterCommand: this.myflickerAdapterCommand,
+		});
+		const env: Record<string, string | undefined> = {
+			...process.env,
+			...this.adapterEnv,
+		};
 		if (adapterProcess.usesElectronNode) env.ELECTRON_RUN_AS_NODE = "1";
 		else delete env.ELECTRON_RUN_AS_NODE;
 		delete env.ANTHROPIC_API_KEY;
@@ -1339,7 +1390,7 @@ export class AcpSessionManager {
 				const loaded = await connection.agent.request("session/load", {
 					sessionId: resume.acpSessionId,
 					cwd,
-					mcpServers: [],
+					mcpServers,
 				});
 				acpSessionId = resume.acpSessionId;
 				modes = loaded.modes ?? null;
@@ -1347,7 +1398,7 @@ export class AcpSessionManager {
 			} else {
 				const session = await connection.agent.request("session/new", {
 					cwd,
-					mcpServers: [],
+					mcpServers,
 				});
 				acpSessionId = session.sessionId;
 				if (harness === "pi-acp") {
@@ -1961,6 +2012,13 @@ export class AcpSessionManager {
 		return () => {
 			this.sessionChangeListeners.delete(listener);
 		};
+	}
+
+	// Superset MCP tools run in the detached daemon, which owns presentation
+	// request emission. In-process managers expose the same optional runtime
+	// shape but have no renderer bridge.
+	onSessionOpenRequested(_listener: AcpSessionOpenRequestHandler): () => void {
+		return () => {};
 	}
 
 	private notifySessionChange(

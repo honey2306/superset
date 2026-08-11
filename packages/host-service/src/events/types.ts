@@ -1,5 +1,5 @@
 import type { DetectedPort } from "@superset/port-scanner";
-import type { SessionStatus } from "@superset/session-protocol";
+import type { HarnessKind, SessionStatus } from "@superset/session-protocol";
 import type { AgentIdentity } from "@superset/shared/agent-identity";
 import type { FsWatchEvent } from "@superset/workspace-fs/host";
 import type { AgentLifecycleEventType } from "./map-event-type.ts";
@@ -150,6 +150,16 @@ export interface AcpSessionChangedMessage {
 	occurredAt: number;
 }
 
+export interface AcpSessionOpenRequestedMessage {
+	type: "acp-session:open-requested";
+	workspaceId: string;
+	sessionId: string;
+	sourceSessionId: string;
+	harness: HarnessKind;
+	reason: "context_limit" | "parallel_task" | "fresh_start" | "delegation";
+	occurredAt: number;
+}
+
 export interface EventBusErrorMessage {
 	type: "error";
 	message: string;
@@ -166,6 +176,7 @@ export type ServerMessage =
 	| CatalogChangedMessage
 	| WorkspaceOperationChangedMessage
 	| AcpSessionChangedMessage
+	| AcpSessionOpenRequestedMessage
 	| EventBusErrorMessage;
 
 // ── Client → Server ────────────────────────────────────────────────

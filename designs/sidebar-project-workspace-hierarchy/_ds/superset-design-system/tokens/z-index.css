@@ -1,0 +1,15 @@
+/* Superset DS — Z-index layers.
+   6-step ladder so stacking is deterministic. Nothing in the app should hard-code z-index;
+   pick the slot that matches the surface. */
+
+:root {
+	--z-base: 0; /* @kind other */
+	--z-rail: 10; /* @kind other · sidebar, status bar, sticky headers */
+	--z-dropdown: 20; /* @kind other · popover, dropdown, tooltip trigger */
+	--z-sticky-overlay: 30; /* @kind other · sticky toast rail, floating action */
+	--z-overlay: 40; /* @kind other · popover / context menu content */
+	--z-modal-scrim: 50; /* @kind other · dialog / sheet backdrop */
+	--z-modal: 60; /* @kind other · dialog / sheet content */
+	--z-toast: 70; /* @kind other · toast is above modals */
+	--z-tooltip: 80; /* @kind other · tooltip sits above everything (disabled-item explanations must not be occluded) */
+}

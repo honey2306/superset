@@ -20,7 +20,9 @@ import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { supportsWorkspaceChanges } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/utils/supportsWorkspaceChanges";
 import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import { useCatalogProject } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { WorkspaceRunIndicator } from "renderer/screens/main/components/WorkspaceRunIndicator";
 import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
 import { useBranchSyncInvalidation } from "renderer/screens/main/hooks/useBranchSyncInvalidation";
@@ -77,6 +79,11 @@ export function WorkspaceListItem({
 	const { t } = useTranslation();
 	const electronUtils = electronTrpc.useUtils();
 	const isBranchWorkspace = type === "branch";
+	const { project } = useCatalogProject(projectId);
+	const canShowChanges = supportsWorkspaceChanges({
+		worktreePath,
+		project,
+	});
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
 	const {
@@ -320,11 +327,12 @@ export function WorkspaceListItem({
 	const linkedPullRequest =
 		pullRequestState?.pullRequest ??
 		(pullRequestState?.isPullRequestSuppressed ? null : pr);
-	const diffStats =
-		localDiffStats ||
-		(pr && (pr.additions > 0 || pr.deletions > 0)
-			? { additions: pr.additions, deletions: pr.deletions }
-			: null);
+	const diffStats = canShowChanges
+		? localDiffStats ||
+			(pr && (pr.additions > 0 || pr.deletions > 0)
+				? { additions: pr.additions, deletions: pr.deletions }
+				: null)
+		: null;
 
 	const showBranchSubtitle = isBranchWorkspace || (!!name && name !== branch);
 

@@ -5,3 +5,4 @@ export * from "./api";
 export type * from "./envelope";
 export * from "./fold";
 export * from "./state";
+export * from "./superset-tools";

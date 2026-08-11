@@ -10,6 +10,7 @@ import {
 	syncV1PanesAcpStatuses,
 	syncV1PanesTerminalStatuses,
 } from "./createV1PanesTerminalPaneBridge";
+import { useAcpSessionOpenRequests } from "./useAcpSessionOpenRequests";
 import { useV1PanesDeepLinkConsumer } from "./useV1PanesDeepLinkConsumer";
 import { useV1PanesHotkeys } from "./useV1PanesHotkeys";
 import { useV1PanesWorkspace } from "./useV1PanesWorkspace";
@@ -57,6 +58,7 @@ export function V1PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 		hostWorkspaceId,
 	);
 	const acpStatuses = useAcpSessionStatusesAtHost(hostUrl, hostWorkspaceId);
+	useAcpSessionOpenRequests({ store, hostUrl, hostWorkspaceId });
 
 	useEffect(() => {
 		syncV1PanesTerminalStatuses(store, terminalStatuses);

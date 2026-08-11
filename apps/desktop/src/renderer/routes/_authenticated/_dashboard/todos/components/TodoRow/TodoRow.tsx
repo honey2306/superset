@@ -2,15 +2,18 @@ import { Button } from "@superset/ui/button";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { LuCheck, LuPlay, LuTrash2, LuTriangleAlert } from "react-icons/lu";
 import { useHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import type { MessageKey } from "renderer/providers/I18nProvider";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { getAutomationRunDestination } from "renderer/routes/_authenticated/_dashboard/automations/utils/getAutomationRunDestination";
 import {
 	type LocalTodo,
 	localAutomationKeys,
 } from "renderer/routes/_authenticated/_dashboard/hooks/useLocalAutomationData";
+import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 
 interface TodoRowProps {
 	todo: LocalTodo;
@@ -85,6 +88,7 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 	const { t } = useTranslation();
 	const hostUrl = useHostUrl(null);
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	const invalidateTodos = () =>
 		queryClient.invalidateQueries({
 			queryKey: localAutomationKeys.todos(hostUrl),
@@ -108,8 +112,35 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 				id: todo.id,
 			});
 		},
-		onSuccess: invalidateTodos,
-		onError: (error) => {
+		onMutate: () => {
+			const toastId = `todo-run-now-${todo.id}`;
+			toast.loading(t("todos.statusDispatching"), { id: toastId });
+			return { toastId };
+		},
+		onSuccess: (result, _variables, context) => {
+			invalidateTodos();
+			toast.dismiss(context?.toastId);
+			const destination = getAutomationRunDestination({
+				v2WorkspaceId: result.workspaceId,
+				sessionKind: result.sessionKind,
+				terminalSessionId:
+					result.sessionKind === "terminal" ? result.sessionId : null,
+			});
+			if ("reason" in destination) {
+				toast.success(t("todos.statusDispatched"));
+				toast.message(destination.reason);
+				return;
+			}
+			toast.success(t("todos.statusDispatched"));
+			void navigateToWorkspace(destination.workspaceId, navigate, {
+				search: {
+					terminalId: destination.terminalId,
+					focusRequestId: crypto.randomUUID(),
+				},
+			});
+		},
+		onError: (error, _variables, context) => {
+			toast.dismiss(context?.toastId);
 			toast.error(
 				t("todos.runFailed", {
 					message: error instanceof Error ? error.message : "unknown",

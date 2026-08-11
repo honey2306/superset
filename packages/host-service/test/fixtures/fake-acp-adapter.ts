@@ -77,6 +77,12 @@ let sessionId = "fake-acp-unset";
 const storePath = (id: string) =>
 	path.join(process.cwd(), ".fake-acp-store", `${id}.jsonl`);
 
+function recordMcpServers(phase: "new" | "load", mcpServers: unknown): void {
+	const logPath = process.env.FAKE_ACP_MCP_REQUEST_LOG;
+	if (!logPath) return;
+	appendFileSync(logPath, `${JSON.stringify({ phase, mcpServers })}\n`);
+}
+
 function recordUpdate(update: schema.SessionUpdate): void {
 	mkdirSync(path.dirname(storePath(sessionId)), { recursive: true });
 	appendFileSync(storePath(sessionId), `${JSON.stringify(update)}\n`);
@@ -252,6 +258,7 @@ const app = agent({ name: "fake-acp-adapter" })
 		protocolVersion: PROTOCOL_VERSION,
 	}))
 	.onRequest("session/new", (context) => {
+		recordMcpServers("new", context.params.mcpServers);
 		sessionId = `fake-acp-${randomUUID()}`;
 		notifyAvailableCommands(context.client);
 		return {
@@ -264,6 +271,7 @@ const app = agent({ name: "fake-acp-adapter" })
 		};
 	})
 	.onRequest("session/load", async (context) => {
+		recordMcpServers("load", context.params.mcpServers);
 		sessionId = context.params.sessionId;
 		// Like the real adapter: the stored transcript is replayed as ordinary
 		// session/update notifications BEFORE the response resolves; an unknown

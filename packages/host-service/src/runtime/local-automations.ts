@@ -9,7 +9,10 @@ import {
 	projects,
 	workspaces,
 } from "../db/schema";
-import { runAgentInWorkspace } from "../trpc/router/agents/agents";
+import {
+	type AgentRunInput,
+	runAgentInWorkspace,
+} from "../trpc/router/agents/agents";
 import type { HostServiceContext } from "../types";
 
 export type LocalTaskContext = Pick<
@@ -63,6 +66,30 @@ export function runDto(row: typeof localAutomationRuns.$inferSelect) {
 		createdAt: new Date(row.createdAt),
 		dispatchedAt: row.dispatchedAt === null ? null : new Date(row.dispatchedAt),
 	};
+}
+
+export function localRunDestination(
+	workspaceId: string,
+	result: { kind: "terminal" | "chat"; sessionId: string },
+) {
+	return {
+		workspaceId,
+		sessionId: result.sessionId,
+		sessionKind: result.kind,
+	};
+}
+
+/**
+ * Local schedules and auto todos are unattended jobs explicitly authorized to
+ * run with full access. The public agents.run mutation cannot supply this
+ * internal-only capability.
+ */
+export function automatedAgentRunInput(
+	workspaceId: string,
+	agent: string,
+	prompt: string,
+): AgentRunInput {
+	return { workspaceId, agent, prompt, permissionMode: "full_access" };
 }
 
 export function recordPromptVersion(
@@ -185,11 +212,10 @@ export async function dispatchLocalAutomation(
 		throw new Error(error);
 	}
 	try {
-		const result = await runAgentInWorkspace(ctx as HostServiceContext, {
-			workspaceId,
-			agent: automation.agent,
-			prompt: automation.prompt,
-		});
+		const result = await runAgentInWorkspace(
+			ctx as HostServiceContext,
+			automatedAgentRunInput(workspaceId, automation.agent, automation.prompt),
+		);
 		ctx.db
 			.update(localAutomationRuns)
 			.set({
@@ -201,12 +227,7 @@ export async function dispatchLocalAutomation(
 			})
 			.where(eq(localAutomationRuns.id, runId))
 			.run();
-		return {
-			runId,
-			workspaceId,
-			sessionId: result.sessionId,
-			sessionKind: result.kind,
-		};
+		return { runId, ...localRunDestination(workspaceId, result) };
 	} catch (cause) {
 		const error =
 			cause instanceof Error ? cause.message : "Local dispatch failed";
@@ -222,7 +243,11 @@ export async function dispatchLocalAutomation(
 export async function dispatchLocalTodo(
 	ctx: LocalTaskContext,
 	todo: typeof localTodos.$inferSelect,
-): Promise<{ sessionId?: string }> {
+): Promise<{
+	workspaceId: string;
+	sessionId: string;
+	sessionKind: "terminal" | "chat";
+}> {
 	const workspaceId = resolveLocalWorkspaceId(
 		ctx.db,
 		todo.v2WorkspaceId,
@@ -247,17 +272,20 @@ export async function dispatchLocalTodo(
 			.where(eq(localTodos.id, todo.id))
 			.run();
 	}
-	ctx.db
+	const claim = ctx.db
 		.update(localTodos)
 		.set({ status: "dispatching", error: null, updatedAt: Date.now() })
-		.where(eq(localTodos.id, todo.id))
+		.where(and(eq(localTodos.id, todo.id), eq(localTodos.status, "pending")))
 		.run();
+	if (claim.changes !== 1)
+		throw new Error(
+			"This todo has already been dispatched or is being dispatched.",
+		);
 	try {
-		const result = await runAgentInWorkspace(ctx as HostServiceContext, {
-			workspaceId,
-			agent: todo.agent,
-			prompt: todo.prompt,
-		});
+		const result = await runAgentInWorkspace(
+			ctx as HostServiceContext,
+			automatedAgentRunInput(workspaceId, todo.agent, todo.prompt),
+		);
 		ctx.db
 			.update(localTodos)
 			.set({
@@ -271,7 +299,7 @@ export async function dispatchLocalTodo(
 			})
 			.where(eq(localTodos.id, todo.id))
 			.run();
-		return { sessionId: result.sessionId };
+		return localRunDestination(workspaceId, result);
 	} catch (cause) {
 		const error =
 			cause instanceof Error ? cause.message : "Local dispatch failed";

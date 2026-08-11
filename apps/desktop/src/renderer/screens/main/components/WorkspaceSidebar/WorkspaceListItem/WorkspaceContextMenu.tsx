@@ -40,8 +40,8 @@ import {
 import { createContextMenuDeleteDialogCoordinator } from "renderer/react-query/workspaces/useWorkspaceDeleteHandler";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { STROKE_WIDTH } from "../constants";
-import { RenameBranchDialog, WorkspaceHoverCardContent } from "./components";
-import { HOVER_CARD_CLOSE_DELAY, HOVER_CARD_OPEN_DELAY } from "./constants";
+import { RenameBranchDialog } from "./components";
+import { WorkspaceHoverCardContent } from "./components/WorkspaceHoverCard";
 import { getPullRequestMenuActions } from "./pullRequestMenuActions";
 
 interface WorkspaceContextMenuProps {
@@ -68,6 +68,9 @@ interface WorkspaceContextMenuProps {
 	onRestorePullRequest: () => void;
 	children: React.ReactNode;
 }
+
+const HOVER_CARD_OPEN_DELAY = 400;
+const HOVER_CARD_CLOSE_DELAY = 100;
 
 export function WorkspaceContextMenu({
 	id,

@@ -9,10 +9,11 @@
  */
 import { Database as BunDatabase } from "bun:sqlite";
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import type { McpServer } from "@agentclientprotocol/sdk";
 import { type ServerType, serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
 import {
@@ -93,12 +94,18 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 	const subscriptions: SessionSubscription[] = [];
 	const hosts: TestHost[] = [];
 
-	function newManager(options?: { journalCapacity?: number }) {
+	function newManager(options?: {
+		journalCapacity?: number;
+		mcpServers?: McpServer[];
+		adapterEnv?: Record<string, string>;
+	}) {
 		const manager = new AcpSessionManager({
 			resolveWorkspaceCwd: () => workspaceDir,
 			adapterEntry: FAKE_ADAPTER,
 			persistence,
 			journalCapacity: options?.journalCapacity,
+			mcpServers: options?.mcpServers,
+			adapterEnv: options?.adapterEnv,
 		});
 		managers.push(manager);
 		return manager;
@@ -235,6 +242,39 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
 			"hello after restart",
 		);
+	}, 30_000);
+
+	test("passes local MCP servers to both new and resumed ACP sessions", async () => {
+		const sessionId = "persist-mcp-setup";
+		const mcpRequestLog = path.join(workspaceDir, "mcp-requests.jsonl");
+		const adapterEnv = { FAKE_ACP_MCP_REQUEST_LOG: mcpRequestLog };
+		const mcpServers: McpServer[] = [
+			{
+				name: "browser-use",
+				command: "/opt/local/bin/browser-use",
+				args: ["--cli-mcp"],
+				env: [],
+			},
+		];
+
+		const before = newManager({ mcpServers, adapterEnv });
+		await before.create({ sessionId, workspaceId: WORKSPACE_ID });
+		await runTurn(before, sessionId, "say persist MCP setup");
+		await before.dispose();
+
+		const after = newManager({ mcpServers, adapterEnv });
+		await after.ensureLive(sessionId);
+
+		const requests = readFileSync(mcpRequestLog, "utf8")
+			.trim()
+			.split("\n")
+			.map(
+				(line) => JSON.parse(line) as { phase: string; mcpServers: unknown },
+			);
+		expect(requests).toEqual([
+			{ phase: "new", mcpServers },
+			{ phase: "load", mcpServers },
+		]);
 	}, 30_000);
 
 	test("session/load bounds its pre-runtime replay to the configured catch-up window", async () => {

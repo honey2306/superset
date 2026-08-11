@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
+import type { McpServer } from "@agentclientprotocol/sdk";
 import {
 	agent,
 	ndJsonStream,
@@ -50,6 +51,38 @@ type CodexToolCallUpdate = Extract<
 	SessionUpdate,
 	{ sessionUpdate: "tool_call" }
 >;
+
+/**
+ * Codex app-server accepts per-thread config overrides, rather than ACP's
+ * `mcpServers` shape. Its `mcp_servers` config supports stdio servers; omit
+ * transports we cannot faithfully translate instead of inventing settings.
+ */
+export function codexMcpConfig(mcpServers: readonly McpServer[]):
+	| {
+			mcp_servers: Record<
+				string,
+				{ command: string; args: string[]; env: Record<string, string> }
+			>;
+	  }
+	| undefined {
+	const mcpServersConfig: Record<
+		string,
+		{ command: string; args: string[]; env: Record<string, string> }
+	> = {};
+	for (const server of mcpServers) {
+		if (!("command" in server)) continue;
+		mcpServersConfig[server.name] = {
+			command: server.command,
+			args: server.args,
+			env: Object.fromEntries(
+				server.env.map(({ name, value }) => [name, value]),
+			),
+		};
+	}
+	return Object.keys(mcpServersConfig).length > 0
+		? { mcp_servers: mcpServersConfig }
+		: undefined;
+}
 
 export function codexDecisionOptions(
 	available: unknown,
@@ -381,13 +414,17 @@ export class CodexBridge {
 				this.write?.({ jsonrpc: "2.0", id, result: { decision: "cancel" } }),
 			);
 	}
-	async newSession(cwd: string): Promise<string> {
+	async newSession(
+		cwd: string,
+		mcpServers: readonly McpServer[] = [],
+	): Promise<string> {
 		try {
 			await this.boot();
 			const response = (await this.request("thread/start", {
 				cwd,
 				approvalPolicy: "on-request",
 				sandbox: "workspace-write",
+				config: codexMcpConfig(mcpServers),
 			})) as { thread?: { id?: string } };
 			const id = response.thread?.id;
 			if (!id) throw new Error("Codex did not return a thread id");
@@ -398,12 +435,17 @@ export class CodexBridge {
 			throw error;
 		}
 	}
-	async loadSession(sessionId: string, cwd: string): Promise<void> {
+	async loadSession(
+		sessionId: string,
+		cwd: string,
+		mcpServers: readonly McpServer[] = [],
+	): Promise<void> {
 		try {
 			await this.boot();
 			const response = (await this.request("thread/resume", {
 				threadId: sessionId,
 				cwd,
+				config: codexMcpConfig(mcpServers),
 			})) as { thread?: { id?: string } };
 			this.threadId = response.thread?.id ?? sessionId;
 		} catch (error) {
@@ -489,11 +531,20 @@ if (isCodexBridgeMain(import.meta.url, process.argv[1], import.meta.main)) {
 		.onRequest("initialize", () => ({ protocolVersion: PROTOCOL_VERSION }))
 		.onRequest("session/new", async (context) => {
 			bridge = new CodexBridge(context.client);
-			return { sessionId: await bridge.newSession(context.params.cwd) };
+			return {
+				sessionId: await bridge.newSession(
+					context.params.cwd,
+					context.params.mcpServers,
+				),
+			};
 		})
 		.onRequest("session/load", async (context) => {
 			bridge = new CodexBridge(context.client);
-			await bridge.loadSession(context.params.sessionId, context.params.cwd);
+			await bridge.loadSession(
+				context.params.sessionId,
+				context.params.cwd,
+				context.params.mcpServers,
+			);
 			return {};
 		})
 		.onRequest("session/prompt", (context) => {

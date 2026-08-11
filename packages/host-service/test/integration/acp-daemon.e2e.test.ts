@@ -15,6 +15,7 @@ import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "../../src/db/schema";
 import {
 	ACP_DAEMON_BUILD_VERSION,
+	ACP_DAEMON_PROTOCOL_VERSION,
 	AcpDaemonClient,
 } from "../../src/runtime/acp-sessions/daemon";
 
@@ -57,10 +58,18 @@ async function rawRequest(
 		socket.once("connect", () => socket.write(`${JSON.stringify(message)}\n`));
 		socket.on("data", (chunk: string) => {
 			buffer += chunk;
-			const newline = buffer.indexOf("\n");
-			if (newline < 0) return;
-			socket.destroy();
-			resolve(JSON.parse(buffer.slice(0, newline)) as Record<string, unknown>);
+			for (;;) {
+				const newline = buffer.indexOf("\n");
+				if (newline < 0) return;
+				const line = buffer.slice(0, newline);
+				buffer = buffer.slice(newline + 1);
+				const response = JSON.parse(line) as Record<string, unknown>;
+				if (response.type !== "response" || response.id !== message.id)
+					continue;
+				socket.destroy();
+				resolve(response);
+				return;
+			}
 		});
 	});
 }
@@ -173,7 +182,7 @@ describe("ACP daemon process boundary", () => {
 		});
 		const hello = await first.hello();
 		daemonPid = hello.pid;
-		expect(hello.protocolVersion).toBe(1);
+		expect(hello.protocolVersion).toBe(ACP_DAEMON_PROTOCOL_VERSION);
 		expect(hello.buildVersion).toBe(ACP_DAEMON_BUILD_VERSION);
 
 		await first.prompt({
@@ -251,6 +260,45 @@ describe("ACP daemon process boundary", () => {
 				"picked:Beta",
 			);
 		}, "AskUser turn completion");
+
+		const openRequests: Array<{ sessionId: string; sourceSessionId: string }> =
+			[];
+		const stopOpenRequests = third.onSessionOpenRequested((event) => {
+			openRequests.push(event);
+		});
+		const continuation = await rawRequest(socketPath, {
+			type: "request",
+			id: "continue-session",
+			op: "supersetTool",
+			params: {
+				sourceSessionId: "session-1",
+				name: "continue_in_new_session",
+				arguments: {
+					handoff: "Continue from the daemon integration test",
+					focus: true,
+					idempotencyKey: "daemon-e2e-continuation",
+				},
+			},
+		});
+		expect(continuation).toMatchObject({
+			type: "response",
+			id: "continue-session",
+			ok: true,
+			result: { workspaceId: "workspace-1", reused: false },
+		});
+		const childSessionId = (continuation.result as { sessionId: string })
+			.sessionId;
+		await waitFor(
+			() =>
+				openRequests.some(
+					(event) =>
+						event.sessionId === childSessionId &&
+						event.sourceSessionId === "session-1",
+				),
+			"Superset session open request",
+		);
+		expect((await third.get(childSessionId)).workspaceId).toBe("workspace-1");
+		stopOpenRequests();
 
 		const unsupported = await rawRequest(socketPath, {
 			type: "request",

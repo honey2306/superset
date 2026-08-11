@@ -23,8 +23,15 @@ import {
 	AcpSessionNotFoundError,
 	AcpWorkspaceMismatchError,
 } from "./acp-sessions";
-import type { AcpSessionChangeHandler, AcpSessionRuntime } from "./runtime";
+import type {
+	AcpSessionChangeHandler,
+	AcpSessionOpenRequestEvent,
+	AcpSessionOpenRequestHandler,
+	AcpSessionRuntime,
+} from "./runtime";
 
+// Superset tool operations/events are additive. Keep v1 compatibility so a
+// new Desktop can continue resolving permissions owned by an older live daemon.
 export const ACP_DAEMON_PROTOCOL_VERSION = 1;
 export const ACP_DAEMON_BUILD_VERSION = hostServicePackageJson.version;
 
@@ -76,6 +83,7 @@ export type RequestOperation =
 	| "reorderQueue"
 	| "editQueuedPrompt"
 	| "clearQueue"
+	| "supersetTool"
 	| "subscribe"
 	| "unsubscribe"
 	| "shutdown";
@@ -123,11 +131,17 @@ export interface AcpDaemonSessionChangedEvent {
 	occurredAt: number;
 }
 
+export interface AcpDaemonSessionOpenRequestedEvent
+	extends AcpSessionOpenRequestEvent {
+	type: "session-open-requested";
+}
+
 export type AcpDaemonMessage =
 	| AcpDaemonRequest
 	| AcpDaemonResponse
 	| AcpDaemonEvent
-	| AcpDaemonSessionChangedEvent;
+	| AcpDaemonSessionChangedEvent
+	| AcpDaemonSessionOpenRequestedEvent;
 
 export function acpDaemonSocketPath(
 	organizationId: string,
@@ -194,6 +208,8 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 	private readonly pending = new Map<string, PendingRequest>();
 	private readonly subscriptions = new Map<string, ClientSubscription>();
 	private readonly sessionChangeHandlers = new Set<AcpSessionChangeHandler>();
+	private readonly sessionOpenRequestHandlers =
+		new Set<AcpSessionOpenRequestHandler>();
 
 	constructor(private readonly options: AcpDaemonClientOptions) {}
 
@@ -206,6 +222,13 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		this.sessionChangeHandlers.add(handler);
 		return () => {
 			this.sessionChangeHandlers.delete(handler);
+		};
+	}
+
+	onSessionOpenRequested(handler: AcpSessionOpenRequestHandler): () => void {
+		this.sessionOpenRequestHandlers.add(handler);
+		return () => {
+			this.sessionOpenRequestHandlers.delete(handler);
 		};
 	}
 
@@ -587,6 +610,20 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 				} catch (error) {
 					console.warn(
 						"[acp-daemon-client] session-changed handler threw",
+						error,
+					);
+				}
+			}
+			return;
+		}
+		if (message.type === "session-open-requested") {
+			const { type: _type, ...payload } = message;
+			for (const handler of this.sessionOpenRequestHandlers) {
+				try {
+					handler(payload);
+				} catch (error) {
+					console.warn(
+						"[acp-daemon-client] session-open-requested handler threw",
 						error,
 					);
 				}
