@@ -108,14 +108,8 @@ function AutomationDetailPage() {
 					id: automationId,
 				});
 			})(),
-		onMutate: () => {
-			const toastId = `automation-run-now-${automationId}`;
-			toast.loading("Starting automation...", { id: toastId });
-			return { toastId };
-		},
-		onSuccess: (result, _variables, context) => {
+		onSuccess: (result) => {
 			invalidateAutomation();
-			toast.dismiss(context?.toastId);
 			const destination = getAutomationRunDestination({
 				v2WorkspaceId: result.workspaceId,
 				sessionKind: result.sessionKind,
@@ -134,12 +128,10 @@ function AutomationDetailPage() {
 				},
 			});
 		},
-		onError: (error, _variables, context) => {
-			toast.dismiss(context?.toastId);
+		onError: (error) =>
 			toast.error(
 				error instanceof Error ? error.message : "Failed to trigger run",
-			);
-		},
+			),
 	});
 
 	const deleteMutation = useMutation({

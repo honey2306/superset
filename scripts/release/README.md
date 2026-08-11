@@ -10,6 +10,8 @@ build step). The entry point is **`bun run release`**. Design/rationale lives in
   is enforced by `bun run check:versions`.
 - **pty-daemon** is on its own `0.x` track and is bumped only with `--daemon`.
 - The standalone CLI is not part of this distribution.
+- The current release artifact is a macOS arm64 DMG. Intel macOS, Linux, canary,
+  and auto-update artifacts are intentionally out of scope.
 
 ## Commands
 

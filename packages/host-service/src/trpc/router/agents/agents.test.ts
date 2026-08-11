@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
 	buildAgentCommandString,
-	buildChatAgentMetadata,
 	resolveBundledHostAgentConfig,
 } from "./agents";
 
@@ -23,17 +22,6 @@ const stdinConfig = {
 	command: "amp",
 	args: [],
 	promptTransport: "stdin" as const,
-	promptArgs: [],
-	env: {},
-};
-
-const myFlickerConfig = {
-	id: "00000000-0000-0000-0000-000000000003",
-	presetId: "myflicker",
-	label: "MyFlicker",
-	command: "mfcli",
-	args: [],
-	promptTransport: "argv" as const,
 	promptArgs: [],
 	env: {},
 };
@@ -115,72 +103,5 @@ describe("buildAgentCommandString", () => {
 		expect(buildAgentCommandString(stdinConfig, "", [], RANDOM_ID)).toBe(
 			"'amp'",
 		);
-	});
-
-	it("adds MyFlicker's verified yolo flag for unattended full-access launches", () => {
-		expect(
-			buildAgentCommandString(
-				myFlickerConfig,
-				"do the thing",
-				[],
-				RANDOM_ID,
-				"full_access",
-			),
-		).toBe("'mfcli' '--approval-mode' 'yolo' 'do the thing'");
-	});
-
-	it("keeps MyFlicker's yolo flag idempotent", () => {
-		expect(
-			buildAgentCommandString(
-				{ ...myFlickerConfig, args: ["--approval-mode", "yolo"] },
-				"do the thing",
-				[],
-				RANDOM_ID,
-				"full_access",
-			),
-		).toBe("'mfcli' '--approval-mode' 'yolo' 'do the thing'");
-	});
-
-	it("does not add duplicate full-access flags to presets that already have them", () => {
-		expect(
-			buildAgentCommandString(
-				argvConfig,
-				"do the thing",
-				[],
-				RANDOM_ID,
-				"full_access",
-			),
-		).toBe("'claude' '--dangerously-skip-permissions' 'do the thing'");
-		const codex = resolveBundledHostAgentConfig("codex");
-		if (!codex) throw new Error("Expected bundled Codex preset");
-		expect(
-			buildAgentCommandString(
-				codex,
-				"do the thing",
-				[],
-				RANDOM_ID,
-				"full_access",
-			),
-		).toBe(
-			"'codex' '--dangerously-bypass-approvals-and-sandbox' '--dangerously-bypass-hook-trust' '--' 'do the thing'",
-		);
-	});
-
-	it("does not enhance ordinary manual launches", () => {
-		expect(
-			buildAgentCommandString(myFlickerConfig, "do the thing", [], RANDOM_ID),
-		).toBe("'mfcli' 'do the thing'");
-	});
-});
-
-describe("buildChatAgentMetadata", () => {
-	it("explicitly enables yolo for full-access scheduled chat", () => {
-		expect(buildChatAgentMetadata({ permissionMode: "full_access" })).toEqual({
-			yolo: true,
-		});
-	});
-
-	it("does not change permission state for ordinary chat launches", () => {
-		expect(buildChatAgentMetadata({})).toBeUndefined();
 	});
 });

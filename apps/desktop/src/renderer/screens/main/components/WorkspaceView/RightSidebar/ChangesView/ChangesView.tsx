@@ -2,6 +2,7 @@ import { toast } from "@superset/ui/sonner";
 import { useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getGitHubStatusQueryPolicy } from "renderer/lib/githubQueryPolicy";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
@@ -20,6 +21,7 @@ import { ChangesHeader } from "./components/ChangesHeader";
 import { CommitInput } from "./components/CommitInput";
 import { DiscardConfirmDialog } from "./components/DiscardConfirmDialog";
 import { useOrderedSections } from "./hooks";
+import { getPRActionState, shouldAutoCreatePRAfterPublish } from "./utils";
 
 interface ChangesViewProps {
 	onFileOpen?: (
@@ -34,6 +36,7 @@ interface ChangesViewProps {
 const INACTIVE_BRANCH_REFETCH_INTERVAL_MS = 10_000;
 
 interface PendingChangesRefresh {
+	invalidateBranches: boolean;
 	invalidateSelectedFile: boolean;
 }
 
@@ -74,6 +77,14 @@ export function ChangesView({
 	const { workspace } = useCatalogWorkspace(workspaceId);
 	const worktreePath = workspace?.worktreePath;
 	const projectId = workspace?.projectId;
+	const githubStatusQueryPolicy = getGitHubStatusQueryPolicy(
+		"changes-sidebar",
+		{
+			hasWorkspaceId: !!workspaceId,
+			isActive,
+		},
+	);
+
 	const { status, isLoading, effectiveBaseBranch, branchData, refetch } =
 		useGitChangesStatus({
 			workspaceId,
@@ -85,6 +96,15 @@ export function ChangesView({
 				: INACTIVE_BRANCH_REFETCH_INTERVAL_MS,
 			branchRefetchOnWindowFocus: true,
 		});
+
+	const {
+		data: githubStatus,
+		isLoading: isGitHubStatusLoading,
+		refetch: refetchGithubStatus,
+	} = electronTrpc.workspaces.getGitHubStatus.useQuery(
+		{ workspaceId: workspaceId ?? "" },
+		githubStatusQueryPolicy,
+	);
 
 	const stageAllMutation = electronTrpc.changes.stageAll.useMutation({
 		onSuccess: () => refetch(),
@@ -217,8 +237,10 @@ export function ChangesView({
 	const [showDiscardUnstagedDialog, setShowDiscardUnstagedDialog] =
 		useState(false);
 	const [showDiscardStagedDialog, setShowDiscardStagedDialog] = useState(false);
+	const activePullRequest = githubStatus?.pr ?? null;
 	const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const pendingRefreshRef = useRef<PendingChangesRefresh>({
+		invalidateBranches: false,
 		invalidateSelectedFile: false,
 	});
 	useBranchSyncInvalidation({
@@ -226,8 +248,10 @@ export function ChangesView({
 		workspaceBranch: workspace?.branch,
 		workspaceId: workspaceId ?? "",
 	});
+
 	const handleRefresh = () => {
 		refetch();
+		refetchGithubStatus();
 	};
 
 	const handleDiscardFiles = (files: ChangedFile[]) => {
@@ -294,6 +318,8 @@ export function ChangesView({
 			}
 
 			const selectedAbsolutePath = selectedFileState?.absolutePath ?? null;
+			pendingRefreshRef.current.invalidateBranches ||=
+				event.type === "overflow";
 			pendingRefreshRef.current.invalidateSelectedFile ||=
 				eventTargetsSelectedFile(event, selectedAbsolutePath);
 
@@ -305,6 +331,7 @@ export function ChangesView({
 				refreshTimerRef.current = null;
 				const pending = pendingRefreshRef.current;
 				pendingRefreshRef.current = {
+					invalidateBranches: false,
 					invalidateSelectedFile: false,
 				};
 
@@ -313,6 +340,12 @@ export function ChangesView({
 						worktreePath,
 					}),
 				];
+
+				if (pending.invalidateBranches) {
+					invalidations.push(
+						trpcUtils.changes.getBranches.invalidate({ worktreePath }),
+					);
+				}
 
 				if (pending.invalidateSelectedFile && selectedFileState) {
 					const oldAbsPath = selectedFileState.file.oldPath
@@ -487,6 +520,25 @@ export function ChangesView({
 	]);
 
 	const hasStagedChanges = stagedFiles.length > 0;
+	const hasExistingPR = !!activePullRequest;
+	const hasGitHubRepo = !!githubStatus?.repoUrl;
+	const defaultBranch =
+		branchData?.defaultBranch ?? status?.defaultBranch ?? "";
+	const isDefaultBranch = status?.branch === defaultBranch;
+	const prActionState = getPRActionState({
+		hasRepo: hasGitHubRepo,
+		hasExistingPR,
+		hasUpstream: status?.hasUpstream ?? false,
+		pushCount: status?.pushCount ?? 0,
+		pullCount: status?.pullCount ?? 0,
+		isDefaultBranch,
+	});
+	const shouldAutoCreatePR =
+		hasGitHubRepo &&
+		shouldAutoCreatePRAfterPublish({
+			hasExistingPR,
+			isDefaultBranch,
+		});
 	const orderedSections = useOrderedSections({
 		sectionOrder,
 		effectiveBaseBranch: effectiveBaseBranch ?? "",
@@ -596,11 +648,24 @@ export function ChangesView({
 				viewMode={fileListViewMode}
 				onViewModeChange={setFileListViewMode}
 				showViewModeToggle
+				worktreePath={worktreePath}
+				workspaceId={workspaceId ?? ""}
+				pullCount={status.pullCount}
+				pr={githubStatus?.pr ?? null}
+				isPRStatusLoading={isGitHubStatusLoading}
+				canCreatePR={prActionState.canCreatePR}
+				createPRBlockedReason={prActionState.createPRBlockedReason}
 			/>
 			<div className="border-b border-line">
 				<CommitInput
 					worktreePath={worktreePath}
 					hasStagedChanges={hasStagedChanges}
+					pushCount={status.pushCount}
+					pullCount={status.pullCount}
+					hasUpstream={status.hasUpstream}
+					pullRequest={activePullRequest ?? null}
+					canCreatePR={prActionState.canCreatePR}
+					shouldAutoCreatePRAfterPublish={shouldAutoCreatePR}
 					onRefresh={handleRefresh}
 				/>
 			</div>

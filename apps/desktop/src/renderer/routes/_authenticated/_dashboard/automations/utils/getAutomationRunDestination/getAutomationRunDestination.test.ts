@@ -20,7 +20,7 @@ describe("getAutomationRunDestination", () => {
 				terminalSessionId: null,
 			}),
 		).toEqual({
-			reason: "This chat session cannot be opened here yet.",
+			reason: "This automation chat session cannot be opened here yet.",
 		});
 	});
 });

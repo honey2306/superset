@@ -2,27 +2,19 @@ import { describe, expect, test } from "bun:test";
 import { isTemporaryWorkspaceActive } from "./isTemporaryWorkspaceActive";
 
 describe("isTemporaryWorkspaceActive", () => {
-	test("does not activate outside a workspace route", () => {
-		expect(isTemporaryWorkspaceActive(undefined, [], [])).toBe(false);
+	test("does not activate outside a workspace route while catalog data is unresolved", () => {
+		expect(isTemporaryWorkspaceActive(undefined, undefined)).toBe(false);
+		expect(isTemporaryWorkspaceActive(undefined, "temporary-workspace")).toBe(
+			false,
+		);
 	});
 
-	test("activates any workspace that belongs to a temporary project", () => {
+	test("activates only for the resolved temporary workspace route", () => {
 		expect(
-			isTemporaryWorkspaceActive(
-				"temporary-worktree",
-				[{ id: "temporary-worktree", projectId: "temporary-project" }],
-				[{ id: "temporary-project", kind: "temporary" }],
-			),
+			isTemporaryWorkspaceActive("temporary-workspace", "temporary-workspace"),
 		).toBe(true);
-	});
-
-	test("does not activate a repository workspace", () => {
 		expect(
-			isTemporaryWorkspaceActive(
-				"repository-workspace",
-				[{ id: "repository-workspace", projectId: "repository-project" }],
-				[{ id: "repository-project", kind: "repository" }],
-			),
+			isTemporaryWorkspaceActive("repository-workspace", "temporary-workspace"),
 		).toBe(false);
 	});
 });

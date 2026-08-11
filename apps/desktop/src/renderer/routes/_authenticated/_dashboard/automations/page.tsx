@@ -76,18 +76,10 @@ function AutomationsPage() {
 				id,
 			});
 		},
-		onMutate: ({ id, name }) => {
-			const toastId = `automation-run-now-${id}`;
-			toast.loading(t("automations.runningNow", { name }), {
-				id: toastId,
-			});
-			return { toastId };
-		},
-		onSuccess: (result, { name }, context) => {
+		onSuccess: (result, { name }) => {
 			queryClient.invalidateQueries({
 				queryKey: localAutomationKeys.automations(hostUrl),
 			});
-			toast.dismiss(context?.toastId);
 			const destination = getAutomationRunDestination({
 				v2WorkspaceId: result.workspaceId,
 				sessionKind: result.sessionKind,
@@ -106,12 +98,10 @@ function AutomationsPage() {
 				},
 			});
 		},
-		onError: (error, _variables, context) => {
-			toast.dismiss(context?.toastId);
+		onError: (error) =>
 			toast.error(
 				error instanceof Error ? error.message : t("automations.runFailed"),
-			);
-		},
+			),
 	});
 
 	const deleteMutation = useMutation({

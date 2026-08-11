@@ -1,4 +1,4 @@
-type RunSession = {
+type AutomationRunSession = {
 	v2WorkspaceId: string | null;
 	sessionKind: string | null;
 	terminalSessionId: string | null;
@@ -10,7 +10,7 @@ type RunSession = {
  * turn a click into a silent no-op.
  */
 export function getAutomationRunDestination(
-	run: RunSession,
+	run: AutomationRunSession,
 ): { workspaceId: string; terminalId: string } | { reason: string } {
 	if (!run.v2WorkspaceId) {
 		return { reason: "This run no longer has an available workspace." };
@@ -23,7 +23,7 @@ export function getAutomationRunDestination(
 	}
 	if (run.sessionKind === "chat") {
 		return {
-			reason: "This chat session cannot be opened here yet.",
+			reason: "This automation chat session cannot be opened here yet.",
 		};
 	}
 	return { reason: "This run did not create an openable session." };

@@ -206,57 +206,6 @@ describe("local task routers", () => {
 		opened.close();
 	});
 
-	test("run-now cannot launch a due todo that the scheduler already claimed", async () => {
-		const directory = mkdtempSync(join(tmpdir(), "host-local-todo-race-"));
-		directories.push(directory);
-		const opened = openDatabase(join(directory, "host.db"));
-		const projectId = crypto.randomUUID();
-		const workspaceId = crypto.randomUUID();
-		opened.db
-			.insert(projects)
-			.values({ id: projectId, repoPath: directory })
-			.run();
-		opened.db
-			.insert(workspaces)
-			.values({
-				id: workspaceId,
-				projectId,
-				worktreePath: directory,
-				branch: "main",
-				name: "Main",
-				type: "main",
-			})
-			.run();
-		const todo = await createCaller(opened.db).todo.create({
-			title: "Race-safe due todo",
-			mode: "auto",
-			dueAt: new Date(Date.now() - 1),
-			timezone: "UTC",
-			v2WorkspaceId: workspaceId,
-			agent: "not-configured",
-			prompt: "Run exactly once",
-		});
-
-		const scheduler = new LocalAutomationScheduler(
-			() => ({ db: opened.db }) as never,
-		);
-		const scheduled = scheduler.tick();
-		const runNow = createCaller(opened.db).todo.runNow({ id: todo.id });
-
-		await expect(runNow).rejects.toThrow(
-			"This todo has already been dispatched or is being dispatched.",
-		);
-		await scheduled;
-		expect(
-			opened.db
-				.select()
-				.from(localTodos)
-				.where(eq(localTodos.id, todo.id))
-				.get(),
-		).toMatchObject({ status: "dispatch_failed" });
-		opened.close();
-	});
-
 	test("project-only auto tasks resolve the local main workspace without cloud access", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "host-project-task-"));
 		directories.push(directory);

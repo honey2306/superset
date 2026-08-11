@@ -721,17 +721,17 @@ export class HostServiceCoordinator extends EventEmitter {
 		// Remove any inherited shell value without affecting the loopback host.
 		delete childEnv.RELAY_URL;
 
-		// Pin external ACP CLI paths using the augmented shell PATH. Packaged
-		// Electron builds sometimes lose NVM/Homebrew entries even after shell
-		// environment setup. Claude's ACP adapter honors CLAUDE_CODE_EXECUTABLE,
-		// which lets nightly self-updates affect the CLI used by new ACP sessions.
-		// Both lookups are best-effort and retain their existing fallbacks.
-		const [claudePath, mfcliPath] = await Promise.all([
-			resolveCliPath("claude", childEnv, childEnv.CLAUDE_CODE_EXECUTABLE),
-			resolveCliPath("mfcli", childEnv, childEnv.SUPERSET_MFCLI_TITLE_COMMAND),
-		]);
-		if (claudePath) childEnv.CLAUDE_CODE_EXECUTABLE = claudePath;
-		if (mfcliPath) childEnv.SUPERSET_MFCLI_TITLE_COMMAND = mfcliPath;
+		// Pin the mfcli path for the ACP daemon's title generation. Resolving
+		// via `which` inside the augmented shell PATH beats relying on the
+		// daemon's inherited PATH — packaged Electron builds sometimes strip
+		// NVM/Homebrew entries even after applyShellEnvToProcess ran, and
+		// mfcli commonly sits under one of those. Best-effort: on failure we
+		// leave the env var unset and the daemon falls back to `mfcli` on its
+		// own PATH.
+		const mfcliPath = await resolveMfcliPath(childEnv);
+		if (mfcliPath) {
+			childEnv.SUPERSET_MFCLI_TITLE_COMMAND = mfcliPath;
+		}
 
 		return childEnv;
 	}
@@ -941,19 +941,25 @@ export function getHostServiceCoordinator(): HostServiceCoordinator {
 	return coordinator;
 }
 
-/** Resolve an absolute CLI path from the augmented child environment. */
-async function resolveCliPath(
-	command: string,
+/**
+ * Resolve an absolute path to `mfcli` using the passed child env's PATH. Used
+ * to pin `SUPERSET_MFCLI_TITLE_COMMAND` for the ACP daemon so title generation
+ * finds mfcli even when the daemon's inherited PATH is missing NVM/Homebrew
+ * entries. Returns null if the lookup fails; the daemon then relies on its
+ * own PATH.
+ */
+async function resolveMfcliPath(
 	env: Record<string, string>,
-	configuredPath?: string,
 ): Promise<string | null> {
-	if (configuredPath) return configuredPath;
+	if (env.SUPERSET_MFCLI_TITLE_COMMAND) {
+		return env.SUPERSET_MFCLI_TITLE_COMMAND;
+	}
 	const probe = process.platform === "win32" ? "where" : "which";
 	try {
 		const stdout = await new Promise<string>((resolve, reject) => {
 			const child = childProcess.execFile(
 				probe,
-				[command],
+				["mfcli"],
 				{ env, timeout: 5_000, encoding: "utf8" },
 				(error, out) => {
 					if (error) reject(error);
@@ -969,7 +975,7 @@ async function resolveCliPath(
 		return first || null;
 	} catch (error) {
 		log.debug(
-			`[host-service-coordinator] ${command} lookup failed: ${error instanceof Error ? error.message : String(error)}`,
+			`[host-service-coordinator] mfcli lookup failed: ${error instanceof Error ? error.message : String(error)}`,
 		);
 		return null;
 	}

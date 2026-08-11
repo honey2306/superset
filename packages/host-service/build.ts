@@ -94,25 +94,6 @@ if (!acpDaemonResult.success) {
 	process.exit(1);
 }
 
-// Session-scoped MCP server that exposes Superset orchestration tools to every
-// ACP harness and calls back into the detached daemon over its local socket.
-const supersetMcpResult = await Bun.build({
-	entrypoints: ["src/runtime/acp-sessions/superset-mcp.ts"],
-	target: "node",
-	outdir,
-	naming: "superset-mcp.js",
-	format: "esm",
-	define: {
-		"process.env.NODE_ENV": JSON.stringify("production"),
-	},
-});
-
-if (!supersetMcpResult.success) {
-	console.error("[host-service] Superset MCP build failed:");
-	for (const log of supersetMcpResult.logs) console.error(log);
-	process.exit(1);
-}
-
 // This is launched as an ACP subprocess by acp-sessions.ts, so it must be
 // emitted beside host-service.js rather than relying on a source-tree .ts file.
 const codexBridgeResult = await Bun.build({
@@ -169,5 +150,5 @@ if (!piBridgeResult.success) {
 }
 
 console.log(
-	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/superset-mcp.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js`,
+	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js`,
 );

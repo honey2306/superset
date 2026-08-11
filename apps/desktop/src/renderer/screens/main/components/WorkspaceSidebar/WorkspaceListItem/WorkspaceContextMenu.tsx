@@ -9,6 +9,11 @@ import {
 	ContextMenuSubTrigger,
 	ContextMenuTrigger,
 } from "@superset/ui/context-menu";
+import {
+	HoverCard,
+	HoverCardContent,
+	HoverCardTrigger,
+} from "@superset/ui/hover-card";
 import { useMemo, useRef, useState } from "react";
 import {
 	LuArrowRightLeft,
@@ -35,22 +40,20 @@ import {
 import { createContextMenuDeleteDialogCoordinator } from "renderer/react-query/workspaces/useWorkspaceDeleteHandler";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { STROKE_WIDTH } from "../constants";
+import { RenameBranchDialog } from "./components";
+import { WorkspaceHoverCardContent } from "./components/WorkspaceHoverCard";
 import { getPullRequestMenuActions } from "./pullRequestMenuActions";
-import { WorkspaceBranchActions } from "./WorkspaceBranchActions";
 
 interface WorkspaceContextMenuProps {
 	id: string;
 	projectId: string;
-	branch: string;
-	hostUrl: string | null;
-	hostWorkspaceId: string | null;
+	name: string;
 	isBranchWorkspace: boolean;
 	isUnread: boolean;
 	showDeleteHotkey?: boolean;
 	workspaceStatus: string | null | undefined;
 	sections: { id: string; name: string }[];
 	onRename: () => void;
-	onRenameBranch: () => void;
 	onOpenInFinder: () => void;
 	onOpenInEditor: () => void;
 	onCopyPath: () => void;
@@ -61,25 +64,24 @@ interface WorkspaceContextMenuProps {
 	pullRequest: { url: string; number: number } | null;
 	isPullRequestSuppressed: boolean;
 	onOpenPullRequest: () => void;
-	onOpenUrl: (url: string) => void;
 	onUnlinkPullRequest: () => void;
 	onRestorePullRequest: () => void;
 	children: React.ReactNode;
 }
 
+const HOVER_CARD_OPEN_DELAY = 400;
+const HOVER_CARD_CLOSE_DELAY = 100;
+
 export function WorkspaceContextMenu({
 	id,
 	projectId,
-	branch,
-	hostUrl,
-	hostWorkspaceId,
+	name,
 	isBranchWorkspace,
 	isUnread,
 	showDeleteHotkey = false,
 	workspaceStatus,
 	sections,
 	onRename,
-	onRenameBranch,
 	onOpenInFinder,
 	onOpenInEditor,
 	onCopyPath,
@@ -90,13 +92,15 @@ export function WorkspaceContextMenu({
 	pullRequest,
 	isPullRequestSuppressed,
 	onOpenPullRequest,
-	onOpenUrl,
 	onUnlinkPullRequest,
 	onRestorePullRequest,
 	children,
 }: WorkspaceContextMenuProps) {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 	const { t } = useTranslation();
+	const [renameBranchTarget, setRenameBranchTarget] = useState<string | null>(
+		null,
+	);
 	const contextMenuSelectionRef = useRef<string[]>([]);
 	const selectionStore = useWorkspaceSelectionStore;
 	const moveToSection = useMoveWorkspaceToSection();
@@ -114,7 +118,7 @@ export function WorkspaceContextMenu({
 		isPullRequestSuppressed,
 	});
 
-	const handleMenuOpenChange = (open: boolean) => {
+	const handleContextMenuOpenChange = (open: boolean) => {
 		setIsContextMenuOpen(open);
 		if (open) {
 			const { selectedIds } = selectionStore.getState();
@@ -202,21 +206,6 @@ export function WorkspaceContextMenu({
 
 	const commonContextMenuItems = (
 		<>
-			<WorkspaceBranchActions
-				branch={branch}
-				hostUrl={hostUrl}
-				hostWorkspaceId={hostWorkspaceId}
-				isMenuOpen={isContextMenuOpen}
-				openUrl={onOpenUrl}
-			/>
-			<ContextMenuItem
-				disabled={!hostUrl || !hostWorkspaceId}
-				onSelect={onRenameBranch}
-			>
-				<LuPencil className="mr-2 size-4" strokeWidth={STROKE_WIDTH} />
-				Rename branch
-			</ContextMenuItem>
-			<ContextMenuSeparator />
 			<ContextMenuItem onSelect={onOpenInFinder}>
 				<LuFolderOpen className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 				{t("workspace.openFinder")}
@@ -243,7 +232,7 @@ export function WorkspaceContextMenu({
 					/>
 					{t("workspace.moveSection")}
 				</ContextMenuSubTrigger>
-				<ContextMenuSubContent className="!bg-surface-sunk !text-fg">
+				<ContextMenuSubContent>
 					<ContextMenuItem onSelect={handleCreateSectionFromSelection}>
 						<LuFolderPlus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 						{t("workspace.newSection")}
@@ -288,12 +277,12 @@ export function WorkspaceContextMenu({
 			</ContextMenuItem>
 		</>
 	);
+
 	if (isBranchWorkspace) {
 		return (
-			<ContextMenu onOpenChange={handleMenuOpenChange}>
+			<ContextMenu onOpenChange={handleContextMenuOpenChange}>
 				<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
 				<ContextMenuContent
-					className="!bg-surface-sunk !text-fg"
 					onCloseAutoFocus={(event) => {
 						deleteDialogCoordinator.handleCloseAutoFocus(event);
 					}}
@@ -305,21 +294,45 @@ export function WorkspaceContextMenu({
 	}
 
 	return (
-		<ContextMenu onOpenChange={handleMenuOpenChange}>
-			<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-			<ContextMenuContent
-				className="!bg-surface-sunk !text-fg"
-				onCloseAutoFocus={(event) => {
-					deleteDialogCoordinator.handleCloseAutoFocus(event);
-				}}
-			>
-				<ContextMenuItem onSelect={onRename}>
-					<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-					{t("workspace.renameAction")}
-				</ContextMenuItem>
-				<ContextMenuSeparator />
-				{commonContextMenuItems}
-			</ContextMenuContent>
-		</ContextMenu>
+		<HoverCard
+			open={isContextMenuOpen ? false : undefined}
+			openDelay={HOVER_CARD_OPEN_DELAY}
+			closeDelay={HOVER_CARD_CLOSE_DELAY}
+		>
+			<ContextMenu onOpenChange={handleContextMenuOpenChange}>
+				<HoverCardTrigger asChild>
+					<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+				</HoverCardTrigger>
+				<ContextMenuContent
+					onCloseAutoFocus={(event) => {
+						deleteDialogCoordinator.handleCloseAutoFocus(event);
+					}}
+				>
+					<ContextMenuItem onSelect={onRename}>
+						<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+						{t("workspace.renameAction")}
+					</ContextMenuItem>
+					<ContextMenuSeparator />
+					{commonContextMenuItems}
+				</ContextMenuContent>
+			</ContextMenu>
+			<HoverCardContent side="right" align="start" className="w-72">
+				<WorkspaceHoverCardContent
+					workspaceId={id}
+					workspaceAlias={name}
+					onEditBranchClick={setRenameBranchTarget}
+				/>
+			</HoverCardContent>
+			{renameBranchTarget && (
+				<RenameBranchDialog
+					workspaceId={id}
+					currentBranchName={renameBranchTarget}
+					open={renameBranchTarget !== null}
+					onOpenChange={(open) => {
+						if (!open) setRenameBranchTarget(null);
+					}}
+				/>
+			)}
+		</HoverCard>
 	);
 }
