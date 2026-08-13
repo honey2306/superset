@@ -1,6 +1,6 @@
 import { Button } from "@superset/ui/button";
 import { Kbd, KbdGroup } from "@superset/ui/kbd";
-
+import { useQuery } from "@tanstack/react-query";
 import { FaGithub } from "react-icons/fa";
 import {
 	LuExternalLink,
@@ -9,9 +9,11 @@ import {
 	LuPencil,
 	LuTriangleAlert,
 } from "react-icons/lu";
+import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
 import { useHotkeyDisplay } from "renderer/hotkeys";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { usePRStatus } from "renderer/screens/main/hooks";
 import { STROKE_WIDTH } from "../../../constants";
 import { ChecksList } from "./components/ChecksList";
@@ -31,11 +33,33 @@ export function WorkspaceHoverCardContent({
 	onEditBranchClick,
 }: WorkspaceHoverCardContentProps) {
 	const { locale, t } = useTranslation();
-	const { data: worktreeInfo } =
-		electronTrpc.workspaces.getWorktreeInfo.useQuery(
-			{ workspaceId },
-			{ enabled: !!workspaceId },
-		);
+	const hostUrl = useWorkspaceHostUrl(workspaceId);
+	const { workspace } = useCatalogWorkspace(workspaceId);
+	const { data: gitStatus } = useQuery({
+		queryKey: ["host-worktree-info-status", hostUrl, workspaceId],
+		enabled: Boolean(hostUrl && workspaceId),
+		queryFn: () => {
+			if (!hostUrl) throw new Error("Workspace host is unavailable");
+			return getHostServiceClientByUrl(hostUrl).git.getStatus.query({
+				workspaceId,
+				priority: "background",
+			});
+		},
+	});
+	const worktreeInfo = workspace
+		? {
+				worktreeName:
+					workspace.worktreePath.split("/").pop() ?? workspace.branch,
+				branchName: workspace.branch,
+				createdAt: workspace.createdAt,
+				gitStatus: gitStatus
+					? {
+							needsRebase: gitStatus.currentBranch.behindCount > 0,
+							behind: gitStatus.currentBranch.behindCount,
+						}
+					: null,
+			}
+		: null;
 
 	const {
 		pr,

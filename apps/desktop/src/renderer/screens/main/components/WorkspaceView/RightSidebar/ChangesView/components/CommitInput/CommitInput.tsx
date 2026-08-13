@@ -1,46 +1,56 @@
 import { Button } from "@superset/ui/button";
 import { toast } from "@superset/ui/sonner";
 import { Textarea } from "@superset/ui/textarea";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { VscCheck } from "react-icons/vsc";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 
 interface CommitInputProps {
-	worktreePath: string;
+	workspaceId: string;
 	hasStagedChanges: boolean;
 	onRefresh: () => void;
 }
 
 /** The Changes panel owns local file staging and committing only. Branch sync lives on the workspace menu. */
 export function CommitInput({
-	worktreePath,
+	workspaceId,
 	hasStagedChanges,
 	onRefresh,
 }: CommitInputProps) {
 	const { t } = useTranslation();
+	const { activeHostUrl } = useLocalHostService();
 	const [commitMessage, setCommitMessage] = useState("");
-	const commitMutation = electronTrpc.changes.commit.useMutation({
+	const commitMutation = useMutation({
+		mutationFn: (message: string) => {
+			if (!activeHostUrl) throw new Error("Workspace host is unavailable");
+			return getHostServiceClientByUrl(activeHostUrl).git.commit.mutate({
+				workspaceId,
+				message,
+			});
+		},
 		onSuccess: () => {
-			toast.success(t("v1Changes.commit.toastCommitted"));
+			toast.success(t("changes.commit.toastCommitted"));
 			setCommitMessage("");
 			onRefresh();
 		},
 		onError: (error) =>
 			toast.error(
-				t("v1Changes.commit.toastCommitFailed", { message: error.message }),
+				t("changes.commit.toastCommitFailed", { message: error.message }),
 			),
 	});
 	const canCommit = hasStagedChanges && Boolean(commitMessage.trim());
 	const handleCommit = () => {
 		if (!canCommit) return;
-		commitMutation.mutate({ worktreePath, message: commitMessage.trim() });
+		commitMutation.mutate(commitMessage.trim());
 	};
 
 	return (
 		<div className="flex flex-col gap-1.5 px-2 py-2">
 			<Textarea
-				placeholder={t("v1Changes.commit.placeholder")}
+				placeholder={t("changes.commit.placeholder")}
 				value={commitMessage}
 				onChange={(event) => setCommitMessage(event.target.value)}
 				className="min-h-[52px] resize-none bg-background text-[10px]"
@@ -59,7 +69,7 @@ export function CommitInput({
 				disabled={!canCommit || commitMutation.isPending}
 			>
 				<VscCheck className="size-4" />
-				{t("v1Changes.commit.commit")}
+				{t("changes.commit.commit")}
 			</Button>
 		</div>
 	);

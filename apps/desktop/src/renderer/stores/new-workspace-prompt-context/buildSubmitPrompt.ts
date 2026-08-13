@@ -20,13 +20,6 @@ export function buildSubmitPrompt(args: BuildSubmitPromptArgs): string {
 	const linkedSections: string[] = [];
 
 	for (const issue of args.linkedIssues) {
-		if (issue.source !== "internal" || !issue.taskId) continue;
-		const body = readBody(`task:${issue.taskId}`);
-		const header = `## Linked task — ${issue.slug}: ${issue.title}`;
-		linkedSections.push(body ? `${header}\n${body}` : header);
-	}
-
-	for (const issue of args.linkedIssues) {
 		if (issue.source !== "github" || issue.number == null) continue;
 		const body = readBody(`github-issue:${issue.number}`);
 		const headerLines = [

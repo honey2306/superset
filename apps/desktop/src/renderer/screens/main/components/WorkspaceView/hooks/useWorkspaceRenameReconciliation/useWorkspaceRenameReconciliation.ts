@@ -1,6 +1,6 @@
+import { retargetPanesFileViewerPaths } from "renderer/lib/panes";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import { useChangesStore } from "renderer/stores/changes";
-import { useTabsStore } from "renderer/stores/tabs/store";
 
 interface UseWorkspaceRenameReconciliationOptions {
 	workspaceId: string;
@@ -13,9 +13,6 @@ export function useWorkspaceRenameReconciliation({
 	worktreePath,
 	enabled = true,
 }: UseWorkspaceRenameReconciliationOptions): void {
-	const retargetFileViewerPaths = useTabsStore(
-		(store) => store.retargetFileViewerPaths,
-	);
 	const retargetSelectedFile = useChangesStore(
 		(store) => store.retargetSelectedFile,
 	);
@@ -32,7 +29,7 @@ export function useWorkspaceRenameReconciliation({
 				return;
 			}
 
-			retargetFileViewerPaths(
+			retargetPanesFileViewerPaths(
 				workspaceId,
 				event.oldAbsolutePath,
 				event.absolutePath,

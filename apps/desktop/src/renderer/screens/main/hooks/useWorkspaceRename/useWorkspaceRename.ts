@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useWorkspaceHostTarget } from "renderer/hooks/host-service/useWorkspaceHostUrl";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useLocalCollections } from "renderer/routes/_local/providers/LocalProductStateProvider";
 
 export function useWorkspaceRename(
 	workspaceId: string,
@@ -11,7 +11,7 @@ export function useWorkspaceRename(
 	const [isRenaming, setIsRenaming] = useState(false);
 	const [renameValue, setRenameValue] = useState(workspaceName);
 	const inputRef = useRef<HTMLInputElement | null>(null);
-	const collections = useCollections();
+	const collections = useLocalCollections();
 	const hostTarget = useWorkspaceHostTarget(workspaceId);
 	const hostUrl = hostTarget.status === "ready" ? hostTarget.url : null;
 
@@ -30,8 +30,8 @@ export function useWorkspaceRename(
 	};
 
 	const updateLocalUnnamedState = (isUnnamed: boolean) => {
-		if (!collections.v2WorkspaceLocalState.get(workspaceId)) return;
-		collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
+		if (!collections.workspaceLocalState.get(workspaceId)) return;
+		collections.workspaceLocalState.update(workspaceId, (draft) => {
 			draft.isUnnamed = isUnnamed;
 		});
 	};

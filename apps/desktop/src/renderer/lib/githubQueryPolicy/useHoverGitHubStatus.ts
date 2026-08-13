@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
 	GITHUB_STATUS_STALE_TIME_MS,
 	type GitHubStatusQuerySurface,
-	getGitHubStatusQueryPolicy,
 } from "./githubQueryPolicy";
+import { useHostGitHubStatus } from "./useHostGitHubStatus";
 
 interface UseHoverGitHubStatusOptions {
 	workspaceId: string | null | undefined;
@@ -18,21 +17,16 @@ export function useHoverGitHubStatus({
 	isWorktree,
 }: UseHoverGitHubStatusOptions) {
 	const [hasHovered, setHasHovered] = useState(false);
-
-	const queryPolicy = getGitHubStatusQueryPolicy(surface, {
-		hasWorkspaceId: !!workspaceId,
-		isActive: hasHovered && isWorktree,
-	});
-
 	const {
 		data: githubStatus,
 		dataUpdatedAt,
 		isStale,
 		refetch,
-	} = electronTrpc.workspaces.getGitHubStatus.useQuery(
-		{ workspaceId: workspaceId ?? "" },
-		queryPolicy,
-	);
+	} = useHostGitHubStatus({
+		workspaceId,
+		surface,
+		isActive: hasHovered && isWorktree,
+	});
 
 	const pendingRefetchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	useEffect(

@@ -128,7 +128,7 @@ Rules:
 ## 3. Add a watch transport for filesystem events
 
 Host-service already has HTTP tRPC plus standalone websocket support. Filesystem
-watch should use the same split described in `plans/workspace-filesystem-transport-plan.md`:
+watch should use the same split described in `plans/done/workspace-filesystem-transport-plan.md`:
 
 - unary calls over HTTP request/response
 - file watch over a long-lived websocket stream

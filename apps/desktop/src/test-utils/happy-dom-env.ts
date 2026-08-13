@@ -9,7 +9,7 @@
  * `unregister()` in `afterAll`. Because Bun runs every test file in a single
  * process and `unregister()` closes the underlying Happy DOM instance, the
  * second file's `screen` queries (and the DnD/context-menu tests in
- * `V1PanesPresetBarItem`) were left pointing at a closed document, failing with
+ * `PanesPresetBarItem`) were left pointing at a closed document, failing with
  * an empty `<body />`. Registering once for the whole process and never
  * unregistering mid-suite keeps a single stable DOM that every file shares.
  */

@@ -1,7 +1,6 @@
 import { COMPANY } from "@superset/shared/constants";
 import { app, BrowserWindow, Menu, shell } from "electron";
 import { env } from "main/env.main";
-import { resetTerminalStateDev } from "main/lib/terminal/dev-reset";
 import {
 	checkForUpdatesInteractive,
 	simulateDownloading,
@@ -142,21 +141,6 @@ export function createApplicationMenu() {
 		template.push({
 			label: "Dev",
 			submenu: [
-				{
-					label: "Reset Terminal State",
-					click: () => {
-						resetTerminalStateDev()
-							.then(() => {
-								for (const window of BrowserWindow.getAllWindows()) {
-									window.reload();
-								}
-							})
-							.catch((error) => {
-								console.error("[menu] Failed to reset terminal state:", error);
-							});
-					},
-				},
-				{ type: "separator" },
 				{
 					label: "Simulate Update Downloading",
 					click: () => simulateDownloading(),

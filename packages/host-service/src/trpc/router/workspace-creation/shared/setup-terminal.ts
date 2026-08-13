@@ -25,8 +25,8 @@ interface StartSetupTerminalResult {
  * configured `setup` commands (joined with ` && ` so failures short-circuit;
  * worktree config overrides the main repo's), then `bash .superset/setup.sh`
  * (worktree first, then main repo). Scripts that need the canonical
- * `.superset/` dir read `$SUPERSET_ROOT_PATH`, injected by the v2 terminal
- * env builder. Configured `cwd` is honored via the terminal session.
+ * `.superset/` dir read `$SUPERSET_ROOT_PATH`, injected by the terminal
+ * environment builder. Configured `cwd` is honored via the terminal session.
  *
  * No-op when no source resolves to anything runnable.
  */

@@ -13,7 +13,12 @@ interface BroadcastedAgentLifecycleEvent {
 	occurredAt: number;
 }
 
-function createContext(originWorkspaceId: string | null): {
+function createContext(
+	originWorkspaceId: string | null,
+	authorizeAndConsume: () =>
+		| { ok: true; duplicate: false }
+		| { ok: true; duplicate: true } = () => ({ ok: true, duplicate: false }),
+): {
 	ctx: HostServiceContext;
 	broadcastAgentLifecycle: ReturnType<
 		typeof mock<(event: BroadcastedAgentLifecycleEvent) => void>
@@ -46,6 +51,11 @@ function createContext(originWorkspaceId: string | null): {
 			broadcastAgentLifecycle,
 		},
 		terminalAgentStore,
+		runtime: {
+			notificationHooks: {
+				authorizeAndConsume,
+			},
+		},
 	} as unknown as HostServiceContext;
 
 	return { ctx, broadcastAgentLifecycle, findFirst, terminalAgentStore };
@@ -108,6 +118,39 @@ describe("notificationsRouter.hook", () => {
 		expect(result).toEqual({ success: true, ignored: true });
 		expect(findFirst).not.toHaveBeenCalled();
 		expect(broadcastAgentLifecycle).not.toHaveBeenCalled();
+	});
+
+	it("suppresses record and broadcast when a committed event is retried", async () => {
+		let consumed = false;
+		const { ctx, broadcastAgentLifecycle, terminalAgentStore } = createContext(
+			"workspace-1",
+			() => {
+				if (consumed) return { ok: true, duplicate: true };
+				consumed = true;
+				return { ok: true, duplicate: false };
+			},
+		);
+		const caller = notificationsRouter.createCaller(ctx);
+		const input = {
+			terminalId: "terminal-1",
+			eventType: "Stop",
+			eventId: "event-1234567890",
+			occurredAt: 1234,
+			capabilityToken: "c".repeat(32),
+			agent: { agentId: "claude" },
+		};
+
+		expect(await caller.hook(input)).toEqual({
+			success: true,
+			ignored: false,
+		});
+		expect(await caller.hook(input)).toEqual({
+			success: true,
+			ignored: false,
+			duplicate: true,
+		});
+		expect(broadcastAgentLifecycle).toHaveBeenCalledTimes(1);
+		expect(terminalAgentStore.get("terminal-1")?.lastEventAt).toBe(1234);
 	});
 
 	it("forwards agent identity when the hook stamps it", async () => {

@@ -43,37 +43,9 @@
 		"clean": {
 			"cache": false
 		},
-		"push": {
-			"cache": false,
-			"interactive": true
-		},
-		"studio": {
-			"cache": false,
-			"persistent": true
-		},
 		"ui-add": {
 			"cache": false,
 			"interactive": true
-		},
-		"db:gen": {
-			"cache": false,
-			"outputs": []
-		},
-		"db:push": {
-			"cache": false,
-			"outputs": []
-		},
-		"db:migrate": {
-			"cache": false,
-			"outputs": []
-		},
-		"db:seed": {
-			"cache": false,
-			"outputs": []
-		},
-		"db:reset": {
-			"cache": false,
-			"outputs": []
 		}
 	}
 }

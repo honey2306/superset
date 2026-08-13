@@ -228,5 +228,5 @@ references and DCE the unused branch. `apps/desktop/scripts/check-pty-daemon-bun
 greps the post-build bundle for handoff-path markers as a regression
 canary.
 
-See `apps/desktop/plans/done/20260501-pty-daemon-phase2-implementation.md`
+See `plans/done/pty-lifecycle-cleanup.md`
 for the design walkthrough.

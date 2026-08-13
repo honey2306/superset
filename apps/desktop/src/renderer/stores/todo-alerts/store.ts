@@ -30,6 +30,7 @@ export const useTodoAlertsStore = create<TodoAlertsState>()(
 				},
 			}),
 			{
+				// Compatibility: retain the historical storage key across upgrades.
 				name: "todo-alerts-v1",
 				version: 1,
 				partialize: (state) => ({ lastSeenAlertAt: state.lastSeenAlertAt }),

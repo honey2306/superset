@@ -45,9 +45,11 @@ describe("PullRequestRuntimeManager branch sync", () => {
 				throw new Error(`Unexpected revparse args: ${args.join(" ")}`);
 			}),
 		}));
+		const updateWorkspace = mock(() => workspace);
 
 		const manager = new PullRequestRuntimeManager({
 			db: db as never,
+			catalog: { updateProject: mock(), updateWorkspace } as never,
 			git: git as never,
 			github: async () => ({}) as never,
 			gitWatcher: { onChanged: () => () => {} } as never,
@@ -79,16 +81,14 @@ describe("PullRequestRuntimeManager branch sync", () => {
 		).syncWorkspaceBranches();
 
 		expect(git).toHaveBeenCalledWith("/tmp/unborn-worktree");
-		expect(setMock).toHaveBeenCalledWith({
+		expect(setMock).not.toHaveBeenCalled();
+		expect(updateWorkspace).toHaveBeenCalledWith("ws-1", {
 			branch: "feature/unborn",
 			headSha: null,
 			upstreamOwner: null,
 			upstreamRepo: null,
 			upstreamBranch: null,
 			pullRequestId: null,
-			// Branch changed → flagged for the cloud reconciler.
-			updatedAt: expect.any(Number),
-			cloudSyncedAt: null,
 		});
 		expect(refreshProjectMock).toHaveBeenCalledWith("project-1");
 	});
@@ -127,9 +127,11 @@ describe("PullRequestRuntimeManager branch sync", () => {
 				throw new Error(`Unexpected revparse args: ${args.join(" ")}`);
 			}),
 		}));
+		const updateWorkspace = mock();
 
 		const manager = new PullRequestRuntimeManager({
 			db: db as never,
+			catalog: { updateProject: mock(), updateWorkspace } as never,
 			git: git as never,
 			github: async () => ({}) as never,
 			gitWatcher: { onChanged: () => () => {} } as never,
@@ -162,6 +164,7 @@ describe("PullRequestRuntimeManager branch sync", () => {
 		).syncWorkspaceBranches();
 
 		expect(setMock).not.toHaveBeenCalled();
+		expect(updateWorkspace).not.toHaveBeenCalled();
 		expect(refreshProjectMock).not.toHaveBeenCalled();
 		// Pin to the sync-failure path so an unrelated console.warn can't pass.
 		expect(warnSpy.mock.calls[0]?.[0]).toContain("Failed to sync workspace");

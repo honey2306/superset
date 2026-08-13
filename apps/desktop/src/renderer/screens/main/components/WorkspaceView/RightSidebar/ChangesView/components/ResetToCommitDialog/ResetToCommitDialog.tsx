@@ -36,18 +36,18 @@ export function ResetToCommitDialog({
 	const modes: Array<{ value: ResetMode; label: string; desc: string }> = [
 		{
 			value: "soft",
-			label: t("v1Changes.reset.softLabel"),
-			desc: t("v1Changes.reset.softDesc"),
+			label: t("changes.reset.softLabel"),
+			desc: t("changes.reset.softDesc"),
 		},
 		{
 			value: "mixed",
-			label: t("v1Changes.reset.mixedLabel"),
-			desc: t("v1Changes.reset.mixedDesc"),
+			label: t("changes.reset.mixedLabel"),
+			desc: t("changes.reset.mixedDesc"),
 		},
 		{
 			value: "hard",
-			label: t("v1Changes.reset.hardLabel"),
-			desc: t("v1Changes.reset.hardDesc"),
+			label: t("changes.reset.hardLabel"),
+			desc: t("changes.reset.hardDesc"),
 		},
 	];
 
@@ -58,10 +58,10 @@ export function ResetToCommitDialog({
 			<EnterEnabledAlertDialogContent className="max-w-[420px] gap-0 p-0">
 				<AlertDialogHeader className="px-4 pt-4 pb-2">
 					<AlertDialogTitle className="font-medium">
-						{t("v1Changes.reset.title", { commit: shortHash })}
+						{t("changes.reset.title", { commit: shortHash })}
 					</AlertDialogTitle>
 					<AlertDialogDescription>
-						{t("v1Changes.reset.modeLabel")}
+						{t("changes.reset.modeLabel")}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<div className="px-4 pb-2">
@@ -99,7 +99,7 @@ export function ResetToCommitDialog({
 						onClick={() => onOpenChange(false)}
 						disabled={isPending}
 					>
-						{t("v1Changes.dialog.cancel")}
+						{t("changes.dialog.cancel")}
 					</Button>
 					<AlertDialogAction
 						variant={isHard ? "destructive" : "default"}
@@ -109,8 +109,8 @@ export function ResetToCommitDialog({
 						onClick={() => onConfirm(mode)}
 					>
 						{isHard
-							? t("v1Changes.reset.hardConfirm")
-							: t("v1Changes.reset.confirm")}
+							? t("changes.reset.hardConfirm")
+							: t("changes.reset.confirm")}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</EnterEnabledAlertDialogContent>

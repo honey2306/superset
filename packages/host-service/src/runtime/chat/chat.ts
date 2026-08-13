@@ -3,8 +3,12 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { Memory } from "@mastra/memory";
 import {
+	type FileSearchResult,
+	getMcpOverview as getMcpOverviewFromCwd,
 	getSlashCommands as getSlashCommandsFromCwd,
+	type McpOverview,
 	resolveSlashCommand as resolveSlashCommandFromCwd,
+	searchFiles as searchFilesFromCwd,
 } from "@superset/chat/server/desktop";
 import { eq } from "drizzle-orm";
 import { createMastraCode } from "mastracode";
@@ -774,23 +778,22 @@ When you need to ask the user ANY question — including simple yes/no, confirma
 		return workspace.worktreePath;
 	}
 
-	async getSlashCommands(input: { workspaceId: string }): Promise<
-		Array<{
-			name: string;
-			aliases: string[];
-			description: string;
-			argumentHint: string;
-			kind: "builtin" | "custom";
-		}>
-	> {
-		const cwd = this.resolveWorkspaceCwd(input.workspaceId);
-		return getSlashCommandsFromCwd(cwd).map((command) => ({
-			name: command.name,
-			aliases: command.aliases,
-			description: command.description,
-			argumentHint: command.argumentHint,
-			kind: command.kind,
-		}));
+	async searchFiles(input: {
+		workspaceId: string;
+		query: string;
+		includeHidden: boolean;
+		limit: number;
+	}): Promise<FileSearchResult[]> {
+		return searchFilesFromCwd({
+			rootPath: this.resolveWorkspaceCwd(input.workspaceId),
+			query: input.query,
+			includeHidden: input.includeHidden,
+			limit: input.limit,
+		});
+	}
+
+	async getSlashCommands(input: { workspaceId: string }) {
+		return getSlashCommandsFromCwd(this.resolveWorkspaceCwd(input.workspaceId));
 	}
 
 	async resolveSlashCommand(input: { workspaceId: string; text: string }) {
@@ -802,10 +805,7 @@ When you need to ask the user ANY question — including simple yes/no, confirma
 		return this.resolveSlashCommand(input);
 	}
 
-	async getMcpOverview(_input: {
-		sessionId: string;
-		workspaceId: string;
-	}): Promise<{ sourcePath: string | null; servers: never[] }> {
-		return { sourcePath: null, servers: [] };
+	async getMcpOverview(input: { workspaceId: string }): Promise<McpOverview> {
+		return getMcpOverviewFromCwd(this.resolveWorkspaceCwd(input.workspaceId));
 	}
 }

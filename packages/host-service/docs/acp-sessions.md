@@ -7,10 +7,10 @@ active remaining work is tracked in
 ## Current Topology
 
 ```text
-desktop UI (V1PanesWorkspace → AcpSessionPane)
-  -> DesktopAcpSessionClient (renderer/lib/acp-session-client)
-  -> host-service acpSessions tRPC router + /acp-sessions/:id/stream
-  -> AcpDaemonClient over a per-org owner-only Unix socket
+desktop UI (PanesWorkspace → AcpSessionPane)
+  -> renderer ACP session client
+  -> Embedded Host acpSessions tRPC router + /acp-sessions/:id/stream
+  -> AcpDaemonClient over an owner-only local Unix socket
   -> detached acp-daemon (survives host-service/Desktop restarts)
   -> AcpSessionManager
   -> one selected adapter child per active session
@@ -30,19 +30,18 @@ shared client code today
     - React hooks under ./react
 ```
 
-The desktop app enables the harness on canary and dev builds via
-`SUPERSET_ACP_SESSIONS=1` (see `apps/desktop/src/main/lib/build-channel.ts`).
-Stable builds never do. There is no user-facing setting. The desktop renders
-the ACP session UI when `acpSessions.list` returns `enabled: true`.
+Every desktop build enables the runtime via `SUPERSET_ACP_SESSIONS=1`. The
+desktop renders the ACP session UI when `acpSessions.list` returns
+`enabled: true`. The user-facing preset setting controls whether supported
+agent presets launch through ACP; it does not enable or disable the runtime.
 
-**Close semantics**: closing an ACP pane in the desktop only detaches the UI
-(unregisters the pane from the layout). It does NOT delete or suspend the
-underlying session, runtime, or native transcript. The adapter process continues to be managed by the detached ACP daemon until
-the process exits or the daemon is explicitly stopped.
-
-**Known lifecycle gap**: there is currently no suspend/forget/delete operation
-for ACP sessions. `pane close ≠ session delete`. A bounded suspend/forget
-design must be documented and implemented before the stable channel is enabled.
+**Detach and close semantics**: renderer teardown, workspace switching, and a
+temporary pane-view detach only release the UI subscription. They do not stop
+the daemon-owned adapter or active interaction. The user-facing **Close agent
+session** action is explicit and permanent: `Panes` calls `acpSessions.close`,
+the Host removes the recoverable session rows, and the daemon tears down the
+adapter. Closing a whole `Panes` tab applies the same close operation to its ACP
+panes. A failed close leaves the pane visible so the user can retry.
 
 ## Session Identity And Persistence
 
@@ -62,8 +61,11 @@ updated_at
 ```
 
 The row is registry metadata only. Host SQLite does not store message bodies,
-tool payloads, permission payloads, or journal frames. Conversation content remains in the selected agent's native session store; the
-adapter owns its session-id mapping and load behavior.
+tool payloads, permission payloads, or journal frames. Conversation content
+remains in the selected agent's native session store; the adapter owns its
+session-id mapping and load behavior. Explicit close removes the registry row
+and associated recoverable Host metadata, but does not promise deletion of an
+agent vendor's independent native transcript store.
 
 Every state emission best-effort upserts the registry row. A registry write
 failure is logged and does not stop a live turn, so restart recovery is not
@@ -87,8 +89,8 @@ session id with a different workspace is a conflict.
 
 ### Host Or Desktop Restart
 
-The detached per-organization ACP daemon owns the manager, adapter stdio,
-journal, in-flight turn promises, and pending permission callbacks. Restarting
+The detached local ACP daemon owns the manager, adapter stdio, journal,
+in-flight turn promises, and pending permission callbacks. Restarting
 the host-service or Desktop disconnects only the transport client. The next
 host adopts the existing daemon socket, and stream subscriptions resume from
 their epoch/sequence cursor. Active turns and permission requests continue.
@@ -99,8 +101,8 @@ replaced automatically. A daemon with a running turn, Permission, or AskUser
 callback is retained until the interaction finishes so an update cannot destroy
 its resolver. Unknown protocol operations fail explicitly. Normal host/Desktop
 shutdown only disconnects; **Quit Completely** sends a forced daemon shutdown.
-Unix sockets are owner-only (`0600`), while Windows uses an organization-scoped
-named pipe.
+Unix sockets are owner-only (`0600`), while Windows uses a local
+application-scoped named pipe.
 
 ### ACP Daemon Restart
 
@@ -124,7 +126,9 @@ remain readable in memory, with at most 20 retained per daemon process. Their
 registry rows remain. A dead runtime is not restarted in the same daemon process;
 after a daemon restart its registry row is offline and can be loaded again.
 
-There is no session delete or registry garbage collection path yet.
+The dead runtime and registry row remain available until the user explicitly
+closes the ACP session. Explicit close removes the durable row and prevents
+later resurrection.
 
 ## Memory And History
 
@@ -189,7 +193,8 @@ The answer to "is every boundary strictly typed and Zod-validated?" is no.
 
 Compile-time typing is mostly strict:
 
-- host, shared sync code, and mobile consume the same ACP and Superset types;
+- Host, shared sync code, Desktop, and the experimental phone client consume
+  the same ACP and Superset types;
 - production ACP code has no intentional `any`;
 - official ACP extension fields such as `_meta`, `rawInput`, and `rawOutput`
   remain `unknown` by protocol design.
@@ -201,7 +206,7 @@ Runtime validation is incomplete:
 | tRPC inputs | Zod validates ids, cursors, limits, modes, and scalar config values. ACP content blocks and permission outcomes use shallow `z.custom` checks. |
 | Adapter requests and notifications | The official ACP SDK parses registered request/notification params. |
 | Adapter responses | Trusted from the SDK connection; response payloads are not parsed again by Superset. |
-| Relay HTTP outputs | The outer tRPC/SuperJSON envelope is checked shallowly, then asserted to the caller's generic output type. |
+| Direct Host HTTP outputs | The outer tRPC/SuperJSON envelope is checked shallowly, then asserted to the caller's generic output type. |
 | WebSocket envelopes | JSON syntax plus `seq` and `frame.kind` are checked; nested frame payloads are not fully parsed. |
 | SQLite registry rows | Typed by Drizzle at compile time; no Zod parse or SQL enum checks on read. |
 
@@ -209,18 +214,20 @@ The ACP SDK ships JSON Schema but does not export its generated Zod modules.
 The follow-up work must provide canonical Superset validators for every authored
 state/frame/page shape and a deliberate strategy for ACP payload validation.
 
-## Feature Gate
+## Host capability switch
 
-The feature is internal-channel only. The desktop coordinator starts the host
-with `SUPERSET_ACP_SESSIONS=1` on canary and dev builds
-(`isInternalBuild()` in `apps/desktop/src/main/lib/build-channel.ts`); stable
-builds never set it and there is no user-facing setting.
+The desktop coordinator starts every desktop host with
+`SUPERSET_ACP_SESSIONS=1`. This is intentionally independent from build
+channel and from the user-facing preset launch preference: ACP is a core
+desktop runtime, while the preference only chooses ACP versus terminal when a
+supported agent preset is opened.
 
-- When off, the WebSocket route is not mounted.
+- Standalone and test hosts may omit the capability. When off, the WebSocket
+  route is not mounted.
 - Every ACP tRPC procedure except `list` rejects with
   `PRECONDITION_FAILED`.
 - `list` returns `{ items: [], nextCursor: null, enabled: false }`, which is the
-  mobile capability probe.
+  phone capability probe.
 
 ## Browser Use MCP
 
@@ -299,7 +306,7 @@ and eviction reset followed by a clean reattach.
 
 With `claude-agent-acp` 0.56.0, Claude emits two parallel tool uses together but
 the adapter exposes their permission callbacks to Superset one at a time. The
-manager and mobile stack still support truly simultaneous pending requests;
+manager and phone stack still support truly simultaneous pending requests;
 that manager behavior is pinned by the deterministic backup lane below.
 
 ### Deterministic lane: belt and suspenders
@@ -311,24 +318,15 @@ mapping, fake-adapter ACP flow, WebSocket fan-out, permissions, elicitations,
 concurrent permission requests, cancellation, adapter crash, eviction resets,
 and registry-based manager resurrection. `acp-daemon.e2e.test.ts` additionally
 runs the bundled daemon with the production `better-sqlite3` driver and fake ACP
-adapter, disconnects and replaces the host client while Permission and AskUser
-are pending, then proves both requests remain actionable on the same daemon PID.
+adapter, disconnects and replaces the Host connection while Permission and
+AskUser are pending, then proves both requests remain actionable on the same
+daemon PID.
 It also pins shutdown draining and rejection of unsupported protocol operations.
 
-`acp-host-client.e2e.test.ts` also starts the real `createApp` HTTP/tRPC host
-behind a local relay-shaped prefix and drives it only through
-`@superset/host-client` plus the real WebSocket sync client. It closes the host,
-server, adapter children, and an on-disk SQLite registry. Before restart it
-answers an `AskUserQuestion` form, cancels an in-flight tool, handles two
-simultaneous permissions, and catches up a disconnected stream. It then reopens
-the DB, proves offline listing and `session/load` resurrection, and deletes a
-native transcript to pin both the tRPC error and `session_load_failed` stream
-reset.
-
-The mobile presentation helper has a colocated test that pins the corresponding
-load-failure UX: the offline session cannot compose, the empty state says
-`Session could not be resumed`, and the explanatory copy identifies the missing
-native transcript. A full-device Maestro scenario is still required.
+`acp-sessions-persistence.e2e.test.ts` uses the real Host database migrations,
+a direct local WebSocket route, and a fake adapter to prove offline listing,
+`session/load` resurrection, idempotent create after restart, and explicit
+load-failure behavior without any hosted transport.
 
 Still required before treating the boundary as production-hardened:
 
@@ -339,7 +337,7 @@ Still required before treating the boundary as production-hardened:
 - slow-subscriber and retention limits;
 - a secure automated runner for the authenticated real-Claude lane, if CI can
   provide isolated credentials and explicit usage accounting;
-- iOS Maestro flows for restart, background/reconnect, pagination, and failures.
+- paired-phone flows for restart, background/reconnect, pagination, and failures.
 
 ## Source Map
 
@@ -348,10 +346,4 @@ Still required before treating the boundary as production-hardened:
 - Router: `packages/host-service/src/trpc/router/acp-sessions/`
 - Host DB table: `packages/host-service/src/db/schema.ts`
 - Shared contracts/sync/hooks: `packages/session-protocol/`
-- Shared relay transport: `packages/host-client/`
-- Mobile binding: `apps/mobile/lib/host/client.ts`
-- Mobile UI: `apps/mobile/screens/(authenticated)/workspace/[id]/chat/acp/`
-- Mobile resume-failure presentation test:
-  `apps/mobile/screens/(authenticated)/workspace/[id]/chat/acp/[sessionId]/components/SessionThread/utils/getSessionThreadPresentation/`
-- Focused integration plan: `plans/host-integration-test.md`
 - All remaining work: `plans/acp-session-follow-ups.md`

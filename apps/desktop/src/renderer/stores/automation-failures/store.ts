@@ -30,6 +30,7 @@ export const useAutomationFailuresStore = create<AutomationFailuresState>()(
 				},
 			}),
 			{
+				// Compatibility: retain the historical storage key across upgrades.
 				name: "automation-failures-v1",
 				version: 1,
 				partialize: (state) => ({ lastSeenFailureAt: state.lastSeenFailureAt }),

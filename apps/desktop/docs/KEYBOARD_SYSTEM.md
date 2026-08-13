@@ -136,8 +136,8 @@ The v1→v2 hotkey storage migration was shipped April 2026 and removed in commi
 
 ## Decision history (brief)
 
-- **April 2026** — Initial refactor. Unified everything on `event.code` (recorder, dispatch, terminal forwarding). Preserved the bare-string storage shape. See `plans/done/20260412-keyboard-recorder-ctrl-binding-fix.md`.
-- **April 27, 2026** — Layout audit and Phase 0–2 plan. Briefly tried `navigator.keyboard.getLayoutMap()` to avoid the native-keymap dep; switched back after discovering Chromium's `layoutchange` event doesn't fire for macOS input-source switches. native-keymap hooks `kTISNotifySelectedKeyboardInputSourceChanged` directly, which fires reliably. See `plans/done/20260427-keyboard-layout-plan.md`.
+- **April 2026** — Initial refactor. Unified everything on `event.code` (recorder, dispatch, terminal forwarding). Preserved the bare-string storage shape. See `apps/desktop/plans/done/20260412-keyboard-recorder-ctrl-binding-fix.md`.
+- **April 27, 2026** — Layout audit and Phase 0–2 plan. Briefly tried `navigator.keyboard.getLayoutMap()` to avoid the native-keymap dep; switched back after discovering Chromium's `layoutchange` event doesn't fire for macOS input-source switches. native-keymap hooks `kTISNotifySelectedKeyboardInputSourceChanged` directly, which fires reliably. See `apps/desktop/plans/done/20260427-keyboard-layout-plan.md`.
 - **April 28, 2026** — Phase 1 (native-keymap) + Phase 2 (dual-mode bindings) shipped. v1 migration removed.
 
 ## Known gaps / future work
@@ -145,7 +145,7 @@ The v1→v2 hotkey storage migration was shipped April 2026 and removed in commi
 | Item | Status |
 |---|---|
 | **Menu accelerator sync** — `main/lib/menu.ts` hardcodes `CmdOrCtrl+R/,//Shift+Q`; they shadow user rebinds | Demand-driven. The single concrete user-visible gap. |
-| **v1 terminal handler** uses catch-all `ctrl/meta` skip → starves TUIs of unbound chords like Ctrl+R | Tracked in `plans/20260409-tui-hotkey-forwarding.md`; v2 already correct. |
+| **v1 terminal handler** uses catch-all `ctrl/meta` skip → starves TUIs of unbound chords like Ctrl+R | Tracked in `apps/desktop/plans/20260409-tui-hotkey-forwarding.md`; v2 already correct. |
 | **AltGr first-class binding token** | Reserved but never wired. AltGr is suppressed at match time, but a user can't *record* `AltGr+E` as their own chord. Drop or implement on demand. |
 | **Numpad / Digit disambiguation** | Collapsed: `Numpad1` and `Digit1` both canonicalize to `"1"`. No current need for separate bindings. |
 | **Shifted-layer display** | We use the unshifted glyph + ⇧ symbol convention (macOS). `native-keymap` exposes `withShift` / `withAltGr` data we don't read. |

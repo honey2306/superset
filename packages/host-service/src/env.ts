@@ -11,20 +11,17 @@ export const env = createEnv({
 		ORGANIZATION_ID: z.string().uuid(),
 		HOST_DB_PATH: z.string().min(1),
 		HOST_MIGRATIONS_FOLDER: z.string().min(1),
-		AUTH_TOKEN: z.string().min(1),
-		SUPERSET_AUTH_CONFIG_PATH: z.string().min(1).optional(),
-		SUPERSET_API_URL: z.string().url(),
 		CORS_ORIGINS: z
 			.string()
 			.transform((s) => s.split(",").map((o) => o.trim()))
 			.optional(),
 		PORT: z.coerce.number().int().positive().default(4879),
-		RELAY_URL: z.string().url().optional(),
 		// Absolute path to the built `apps/web` Vite bundle. When set, that
 		// directory is served at `/app/*`. Omit to disable the phone frontend
 		// route (dev + tests). Auto-derived to `../public/web` in
 		// `serve.ts` when unset.
 		SUPERSET_WEB_APP_DIR: z.string().min(1).optional(),
+		AUTOMATE_RELAY_URL: z.string().url().optional(),
 	},
 	runtimeEnv: process.env,
 	emptyStringAsUndefined: true,

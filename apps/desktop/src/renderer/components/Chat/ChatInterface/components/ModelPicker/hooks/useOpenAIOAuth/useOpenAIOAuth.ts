@@ -1,6 +1,6 @@
-import { chatServiceTrpc } from "@superset/chat/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
+import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -50,15 +50,15 @@ export function useOpenAIOAuth({
 	const [hasPendingOAuthSession, setHasPendingOAuthSession] = useState(false);
 
 	const { data: openAIStatus, refetch: refetchOpenAIStatus } =
-		chatServiceTrpc.auth.getOpenAIStatus.useQuery();
+		hostServiceTrpc.auth.getOpenAIStatus.useQuery();
 	const startOpenAIOAuthMutation =
-		chatServiceTrpc.auth.startOpenAIOAuth.useMutation();
+		hostServiceTrpc.auth.startOpenAIOAuth.useMutation();
 	const completeOpenAIOAuthMutation =
-		chatServiceTrpc.auth.completeOpenAIOAuth.useMutation();
+		hostServiceTrpc.auth.completeOpenAIOAuth.useMutation();
 	const cancelOpenAIOAuthMutation =
-		chatServiceTrpc.auth.cancelOpenAIOAuth.useMutation();
+		hostServiceTrpc.auth.cancelOpenAIOAuth.useMutation();
 	const disconnectOpenAIOAuthMutation =
-		chatServiceTrpc.auth.disconnectOpenAIOAuth.useMutation();
+		hostServiceTrpc.auth.disconnectOpenAIOAuth.useMutation();
 
 	useEffect(() => {
 		if (!isModelSelectorOpen) return;
@@ -153,7 +153,7 @@ export function useOpenAIOAuth({
 	);
 
 	const { data: pendingLoopbackCallback } =
-		chatServiceTrpc.auth.consumeOpenAIOAuthCallback.useQuery(undefined, {
+		hostServiceTrpc.auth.consumeOpenAIOAuthCallback.useQuery(undefined, {
 			enabled: oauthDialogOpen && hasPendingOAuthSession,
 			refetchInterval: oauthDialogOpen && hasPendingOAuthSession ? 1500 : false,
 			refetchOnWindowFocus: false,

@@ -12,10 +12,9 @@ import { FileIcon, FileTextIcon, ImageIcon } from "lucide-react";
 import { useCallback } from "react";
 import { HiMiniChatBubbleLeftRight } from "react-icons/hi2";
 import { FileMentionChip } from "renderer/components/Chat/components/FileMentionChip";
-import { LinkedTaskChip } from "renderer/components/Chat/components/LinkedTaskChip";
 import { parseUserMentions } from "renderer/components/Chat/utils/parseUserMentions";
+import { openFileInPanes } from "renderer/lib/panes";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import type { InterruptedMessagePreview } from "../../types";
 import { normalizeWorkspaceFilePath } from "../../utils/file-paths";
 import { MessagePartsRenderer } from "../MessagePartsRenderer";
@@ -79,7 +78,6 @@ export function MessageList({
 	workspaceCwd,
 	onAnswer,
 }: MessageListProps) {
-	const addFileViewerPane = useTabsStore((s) => s.addFileViewerPane);
 	const { t } = useTranslation();
 	const isThinking =
 		submitStatus === "submitted" || submitStatus === "streaming";
@@ -87,9 +85,9 @@ export function MessageList({
 	const handleImageClick = useCallback(
 		(url: string) => {
 			if (!workspaceId) return;
-			addFileViewerPane(workspaceId, { filePath: url, isPinned: true });
+			openFileInPanes(workspaceId, { filePath: url, isPinned: true });
 		},
-		[workspaceId, addFileViewerPane],
+		[workspaceId],
 	);
 
 	return (
@@ -124,12 +122,7 @@ export function MessageList({
 							const mentionSegments = textContent
 								? parseUserMentions(textContent)
 								: [];
-							const taskMentions = mentionSegments.filter(
-								(s) => s.type === "task-mention",
-							);
-							const otherSegments = mentionSegments.filter(
-								(s) => s.type !== "task-mention",
-							);
+							const otherSegments = mentionSegments;
 							const hasNonTaskContent = otherSegments.some(
 								(s) =>
 									(s.type === "text" && s.value.trim()) ||
@@ -172,16 +165,6 @@ export function MessageList({
 											))}
 										</div>
 									)}
-									{taskMentions.length > 0 && (
-										<div className="flex max-w-[85%] flex-wrap justify-end gap-2">
-											{taskMentions.map((segment, segIdx) => (
-												<LinkedTaskChip
-													key={`${msg.id}-task-${segIdx}`}
-													slug={segment.slug}
-												/>
-											))}
-										</div>
-									)}
 									{hasNonTaskContent && (
 										<div className="max-w-[85%] overflow-x-auto rounded-ds-5 bg-hover px-4 py-2.5 text-sm text-fg whitespace-pre-wrap">
 											{otherSegments.map((segment, segIdx) => {
@@ -210,7 +193,7 @@ export function MessageList({
 															disabled={!canOpen}
 															onClick={() => {
 																if (!normalizedPath || !workspaceId) return;
-																addFileViewerPane(workspaceId, {
+																openFileInPanes(workspaceId, {
 																	filePath: normalizedPath,
 																	isPinned: true,
 																});

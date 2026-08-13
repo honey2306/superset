@@ -21,11 +21,11 @@ import {
 } from "renderer/lib/dispose-host-sessions";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { deleteWithToast } from "renderer/routes/_authenticated/components/TeardownLogsDialog";
-import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
-import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { deleteWithToast } from "renderer/routes/_local/components/TeardownLogsDialog";
+import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
+import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { focusPrimaryDialogAction } from "./focus-primary-dialog-action";
 
 interface DeleteWorkspaceDialogProps {
@@ -50,7 +50,7 @@ export function DeleteWorkspaceDialog({
 	const destroyWorkspace = useDestroyWorkspace(workspaceId);
 	const electronUtils = electronTrpc.useUtils();
 	const { hideWorkspaceInSidebar } = useDashboardSidebarState();
-	const { workspaces: hostWorkspaces } = useHostWorkspaces();
+	const { workspaces: hostWorkspaces } = useWorkspaceCatalog();
 	const { activeHostUrl } = useLocalHostService();
 	const { workspace: catalogWorkspace } = useCatalogWorkspace(workspaceId);
 	const workspaceProjectId =

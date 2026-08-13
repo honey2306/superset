@@ -23,20 +23,24 @@ function createDeferred() {
 
 function createContext({
 	tabs,
-	write,
+	launchCommand,
 }: {
 	tabs: AgentLaunchTabsAdapter;
-	write?: (input: {
-		paneId: string;
-		data: string;
-		throwOnError?: boolean;
-	}) => Promise<unknown>;
+	launchCommand?: () => Promise<void>;
 }) {
 	return {
 		source: "command-watcher" as const,
 		tabs,
-		createOrAttach: mock(async () => ({})),
-		write: write ?? mock(async () => ({})),
+		terminalLauncher: {
+			resolve: mock(() => ({
+				hostUrl: "http://127.0.0.1:4321",
+				workspaceId: "ws-1",
+			})),
+			create: mock(async () => ({ terminalId: "pane-1" })),
+			launchCommand: launchCommand ?? mock(async () => {}),
+			write: mock(async () => {}),
+			kill: mock(async () => {}),
+		},
 		captureEvent: mock(() => {}),
 	};
 }
@@ -78,7 +82,7 @@ describe("launchAgentSession", () => {
 
 		const context = createContext({
 			tabs,
-			write: async () => {
+			launchCommand: async () => {
 				await gate.promise;
 			},
 		});
@@ -115,7 +119,7 @@ describe("launchAgentSession", () => {
 
 		const context = createContext({
 			tabs,
-			write: async () => {
+			launchCommand: async () => {
 				throw new Error("terminal write failed");
 			},
 		});

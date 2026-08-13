@@ -4,32 +4,39 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"clean": "git clean -xdf .cache .turbo dist node_modules",
+		"clean": "git clean -xdf .cache .turbo dist dist-automate node_modules",
 		"dev": "vite",
 		"build": "vite build",
+		"build:automate": "vite build --mode automate && bun scripts/build-automate-task.mjs",
 		"preview": "vite preview",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"verify:build-output": "bun scripts/verify-build-output.mjs"
 	},
 	"dependencies": {
 		"@superset/host-service": "workspace:*",
 		"@superset/session-protocol": "workspace:*",
+		"@superset/shared": "workspace:*",
 		"@tanstack/react-query": "5.101.1",
 		"@trpc/client": "11.16.0",
+		"@xterm/addon-fit": "0.12.0-beta.289",
+		"@xterm/xterm": "6.1.0-beta.289",
 		"react": "19.2.3",
 		"react-dom": "19.2.3",
+		"react-markdown": "10.1.0",
 		"react-router-dom": "7.9.5",
+		"remark-gfm": "4.0.1",
 		"superjson": "2.2.6",
 		"zod": "4.3.6"
 	},
 	"devDependencies": {
 		"@superset/typescript": "workspace:*",
-		"@tailwindcss/vite": "4.1.16",
+		"@tailwindcss/vite": "4.2.2",
 		"@types/node": "24.12.0",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
-		"@vitejs/plugin-react": "5.1.0",
-		"tailwindcss": "4.1.16",
+		"@vitejs/plugin-react": "5.2.0",
+		"tailwindcss": "4.2.2",
 		"typescript": "6.0.3",
-		"vite": "7.2.7"
+		"vite": "7.3.5"
 	}
 }

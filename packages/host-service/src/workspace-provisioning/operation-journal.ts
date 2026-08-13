@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { HostDb } from "../db";
 import {
 	workspaceOperationArtifacts,
@@ -123,6 +123,137 @@ export class OperationJournal {
 			.all();
 	}
 
+	/**
+	 * Atomically record a best-effort cancellation request while the operation
+	 * is still pre-commit. The runner owns the terminal transition: it must stop
+	 * external work, compensate owned artifacts, and only then mark cancelled.
+	 */
+	requestCancellation(id: string): "cancelled" | "too-late" | "not-found" {
+		const existing = this.get(id);
+		if (!existing) return "not-found";
+		const now = Date.now();
+		const result = this.db
+			.update(workspaceOperations)
+			.set({
+				cancelRequestedAt: existing.cancelRequestedAt ?? now,
+				revision: existing.revision + 1,
+				updatedAt: now,
+			})
+			.where(
+				and(
+					eq(workspaceOperations.id, id),
+					isNull(workspaceOperations.catalogCommittedAt),
+					inArray(workspaceOperations.state, ["queued", "running"]),
+				),
+			)
+			.run();
+		if (result.changes === 1) return "cancelled";
+		return "too-late";
+	}
+
+	isCancellationRequested(id: string): boolean {
+		const row = this.get(id);
+		return (
+			row?.state === "cancelled" ||
+			(row?.cancelRequestedAt !== null && row?.catalogCommittedAt === null)
+		);
+	}
+
+	markCompensating(id: string): void {
+		this.patch(id, { state: "compensating", stage: "compensating" });
+	}
+
+	finalizeCancellation(
+		id: string,
+		cleanup: "not-needed" | "complete" | "incomplete",
+	): void {
+		const now = Date.now();
+		if (cleanup === "incomplete") {
+			this.patch(id, {
+				state: "failed",
+				stage: null,
+				failureCode: "COMPENSATION_INCOMPLETE",
+				failureClass: "transient",
+				failureRetryable: 1,
+				failureMessage:
+					"Cancellation stopped provisioning, but compensation was incomplete",
+				cleanupState: "incomplete",
+				completedAt: now,
+				launchPayloadJson: null,
+			});
+			return;
+		}
+		this.patch(id, {
+			state: "cancelled",
+			stage: null,
+			failureCode: null,
+			failureClass: null,
+			failureRetryable: null,
+			failureMessage: null,
+			cleanupState: cleanup,
+			completedAt: now,
+			launchPayloadJson: null,
+		});
+	}
+
+	/** Claim the Catalog commit boundary before entering its external transaction. */
+	beginCatalogCommit(id: string): boolean {
+		return this.patchActive(id, { stage: "cataloging" });
+	}
+
+	/** Mark a completed Catalog commit without overwriting cancellation. */
+	markCatalogCommitted(
+		id: string,
+		args: { projectId: string; workspaceId: string },
+	): boolean {
+		const existing = this.get(id);
+		if (!existing) return false;
+		const result = this.db
+			.update(workspaceOperations)
+			.set({
+				stage: "starting-runtime",
+				projectId: args.projectId,
+				workspaceId: args.workspaceId,
+				catalogCommittedAt: Date.now(),
+				revision: existing.revision + 1,
+				updatedAt: Date.now(),
+			})
+			.where(
+				and(
+					eq(workspaceOperations.id, id),
+					eq(workspaceOperations.state, "running"),
+					isNull(workspaceOperations.cancelRequestedAt),
+				),
+			)
+			.run();
+		return result.changes === 1;
+	}
+
+	/** Finalize only if cancellation did not win the race. */
+	patchActive(
+		id: string,
+		patch: Parameters<OperationJournal["patch"]>[1],
+	): boolean {
+		const existing = this.get(id);
+		if (!existing) return false;
+		const result = this.db
+			.update(workspaceOperations)
+			.set({
+				...patch,
+				revision: existing.revision + 1,
+				updatedAt: Date.now(),
+			})
+			.where(
+				and(
+					eq(workspaceOperations.id, id),
+					inArray(workspaceOperations.state, ["queued", "running"]),
+					isNull(workspaceOperations.cancelRequestedAt),
+				),
+			)
+			.run();
+		return result.changes === 1;
+	}
+
 	patch(
 		id: string,
 		patch: Partial<{
@@ -194,6 +325,7 @@ export class OperationJournal {
 			failure,
 			createdAt: row.createdAt,
 			updatedAt: row.updatedAt,
+			cancelRequestedAt: row.cancelRequestedAt ?? undefined,
 			completedAt: row.completedAt ?? undefined,
 		};
 	}

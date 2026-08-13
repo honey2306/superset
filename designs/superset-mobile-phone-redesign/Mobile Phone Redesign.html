@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Superset Mobile Phone Redesign</title>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/colors.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/typography.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/spacing.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/radius.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/shadow.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/motion.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/z-index.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/opacity.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/border-width.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/focus.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/reset.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/styles.css" />
+    <script src="_ds/superset-design-system/_ds_bundle.js"></script>
+    <style>
+      html, body, #root { min-height: 100%; }
+      body { margin: 0; background: var(--page-bg); color: var(--fg); font-family: var(--font-ui); }
+      button, textarea { font: inherit; }
+      .phone-shell { width: min(100%, 430px); min-height: 100dvh; margin: 0 auto; background: var(--page-bg); display: flex; flex-direction: column; overflow: hidden; }
+      .topbar { min-height: 56px; padding: max(var(--s-3), env(safe-area-inset-top)) var(--s-16) var(--s-3); display: flex; align-items: center; gap: var(--s-3); border-bottom: var(--bw-hairline) solid var(--line); background: color-mix(in oklch, var(--page-bg) 94%, transparent); position: sticky; top: 0; z-index: var(--z-rail); backdrop-filter: blur(18px); }
+      .back-button, .send-button, .close-button { width: 44px; height: 44px; border: 0; border-radius: var(--r-pill); color: var(--fg); background: transparent; display: grid; place-items: center; cursor: pointer; flex: none; }
+      .back-button:hover, .send-button:hover, .close-button:hover { background: var(--hover); }
+      .title-group { min-width: 0; flex: 1; }
+      .page-title { margin: 0; font-size: var(--fs-16); line-height: var(--lh-tight); font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .page-subtitle { margin: var(--s-1) 0 0; color: var(--fg-mute); font: var(--fs-11)/var(--lh-tight) var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .mode-chip { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 28px; padding: 0 var(--s-3); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-pill); color: var(--fg-mute); font-size: var(--fs-11); white-space: nowrap; }
+      .dot { width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--success); box-shadow: 0 0 0 3px var(--success-tint); flex: none; }
+      .main-content { flex: 1; padding: var(--s-20) var(--s-16) calc(var(--s-24) + 76px); }
+      .eyebrow { margin: 0 0 var(--s-8); color: var(--fg-faint); font-size: var(--fs-11); font-weight: var(--fw-semibold); letter-spacing: var(--ls-eyebrow); text-transform: uppercase; }
+      .intro { margin: 0 0 var(--s-20); color: var(--fg-mute); font-size: var(--fs-13); line-height: var(--lh-body); }
+      .agent-list { display: grid; gap: var(--s-8); }
+      .agent-row { width: 100%; min-height: 72px; padding: var(--s-12) var(--s-14); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-4); background: var(--surface); color: var(--fg); display: flex; align-items: center; gap: var(--s-12); text-align: left; cursor: pointer; box-shadow: var(--shadow-1); transition: border-color var(--dur-quick) var(--ease-out), transform var(--dur-quick) var(--ease-out); }
+      .agent-row:hover { border-color: var(--line-strong); transform: translateY(-1px); }
+      .agent-mark { width: 40px; height: 40px; border-radius: var(--r-3); display: grid; place-items: center; background: var(--accent-tint); color: var(--accent); font: var(--fw-semibold) var(--fs-14)/1 var(--font-mono); flex: none; }
+      .agent-copy { min-width: 0; flex: 1; }
+      .agent-name { display: flex; align-items: center; gap: var(--s-2); font-size: var(--fs-14); font-weight: var(--fw-semibold); }
+      .agent-meta { margin-top: var(--s-2); color: var(--fg-mute); font: var(--fs-11)/var(--lh-tight) var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .chevron { color: var(--fg-faint); font-size: var(--fs-22); }
+      .bottom-action { position: fixed; left: 50%; bottom: 0; width: min(100%, 430px); transform: translateX(-50%); padding: var(--s-12) var(--s-16) max(var(--s-16), env(safe-area-inset-bottom)); background: linear-gradient(to bottom, transparent, var(--page-bg) 26%); z-index: var(--z-sticky-overlay); }
+      .primary-action { width: 100%; min-height: 50px; border: 0; border-radius: var(--r-4); background: var(--fg); color: var(--page-bg); font-weight: var(--fw-semibold); cursor: pointer; box-shadow: var(--shadow-2); }
+      .sheet-scrim { position: fixed; inset: 0; z-index: var(--z-modal-scrim); background: var(--overlay-scrim); display: flex; align-items: flex-end; justify-content: center; }
+      .agent-sheet { width: min(100%, 430px); max-height: 76dvh; padding: var(--s-8) var(--s-16) max(var(--s-20), env(safe-area-inset-bottom)); border: var(--bw-hairline) solid var(--line-strong); border-bottom: 0; border-radius: var(--r-6) var(--r-6) 0 0; background: var(--surface-elev); box-shadow: var(--shadow-4); animation: rise var(--dur-base) var(--ease-out); }
+      @keyframes rise { from { transform: translateY(20px); opacity: 0; } }
+      .grabber { width: 36px; height: 4px; border-radius: var(--r-pill); background: var(--line-strong); margin: 0 auto var(--s-12); }
+      .sheet-head { display: flex; align-items: center; gap: var(--s-8); margin-bottom: var(--s-12); }
+      .sheet-title { margin: 0; flex: 1; font-size: var(--fs-18); font-weight: var(--fw-semibold); }
+      .choice-list { display: grid; gap: var(--s-6); }
+      .choice { min-height: 54px; padding: var(--s-8) var(--s-12); border: var(--bw-hairline) solid transparent; border-radius: var(--r-3); background: transparent; color: var(--fg); display: flex; align-items: center; gap: var(--s-12); text-align: left; cursor: pointer; }
+      .choice:hover, .choice.selected { background: var(--selected); border-color: var(--accent-line); }
+      .choice-title { font-weight: var(--fw-medium); }
+      .choice-desc { margin-top: var(--s-1); color: var(--fg-mute); font-size: var(--fs-11); }
+      .terminal-shell { background: var(--dracula-bg-deep); }
+      .terminal-shell .topbar { background: color-mix(in oklch, var(--dracula-bg-deep) 94%, transparent); }
+      .terminal-view { flex: 1; min-height: 0; padding: var(--s-12) var(--s-14); overflow: auto; color: var(--dracula-fg); font: var(--fs-12)/1.62 var(--font-mono); }
+      .terminal-view p { margin: 0; white-space: pre-wrap; }
+      .term-muted { color: var(--dracula-comment); }
+      .term-accent { color: var(--dracula-cyan); }
+      .term-success { color: var(--dracula-green); }
+      .term-prompt { color: var(--dracula-pink); }
+      .composer { border-top: var(--bw-hairline) solid var(--line); padding: var(--s-8) var(--s-12) max(var(--s-10), env(safe-area-inset-bottom)); background: var(--surface-sunk); }
+      .key-strip { display: flex; gap: var(--s-6); overflow-x: auto; padding-bottom: var(--s-8); scrollbar-width: none; }
+      .key-strip::-webkit-scrollbar { display: none; }
+      .key { min-width: 44px; height: 36px; padding: 0 var(--s-10); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-3); background: var(--surface); color: var(--fg-mute); font: var(--fs-11)/1 var(--font-mono); cursor: pointer; }
+      .input-row { min-height: 48px; border: var(--bw-hairline) solid var(--line-strong); border-radius: var(--r-4); background: var(--surface); display: flex; align-items: flex-end; padding: var(--s-2); }
+      .command-input { flex: 1; min-height: 40px; max-height: 116px; resize: none; border: 0; outline: 0; padding: var(--s-10); background: transparent; color: var(--fg); line-height: var(--lh-body); }
+      .command-input::placeholder { color: var(--fg-faint); }
+      .send-button { background: var(--fg); color: var(--page-bg); width: 40px; height: 40px; }
+      .connection { display: flex; align-items: center; gap: var(--s-2); color: var(--fg-mute); font-size: var(--fs-11); }
+      @media (min-width: 620px) { body { padding: var(--s-24) 0; } .phone-shell { min-height: 844px; max-height: 844px; border: var(--bw-hairline) solid var(--line); border-radius: var(--r-8); box-shadow: var(--shadow-4); } .bottom-action { bottom: var(--s-24); } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+    <script type="text/babel">
+      const { Icon } = window.SupersetDesignSystem_91a6da;
+      const agentChoices = [
+        { id: 'claude', label: 'Claude Code', description: '适合连续实现与长任务' },
+        { id: 'codex', label: 'Codex', description: '适合代码审查与快速修改' },
+        { id: 'gemini', label: 'Gemini CLI', description: '适合探索与大上下文任务' },
+      ];
+
+      function HeaderBar({ titleText, subtitleText, onBack, trailing }) {
+        return <header className="topbar">
+          {onBack && <button className="back-button" onClick={onBack} aria-label="返回"><span aria-hidden="true">‹</span></button>}
+          <div className="title-group"><h1 className="page-title">{titleText}</h1><p className="page-subtitle">{subtitleText}</p></div>
+          {trailing}
+        </header>;
+      }
+
+      function WorkspaceScreen({ onOpenTerminal }) {
+        const [sheetVisible, setSheetVisible] = React.useState(false);
+        const [selectedAgent, setSelectedAgent] = React.useState('claude');
+        return <main className="phone-shell">
+          <HeaderBar titleText="Superset" subtitleText="main · Preview Mac" trailing={<span className="mode-chip"><span className="dot" />Terminal</span>} />
+          <section className="main-content">
+            <p className="eyebrow">Running agents</p>
+            <p className="intro">ACP 未开启，当前使用 Terminal Agent。点开即可继续工作。</p>
+            <div className="agent-list">
+              <button className="agent-row" onClick={() => onOpenTerminal('Codex')}>
+                <span className="agent-mark">CX</span><span className="agent-copy"><span className="agent-name">Codex <span className="dot" /></span><span className="agent-meta">正在运行 · 1 分钟前</span></span><span className="chevron">›</span>
+              </button>
+              <button className="agent-row" onClick={() => onOpenTerminal('Claude Code')}>
+                <span className="agent-mark">CC</span><span className="agent-copy"><span className="agent-name">Claude Code</span><span className="agent-meta">空闲 · 18 分钟前</span></span><span className="chevron">›</span>
+              </button>
+            </div>
+          </section>
+          <div className="bottom-action"><button className="primary-action" onClick={() => setSheetVisible(true)}>启动新 Agent</button></div>
+          {sheetVisible && <div className="sheet-scrim" onClick={() => setSheetVisible(false)}>
+            <section className="agent-sheet" onClick={(eventObject) => eventObject.stopPropagation()}>
+              <div className="grabber" />
+              <div className="sheet-head"><h2 className="sheet-title">启动新 Agent</h2><button className="close-button" onClick={() => setSheetVisible(false)} aria-label="关闭"><Icon name="x" size={18} /></button></div>
+              <div className="choice-list">{agentChoices.map((agentChoice) => <button key={agentChoice.id} className={`choice ${selectedAgent === agentChoice.id ? 'selected' : ''}`} onClick={() => setSelectedAgent(agentChoice.id)}><span className="agent-mark">{agentChoice.label.split(' ').map((wordPart) => wordPart[0]).join('').slice(0, 2)}</span><span className="agent-copy"><span className="choice-title">{agentChoice.label}</span><span className="choice-desc">{agentChoice.description}</span></span>{selectedAgent === agentChoice.id && <Icon name="check" size={18} />}</button>)}</div>
+              <button className="primary-action" style={{ marginTop: 'var(--s-16)' }} onClick={() => onOpenTerminal(agentChoices.find((agentChoice) => agentChoice.id === selectedAgent).label)}>启动 {agentChoices.find((agentChoice) => agentChoice.id === selectedAgent).label}</button>
+            </section>
+          </div>}
+        </main>;
+      }
+
+      function TerminalScreen({ agentLabel, onBack }) {
+        const [commandText, setCommandText] = React.useState('');
+        const [lastCommand, setLastCommand] = React.useState('bun run typecheck');
+        const submitCommand = () => { if (commandText.trim()) { setLastCommand(commandText.trim()); setCommandText(''); } };
+        return <main className="phone-shell terminal-shell">
+          <HeaderBar titleText={agentLabel} subtitleText="main · ~/Code/superset" onBack={onBack} trailing={<span className="connection"><span className="dot" />已连接</span>} />
+          <section className="terminal-view" aria-label="终端输出">
+            <p className="term-muted">Superset workspace ready</p>
+            <p><span className="term-prompt">➜</span> <span className="term-accent">superset</span> git status --short</p>
+            <p> M apps/web/src/routes/workspace.tsx</p>
+            <p> M apps/web/src/routes/terminal.tsx</p>
+            <p> </p>
+            <p><span className="term-prompt">➜</span> <span className="term-accent">superset</span> {lastCommand}</p>
+            <p className="term-success">✓ @superset/web typecheck</p>
+            <p className="term-muted">Completed in 2.4s</p>
+            <p> </p>
+            <p><span className="term-prompt">➜</span> <span className="term-accent">superset</span> <span className="term-muted">▌</span></p>
+          </section>
+          <section className="composer">
+            <div className="key-strip" aria-label="快捷键">
+              {['Esc', 'Tab', 'Ctrl', '⌃C', '↑', '↓', '←', '→'].map((keyLabel) => <button key={keyLabel} className="key" onClick={() => setCommandText((currentText) => currentText + (keyLabel === 'Tab' ? '  ' : ''))}>{keyLabel}</button>)}
+            </div>
+            <div className="input-row"><textarea className="command-input" rows="1" value={commandText} onChange={(eventObject) => setCommandText(eventObject.target.value)} onKeyDown={(eventObject) => { if (eventObject.key === 'Enter' && !eventObject.shiftKey) { eventObject.preventDefault(); submitCommand(); } }} placeholder="输入命令…" /><button className="send-button" onClick={submitCommand} aria-label="发送"><Icon name="arrowRight" size={18} /></button></div>
+          </section>
+        </main>;
+      }
+
+      function MobilePrototype() {
+        const [activeScreen, setActiveScreen] = React.useState('workspace');
+        const [activeAgentLabel, setActiveAgentLabel] = React.useState('Codex');
+        const openTerminalScreen = (nextAgentLabel) => { setActiveAgentLabel(nextAgentLabel); setActiveScreen('terminal'); };
+        return activeScreen === 'workspace' ? <WorkspaceScreen onOpenTerminal={openTerminalScreen} /> : <TerminalScreen agentLabel={activeAgentLabel} onBack={() => setActiveScreen('workspace')} />;
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<MobilePrototype />);
+    </script>
+  </body>
+</html>

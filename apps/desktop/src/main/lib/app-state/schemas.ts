@@ -1,11 +1,7 @@
 /**
  * UI state schemas (persisted from renderer zustand stores)
  */
-import type { BaseTabsState } from "shared/tabs-types";
 import type { Theme } from "shared/themes";
-
-// Re-export for convenience
-export type { BaseTabsState as TabsState, Pane } from "shared/tabs-types";
 
 export interface ThemeState {
 	activeThemeId: string;
@@ -21,7 +17,6 @@ interface LegacyHotkeysState {
 }
 
 export interface AppState {
-	tabsState: BaseTabsState;
 	themeState: ThemeState;
 	hotkeysState: LegacyHotkeysState;
 	/** App version at last launch; a mismatch means an update was just installed */
@@ -29,13 +24,6 @@ export interface AppState {
 }
 
 export const defaultAppState: AppState = {
-	tabsState: {
-		tabs: [],
-		panes: {},
-		activeTabIds: {},
-		focusedPaneIds: {},
-		tabHistoryStacks: {},
-	},
 	themeState: {
 		activeThemeId: "dark",
 		customThemes: [],

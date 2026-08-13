@@ -8,9 +8,9 @@
 			"types": "./src/index.ts",
 			"default": "./src/index.ts"
 		},
-		"./relay-socket": {
-			"types": "./src/lib/relaySocket/index.ts",
-			"default": "./src/lib/relaySocket/index.ts"
+		"./direct-socket": {
+			"types": "./src/lib/directSocket/index.ts",
+			"default": "./src/lib/directSocket/index.ts"
 		}
 	},
 	"scripts": {

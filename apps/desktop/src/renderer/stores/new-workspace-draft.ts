@@ -3,9 +3,8 @@ import { create } from "zustand";
 export type LinkedIssue = {
 	slug: string;
 	title: string;
-	source?: "github" | "internal";
+	source?: "github";
 	url?: string;
-	taskId?: string;
 	number?: number;
 	state?: "open" | "closed";
 };

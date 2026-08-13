@@ -13,6 +13,7 @@ export const useHiringBannerStore = create<HiringBannerState>()(
 				dismissed: false,
 				dismiss: () => set({ dismissed: true }),
 			}),
+			// Compatibility: retain the historical storage key across upgrades.
 			{ name: "hiring-banner-v1" },
 		),
 		{ name: "HiringBannerStore" },

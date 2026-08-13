@@ -1,4 +1,3 @@
-import { chatServiceTrpc } from "@superset/chat/client";
 import {
 	PromptInput,
 	PromptInputAttachment,
@@ -10,8 +9,10 @@ import type { ThinkingLevel } from "@superset/ui/ai-elements/thinking-toggle";
 import type { ChatStatus, FileUIPart } from "ai";
 import type React from "react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useFocusPromptOnPane } from "renderer/components/Chat/ChatInterface/hooks/useFocusPromptOnPane";
+import { useHostWorkspaceIdForCwd } from "renderer/components/Chat/utils/useHostWorkspaceIdForCwd";
+import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import type { SlashCommand } from "../../hooks/useSlashCommands";
 import type { ModelOption, PermissionMode } from "../../types";
@@ -19,9 +20,7 @@ import { TiptapPromptEditor } from "../TiptapPromptEditor";
 import { ChatComposerControls } from "./components/ChatComposerControls";
 import { ChatInputDropZone } from "./components/ChatInputDropZone";
 import { FileDropOverlay } from "./components/FileDropOverlay";
-import { LinkedIssues } from "./components/LinkedIssues";
 import { QuestionInputOverlay } from "./components/QuestionInputOverlay";
-import type { LinkedIssue } from "./types";
 import { getErrorMessage } from "./utils/getErrorMessage";
 
 interface ChatInputFooterProps {
@@ -101,19 +100,16 @@ export function ChatInputFooter({
 		}
 	}, [pendingQuestion, textInput]);
 
-	const [linkedIssues, setLinkedIssues] = useState<LinkedIssue[]>([]);
 	const inputRootRef = useRef<HTMLDivElement>(null);
 	const errorMessage = getErrorMessage(error);
 
-	const removeLinkedIssue = useCallback((slug: string) => {
-		setLinkedIssues((prev) => prev.filter((issue) => issue.slug !== slug));
-	}, []);
-
-	const trpcUtils = chatServiceTrpc.useUtils();
+	const trpcUtils = hostServiceTrpc.useUtils();
+	const workspaceId = useHostWorkspaceIdForCwd(cwd);
 	const searchFiles = useCallback(
 		async (query: string) => {
-			const results = await trpcUtils.workspace.searchFiles.fetch({
-				rootPath: cwd,
+			if (!workspaceId) return [];
+			const results = await trpcUtils.chat.searchFiles.fetch({
+				workspaceId,
 				query,
 				includeHidden: false,
 				limit: 20,
@@ -124,34 +120,23 @@ export function ChatInputFooter({
 				relativePath: r.relativePath,
 			}));
 		},
-		[trpcUtils, cwd],
+		[trpcUtils, workspaceId],
 	);
 	const previewSlashCommand = useCallback(
 		async (text: string) => {
-			const result = await trpcUtils.workspace.previewSlashCommand.fetch({
-				cwd,
+			if (!workspaceId) return null;
+			const result = await trpcUtils.chat.previewSlashCommand.fetch({
+				workspaceId,
 				text,
 			});
 			return result ?? null;
 		},
-		[trpcUtils, cwd],
+		[trpcUtils, workspaceId],
 	);
 
 	const handleSend = useCallback(
-		(message: PromptInputMessage) => {
-			if (linkedIssues.length === 0) return onSend(message);
-
-			const prefix = linkedIssues
-				.map((issue) => `@task:${issue.slug}`)
-				.join(" ");
-			const modifiedMessage: PromptInputMessage = {
-				...message,
-				text: `${prefix} ${message.text}`,
-			};
-			setLinkedIssues([]);
-			return onSend(modifiedMessage);
-		},
-		[linkedIssues, onSend],
+		(message: PromptInputMessage) => onSend(message),
+		[onSend],
 	);
 
 	return (
@@ -197,10 +182,6 @@ export function ChatInputFooter({
 									{renderAttachment ??
 										((file) => <PromptInputAttachment data={file} />)}
 								</PromptInputAttachments>
-								<LinkedIssues
-									issues={linkedIssues}
-									onRemove={removeLinkedIssue}
-								/>
 								<TiptapPromptEditor
 									cwd={cwd}
 									searchFiles={searchFiles}

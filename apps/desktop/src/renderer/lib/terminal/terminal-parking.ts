@@ -7,7 +7,7 @@
 // tree, and also moves focus out of it — so a parked terminal's internal
 // <textarea> can't receive keystrokes meant for the active pane.
 //
-// Shared by v1 (v1-terminal-cache.ts) and v2 (terminal-runtime.ts) so the
+// Shared by terminal runtimes so the
 // two surfaces converge on a single DOM node and lifecycle.
 const PARKING_CONTAINER_ID = "terminal-parking";
 

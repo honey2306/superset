@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { setStoredSession } from "~/lib/auth-store";
+import { getPairingCredentials } from "~/lib/automate-pairing";
+import {
+	getAutoMatePairSuccessPath,
+	isAutoMateWebAppPath,
+} from "~/lib/automate-resume";
 import { getTrpc, resetTrpc } from "~/lib/trpc-client";
 
 type PairState =
@@ -11,8 +16,10 @@ type PairState =
 
 export function PairRoute() {
 	const [params] = useSearchParams();
+	const pathParams = useParams<{ code: string; mailboxId: string }>();
 	const navigate = useNavigate();
-	const initialCode = params.get("code") ?? "";
+	const { code: initialCode, mailboxId: relayMailboxId } =
+		getPairingCredentials(params, pathParams);
 	const [code, setCode] = useState(initialCode);
 	const [state, setState] = useState<PairState>({ kind: "idle" });
 
@@ -29,22 +36,31 @@ export function PairRoute() {
 					code: nextCode.trim().toUpperCase(),
 					deviceLabel: navigator.userAgent.slice(0, 64),
 				});
-				setStoredSession({
+				const storedSession = {
 					token: result.token,
 					sessionId: result.sessionId,
 					hostName: result.hostName,
 					hostId: result.hostId,
 					expiresAt: result.expiresAt,
-				});
+					relayMailboxId,
+				};
+				setStoredSession(storedSession);
 				setState({ kind: "paired" });
-				setTimeout(() => navigate("/", { replace: true }), 400);
+				setTimeout(() => {
+					const resumePath = getAutoMatePairSuccessPath(
+						storedSession,
+						isAutoMateWebAppPath(location.pathname),
+					);
+					if (resumePath) window.location.replace(resumePath);
+					else navigate("/", { replace: true });
+				}, 400);
 			} catch (err) {
 				const message =
 					err instanceof Error ? err.message : "Pairing failed. Try again.";
 				setState({ kind: "error", message });
 			}
 		},
-		[navigate],
+		[navigate, relayMailboxId],
 	);
 
 	useEffect(() => {
@@ -55,7 +71,7 @@ export function PairRoute() {
 
 	return (
 		<main
-			className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col items-stretch justify-center gap-6 px-6"
+			className="mobile-pair-page mx-auto flex min-h-[100dvh] w-full max-w-md flex-col items-stretch justify-center gap-6 px-6"
 			style={{
 				paddingTop: "max(var(--safe-area-top), 24px)",
 				paddingBottom: "max(var(--safe-area-bottom), 24px)",
@@ -65,15 +81,15 @@ export function PairRoute() {
 				<h1 className="text-2xl font-semibold tracking-tight">
 					Pair with Superset
 				</h1>
-				<p className="mt-2 text-sm text-white/60 dark:text-white/60">
+				<p className="mobile-muted-text mt-2 text-sm">
 					Enter the code shown in the desktop Settings → Phone access pane.
 				</p>
 			</header>
 
-			<div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
+			<div className="mobile-surface rounded-2xl p-4">
 				<label
 					htmlFor="code"
-					className="text-xs font-medium uppercase tracking-wider text-white/60"
+					className="mobile-muted-text text-xs font-medium uppercase tracking-wider"
 				>
 					Pairing code
 				</label>
@@ -86,13 +102,13 @@ export function PairRoute() {
 					spellCheck={false}
 					inputMode="text"
 					placeholder="XXXX-XXXX"
-					className="mt-2 block w-full rounded-lg bg-black/30 px-3 py-3 font-mono text-lg tracking-widest text-white outline-none ring-1 ring-white/10 focus:ring-white/40"
+					className="mt-2 block w-full rounded-lg border border-[var(--phone-border)] bg-[#090a0d] px-3 py-3 font-mono text-lg tracking-widest text-[var(--phone-text)] outline-none focus:border-[var(--phone-focus)]"
 				/>
 				<button
 					type="button"
 					disabled={state.kind === "pairing"}
 					onClick={() => void redeem(code)}
-					className="mt-4 w-full rounded-lg bg-white px-4 py-3 font-medium text-black transition disabled:opacity-50"
+					className="mobile-primary-button mt-4 w-full px-4 py-3 font-medium transition disabled:opacity-50"
 				>
 					{state.kind === "pairing" ? "Pairing…" : "Pair this phone"}
 				</button>

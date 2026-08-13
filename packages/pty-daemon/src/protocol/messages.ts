@@ -4,7 +4,7 @@
 // and an optional binary payload tail. PTY input/output bytes ride in
 // the payload tail — they are NOT base64-encoded inside the JSON.
 //
-// See ../README.md and ../../../../apps/desktop/plans/20260429-pty-daemon-implementation.md
+// See `packages/pty-daemon/README.md` and `plans/done/pty-lifecycle-cleanup.md`
 
 export interface SessionMeta {
 	shell: string;

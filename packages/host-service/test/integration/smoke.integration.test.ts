@@ -29,29 +29,28 @@ describe("host-service smoke", () => {
 		).rejects.toBeInstanceOf(TRPCClientError);
 	});
 
-	test("host.info round-trips through fake cloud api", async () => {
-		const orgId = "00000000-0000-0000-0000-0000000000aa";
-		host = await replaceHost(host, {
-			organizationId: orgId,
-			apiOverrides: {
-				"organization.getByIdFromJwt.query": (input) => {
-					expect(input).toEqual({ id: orgId });
-					return { id: orgId, name: "Test Org", slug: "test-org" };
-				},
-			},
-		});
-
+	test("host.info returns only local host data without calling the cloud API", async () => {
 		const info = await host.trpc.host.info.query();
-		expect(info.organization).toEqual({
-			id: orgId,
-			name: "Test Org",
-			slug: "test-org",
+
+		expect(info).toMatchObject({
+			platform: process.platform,
 		});
-		expect(info.platform).toEqual(process.platform);
-		expect(typeof info.uptime).toBe("number");
-		expect(host.apiCalls.map((c) => c.path)).toContain(
-			"organization.getByIdFromJwt.query",
+		expect(Object.keys(info).sort()).toEqual(
+			[
+				"hostId",
+				"hostName",
+				"platform",
+				"relayMailboxId",
+				"uptime",
+				"version",
+			].sort(),
 		);
+		expect(info.relayMailboxId).toBeUndefined();
+		expect(typeof info.hostId).toBe("string");
+		expect(typeof info.hostName).toBe("string");
+		expect(typeof info.version).toBe("string");
+		expect(typeof info.uptime).toBe("number");
+		expect(host.apiCalls).toEqual([]);
 	});
 
 	test("CORS preflight allows configured origin and rejects others", async () => {
@@ -91,11 +90,3 @@ describe("host-service smoke", () => {
 		expect(res.status).toBe(401);
 	});
 });
-
-async function replaceHost(
-	current: TestHost,
-	options: Parameters<typeof createTestHost>[0],
-): Promise<TestHost> {
-	await current.dispose();
-	return createTestHost(options);
-}

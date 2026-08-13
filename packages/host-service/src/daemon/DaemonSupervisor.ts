@@ -6,7 +6,7 @@
 // History: this used to live in the desktop main process
 // (`apps/desktop/src/main/lib/pty-daemon-coordinator.ts`). It moved here
 // so host-service can be deployed independently of Electron — see
-// `apps/desktop/plans/20260430-pty-daemon-host-service-migration.md`.
+// `packages/host-service/DAEMON_SUPERVISION.md`.
 
 import * as childProcess from "node:child_process";
 import { createHash } from "node:crypto";
@@ -507,7 +507,54 @@ export class DaemonSupervisor {
 		return listDaemonSessions(socketPath, timeoutMs);
 	}
 
+	async killSession(organizationId: string, sessionId: string): Promise<void> {
+		await this.withDaemonClient(organizationId, (client) =>
+			client.close(sessionId, "SIGHUP"),
+		);
+	}
+
+	async clearReplayBuffers(
+		organizationId: string,
+		sessionIds: string[],
+	): Promise<{ clearedCount: number }> {
+		await this.withDaemonClient(organizationId, async (client) => {
+			for (const sessionId of sessionIds) client.clearBuffer(sessionId);
+		});
+		return { clearedCount: sessionIds.length };
+	}
+
+	private async withDaemonClient<T>(
+		organizationId: string,
+		operation: (client: DaemonClient) => Promise<T>,
+	): Promise<T> {
+		const socketPath = this.getSocketPath(organizationId);
+		if (!socketPath) throw new Error("pty-daemon is not available");
+		const client = new DaemonClient({ socketPath });
+		try {
+			await client.connect();
+			return await operation(client);
+		} finally {
+			await client.dispose().catch(() => {});
+		}
+	}
+
+	/**
+	 * Stop supervising an organization without terminating its daemon.
+	 * Production host-service shutdown uses this so the process can exit while
+	 * the detached daemon and its PTYs remain available for the next host.
+	 *
+	 * Await an in-flight spawn/adoption first. Otherwise shutdown can delete an
+	 * empty instance slot, return, and let the pending bootstrap install a live
+	 * supervised instance after the caller believes teardown has completed.
+	 */
+	async detach(organizationId: string): Promise<void> {
+		await this.awaitPendingStart(organizationId);
+		this.instances.delete(organizationId);
+		this.stopHealthPoll(organizationId);
+	}
+
 	async stop(organizationId: string): Promise<void> {
+		await this.awaitPendingStart(organizationId);
 		const instance = this.instances.get(organizationId);
 		this.instances.delete(organizationId);
 		this.stopHealthPoll(organizationId);
@@ -515,6 +562,17 @@ export class DaemonSupervisor {
 		this.stopping.add(organizationId);
 		await terminateProcessTreeAndGroups(instance.pid, "SIGTERM");
 		removePtyDaemonManifest(organizationId);
+	}
+
+	private async awaitPendingStart(organizationId: string): Promise<void> {
+		const pending = this.pendingStarts.get(organizationId);
+		if (!pending) return;
+		try {
+			await pending;
+		} catch {
+			// A failed bootstrap installed no instance, so shutdown has nothing to
+			// preserve or terminate. The original ensure() caller owns the error.
+		}
 	}
 
 	/**

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { resolveRemoteAddress } from "../../app";
 import type { HostDb } from "../../db";
 import * as schema from "../../db/schema";
 import { PhoneAuthService } from "./PhoneAuthService";
@@ -93,24 +94,41 @@ describe("PhoneAuthService", () => {
 		expect(fx.service.listSessions()).toEqual([]);
 	});
 
-	test("enforces rate limit on redeem attempts per IP", async () => {
+	test("forged forwarded IPs cannot evade the direct-peer rate limit", async () => {
 		const { code } = fx.service.mintPairingCode();
-		const attempts: Promise<unknown>[] = [];
-		// 10/min per IP: first 10 exhaust the bucket; #11 must be rejected as
-		// TOO_MANY_REQUESTS even though the code itself is valid.
+		const resolvePeer = (forwardedFor: string): string | undefined => {
+			const context = {
+				env: {
+					incoming: {
+						socket: {
+							remoteAddress: "1.2.3.4",
+							remotePort: 1234,
+							remoteFamily: "IPv4",
+						},
+					},
+				},
+				req: {
+					header: (name: string) =>
+						name.toLowerCase() === "x-forwarded-for" ? forwardedFor : undefined,
+				},
+			};
+			return resolveRemoteAddress(context);
+		};
+
+		// A caller can rotate an untrusted X-Forwarded-For value on every request,
+		// but all attempts must retain the direct socket peer identity and bucket.
 		for (let i = 0; i < 10; i++) {
-			attempts.push(
-				fx.service
-					.redeemPairingCode(
-						{ code: "NOPE-NOPE" },
-						{ remoteAddress: "1.2.3.4" },
-					)
-					.catch(() => null),
-			);
+			const remoteAddress = resolvePeer(`203.0.113.${i}`);
+			expect(remoteAddress).toBe("1.2.3.4");
+			await fx.service
+				.redeemPairingCode({ code: "NOPE-NOPE" }, { remoteAddress })
+				.catch(() => null);
 		}
-		await Promise.all(attempts);
 		await expect(
-			fx.service.redeemPairingCode({ code }, { remoteAddress: "1.2.3.4" }),
+			fx.service.redeemPairingCode(
+				{ code },
+				{ remoteAddress: resolvePeer("198.51.100.250") },
+			),
 		).rejects.toThrow(/too many/i);
 	});
 

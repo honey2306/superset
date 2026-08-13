@@ -2,9 +2,8 @@ export const DEFAULT_BRANCH_SEGMENT_MAX_LENGTH = 50;
 export const DEFAULT_BRANCH_NAME_MAX_LENGTH = 100;
 
 /**
- * Branch prefix modes for workspace branch naming. Single source of truth;
- * `@superset/local-db` re-exports these so callers that can't depend on
- * local-db (host-service) share the same definition.
+ * Branch prefix modes for workspace branch naming. Shared by desktop and
+ * host-service without coupling either package to local-db.
  *
  * - `none`: no prefix
  * - `github`: the user's GitHub username

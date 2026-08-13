@@ -10,12 +10,15 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { and, eq } from "drizzle-orm";
 import { workspaceOperationSteps, workspaces } from "../../src/db/schema";
-import { OperationJournal } from "../../src/workspace-provisioning";
+import type { WorkspaceCatalog } from "../../src/workspace-catalog";
+import {
+	OperationJournal,
+	WorkspaceProvisioning,
+} from "../../src/workspace-provisioning";
 import {
 	canonicalizeProvisionRequest,
 	stableJson,
 } from "../../src/workspace-provisioning/canonical-request";
-import { cloudFlows } from "../helpers/cloud-fakes";
 import {
 	createBasicScenario,
 	createProjectScenario,
@@ -63,9 +66,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("begin: existing project + branch source materializes and returns operation", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const result = await scenario.host.trpc.workspaceProvisioning.begin.mutate({
@@ -109,11 +110,6 @@ describe("workspaceProvisioning integration (M2)", () => {
 		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
-		// The provisioning path must not fall back to the legacy mutation. This
-		// adapter is deliberately made unusable for the duration of the test.
-		scenario.host.setApi("v2Workspace.create.mutate", () => {
-			throw new Error("legacy workspace mutation was called");
-		});
 		const result = await scenario.host.trpc.workspaceProvisioning.begin.mutate({
 			idempotencyKey: `direct-git:${randomUUID()}`,
 			project: { kind: "existing", projectId: scenario.projectId },
@@ -148,17 +144,10 @@ describe("workspaceProvisioning integration (M2)", () => {
 		expect(
 			steps.find((step) => step.stepKey.endsWith(":worktree-add"))?.outputJson,
 		).toContain("feature/direct-git");
-		expect(
-			scenario.host.apiCalls.some((call) =>
-				call.path.includes("v2Workspace.create"),
-			),
-		).toBe(false);
 	});
 
 	test("idempotency: same key + same request returns the same operation", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const request = {
@@ -180,9 +169,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("resume reuses a completed materializer receipt before calling legacy Git", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const source = {
@@ -237,9 +224,6 @@ describe("workspaceProvisioning integration (M2)", () => {
 				unknown
 			>,
 		);
-		scenario.host.setApi("v2Workspace.create.mutate", () => {
-			throw new Error("legacy materializer should not be called");
-		});
 
 		const resumed =
 			await scenario.host.trpc.workspaceProvisioning.begin.mutate(request);
@@ -248,9 +232,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("idempotency: same key + different request throws IDEMPOTENCY_CONFLICT", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const key = `conflict:${randomUUID()}`;
@@ -278,9 +260,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("resume reuses a completed source receipt before advancing the operation", async () => {
-		const scenario = await createBasicScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createBasicScenario();
 		dispose = scenario.dispose;
 
 		const request = {
@@ -329,9 +309,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("get: returns the persisted operation", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const begin = await scenario.host.trpc.workspaceProvisioning.begin.mutate({
@@ -363,9 +341,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("failure surfaces as failed state with an error code, no crash", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		// Non-existent project id triggers PROJECT_NOT_SETUP inside
@@ -383,10 +359,220 @@ describe("workspaceProvisioning integration (M2)", () => {
 		expect(result.operation.failure?.code).toBeTruthy();
 	});
 
-	test("cancel after a succeeded operation returns TOO_LATE_TO_CANCEL", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
+	test("queued operations cancel before execution and cannot be retried", async () => {
+		const scenario = await createBasicScenario();
+		dispose = scenario.dispose;
+		const request = {
+			idempotencyKey: `queued-cancel:${randomUUID()}`,
+			project: { kind: "existing" as const, projectId: scenario.projectId },
+			source: { kind: "main" as const },
+		};
+		const canonical = canonicalizeProvisionRequest(request);
+		const provisioning = new WorkspaceProvisioning({
+			db: scenario.host.db,
+			catalog: {} as WorkspaceCatalog,
+			eventBus: null,
+			runner: async () => {
+				throw new Error("cancelled queued operation must not run");
+			},
 		});
+		const operationId = provisioning.journal.create({
+			idempotencyKey: request.idempotencyKey,
+			requestHash: canonical.hash,
+			requestJson: stableJson(canonical.redacted),
+			launchPayloadJson: stableJson({ initialSessions: [] }),
+		});
+
+		expect(provisioning.act({ operationId, action: "cancel" }).state).toBe(
+			"cancelled",
+		);
+		expect(provisioning.act({ operationId, action: "retry" }).state).toBe(
+			"cancelled",
+		);
+		expect(
+			(await provisioning.resume(operationId, request)).operation.state,
+		).toBe("cancelled");
+	});
+
+	test("cancel wins a pre-commit race against runner success", async () => {
+		const scenario = await createBasicScenario();
+		dispose = scenario.dispose;
+		let releaseRunner: (() => void) | undefined;
+		const runnerGate = new Promise<void>((resolve) => {
+			releaseRunner = resolve;
+		});
+		const provisioning = new WorkspaceProvisioning({
+			db: scenario.host.db,
+			catalog: {} as WorkspaceCatalog,
+			eventBus: null,
+			runner: async ({ throwIfCancellationRequested }) => {
+				await runnerGate;
+				throwIfCancellationRequested();
+				return {
+					projectId: scenario.projectId,
+					workspaceId: scenario.workspaceId,
+					disposition: "reused",
+					launches: [],
+					warnings: [],
+				};
+			},
+		});
+		const request = {
+			idempotencyKey: `cancel-race:${randomUUID()}`,
+			project: { kind: "existing" as const, projectId: scenario.projectId },
+			source: { kind: "main" as const },
+		};
+		const pending = provisioning.begin(request);
+		await Bun.sleep(5);
+		const row = provisioning.journal.findByIdempotencyKey(
+			request.idempotencyKey,
+		);
+		expect(row?.state).toBe("running");
+		const requested = provisioning.act({
+			operationId: row?.id ?? "",
+			action: "cancel",
+		});
+		// Cancellation is observable as a request while the runner is still
+		// active; it is not terminal until the runner stops and compensates.
+		expect(requested.state).toBe("running");
+		expect(requested.completedAt).toBeUndefined();
+		expect(requested.cancelRequestedAt).toBeNumber();
+		releaseRunner?.();
+		const cancelled = (await pending).operation;
+		expect(cancelled.state).toBe("cancelled");
+		expect(cancelled.completedAt).toBeNumber();
+		expect(cancelled.failure).toBeUndefined();
+	});
+
+	test("cataloging alone does not reject cancellation", async () => {
+		const scenario = await createBasicScenario();
+		dispose = scenario.dispose;
+		let releaseRunner: (() => void) | undefined;
+		const runnerGate = new Promise<void>((resolve) => {
+			releaseRunner = resolve;
+		});
+		const provisioning = new WorkspaceProvisioning({
+			db: scenario.host.db,
+			catalog: {} as WorkspaceCatalog,
+			eventBus: null,
+			runner: async ({ beginCatalogCommit, throwIfCancellationRequested }) => {
+				beginCatalogCommit();
+				await runnerGate;
+				throwIfCancellationRequested();
+				throw new Error("unreachable");
+			},
+		});
+		const request = {
+			idempotencyKey: `cataloging-cancel:${randomUUID()}`,
+			project: { kind: "existing" as const, projectId: scenario.projectId },
+			source: { kind: "main" as const },
+		};
+		const pending = provisioning.begin(request);
+		await Bun.sleep(5);
+		const row = provisioning.journal.findByIdempotencyKey(
+			request.idempotencyKey,
+		);
+		expect(row?.stage).toBe("cataloging");
+		const requested = provisioning.act({
+			operationId: row?.id ?? "",
+			action: "cancel",
+		});
+		expect(requested.state).toBe("running");
+		expect(requested.stage).toBe("cataloging");
+		releaseRunner?.();
+		expect((await pending).operation.state).toBe("cancelled");
+	});
+
+	test("failed compensation does not masquerade as cancelled", async () => {
+		const scenario = await createBasicScenario();
+		dispose = scenario.dispose;
+		let releaseRunner: (() => void) | undefined;
+		const runnerGate = new Promise<void>((resolve) => {
+			releaseRunner = resolve;
+		});
+		const provisioning = new WorkspaceProvisioning({
+			db: scenario.host.db,
+			catalog: {} as WorkspaceCatalog,
+			eventBus: null,
+			runner: async ({
+				journal,
+				operationId,
+				throwIfCancellationRequested,
+			}) => {
+				journal.recordArtifacts(operationId, [
+					{
+						kind: "worktree",
+						identity: "/owned/worktree",
+						ownership: "created",
+					},
+				]);
+				await runnerGate;
+				throwIfCancellationRequested();
+				throw new Error("unreachable");
+			},
+		});
+		const request = {
+			idempotencyKey: `cancel-incomplete:${randomUUID()}`,
+			project: { kind: "existing" as const, projectId: scenario.projectId },
+			source: { kind: "main" as const },
+		};
+		const pending = provisioning.begin(request);
+		await Bun.sleep(5);
+		const row = provisioning.journal.findByIdempotencyKey(
+			request.idempotencyKey,
+		);
+		provisioning.act({ operationId: row?.id ?? "", action: "cancel" });
+		releaseRunner?.();
+		const failed = (await pending).operation;
+		expect(failed.state).toBe("failed");
+		expect(failed.failure?.code).toBe("COMPENSATION_INCOMPLETE");
+		expect(failed.failure?.cleanup).toBe("incomplete");
+	});
+
+	test("post-Catalog commit cancellation is typed TOO_LATE while running or failed", async () => {
+		const scenario = await createBasicScenario();
+		dispose = scenario.dispose;
+		let releaseRunner: (() => void) | undefined;
+		const runnerGate = new Promise<void>((resolve) => {
+			releaseRunner = resolve;
+		});
+		const provisioning = new WorkspaceProvisioning({
+			db: scenario.host.db,
+			catalog: {} as WorkspaceCatalog,
+			eventBus: null,
+			runner: async ({ beginCatalogCommit, markCatalogCommitted }) => {
+				beginCatalogCommit();
+				markCatalogCommitted({
+					projectId: scenario.projectId,
+					workspaceId: scenario.workspaceId,
+				});
+				await runnerGate;
+				throw new Error("post-commit runtime failure");
+			},
+		});
+		const request = {
+			idempotencyKey: `postcommit-cancel:${randomUUID()}`,
+			project: { kind: "existing" as const, projectId: scenario.projectId },
+			source: { kind: "main" as const },
+		};
+		const pending = provisioning.begin(request);
+		await Bun.sleep(5);
+		const row = provisioning.journal.findByIdempotencyKey(
+			request.idempotencyKey,
+		);
+		expect(() =>
+			provisioning.act({ operationId: row?.id ?? "", action: "cancel" }),
+		).toThrow("TOO_LATE_TO_CANCEL");
+		releaseRunner?.();
+		const failed = (await pending).operation;
+		expect(failed.state).toBe("failed");
+		expect(() =>
+			provisioning.act({ operationId: failed.id, action: "cancel" }),
+		).toThrow("TOO_LATE_TO_CANCEL");
+	});
+
+	test("cancel after a succeeded operation returns TOO_LATE_TO_CANCEL", async () => {
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const begin = await scenario.host.trpc.workspaceProvisioning.begin.mutate({

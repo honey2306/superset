@@ -14,60 +14,35 @@ mock.module("renderer/lib/host-service-client", () => ({
 
 const { killPortTarget } = await import("./killPortTarget");
 
+const target = {
+	workspaceId: "visible-workspace-1",
+	killWorkspaceId: "host-workspace-1",
+	terminalId: "terminal-1",
+	port: 5173,
+	hostUrl: "http://host-service",
+};
+
 describe("killPortTarget", () => {
 	beforeEach(() => {
 		remoteKillMock.mockClear();
 		remoteKillMock.mockResolvedValue({ success: true });
 	});
 
-	it("routes host-owned ports through the host-service client", async () => {
-		const result = await killPortTarget({
-			workspaceId: "workspace-1",
-			terminalId: "terminal-1",
-			port: 5173,
-			hostUrl: "http://host-service",
-		});
+	it("routes ports through the owning host-service", async () => {
+		const result = await killPortTarget(target);
 
 		expect(result).toEqual({ success: true });
 		expect(remoteKillMock).toHaveBeenCalledWith({
-			workspaceId: "workspace-1",
+			workspaceId: "host-workspace-1",
 			terminalId: "terminal-1",
 			port: 5173,
-		});
-	});
-
-	it("routes local ports through the provided local kill function", async () => {
-		const localKill = mock(async () => ({ success: true }));
-
-		const result = await killPortTarget(
-			{
-				workspaceId: "workspace-1",
-				terminalId: "terminal-1",
-				port: 3000,
-				hostUrl: null,
-			},
-			localKill,
-		);
-
-		expect(result).toEqual({ success: true });
-		expect(localKill).toHaveBeenCalledWith({
-			workspaceId: "workspace-1",
-			terminalId: "terminal-1",
-			port: 3000,
 		});
 	});
 
 	it("normalizes thrown kill errors into failed results", async () => {
-		const result = await killPortTarget(
-			{
-				workspaceId: "workspace-1",
-				terminalId: "terminal-1",
-				port: 3000,
-			},
-			async () => {
-				throw new Error("network down");
-			},
-		);
+		remoteKillMock.mockRejectedValueOnce(new Error("network down"));
+
+		const result = await killPortTarget(target);
 
 		expect(result).toEqual({ success: false, error: "network down" });
 	});

@@ -48,21 +48,21 @@ const handleDeepLink = (path: string) => {
 	console.log("[deep-link] Navigating to:", path);
 	router.navigate({ to: path });
 };
-const ipcRenderer = window.ipcRenderer as typeof window.ipcRenderer | undefined;
-if (ipcRenderer) {
-	ipcRenderer.on("deep-link-navigate", handleDeepLink);
-} else {
+const desktopEvents = window.desktopEvents as
+	| typeof window.desktopEvents
+	| undefined;
+const unsubscribeFromDeepLinks =
+	desktopEvents?.onDeepLinkNavigate(handleDeepLink);
+if (!desktopEvents) {
 	reportBootError(
-		"Renderer preload not available (window.ipcRenderer missing)",
+		"Renderer preload not available (window.desktopEvents missing)",
 	);
 }
 
 if (import.meta.hot) {
 	import.meta.hot.dispose(() => {
 		unsubscribe();
-		if (ipcRenderer) {
-			ipcRenderer.off("deep-link-navigate", handleDeepLink);
-		}
+		unsubscribeFromDeepLinks?.();
 		cleanupBootErrorHandling();
 	});
 }

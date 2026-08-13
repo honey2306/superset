@@ -136,9 +136,8 @@ export const localTodos = sqliteTable(
 		mode: text().notNull(),
 		dueAt: integer("due_at").notNull(),
 		timezone: text().notNull(),
-		v2ProjectId: text("v2_project_id"),
-		v2WorkspaceId: text("v2_workspace_id"),
-		targetHostId: text("target_host_id"),
+		projectId: text("v2_project_id"),
+		workspaceId: text("v2_workspace_id"),
 		agent: text(),
 		prompt: text(),
 		status: text().notNull().default("pending"),
@@ -158,7 +157,7 @@ export const localTodos = sqliteTable(
 	},
 	(table) => [
 		index("local_todos_due_idx").on(table.status, table.dueAt),
-		index("local_todos_workspace_idx").on(table.v2WorkspaceId),
+		index("local_todos_workspace_idx").on(table.workspaceId),
 	],
 );
 
@@ -169,9 +168,8 @@ export const localAutomations = sqliteTable(
 		name: text().notNull(),
 		prompt: text().notNull(),
 		agent: text().notNull(),
-		targetHostId: text("target_host_id"),
-		v2ProjectId: text("v2_project_id"),
-		v2WorkspaceId: text("v2_workspace_id"),
+		projectId: text("v2_project_id"),
+		workspaceId: text("v2_workspace_id"),
 		rrule: text().notNull(),
 		dtstart: integer("dtstart").notNull(),
 		timezone: text().notNull(),
@@ -187,7 +185,7 @@ export const localAutomations = sqliteTable(
 	},
 	(table) => [
 		index("local_automations_due_idx").on(table.enabled, table.nextRunAt),
-		index("local_automations_workspace_idx").on(table.v2WorkspaceId),
+		index("local_automations_workspace_idx").on(table.workspaceId),
 	],
 );
 
@@ -200,7 +198,7 @@ export const localAutomationRuns = sqliteTable(
 			.references(() => localAutomations.id, { onDelete: "cascade" }),
 		title: text().notNull(),
 		scheduledFor: integer("scheduled_for").notNull(),
-		v2WorkspaceId: text("v2_workspace_id"),
+		workspaceId: text("v2_workspace_id"),
 		sessionKind: text("session_kind"),
 		chatSessionId: text("chat_session_id"),
 		terminalSessionId: text("terminal_session_id"),
@@ -345,7 +343,6 @@ export const workspaces = sqliteTable(
 		name: text().notNull().default(""),
 		type: text().$type<"main" | "worktree">().notNull().default("worktree"),
 		taskId: text("task_id"),
-		createdByUserId: text("created_by_user_id"),
 		// Canonicalized `worktreePath` — the per-host identity key.
 		// Nullable during migration; new writes always set it.
 		canonicalWorktreePath: text("canonical_worktree_path"),
@@ -354,9 +351,6 @@ export const workspaces = sqliteTable(
 			.$defaultFn(() => Date.now()),
 		// 0 means "predates local ownership"; write paths always set it.
 		updatedAt: integer("updated_at").notNull().default(0),
-		// Null = local changes not yet pushed to the cloud mirror (dual-write
-		// era only; the column and reconciler go away in R3).
-		cloudSyncedAt: integer("cloud_synced_at"),
 	},
 	(table) => [
 		index("workspaces_project_id_idx").on(table.projectId),
@@ -591,18 +585,6 @@ export const acpSessionCommands = sqliteTable(
 	},
 	(table) => [primaryKey({ columns: [table.sessionId, table.commandId] })],
 );
-
-/**
- * Tombstones for workspaces deleted while the cloud was unreachable. The
- * reconciler drains this into `v2Workspace.delete` calls; rows are removed
- * once the cloud confirms. Dual-write era only — dropped in R3.
- */
-export const workspaceCloudDeletes = sqliteTable("workspace_cloud_deletes", {
-	id: text().primaryKey(),
-	queuedAt: integer("queued_at")
-		.notNull()
-		.$defaultFn(() => Date.now()),
-});
 
 // ── Phone pairing + sessions ─────────────────────────────────────────────
 // Short-lived pairing codes minted by the desktop (Settings → Phone access)

@@ -59,6 +59,11 @@ debug_log() {
 
 debug_log "event=$EVENT_TYPE terminalId=$SUPERSET_TERMINAL_ID agentId=$SUPERSET_AGENT_ID sessionId=$SESSION_ID hookSessionId=$HOOK_SESSION_ID resourceId=$RESOURCE_ID tabId=$SUPERSET_TAB_ID"
 
+# Mint one stable identity for the primary attempt and every fallback/retry.
+EVENT_ID=$(uuidgen 2>/dev/null || printf '%s-%s-%s' "$(date +%s)" "$$" "$RANDOM")
+OCCURRED_AT_SECONDS=$(date +%s)
+OCCURRED_AT=$((OCCURRED_AT_SECONDS * 1000))
+
 V1_EVENT_TYPE="$EVENT_TYPE"
 case "$V1_EVENT_TYPE" in
   Attached|attached|SessionStart|sessionStart|session_start)
@@ -73,8 +78,8 @@ json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
 
-if [ -n "$SUPERSET_HOST_AGENT_HOOK_URL" ] && [ -n "$SUPERSET_TERMINAL_ID" ]; then
-  PAYLOAD="{\"json\":{\"terminalId\":\"$(json_escape "$SUPERSET_TERMINAL_ID")\",\"eventType\":\"$(json_escape "$EVENT_TYPE")\",\"agent\":{\"agentId\":\"$(json_escape "$SUPERSET_AGENT_ID")\",\"sessionId\":\"$(json_escape "$SESSION_ID")\"}}}"
+if [ -n "$SUPERSET_HOST_AGENT_HOOK_URL" ] && [ -n "$SUPERSET_HOST_AGENT_HOOK_CAPABILITY" ] && [ -n "$SUPERSET_TERMINAL_ID" ]; then
+  PAYLOAD="{\"json\":{\"terminalId\":\"$(json_escape "$SUPERSET_TERMINAL_ID")\",\"eventId\":\"$(json_escape "$EVENT_ID")\",\"occurredAt\":$OCCURRED_AT,\"capabilityToken\":\"$(json_escape "$SUPERSET_HOST_AGENT_HOOK_CAPABILITY")\",\"eventType\":\"$(json_escape "$EVENT_TYPE")\",\"agent\":{\"agentId\":\"$(json_escape "$SUPERSET_AGENT_ID")\",\"sessionId\":\"$(json_escape "$SESSION_ID")\"}}}"
 
   STATUS_CODE=$(curl -sX POST "$SUPERSET_HOST_AGENT_HOOK_URL" \
     --connect-timeout 2 --max-time 5 \
@@ -101,11 +106,15 @@ if [ "$DEBUG_HOOKS_ENABLED" = "1" ]; then
     --data-urlencode "paneId=$SUPERSET_PANE_ID" \
     --data-urlencode "tabId=$SUPERSET_TAB_ID" \
     --data-urlencode "workspaceId=$SUPERSET_WORKSPACE_ID" \
+    --data-urlencode "workspaceName=$SUPERSET_WORKSPACE_NAME" \
     --data-urlencode "terminalId=$SUPERSET_TERMINAL_ID" \
     --data-urlencode "sessionId=$SESSION_ID" \
     --data-urlencode "hookSessionId=$HOOK_SESSION_ID" \
     --data-urlencode "resourceId=$RESOURCE_ID" \
     --data-urlencode "eventType=$V1_EVENT_TYPE" \
+    --data-urlencode "eventId=$EVENT_ID" \
+    --data-urlencode "occurredAt=$OCCURRED_AT" \
+    --data-urlencode "capabilityToken=$SUPERSET_HOST_AGENT_HOOK_CAPABILITY" \
     --data-urlencode "env=$SUPERSET_ENV" \
     --data-urlencode "version=$SUPERSET_HOOK_VERSION" \
     -o /dev/null -w "%{http_code}" 2>/dev/null)
@@ -118,11 +127,15 @@ else
     --data-urlencode "paneId=$SUPERSET_PANE_ID" \
     --data-urlencode "tabId=$SUPERSET_TAB_ID" \
     --data-urlencode "workspaceId=$SUPERSET_WORKSPACE_ID" \
+    --data-urlencode "workspaceName=$SUPERSET_WORKSPACE_NAME" \
     --data-urlencode "terminalId=$SUPERSET_TERMINAL_ID" \
     --data-urlencode "sessionId=$SESSION_ID" \
     --data-urlencode "hookSessionId=$HOOK_SESSION_ID" \
     --data-urlencode "resourceId=$RESOURCE_ID" \
     --data-urlencode "eventType=$V1_EVENT_TYPE" \
+    --data-urlencode "eventId=$EVENT_ID" \
+    --data-urlencode "occurredAt=$OCCURRED_AT" \
+    --data-urlencode "capabilityToken=$SUPERSET_HOST_AGENT_HOOK_CAPABILITY" \
     --data-urlencode "env=$SUPERSET_ENV" \
     --data-urlencode "version=$SUPERSET_HOOK_VERSION" \
     > /dev/null 2>&1

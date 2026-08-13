@@ -1,6 +1,5 @@
 import { cn } from "@superset/ui/utils";
 import { useState } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { PROJECT_COLOR_DEFAULT } from "shared/constants/project-colors";
 
 interface ProjectThumbnailProps {
@@ -51,7 +50,6 @@ export function shouldShowGitHubAvatar({
 }
 
 export function ProjectThumbnail({
-	projectId,
 	projectName,
 	projectColor,
 	githubOwner,
@@ -62,15 +60,7 @@ export function ProjectThumbnail({
 	const [imageError, setImageError] = useState(false);
 	const [iconError, setIconError] = useState(false);
 
-	const { data: avatarData } = electronTrpc.projects.getGitHubAvatar.useQuery(
-		{ id: projectId },
-		{
-			staleTime: 1000 * 60 * 5,
-			refetchOnWindowFocus: false,
-		},
-	);
-
-	const owner = avatarData?.owner ?? githubOwner;
+	const owner = githubOwner;
 	const firstLetter = projectName.charAt(0).toUpperCase();
 	const hasCustomColor = isCustomColor(projectColor);
 	const shouldUseTransparentIconFrame = projectColor === PROJECT_COLOR_DEFAULT;

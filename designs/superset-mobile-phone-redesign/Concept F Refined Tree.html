@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Concept F · Refined Tree</title>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/colors.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/typography.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/spacing.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/radius.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/shadow.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/motion.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/z-index.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/opacity.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/border-width.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/focus.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/reset.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/styles.css" />
+    <script src="_ds/superset-design-system/_ds_bundle.js"></script>
+    <style>
+      html, body, #root { min-height: 100%; }
+      body { margin: 0; background: var(--page-bg); color: var(--fg); font-family: var(--font-ui); }
+      button { font: inherit; cursor: pointer; }
+      .phone { width: min(100%, 430px); min-height: 100dvh; margin: 0 auto; display: flex; flex-direction: column; overflow: hidden; background: var(--page-bg); }
+      .topbar { min-height: 72px; padding: max(var(--s-10), env(safe-area-inset-top)) var(--s-12) var(--s-8) var(--s-16); border-bottom: var(--bw-hairline) solid var(--line); display: flex; align-items: center; gap: var(--s-4); background: var(--page-bg); }
+      .topbar-copy { min-width: 0; flex: 1; }
+      .product-line { margin: var(--s-2) 0 0; color: var(--fg-mute); font: var(--fs-10)/var(--lh-tight) var(--font-mono); }
+      .product-line .node-dot { margin-right: var(--s-2); }
+      .topbar-title { margin: 0; font-size: var(--fs-18); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+      .action-icon, .back-icon { width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--fg-mute); display: grid; place-items: center; flex: none; }
+      .action-icon:hover, .back-icon:hover { background: var(--hover); color: var(--fg); }
+      .back-icon svg { transform: rotate(180deg); }
+      .action-icon:focus-visible, .back-icon:focus-visible, .tree-control:focus-visible, .leaf:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+      .tree-screen { flex: 1; min-height: 0; overflow: auto; padding: var(--s-16) var(--s-16) max(var(--s-24), env(safe-area-inset-bottom)); }
+      .node-dot { width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--success); display: inline-block; box-shadow: 0 0 0 3px var(--success-tint); }
+      .eyebrow { margin: var(--s-4) 0 var(--s-8); color: var(--fg-faint); font-size: var(--fs-10); font-weight: var(--fw-semibold); letter-spacing: var(--ls-eyebrow); text-transform: uppercase; }
+      .project-card { border: var(--bw-hairline) solid var(--line); border-radius: var(--r-5); background: var(--surface); overflow: hidden; }
+      .project-card + .project-card { margin-top: var(--s-10); }
+      .tree-control { width: 100%; min-height: 62px; padding: var(--s-8) var(--s-10); border: 0; background: transparent; color: var(--fg); display: flex; align-items: center; gap: var(--s-8); text-align: left; }
+      .tree-control:hover { background: var(--hover); }
+      .project-control { background: var(--surface-sunk); }
+      .project-control:hover { background: var(--surface-sunk); }
+      .chevron-box { width: 28px; height: 40px; color: var(--fg-faint); display: grid; place-items: center; flex: none; }
+      .chevron-box svg { transition: transform var(--dur-quick) var(--ease-standard); }
+      .collapsed svg { transform: rotate(-90deg); }
+      .node-mark { width: 32px; height: 32px; border-radius: var(--r-3); display: grid; place-items: center; flex: none; color: var(--fg-mute); background: var(--surface-sunk); }
+      .project-control .node-mark { color: var(--accent); background: var(--accent-tint); }
+      .tree-copy { min-width: 0; flex: 1; }
+      .tree-title { display: flex; align-items: center; gap: var(--s-6); font-size: var(--fs-14); font-weight: var(--fw-semibold); line-height: var(--lh-snug); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .workspace .tree-title { font-size: var(--fs-13); font-weight: var(--fw-medium); }
+      .tree-subtitle { display: block; margin-top: var(--s-2); color: var(--fg-faint); font: var(--fs-10)/var(--lh-tight) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .active-dot { width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--success); flex: none; }
+      .project-contents { padding: var(--s-6) var(--s-8) var(--s-8); border-top: var(--bw-hairline) solid var(--line); }
+      .workspace-wrap { position: relative; padding-left: var(--s-14); }
+      .workspace-wrap::before { content: ""; position: absolute; top: 0; bottom: 0; left: var(--s-6); width: var(--bw-hairline); background: var(--line); }
+      .workspace-wrap:last-child::before { bottom: 27px; }
+      .workspace { position: relative; }
+      .workspace::before, .leaf-wrap::before { content: ""; position: absolute; top: 31px; left: calc(var(--s-14) * -1); width: var(--s-14); height: var(--bw-hairline); background: var(--line); }
+      .workspace .tree-control { min-height: 56px; border-radius: var(--r-3); }
+      .workspace .chevron-box { width: 24px; }
+      .workspace .node-mark { width: 28px; height: 28px; }
+      .workspace-contents { padding: 0 0 var(--s-4) var(--s-16); }
+      .leaf-wrap { position: relative; }
+      .leaf { width: 100%; min-height: 52px; padding: var(--s-6) var(--s-8); border: 0; border-radius: var(--r-3); background: transparent; color: var(--fg); display: flex; align-items: center; gap: var(--s-8); text-align: left; }
+      .leaf:hover { background: var(--hover); }
+      .leaf-mark { position: relative; width: 28px; height: 28px; border-radius: var(--r-2); background: var(--surface-sunk); color: var(--fg-mute); display: grid; place-items: center; flex: none; }
+      .leaf.running .leaf-mark::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 7px; height: 7px; border: 2px solid var(--surface); border-radius: var(--r-pill); background: var(--success); }
+      .leaf.acp .leaf-mark { background: var(--accent-tint); color: var(--accent); }
+      .leaf-title { min-width: 0; flex: 1; font-size: var(--fs-13); font-weight: var(--fw-medium); line-height: var(--lh-snug); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .kind { min-width: 36px; height: 20px; padding: 0 var(--s-4); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-pill); color: var(--fg-faint); display: grid; place-items: center; font: var(--fs-9)/1 var(--font-mono); letter-spacing: var(--ls-mono); }
+      .kind.acp { border-color: var(--accent-line); color: var(--accent); background: var(--accent-tint); }
+      .helper { margin: var(--s-12) var(--s-4) var(--s-4); color: var(--fg-faint); font-size: var(--fs-10); line-height: var(--lh-body); }
+      .screen-enter { animation: enter var(--dur-base) var(--ease-standard); }
+      @keyframes enter { from { opacity: 0; transform: translateY(var(--s-4)); } to { opacity: 1; transform: translateY(0); } }
+      .content-screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .content-header { min-height: 68px; padding: max(var(--s-8), env(safe-area-inset-top)) var(--s-12) var(--s-8); border-bottom: var(--bw-hairline) solid var(--line); display: flex; align-items: center; gap: var(--s-6); }
+      .content-header-copy { min-width: 0; flex: 1; }
+      .content-title { margin: 0; font-size: var(--fs-16); font-weight: var(--fw-semibold); line-height: var(--lh-tight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .content-path { margin: var(--s-3) 0 0; color: var(--fg-faint); font: var(--fs-10)/var(--lh-tight) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .chat-body { flex: 1; overflow: auto; padding: var(--s-20) var(--s-16); }
+      .chat-kicker { margin: 0 0 var(--s-8); color: var(--accent); font: var(--fs-10)/var(--lh-tight) var(--font-mono); letter-spacing: var(--ls-mono); text-transform: uppercase; }
+      .chat-message { max-width: 88%; margin: 0 0 var(--s-16); color: var(--fg); font-size: var(--fs-13); line-height: var(--lh-loose); }
+      .chat-message.user { margin-left: auto; padding: var(--s-10) var(--s-12); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-4) var(--r-4) var(--r-1) var(--r-4); background: var(--surface-elev); }
+      .agent-label { margin: 0 0 var(--s-4); color: var(--fg-faint); font: var(--fs-10)/var(--lh-tight) var(--font-mono); letter-spacing: var(--ls-mono); text-transform: uppercase; }
+      .chat-compose { padding: var(--s-10) var(--s-12) max(var(--s-12), env(safe-area-inset-bottom)); border-top: var(--bw-hairline) solid var(--line); }
+      .compose-row { min-height: 48px; padding: var(--s-4) var(--s-4) var(--s-4) var(--s-12); border: var(--bw-hairline) solid var(--line-strong); border-radius: var(--r-4); background: var(--surface); display: flex; align-items: center; gap: var(--s-6); }
+      .compose-row input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--fg); font: var(--fs-13)/var(--lh-body) var(--font-ui); }
+      .compose-row input::placeholder { color: var(--fg-faint); }
+      .compose-send { width: 38px; height: 38px; border: 0; border-radius: var(--r-pill); background: var(--fg); color: var(--page-bg); display: grid; place-items: center; }
+      .terminal-screen { background: var(--dracula-bg-deep); }
+      .terminal-screen .content-header { border-color: var(--dracula-current-line); background: var(--dracula-bg); }
+      .terminal-screen .content-title { color: var(--dracula-fg); }
+      .terminal-screen .content-path { color: var(--dracula-comment); }
+      .terminal-screen .back-icon { color: var(--dracula-fg); }
+      .terminal-screen .back-icon:hover { background: var(--dracula-current-line); }
+      .terminal { flex: 1; min-height: 0; padding: var(--s-14) var(--s-16); overflow: auto; color: var(--dracula-fg); font: var(--fs-12)/1.68 var(--font-mono); }
+      .terminal p { margin: 0; white-space: pre-wrap; }
+      .term-muted { color: var(--dracula-comment); }.term-pink { color: var(--dracula-pink); }.term-cyan { color: var(--dracula-cyan); }.term-green { color: var(--dracula-green); }
+      @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0ms !important; transition-duration: 0ms !important; } }
+      @media (min-width: 620px) { body { padding: var(--s-24) 0; } .phone { min-height: 844px; max-height: 844px; border: var(--bw-hairline) solid var(--line); border-radius: var(--r-8); box-shadow: var(--shadow-4); } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+    <script type="text/babel">
+      const { Icon } = window.SupersetDesignSystem_91a6da;
+      const refinedProjects = [
+        { id: "superset", title: "superset", host: "Preview Mac", workspaces: [
+          { id: "main", title: "main", tabs: [{ id: "relay", title: "AutoMate relay 接入", type: "acp", running: true }, { id: "codex", title: "Codex", type: "terminal", running: true }, { id: "claude", title: "Claude Code", type: "terminal", running: false }] },
+          { id: "mobile", title: "codex/mobile-relay", tabs: [{ id: "review", title: "Relay review", type: "acp", running: false }, { id: "gemini", title: "Gemini CLI", type: "terminal", running: true }] },
+          { id: "cli", title: "fix/retired-cli-ci", tabs: [{ id: "cli-codex", title: "Codex", type: "terminal", running: false }] }
+        ] },
+        { id: "infra", title: "infra-tools", host: "Build Mac", workspaces: [{ id: "infra-main", title: "main", tabs: [{ id: "infra-agent", title: "Claude Code", type: "terminal", running: true }] }] },
+        { id: "scripts", title: "personal-scripts", host: "Preview Mac", workspaces: [] }
+      ];
+      const ToggleChevron = ({ isExpanded }) => <span className={`chevron-box ${isExpanded ? "" : "collapsed"}`}><Icon name="chevron" size={15} /></span>;
+      function HeaderActions() { return <><button className="action-icon" aria-label="搜索"><Icon name="search" size={18} /></button><button className="action-icon" aria-label="新建"><Icon name="plus" size={19} /></button></>; }
+      function TreeLeaf({ tabRecord, onSelect }) { return <div className="leaf-wrap"><button className={`leaf ${tabRecord.type === "acp" ? "acp" : ""} ${tabRecord.running ? "running" : ""}`} onClick={() => onSelect(tabRecord)}><span className="leaf-mark"><Icon name={tabRecord.type === "acp" ? "spark" : "terminal"} size={15} /></span><span className="leaf-title">{tabRecord.title}</span><span className={`kind ${tabRecord.type === "acp" ? "acp" : ""}`}>{tabRecord.type === "acp" ? "ACP" : "TERM"}</span></button></div>; }
+      function WorkspaceTree({ projectRecord, workspaceRecord, isExpanded, onToggle, onSelect }) { const runningTotal = workspaceRecord.tabs.filter((tabRecord) => tabRecord.running).length; return <div className="workspace-wrap"><div className="workspace"><button className="tree-control" onClick={onToggle} aria-expanded={isExpanded}><ToggleChevron isExpanded={isExpanded} /><span className="node-mark"><Icon name="branch" size={14} /></span><span className="tree-copy"><span className="tree-title">{workspaceRecord.title}</span><span className="tree-subtitle">{workspaceRecord.tabs.length} tabs · {runningTotal} active</span></span></button>{isExpanded && <div className="workspace-contents">{workspaceRecord.tabs.map((tabRecord) => <TreeLeaf key={tabRecord.id} tabRecord={tabRecord} onSelect={(selectedTab) => onSelect(projectRecord, workspaceRecord, selectedTab)} />)}</div>}</div></div>; }
+      function ProjectTree({ projectRecord, isExpanded, expandedWorkspaces, onToggle, onWorkspaceToggle, onSelect }) { const activeTotal = projectRecord.workspaces.reduce((sum, workspaceRecord) => sum + workspaceRecord.tabs.filter((tabRecord) => tabRecord.running).length, 0); return <section className="project-card"><button className="tree-control project-control" onClick={onToggle} aria-expanded={isExpanded}><ToggleChevron isExpanded={isExpanded} /><span className="node-mark"><Icon name="branch" size={16} /></span><span className="tree-copy"><span className="tree-title">{projectRecord.title}</span><span className="tree-subtitle">{projectRecord.host} · {projectRecord.workspaces.length} workspaces · {activeTotal} active</span></span></button>{isExpanded && <div className="project-contents">{projectRecord.workspaces.length ? projectRecord.workspaces.map((workspaceRecord) => <WorkspaceTree key={workspaceRecord.id} projectRecord={projectRecord} workspaceRecord={workspaceRecord} isExpanded={expandedWorkspaces.has(`${projectRecord.id}:${workspaceRecord.id}`)} onToggle={() => onWorkspaceToggle(projectRecord.id, workspaceRecord.id)} onSelect={onSelect} />) : <p className="helper">这个 Project 还没有 workspace。</p>}</div>}</section>; }
+      function TreeScreen({ onSelect }) { const [projectSet, setProjectSet] = React.useState(new Set(["superset"])); const [workspaceSet, setWorkspaceSet] = React.useState(new Set(["superset:main"])); const toggleSet = (currentSet, itemKey, updateSet) => { const nextSet = new Set(currentSet); nextSet.has(itemKey) ? nextSet.delete(itemKey) : nextSet.add(itemKey); updateSet(nextSet); }; return <main className="phone screen-enter" data-screen-label="Refined project tree"><header className="topbar"><div className="topbar-copy"><h1 className="topbar-title">Projects</h1><p className="product-line"><span className="node-dot"></span> Preview Mac · 已连接</p></div><HeaderActions /></header><section className="tree-screen"><p className="eyebrow">3 Projects</p>{refinedProjects.map((projectRecord) => <ProjectTree key={projectRecord.id} projectRecord={projectRecord} isExpanded={projectSet.has(projectRecord.id)} expandedWorkspaces={workspaceSet} onToggle={() => toggleSet(projectSet, projectRecord.id, setProjectSet)} onWorkspaceToggle={(projectId, workspaceId) => toggleSet(workspaceSet, `${projectId}:${workspaceId}`, setWorkspaceSet)} onSelect={onSelect} />)}</section></main>; }
+      function ContentHeader({ selectionRecord, onBack }) { return <header className="content-header"><button className="back-icon" onClick={onBack} aria-label="返回项目树"><Icon name="arrowRight" size={18} /></button><div className="content-header-copy"><h1 className="content-title">{selectionRecord.tab.title}</h1><p className="content-path">{selectionRecord.project.title} / {selectionRecord.workspace.title}</p></div></header>; }
+      function AcpScreen({ selectionRecord, onBack }) { const [draftValue, setDraftValue] = React.useState(""); return <main className="phone content-screen screen-enter" data-screen-label="ACP content"><ContentHeader selectionRecord={selectionRecord} onBack={onBack} /><section className="chat-body"><p className="chat-kicker">Agent conversation</p><div className="chat-message user">继续实现 Superset 手机 Web 的 AutoMate relay 接入。</div><div className="chat-message"><p className="agent-label">Agent</p>Relay 和 Terminal fallback 已接通。现在可以直接从一个 Project 树进入运行中的 tab。</div><div className="chat-message"><p className="agent-label">Agent</p>我会继续完成移动端适配，并保持 workspace 的现有上下文。</div></section><section className="chat-compose"><div className="compose-row"><input value={draftValue} onChange={(inputEvent) => setDraftValue(inputEvent.target.value)} placeholder="给 Agent 发消息…" aria-label="给 Agent 发消息" /><button className="compose-send" onClick={() => setDraftValue("")} aria-label="发送"><Icon name="arrowRight" size={16} /></button></div></section></main>; }
+      function TerminalScreen({ selectionRecord, onBack }) { return <main className="phone content-screen terminal-screen screen-enter" data-screen-label="Terminal content"><ContentHeader selectionRecord={selectionRecord} onBack={onBack} /><section className="terminal" aria-label="交互式终端"><p className="term-muted">Superset workspace ready</p><p><span className="term-pink">$</span> <span className="term-cyan">superset</span> bun run typecheck</p><p className="term-green">PASS @superset/web typecheck</p><p className="term-muted">Completed in 2.4s</p><p> </p><p><span className="term-pink">$</span> <span className="term-cyan">superset</span> git status --short</p><p> M apps/web/src/routes/workspace.tsx</p><p> M apps/web/src/routes/terminal.tsx</p><p> </p><p><span className="term-pink">$</span> <span className="term-cyan">superset</span> <span className="term-muted">_</span></p></section></main>; }
+      function RefinedTreePrototype() { const [selectionRecord, setSelectionRecord] = React.useState(null); if (!selectionRecord) return <TreeScreen onSelect={(projectRecord, workspaceRecord, tabRecord) => setSelectionRecord({ project: projectRecord, workspace: workspaceRecord, tab: tabRecord })} />; return selectionRecord.tab.type === "terminal" ? <TerminalScreen selectionRecord={selectionRecord} onBack={() => setSelectionRecord(null)} /> : <AcpScreen selectionRecord={selectionRecord} onBack={() => setSelectionRecord(null)} />; }
+      ReactDOM.createRoot(document.getElementById("root")).render(<RefinedTreePrototype />);
+    </script>
+  </body>
+</html>

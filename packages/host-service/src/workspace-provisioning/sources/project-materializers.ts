@@ -20,6 +20,7 @@ import {
 } from "../../trpc/router/project/utils/resolve-repo";
 import type { RunnerArtifact } from "../workspace-provisioning";
 import {
+	runCatalogCommitStep,
 	runReconciledSourceStep,
 	runSourceStep,
 	type SourceHandler,
@@ -208,21 +209,10 @@ export const setupExistingHandler: SourceHandler = async (context) => {
 		});
 	}
 
-	const catalog = await runReconciledSourceStep<{
-		projectId: string;
-		workspaceId: string;
-	}>(
+	const catalog = await runCatalogCommitStep(
 		context,
 		"materialize",
 		{ projectId: project.projectId, repoPath: prepared.repoPath },
-		async (receipt) => {
-			const row = context.ctx.db.query.workspaces
-				.findFirst({
-					where: (workspace, { eq }) => eq(workspace.id, receipt.workspaceId),
-				})
-				.sync();
-			return row?.projectId === project.projectId;
-		},
 		async () => {
 			persistLocalProject(context.ctx, project.projectId, prepared, {
 				name: project.origin.name ?? basename(prepared.repoPath),
@@ -277,24 +267,12 @@ async function commitProject(
 		});
 	}
 
-	return runReconciledSourceStep(
+	return runCatalogCommitStep(
 		context,
 		"materialize",
 		{
 			projectId: args.projectId,
 			repoPath: args.prepared.repoPath,
-		},
-		async (output: {
-			projectId: string;
-			workspaceId: string;
-			disposition: "created" | "reused";
-		}) => {
-			const row = context.ctx.db.query.workspaces
-				.findFirst({
-					where: (workspace, { eq }) => eq(workspace.id, output.workspaceId),
-				})
-				.sync();
-			return row?.projectId === output.projectId;
 		},
 		async () => {
 			const existingProject = context.ctx.db.query.projects

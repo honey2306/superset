@@ -1,22 +1,19 @@
 import type { SessionScopedState } from "@superset/session-protocol";
-import type { AgentDefinitionId } from "@superset/shared/agent-catalog";
+import {
+	ACP_AGENT_HARNESS_BY_AGENT_ID,
+	type AcpSupportedAgentId,
+} from "@superset/shared/agent-catalog";
 import type { DesktopAcpSessionClient } from "../acp-session-client";
 
 /**
  * Runtime set of agent definition ids that ACP knows how to launch. Kept in
  * lockstep with the `harness` table below via the type constraint.
  */
-export const ACP_SUPPORTED_AGENT_IDS = [
-	"claude",
-	"codex",
-	"pi",
-	"myflicker",
-] as const satisfies readonly Extract<
-	AgentDefinitionId,
-	"claude" | "codex" | "pi" | "myflicker"
->[];
+export const ACP_SUPPORTED_AGENT_IDS = Object.keys(
+	ACP_AGENT_HARNESS_BY_AGENT_ID,
+) as AcpSupportedAgentId[];
 
-export type AcpAgentDefinitionId = (typeof ACP_SUPPORTED_AGENT_IDS)[number];
+export type AcpAgentDefinitionId = AcpSupportedAgentId;
 
 export function isAcpSupportedAgentId(
 	value: string,
@@ -61,16 +58,9 @@ export async function launchAcpSession(
 		onSessionCreationFailed,
 	} = input;
 
-	const harness = {
-		claude: "claude-agent-acp",
-		codex: "codex-app-server",
-		pi: "pi-acp",
-		myflicker: "myflicker-acp",
-	} as const satisfies Record<
-		AcpAgentDefinitionId,
-		SessionScopedState["harness"]
-	>;
-	const selectedHarness = harness[agentDefinitionId];
+	const selectedHarness = ACP_AGENT_HARNESS_BY_AGENT_ID[agentDefinitionId] as
+		| SessionScopedState["harness"]
+		| undefined;
 	if (!selectedHarness) {
 		throw new Error(
 			`Unsupported ACP agentDefinitionId: "${agentDefinitionId}".`,

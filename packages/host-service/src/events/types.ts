@@ -26,6 +26,7 @@ export interface GitChangedMessage {
 
 export interface AgentLifecycleMessage {
 	type: "agent:lifecycle";
+	eventId: string;
 	workspaceId: string;
 	eventType: AgentLifecycleEventType;
 	terminalId: string;
@@ -67,7 +68,6 @@ export interface WorkspaceSnapshot {
 	type: "main" | "worktree";
 	worktreePath: string;
 	taskId: string | null;
-	createdByUserId: string | null;
 	createdAt: number;
 	updatedAt: number;
 }

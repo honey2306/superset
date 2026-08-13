@@ -15,8 +15,6 @@ function useCreateTerminalPreset(
 			await utils.settings.getTerminalPresets.invalidate();
 			await utils.settings.getWorkspaceCreationPresets.invalidate();
 			await utils.settings.getNewTabPresets.invalidate();
-			await utils.workspaces.getWorkspaceRunDefinition.invalidate();
-			await utils.workspaces.getResolvedRunCommands.invalidate();
 			await options?.onSuccess?.(...args);
 		},
 	});
@@ -35,8 +33,6 @@ function useUpdateTerminalPreset(
 			await utils.settings.getTerminalPresets.invalidate();
 			await utils.settings.getWorkspaceCreationPresets.invalidate();
 			await utils.settings.getNewTabPresets.invalidate();
-			await utils.workspaces.getWorkspaceRunDefinition.invalidate();
-			await utils.workspaces.getResolvedRunCommands.invalidate();
 			await options?.onSuccess?.(...args);
 		},
 	});
@@ -55,8 +51,6 @@ function useDeleteTerminalPreset(
 			await utils.settings.getTerminalPresets.invalidate();
 			await utils.settings.getWorkspaceCreationPresets.invalidate();
 			await utils.settings.getNewTabPresets.invalidate();
-			await utils.workspaces.getWorkspaceRunDefinition.invalidate();
-			await utils.workspaces.getResolvedRunCommands.invalidate();
 			await options?.onSuccess?.(...args);
 		},
 	});
@@ -75,8 +69,6 @@ function useSetPresetAutoApply(
 			await utils.settings.getTerminalPresets.invalidate();
 			await utils.settings.getWorkspaceCreationPresets.invalidate();
 			await utils.settings.getNewTabPresets.invalidate();
-			await utils.workspaces.getWorkspaceRunDefinition.invalidate();
-			await utils.workspaces.getResolvedRunCommands.invalidate();
 			await options?.onSuccess?.(...args);
 		},
 	});
@@ -95,8 +87,6 @@ function useReorderTerminalPresets(
 			await utils.settings.getTerminalPresets.invalidate();
 			await utils.settings.getWorkspaceCreationPresets.invalidate();
 			await utils.settings.getNewTabPresets.invalidate();
-			await utils.workspaces.getWorkspaceRunDefinition.invalidate();
-			await utils.workspaces.getResolvedRunCommands.invalidate();
 			await options?.onSuccess?.(...args);
 		},
 	});

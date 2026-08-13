@@ -58,10 +58,21 @@ export const workspaceProvisioningRouter = router({
 			states: input.states,
 		});
 	}),
-	act: protectedProcedure.input(actInputSchema).mutation(({ ctx, input }) =>
-		ctx.runtime.workspaceProvisioning.act({
-			operationId: input.operationId,
-			action: input.action,
-		}),
-	),
+	act: protectedProcedure.input(actInputSchema).mutation(({ ctx, input }) => {
+		try {
+			return ctx.runtime.workspaceProvisioning.act({
+				operationId: input.operationId,
+				action: input.action,
+			});
+		} catch (err) {
+			if (err instanceof ProvisioningInputError) {
+				throw new TRPCError({
+					code: err.code === "TOO_LATE_TO_CANCEL" ? "CONFLICT" : "BAD_REQUEST",
+					message: err.message,
+					cause: err,
+				});
+			}
+			throw err;
+		}
+	}),
 });

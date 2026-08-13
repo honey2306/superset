@@ -105,6 +105,7 @@ async function runSync(workspaceCount: number) {
 
 	const manager = new PullRequestRuntimeManager({
 		db: db as never,
+		catalog: { updateProject: mock(), updateWorkspace: mock() } as never,
 		git: git as never,
 		github: async () => ({}) as never,
 		gitWatcher: { onChanged: () => () => {} } as never,

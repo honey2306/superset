@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useMemo } from "react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 
 type SearchBranchesOutput =
 	inferRouterOutputs<AppRouter>["workspaceCreation"]["searchBranches"];

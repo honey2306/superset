@@ -2,6 +2,7 @@ import {
 	type AgentDefinitionId,
 	BUILTIN_AGENT_IDS,
 } from "@superset/shared/agent-catalog";
+import { BUILTIN_TERMINAL_AGENTS } from "@superset/shared/builtin-terminal-agents";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -36,6 +37,29 @@ const agentDefinitionIdSchema = z.union([
 ]) as z.ZodType<AgentDefinitionId>;
 
 const GET_OR_CREATE_TIMEOUT_MS = 10_000;
+
+export function phoneBuiltinInitialCommand(input: {
+	agentId: TerminalAgentId;
+	initialCommand?: string;
+	cwd?: string;
+}): string {
+	if (input.initialCommand || input.cwd) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "Phone sessions cannot supply terminal commands.",
+		});
+	}
+	const builtin = BUILTIN_TERMINAL_AGENTS.find(
+		(agent) => agent.id === input.agentId,
+	);
+	if (!builtin) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "This terminal agent cannot be launched from a phone.",
+		});
+	}
+	return builtin.command;
+}
 
 export const terminalAgentsRouter = router({
 	list: protectedProcedure.query(({ ctx }) => {
@@ -117,6 +141,10 @@ export const terminalAgentsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const { workspaceId, agentId, definitionId } = input;
+			let initialCommand = input.initialCommand;
+			if (ctx.authKind === "phone") {
+				initialCommand = phoneBuiltinInitialCommand(input);
+			}
 			const existing = ctx.terminalAgentStore.findActive(
 				workspaceId,
 				agentId,
@@ -138,9 +166,7 @@ export const terminalAgentsRouter = router({
 					workspaceId,
 					db: ctx.db,
 					eventBus: ctx.eventBus,
-					...(input.initialCommand
-						? { initialCommand: input.initialCommand }
-						: {}),
+					...(initialCommand ? { initialCommand } : {}),
 					...(input.cwd ? { cwd: input.cwd } : {}),
 				});
 

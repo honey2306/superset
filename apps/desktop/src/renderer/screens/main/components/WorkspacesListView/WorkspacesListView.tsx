@@ -12,9 +12,9 @@ import {
 } from "renderer/hooks/host-workspaces/useWorkspaceCreationBranches";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useOpenTrackedWorktree } from "renderer/react-query/workspaces/useOpenTrackedWorktree";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
-import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
+import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
 import type { FilterMode, ProjectGroup, WorkspaceItem } from "./types";
 import { WorkspaceRow } from "./WorkspaceRow";
 

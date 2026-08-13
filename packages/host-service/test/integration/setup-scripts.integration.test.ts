@@ -14,7 +14,6 @@ import {
 } from "../../src/terminal/env";
 import { __resetSessionsForTesting } from "../../src/terminal/terminal";
 import { __setAccountShellForTesting } from "../../src/terminal/user-shell";
-import { cloudFlows } from "../helpers/cloud-fakes";
 import { createProjectScenario } from "../helpers/scenarios";
 
 describe("setup scripts integration", () => {
@@ -35,9 +34,7 @@ describe("setup scripts integration", () => {
 	});
 
 	test("v2 settings config is the same config used by workspace setup terminals", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		const daemonRoot = mkdtempSync(join(tmpdir(), "setup-scripts-daemon-"));
 		const socketPath = join(daemonRoot, "pty-daemon.sock");
 		const writes: string[] = [];

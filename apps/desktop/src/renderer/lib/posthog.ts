@@ -1,4 +1,4 @@
-import { setRelaySocketTelemetry } from "@superset/workspace-client";
+import { setDirectSocketTelemetry } from "@superset/workspace-client";
 import posthogFull from "posthog-js/dist/module.full.no-external";
 import type { PostHog } from "posthog-js/react";
 import { env } from "../env.renderer";
@@ -48,8 +48,7 @@ export function initPostHog() {
 	// Local-dev flag overrides: in dev the PostHog key is the disabled
 	// sentinel, so server-side flags never load. Honor any
 	// `localStorage["superset:debug:<flag>"]="1"` entry by overriding the
-	// flag on the PostHog client. This is what makes the `V2_PANES_IN_V1`
-	// CDP validation (and any dev flag toggle) actually take effect.
+	// flag on the PostHog client so local validation and dev toggles work.
 	if (env.NEXT_PUBLIC_POSTHOG_KEY === LOCAL_DEV_POSTHOG_KEY) {
 		const keys: string[] = [];
 		for (let i = 0; i < window.localStorage.length; i++) {
@@ -68,14 +67,12 @@ export function initPostHog() {
 		posthogFull.featureFlags.override(overrides);
 	}
 
-	// Relay socket health (event bus / workspace "disconnected" surface). At
-	// most one event per outage episode plus one on recovery.
-	setRelaySocketTelemetry((event) => {
-		posthogFull.capture(`relay_ws_${event.kind}`, {
+	// Direct host socket health (event bus / workspace "disconnected" surface).
+	// At most one event per outage episode plus one on recovery.
+	setDirectSocketTelemetry((event) => {
+		posthogFull.capture(`direct_ws_${event.kind}`, {
 			socket_name: event.socketName,
 			endpoint: event.endpoint,
-			preflight_status: event.preflightStatus,
-			tunnel_region: event.tunnelRegion,
 			close_code: event.closeCode,
 			close_reason: event.closeReason,
 			reconnect_attempts: event.failedAttempts,

@@ -7,8 +7,7 @@ import {
 	nativeImage,
 	Tray,
 } from "electron";
-import { loadToken } from "lib/trpc/routers/auth/utils/auth-functions";
-import { env } from "main/env.main";
+import { getHostServiceSpawnConfig } from "lib/trpc/routers/host-service-coordinator/utils/get-host-service-spawn-config";
 import { focusMainWindow, quitApp } from "main/index";
 import {
 	getHostServiceCoordinator,
@@ -85,12 +84,12 @@ function openSettings(): void {
 }
 
 interface HostInfo {
-	organizationName: string;
+	hostName: string;
 	version: string;
 }
 
-async function fetchHostInfo(organizationId: string): Promise<HostInfo | null> {
-	const connection = getHostServiceCoordinator().getConnection(organizationId);
+async function fetchHostInfo(): Promise<HostInfo | null> {
+	const connection = getHostServiceCoordinator().getConnection();
 	if (!connection) return null;
 
 	const controller = new AbortController();
@@ -106,9 +105,9 @@ async function fetchHostInfo(organizationId: string): Promise<HostInfo | null> {
 		if (!res.ok) return null;
 		const data = await res.json();
 		const info = data?.result?.data?.json;
-		if (!info?.organization?.name) return null;
+		if (!info?.hostName) return null;
 		return {
-			organizationName: info.organization.name,
+			hostName: info.hostName,
 			version: info.version ?? "",
 		};
 	} catch {
@@ -119,123 +118,65 @@ async function fetchHostInfo(organizationId: string): Promise<HostInfo | null> {
 }
 
 function buildHostServiceSubmenu(
-	orgIds: string[],
-	infos: Map<string, HostInfo>,
+	info: HostInfo | null,
 ): MenuItemConstructorOptions[] {
 	const coordinator = getHostServiceCoordinator();
-	const menuItems: MenuItemConstructorOptions[] = [];
+	const status = coordinator.getProcessStatus();
+	const isRunning = status === "running";
+	const label = info?.hostName ?? (isRunning ? "Loading…" : "Local");
+	const versionSuffix = info?.version ? ` (v${info.version})` : "";
 
-	if (orgIds.length === 0) {
-		menuItems.push({ label: "No active services", enabled: false });
-		return menuItems;
-	}
-
-	let isFirst = true;
-	for (const orgId of orgIds) {
-		if (!isFirst) {
-			menuItems.push({ type: "separator" });
-		}
-		isFirst = false;
-
-		const status = coordinator.getProcessStatus(orgId);
-		const info = infos.get(orgId);
-		const isRunning = status === "running";
-		const label = info?.organizationName ?? "Loading…";
-		const versionSuffix = info?.version ? ` (v${info.version})` : "";
-
-		menuItems.push({ label, enabled: false });
-		menuItems.push({
-			label: `  ${status}${versionSuffix}`,
-			enabled: false,
-		});
-		menuItems.push({
-			// Enabled in "stopped" too — that's the state where users most need
-			// restart to work (host-service crashed or never came up). Disabled
-			// only while a start is in flight, to avoid racing the pending start.
+	return [
+		{ label, enabled: false },
+		{ label: `  ${status}${versionSuffix}`, enabled: false },
+		{
 			label: "  Restart",
 			enabled: status !== "starting",
 			click: () => {
-				void (async () => {
-					try {
-						const { token } = await loadToken();
-						if (!token) return;
-						await coordinator.restart(orgId, {
-							authToken: token,
-							cloudApiUrl: env.NEXT_PUBLIC_API_URL,
-						});
-					} catch (error) {
+				void coordinator
+					.restart(getHostServiceSpawnConfig())
+					.catch((error) => {
 						console.error(
-							`[Tray] Failed to restart host-service for ${orgId}:`,
+							"[Tray] Failed to restart embedded host-service:",
 							error,
 						);
-					}
-					void updateTrayMenu();
-				})();
+					})
+					.finally(() => void updateTrayMenu());
 			},
-		});
-		menuItems.push({
+		},
+		{
 			label: "  Stop",
 			enabled: isRunning,
 			click: () => {
-				coordinator.stop(orgId);
-				void updateTrayMenu();
+				void coordinator.stop().finally(() => void updateTrayMenu());
 			},
-		});
-	}
-
-	return menuItems;
+		},
+	];
 }
 
 async function updateTrayMenu(): Promise<void> {
 	if (!tray) return;
 
-	const coordinator = getHostServiceCoordinator();
-	const orgIds = coordinator.getActiveOrganizationIds();
-
-	const infoEntries = await Promise.all(
-		orgIds.map(async (orgId) => [orgId, await fetchHostInfo(orgId)] as const),
-	);
-	const infos = new Map<string, HostInfo>();
-	for (const [orgId, info] of infoEntries) {
-		if (info) infos.set(orgId, info);
-	}
-
+	const info = await fetchHostInfo();
 	if (!tray) return;
-
-	const hasActive = orgIds.length > 0;
-	const hostServiceLabel = hasActive
-		? `Host Service (${orgIds.length})`
-		: "Host Service";
-
-	const hostServiceSubmenu = buildHostServiceSubmenu(orgIds, infos);
 
 	const menu = Menu.buildFromTemplate([
 		{
-			label: hostServiceLabel,
-			submenu: hostServiceSubmenu,
+			label: "Host Service",
+			submenu: buildHostServiceSubmenu(info),
 		},
 		{ type: "separator" },
-		{
-			label: "Open Superset",
-			click: focusMainWindow,
-		},
-		{
-			label: "Settings",
-			click: openSettings,
-		},
+		{ label: "Open Superset", click: focusMainWindow },
+		{ label: "Settings", click: openSettings },
 		{
 			label: "Check for Updates",
 			click: () => {
-				// Imported lazily to avoid circular dependency
 				const { checkForUpdatesInteractive } = require("../auto-updater");
 				checkForUpdatesInteractive();
 			},
 		},
 		{ type: "separator" },
-		{
-			label: "Close Superset",
-			click: () => quitApp(),
-		},
+		{ label: "Close Superset", click: () => quitApp() },
 		{ type: "separator" },
 		{
 			label: "Quit Superset Completely",

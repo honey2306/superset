@@ -1,16 +1,15 @@
 import { useMemo } from "react";
-import { useHostProjects } from "renderer/hooks/host-projects/useHostProjects";
-import type { ProjectOption } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/PromptGroup/types";
+import type { ProjectOption } from "renderer/routes/_local/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/PromptGroup/types";
+import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
 
 export function useRecentProjects(): ProjectOption[] {
-	// Projects are fully local — the host fan-out is the only source that
-	// includes local-first projects (the frozen cloud collection never will).
-	const { projects: hostProjects } = useHostProjects();
+	// Projects come from the local Workspace Catalog.
+	const { projects: hostProjects } = useWorkspaceCatalog();
 
 	return useMemo(
 		() =>
 			hostProjects.map((project) => ({
-				id: project.projectKey,
+				id: project.id,
 				name: project.name,
 				githubOwner: project.repoOwner,
 				githubRepoName: project.repoName,

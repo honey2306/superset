@@ -104,7 +104,7 @@ export function useOrderedSections({
 	const sectionDefinitions: Record<ChangeCategory, OrderedSection> = {
 		"against-base": {
 			id: "against-base",
-			title: t("v1Changes.section.againstBranch", {
+			title: t("changes.section.againstBranch", {
 				branch: effectiveBaseBranch,
 			}),
 			count: againstBaseFiles.length,
@@ -126,7 +126,7 @@ export function useOrderedSections({
 		},
 		committed: {
 			id: "committed",
-			title: t("v1Changes.section.commits"),
+			title: t("changes.section.commits"),
 			count: totalCommitCount,
 			isExpanded: expandedSections.committed,
 			onToggle: () => toggleSection("committed"),
@@ -147,7 +147,7 @@ export function useOrderedSections({
 		},
 		staged: {
 			id: "staged",
-			title: t("v1Changes.section.staged"),
+			title: t("changes.section.staged"),
 			count: stagedFiles.length,
 			isExpanded: expandedSections.staged,
 			onToggle: () => toggleSection("staged"),
@@ -166,7 +166,7 @@ export function useOrderedSections({
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent side="bottom">
-							{t("v1Changes.section.discardAllStaged")}
+							{t("changes.section.discardAllStaged")}
 						</TooltipContent>
 					</Tooltip>
 					<Tooltip>
@@ -182,7 +182,7 @@ export function useOrderedSections({
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent side="bottom">
-							{t("v1Changes.section.unstageAll")}
+							{t("changes.section.unstageAll")}
 						</TooltipContent>
 					</Tooltip>
 				</div>
@@ -206,7 +206,7 @@ export function useOrderedSections({
 		},
 		unstaged: {
 			id: "unstaged",
-			title: t("v1Changes.section.unstaged"),
+			title: t("changes.section.unstaged"),
 			count: unstagedFiles.length,
 			isExpanded: expandedSections.unstaged,
 			onToggle: () => toggleSection("unstaged"),
@@ -225,7 +225,7 @@ export function useOrderedSections({
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent side="bottom">
-							{t("v1Changes.section.discardAllUnstaged")}
+							{t("changes.section.discardAllUnstaged")}
 						</TooltipContent>
 					</Tooltip>
 					<Tooltip>
@@ -241,7 +241,7 @@ export function useOrderedSections({
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent side="bottom">
-							{t("v1Changes.section.stageAll")}
+							{t("changes.section.stageAll")}
 						</TooltipContent>
 					</Tooltip>
 				</div>

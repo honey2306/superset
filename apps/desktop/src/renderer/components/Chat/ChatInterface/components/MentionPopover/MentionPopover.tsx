@@ -1,4 +1,3 @@
-import { chatServiceTrpc } from "@superset/chat/client";
 import {
 	PromptInputButton,
 	usePromptInputController,
@@ -26,8 +25,10 @@ import {
 	useState,
 } from "react";
 import { HiMiniAtSymbol } from "react-icons/hi2";
+import { useHostWorkspaceIdForCwd } from "renderer/components/Chat/utils/useHostWorkspaceIdForCwd";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
 import { FileIcon } from "renderer/lib/fileIcons";
+import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 
 const MAX_RESULTS = 20;
@@ -90,12 +91,12 @@ export function MentionProvider({
 	}, [textInput.value]);
 	const immediateSearchQuery = searchQuery.trim();
 	const debouncedSearchQuery = useDebouncedValue(immediateSearchQuery, 120);
+	const workspaceId = useHostWorkspaceIdForCwd(cwd);
 
-	// File search via chatService (IPC to main process)
 	const { data: fileResults, isFetching: isSearchFetching } =
-		chatServiceTrpc.workspace.searchFiles.useQuery(
+		hostServiceTrpc.chat.searchFiles.useQuery(
 			{
-				rootPath: cwd,
+				workspaceId: workspaceId ?? "",
 				query: debouncedSearchQuery,
 				includeHidden: false,
 				limit: MAX_RESULTS,
@@ -105,7 +106,7 @@ export function MentionProvider({
 					open &&
 					immediateSearchQuery.length > 0 &&
 					debouncedSearchQuery.length > 0 &&
-					!!cwd,
+					workspaceId !== null,
 				staleTime: 1000,
 				placeholderData: (previous) => previous ?? [],
 			},

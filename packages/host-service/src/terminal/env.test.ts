@@ -519,6 +519,27 @@ describe("buildV2TerminalEnv", () => {
 		expect(env.LANG).toContain("UTF-8");
 	});
 
+	test("injects only the terminal-scoped host hook capability", () => {
+		const env = buildV2TerminalEnv({
+			...baseParams,
+			hostAgentHookUrl: "http://127.0.0.1:4879/trpc/notifications.hook",
+			hostAgentHookCapability: "terminal-capability",
+		});
+		expect(env.SUPERSET_HOST_AGENT_HOOK_URL).toBe(
+			"http://127.0.0.1:4879/trpc/notifications.hook",
+		);
+		expect(env.SUPERSET_HOST_AGENT_HOOK_CAPABILITY).toBe("terminal-capability");
+		expect(env.HOST_SERVICE_SECRET).toBeUndefined();
+	});
+
+	test("does not enable the host hook URL without its capability", () => {
+		const env = buildV2TerminalEnv({
+			...baseParams,
+			hostAgentHookUrl: "http://127.0.0.1:4879/trpc/notifications.hook",
+		});
+		expect(env.SUPERSET_HOST_AGENT_HOOK_URL).toBeUndefined();
+	});
+
 	test("sets SHELL to the selected launch shell even when base env was stale", () => {
 		const env = buildV2TerminalEnv({
 			...baseParams,

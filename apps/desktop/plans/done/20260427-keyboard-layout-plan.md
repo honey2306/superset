@@ -4,7 +4,7 @@
 **Branch:** `keyboard-shortcut-analysi`
 **Scope:** `apps/desktop` keyboard shortcut matching, recording, display, migration, terminal forwarding, and Electron menu accelerators.
 **Supersedes:** drafts of `20260427-keyboard-layout-options.md` and `20260427-keyboard-shortcut-system-audit.md`.
-**Builds on:** `apps/desktop/plans/20260412-keyboard-recorder-ctrl-binding-fix.md` (April refactor — established `event.code` baseline) and `apps/desktop/plans/20260409-tui-hotkey-forwarding.md` (xterm forwarding).
+**Builds on:** `apps/desktop/plans/done/20260412-keyboard-recorder-ctrl-binding-fix.md` (April refactor — established `event.code` baseline) and `apps/desktop/plans/20260409-tui-hotkey-forwarding.md` (xterm forwarding).
 
 ## Objective
 
@@ -468,7 +468,7 @@ Each item is independently scoped; pick up only when warranted.
 
 ## References
 
-- April 2026 baseline: `apps/desktop/plans/20260412-keyboard-recorder-ctrl-binding-fix.md`
+- April 2026 baseline: `apps/desktop/plans/done/20260412-keyboard-recorder-ctrl-binding-fix.md`
 - TUI forwarding: `apps/desktop/plans/20260409-tui-hotkey-forwarding.md`
 - `native-keymap` on npm: https://www.npmjs.com/package/native-keymap
 - `native-keymap` source: https://github.com/microsoft/node-native-keymap

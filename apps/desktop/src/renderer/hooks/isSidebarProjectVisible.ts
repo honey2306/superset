@@ -1,4 +1,4 @@
-import type { ProjectProjection } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
+import type { ProjectProjection } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
 import { isTemporaryProject } from "renderer/utils/isTemporaryProject";
 
 export function isSidebarProjectVisible(

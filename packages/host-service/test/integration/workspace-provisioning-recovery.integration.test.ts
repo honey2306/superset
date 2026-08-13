@@ -11,7 +11,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { workspaceOperations } from "../../src/db/schema";
-import { cloudFlows } from "../helpers/cloud-fakes";
+import {
+	canonicalizeProvisionRequest,
+	stableJson,
+} from "../../src/workspace-provisioning/canonical-request";
 import { createTestHost } from "../helpers/createTestHost";
 import { createGitFixture } from "../helpers/git-fixture";
 import { seedProject, seedWorkspace } from "../helpers/seed";
@@ -93,6 +96,111 @@ describe("workspaceProvisioning recovery + leases (M2)", () => {
 		expect(row?.launchPayloadJson).toBeNull();
 	});
 
+	test("host restart does not resurrect a cancelled operation", async () => {
+		const dbPath = makeDbPath();
+		const first = await createTestHost({ dbPath, removeDbOnDispose: false });
+		cleanup.push(async () => first.dispose());
+		const operationId = randomUUID();
+		const now = Date.now();
+		first.db
+			.insert(workspaceOperations)
+			.values({
+				id: operationId,
+				idempotencyKey: `cancelled:${operationId}`,
+				requestHash: "hash",
+				requestJson: "{}",
+				launchPayloadJson: null,
+				requestedByMachineId: null,
+				state: "cancelled",
+				stage: null,
+				revision: 2,
+				cancelRequestedAt: now,
+				completedAt: now,
+				createdAt: now - 1,
+				updatedAt: now,
+			})
+			.run();
+		await first.stop();
+
+		const second = await createTestHost({ dbPath, removeDbOnDispose: true });
+		cleanup.push(async () => second.dispose());
+		const row = second.db
+			.select()
+			.from(workspaceOperations)
+			.where(eq(workspaceOperations.id, operationId))
+			.get();
+		expect(row?.state).toBe("cancelled");
+		expect(row?.cancelRequestedAt).toBe(now);
+		expect(row?.failureCode).toBeNull();
+	});
+
+	test("host restart reconciles a Catalog entity committed before its operation receipt", async () => {
+		const dbPath = makeDbPath();
+		const first = await createTestHost({ dbPath, removeDbOnDispose: false });
+		cleanup.push(async () => first.dispose());
+		const repo = await createGitFixture();
+		cleanup.push(async () => repo.dispose());
+		const { id: projectId } = seedProject(first, { repoPath: repo.repoPath });
+		const { id: workspaceId } = seedWorkspace(first, {
+			projectId,
+			worktreePath: repo.repoPath,
+			branch: "main",
+			type: "main",
+		});
+		const operationId = randomUUID();
+		const request = {
+			idempotencyKey: `catalog-crash:${operationId}`,
+			project: { kind: "existing" as const, projectId },
+			source: { kind: "main" as const },
+		};
+		const canonical = canonicalizeProvisionRequest(request);
+		const now = Date.now();
+		first.db
+			.insert(workspaceOperations)
+			.values({
+				id: operationId,
+				idempotencyKey: request.idempotencyKey,
+				requestHash: canonical.hash,
+				requestJson: stableJson(canonical.redacted),
+				launchPayloadJson: stableJson({ initialSessions: [] }),
+				state: "running",
+				stage: "cataloging",
+				revision: 3,
+				createdAt: now,
+				updatedAt: now,
+			})
+			.run();
+		await first.stop();
+
+		const second = await createTestHost({
+			dbPath,
+			removeDbOnDispose: true,
+		});
+		cleanup.push(async () => second.dispose());
+		let recovered = second.db
+			.select()
+			.from(workspaceOperations)
+			.where(eq(workspaceOperations.id, operationId))
+			.get();
+		for (
+			let attempt = 0;
+			attempt < 100 &&
+			(recovered?.state === "queued" || recovered?.state === "running");
+			attempt++
+		) {
+			await Bun.sleep(20);
+			recovered = second.db
+				.select()
+				.from(workspaceOperations)
+				.where(eq(workspaceOperations.id, operationId))
+				.get();
+		}
+		expect(recovered?.state).toBe("succeeded");
+		expect(recovered?.catalogCommittedAt).toBeNumber();
+		expect(recovered?.projectId).toBe(projectId);
+		expect(recovered?.workspaceId).toBe(workspaceId);
+	});
+
 	test("host restart preserves workspaceId + marks TERMINAL_UNAVAILABLE for post-commit orphans", async () => {
 		const dbPath = makeDbPath();
 
@@ -160,9 +268,7 @@ describe("workspaceProvisioning recovery + leases (M2)", () => {
 		// mid-runner, so simulate the pre-condition directly: manually
 		// insert a lock row for the target identity and confirm the
 		// runner surfaces RESOURCE_BUSY as a failed(retryable) operation.
-		const host = await createTestHost({
-			apiOverrides: cloudFlows.workspaceCreateOk(),
-		});
+		const host = await createTestHost();
 		cleanup.push(async () => host.dispose());
 		const repo = await createGitFixture();
 		cleanup.push(async () => repo.dispose());
@@ -220,9 +326,7 @@ describe("workspaceProvisioning recovery + leases (M2)", () => {
 	});
 
 	test("successful operation releases its identity leases on completion", async () => {
-		const host = await createTestHost({
-			apiOverrides: cloudFlows.workspaceCreateOk(),
-		});
+		const host = await createTestHost();
 		cleanup.push(async () => host.dispose());
 		const repo = await createGitFixture();
 		cleanup.push(async () => repo.dispose());

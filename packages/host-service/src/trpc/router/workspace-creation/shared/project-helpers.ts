@@ -26,8 +26,8 @@ export interface ResolvedGithubRepo {
 
 /**
  * Resolve `{owner, name, repoPath}` for a project from the **live** local
- * git remote. Cloud `repoCloneUrl` and cached `projects.repoOwner`/`repoName`
- * are setup-time snapshots that drift on rename/fork/remote re-point;
+ * git remote. Persisted clone URL and repository identity fields are setup-time
+ * snapshots that drift on rename/fork/remote re-point;
  * GitHub queries must target wherever the remote points right now.
  *
  * `rev-parse --show-toplevel` validates the path is a git repo.

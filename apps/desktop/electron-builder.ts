@@ -106,9 +106,9 @@ const config: Configuration = {
 	dmg: {
 		...(existsSync(dmgBackgroundPath) ? { background: dmgBackgroundPath } : {}),
 		// Explicit size — dmgbuild's auto-calc under-allocates and silently truncates
-		// the last large file above ~1.7GB of contents. `shrink: true` (default) keeps
-		// the final artifact compact.
-		size: "4g",
+		// large app bundles. Leave enough staging headroom for the current unpacked
+		// native/agent runtime; `shrink: true` (default) keeps the final artifact compact.
+		size: "6g",
 	},
 
 	// macOS

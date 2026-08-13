@@ -16,12 +16,12 @@ export interface HostServiceManifest {
 	organizationId: string;
 }
 
-export function manifestDir(organizationId: string): string {
-	return join(SUPERSET_HOME_DIR, "host", organizationId);
+export function manifestDir(scopeId: string): string {
+	return join(SUPERSET_HOME_DIR, "host", scopeId);
 }
 
-function manifestPath(organizationId: string): string {
-	return join(manifestDir(organizationId), "manifest.json");
+function manifestPath(scopeId: string): string {
+	return join(manifestDir(scopeId), "manifest.json");
 }
 
 export function writeManifest(manifest: HostServiceManifest): void {
@@ -39,10 +39,8 @@ export function writeManifest(manifest: HostServiceManifest): void {
 	);
 }
 
-export function readManifest(
-	organizationId: string,
-): HostServiceManifest | null {
-	const filePath = manifestPath(organizationId);
+export function readManifest(scopeId: string): HostServiceManifest | null {
+	const filePath = manifestPath(scopeId);
 	if (!existsSync(filePath)) return null;
 
 	try {
@@ -65,8 +63,8 @@ export function readManifest(
 	}
 }
 
-export function removeManifest(organizationId: string): void {
-	const filePath = manifestPath(organizationId);
+export function removeManifest(scopeId: string): void {
+	const filePath = manifestPath(scopeId);
 	try {
 		if (existsSync(filePath)) {
 			unlinkSync(filePath);

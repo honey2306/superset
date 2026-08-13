@@ -41,8 +41,8 @@ export function getPrimaryAction({
 	if (canCommit) {
 		return {
 			action: "commit",
-			labelKey: "v1Changes.primaryAction.commit",
-			tooltipKey: "v1Changes.primaryAction.commitStaged",
+			labelKey: "changes.primaryAction.commit",
+			tooltipKey: "changes.primaryAction.commitStaged",
 			disabled: isPending,
 		};
 	}
@@ -50,8 +50,8 @@ export function getPrimaryAction({
 	if (pushCount > 0 && pullCount > 0) {
 		return {
 			action: "sync",
-			labelKey: "v1Changes.primaryAction.sync",
-			tooltipKey: "v1Changes.primaryAction.syncTooltip",
+			labelKey: "changes.primaryAction.sync",
+			tooltipKey: "changes.primaryAction.syncTooltip",
 			tooltipValues: { pull: pullCount, push: pushCount },
 			disabled: isPending,
 		};
@@ -70,8 +70,8 @@ export function getPrimaryAction({
 	if (pullCount > 0) {
 		return {
 			action: "pull",
-			labelKey: "v1Changes.primaryAction.pull",
-			tooltipKey: "v1Changes.primaryAction.pullTooltip",
+			labelKey: "changes.primaryAction.pull",
+			tooltipKey: "changes.primaryAction.pullTooltip",
 			tooltipValues: { count: pullCount },
 			disabled: isPending,
 		};
@@ -89,10 +89,10 @@ export function getPrimaryAction({
 
 	return {
 		action: "commit",
-		labelKey: "v1Changes.primaryAction.commit",
+		labelKey: "changes.primaryAction.commit",
 		disabled: true,
 		tooltipKey: hasStagedChanges
-			? "v1Changes.primaryAction.enterMessage"
-			: "v1Changes.primaryAction.noStagedChanges",
+			? "changes.primaryAction.enterMessage"
+			: "changes.primaryAction.noStagedChanges",
 	};
 }

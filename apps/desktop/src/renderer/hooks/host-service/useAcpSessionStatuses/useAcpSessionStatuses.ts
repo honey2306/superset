@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
 import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
-import { acpSessionStatusToPaneStatus } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/V1PanesWorkspace/createV1PanesTerminalPaneBridge";
+import { acpSessionStatusToPaneStatus } from "renderer/lib/panes";
 import {
 	type ActivePaneStatus,
 	getHighestPriorityStatus,

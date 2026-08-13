@@ -24,10 +24,10 @@ export function MergeConflictDialog({
 			<EnterEnabledAlertDialogContent className="max-w-[360px] gap-0 p-0">
 				<AlertDialogHeader className="px-4 pb-2 pt-4">
 					<AlertDialogTitle className="font-medium">
-						{t("v1Changes.branchMenu.mergeConflictTitle")}
+						{t("changes.branchMenu.mergeConflictTitle")}
 					</AlertDialogTitle>
 					<AlertDialogDescription>
-						{t("v1Changes.branchMenu.mergeConflictDesc", {
+						{t("changes.branchMenu.mergeConflictDesc", {
 							branch: branch ?? "",
 						})}
 					</AlertDialogDescription>
@@ -39,7 +39,7 @@ export function MergeConflictDialog({
 						className="h-7 px-3 text-xs"
 						onClick={() => onOpenChange(false)}
 					>
-						{t("v1Changes.branchMenu.mergeConflictClose")}
+						{t("changes.branchMenu.mergeConflictClose")}
 					</Button>
 				</AlertDialogFooter>
 			</EnterEnabledAlertDialogContent>

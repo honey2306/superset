@@ -22,6 +22,7 @@ import { isProcessAlive, readPtyDaemonManifest } from "../daemon/manifest.ts";
 import type { HostDb } from "../db/index.ts";
 import { projects, terminalSessions, workspaces } from "../db/schema.ts";
 import type { EventBus } from "../events/index.ts";
+import { getNotificationHookCapability } from "../notifications/notification-hook-security.ts";
 import { portManager } from "../ports/port-manager.ts";
 import {
 	DaemonClient,
@@ -1342,6 +1343,7 @@ export async function createTerminalSessionInternal({
 		agentHookPort: process.env.SUPERSET_AGENT_HOOK_PORT || "",
 		agentHookVersion: process.env.SUPERSET_AGENT_HOOK_VERSION || "",
 		hostAgentHookUrl: getHostAgentHookUrl(),
+		hostAgentHookCapability: getNotificationHookCapability(terminalId),
 	});
 
 	let daemon: DaemonClient;

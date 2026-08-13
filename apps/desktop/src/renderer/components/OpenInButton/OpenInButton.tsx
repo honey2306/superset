@@ -1,4 +1,4 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import { Button } from "@superset/ui/button";
 import { ButtonGroup } from "@superset/ui/button-group";
 import {
@@ -16,6 +16,7 @@ import {
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useProjectDefaultApp } from "renderer/routes/_local/hooks/useProjectDefaultApp";
 import { useThemeStore } from "renderer/stores";
 
 export interface OpenInButtonProps {
@@ -36,7 +37,6 @@ export function OpenInButton({
 }: OpenInButtonProps) {
 	const activeTheme = useThemeStore((state) => state.activeTheme);
 	const [isOpen, setIsOpen] = useState(false);
-	const utils = electronTrpc.useUtils();
 	const openInShortcut = useHotkeyDisplay("OPEN_IN_APP").text;
 	const copyPathShortcut = useHotkeyDisplay("COPY_PATH").text;
 
@@ -44,18 +44,12 @@ export function OpenInButton({
 	const showCopyPathShortcut =
 		showShortcuts && copyPathShortcut !== "Unassigned";
 
-	const { data: defaultApp } = electronTrpc.projects.getDefaultApp.useQuery(
-		{ projectId: projectId as string },
-		{ enabled: !!projectId },
-	);
+	const { app: defaultApp, setApp: persistDefaultApp } =
+		useProjectDefaultApp(projectId);
 	const resolvedApp: ExternalApp = defaultApp ?? "cursor";
 
 	const openInApp = electronTrpc.external.openInApp.useMutation({
-		onSuccess: () => {
-			if (projectId) {
-				utils.projects.getDefaultApp.invalidate({ projectId });
-			}
-		},
+		onSuccess: (_data, variables) => persistDefaultApp(variables.app),
 	});
 	const { copyToClipboard } = useCopyToClipboard();
 
@@ -65,7 +59,7 @@ export function OpenInButton({
 	const currentAppIcon = currentApp?.[isDark ? "darkIcon" : "lightIcon"];
 	const handleOpenIn = (app: ExternalApp) => {
 		if (!path) return;
-		openInApp.mutate({ path, app, projectId });
+		openInApp.mutate({ path, app });
 		setIsOpen(false);
 	};
 
@@ -77,7 +71,7 @@ export function OpenInButton({
 
 	const handleOpenLastUsed = () => {
 		if (!path) return;
-		openInApp.mutate({ path, app: resolvedApp, projectId });
+		openInApp.mutate({ path, app: resolvedApp });
 	};
 
 	return (

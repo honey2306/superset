@@ -5,7 +5,7 @@ import type {
 } from "@superset/host-service/events";
 import type { AgentIdentity } from "@superset/shared/agent-identity";
 import type { FsWatchEvent } from "@superset/workspace-fs/host";
-import { createRelaySocket, type RelaySocket } from "./relaySocket";
+import { createDirectSocket, type DirectSocket } from "./directSocket";
 
 export type { AgentIdentity };
 
@@ -35,6 +35,7 @@ export interface GitChangedPayload {
 }
 
 export interface AgentLifecyclePayload {
+	eventId: string;
 	eventType: AgentLifecycleEventType;
 	terminalId: string;
 	// Absent when the hook ran without `SUPERSET_AGENT_ID` set.
@@ -192,13 +193,8 @@ interface ListenerEntry {
 
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
-// Definitive access denial (preflight 403): the relay will keep saying no, so
-// exponential 1-30s retries just hammer it. Poll slowly instead of stopping
-// outright so access granted later (host sharing) is picked up eventually.
-const ACCESS_DENIED_RETRY_MS = 5 * 60_000;
-
 interface ConnectionState {
-	socket: RelaySocket;
+	socket: DirectSocket;
 	refCount: number;
 	listeners: Set<ListenerEntry>;
 	fsWatchedWorkspaces: Map<string, number>;
@@ -268,6 +264,7 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 			(entry.callback as EventListener<"agent:lifecycle">)(
 				message.workspaceId,
 				{
+					eventId: message.eventId,
 					eventType: message.eventType,
 					terminalId: message.terminalId,
 					...(message.agent ? { agent: message.agent } : {}),
@@ -348,15 +345,14 @@ function getOrCreateConnection(
 	const existing = connections.get(key);
 	if (existing) return existing;
 
-	// createRelaySocket runs the fly-affinity preflight and re-signs the URL
-	// with a fresh token before every attempt; backoff and reconnection live
-	// inside partysocket. Buffering is disabled so command semantics stay
+	// createDirectSocket re-signs the direct host URL with a fresh token before
+	// every attempt; backoff and reconnection live inside partysocket. Buffering
+	// is disabled so command semantics stay
 	// "send only while open" — watches are replayed from state on each open.
-	const socket = createRelaySocket({
+	const socket = createDirectSocket({
 		name: "event-bus",
 		buildUrl: () => `${hostUrl.replace(/\/$/, "")}/events`,
 		getToken: getWsToken,
-		accessDeniedRetryMs: ACCESS_DENIED_RETRY_MS,
 		minReconnectionDelay: RECONNECT_BASE_MS,
 		maxReconnectionDelay: RECONNECT_MAX_MS,
 		maxEnqueuedMessages: 0,

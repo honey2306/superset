@@ -16,6 +16,7 @@ export const useTerminalCloseConfirmStore = create<TerminalCloseConfirmState>()(
 				suppress: () => set({ suppressed: true }),
 				reset: () => set({ suppressed: false }),
 			}),
+			// Compatibility: retain the historical storage key across upgrades.
 			{ name: "terminal-close-confirm-v1" },
 		),
 		{ name: "TerminalCloseConfirm" },

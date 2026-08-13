@@ -178,17 +178,17 @@ export async function dispatchLocalAutomation(
 	const runId = crypto.randomUUID();
 	const workspaceId = resolveLocalWorkspaceId(
 		ctx.db,
-		automation.v2WorkspaceId,
-		automation.v2ProjectId,
+		automation.workspaceId,
+		automation.projectId,
 	);
 	if (
 		workspaceId &&
-		workspaceId !== automation.v2WorkspaceId &&
-		!isTemporaryProjectId(ctx.db, automation.v2ProjectId)
+		workspaceId !== automation.workspaceId &&
+		!isTemporaryProjectId(ctx.db, automation.projectId)
 	) {
 		ctx.db
 			.update(localAutomations)
-			.set({ v2WorkspaceId: workspaceId, updatedAt: Date.now() })
+			.set({ workspaceId: workspaceId, updatedAt: Date.now() })
 			.where(eq(localAutomations.id, automation.id))
 			.run();
 	}
@@ -200,7 +200,7 @@ export async function dispatchLocalAutomation(
 				automationId: automation.id,
 				title: automation.name,
 				scheduledFor,
-				v2WorkspaceId: workspaceId,
+				workspaceId: workspaceId,
 				status: "dispatching",
 			})
 			.run();
@@ -261,8 +261,8 @@ export async function dispatchLocalTodo(
 }> {
 	const workspaceId = resolveLocalWorkspaceId(
 		ctx.db,
-		todo.v2WorkspaceId,
-		todo.v2ProjectId,
+		todo.workspaceId,
+		todo.projectId,
 	);
 	if (todo.mode !== "auto" || !todo.agent || !todo.prompt || !workspaceId) {
 		const error = "Auto todos require an agent, prompt, and local workspace.";
@@ -274,12 +274,12 @@ export async function dispatchLocalTodo(
 		throw new Error(error);
 	}
 	if (
-		workspaceId !== todo.v2WorkspaceId &&
-		!isTemporaryProjectId(ctx.db, todo.v2ProjectId)
+		workspaceId !== todo.workspaceId &&
+		!isTemporaryProjectId(ctx.db, todo.projectId)
 	) {
 		ctx.db
 			.update(localTodos)
-			.set({ v2WorkspaceId: workspaceId, updatedAt: Date.now() })
+			.set({ workspaceId: workspaceId, updatedAt: Date.now() })
 			.where(eq(localTodos.id, todo.id))
 			.run();
 	}

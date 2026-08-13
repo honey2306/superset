@@ -14,10 +14,6 @@ let _appState: AppStateDB | null = null;
  */
 function ensureValidShape(data: Partial<AppState>): AppState {
 	return {
-		tabsState: {
-			...defaultAppState.tabsState,
-			...(data.tabsState ?? {}),
-		},
 		themeState: {
 			...defaultAppState.themeState,
 			...(data.themeState ?? {}),

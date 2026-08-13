@@ -1,3 +1,5 @@
+import { decodeAutoMateResumeSession } from "./automate-resume";
+
 const KEY = "superset.phone.session.v1";
 
 export interface StoredSession {
@@ -6,6 +8,8 @@ export interface StoredSession {
 	hostName: string;
 	hostId: string;
 	expiresAt: number;
+	/** Present only for sessions paired through the AutoMate WebApp. */
+	relayMailboxId?: string;
 }
 
 function safeParse(raw: string | null): StoredSession | null {
@@ -28,6 +32,11 @@ function safeParse(raw: string | null): StoredSession | null {
 }
 
 export function getStoredSession(): StoredSession | null {
+	const resumed =
+		typeof location === "undefined"
+			? null
+			: decodeAutoMateResumeSession(location.hash);
+	if (resumed) return resumed;
 	if (typeof localStorage === "undefined") return null;
 	const stored = safeParse(localStorage.getItem(KEY));
 	if (!stored) return null;
@@ -43,6 +52,10 @@ export function getStoredSession(): StoredSession | null {
 
 export function getStoredToken(): string {
 	return getStoredSession()?.token ?? "";
+}
+
+export function getStoredRelayMailboxId(): string {
+	return getStoredSession()?.relayMailboxId ?? "";
 }
 
 export function setStoredSession(session: StoredSession): void {

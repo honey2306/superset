@@ -9,43 +9,59 @@ import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { serve } from "@hono/node-server";
 import {
+	AutoMateRelay,
+	AutoMateRelayTaskClient,
 	createApp,
+	getSupervisor,
 	installProcessSafetyNet,
-	JwtApiAuthProvider,
 	LocalGitCredentialProvider,
 	LocalModelProvider,
 	PskHostAuthProvider,
+	startDaemonBootstrap,
 	startTerminalReaper,
 } from "@superset/host-service";
 import {
 	initTerminalBaseEnv,
 	resolveTerminalBaseEnv,
 } from "@superset/host-service/terminal-env";
-import { ensureHostAndConnectRelay } from "@superset/host-service/tunnel";
-import { loadToken } from "lib/trpc/routers/auth/utils/auth-functions";
+import { mailboxId } from "@superset/session-protocol";
+import { getHostId } from "@superset/shared/host-info";
 import { writeManifest } from "main/lib/host-service-manifest";
+import { shutdownHostDaemon } from "./daemon-shutdown";
 import { env } from "./env";
 
 const SHUTDOWN_GRACE_MS = 3_000;
 const WATCHDOG_INTERVAL_MS = 2_000;
 
 type Server = ReturnType<typeof serve>;
+type Relay = AutoMateRelay;
 
 async function main(): Promise<void> {
 	// Install the parent watchdog before any awaits so a crash during
 	// startup can still reap this child. `serverRef` is filled in once
 	// serve() returns; shutdown handles both pre- and post-bind states.
 	const serverRef: { current: Server | null } = { current: null };
+	const relayRef: { current: Relay | null } = { current: null };
 	let shuttingDown = false;
 	const shutdown = (reason: string) => {
 		if (shuttingDown) return;
 		shuttingDown = true;
+		relayRef.current?.stop();
 		console.log(`[host-service] shutdown (${reason}), draining connections`);
+		const finalizeDaemon = () =>
+			shutdownHostDaemon({
+				supervisor: getSupervisor(),
+				organizationId: env.ORGANIZATION_ID,
+				isDevelopment: process.env.NODE_ENV === "development",
+			});
 		const server = serverRef.current;
 		if (!server) {
-			process.exit(0);
+			void finalizeDaemon().finally(() => process.exit(0));
+			return;
 		}
-		server.close();
+		server.close(() => {
+			void finalizeDaemon().finally(() => process.exit(0));
+		});
 		// SSE/WS streams (chat, watchers) ignore server.close() — give in-flight
 		// HTTP a brief window, then forcibly tear sockets down.
 		const forceExit = setTimeout(() => {
@@ -53,7 +69,7 @@ async function main(): Promise<void> {
 				closeAllConnections?: () => void;
 			};
 			httpServer.closeAllConnections?.();
-			process.exit(0);
+			void finalizeDaemon().finally(() => process.exit(0));
 		}, SHUTDOWN_GRACE_MS);
 		forceExit.unref();
 	};
@@ -77,33 +93,24 @@ async function main(): Promise<void> {
 
 	const terminalBaseEnv = await resolveTerminalBaseEnv();
 	initTerminalBaseEnv(terminalBaseEnv);
+	startDaemonBootstrap(env.ORGANIZATION_ID);
 
-	const authProvider = new JwtApiAuthProvider({
-		// Read fresh from disk every time we need to mint a new JWT, so that
-		// re-logins in the desktop renderer (which rewrites auth-token.enc)
-		// are picked up without restarting the host-service child. Falls back
-		// to the boot-time token if the file is missing for any reason.
-		getSessionToken: async () => {
-			const { token } = await loadToken();
-			return token ?? env.AUTH_TOKEN;
-		},
-		apiUrl: env.SUPERSET_API_URL,
-	});
-
-	const { app, injectWebSocket, api, db } = createApp({
+	const relayMailboxId = env.AUTOMATE_RELAY_URL
+		? mailboxId(env.ORGANIZATION_ID, getHostId())
+		: undefined;
+	const { app, injectWebSocket, db } = createApp({
 		config: {
 			organizationId: env.ORGANIZATION_ID,
 			dbPath: env.HOST_DB_PATH,
-			cloudApiUrl: env.SUPERSET_API_URL,
 			migrationsFolder: env.HOST_MIGRATIONS_FOLDER,
 			webAppDir: env.SUPERSET_WEB_APP_DIR,
 			allowedOrigins: [
 				`http://localhost:${env.DESKTOP_VITE_PORT}`,
 				`http://127.0.0.1:${env.DESKTOP_VITE_PORT}`,
 			],
+			relayMailboxId,
 		},
 		providers: {
-			auth: authProvider,
 			hostAuth: new PskHostAuthProvider(env.HOST_SERVICE_SECRET),
 			credentials: new LocalGitCredentialProvider(),
 			modelResolver: new LocalModelProvider(),
@@ -138,20 +145,19 @@ async function main(): Promise<void> {
 					console.error("[host-service] Failed to write manifest:", error);
 				}
 			}
-
-			if (env.ORGANIZATION_ID) {
-				void ensureHostAndConnectRelay({
-					api,
-					relayUrl: env.RELAY_URL,
-					localPort: info.port,
-					organizationId: env.ORGANIZATION_ID,
-					authProvider,
-					hostServiceSecret: env.HOST_SERVICE_SECRET,
-				});
-			}
 		},
 	);
 	serverRef.current = server;
+	const relay =
+		env.AUTOMATE_RELAY_URL && relayMailboxId
+			? new AutoMateRelay(relayMailboxId, {
+					client: new AutoMateRelayTaskClient(env.AUTOMATE_RELAY_URL),
+					fetch,
+					baseUrl: `http://127.0.0.1:${env.HOST_SERVICE_PORT}`,
+				})
+			: undefined;
+	relayRef.current = relay ?? null;
+	relay?.start();
 	// Keep an error listener during the gap between Node emitting `upgrade` and
 	// @hono/node-ws adopting the socket. A peer reset in that window must not
 	// take down the bundled host-service process.

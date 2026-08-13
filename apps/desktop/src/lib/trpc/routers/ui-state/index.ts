@@ -1,95 +1,8 @@
 import { appState } from "main/lib/app-state";
-import type { TabsState, ThemeState } from "main/lib/app-state/schemas";
+import type { ThemeState } from "main/lib/app-state/schemas";
 import type { EditorSyntaxColors } from "shared/themes";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
-
-/**
- * Zod schema for FileViewerState persistence.
- * Note: initialLine/initialColumn from shared/tabs-types.ts are intentionally
- * omitted as they are transient (applied once on open, not persisted).
- */
-const fileViewerStateSchema = z.object({
-	filePath: z.string(),
-	viewMode: z.enum(["rendered", "raw", "diff"]),
-	isPinned: z.boolean(),
-	diffLayout: z.enum(["inline", "side-by-side"]),
-	diffCategory: z
-		.enum(["against-base", "committed", "staged", "unstaged"])
-		.optional(),
-	commitHash: z.string().optional(),
-	oldPath: z.string().optional(),
-});
-
-/**
- * Zod schema for Pane
- */
-const paneSchema = z.object({
-	id: z.string(),
-	tabId: z.string(),
-	type: z.enum(["terminal", "file-viewer"]),
-	name: z.string(),
-	isNew: z.boolean().optional(),
-	status: z.enum(["idle", "working", "permission", "review"]).optional(),
-	initialCwd: z.string().optional(),
-	url: z.string().optional(),
-	cwd: z.string().nullable().optional(),
-	cwdConfirmed: z.boolean().optional(),
-	fileViewer: fileViewerStateSchema.optional(),
-	// browser and devtools fields removed
-	workspaceRun: z
-		.object({
-			workspaceId: z.string(),
-			state: z.enum(["running", "stopped-by-user", "stopped-by-exit"]),
-		})
-		.optional(),
-});
-
-/**
- * Zod schema for MosaicNode<string> (recursive tree structure for pane layouts)
- */
-type MosaicNode =
-	| string
-	| {
-			direction: "row" | "column";
-			first: MosaicNode;
-			second: MosaicNode;
-			splitPercentage?: number;
-	  };
-const mosaicNodeSchema: z.ZodType<MosaicNode> = z.lazy(() =>
-	z.union([
-		z.string(), // Leaf node (paneId)
-		z.object({
-			direction: z.enum(["row", "column"]),
-			first: mosaicNodeSchema,
-			second: mosaicNodeSchema,
-			splitPercentage: z.number().optional(),
-		}),
-	]),
-);
-
-/**
- * Zod schema for Tab (extends BaseTab with layout)
- */
-const tabSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	userTitle: z.string().optional(),
-	workspaceId: z.string(),
-	createdAt: z.number(),
-	layout: mosaicNodeSchema,
-});
-
-/**
- * Zod schema for TabsState
- */
-const tabsStateSchema = z.object({
-	tabs: z.array(tabSchema),
-	panes: z.record(z.string(), paneSchema),
-	activeTabIds: z.record(z.string(), z.string().nullable()),
-	focusedPaneIds: z.record(z.string(), z.string()),
-	tabHistoryStacks: z.record(z.string(), z.array(z.string())),
-});
 
 /**
  * Zod schema for UI colors
@@ -211,21 +124,6 @@ const themeStateSchema = z.object({
  */
 export const createUiStateRouter = () => {
 	return router({
-		// Tabs state procedures
-		tabs: router({
-			get: publicProcedure.query((): TabsState => {
-				return appState.data.tabsState;
-			}),
-
-			set: publicProcedure
-				.input(tabsStateSchema)
-				.mutation(async ({ input }) => {
-					appState.data.tabsState = input;
-					await appState.write();
-					return { success: true };
-				}),
-		}),
-
 		// Theme state procedures
 		theme: router({
 			get: publicProcedure.query((): ThemeState => {

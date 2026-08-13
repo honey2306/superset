@@ -18,10 +18,10 @@ import { LuFile, LuFolder } from "react-icons/lu";
 import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { openFileInPanes } from "renderer/lib/panes";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import {
 	retargetAbsolutePath,
 	toRelativeWorkspacePath,
@@ -431,7 +431,6 @@ export function FilesView() {
 		searchTerm,
 	});
 
-	const addFileViewerPane = useTabsStore((s) => s.addFileViewerPane);
 	const openFileInEditorMutation =
 		electronTrpc.external.openFileInEditor.useMutation();
 
@@ -444,12 +443,12 @@ export function FilesView() {
 	const handleFileActivate = useCallback(
 		(entry: DirectoryEntry, openInNewTab?: boolean) => {
 			if (!workspaceId || !worktreePath || entry.isDirectory) return;
-			addFileViewerPane(workspaceId, {
+			openFileInPanes(workspaceId, {
 				filePath: entry.path,
 				openInNewTab,
 			});
 		},
-		[workspaceId, worktreePath, addFileViewerPane],
+		[workspaceId, worktreePath],
 	);
 
 	const handleOpenInEditor = useCallback(

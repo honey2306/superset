@@ -1,9 +1,12 @@
 import { toast } from "@superset/ui/sonner";
+import { workspaceTrpc } from "@superset/workspace-client";
+import { useMutation, useQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import { useBranchSyncInvalidation } from "renderer/screens/main/hooks/useBranchSyncInvalidation";
 import { useGitChangesStatus } from "renderer/screens/main/hooks/useGitChangesStatus";
@@ -70,7 +73,9 @@ export function ChangesView({
 }: ChangesViewProps) {
 	const { t } = useTranslation();
 	const { workspaceId } = useParams({ strict: false });
-	const trpcUtils = electronTrpc.useUtils();
+	const hostWorkspaceId = workspaceId ?? "";
+	const hostUtils = workspaceTrpc.useUtils();
+	const { activeHostUrl } = useLocalHostService();
 	const { workspace } = useCatalogWorkspace(workspaceId);
 	const worktreePath = workspace?.worktreePath;
 	const projectId = workspace?.projectId;
@@ -86,32 +91,46 @@ export function ChangesView({
 			branchRefetchOnWindowFocus: true,
 		});
 
-	const stageAllMutation = electronTrpc.changes.stageAll.useMutation({
+	const getHostGit = () => {
+		if (!activeHostUrl || !workspaceId) {
+			throw new Error("Workspace host is unavailable");
+		}
+		return getHostServiceClientByUrl(activeHostUrl).git;
+	};
+
+	const stageAllMutation = useMutation({
+		mutationFn: () =>
+			getHostGit().stageAll.mutate({ workspaceId: hostWorkspaceId }),
 		onSuccess: () => refetch(),
 		onError: (error) => {
 			console.error("Failed to stage all files:", error);
-			toast.error(
-				t("v1Changes.toastStageAllFailed", { message: error.message }),
-			);
+			toast.error(t("changes.toastStageAllFailed", { message: error.message }));
 		},
 	});
 
-	const unstageAllMutation = electronTrpc.changes.unstageAll.useMutation({
+	const unstageAllMutation = useMutation({
+		mutationFn: () =>
+			getHostGit().unstageAll.mutate({ workspaceId: hostWorkspaceId }),
 		onSuccess: () => refetch(),
 		onError: (error) => {
 			console.error("Failed to unstage all files:", error);
 			toast.error(
-				t("v1Changes.toastUnstageAllFailed", { message: error.message }),
+				t("changes.toastUnstageAllFailed", { message: error.message }),
 			);
 		},
 	});
 
-	const stageFileMutation = electronTrpc.changes.stageFile.useMutation({
+	const stageFileMutation = useMutation({
+		mutationFn: ({ filePath }: { filePath: string }) =>
+			getHostGit().stageFiles.mutate({
+				workspaceId: hostWorkspaceId,
+				filePaths: [filePath],
+			}),
 		onSuccess: () => refetch(),
 		onError: (error, variables) => {
 			console.error(`Failed to stage file ${variables.filePath}:`, error);
 			toast.error(
-				t("v1Changes.toastStageFileFailed", {
+				t("changes.toastStageFileFailed", {
 					path: variables.filePath,
 					message: error.message,
 				}),
@@ -119,12 +138,17 @@ export function ChangesView({
 		},
 	});
 
-	const unstageFileMutation = electronTrpc.changes.unstageFile.useMutation({
+	const unstageFileMutation = useMutation({
+		mutationFn: ({ filePath }: { filePath: string }) =>
+			getHostGit().unstageFiles.mutate({
+				workspaceId: hostWorkspaceId,
+				filePaths: [filePath],
+			}),
 		onSuccess: () => refetch(),
 		onError: (error, variables) => {
 			console.error(`Failed to unstage file ${variables.filePath}:`, error);
 			toast.error(
-				t("v1Changes.toastUnstageFileFailed", {
+				t("changes.toastUnstageFileFailed", {
 					path: variables.filePath,
 					message: error.message,
 				}),
@@ -132,7 +156,12 @@ export function ChangesView({
 		},
 	});
 
-	const stageFilesMutation = electronTrpc.changes.stageFiles.useMutation({
+	const stageFilesMutation = useMutation({
+		mutationFn: ({ filePaths }: { filePaths: string[] }) =>
+			getHostGit().stageFiles.mutate({
+				workspaceId: hostWorkspaceId,
+				filePaths,
+			}),
 		onSuccess: () => refetch(),
 		onError: (error, variables) => {
 			console.error(
@@ -140,12 +169,17 @@ export function ChangesView({
 				error,
 			);
 			toast.error(
-				t("v1Changes.toastStageFilesFailed", { message: error.message }),
+				t("changes.toastStageFilesFailed", { message: error.message }),
 			);
 		},
 	});
 
-	const unstageFilesMutation = electronTrpc.changes.unstageFiles.useMutation({
+	const unstageFilesMutation = useMutation({
+		mutationFn: ({ filePaths }: { filePaths: string[] }) =>
+			getHostGit().unstageFiles.mutate({
+				workspaceId: hostWorkspaceId,
+				filePaths,
+			}),
 		onSuccess: () => refetch(),
 		onError: (error, variables) => {
 			console.error(
@@ -153,12 +187,17 @@ export function ChangesView({
 				error,
 			);
 			toast.error(
-				t("v1Changes.toastUnstageFilesFailed", { message: error.message }),
+				t("changes.toastUnstageFilesFailed", { message: error.message }),
 			);
 		},
 	});
 
-	const discardFilesMutation = electronTrpc.changes.discardFiles.useMutation({
+	const discardFilesMutation = useMutation({
+		mutationFn: ({ filePaths }: { filePaths: string[] }) =>
+			getHostGit().discardFiles.mutate({
+				workspaceId: hostWorkspaceId,
+				filePaths,
+			}),
 		onSuccess: () => refetch(),
 		onError: (error, variables) => {
 			console.error(
@@ -166,53 +205,59 @@ export function ChangesView({
 				error,
 			);
 			toast.error(
-				t("v1Changes.toastDiscardFilesFailed", { message: error.message }),
+				t("changes.toastDiscardFilesFailed", { message: error.message }),
 			);
 		},
 	});
 
-	const deleteUntrackedMutation =
-		electronTrpc.changes.deleteUntracked.useMutation({
-			onSuccess: () => refetch(),
-			onError: (error, variables) => {
-				console.error(`Failed to delete ${variables.filePath}:`, error);
-				toast.error(
-					t("v1Changes.toastDeleteFileFailed", { message: error.message }),
-				);
-			},
-		});
+	const deleteUntrackedMutation = useMutation({
+		mutationFn: ({ filePath }: { filePath: string }) =>
+			getHostGit().discardFiles.mutate({
+				workspaceId: hostWorkspaceId,
+				filePaths: [filePath],
+			}),
+		onSuccess: () => refetch(),
+		onError: (error, variables) => {
+			console.error(`Failed to delete ${variables.filePath}:`, error);
+			toast.error(
+				t("changes.toastDeleteFileFailed", { message: error.message }),
+			);
+		},
+	});
 
-	const discardAllUnstagedMutation =
-		electronTrpc.changes.discardAllUnstaged.useMutation({
-			onSuccess: () => {
-				toast.success(t("v1Changes.toastDiscardAllUnstagedSuccess"));
-				refetch();
-			},
-			onError: (error) => {
-				console.error("Failed to discard all unstaged:", error);
-				toast.error(
-					t("v1Changes.toastDiscardAllUnstagedFailed", {
-						message: error.message,
-					}),
-				);
-			},
-		});
+	const discardAllUnstagedMutation = useMutation({
+		mutationFn: () =>
+			getHostGit().discardAllUnstaged.mutate({ workspaceId: hostWorkspaceId }),
+		onSuccess: () => {
+			toast.success(t("changes.toastDiscardAllUnstagedSuccess"));
+			refetch();
+		},
+		onError: (error) => {
+			console.error("Failed to discard all unstaged:", error);
+			toast.error(
+				t("changes.toastDiscardAllUnstagedFailed", {
+					message: error.message,
+				}),
+			);
+		},
+	});
 
-	const discardAllStagedMutation =
-		electronTrpc.changes.discardAllStaged.useMutation({
-			onSuccess: () => {
-				toast.success(t("v1Changes.toastDiscardAllStagedSuccess"));
-				refetch();
-			},
-			onError: (error) => {
-				console.error("Failed to discard all staged:", error);
-				toast.error(
-					t("v1Changes.toastDiscardAllStagedFailed", {
-						message: error.message,
-					}),
-				);
-			},
-		});
+	const discardAllStagedMutation = useMutation({
+		mutationFn: () =>
+			getHostGit().discardAllStaged.mutate({ workspaceId: hostWorkspaceId }),
+		onSuccess: () => {
+			toast.success(t("changes.toastDiscardAllStagedSuccess"));
+			refetch();
+		},
+		onError: (error) => {
+			console.error("Failed to discard all staged:", error);
+			toast.error(
+				t("changes.toastDiscardAllStagedFailed", {
+					message: error.message,
+				}),
+			);
+		},
+	});
 
 	const [showDiscardUnstagedDialog, setShowDiscardUnstagedDialog] =
 		useState(false);
@@ -231,25 +276,16 @@ export function ChangesView({
 	};
 
 	const handleDiscardFiles = (files: ChangedFile[]) => {
-		if (!worktreePath) return;
 		const isUntracked = (file: ChangedFile) =>
 			file.status === "untracked" || file.status === "added";
-		// Untracked/added files are deleted from disk; git never touches the
-		// index for them, so per-file deletes can't race on index.lock.
 		for (const file of files.filter(isUntracked)) {
-			deleteUntrackedMutation.mutate({
-				worktreePath,
-				filePath: file.path,
-			});
+			deleteUntrackedMutation.mutate({ filePath: file.path });
 		}
 		const trackedPaths = files
 			.filter((file) => !isUntracked(file))
 			.map((file) => file.path);
 		if (trackedPaths.length > 0) {
-			discardFilesMutation.mutate({
-				worktreePath,
-				filePaths: trackedPaths,
-			});
+			discardFilesMutation.mutate({ filePaths: trackedPaths });
 		}
 	};
 
@@ -308,39 +344,20 @@ export function ChangesView({
 					invalidateSelectedFile: false,
 				};
 
-				const invalidations: Promise<unknown>[] = [
-					trpcUtils.changes.getStatus.invalidate({
-						worktreePath,
-					}),
-				];
+				const invalidations: Promise<unknown>[] = [];
 
-				if (pending.invalidateSelectedFile && selectedFileState) {
-					const oldAbsPath = selectedFileState.file.oldPath
-						? toAbsoluteWorkspacePath(
-								worktreePath,
-								selectedFileState.file.oldPath,
-							)
-						: undefined;
+				if (
+					pending.invalidateSelectedFile &&
+					selectedFileState &&
+					workspaceId
+				) {
 					invalidations.push(
-						trpcUtils.changes.getGitFileContents.invalidate({
-							worktreePath,
+						hostUtils.git.getDiff.invalidate({ workspaceId }),
+						hostUtils.filesystem.readFile.invalidate({
+							workspaceId,
 							absolutePath: selectedFileState.absolutePath,
-							oldAbsolutePath: oldAbsPath,
-						}),
-						trpcUtils.changes.getGitOriginalContent.invalidate({
-							worktreePath,
-							absolutePath: selectedFileState.absolutePath,
-							oldAbsolutePath: oldAbsPath,
 						}),
 					);
-					if (workspaceId) {
-						invalidations.push(
-							trpcUtils.filesystem.readFile.invalidate({
-								workspaceId,
-								absolutePath: selectedFileState.absolutePath,
-							}),
-						);
-					}
 				}
 
 				Promise.all(invalidations).catch((error) => {
@@ -362,14 +379,23 @@ export function ChangesView({
 		[isActive, expandedSections.committed, expandedCommits],
 	);
 
-	const commitFilesQueries = electronTrpc.useQueries((t) =>
-		expandedCommitHashes.map((hash) =>
-			t.changes.getCommitFiles({
-				worktreePath: worktreePath || "",
-				commitHash: hash,
-			}),
-		),
-	);
+	const commitFilesQueries = useQueries({
+		queries: expandedCommitHashes.map((hash) => ({
+			queryKey: ["git-commit-files", activeHostUrl, workspaceId, hash],
+			enabled: Boolean(activeHostUrl && workspaceId),
+			queryFn: async () => {
+				if (!activeHostUrl || !workspaceId) return [];
+				const result = await getHostServiceClientByUrl(
+					activeHostUrl,
+				).git.getCommitFiles.query({ workspaceId, commitHash: hash });
+				return result.files.map((file) => ({
+					...file,
+					status: file.status === "changed" ? "modified" : file.status,
+				}));
+			},
+			staleTime: 60_000,
+		})),
+	});
 
 	const commitFilesMap = useMemo(() => {
 		const map = new Map<string, ChangedFile[]>();
@@ -508,20 +534,11 @@ export function ChangesView({
 		stagedFiles,
 		onStagedFileSelect: (file) => handleFileSelect(file, "staged"),
 		onUnstageFile: (file) =>
-			unstageFileMutation.mutate({
-				worktreePath: worktreePath || "",
-				filePath: file.path,
-			}),
+			unstageFileMutation.mutate({ filePath: file.path }),
 		onUnstageFiles: (files) =>
-			unstageFilesMutation.mutate({
-				worktreePath: worktreePath || "",
-				filePaths: files.map((f) => f.path),
-			}),
+			unstageFilesMutation.mutate({ filePaths: files.map((f) => f.path) }),
 		onShowDiscardStagedDialog: () => setShowDiscardStagedDialog(true),
-		onUnstageAll: () =>
-			unstageAllMutation.mutate({
-				worktreePath: worktreePath || "",
-			}),
+		onUnstageAll: () => unstageAllMutation.mutate(),
 		isDiscardAllStagedPending: discardAllStagedMutation.isPending,
 		isUnstageAllPending: unstageAllMutation.isPending,
 		isStagedActioning:
@@ -531,22 +548,12 @@ export function ChangesView({
 			discardAllStagedMutation.isPending,
 		unstagedFiles: combinedUnstaged,
 		onUnstagedFileSelect: (file) => handleFileSelect(file, "unstaged"),
-		onStageFile: (file) =>
-			stageFileMutation.mutate({
-				worktreePath: worktreePath || "",
-				filePath: file.path,
-			}),
+		onStageFile: (file) => stageFileMutation.mutate({ filePath: file.path }),
 		onStageFiles: (files) =>
-			stageFilesMutation.mutate({
-				worktreePath: worktreePath || "",
-				filePaths: files.map((f) => f.path),
-			}),
+			stageFilesMutation.mutate({ filePaths: files.map((f) => f.path) }),
 		onDiscardFiles: handleDiscardFiles,
 		onShowDiscardUnstagedDialog: () => setShowDiscardUnstagedDialog(true),
-		onStageAll: () =>
-			stageAllMutation.mutate({
-				worktreePath: worktreePath || "",
-			}),
+		onStageAll: () => stageAllMutation.mutate(),
 		isDiscardAllUnstagedPending: discardAllUnstagedMutation.isPending,
 		isStageAllPending: stageAllMutation.isPending,
 		isUnstagedActioning:
@@ -561,7 +568,7 @@ export function ChangesView({
 	if (!worktreePath) {
 		return (
 			<div className="flex-1 flex items-center justify-center text-fg-mute text-sm p-4">
-				{t("v1Changes.noWorkspaceSelected")}
+				{t("changes.noWorkspaceSelected")}
 			</div>
 		);
 	}
@@ -569,7 +576,7 @@ export function ChangesView({
 	if (!status && isLoading) {
 		return (
 			<div className="flex-1 flex items-center justify-center text-fg-mute text-sm p-4">
-				{t("v1Changes.loadingChanges")}
+				{t("changes.loadingChanges")}
 			</div>
 		);
 	}
@@ -584,7 +591,7 @@ export function ChangesView({
 	) {
 		return (
 			<div className="flex-1 flex select-text cursor-text items-center justify-center text-fg-mute text-sm p-4">
-				{t("v1Changes.unableToLoad")}
+				{t("changes.unableToLoad")}
 			</div>
 		);
 	}
@@ -599,7 +606,7 @@ export function ChangesView({
 			/>
 			<div className="border-b border-line">
 				<CommitInput
-					worktreePath={worktreePath}
+					workspaceId={hostWorkspaceId}
 					hasStagedChanges={hasStagedChanges}
 					onRefresh={handleRefresh}
 				/>
@@ -607,7 +614,7 @@ export function ChangesView({
 
 			{!hasChanges ? (
 				<div className="flex flex-1 items-center justify-center px-4 text-center text-sm text-fg-mute">
-					{t("v1Changes.noChangesDetected")}
+					{t("changes.noChangesDetected")}
 				</div>
 			) : (
 				<div
@@ -636,27 +643,19 @@ export function ChangesView({
 			<DiscardConfirmDialog
 				open={showDiscardUnstagedDialog}
 				onOpenChange={setShowDiscardUnstagedDialog}
-				title={t("v1Changes.discardAllUnstagedTitle")}
-				description={t("v1Changes.discardAllUnstagedDesc")}
-				onConfirm={() =>
-					discardAllUnstagedMutation.mutate({
-						worktreePath: worktreePath || "",
-					})
-				}
-				confirmLabel={t("v1Changes.discardAll")}
+				title={t("changes.discardAllUnstagedTitle")}
+				description={t("changes.discardAllUnstagedDesc")}
+				onConfirm={() => discardAllUnstagedMutation.mutate()}
+				confirmLabel={t("changes.discardAll")}
 			/>
 
 			<DiscardConfirmDialog
 				open={showDiscardStagedDialog}
 				onOpenChange={setShowDiscardStagedDialog}
-				title={t("v1Changes.discardAllStagedTitle")}
-				description={t("v1Changes.discardAllStagedDesc")}
-				onConfirm={() =>
-					discardAllStagedMutation.mutate({
-						worktreePath: worktreePath || "",
-					})
-				}
-				confirmLabel={t("v1Changes.discardAll")}
+				title={t("changes.discardAllStagedTitle")}
+				description={t("changes.discardAllStagedDesc")}
+				onConfirm={() => discardAllStagedMutation.mutate()}
+				confirmLabel={t("changes.discardAll")}
 			/>
 		</div>
 	);

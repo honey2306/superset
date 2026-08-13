@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
 import { hostProjectListQueryKey } from "../useHostProjectIds";
 
 export interface ProjectSetupResult {

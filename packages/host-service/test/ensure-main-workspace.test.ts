@@ -11,10 +11,10 @@ import * as schema from "../src/db/schema";
 import { projects, workspaces } from "../src/db/schema";
 import type { EventBus } from "../src/events";
 import { ensureMainWorkspaceStrict } from "../src/trpc/router/project/utils/ensure-main-workspace";
+import { WorkspaceCatalog } from "../src/workspace-catalog";
 import { insertLocalWorkspace } from "../src/workspaces/local-workspace-store";
 
 const MIGRATIONS_FOLDER = resolve(import.meta.dir, "../drizzle");
-const ORG_ID = "00000000-0000-0000-0000-000000000001";
 const REPO_PATH = "/repo";
 
 function makeDb(): HostDb {
@@ -39,36 +39,11 @@ function makeCtx(db: HostDb) {
 		raw: mock(async () => "feat/main\n"),
 		revparse: mock(async () => "feat/main"),
 	}));
-	// host.ensure resolves; v2Workspace.create echoes the id back so no relink.
-	const api = {
-		host: { ensure: { mutate: mock(async () => ({ machineId: "m1" })) } },
-		v2Workspace: {
-			create: {
-				mutate: mock(async (input: { id?: string }) => ({
-					id: input.id,
-					organizationId: ORG_ID,
-					projectId: "p-1",
-					hostId: "m1",
-					name: "feat/main",
-					branch: "feat/main",
-					type: "main",
-					createdByUserId: null,
-					taskId: null,
-					createdAt: new Date(),
-					updatedAt: new Date(),
-					txid: 1,
-				})),
-			},
-			updateNameFromHost: { mutate: mock(async () => ({})) },
-		},
-	} as never;
 	return {
-		api,
 		db,
 		git: git as never,
-		organizationId: ORG_ID,
-		clientMachineId: "m1",
 		eventBus,
+		catalog: new WorkspaceCatalog({ db, eventBus: null }),
 	};
 }
 
@@ -85,6 +60,7 @@ describe("ensureMainWorkspaceStrict", () => {
 			.sync();
 		expect(row?.type).toBe("main");
 		expect(row?.projectId).toBe("p-1");
+		expect(db.select().from(schema.catalogChanges).all()).toHaveLength(1);
 	});
 
 	test("idempotent: a second call returns the same main, never a duplicate", async () => {
@@ -106,7 +82,11 @@ describe("ensureMainWorkspaceStrict", () => {
 		const db = makeDb();
 		// The race winner already committed a main for this project.
 		const winner = insertLocalWorkspace(
-			{ db, eventBus: { broadcastWorkspaceChanged: () => {} } as never },
+			{
+				db,
+				eventBus: { broadcastWorkspaceChanged: () => {} } as never,
+				catalog: new WorkspaceCatalog({ db, eventBus: null }),
+			},
 			{
 				projectId: "p-1",
 				worktreePath: REPO_PATH,

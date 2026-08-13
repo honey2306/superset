@@ -1,4 +1,4 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import type { ElementType } from "react";
 import type { HotkeyId } from "renderer/hotkeys/registry";
 import type { HostServiceAvailabilityStatus } from "renderer/lib/host-service-unavailable";

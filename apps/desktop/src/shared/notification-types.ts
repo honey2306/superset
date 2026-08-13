@@ -13,6 +13,10 @@ export interface NotificationIds {
 
 export interface AgentLifecycleEvent extends NotificationIds {
 	eventType: "Start" | "Stop" | "PermissionRequest" | "PendingQuestion";
+	workspaceName?: string;
+	eventId?: string;
+	occurredAt?: number;
+	capabilityToken?: string;
 }
 
 export type V2NotificationSource =

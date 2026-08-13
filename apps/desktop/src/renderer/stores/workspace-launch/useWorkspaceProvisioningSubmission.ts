@@ -1,11 +1,8 @@
 import { useCallback } from "react";
-import { resolveHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
-import { useRelayUrl } from "renderer/hooks/useRelayUrl";
-import { authClient } from "renderer/lib/auth-client";
 import { getHostServiceUnavailableMessage } from "renderer/lib/host-service-unavailable";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
+import { useLocalCollections } from "renderer/routes/_local/providers/LocalProductStateProvider";
 import {
 	launchesToPaneLayoutInputs,
 	toProvisionWorkspaceRequest,
@@ -42,10 +39,7 @@ export function useWorkspaceProvisioningSubmission(): WorkspaceProvisioningSubmi
 	const hostService = useLocalHostService();
 	const { t } = useTranslation();
 	const { machineId, activeHostUrl } = hostService;
-	const { data: session } = authClient.useSession();
-	const organizationId = session?.session?.activeOrganizationId;
-	const collections = useCollections();
-	const relayUrl = useRelayUrl();
+	const collections = useLocalCollections();
 	const workspaceLaunch = useWorkspaceLaunch(null);
 
 	const submit = useCallback(
@@ -57,22 +51,12 @@ export function useWorkspaceProvisioningSubmission(): WorkspaceProvisioningSubmi
 				throw new Error("Workspace provisioning requires a local request id");
 			}
 
-			const hostUrl = organizationId
-				? resolveHostUrl({
-						hostId: args.hostId,
-						machineId,
-						activeHostUrl,
-						organizationId,
-						relayUrl,
-					})
-				: null;
+			const hostUrl = args.hostId === machineId ? activeHostUrl : null;
 
-			if (!organizationId || !hostUrl) {
-				const error = !organizationId
-					? "No active organization"
-					: getHostServiceUnavailableMessage(hostService, t, {
-							action: t("workspace.createAction"),
-						});
+			if (!hostUrl) {
+				const error = getHostServiceUnavailableMessage(hostService, t, {
+					action: t("workspace.createAction"),
+				});
 				return {
 					workspaceId,
 					completed: Promise.resolve({ ok: false, error }),
@@ -121,16 +105,7 @@ export function useWorkspaceProvisioningSubmission(): WorkspaceProvisioningSubmi
 
 			return { workspaceId, completed };
 		},
-		[
-			activeHostUrl,
-			collections,
-			hostService,
-			machineId,
-			organizationId,
-			relayUrl,
-			t,
-			workspaceLaunch,
-		],
+		[activeHostUrl, collections, hostService, machineId, t, workspaceLaunch],
 	);
 
 	return { submit };

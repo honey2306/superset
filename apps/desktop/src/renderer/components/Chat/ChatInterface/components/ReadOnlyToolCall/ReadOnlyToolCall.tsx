@@ -2,6 +2,7 @@ import { ClickableFilePath } from "@superset/ui/ai-elements/clickable-file-path"
 import { ReadFileTool } from "@superset/ui/ai-elements/read-file-tool";
 import { ToolInput, ToolOutput } from "@superset/ui/ai-elements/tool";
 import { ToolCallRow } from "@superset/ui/ai-elements/tool-call-row";
+import { workspaceTrpc } from "@superset/workspace-client";
 import { getToolName } from "ai";
 import {
 	FileIcon,
@@ -9,7 +10,6 @@ import {
 	FolderTreeIcon,
 	SearchIcon,
 } from "lucide-react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { detectLanguage } from "shared/detect-language";
 import type { BundledLanguage } from "shiki";
@@ -72,7 +72,7 @@ export function ReadOnlyToolCall({
 			})
 		: null;
 
-	const fileQuery = electronTrpc.filesystem.readFile.useQuery(
+	const fileQuery = workspaceTrpc.filesystem.readFile.useQuery(
 		{
 			workspaceId: workspaceId ?? "",
 			absolutePath: absoluteFilePath ?? "",

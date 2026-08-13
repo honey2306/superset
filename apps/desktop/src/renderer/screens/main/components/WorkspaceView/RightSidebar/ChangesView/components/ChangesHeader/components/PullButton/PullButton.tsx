@@ -1,9 +1,12 @@
 import { Button } from "@superset/ui/button";
 import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
+import { useMutation } from "@tanstack/react-query";
+import { useParams } from "@tanstack/react-router";
 import { VscArrowDown } from "react-icons/vsc";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 
 interface PullButtonProps {
 	worktreePath: string;
@@ -17,14 +20,24 @@ export function PullButton({
 	onRefresh,
 }: PullButtonProps) {
 	const { t } = useTranslation();
-	const pullMutation = electronTrpc.changes.pull.useMutation({
+	const { workspaceId } = useParams({ strict: false });
+	const { activeHostUrl } = useLocalHostService();
+	const pullMutation = useMutation({
+		mutationFn: () => {
+			if (!activeHostUrl || !workspaceId) {
+				throw new Error("Workspace host is unavailable");
+			}
+			return getHostServiceClientByUrl(
+				activeHostUrl,
+			).git.pullCurrentBranch.mutate({ workspaceId });
+		},
 		onSuccess: () => {
-			toast.success(t("v1Changes.commit.toastPulled"));
+			toast.success(t("changes.commit.toastPulled"));
 			onRefresh();
 		},
 		onError: (error) =>
 			toast.error(
-				t("v1Changes.commit.toastPullFailed", { message: error.message }),
+				t("changes.commit.toastPullFailed", { message: error.message }),
 			),
 	});
 
@@ -35,8 +48,8 @@ export function PullButton({
 					variant="ghost"
 					size="sm"
 					className="h-6 min-w-6 gap-0.5 px-1.5"
-					disabled={!worktreePath || pullMutation.isPending}
-					onClick={() => pullMutation.mutate({ worktreePath })}
+					disabled={!worktreePath || !workspaceId || pullMutation.isPending}
+					onClick={() => pullMutation.mutate()}
 				>
 					<VscArrowDown className="size-3.5" />
 					{pullCount > 0 ? (
@@ -46,8 +59,8 @@ export function PullButton({
 			</TooltipTrigger>
 			<TooltipContent side="top" showArrow={false}>
 				{pullCount > 0
-					? t("v1Changes.primaryAction.pullTooltip", { count: pullCount })
-					: t("v1Changes.commit.pull")}
+					? t("changes.primaryAction.pullTooltip", { count: pullCount })
+					: t("changes.commit.pull")}
 			</TooltipContent>
 		</Tooltip>
 	);

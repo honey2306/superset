@@ -2,7 +2,7 @@ import { Button } from "@superset/ui/button";
 import { cn } from "@superset/ui/utils";
 import { HiArrowTopRightOnSquare } from "react-icons/hi2";
 import { OpenInButton } from "renderer/components/OpenInButton";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useHostProjectConfig } from "renderer/hooks/host-service/useHostProjectConfig";
 import {
 	CONFIG_FILE_NAME,
 	CONFIG_TEMPLATE,
@@ -23,10 +23,7 @@ export function ConfigFilePreview({
 	configFilePath,
 	className,
 }: ConfigFilePreviewProps) {
-	const { data: configData } = electronTrpc.config.getConfigContent.useQuery(
-		{ projectId },
-		{ enabled: !!projectId },
-	);
+	const { data: configData } = useHostProjectConfig(projectId);
 
 	const handleLearnMore = () => {
 		window.open(EXTERNAL_LINKS.SETUP_TEARDOWN_SCRIPTS, "_blank");

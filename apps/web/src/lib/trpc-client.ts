@@ -2,6 +2,7 @@ import type { AppRouter } from "@superset/host-service";
 import { createTRPCClient, httpLink, TRPCClientError } from "@trpc/client";
 import superjson from "superjson";
 import { clearStoredSession, getStoredToken } from "./auth-store";
+import { getPhoneTransport } from "./transport";
 
 let cached: ReturnType<typeof createTRPCClient<AppRouter>> | null = null;
 
@@ -21,6 +22,7 @@ export function getTrpc(): ReturnType<typeof createTRPCClient<AppRouter>> {
 					const token = getStoredToken();
 					return token ? { Authorization: `Bearer ${token}` } : {};
 				},
+				fetch: (input, init) => getPhoneTransport().fetch(input, init),
 			}),
 		],
 	});

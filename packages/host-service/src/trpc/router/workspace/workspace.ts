@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { projects, workspaces } from "../../../db/schema";
 import {
-	toCloudShape,
+	toWorkspaceView,
 	updateLocalWorkspace,
 } from "../../../workspaces/local-workspace-store";
 import { protectedProcedure, router } from "../../index";
@@ -34,8 +34,7 @@ export const workspaceRouter = router({
 
 	/**
 	 * Authoritative list of this host's workspaces, served entirely from
-	 * host.db — works with zero cloud availability. Rows are shaped like
-	 * cloud rows (plus local extras) so consumers of either read path agree.
+	 * host.db — works with zero cloud availability.
 	 */
 	list: protectedProcedure.query(({ ctx }) => {
 		const rows = ctx.db.select().from(workspaces).all();
@@ -54,7 +53,7 @@ export const workspaceRouter = router({
 				]),
 		);
 		return rows.map((row) => ({
-			...toCloudShape(row, ctx.organizationId),
+			...toWorkspaceView(row, ctx.organizationId),
 			worktreePath: row.worktreePath,
 			worktreeExists: existsSync(row.worktreePath),
 			projectName: projectNameById.get(row.projectId) ?? null,
@@ -62,10 +61,9 @@ export const workspaceRouter = router({
 	}),
 
 	/**
-	 * Rename / branch-repoint / task-link update, local-first: the host.db
-	 * row commits and broadcasts immediately; the cloud mirror push is
-	 * best-effort (the reconciler retries when unreachable). `branch` only
-	 * re-points the record — callers rename the git branch themselves.
+	 * Rename / branch-repoint / task-link update. The host.db row commits and
+	 * broadcasts immediately. `branch` only re-points the record — callers
+	 * rename the git branch themselves.
 	 */
 	update: protectedProcedure
 		.input(
@@ -99,7 +97,7 @@ export const workspaceRouter = router({
 			if (input.branch !== undefined) patch.branch = input.branch;
 			if (input.taskId !== undefined) patch.taskId = input.taskId;
 			if (Object.keys(patch).length === 0) {
-				return toCloudShape(current, ctx.organizationId);
+				return toWorkspaceView(current, ctx.organizationId);
 			}
 			const updated = updateLocalWorkspace(
 				{ db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog },
@@ -112,20 +110,8 @@ export const workspaceRouter = router({
 					message: "Workspace not found",
 				});
 			}
-			return toCloudShape(updated, ctx.organizationId);
+			return toWorkspaceView(updated, ctx.organizationId);
 		}),
-
-	cloudList: protectedProcedure.query(async ({ ctx }) => {
-		const rows = await ctx.api.v2Workspace.list.query({
-			organizationId: ctx.organizationId,
-		});
-		return rows.map((row) => ({
-			id: row.id,
-			projectId: row.projectId,
-			branch: row.branch,
-			hostId: row.hostId,
-		}));
-	}),
 
 	gitStatus: protectedProcedure
 		.input(z.object({ id: z.string() }))

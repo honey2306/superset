@@ -1,4 +1,4 @@
-import type { CheckItem } from "@superset/local-db";
+import type { CheckItem } from "@superset/shared/desktop-types";
 import { useState } from "react";
 import { LuChevronDown, LuChevronRight } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";

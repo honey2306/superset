@@ -10,9 +10,9 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useMemo } from "react";
+import { openFileInPanes } from "renderer/lib/panes";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTheme } from "renderer/stores";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import { READ_ONLY_TOOLS } from "../../constants";
 import {
 	getWorkspaceToolFilePath,
@@ -49,8 +49,6 @@ export function MessagePartsRenderer({
 }: MessagePartsRendererProps): React.ReactNode[] {
 	const { t } = useTranslation();
 	const theme = useTheme();
-	const addFileViewerPane = useTabsStore((store) => store.addFileViewerPane);
-
 	const _handleLinkClick = useCallback(
 		(_e: React.MouseEvent<HTMLAnchorElement>, _href: string) => {
 			// Internal browser removed - links always open externally
@@ -65,9 +63,9 @@ export function MessagePartsRenderer({
 				workspaceRoot: workspaceCwd,
 			});
 			if (!normalizedPath) return;
-			addFileViewerPane(workspaceId, { filePath: normalizedPath });
+			openFileInPanes(workspaceId, { filePath: normalizedPath });
 		},
-		[addFileViewerPane, workspaceCwd, workspaceId],
+		[workspaceCwd, workspaceId],
 	);
 
 	const components = useMemo(() => {

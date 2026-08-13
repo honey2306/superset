@@ -3,6 +3,12 @@ import type {
 	AgentLaunchResult,
 } from "@superset/shared/agent-launch";
 import { normalizeAgentLaunchRequest } from "@superset/shared/agent-launch";
+import {
+	addTerminalPane,
+	closePane,
+	findPanesStoreByPaneId,
+	findPanesStoreByTabId,
+} from "renderer/lib/panes";
 import { posthog } from "renderer/lib/posthog";
 import { useAgentSessionLaunchStore } from "renderer/stores/agent-session-launch";
 import { launchTerminalAdapter } from "./adapters/terminal-adapter";
@@ -17,17 +23,51 @@ const inFlightByIdempotency = new Map<string, Promise<AgentLaunchResult>>();
 const settledByIdempotency = new Map<string, AgentLaunchResult>();
 
 async function getDefaultTabsAdapter(): Promise<AgentLaunchTabsAdapter> {
-	const { useTabsStore } = await import("renderer/stores/tabs/store");
 	return {
-		getPane: (paneId) => useTabsStore.getState().panes[paneId],
-		getTab: (tabId) =>
-			useTabsStore.getState().tabs.find((tab) => tab.id === tabId),
-		addTerminalTab: (workspaceId) =>
-			useTabsStore.getState().addTab(workspaceId),
-		addTerminalPane: (tabId) => useTabsStore.getState().addPane(tabId),
-		removePane: (paneId) => useTabsStore.getState().removePane(paneId),
-		setTabAutoTitle: (tabId, title) =>
-			useTabsStore.getState().setTabAutoTitle(tabId, title),
+		getPane: (paneId) => {
+			const located = findPanesStoreByPaneId(paneId);
+			const pane = located?.store.getState().getPane(paneId);
+			return pane
+				? { id: paneId, tabId: pane.tabId, type: pane.pane.kind }
+				: undefined;
+		},
+		getTab: (tabId) => {
+			const located = findPanesStoreByTabId(tabId);
+			return located
+				? { id: tabId, workspaceId: located.workspaceId }
+				: undefined;
+		},
+		addTerminalTab: (workspaceId) => {
+			const result = addTerminalPane(workspaceId);
+			if (result.status !== "applied") {
+				throw new Error(`Workspace ${workspaceId} panes are not mounted`);
+			}
+			return result.value;
+		},
+		addTerminalPane: (tabId) => {
+			const located = findPanesStoreByTabId(tabId);
+			if (!located) throw new Error(`Tab ${tabId} is not mounted`);
+			const paneId = crypto.randomUUID();
+			located.store.getState().addPane({
+				tabId,
+				pane: {
+					id: paneId,
+					kind: "terminal",
+					data: { terminalId: paneId },
+				},
+			});
+			return paneId;
+		},
+		removePane: (paneId) => {
+			const located = findPanesStoreByPaneId(paneId);
+			if (located) closePane(located.workspaceId, paneId);
+		},
+		setTabAutoTitle: (tabId, title) => {
+			findPanesStoreByTabId(tabId)?.store.getState().setTabTitleOverride({
+				tabId,
+				titleOverride: title,
+			});
+		},
 	};
 }
 

@@ -116,7 +116,7 @@ export function WorkspaceSidebar({
 				projectName={activeProjectName}
 			/>
 
-			<HiringBanner surface="v1" isCollapsed={isCollapsed} />
+			<HiringBanner isCollapsed={isCollapsed} />
 
 			<WorkspaceSidebarFooter isCollapsed={isCollapsed} />
 			<MultiDragPreview />

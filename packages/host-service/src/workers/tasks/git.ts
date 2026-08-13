@@ -6,6 +6,10 @@
 import { createUserSimpleGit } from "../../runtime/git/simple-git.ts";
 import type { ChangedFile } from "../../trpc/router/git/types.ts";
 import type { BaseRefFetchTarget } from "../../trpc/router/git/utils/base-ref-freshness.ts";
+import {
+	type GitLogEntry,
+	parseGitLog,
+} from "../../trpc/router/git/utils/git-changes.ts";
 import { getChangedFilesForDiff } from "../../trpc/router/git/utils/git-helpers.ts";
 import type { GitStatusSnapshotComputation } from "../../trpc/router/git/utils/git-status.ts";
 import { getGitStatusSnapshot } from "../../trpc/router/git/utils/git-status.ts";
@@ -59,6 +63,44 @@ export const gitCommitFilesTask = defineWorkerTask<
 		const git = createUserSimpleGit(worktreePath).env(gitEnv);
 		const from = fromHash ? fromHash : `${commitHash}^`;
 		return getChangedFilesForDiff(git, [from, commitHash]);
+	},
+});
+
+/** Potentially large history reads stay off the host-service event loop. */
+export const gitLogTask = defineWorkerTask<
+	{
+		worktreePath: string;
+		gitEnv: GitTaskEnv;
+		limit: number;
+		skip?: number;
+		grep?: string;
+		author?: string;
+		filePath?: string;
+	},
+	GitLogEntry[]
+>({
+	type: "git/listLog",
+	handler: async ({
+		worktreePath,
+		gitEnv,
+		limit,
+		skip,
+		grep,
+		author,
+		filePath,
+	}) => {
+		const git = createUserSimpleGit(worktreePath).env(gitEnv);
+		const args = [
+			"log",
+			`--max-count=${limit}`,
+			"--no-color",
+			"--format=%H%x1f%h%x1f%s%x1f%an%x1f%at",
+		];
+		if (skip !== undefined) args.push(`--skip=${skip}`);
+		if (grep) args.push("--fixed-strings", `--grep=${grep}`);
+		if (author) args.push("--fixed-strings", `--author=${author}`);
+		if (filePath) args.push("--follow", "--", filePath);
+		return parseGitLog(await git.raw(args));
 	},
 });
 
@@ -128,6 +170,7 @@ export const gitTasks = [
 	gitStatusSnapshotTask,
 	gitFetchBaseRefTask,
 	gitCommitFilesTask,
+	gitLogTask,
 	gitWorktreeStateTask,
 	gitWorktreeRemoveTask,
 	gitDeleteBranchTask,

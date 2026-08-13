@@ -3,7 +3,7 @@ import { cn } from "@superset/ui/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { LuLoaderCircle, LuX } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
 import { STROKE_WIDTH } from "../../../constants";
 import { useKillPort } from "../../hooks/useKillPort";
 import type { WorkspacePortGroup as WorkspacePortGroupType } from "../../hooks/usePortsData";

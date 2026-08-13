@@ -4,13 +4,11 @@ import { useCallback, useState } from "react";
 import { confirmClosePorts } from "./confirmClosePorts";
 import {
 	killPortTarget,
-	type LocalPortKill,
 	type PortKillResult,
 	type PortKillTarget,
 } from "./killPortTarget";
 
 interface UsePortKillActionsOptions {
-	localKill?: LocalPortKill;
 	refreshQueryKey?: QueryKey;
 	externalPending?: boolean;
 }
@@ -20,7 +18,6 @@ function getFailureDescription(result: PortKillResult): string | undefined {
 }
 
 export function usePortKillActions<TPort extends PortKillTarget>({
-	localKill,
 	refreshQueryKey,
 	externalPending = false,
 }: UsePortKillActionsOptions = {}) {
@@ -41,7 +38,7 @@ export function usePortKillActions<TPort extends PortKillTarget>({
 			if (!(await confirmClosePorts(1))) return undefined as never;
 			setPendingCount((count) => count + 1);
 			try {
-				const result = await killPortTarget(port, localKill);
+				const result = await killPortTarget(port);
 				if (!result.success) {
 					toast.error(`Failed to close port ${port.port}`, {
 						description: getFailureDescription(result),
@@ -53,7 +50,7 @@ export function usePortKillActions<TPort extends PortKillTarget>({
 				setPendingCount((count) => Math.max(0, count - 1));
 			}
 		},
-		[localKill, refreshPorts],
+		[refreshPorts],
 	);
 
 	const killPorts = useCallback(
@@ -63,9 +60,7 @@ export function usePortKillActions<TPort extends PortKillTarget>({
 
 			setPendingCount((count) => count + 1);
 			try {
-				const results = await Promise.all(
-					ports.map((port) => killPortTarget(port, localKill)),
-				);
+				const results = await Promise.all(ports.map(killPortTarget));
 				const failed = results.filter((result) => !result.success);
 				if (failed.length === 1) {
 					toast.error("Failed to close 1 port", {
@@ -82,7 +77,7 @@ export function usePortKillActions<TPort extends PortKillTarget>({
 				setPendingCount((count) => Math.max(0, count - 1));
 			}
 		},
-		[localKill, refreshPorts],
+		[refreshPorts],
 	);
 
 	return {

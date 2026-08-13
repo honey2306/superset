@@ -11,11 +11,11 @@ import { getHostId } from "@superset/shared/host-info";
 import { isProcessAlive, manifestDir } from "./host-service-manifest";
 
 /**
- * Cross-instance spawn lock for a per-org host-service.
+ * Cross-instance spawn lock for the embedded host service.
  *
  * Multiple Superset app instances share one `$SUPERSET_HOME_DIR`, so their
- * in-process `pendingStarts` maps can't stop two instances from spawning the
- * same org's host-service at once. This atomic exclusive-create lockfile
+ * in-process pending starts cannot stop two instances from spawning the same
+ * embedded host at once. This atomic exclusive-create lockfile
  * single-flights the spawn+health-check critical section across processes.
  *
  * The lock records the *app instance's* pid (Electron main), not the child's —
@@ -31,13 +31,13 @@ export interface SpawnLockHandle {
 	release(): void;
 }
 
-function lockPath(organizationId: string): string {
-	return join(manifestDir(organizationId), "spawn.lock");
+function lockPath(scopeId: string): string {
+	return join(manifestDir(scopeId), "spawn.lock");
 }
 
-export function readSpawnLock(organizationId: string): SpawnLock | null {
+export function readSpawnLock(scopeId: string): SpawnLock | null {
 	try {
-		const raw = readFileSync(lockPath(organizationId), "utf-8");
+		const raw = readFileSync(lockPath(scopeId), "utf-8");
 		const data = JSON.parse(raw);
 		if (
 			typeof data.ownerPid !== "number" ||
@@ -52,18 +52,18 @@ export function readSpawnLock(organizationId: string): SpawnLock | null {
 	}
 }
 
-function removeLock(organizationId: string): void {
+function removeLock(scopeId: string): void {
 	try {
-		unlinkSync(lockPath(organizationId));
+		unlinkSync(lockPath(scopeId));
 	} catch {
 		// Already gone — fine.
 	}
 }
 
-function tryCreateLock(organizationId: string): SpawnLockHandle | null {
-	const path = lockPath(organizationId);
+function tryCreateLock(scopeId: string): SpawnLockHandle | null {
+	const path = lockPath(scopeId);
 	try {
-		mkdirSync(manifestDir(organizationId), { recursive: true, mode: 0o700 });
+		mkdirSync(manifestDir(scopeId), { recursive: true, mode: 0o700 });
 	} catch {
 		// Best-effort; openSync below surfaces a real failure.
 	}
@@ -92,25 +92,25 @@ function tryCreateLock(organizationId: string): SpawnLockHandle | null {
 
 	return {
 		release() {
-			removeLock(organizationId);
+			removeLock(scopeId);
 		},
 	};
 }
 
 /**
- * Acquire the per-org spawn lock, stealing it when the current holder has
+ * Acquire the embedded-host spawn lock, stealing it when the current holder has
  * crashed or wedged. Returns a handle on success, or `null` when a live
  * instance is legitimately mid-spawn (the caller should wait and retry).
  */
 export function acquireSpawnLock(
-	organizationId: string,
+	scopeId: string,
 	{ staleMs }: { staleMs: number },
 ): SpawnLockHandle | null {
-	const handle = tryCreateLock(organizationId);
+	const handle = tryCreateLock(scopeId);
 	if (handle) return handle;
 
 	// Lock exists — decide whether the holder is dead/wedged and stealable.
-	const existing = readSpawnLock(organizationId);
+	const existing = readSpawnLock(scopeId);
 	const stealable =
 		!existing || // garbage / partial write
 		!isProcessAlive(existing.ownerPid) || // owner crashed mid-spawn
@@ -118,7 +118,7 @@ export function acquireSpawnLock(
 
 	if (!stealable) return null;
 
-	removeLock(organizationId);
+	removeLock(scopeId);
 	// One retry after stealing; if a third party grabbed it first, back off.
-	return tryCreateLock(organizationId);
+	return tryCreateLock(scopeId);
 }

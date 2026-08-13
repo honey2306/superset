@@ -1,20 +1,13 @@
-import {
-	type AgentCustomDefinition,
-	type AgentPresetOverrideEnvelope,
-	BRANCH_PREFIX_MODES,
-	EXECUTION_MODES,
-	EXTERNAL_APPS,
-	FILE_OPEN_MODES,
-	NON_EDITOR_APPS,
-	settings,
-	TERMINAL_LINK_BEHAVIORS,
-	type TerminalPreset,
-} from "@superset/local-db";
+import { settings } from "@superset/local-db";
 import {
 	AGENT_PRESET_COMMANDS,
 	AGENT_PRESET_DESCRIPTIONS,
 	DEFAULT_TERMINAL_PRESET_AGENT_TYPES,
 } from "@superset/shared/agent-command";
+import type {
+	AgentCustomDefinition,
+	AgentPresetOverrideEnvelope,
+} from "@superset/shared/agent-custom";
 import {
 	applyLegacyPermissionsOverrides,
 	terminalPresetsMatchPre3546Seed,
@@ -32,6 +25,14 @@ import {
 	resolveAgentConfigs,
 	upsertCustomAgentDefinition,
 } from "@superset/shared/agent-settings";
+import {
+	EXECUTION_MODES,
+	EXTERNAL_APPS,
+	FILE_OPEN_MODES,
+	NON_EDITOR_APPS,
+	TERMINAL_LINK_BEHAVIORS,
+	type TerminalPreset,
+} from "@superset/shared/desktop-types";
 import { TRPCError } from "@trpc/server";
 import { app } from "electron";
 import { exitImmediately } from "main/index";
@@ -59,7 +60,6 @@ import {
 } from "shared/ringtones";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
-import { getGitAuthorName, getGitHubUsername } from "../workspaces/utils/git";
 import {
 	createCustomAgentInputSchema,
 	normalizeAgentPresetPatch,
@@ -769,51 +769,6 @@ export const createSettingsRouter = () => {
 			return { success: true };
 		}),
 
-		getBranchPrefix: publicProcedure.query(() => {
-			const row = getSettings();
-			return {
-				mode: row.branchPrefixMode ?? "none",
-				customPrefix: row.branchPrefixCustom ?? null,
-			};
-		}),
-
-		setBranchPrefix: publicProcedure
-			.input(
-				z.object({
-					mode: z.enum(BRANCH_PREFIX_MODES),
-					customPrefix: z.string().nullable().optional(),
-				}),
-			)
-			.mutation(({ input }) => {
-				localDb
-					.insert(settings)
-					.values({
-						id: 1,
-						branchPrefixMode: input.mode,
-						branchPrefixCustom: input.customPrefix ?? null,
-					})
-					.onConflictDoUpdate({
-						target: settings.id,
-						set: {
-							branchPrefixMode: input.mode,
-							branchPrefixCustom: input.customPrefix ?? null,
-						},
-					})
-					.run();
-
-				return { success: true };
-			}),
-
-		getGitInfo: publicProcedure.query(async () => {
-			const githubUsername = await getGitHubUsername();
-			const authorName = await getGitAuthorName();
-			return {
-				githubUsername,
-				authorName,
-				authorPrefix: authorName?.toLowerCase().replace(/\s+/g, "-") ?? null,
-			};
-		}),
-
 		getDeleteLocalBranch: publicProcedure.query(() => {
 			const row = getSettings();
 			return row.deleteLocalBranch ?? false;
@@ -960,26 +915,6 @@ export const createSettingsRouter = () => {
 					.onConflictDoUpdate({
 						target: settings.id,
 						set: { showResourceMonitor: input.enabled },
-					})
-					.run();
-
-				return { success: true };
-			}),
-
-		getWorktreeBaseDir: publicProcedure.query(() => {
-			const row = getSettings();
-			return row.worktreeBaseDir ?? null;
-		}),
-
-		setWorktreeBaseDir: publicProcedure
-			.input(z.object({ path: z.string().nullable() }))
-			.mutation(({ input }) => {
-				localDb
-					.insert(settings)
-					.values({ id: 1, worktreeBaseDir: input.path })
-					.onConflictDoUpdate({
-						target: settings.id,
-						set: { worktreeBaseDir: input.path },
 					})
 					.run();
 

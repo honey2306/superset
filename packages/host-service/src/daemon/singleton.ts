@@ -71,23 +71,27 @@ export function startDaemonBootstrap(organizationId: string): void {
 	if (bootstrapPromise) return;
 	const sup = getSupervisor();
 	console.log(`[supervisor] kicking off bootstrap for org=${organizationId}`);
-	bootstrapPromise = sup
-		.ensure(organizationId)
-		.then((inst) => {
-			console.log(
-				`[supervisor] bootstrap OK for org=${organizationId} pid=${inst.pid} version=${inst.runningVersion}${inst.updatePending ? " (update pending)" : ""}`,
-			);
-			return inst;
-		})
-		.catch((err) => {
-			console.error(
-				`[supervisor] bootstrap failed for org=${organizationId}:`,
-				err,
-			);
-			// Reset so a future request can retry.
-			bootstrapPromise = null;
-			throw err;
-		});
+	const pending = sup.ensure(organizationId).then((inst) => {
+		console.log(
+			`[supervisor] bootstrap OK for org=${organizationId} pid=${inst.pid} version=${inst.runningVersion}${inst.updatePending ? " (update pending)" : ""}`,
+		);
+		return inst;
+	});
+	bootstrapPromise = pending;
+
+	// Fire-and-track must also be fire-and-handle: startup intentionally does
+	// not await this promise, so attach a rejection observer immediately. Keep
+	// the original rejecting promise for waitForDaemonReady() to surface, while
+	// the side branch prevents a failed early bootstrap becoming an unhandled
+	// process rejection. Identity-check before reset so a stale completion can
+	// never clear a newer bootstrap installed by a test reset or future teardown.
+	void pending.catch((err) => {
+		console.error(
+			`[supervisor] bootstrap failed for org=${organizationId}:`,
+			err,
+		);
+		if (bootstrapPromise === pending) bootstrapPromise = null;
+	});
 }
 
 /**

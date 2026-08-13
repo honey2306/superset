@@ -3,20 +3,19 @@ import { dirname, join } from "node:path";
 import type { Duplex } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
+import { mailboxId } from "@superset/session-protocol";
+import { getHostId } from "@superset/shared/host-info";
 import { createApp } from "./app";
+import { AutoMateRelay, AutoMateRelayTaskClient } from "./automate-relay";
 import { getSupervisor, startDaemonBootstrap } from "./daemon";
 import { env } from "./env";
-import {
-	ConfigFileSessionTokenSource,
-	JwtApiAuthProvider,
-} from "./providers/auth";
+import { installHostServiceShutdown } from "./graceful-shutdown";
 import { LocalGitCredentialProvider } from "./providers/git";
 import { PskHostAuthProvider } from "./providers/host-auth";
 import { LocalModelProvider } from "./providers/model-providers";
 import { installProcessSafetyNet } from "./safety";
 import { startTerminalBaseEnvResolution } from "./terminal/env";
 import { startTerminalReaper } from "./terminal/reaper";
-import { ensureHostAndConnectRelay } from "./tunnel";
 
 function resolveDefaultWebAppDir(): string | undefined {
 	try {
@@ -47,66 +46,28 @@ async function main(): Promise<void> {
 	// daemon takes time to come up or fails entirely.
 	startDaemonBootstrap(env.ORGANIZATION_ID);
 
-	const configTokenSource = env.SUPERSET_AUTH_CONFIG_PATH
-		? new ConfigFileSessionTokenSource({
-				configPath: env.SUPERSET_AUTH_CONFIG_PATH,
-				apiUrl: env.SUPERSET_API_URL,
-			})
-		: null;
-	const authProvider = new JwtApiAuthProvider({
-		getSessionToken: configTokenSource
-			? () => configTokenSource.getSessionToken()
-			: async () => env.AUTH_TOKEN,
-		onInvalidateCache: configTokenSource
-			? () => configTokenSource.invalidateCache()
-			: undefined,
-		apiUrl: env.SUPERSET_API_URL,
-	});
-
-	const { app, injectWebSocket, api, db } = createApp({
+	const relayMailboxId = env.AUTOMATE_RELAY_URL
+		? mailboxId(env.ORGANIZATION_ID, getHostId())
+		: undefined;
+	const { app, injectWebSocket, db, dispose } = createApp({
 		config: {
 			organizationId: env.ORGANIZATION_ID,
 			dbPath: env.HOST_DB_PATH,
-			cloudApiUrl: env.SUPERSET_API_URL,
 			migrationsFolder: env.HOST_MIGRATIONS_FOLDER,
 			allowedOrigins: env.CORS_ORIGINS ?? [],
 			webAppDir: env.SUPERSET_WEB_APP_DIR ?? resolveDefaultWebAppDir(),
+			relayMailboxId,
 		},
 		providers: {
-			auth: authProvider,
 			hostAuth: new PskHostAuthProvider(env.HOST_SERVICE_SECRET),
 			credentials: new LocalGitCredentialProvider(),
 			modelResolver: new LocalModelProvider(),
 		},
 	});
 
-	// Dev-mode shutdown: kill the daemon on host-service exit so dev
-	// iteration on daemon code resets cleanly. Production keeps the
-	// daemon detached so PTYs survive host-service restarts.
-	// Per the migration plan's D5 decision.
+	// Dev mode tears down the detached daemon for clean iteration. Production
+	// deliberately leaves it alive so PTYs survive host-service restarts.
 	const isDev = process.env.NODE_ENV === "development";
-	if (isDev) {
-		let shuttingDown = false;
-		const devShutdown = async (signal: NodeJS.Signals) => {
-			if (shuttingDown) return;
-			shuttingDown = true;
-			console.log(
-				`[host-service] dev-mode ${signal} — stopping pty-daemon for clean iteration`,
-			);
-			try {
-				await getSupervisor().stop(env.ORGANIZATION_ID);
-			} catch (err) {
-				console.error(
-					"[host-service] dev shutdown: supervisor.stop failed:",
-					err,
-				);
-			} finally {
-				process.exit(0);
-			}
-		};
-		process.on("SIGINT", () => void devShutdown("SIGINT"));
-		process.on("SIGTERM", () => void devShutdown("SIGTERM"));
-	}
 
 	const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
 		// Install only after the server is listening so startup throws still
@@ -115,23 +76,29 @@ async function main(): Promise<void> {
 		console.log(`[host-service] listening on http://localhost:${info.port}`);
 
 		startTerminalReaper(db);
-
-		if (env.ORGANIZATION_ID) {
-			void ensureHostAndConnectRelay({
-				api,
-				relayUrl: env.RELAY_URL,
-				localPort: info.port,
-				organizationId: env.ORGANIZATION_ID,
-				authProvider,
-				hostServiceSecret: env.HOST_SERVICE_SECRET,
-			});
-		}
+	});
+	const relay =
+		env.AUTOMATE_RELAY_URL && relayMailboxId
+			? new AutoMateRelay(relayMailboxId, {
+					client: new AutoMateRelayTaskClient(env.AUTOMATE_RELAY_URL),
+					fetch,
+					baseUrl: `http://127.0.0.1:${env.PORT}`,
+				})
+			: undefined;
+	relay?.start();
+	installHostServiceShutdown({
+		server,
+		disposeApp: dispose,
+		stopRelay: relay ? () => relay.stop() : undefined,
+		stopDevDaemon: isDev
+			? () => getSupervisor().stop(env.ORGANIZATION_ID)
+			: undefined,
 	});
 	// Node detaches its own socket error handler before emitting `upgrade`, while
 	// @hono/node-ws awaits app.request() before it adopts the socket. Keep a
 	// listener through that gap so a peer ECONNRESET cannot terminate the process.
 	server.on("upgrade", (request: IncomingMessage, socket: Duplex) => {
-		// Query strings can contain the host-service secret for relayed requests.
+		// ACP query strings can contain a phone-session bearer. Log only the path.
 		const requestPath = request.url?.split("?")[0] ?? "<unknown>";
 		socket.on("error", (error: NodeJS.ErrnoException) => {
 			console.warn(

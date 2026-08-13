@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from "@superset/ui/alert";
 import { Button } from "@superset/ui/button";
 import { Collapsible, CollapsibleContent } from "@superset/ui/collapsible";
+import { workspaceTrpc } from "@superset/workspace-client";
 import { useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuFileCode, LuLoader } from "react-icons/lu";
@@ -9,7 +10,10 @@ import { useTranslation } from "renderer/providers/I18nProvider";
 import { CodeEditor } from "renderer/screens/main/components/WorkspaceView/components/CodeEditor";
 import { FileSaveConflictDialog } from "renderer/screens/main/components/WorkspaceView/components/FileSaveConflictDialog";
 import { useChangesStore } from "renderer/stores/changes";
-import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
+import {
+	toAbsoluteWorkspacePath,
+	toRelativeWorkspacePath,
+} from "shared/absolute-paths";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { detectLanguage } from "shared/detect-language";
 import { isVideoFile } from "shared/file-types";
@@ -116,6 +120,17 @@ export function FileDiffSection({
 				? toAbsoluteWorkspacePath(worktreePath, file.oldPath)
 				: undefined,
 		[worktreePath, file.oldPath],
+	);
+	const relativePath = useMemo(
+		() => toRelativeWorkspacePath(worktreePath, absolutePath),
+		[worktreePath, absolutePath],
+	);
+	const oldRelativePath = useMemo(
+		() =>
+			oldAbsolutePath
+				? toRelativeWorkspacePath(worktreePath, oldAbsolutePath)
+				: undefined,
+		[worktreePath, oldAbsolutePath],
 	);
 
 	const { isEditing, editable, isSaving, toggleEdit, handleSave } =
@@ -258,35 +273,41 @@ export function FileDiffSection({
 	const isUnstaged = category === "unstaged";
 
 	const { data: gitDiffData, isLoading: isLoadingGitDiff } =
-		electronTrpc.changes.getGitFileContents.useQuery(
+		workspaceTrpc.git.getDiff.useQuery(
 			{
-				worktreePath,
-				absolutePath,
-				oldAbsolutePath: oldAbsolutePath,
-				category:
-					(category as "against-base" | "committed" | "staged") ?? "staged",
+				workspaceId: workspaceId ?? "",
+				path: relativePath,
+				oldPath: oldRelativePath,
+				category: category === "committed" ? "commit" : category,
 				commitHash,
-				defaultBranch: category === "against-base" ? baseBranch : undefined,
+				baseBranch: category === "against-base" ? baseBranch : undefined,
 			},
 			{
-				enabled: !isUnstaged && shouldLoadDiff,
+				enabled: !isUnstaged && shouldLoadDiff && !!workspaceId,
+				select: (data) => ({
+					original: data.oldFile.contents,
+					modified: data.newFile.contents,
+					language: detectLanguage(file.path),
+				}),
 			},
 		);
 
 	const { data: gitOriginal, isLoading: isLoadingGitOriginal } =
-		electronTrpc.changes.getGitOriginalContent.useQuery(
+		workspaceTrpc.git.getDiff.useQuery(
 			{
-				worktreePath,
-				absolutePath,
-				oldAbsolutePath: oldAbsolutePath,
+				workspaceId: workspaceId ?? "",
+				path: relativePath,
+				oldPath: oldRelativePath,
+				category: "unstaged",
 			},
 			{
-				enabled: isUnstaged && shouldLoadDiff,
+				enabled: isUnstaged && shouldLoadDiff && !!workspaceId,
+				select: (data) => data.oldFile,
 			},
 		);
 
 	const { data: workingCopy, isLoading: isLoadingWorkingCopy } =
-		electronTrpc.filesystem.readFile.useQuery(
+		workspaceTrpc.filesystem.readFile.useQuery(
 			{
 				workspaceId: workspaceId ?? "",
 				absolutePath,
@@ -310,7 +331,7 @@ export function FileDiffSection({
 				}
 			}
 			return {
-				original: gitOriginal.content,
+				original: gitOriginal.contents,
 				modified: modifiedContent,
 				language: detectLanguage(file.path),
 			};
@@ -410,7 +431,7 @@ export function FileDiffSection({
 			className="flex items-center justify-center text-xs text-fg-mute bg-background"
 			style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 		>
-			{t("v1Changes.diffPreviewLoads")}
+			{t("changes.diffPreviewLoads")}
 		</div>
 	);
 
@@ -420,9 +441,9 @@ export function FileDiffSection({
 			style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 		>
 			<span className="select-text cursor-text">
-				{t("v1Changes.binaryFileCannotDisplay")}
+				{t("changes.binaryFileCannotDisplay")}
 			</span>
-			<span className="max-w-md text-xs">{t("v1Changes.useFileHeader")}</span>
+			<span className="max-w-md text-xs">{t("changes.useFileHeader")}</span>
 		</div>
 	);
 
@@ -461,8 +482,8 @@ export function FileDiffSection({
 							<LuFileCode className="w-8 h-8" />
 							<p className="text-sm">
 								{isGenerated
-									? t("v1Changes.generatedFileHidden")
-									: t("v1Changes.largeDiffHidden", {
+									? t("changes.generatedFileHidden")
+									: t("changes.largeDiffHidden", {
 											count: totalChanges.toLocaleString(),
 										})}
 							</p>
@@ -471,7 +492,7 @@ export function FileDiffSection({
 								size="sm"
 								onClick={() => setLoadHiddenDiff(true)}
 							>
-								{t("v1Changes.loadDiff")}
+								{t("changes.loadDiff")}
 							</Button>
 						</div>
 					) : isLoadingDiff ? (
@@ -480,7 +501,7 @@ export function FileDiffSection({
 							style={{ minHeight: FILE_DIFF_SECTION_PLACEHOLDER_HEIGHT }}
 						>
 							<LuLoader className="w-4 h-4 animate-spin mr-2" />
-							<span>{t("v1Changes.loadingDiff")}</span>
+							<span>{t("changes.loadingDiff")}</span>
 						</div>
 					) : hasRenderedDiff ? (
 						isEditing ? (
@@ -488,18 +509,16 @@ export function FileDiffSection({
 								{hasExternalDiskChange && (
 									<div className="border-b px-3 py-2">
 										<Alert variant="destructive">
-											<AlertTitle>
-												{t("v1Changes.fileChangedOnDisk")}
-											</AlertTitle>
+											<AlertTitle>{t("changes.fileChangedOnDisk")}</AlertTitle>
 											<AlertDescription>
-												{t("v1Changes.fileChangedOnDiskDesc")}
+												{t("changes.fileChangedOnDiskDesc")}
 												<div className="mt-2 flex gap-2">
 													<Button
 														size="sm"
 														variant="outline"
 														onClick={handleReloadFromDisk}
 													>
-														{t("v1Changes.reloadFromDisk")}
+														{t("changes.reloadFromDisk")}
 													</Button>
 													<Button
 														size="sm"
@@ -511,7 +530,7 @@ export function FileDiffSection({
 															});
 														}}
 													>
-														{t("v1Changes.reviewDiff")}
+														{t("changes.reviewDiff")}
 													</Button>
 												</div>
 											</AlertDescription>
@@ -549,10 +568,10 @@ export function FileDiffSection({
 							{diffData ? (
 								<>
 									<LuLoader className="w-4 h-4 animate-spin mr-2" />
-									<span>{t("v1Changes.loadingEditor")}</span>
+									<span>{t("changes.loadingEditor")}</span>
 								</>
 							) : (
-								t("v1Changes.unableToLoadDiff")
+								t("changes.unableToLoadDiff")
 							)}
 						</div>
 					)}

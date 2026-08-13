@@ -150,12 +150,7 @@ describe("bug-hunt-2: partial-failure consistency", () => {
 
 	test("workspace.delete with a worktree dir already removed manually still cleans up the row", async () => {
 		const workspaceId = randomUUID();
-		host = await createTestHost({
-			apiOverrides: {
-				"v2Workspace.getFromHost.query": () => ({ type: "feature" }),
-				"v2Workspace.delete.mutate": () => ({ success: true }),
-			},
-		});
+		host = await createTestHost();
 		host.db
 			.insert(projects)
 			.values({ id: projectId, repoPath: repo.repoPath })
@@ -187,12 +182,7 @@ describe("bug-hunt-2: partial-failure consistency", () => {
 
 	test("workspaceCleanup.destroy succeeds even if the worktree dir was deleted manually", async () => {
 		const workspaceId = randomUUID();
-		host = await createTestHost({
-			apiOverrides: {
-				"v2Workspace.getFromHost.query": () => ({ type: "feature" }),
-				"v2Workspace.delete.mutate": () => ({ success: true }),
-			},
-		});
+		host = await createTestHost();
 		host.db
 			.insert(projects)
 			.values({ id: projectId, repoPath: repo.repoPath })
@@ -266,12 +256,12 @@ describe("bug-hunt-2: input edges", () => {
 		expect(result.baseBranch).toBeNull();
 	});
 
-	test("notifications.hook with eventType only returns ignored without DB lookup", async () => {
-		// Even with a known event type, missing terminalId short-circuits.
-		const result = await host.unauthenticatedTrpc.notifications.hook.mutate({
-			eventType: "Stop",
-		});
-		expect(result).toEqual({ success: true, ignored: true });
+	test("notifications.hook rejects requests without a terminal capability", async () => {
+		await expect(
+			host.unauthenticatedTrpc.notifications.hook.mutate({
+				eventType: "Stop",
+			}),
+		).rejects.toMatchObject({ data: { code: "UNAUTHORIZED" } });
 	});
 
 	test("filesystem.searchFiles with whitespace-only query returns no matches without scanning", async () => {

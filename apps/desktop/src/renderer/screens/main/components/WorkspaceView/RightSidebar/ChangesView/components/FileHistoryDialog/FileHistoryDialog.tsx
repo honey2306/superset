@@ -6,8 +6,11 @@ import {
 	DialogTitle,
 } from "@superset/ui/dialog";
 import { cn } from "@superset/ui/utils";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "@tanstack/react-router";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import { formatRelativeDate } from "../../utils";
 
 interface FileHistoryDialogProps {
@@ -28,10 +31,24 @@ export function FileHistoryDialog({
 	selectedCommitHash,
 }: FileHistoryDialogProps) {
 	const { t } = useTranslation();
-	const { data, isLoading } = electronTrpc.changes.getFileHistory.useQuery(
-		{ worktreePath, filePath, limit: 100 },
-		{ enabled: open && !!worktreePath && !!filePath },
-	);
+	const { workspaceId } = useParams({ strict: false });
+	const { activeHostUrl } = useLocalHostService();
+	const { data, isLoading } = useQuery({
+		queryKey: ["git-file-history", activeHostUrl, workspaceId, filePath, 100],
+		enabled: Boolean(
+			open && activeHostUrl && workspaceId && worktreePath && filePath,
+		),
+		queryFn: () => {
+			if (!activeHostUrl || !workspaceId) {
+				throw new Error("Workspace host is unavailable");
+			}
+			return getHostServiceClientByUrl(activeHostUrl).git.getFileHistory.query({
+				workspaceId,
+				filePath,
+				limit: 100,
+			});
+		},
+	});
 
 	const commits = data ?? [];
 
@@ -40,17 +57,17 @@ export function FileHistoryDialog({
 			<DialogContent className="max-w-[560px] gap-0 p-0">
 				<DialogHeader className="px-4 pt-4 pb-2">
 					<DialogTitle className="font-medium text-sm">
-						{t("v1Changes.fileHistory.title", { file: filePath })}
+						{t("changes.fileHistory.title", { file: filePath })}
 					</DialogTitle>
 				</DialogHeader>
 				<div className="max-h-[420px] min-h-[240px] overflow-y-auto border-t">
 					{isLoading && commits.length === 0 ? (
 						<div className="flex h-40 items-center justify-center text-xs text-fg-mute">
-							{t("v1Changes.fileHistory.loading")}
+							{t("changes.fileHistory.loading")}
 						</div>
 					) : commits.length === 0 ? (
 						<div className="flex h-40 items-center justify-center text-xs text-fg-mute">
-							{t("v1Changes.fileHistory.empty")}
+							{t("changes.fileHistory.empty")}
 						</div>
 					) : (
 						<div>
@@ -96,7 +113,7 @@ export function FileHistoryDialog({
 						className="h-7 px-3 text-xs"
 						onClick={() => onOpenChange(false)}
 					>
-						{t("v1Changes.fileHistory.close")}
+						{t("changes.fileHistory.close")}
 					</Button>
 				</div>
 			</DialogContent>

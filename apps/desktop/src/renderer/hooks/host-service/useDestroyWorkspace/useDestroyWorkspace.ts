@@ -5,7 +5,7 @@ import type {
 import { TRPCClientError } from "@trpc/client";
 import { useCallback } from "react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import {
 	useWorkspaceHostTarget,
 	type WorkspaceHostTarget,
@@ -20,7 +20,6 @@ export interface DestroyWorkspaceSuccess {
 	success: boolean;
 	worktreeRemoved: boolean;
 	branchDeleted: boolean;
-	cloudDeleted: boolean;
 	warnings: string[];
 }
 

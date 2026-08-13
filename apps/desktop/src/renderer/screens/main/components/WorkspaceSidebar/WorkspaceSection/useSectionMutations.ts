@@ -1,5 +1,5 @@
 import { toast } from "@superset/ui/sonner";
-import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
 import { PROJECT_COLOR_DEFAULT } from "shared/constants/project-colors";
 
 export function useSectionMutations(sectionId: string) {

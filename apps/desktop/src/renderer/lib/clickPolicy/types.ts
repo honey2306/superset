@@ -3,7 +3,7 @@ import type {
 	LinkAction,
 	LinkTier,
 	LinkTierMap,
-} from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal/schema";
+} from "renderer/routes/_local/providers/LocalProductStateProvider/dashboardSidebarLocal/schema";
 
 export type { LinkAction, LinkTier, LinkTierMap };
 

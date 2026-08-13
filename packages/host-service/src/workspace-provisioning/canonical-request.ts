@@ -228,7 +228,8 @@ export class ProvisioningInputError extends Error {
 		public readonly code:
 			| "INVALID_SOURCE"
 			| "IDEMPOTENCY_CONFLICT"
-			| "RESOURCE_BUSY",
+			| "RESOURCE_BUSY"
+			| "TOO_LATE_TO_CANCEL",
 		message: string,
 	) {
 		super(message);

@@ -1,4 +1,4 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import { toast } from "@superset/ui/sonner";
 import { useCallback } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
@@ -27,14 +27,14 @@ export function usePathActions({
 	const openInFinderMutation = electronTrpc.external.openInFinder.useMutation();
 	const openInAppMutation = electronTrpc.external.openInApp.useMutation({
 		onError: (error) =>
-			toast.error(t("v1Changes.pathActions.openInAppFailed"), {
+			toast.error(t("changes.pathActions.openInAppFailed"), {
 				description: error.message,
 			}),
 	});
 	const openFileInEditorMutation =
 		electronTrpc.external.openFileInEditor.useMutation({
 			onError: (error) =>
-				toast.error(t("v1Changes.pathActions.openInEditorFailed"), {
+				toast.error(t("changes.pathActions.openInEditorFailed"), {
 					description: error.message,
 				}),
 		});
@@ -71,15 +71,15 @@ export function usePathActions({
 		} else {
 			// Avoid opening with an incorrect fallback before upstream default app query resolves.
 			if (defaultApp === undefined) {
-				toast.error(t("v1Changes.pathActions.editorPrefLoading"), {
-					description: t("v1Changes.pathActions.editorPrefLoadingDesc"),
+				toast.error(t("changes.pathActions.editorPrefLoading"), {
+					description: t("changes.pathActions.editorPrefLoadingDesc"),
 				});
 				return;
 			}
 
 			if (!defaultApp) {
-				toast.error(t("v1Changes.pathActions.noDefaultEditor"), {
-					description: t("v1Changes.pathActions.noDefaultEditorDesc"),
+				toast.error(t("changes.pathActions.noDefaultEditor"), {
+					description: t("changes.pathActions.noDefaultEditorDesc"),
 				});
 				return;
 			}

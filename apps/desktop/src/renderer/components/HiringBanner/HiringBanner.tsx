@@ -8,11 +8,10 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useHiringBannerStore } from "renderer/stores/hiring-banner";
 
 interface HiringBannerProps {
-	surface: "v1" | "v2";
 	isCollapsed?: boolean;
 }
 
-export function HiringBanner({ surface, isCollapsed }: HiringBannerProps) {
+export function HiringBanner({ isCollapsed }: HiringBannerProps) {
 	const isEnabled = useFeatureFlagEnabled(FEATURE_FLAGS.HIRING_BANNER);
 	const dismissed = useHiringBannerStore((s) => s.dismissed);
 	const dismiss = useHiringBannerStore((s) => s.dismiss);
@@ -21,8 +20,8 @@ export function HiringBanner({ surface, isCollapsed }: HiringBannerProps) {
 
 	useEffect(() => {
 		if (!isVisible) return;
-		track("hiring_banner_shown", { surface });
-	}, [isVisible, surface]);
+		track("hiring_banner_shown");
+	}, [isVisible]);
 
 	function handleViewRoles() {
 		track("hiring_banner_clicked");

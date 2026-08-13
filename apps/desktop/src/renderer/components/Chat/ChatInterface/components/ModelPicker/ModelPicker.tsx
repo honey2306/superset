@@ -1,4 +1,3 @@
-import { chatServiceTrpc } from "@superset/chat/client";
 import {
 	ModelSelector,
 	ModelSelectorContent,
@@ -13,6 +12,7 @@ import { claudeIcon } from "@superset/ui/icons/preset-icons";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronDownIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
+import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { PILL_BUTTON_CLASS } from "../../styles";
 import type { ModelOption } from "../../types";
@@ -45,9 +45,9 @@ export function ModelPicker({
 		? providerToLogo(selectedModel.provider)
 		: null;
 	const { data: anthropicStatus, refetch: refetchAnthropicStatus } =
-		chatServiceTrpc.auth.getAnthropicStatus.useQuery();
+		hostServiceTrpc.auth.getAnthropicStatus.useQuery();
 	const { data: openAIStatus, refetch: refetchOpenAIStatus } =
-		chatServiceTrpc.auth.getOpenAIStatus.useQuery();
+		hostServiceTrpc.auth.getOpenAIStatus.useQuery();
 
 	useEffect(() => {
 		if (!open) return;

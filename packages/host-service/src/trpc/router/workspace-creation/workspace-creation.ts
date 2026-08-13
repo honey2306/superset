@@ -1,6 +1,5 @@
 import { router } from "../../index";
 import {
-	listProjectWorktrees,
 	searchBranches,
 	searchGitHubIssues,
 	searchPullRequests,
@@ -8,7 +7,6 @@ import {
 
 export const workspaceCreationRouter = router({
 	searchBranches,
-	listProjectWorktrees,
 	searchGitHubIssues,
 	searchPullRequests,
 });

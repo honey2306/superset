@@ -4,5 +4,6 @@ export type * from "./acp";
 export * from "./api";
 export type * from "./envelope";
 export * from "./fold";
+export * from "./relay";
 export * from "./state";
 export * from "./superset-tools";

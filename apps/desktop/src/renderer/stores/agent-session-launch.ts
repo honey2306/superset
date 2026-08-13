@@ -1,5 +1,5 @@
-import type { TerminalPreset } from "@superset/local-db";
 import type { AgentLaunchRequest } from "@superset/shared/agent-launch";
+import type { TerminalPreset } from "@superset/shared/desktop-types";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 

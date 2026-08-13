@@ -1,5 +1,5 @@
+import { workspaceTrpc } from "@superset/workspace-client";
 import { useCallback, useState } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import type { ChangeCategory } from "shared/changes-types";
 import { isDiffEditable } from "shared/changes-types";
 
@@ -19,8 +19,8 @@ export function useFileDiffEdit({
 	const [isEditing, setIsEditing] = useState(false);
 	const editable = isDiffEditable(category);
 
-	const utils = electronTrpc.useUtils();
-	const writeFileMutation = electronTrpc.filesystem.writeFile.useMutation();
+	const hostUtils = workspaceTrpc.useUtils();
+	const writeFileMutation = workspaceTrpc.filesystem.writeFile.useMutation();
 
 	const handleSave = useCallback(
 		async (
@@ -32,7 +32,7 @@ export function useFileDiffEdit({
 			// Diff edits don't track revisions, so compare content directly
 			if (!options?.force && options?.expectedContent !== undefined) {
 				try {
-					const current = await utils.filesystem.readFile.fetch({
+					const current = await hostUtils.filesystem.readFile.fetch({
 						workspaceId,
 						absolutePath,
 						encoding: "utf-8",
@@ -56,10 +56,8 @@ export function useFileDiffEdit({
 			});
 
 			if (result.ok) {
-				utils.changes.getGitFileContents.invalidate();
-				utils.changes.getGitOriginalContent.invalidate();
-				utils.changes.getStatus.invalidate();
-				void utils.filesystem.readFile.invalidate({
+				void hostUtils.git.getDiff.invalidate({ workspaceId });
+				void hostUtils.filesystem.readFile.invalidate({
 					workspaceId,
 					absolutePath,
 				});
@@ -68,7 +66,7 @@ export function useFileDiffEdit({
 
 			return undefined;
 		},
-		[absolutePath, workspaceId, writeFileMutation, utils],
+		[absolutePath, hostUtils, workspaceId, writeFileMutation],
 	);
 
 	const toggleEdit = editable ? () => setIsEditing((prev) => !prev) : undefined;

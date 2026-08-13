@@ -7,7 +7,6 @@ import type { RecentFile } from "renderer/lib/files/recently-viewed-files";
 import { RECENT_DISPLAY_LIMIT } from "renderer/lib/files/recently-viewed-files";
 import { useFileSearch } from "renderer/screens/main/components/WorkspaceView/RightSidebar/FilesView/hooks/useFileSearch/useFileSearch";
 import { FileResultItem } from "./components/FileResultItem";
-import { useV2FileSearch } from "./hooks/useV2FileSearch";
 
 // 48px input + 10 * 40px items
 const MAX_DIALOG_HEIGHT = 448;
@@ -18,7 +17,6 @@ export interface CommandPaletteProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onSelectFile: (filePath: string) => void;
-	variant?: "v1" | "v2";
 	recentlyViewedFiles?: RecentFile[];
 	openFilePaths?: Set<string>;
 }
@@ -33,7 +31,6 @@ export function CommandPalette({
 	open,
 	onOpenChange,
 	onSelectFile,
-	variant = "v1",
 	recentlyViewedFiles,
 	openFilePaths,
 }: CommandPaletteProps) {
@@ -43,24 +40,17 @@ export function CommandPalette({
 	const [excludePattern, setExcludePattern] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	const v1Search = useFileSearch({
-		workspaceId: variant === "v1" && open ? workspaceId : undefined,
-		searchTerm: variant === "v1" ? query : "",
-		includePattern: variant === "v1" ? includePattern : "",
-		excludePattern: variant === "v1" ? excludePattern : "",
+	const { searchResults: rawResults } = useFileSearch({
+		workspaceId: open ? workspaceId : undefined,
+		searchTerm: query,
+		includePattern,
+		excludePattern,
 		limit: SEARCH_LIMIT,
 	});
 
-	const v2Search = useV2FileSearch(
-		variant === "v2" && open ? workspaceId : undefined,
-		variant === "v2" ? query : "",
-	);
-
-	const rawResults =
-		variant === "v2" ? v2Search.results : v1Search.searchResults;
 	const trimmedQuery = query.trim();
 	const hasQuery = trimmedQuery.length > 0;
-	const showRecentSection = variant === "v2" && Boolean(recentlyViewedFiles);
+	const showRecentSection = Boolean(recentlyViewedFiles);
 
 	const orderedRecent = useMemo<RecentFile[]>(() => {
 		if (!showRecentSection || !recentlyViewedFiles) return [];
@@ -150,23 +140,21 @@ export function CommandPalette({
 								onValueChange={setQuery}
 								className="flex h-12 w-full bg-transparent text-sm outline-none placeholder:text-fg-mute"
 							/>
-							{variant === "v1" && (
-								<button
-									type="button"
-									className="shrink-0 rounded p-1 text-fg-mute hover:text-fg"
-									onClick={() => setFiltersOpen((v) => !v)}
-									aria-label={filtersOpen ? "Hide Filters" : "Show Filters"}
-								>
-									{filtersOpen ? (
-										<LuChevronDown className="size-4" />
-									) : (
-										<LuChevronRight className="size-4" />
-									)}
-								</button>
-							)}
+							<button
+								type="button"
+								className="shrink-0 rounded p-1 text-fg-mute hover:text-fg"
+								onClick={() => setFiltersOpen((v) => !v)}
+								aria-label={filtersOpen ? "Hide Filters" : "Show Filters"}
+							>
+								{filtersOpen ? (
+									<LuChevronDown className="size-4" />
+								) : (
+									<LuChevronRight className="size-4" />
+								)}
+							</button>
 						</div>
 
-						{variant === "v1" && filtersOpen && (
+						{filtersOpen && (
 							<div className="grid grid-cols-2 gap-2 border-b px-3 py-2">
 								<input
 									value={includePattern}

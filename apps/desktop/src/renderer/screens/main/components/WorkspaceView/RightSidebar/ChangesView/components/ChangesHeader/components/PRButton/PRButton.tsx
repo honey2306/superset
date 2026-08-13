@@ -1,4 +1,4 @@
-import type { GitHubStatus } from "@superset/local-db";
+import type { GitHubStatus } from "@superset/shared/desktop-types";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -8,15 +8,17 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
+import { useMutation } from "@tanstack/react-query";
 import {
 	VscChevronDown,
 	VscGitMerge,
 	VscGitPullRequest,
 	VscLoading,
 } from "react-icons/vsc";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import type { MessageKey } from "renderer/providers/I18nProvider";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import { PRIcon } from "renderer/screens/main/components/PRIcon";
 import { useCreateOrOpenPR } from "renderer/screens/main/hooks";
 
@@ -25,6 +27,7 @@ interface PRButtonProps {
 	isLoading: boolean;
 	canCreatePR: boolean;
 	createPRBlockedReason: MessageKey | null;
+	workspaceId: string;
 	worktreePath: string;
 	onRefresh: () => void;
 }
@@ -34,22 +37,38 @@ export function PRButton({
 	isLoading,
 	canCreatePR,
 	createPRBlockedReason,
-	worktreePath,
+	workspaceId,
 	onRefresh,
 }: PRButtonProps) {
 	const { t } = useTranslation();
-	const mergePRMutation = electronTrpc.changes.mergePR.useMutation({
+	const { activeHostUrl } = useLocalHostService();
+	const mergePRMutation = useMutation({
+		mutationFn: (strategy: "merge" | "squash" | "rebase") => {
+			if (!activeHostUrl || !pr) {
+				throw new Error("Workspace host is unavailable");
+			}
+			const match = new URL(pr.url).pathname.match(
+				/^\/([^/]+)\/([^/]+)\/pull\/(\d+)/,
+			);
+			if (!match) throw new Error("Invalid pull request URL");
+			return getHostServiceClientByUrl(activeHostUrl).github.mergePR.mutate({
+				owner: match[1] ?? "",
+				repo: match[2] ?? "",
+				pullNumber: Number(match[3]),
+				mergeMethod: strategy,
+			});
+		},
 		onMutate: () => {
-			const toastId = toast.loading(t("v1Changes.pr.mergingToast"));
+			const toastId = toast.loading(t("changes.pr.mergingToast"));
 			return { toastId };
 		},
 		onSuccess: (_data, _variables, context) => {
-			toast.success(t("v1Changes.pr.mergedToast"), { id: context?.toastId });
+			toast.success(t("changes.pr.mergedToast"), { id: context?.toastId });
 			onRefresh();
 		},
 		onError: (error, _variables, context) =>
 			toast.error(
-				t("v1Changes.pr.mergeFailedToast", { message: error.message }),
+				t("changes.pr.mergeFailedToast", { message: error.message }),
 				{
 					id: context?.toastId,
 				},
@@ -58,7 +77,7 @@ export function PRButton({
 
 	const { createOrOpenPR, isPending: isCreateOrOpenPRPending } =
 		useCreateOrOpenPR({
-			worktreePath,
+			workspaceId,
 			onSuccess: onRefresh,
 		});
 
@@ -67,7 +86,7 @@ export function PRButton({
 	const handleCreatePR = () => createOrOpenPR();
 
 	const handleMergePR = (strategy: "merge" | "squash" | "rebase") =>
-		mergePRMutation.mutate({ worktreePath, strategy });
+		mergePRMutation.mutate(strategy);
 
 	if (isLoading) {
 		return <VscLoading className="w-4 h-4 animate-spin text-fg-mute" />;
@@ -85,7 +104,7 @@ export function PRButton({
 					<TooltipContent side="top">
 						{createPRBlockedReason
 							? t(createPRBlockedReason)
-							: t("v1Changes.pr.createPRUnavailable")}
+							: t("changes.pr.createPRUnavailable")}
 					</TooltipContent>
 				</Tooltip>
 			);
@@ -107,7 +126,7 @@ export function PRButton({
 						)}
 					</button>
 				</TooltipTrigger>
-				<TooltipContent side="top">{t("v1Changes.pr.createPR")}</TooltipContent>
+				<TooltipContent side="top">{t("changes.pr.createPR")}</TooltipContent>
 			</Tooltip>
 		);
 	}
@@ -151,8 +170,8 @@ export function PRButton({
 						disabled={mergePRMutation.isPending}
 						aria-label={
 							mergePRMutation.isPending
-								? t("v1Changes.pr.mergingAria")
-								: t("v1Changes.pr.openMergeOptions")
+								? t("changes.pr.mergingAria")
+								: t("changes.pr.openMergeOptions")
 						}
 					>
 						{mergePRMutation.isPending ? (
@@ -164,7 +183,7 @@ export function PRButton({
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-44">
 					<DropdownMenuLabel className="text-xs text-fg-mute font-normal">
-						{t("v1Changes.pr.mergeLabel")}
+						{t("changes.pr.mergeLabel")}
 					</DropdownMenuLabel>
 					<DropdownMenuItem
 						onClick={() => handleMergePR("squash")}
@@ -172,7 +191,7 @@ export function PRButton({
 						disabled={mergePRMutation.isPending}
 					>
 						<VscGitMerge className="size-3.5" />
-						{t("v1Changes.pr.squashAndMerge")}
+						{t("changes.pr.squashAndMerge")}
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						onClick={() => handleMergePR("merge")}
@@ -180,7 +199,7 @@ export function PRButton({
 						disabled={mergePRMutation.isPending}
 					>
 						<VscGitMerge className="size-3.5" />
-						{t("v1Changes.pr.createMergeCommit")}
+						{t("changes.pr.createMergeCommit")}
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						onClick={() => handleMergePR("rebase")}
@@ -188,7 +207,7 @@ export function PRButton({
 						disabled={mergePRMutation.isPending}
 					>
 						<VscGitMerge className="size-3.5" />
-						{t("v1Changes.pr.rebaseAndMerge")}
+						{t("changes.pr.rebaseAndMerge")}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>

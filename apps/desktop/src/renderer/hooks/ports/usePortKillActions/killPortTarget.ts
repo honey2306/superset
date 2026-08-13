@@ -5,17 +5,11 @@ export type PortKillResult = { success: boolean; error?: string };
 export interface PortKillTarget {
 	workspaceId: string;
 	/** Backend workspace id when the visible workspace uses a different id. */
-	killWorkspaceId?: string;
+	killWorkspaceId: string;
 	terminalId: string;
 	port: number;
-	hostUrl?: string | null;
+	hostUrl: string;
 }
-
-export type LocalPortKill = (input: {
-	workspaceId: string;
-	terminalId: string;
-	port: number;
-}) => Promise<PortKillResult>;
 
 function toErrorMessage(error: unknown): string {
 	if (error instanceof Error) return error.message;
@@ -24,29 +18,13 @@ function toErrorMessage(error: unknown): string {
 
 export async function killPortTarget(
 	target: PortKillTarget,
-	localKill?: LocalPortKill,
 ): Promise<PortKillResult> {
-	const payload = {
-		workspaceId: target.killWorkspaceId ?? target.workspaceId,
-		terminalId: target.terminalId,
-		port: target.port,
-	};
-
 	try {
-		if (target.hostUrl) {
-			return await getHostServiceClientByUrl(target.hostUrl).ports.kill.mutate(
-				payload,
-			);
-		}
-
-		if (!localKill) {
-			return {
-				success: false,
-				error: "No host is available for this port",
-			};
-		}
-
-		return await localKill(payload);
+		return await getHostServiceClientByUrl(target.hostUrl).ports.kill.mutate({
+			workspaceId: target.killWorkspaceId,
+			terminalId: target.terminalId,
+			port: target.port,
+		});
 	} catch (error) {
 		return { success: false, error: toErrorMessage(error) };
 	}

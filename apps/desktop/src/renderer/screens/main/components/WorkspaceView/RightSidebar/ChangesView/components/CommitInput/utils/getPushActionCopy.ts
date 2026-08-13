@@ -1,4 +1,4 @@
-import type { GitHubStatus } from "@superset/local-db";
+import type { GitHubStatus } from "@superset/shared/desktop-types";
 import type { MessageKey } from "renderer/providers/I18nProvider";
 
 type PushActionPullRequest = Pick<
@@ -37,12 +37,12 @@ export function getPushActionCopy({
 	const pullRequestTarget = formatPullRequestPushTarget(pullRequest);
 	if (pullRequestTarget) {
 		return {
-			labelKey: "v1Changes.push.toPR",
-			menuLabelKey: "v1Changes.push.toPR",
+			labelKey: "changes.push.toPR",
+			menuLabelKey: "changes.push.toPR",
 			tooltipKey:
 				pushCount > 0
-					? "v1Changes.push.pushCommitsTooltip"
-					: "v1Changes.push.pushChangesTooltip",
+					? "changes.push.pushCommitsTooltip"
+					: "changes.push.pushChangesTooltip",
 			tooltipValues: {
 				count: pushCount,
 				target: pullRequestTarget,
@@ -52,19 +52,19 @@ export function getPushActionCopy({
 
 	if (!hasUpstream) {
 		return {
-			labelKey: "v1Changes.push.publishBranch",
-			menuLabelKey: "v1Changes.push.publishBranch",
-			tooltipKey: "v1Changes.push.publishBranchTooltip",
+			labelKey: "changes.push.publishBranch",
+			menuLabelKey: "changes.push.publishBranch",
+			tooltipKey: "changes.push.publishBranchTooltip",
 		};
 	}
 
 	return {
-		labelKey: "v1Changes.push.push",
-		menuLabelKey: "v1Changes.push.push",
+		labelKey: "changes.push.push",
+		menuLabelKey: "changes.push.push",
 		tooltipKey:
 			pushCount > 0
-				? "v1Changes.push.pushCommits"
-				: "v1Changes.push.pushBranchChanges",
+				? "changes.push.pushCommits"
+				: "changes.push.pushBranchChanges",
 		tooltipValues: pushCount > 0 ? { count: pushCount } : undefined,
 	};
 }

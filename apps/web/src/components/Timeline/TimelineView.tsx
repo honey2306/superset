@@ -9,7 +9,7 @@ interface Props {
 export function TimelineView({ timeline }: Props) {
 	if (timeline.items.length === 0) {
 		return (
-			<div className="mt-16 text-center text-sm text-white/40">
+			<div className="mobile-caption-text mt-16 text-center text-sm">
 				Send a message to begin.
 			</div>
 		);
@@ -42,8 +42,8 @@ function renderItem(item: TimelineItem) {
 			return <ToolCallRow item={item} />;
 		case "plan":
 			return (
-				<div className="rounded-lg bg-white/5 p-3 text-xs text-white/70 ring-1 ring-white/10">
-					<div className="mb-1 text-white/50">Plan</div>
+				<div className="mobile-timeline-card rounded-lg p-3 text-xs">
+					<div className="mobile-caption-text mb-1">Plan</div>
 					<ul className="flex flex-col gap-1">
 						{item.entries.map((e) => (
 							<li key={e.content}>

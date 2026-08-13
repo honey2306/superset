@@ -1,6 +1,13 @@
 export { useEventBus } from "./hooks/useEventBus";
 export { useGitChangeEvents } from "./hooks/useGitChangeEvents";
 export {
+	createDirectSocket,
+	type DirectSocket,
+	type DirectSocketOptions,
+	type DirectSocketTelemetryEvent,
+	setDirectSocketTelemetry,
+} from "./lib/directSocket";
+export {
 	type AgentIdentity,
 	type AgentLifecyclePayload,
 	type CatalogChangedPayload,
@@ -15,17 +22,6 @@ export {
 	type WorkspaceOperationChangedPayload,
 	type WorkspaceSnapshotPayload,
 } from "./lib/eventBus";
-export {
-	primeRelayAffinity,
-	type RelayAffinityProbe,
-} from "./lib/primeRelayAffinity";
-export {
-	createRelaySocket,
-	type RelaySocket,
-	type RelaySocketOptions,
-	type RelaySocketTelemetryEvent,
-	setRelaySocketTelemetry,
-} from "./lib/relaySocket";
 export {
 	createInMemoryProvisioningAdapter,
 	createTrpcProvisioningAdapter,

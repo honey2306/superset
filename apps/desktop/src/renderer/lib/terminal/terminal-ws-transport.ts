@@ -1,10 +1,8 @@
-import type { RelayAffinityProbe } from "@superset/workspace-client";
 import {
-	createRelaySocket,
-	type RelaySocket,
-} from "@superset/workspace-client/relay-socket";
+	createDirectSocket,
+	type DirectSocket,
+} from "@superset/workspace-client/direct-socket";
 import type { Terminal as XTerm } from "@xterm/xterm";
-import { ensureFreshJwt } from "renderer/lib/auth-client";
 import { posthog } from "renderer/lib/posthog";
 import {
 	classifyTerminalFailure,
@@ -58,7 +56,7 @@ export interface TerminalTransport {
 	logListeners: Set<() => void>;
 	/**
 	 * Why the connection is down, once it has failed enough consecutive attempts
-	 * to be worth surfacing (or access was denied / the session ended). Null
+	 * to be worth surfacing (or the session ended). Null
 	 * while healthy or within the transient-blip window. Drives the pane header
 	 * status indicator.
 	 */
@@ -66,10 +64,10 @@ export interface TerminalTransport {
 	sessionEnded: boolean;
 	_onSessionEnded: (() => void) | null;
 
-	/** Internal: the shared reconnecting relay socket (partysocket). Created
-	 * once on first connect; it re-signs the URL and runs the relay preflight
-	 * before every (re)dial and retries indefinitely. */
-	_socket: RelaySocket | null;
+	/** Internal: the shared reconnecting direct socket (partysocket). Created
+	 * once on first connect; it re-signs the URL before every (re)dial and
+	 * retries indefinitely. */
+	_socket: DirectSocket | null;
 	/** The xterm instance the socket feeds. */
 	_terminal: XTerm | null;
 	/** Internal: disposes the terminal.onData → socket.send wiring. */
@@ -89,16 +87,10 @@ export interface TerminalTransport {
 	 * read live from the socket's `retryCount` (see maybeSurfaceDiagnosis).
 	 */
 	_diagnosisLogged: boolean;
-	/** Internal: last `_whoowns` preflight probe, used to classify a failure. */
-	_lastProbe: RelayAffinityProbe | null;
-	/**
-	 * Token carried on the URL the caller passed. Reused as-is for local (PSK)
-	 * hosts, whose token doesn't rotate; relay hosts re-sign per dial via
-	 * ensureFreshJwt and ignore this.
-	 */
+	/** Local host-service PSK carried on the URL the caller passed. */
 	_localToken: string | null;
 	/** Set when the server signals the session is done (PTY exit / fatal attach
-	 * error) or access is denied. Suppresses the auto-reconnect loop. */
+	 * error). Suppresses the auto-reconnect loop. */
 	_terminated: boolean;
 	/**
 	 * Flips true after the first PTY-output frame lands in xterm. Subsequent
@@ -153,10 +145,7 @@ function maybeSurfaceDiagnosis(
 	if ((transport._socket?.retryCount ?? 0) < DIAGNOSE_AFTER_ATTEMPTS) return;
 
 	// Keep the header diagnosis fresh every cycle; log + emit telemetry once.
-	const diagnosis = classifyTerminalFailure(
-		transport._lastProbe,
-		isRelayHostUrl(transport.currentUrl),
-	);
+	const diagnosis = classifyTerminalFailure();
 	transport.lastDiagnosis = diagnosis;
 	if (transport._diagnosisLogged) return;
 	transport._diagnosisLogged = true;
@@ -175,8 +164,6 @@ function maybeSurfaceDiagnosis(
 			closeEvent && typeof closeEvent.reason === "string"
 				? closeEvent.reason || undefined
 				: undefined,
-		preflight_status: transport._lastProbe?.status ?? null,
-		tunnel_region: transport._lastProbe?.region ?? null,
 		reconnect_attempts: transport._socket?.retryCount ?? 0,
 		category: diagnosis.category,
 	});
@@ -275,7 +262,6 @@ export function createTransport(
 		_titleNotifyTimer: null,
 		_writeCoalescer: null,
 		_diagnosisLogged: false,
-		_lastProbe: null,
 		_localToken: null,
 		_terminated: false,
 		_hasReceivedBytes: false,
@@ -382,16 +368,6 @@ function formatWsEndpoint(wsUrl: string | null): string {
 	}
 }
 
-// Relay-routed terminals live under `/hosts/<id>/...`; local ones don't.
-function isRelayHostUrl(wsUrl: string | null): boolean {
-	if (!wsUrl) return false;
-	try {
-		return new URL(wsUrl).pathname.startsWith("/hosts/");
-	} catch {
-		return false;
-	}
-}
-
 function formatCloseDetails(event: {
 	code?: unknown;
 	reason?: unknown;
@@ -424,7 +400,7 @@ function extractToken(url: string): string | null {
 	}
 }
 
-// The URL minus its token param. createRelaySocket signs a fresh token onto it
+// The URL minus its token param. createDirectSocket signs a fresh token onto it
 // before every dial, so the persisted base must not carry a stale one.
 function stripToken(url: string): string {
 	try {
@@ -479,7 +455,7 @@ export function connect(
 		return;
 	}
 
-	const socket = createRelaySocket({
+	const socket = createDirectSocket({
 		name: "desktop-terminal",
 		// buildUrl/getToken read transport state live, so a URL swap or token
 		// rotation is picked up on the next dial without recreating the socket.
@@ -489,33 +465,7 @@ export function connect(
 				? appendQueryParam(current, "replay", "0")
 				: current;
 		},
-		getToken: () =>
-			isRelayHostUrl(transport.currentUrl)
-				? ensureFreshJwt()
-				: transport._localToken,
-		// 403 is a definitive access denial (fresh token), not transient —
-		// createRelaySocket closes the socket; record why so we stop looking.
-		onAccessDenied: () => {
-			transport._terminated = true;
-			const diagnosis = classifyTerminalFailure(transport._lastProbe, true);
-			transport.lastDiagnosis = diagnosis;
-			setConnectionState(transport, "closed");
-			pushLog(
-				transport,
-				"error",
-				`Connection refused for ${formatWsEndpoint(transport.currentUrl)}: ${diagnosis.message} Not retrying.`,
-			);
-			posthog.capture("terminal_connect_failed", {
-				endpoint: formatWsEndpoint(transport.currentUrl),
-				preflight_status: transport._lastProbe?.status ?? null,
-				tunnel_region: transport._lastProbe?.region ?? null,
-				reconnect_attempts: transport._socket?.retryCount ?? 0,
-				category: diagnosis.category,
-			});
-		},
-		onProbe: (probe) => {
-			transport._lastProbe = probe;
-		},
+		getToken: () => transport._localToken,
 		minReconnectionDelay: BASE_RECONNECT_DELAY,
 		maxReconnectionDelay: MAX_RECONNECT_DELAY,
 		// send() is a no-op unless open; we gate writes on connectionState anyway.
@@ -531,7 +481,7 @@ export function connect(
 function attachSocketListeners(
 	transport: TerminalTransport,
 	terminal: XTerm,
-	socket: RelaySocket,
+	socket: DirectSocket,
 ): void {
 	socket.addEventListener("message", (event) => {
 		// Ignore events from a socket we've detached (teardown nulls _socket).
@@ -660,7 +610,7 @@ function attachSocketListeners(
 			pushLog(
 				transport,
 				"error",
-				`WebSocket error while connecting to ${formatWsEndpoint(transport.currentUrl)}. Check host-service or relay connectivity.`,
+				`WebSocket error while connecting to ${formatWsEndpoint(transport.currentUrl)}. Check direct host connectivity.`,
 			);
 		}
 		// Dial failures (host unreachable, upgrade rejected) surface ONLY as error

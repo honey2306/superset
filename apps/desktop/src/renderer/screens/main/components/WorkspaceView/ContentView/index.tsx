@@ -1,14 +1,6 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import { useParams } from "@tanstack/react-router";
-import { electronTrpc } from "renderer/lib/electron-trpc";
-import { useSidebarStore } from "renderer/stores/sidebar-state";
-import { SidebarControl } from "../../SidebarControl";
-import { ContentHeader } from "./ContentHeader";
-import { PresetsBar } from "./components/PresetsBar";
-import { useShowPresetsBar } from "./hooks/useShowPresetsBar";
-import { TabsContent } from "./TabsContent";
-import { GroupStrip } from "./TabsContent/GroupStrip";
-import { V1PanesWorkspace } from "./TabsContent/V1PanesWorkspace";
+import { PanesWorkspace } from "./components/PanesWorkspace";
 
 interface ContentViewProps {
 	defaultExternalApp?: ExternalApp | null;
@@ -16,40 +8,10 @@ interface ContentViewProps {
 	onOpenQuickOpen: () => void;
 }
 
-export function ContentView({
-	defaultExternalApp,
-	onOpenInApp,
-	onOpenQuickOpen,
-}: ContentViewProps) {
-	const isSidebarOpen = useSidebarStore((s) => s.isSidebarOpen);
-	const { showPresetsBar, toggleShowPresetsBar } = useShowPresetsBar();
+export function ContentView(_props: ContentViewProps) {
 	const { workspaceId } = useParams({ strict: false });
 
-	electronTrpc.menu.subscribe.useSubscription(undefined, {
-		onData: (event) => {
-			if (event.type === "toggle-presets-bar") {
-				toggleShowPresetsBar();
-			}
-		},
-	});
+	if (workspaceId) return <PanesWorkspace workspaceId={workspaceId} />;
 
-	if (workspaceId) {
-		return <V1PanesWorkspace workspaceId={workspaceId} />;
-	}
-
-	return (
-		<div className="h-full flex flex-col overflow-hidden">
-			<ContentHeader
-				trailingAction={!isSidebarOpen ? <SidebarControl /> : undefined}
-			>
-				<GroupStrip />
-			</ContentHeader>
-			{showPresetsBar && <PresetsBar />}
-			<TabsContent
-				defaultExternalApp={defaultExternalApp}
-				onOpenInApp={onOpenInApp}
-				onOpenQuickOpen={onOpenQuickOpen}
-			/>
-		</div>
-	);
+	return <div className="h-full bg-background" />;
 }

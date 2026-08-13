@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { basename } from "node:path";
 import type { BranchPrefixMode } from "@superset/shared/workspace-launch";
-import { asc, count, desc, eq, gt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import type { HostDb } from "../db";
 import {
 	catalogChanges,
 	catalogIdentityConflicts,
 	projects,
+	workspaceOperations,
 	workspaces,
 } from "../db/schema";
 import type { EventBus } from "../events";
@@ -44,6 +45,7 @@ export interface ProjectWriteInput {
 	worktreeBaseDir?: string | null;
 	branchPrefixMode?: BranchPrefixMode | null;
 	branchPrefixCustom?: string | null;
+	sparseCheckoutPaths?: string | null;
 	name?: string;
 }
 
@@ -60,6 +62,7 @@ export interface ProjectPatch {
 	worktreeBaseDir?: string | null;
 	branchPrefixMode?: BranchPrefixMode | null;
 	branchPrefixCustom?: string | null;
+	sparseCheckoutPaths?: string | null;
 }
 
 export interface WorkspaceWriteInput {
@@ -70,15 +73,16 @@ export interface WorkspaceWriteInput {
 	name?: string;
 	type?: "main" | "worktree";
 	taskId?: string | null;
-	createdByUserId?: string | null;
 	headSha?: string | null;
 	upstreamOwner?: string | null;
 	upstreamRepo?: string | null;
 	upstreamBranch?: string | null;
 	pullRequestId?: string | null;
+	suppressedPullRequestId?: string | null;
 }
 
 export interface WorkspacePatch {
+	projectId?: string;
 	name?: string;
 	branch?: string;
 	worktreePath?: string;
@@ -89,6 +93,7 @@ export interface WorkspacePatch {
 	upstreamRepo?: string | null;
 	upstreamBranch?: string | null;
 	pullRequestId?: string | null;
+	suppressedPullRequestId?: string | null;
 }
 
 type CatalogTx = Parameters<Parameters<HostDb["transaction"]>[0]>[0];
@@ -128,6 +133,7 @@ export class WorkspaceCatalog {
 						worktreeBaseDir: input.worktreeBaseDir ?? null,
 						branchPrefixMode: input.branchPrefixMode ?? null,
 						branchPrefixCustom: input.branchPrefixCustom ?? null,
+						sparseCheckoutPaths: input.sparseCheckoutPaths ?? null,
 						name: input.name ?? "",
 						kind: input.kind ?? "repository",
 						singletonKey: input.singletonKey ?? null,
@@ -238,12 +244,12 @@ export class WorkspaceCatalog {
 						name: input.name ?? input.branch,
 						type: input.type ?? "worktree",
 						taskId: input.taskId ?? null,
-						createdByUserId: input.createdByUserId ?? null,
 						headSha: input.headSha ?? null,
 						upstreamOwner: input.upstreamOwner ?? null,
 						upstreamRepo: input.upstreamRepo ?? null,
 						upstreamBranch: input.upstreamBranch ?? null,
 						pullRequestId: input.pullRequestId ?? null,
+						suppressedPullRequestId: input.suppressedPullRequestId ?? null,
 						canonicalWorktreePath: canonical,
 						createdAt: now,
 						updatedAt: now,
@@ -333,6 +339,79 @@ export class WorkspaceCatalog {
 		if (didWork) this.wake();
 	}
 
+	/**
+	 * Persist the provisioning commit receipt in the same SQLite transaction as
+	 * a Catalog change. This is also the durable reconciliation point for a
+	 * process that crashed after creating the entity but before journaling the
+	 * operation: replay finds the entity, calls this method, and advances the
+	 * operation without duplicating it.
+	 *
+	 * A cancellation request racing after the entity write cannot turn the
+	 * operation into a pre-commit cancellation: the existing Catalog identity is
+	 * authoritative and this transaction records the actual commit boundary.
+	 */
+	commitProvisioningOperation(
+		operationId: string,
+		args: { projectId: string; workspaceId: string },
+	): boolean {
+		const now = Date.now();
+		const committed = this.deps.db.transaction((tx) => {
+			const operation = tx
+				.select()
+				.from(workspaceOperations)
+				.where(eq(workspaceOperations.id, operationId))
+				.get();
+			if (!operation) return false;
+			if (operation.catalogCommittedAt !== null) return true;
+			const project = tx
+				.select()
+				.from(projects)
+				.where(eq(projects.id, args.projectId))
+				.get();
+			const workspace = tx
+				.select()
+				.from(workspaces)
+				.where(eq(workspaces.id, args.workspaceId))
+				.get();
+			if (!project || !workspace || workspace.projectId !== project.id) {
+				return false;
+			}
+			const result = tx
+				.update(workspaceOperations)
+				.set({
+					stage: "starting-runtime",
+					projectId: project.id,
+					workspaceId: workspace.id,
+					catalogCommittedAt: now,
+					// The Catalog identity already exists, so a request that raced in
+					// this narrow reconciliation window was objectively too late.
+					cancelRequestedAt: null,
+					revision: operation.revision + 1,
+					updatedAt: now,
+				})
+				.where(
+					and(
+						eq(workspaceOperations.id, operationId),
+						inArray(workspaceOperations.state, ["queued", "running"]),
+						isNull(workspaceOperations.catalogCommittedAt),
+					),
+				)
+				.run();
+			if (result.changes !== 1) return false;
+			writeChange(
+				tx,
+				"workspace",
+				workspace.id,
+				"updated",
+				toWorkspaceSnapshot(workspace),
+				now,
+			);
+			return true;
+		});
+		if (committed) this.wake();
+		return committed;
+	}
+
 	// ── Queries ───────────────────────────────────────────────────────
 
 	snapshot(): WorkspaceCatalogSnapshot {
@@ -368,7 +447,7 @@ export class WorkspaceCatalog {
 				.get();
 			const unresolvedIdentityConflicts = conflictsRow?.n ?? 0;
 			return {
-				schemaVersion: 1,
+				schemaVersion: 2,
 				revision: highest,
 				projects: projectRows.map(toProjectSnapshot),
 				workspaces: workspaceRows.map(toWorkspaceSnapshot),
@@ -394,15 +473,13 @@ export class WorkspaceCatalog {
 		const changes = rows
 			.slice(0, bounded)
 			.map<WorkspaceCatalogChange>((row) => ({
-				schemaVersion: 1,
+				schemaVersion: 2,
 				revision: row.revision,
 				entityType: row.entityType,
 				entityId: row.entityId,
 				eventType: row.eventType,
 				snapshot: row.snapshotJson
-					? (JSON.parse(row.snapshotJson) as
-							| ProjectSnapshotShape
-							| WorkspaceSnapshotShape)
+					? parseCatalogSnapshot(row.entityType, row.snapshotJson)
 					: null,
 				occurredAt: row.occurredAt,
 			}));
@@ -480,6 +557,46 @@ function wrapUniqueError(
 	return err instanceof Error ? err : new Error(String(err));
 }
 
+function parseCatalogSnapshot(
+	entityType: CatalogEntityType,
+	snapshotJson: string,
+): ProjectSnapshotShape | WorkspaceSnapshotShape {
+	const parsed = JSON.parse(snapshotJson) as Record<string, unknown>;
+	if (entityType === "project") {
+		return {
+			...parsed,
+			sparseCheckoutPaths: Array.isArray(parsed.sparseCheckoutPaths)
+				? parsed.sparseCheckoutPaths.filter(
+						(path): path is string => typeof path === "string",
+					)
+				: parseStoredSparseCheckoutPaths(
+						typeof parsed.sparseCheckoutPaths === "string"
+							? parsed.sparseCheckoutPaths
+							: null,
+					),
+		} as unknown as ProjectSnapshotShape;
+	}
+	return {
+		...parsed,
+		suppressedPullRequestId:
+			typeof parsed.suppressedPullRequestId === "string"
+				? parsed.suppressedPullRequestId
+				: null,
+	} as unknown as WorkspaceSnapshotShape;
+}
+
+function parseStoredSparseCheckoutPaths(raw: string | null): string[] {
+	if (!raw) return [];
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		return Array.isArray(parsed)
+			? parsed.filter((path): path is string => typeof path === "string")
+			: [];
+	} catch {
+		return [];
+	}
+}
+
 function writeChange(
 	tx: CatalogTx,
 	entityType: CatalogEntityType,
@@ -490,7 +607,7 @@ function writeChange(
 ): void {
 	tx.insert(catalogChanges)
 		.values({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			entityType,
 			entityId,
 			eventType,
@@ -517,6 +634,9 @@ export function toProjectSnapshot(row: ProjectRow): ProjectSnapshotShape {
 			(row.branchPrefixMode as ProjectSnapshotShape["branchPrefixMode"]) ??
 			null,
 		branchPrefixCustom: row.branchPrefixCustom,
+		sparseCheckoutPaths: parseStoredSparseCheckoutPaths(
+			row.sparseCheckoutPaths,
+		),
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt || row.createdAt,
 	};
@@ -535,8 +655,8 @@ export function toWorkspaceSnapshot(row: WorkspaceRow): WorkspaceSnapshotShape {
 		upstreamRepo: row.upstreamRepo,
 		upstreamBranch: row.upstreamBranch,
 		pullRequestId: row.pullRequestId,
+		suppressedPullRequestId: row.suppressedPullRequestId,
 		taskId: row.taskId,
-		createdByUserId: row.createdByUserId,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt || row.createdAt,
 	};

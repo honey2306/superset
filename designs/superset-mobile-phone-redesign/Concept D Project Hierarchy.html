@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Concept D · Project Hierarchy</title>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/colors.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/typography.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/spacing.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/radius.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/shadow.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/motion.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/z-index.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/opacity.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/border-width.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/focus.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/reset.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/styles.css" />
+    <script src="_ds/superset-design-system/_ds_bundle.js"></script>
+    <style>
+      html, body, #root { min-height: 100%; }
+      body { margin: 0; background: var(--page-bg); color: var(--fg); font-family: var(--font-ui); }
+      button, textarea { font: inherit; }
+      button { cursor: pointer; }
+      .mobile-app { width: min(100%, 430px); min-height: 100dvh; margin: 0 auto; background: var(--page-bg); display: flex; flex-direction: column; overflow: hidden; }
+      .nav-bar { min-height: 58px; padding: max(var(--s-8), env(safe-area-inset-top)) var(--s-12) var(--s-6); border-bottom: var(--bw-hairline) solid var(--line); background: var(--page-bg); display: flex; align-items: center; gap: var(--s-6); position: sticky; top: 0; z-index: var(--z-rail); }
+      .nav-button { width: 44px; height: 44px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--fg); display: grid; place-items: center; flex: none; }
+      .nav-button:hover { background: var(--hover); }
+      .nav-back { font-size: var(--fs-22); }
+      .nav-copy { min-width: 0; flex: 1; }
+      .nav-title { margin: 0; font-size: var(--fs-16); line-height: var(--lh-tight); font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .nav-context { margin: var(--s-1) 0 0; color: var(--fg-mute); font: var(--fs-10)/var(--lh-tight) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .screen-content { flex: 1; padding: var(--s-20) var(--s-16) calc(var(--s-24) + env(safe-area-inset-bottom)); }
+      .root-heading { margin: 0 0 var(--s-4); font-size: var(--fs-22); line-height: var(--lh-tight); font-weight: var(--fw-semibold); letter-spacing: var(--ls-title); }
+      .root-description { margin: 0 0 var(--s-24); color: var(--fg-mute); font-size: var(--fs-13); line-height: var(--lh-body); }
+      .section-label { margin: 0 0 var(--s-8); color: var(--fg-faint); font-size: var(--fs-10); line-height: var(--lh-tight); font-weight: var(--fw-semibold); letter-spacing: var(--ls-eyebrow); text-transform: uppercase; }
+      .list { border-top: var(--bw-hairline) solid var(--line); }
+      .list-row { width: 100%; min-height: 70px; padding: var(--s-10) 0; border: 0; border-bottom: var(--bw-hairline) solid var(--line); background: transparent; color: var(--fg); display: flex; align-items: center; gap: var(--s-12); text-align: left; }
+      .list-row:hover { background: var(--hover); }
+      .row-icon { width: 40px; height: 40px; border: var(--bw-hairline) solid var(--line); border-radius: var(--r-3); background: var(--surface); color: var(--fg-mute); display: grid; place-items: center; flex: none; }
+      .row-copy { min-width: 0; flex: 1; }
+      .row-title { display: flex; align-items: center; gap: var(--s-2); font-size: var(--fs-14); line-height: var(--lh-snug); font-weight: var(--fw-medium); }
+      .row-meta { margin-top: var(--s-3); color: var(--fg-mute); font: var(--fs-10)/var(--lh-tight) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .row-chevron { color: var(--fg-faint); font-size: var(--fs-18); flex: none; }
+      .status-dot { width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--success); flex: none; }
+      .status-dot.idle { background: var(--fg-faint); }
+      .type-tag { min-height: 21px; padding: 0 var(--s-2); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-pill); color: var(--fg-mute); font: var(--fs-9)/19px var(--font-mono); text-transform: uppercase; flex: none; }
+      .type-tag.acp { border-color: var(--accent-line); background: var(--accent-tint); color: var(--accent); }
+      .path-card { margin-bottom: var(--s-20); padding: var(--s-12) var(--s-14); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-4); background: var(--surface-sunk); }
+      .path-card strong { display: block; font-size: var(--fs-13); font-weight: var(--fw-medium); }
+      .path-card code { display: block; margin-top: var(--s-3); color: var(--fg-mute); font: var(--fs-10)/var(--lh-body) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .new-row { color: var(--fg-mute); }
+      .new-row .row-icon { border-style: dashed; color: var(--accent); background: var(--accent-tint); }
+      .terminal-screen { background: var(--dracula-bg-deep); }
+      .terminal-screen .nav-bar { background: var(--dracula-bg); }
+      .terminal-output { flex: 1; min-height: 0; padding: var(--s-12) var(--s-14); overflow: auto; color: var(--dracula-fg); font: var(--fs-12)/1.62 var(--font-mono); }
+      .terminal-output p { margin: 0; white-space: pre-wrap; }
+      .term-muted { color: var(--dracula-comment); }
+      .term-cyan { color: var(--dracula-cyan); }
+      .term-pink { color: var(--dracula-pink); }
+      .term-green { color: var(--dracula-green); }
+      .composer { padding: var(--s-6) var(--s-10) max(var(--s-8), env(safe-area-inset-bottom)); border-top: var(--bw-hairline) solid var(--line); background: var(--dracula-bg); }
+      .key-strip { display: flex; gap: var(--s-4); overflow-x: auto; padding-bottom: var(--s-6); scrollbar-width: none; }
+      .key-strip::-webkit-scrollbar { display: none; }
+      .key-button { min-width: 44px; height: 34px; padding: 0 var(--s-8); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-2); background: var(--surface); color: var(--fg-mute); font: var(--fs-10)/1 var(--font-mono); }
+      .input-shell { min-height: 46px; padding: var(--s-2); border: var(--bw-hairline) solid var(--line-strong); border-radius: var(--r-4); background: var(--surface); display: flex; align-items: flex-end; }
+      .command-input { flex: 1; min-height: 38px; max-height: 100px; padding: var(--s-8); border: 0; outline: 0; resize: none; background: transparent; color: var(--fg); line-height: var(--lh-body); }
+      .command-input::placeholder { color: var(--fg-faint); }
+      .send-button { width: 38px; height: 38px; border: 0; border-radius: var(--r-pill); background: var(--fg); color: var(--page-bg); display: grid; place-items: center; flex: none; }
+      .chat-screen { background: var(--page-bg); }
+      .chat-thread { flex: 1; padding: var(--s-16); overflow: auto; }
+      .chat-message { max-width: 90%; margin-bottom: var(--s-16); color: var(--fg); font-size: var(--fs-13); line-height: var(--lh-loose); }
+      .chat-message.user { margin-left: auto; padding: var(--s-10) var(--s-12); border-radius: var(--r-4) var(--r-4) var(--r-1) var(--r-4); background: var(--surface-elev); border: var(--bw-hairline) solid var(--line); }
+      .chat-author { margin-bottom: var(--s-4); color: var(--fg-faint); font-size: var(--fs-10); font-weight: var(--fw-semibold); text-transform: uppercase; letter-spacing: var(--ls-caps); }
+      .chat-compose { padding: var(--s-10) var(--s-12) max(var(--s-12), env(safe-area-inset-bottom)); border-top: var(--bw-hairline) solid var(--line); background: var(--page-bg); }
+      .sheet-scrim { position: fixed; inset: 0; z-index: var(--z-modal-scrim); display: flex; align-items: flex-end; justify-content: center; background: var(--overlay-scrim); }
+      .new-sheet { width: min(100%, 430px); padding: var(--s-8) var(--s-16) max(var(--s-20), env(safe-area-inset-bottom)); border: var(--bw-hairline) solid var(--line-strong); border-bottom: 0; border-radius: var(--r-6) var(--r-6) 0 0; background: var(--surface-elev); box-shadow: var(--shadow-4); }
+      .grabber { width: 36px; height: 4px; margin: 0 auto var(--s-16); border-radius: var(--r-pill); background: var(--line-strong); }
+      .sheet-title { margin: 0 0 var(--s-12); font-size: var(--fs-18); font-weight: var(--fw-semibold); }
+      .sheet-choice { width: 100%; min-height: 58px; padding: var(--s-8); border: 0; border-radius: var(--r-3); background: transparent; color: var(--fg); display: flex; align-items: center; gap: var(--s-10); text-align: left; }
+      .sheet-choice:hover { background: var(--selected); }
+      .sheet-choice span:nth-child(2) { min-width: 0; flex: 1; }
+      .sheet-choice small { display: block; margin-top: var(--s-2); color: var(--fg-mute); }
+      @media (min-width: 620px) { body { padding: var(--s-24) 0; } .mobile-app { min-height: 844px; max-height: 844px; border: var(--bw-hairline) solid var(--line); border-radius: var(--r-8); box-shadow: var(--shadow-4); } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+    <script type="text/babel">
+      const { Icon } = window.SupersetDesignSystem_91a6da;
+
+      function NavigationBar({ titleText, contextText, onBack, trailing }) {
+        return <header className="nav-bar">
+          {onBack ? <button className="nav-button nav-back" onClick={onBack} aria-label="返回">‹</button> : <span style={{ width: 4 }}></span>}
+          <div className="nav-copy"><h1 className="nav-title">{titleText}</h1>{contextText && <p className="nav-context">{contextText}</p>}</div>
+          {trailing}
+        </header>;
+      }
+
+      function ListRow({ iconName, titleText, metaText, statusTone, typeLabel, onClick, isNew }) {
+        return <button className={`list-row ${isNew ? 'new-row' : ''}`} onClick={onClick}>
+          <span className="row-icon"><Icon name={iconName} size={18} /></span>
+          <span className="row-copy"><span className="row-title">{titleText}{statusTone && <i className={`status-dot ${statusTone === 'idle' ? 'idle' : ''}`}></i>}</span><span className="row-meta">{metaText}</span></span>
+          {typeLabel && <span className={`type-tag ${typeLabel === 'ACP' ? 'acp' : ''}`}>{typeLabel}</span>}
+          <span className="row-chevron">›</span>
+        </button>;
+      }
+
+      function ProjectsScreen({ onProject }) {
+        return <main className="mobile-app" data-screen-label="Projects">
+          <NavigationBar titleText="Superset" trailing={<button className="nav-button" aria-label="搜索"><Icon name="search" size={18} /></button>} />
+          <section className="screen-content">
+            <h2 className="root-heading">Projects</h2>
+            <p className="root-description">选择项目，然后进入对应 Workspace。</p>
+            <p className="section-label">Recent</p>
+            <div className="list">
+              <ListRow iconName="branch" titleText="superset" metaText="3 workspaces · 4 active tabs" statusTone="active" onClick={() => onProject('superset')} />
+              <ListRow iconName="branch" titleText="infra-tools" metaText="2 workspaces · 1 active tab" statusTone="active" onClick={() => onProject('infra-tools')} />
+              <ListRow iconName="branch" titleText="personal-scripts" metaText="1 workspace · no active tabs" statusTone="idle" onClick={() => onProject('personal-scripts')} />
+            </div>
+          </section>
+        </main>;
+      }
+
+      function WorkspacesScreen({ projectName, onBack, onWorkspace }) {
+        return <main className="mobile-app" data-screen-label="Workspaces">
+          <NavigationBar titleText={projectName} contextText="Project" onBack={onBack} trailing={<button className="nav-button" aria-label="更多"><Icon name="moreH" size={18} /></button>} />
+          <section className="screen-content">
+            <p className="section-label">Workspaces</p>
+            <div className="list">
+              <ListRow iconName="branch" titleText="main" metaText="2 tabs · Preview Mac" statusTone="active" onClick={() => onWorkspace('main')} />
+              <ListRow iconName="branch" titleText="codex/mobile-relay" metaText="2 tabs · Preview Mac" statusTone="active" onClick={() => onWorkspace('codex/mobile-relay')} />
+              <ListRow iconName="branch" titleText="fix/retired-cli-ci" metaText="1 tab · Preview Mac" statusTone="idle" onClick={() => onWorkspace('fix/retired-cli-ci')} />
+              <ListRow iconName="plus" titleText="New workspace" metaText="Create from branch or worktree" isNew onClick={() => {}} />
+            </div>
+          </section>
+        </main>;
+      }
+
+      function TabsScreen({ projectName, workspaceName, onBack, onTab }) {
+        const [sheetVisible, setSheetVisible] = React.useState(false);
+        return <main className="mobile-app" data-screen-label="Workspace tabs">
+          <NavigationBar titleText={workspaceName} contextText={projectName} onBack={onBack} trailing={<button className="nav-button" onClick={() => setSheetVisible(true)} aria-label="新建 Tab"><Icon name="plus" size={19} /></button>} />
+          <section className="screen-content">
+            <div className="path-card"><strong>Preview Mac</strong><code>~/Code/{projectName}</code></div>
+            <p className="section-label">Tabs</p>
+            <div className="list">
+              <ListRow iconName="spark" titleText="AutoMate relay 接入" metaText="ACP · active now" statusTone="active" typeLabel="ACP" onClick={() => onTab('acp', 'AutoMate relay 接入')} />
+              <ListRow iconName="terminal" titleText="Codex" metaText="Terminal · active 1m ago" statusTone="active" typeLabel="Terminal" onClick={() => onTab('terminal', 'Codex')} />
+              <ListRow iconName="terminal" titleText="Claude Code" metaText="Terminal · idle 18m" statusTone="idle" typeLabel="Terminal" onClick={() => onTab('terminal', 'Claude Code')} />
+              <ListRow iconName="plus" titleText="New tab" metaText="Start ACP or Terminal Agent" isNew onClick={() => setSheetVisible(true)} />
+            </div>
+          </section>
+          {sheetVisible && <div className="sheet-scrim" onClick={() => setSheetVisible(false)}>
+            <section className="new-sheet" onClick={(eventObject) => eventObject.stopPropagation()}>
+              <div className="grabber"></div><h2 className="sheet-title">New tab</h2>
+              <button className="sheet-choice" onClick={() => onTab('acp', 'New ACP session')}><span className="row-icon"><Icon name="spark" size={18} /></span><span>ACP session<small>对话、工具调用与任务状态</small></span><Icon name="arrowRight" size={16} /></button>
+              <button className="sheet-choice" onClick={() => onTab('terminal', 'Codex')}><span className="row-icon"><Icon name="terminal" size={18} /></span><span>Terminal Agent<small>Claude Code、Codex、Gemini CLI</small></span><Icon name="arrowRight" size={16} /></button>
+            </section>
+          </div>}
+        </main>;
+      }
+
+      function TerminalTab({ agentTitle, projectName, workspaceName, onBack }) {
+        const [commandText, setCommandText] = React.useState('');
+        return <main className="mobile-app terminal-screen" data-screen-label="Terminal tab">
+          <NavigationBar titleText={agentTitle} contextText={`${projectName} / ${workspaceName}`} onBack={onBack} trailing={<span className="status-dot"></span>} />
+          <section className="terminal-output">
+            <p className="term-muted">Superset workspace ready</p>
+            <p><span className="term-pink">➜</span> <span className="term-cyan">superset</span> bun run typecheck</p>
+            <p className="term-green">✓ @superset/web typecheck</p>
+            <p className="term-muted">Completed in 2.4s</p><p> </p>
+            <p><span className="term-pink">➜</span> <span className="term-cyan">superset</span> git status --short</p>
+            <p> M apps/web/src/routes/workspace.tsx</p><p> M apps/web/src/routes/terminal.tsx</p><p> </p>
+            <p><span className="term-pink">➜</span> <span className="term-cyan">superset</span> <span className="term-muted">▌</span></p>
+          </section>
+          <section className="composer"><div className="key-strip">{['Esc', 'Tab', 'Ctrl', '⌃C', '↑', '↓', '←', '→'].map((keyLabel) => <button className="key-button" key={keyLabel}>{keyLabel}</button>)}</div><div className="input-shell"><textarea className="command-input" rows="1" value={commandText} onChange={(eventObject) => setCommandText(eventObject.target.value)} placeholder="输入命令…"></textarea><button className="send-button" onClick={() => setCommandText('')} aria-label="发送"><Icon name="arrowRight" size={17} /></button></div></section>
+        </main>;
+      }
+
+      function AcpTab({ sessionTitle, projectName, workspaceName, onBack }) {
+        const [draftText, setDraftText] = React.useState('');
+        return <main className="mobile-app chat-screen" data-screen-label="ACP tab">
+          <NavigationBar titleText={sessionTitle} contextText={`${projectName} / ${workspaceName}`} onBack={onBack} trailing={<span className="status-dot"></span>} />
+          <section className="chat-thread">
+            <div className="chat-message user">继续实现 Superset 手机 Web 的 AutoMate relay 接入，并验证终端 Agent。</div>
+            <div className="chat-message"><p className="chat-author">Agent</p>Relay 和 Terminal fallback 已接通。我正在检查手机端的信息架构，并准备把项目、Workspace 和 Tab 层级补齐。</div>
+            <div className="chat-message"><p className="chat-author">Agent</p>当前验证：Host relay tests 通过，Web transport tests 通过，AutoMate build 通过。</div>
+          </section>
+          <section className="chat-compose"><div className="input-shell"><textarea className="command-input" rows="1" value={draftText} onChange={(eventObject) => setDraftText(eventObject.target.value)} placeholder="给 Agent 发消息…"></textarea><button className="send-button" onClick={() => setDraftText('')} aria-label="发送"><Icon name="arrowRight" size={17} /></button></div></section>
+        </main>;
+      }
+
+      function HierarchyPrototype() {
+        const [screenName, setScreenName] = React.useState('projects');
+        const [selectedProject, setSelectedProject] = React.useState('superset');
+        const [selectedWorkspace, setSelectedWorkspace] = React.useState('main');
+        const [selectedTab, setSelectedTab] = React.useState({ type: 'acp', title: 'AutoMate relay 接入' });
+        const openProject = (projectName) => { setSelectedProject(projectName); setScreenName('workspaces'); };
+        const openWorkspace = (workspaceName) => { setSelectedWorkspace(workspaceName); setScreenName('tabs'); };
+        const openTab = (tabType, tabTitle) => { setSelectedTab({ type: tabType, title: tabTitle }); setScreenName(tabType); };
+        if (screenName === 'projects') return <ProjectsScreen onProject={openProject} />;
+        if (screenName === 'workspaces') return <WorkspacesScreen projectName={selectedProject} onBack={() => setScreenName('projects')} onWorkspace={openWorkspace} />;
+        if (screenName === 'tabs') return <TabsScreen projectName={selectedProject} workspaceName={selectedWorkspace} onBack={() => setScreenName('workspaces')} onTab={openTab} />;
+        if (screenName === 'terminal') return <TerminalTab agentTitle={selectedTab.title} projectName={selectedProject} workspaceName={selectedWorkspace} onBack={() => setScreenName('tabs')} />;
+        return <AcpTab sessionTitle={selectedTab.title} projectName={selectedProject} workspaceName={selectedWorkspace} onBack={() => setScreenName('tabs')} />;
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<HierarchyPrototype />);
+    </script>
+  </body>
+</html>

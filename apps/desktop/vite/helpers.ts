@@ -20,7 +20,7 @@ export function defineEnv(
 	value: string | undefined,
 	fallback?: string,
 ): string {
-	return JSON.stringify(value ?? fallback);
+	return JSON.stringify(value || fallback);
 }
 
 const RESOURCES_TO_COPY = [
@@ -66,37 +66,6 @@ export function copyResourcesPlugin(): Plugin {
 			for (const resource of RESOURCES_TO_COPY) {
 				copyDir(resource);
 			}
-		},
-	};
-}
-
-/**
- * Injects environment variables into index.html CSP.
- */
-export function htmlEnvTransformPlugin(): Plugin {
-	return {
-		name: "html-env-transform",
-		transformIndexHtml(html) {
-			return html
-				.replace(
-					/%NEXT_PUBLIC_API_URL%/g,
-					process.env.NEXT_PUBLIC_API_URL || "https://api.superset.sh",
-				)
-				.replace(
-					/%NEXT_PUBLIC_ELECTRIC_URL%/g,
-					new URL(
-						process.env.NEXT_PUBLIC_ELECTRIC_URL ||
-							"https://electric-proxy.avi-6ac.workers.dev",
-					).origin,
-				)
-				.replace(
-					/%NEXT_PUBLIC_STREAMS_URL%/g,
-					process.env.NEXT_PUBLIC_STREAMS_URL || "https://streams.superset.sh",
-				)
-				.replace(
-					/%RELAY_URL%/g,
-					process.env.RELAY_URL || "https://relay.superset.sh",
-				);
 		},
 	};
 }

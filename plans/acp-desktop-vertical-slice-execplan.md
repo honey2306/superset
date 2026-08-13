@@ -594,7 +594,7 @@ AcpSessionPane title/status
 
 - `packages/host-service/docs/acp-sessions.md`
 - `plans/acp-session-follow-ups.md`
-- `plans/20260726-v1-shell-v2-base-fusion.md`
+- `plans/done/20260726-v1-shell-v2-base-fusion.md`
 
 内容：
 
@@ -838,7 +838,7 @@ pane state 使用现有 JSON layout，不需要 DB migration。host registry sch
 - 共享 Context View；
 - composer 附件和图片；
 - slash command 和 mention；
-- relay/mobile；
+- paired-phone presentation and reconnect flows；
 - session delete/forget/GC；
 - ACP timeline 与 Mastracode `UIMessage` 合并；
 - stable channel 启用。

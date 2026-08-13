@@ -267,9 +267,9 @@ Runtime dispatch
 ## 与现有计划的关系
 
 - `plans/acp-session-follow-ups.md`：继续负责 ACP history、validation、cursor、client state 和 package split。本计划不复制这些底层工作；其 current topology/source map 含已删除的 mobile 路径，实施前先按 main 更新；Phase 0/1 上线前必须根据改动范围完成对应 P0/P1 项。
-- `plans/20260726-v1-shell-v2-base-fusion.md`：其 ACP pane milestone 可作为本计划 Phase 0 的 UI 落点，但 terminal 仍是 fallback。
-- `plans/v2-chat-greenfield-architecture.md`：包含 Mastracode chat 的事件和 client store 方向。不能再独立发明第三套通用 timeline/event log；实施前需要明确 ACP session protocol 与 chat event model 的收敛方案。
-- `plans/20260417-automations.md`：继续使用现有 `AgentLaunchRequest`。未来 Runtime Profile 应扩展该入口，而不是为 automations 创建专用路由。
+- `plans/done/20260726-v1-shell-v2-base-fusion.md`：其 ACP pane milestone 可作为本计划 Phase 0 的 UI 落点，但 terminal 仍是 fallback。
+- `packages/host-service/docs/acp-sessions.md`：记录当前 ACP session protocol。不能再独立发明第三套通用 timeline/event log；实施前需要明确 ACP session protocol 与其他 client event model 的收敛方案。
+- `docs/CURRENT_ARCHITECTURE.md`：Automations 由本地 Host 存储和调度。未来 Runtime Profile 应扩展共享的 Host 启动入口，而不是为 automations 创建平行的运行时路由。
 
 ## 非目标
 

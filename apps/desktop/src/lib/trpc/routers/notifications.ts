@@ -28,7 +28,7 @@ type NotificationEvent =
 	  }
 	| { type: typeof NOTIFICATION_EVENTS.FOCUS_TAB; data?: NotificationIds }
 	| {
-			type: typeof NOTIFICATION_EVENTS.FOCUS_V2_NOTIFICATION_SOURCE;
+			type: typeof NOTIFICATION_EVENTS.FOCUS_NOTIFICATION_SOURCE;
 			data?: V2NotificationSourceFocusTarget;
 	  }
 	| {
@@ -113,7 +113,7 @@ export const createNotificationsRouter = (
 					focusWindow(getWindow);
 					if (!input.clickTarget) return;
 					notificationsEmitter.emit(
-						NOTIFICATION_EVENTS.FOCUS_V2_NOTIFICATION_SOURCE,
+						NOTIFICATION_EVENTS.FOCUS_NOTIFICATION_SOURCE,
 						input.clickTarget,
 					);
 				});
@@ -143,7 +143,7 @@ export const createNotificationsRouter = (
 					data: V2NotificationSourceFocusTarget,
 				) => {
 					emit.next({
-						type: NOTIFICATION_EVENTS.FOCUS_V2_NOTIFICATION_SOURCE,
+						type: NOTIFICATION_EVENTS.FOCUS_NOTIFICATION_SOURCE,
 						data,
 					});
 				};
@@ -158,7 +158,7 @@ export const createNotificationsRouter = (
 				);
 				notificationsEmitter.on(NOTIFICATION_EVENTS.FOCUS_TAB, onFocusTab);
 				notificationsEmitter.on(
-					NOTIFICATION_EVENTS.FOCUS_V2_NOTIFICATION_SOURCE,
+					NOTIFICATION_EVENTS.FOCUS_NOTIFICATION_SOURCE,
 					onFocusV2NotificationSource,
 				);
 				notificationsEmitter.on(
@@ -173,7 +173,7 @@ export const createNotificationsRouter = (
 					);
 					notificationsEmitter.off(NOTIFICATION_EVENTS.FOCUS_TAB, onFocusTab);
 					notificationsEmitter.off(
-						NOTIFICATION_EVENTS.FOCUS_V2_NOTIFICATION_SOURCE,
+						NOTIFICATION_EVENTS.FOCUS_NOTIFICATION_SOURCE,
 						onFocusV2NotificationSource,
 					);
 					notificationsEmitter.off(

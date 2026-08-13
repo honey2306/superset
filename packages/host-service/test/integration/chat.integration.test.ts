@@ -50,6 +50,10 @@ describe("chat router integration with stub ChatRuntimeManager", () => {
 			calls.push({ method: "respondToPlan", args: input });
 			return { ok: true };
 		},
+		searchFiles: async (input: unknown) => {
+			calls.push({ method: "searchFiles", args: input });
+			return [];
+		},
 		getSlashCommands: async (input: unknown) => {
 			calls.push({ method: "getSlashCommands", args: input });
 			return [];
@@ -57,6 +61,14 @@ describe("chat router integration with stub ChatRuntimeManager", () => {
 		resolveSlashCommand: async (input: unknown) => {
 			calls.push({ method: "resolveSlashCommand", args: input });
 			return { resolved: null };
+		},
+		previewSlashCommand: async (input: unknown) => {
+			calls.push({ method: "previewSlashCommand", args: input });
+			return { handled: false };
+		},
+		getMcpOverview: async (input: unknown) => {
+			calls.push({ method: "getMcpOverview", args: input });
+			return { sourcePath: null, servers: [] };
 		},
 	};
 
@@ -67,9 +79,6 @@ describe("chat router integration with stub ChatRuntimeManager", () => {
 		calls.length = 0;
 		host = await createTestHost({
 			chatRuntime: stubChatRuntime,
-			apiOverrides: {
-				"chat.updateSession.mutate": () => ({ ok: true }),
-			},
 		});
 	});
 
@@ -99,18 +108,14 @@ describe("chat router integration with stub ChatRuntimeManager", () => {
 		expect(calls[0].method).toBe("getSnapshot");
 	});
 
-	test("sendMessage delegates and fires cloud lastActiveAt update", async () => {
+	test("sendMessage delegates without calling the cloud API", async () => {
 		await host.trpc.chat.sendMessage.mutate({
 			sessionId,
 			workspaceId,
 			payload: { content: "hello" },
 		});
 		expect(calls[0].method).toBe("sendMessage");
-		// fire-and-forget — give microtask queue a chance to flush
-		await new Promise((r) => setTimeout(r, 10));
-		expect(
-			host.apiCalls.some((c) => c.path === "chat.updateSession.mutate"),
-		).toBe(true);
+		expect(host.apiCalls).toEqual([]);
 	});
 
 	test("endSession delegates to disposeRuntime and returns ok", async () => {
@@ -143,9 +148,20 @@ describe("chat router integration with stub ChatRuntimeManager", () => {
 		).rejects.toBeInstanceOf(TRPCClientError);
 	});
 
-	test("getSlashCommands and resolveSlashCommand delegate with workspaceId only", async () => {
-		await host.trpc.chat.getSlashCommands.query({ workspaceId });
+	test("workspace support APIs delegate with workspaceId instead of cwd", async () => {
+		await host.trpc.chat.searchFiles.query({
+			workspaceId,
+			query: "readme",
+			includeHidden: false,
+			limit: 10,
+		});
 		expect(calls[0]).toMatchObject({
+			method: "searchFiles",
+			args: { workspaceId, query: "readme", includeHidden: false, limit: 10 },
+		});
+
+		await host.trpc.chat.getSlashCommands.query({ workspaceId });
+		expect(calls[1]).toMatchObject({
 			method: "getSlashCommands",
 			args: { workspaceId },
 		});
@@ -154,9 +170,20 @@ describe("chat router integration with stub ChatRuntimeManager", () => {
 			workspaceId,
 			text: "/foo bar",
 		});
-		expect(calls[1]).toMatchObject({
+		expect(calls[2]).toMatchObject({
 			method: "resolveSlashCommand",
 			args: { workspaceId, text: "/foo bar" },
+		});
+
+		await host.trpc.chat.previewSlashCommand.query({
+			workspaceId,
+			text: "/foo",
+		});
+		await host.trpc.chat.getMcpOverview.query({ workspaceId });
+		expect(calls[3].method).toBe("previewSlashCommand");
+		expect(calls[4]).toMatchObject({
+			method: "getMcpOverview",
+			args: { workspaceId },
 		});
 	});
 

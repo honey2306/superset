@@ -3,16 +3,23 @@ import { useRef, useState } from "react";
 interface Props {
 	disabled?: boolean;
 	busy?: boolean;
+	queueing?: boolean;
 	onSubmit: (text: string) => void | Promise<void>;
 	onCancel?: () => void;
 }
 
-export function Composer({ disabled, busy, onSubmit, onCancel }: Props) {
+export function Composer({
+	disabled,
+	busy,
+	queueing,
+	onSubmit,
+	onCancel,
+}: Props) {
 	const [value, setValue] = useState("");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	function handleSubmit(): void {
-		if (busy || disabled) return;
+		if (disabled || (busy && !queueing)) return;
 		if (!value.trim()) return;
 		const text = value;
 		setValue("");
@@ -20,7 +27,7 @@ export function Composer({ disabled, busy, onSubmit, onCancel }: Props) {
 	}
 
 	return (
-		<div className="mt-2 flex items-end gap-2 rounded-2xl bg-white/5 p-2 ring-1 ring-white/10">
+		<div className="mobile-composer mt-2 flex items-end gap-2 rounded-2xl p-2">
 			<textarea
 				ref={textareaRef}
 				value={value}
@@ -38,24 +45,34 @@ export function Composer({ disabled, busy, onSubmit, onCancel }: Props) {
 				autoCapitalize="sentences"
 				autoCorrect="on"
 				rows={1}
-				className="max-h-40 min-h-[44px] w-full resize-none bg-transparent px-2 py-2 text-base outline-none placeholder:text-white/40 disabled:opacity-50"
+				className="max-h-40 min-h-[44px] w-full resize-none bg-transparent px-2 py-2 text-base text-[var(--phone-text)] outline-none placeholder:text-[var(--phone-caption)] disabled:opacity-50"
 			/>
 			{busy && onCancel ? (
-				<button
-					type="button"
-					onClick={onCancel}
-					className="rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-200 ring-1 ring-red-500/30"
-				>
-					Stop
-				</button>
+				<>
+					<button
+						type="button"
+						disabled={disabled || (busy && !queueing) || !value.trim()}
+						onClick={handleSubmit}
+						className="mobile-primary-button px-3 py-2 text-sm font-medium disabled:opacity-40"
+					>
+						{queueing ? "Queue" : "Send"}
+					</button>
+					<button
+						type="button"
+						onClick={onCancel}
+						className="rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-200 ring-1 ring-red-500/30"
+					>
+						Stop
+					</button>
+				</>
 			) : (
 				<button
 					type="button"
-					disabled={disabled || busy || !value.trim()}
+					disabled={disabled || (busy && !queueing) || !value.trim()}
 					onClick={handleSubmit}
-					className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-black disabled:opacity-40"
+					className="mobile-primary-button px-3 py-2 text-sm font-medium disabled:opacity-40"
 				>
-					Send
+					{queueing ? "Queue" : "Send"}
 				</button>
 			)}
 		</div>

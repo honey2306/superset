@@ -8,11 +8,13 @@ import {
 import { Input } from "@superset/ui/input";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDeferredValue, useMemo, useState } from "react";
 import { VscChevronDown, VscChevronRight, VscHistory } from "react-icons/vsc";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import { useChangesStore } from "renderer/stores/changes";
 import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import type { ChangedFile } from "shared/changes-types";
@@ -38,7 +40,8 @@ export function LogView({
 }: LogViewProps) {
 	const { t } = useTranslation();
 	const { copyToClipboard } = useCopyToClipboard();
-	const utils = electronTrpc.useUtils();
+	const { activeHostUrl } = useLocalHostService();
+	const queryClient = useQueryClient();
 	const [filter, setFilter] = useState("");
 	const deferredFilter = useDeferredValue(filter);
 	const trimmedFilter = deferredFilter.trim();
@@ -55,46 +58,63 @@ export function LogView({
 	);
 	const fileListViewMode = useChangesStore((s) => s.fileListViewMode);
 
-	const { data, isLoading, isFetching } = electronTrpc.changes.listLog.useQuery(
-		{
-			worktreePath,
-			limit,
-			grep: trimmedFilter || undefined,
-			author: undefined,
+	const logQueryKey = [
+		"git-log",
+		activeHostUrl,
+		workspaceId,
+		limit,
+		trimmedFilter,
+	] as const;
+	const { data, isLoading, isFetching } = useQuery({
+		queryKey: logQueryKey,
+		enabled: Boolean(activeHostUrl && workspaceId),
+		queryFn: () => {
+			if (!activeHostUrl) throw new Error("Workspace host is unavailable");
+			return getHostServiceClientByUrl(activeHostUrl).git.listLog.query({
+				workspaceId,
+				limit,
+				skip: 0,
+				grep: trimmedFilter || undefined,
+				author: undefined,
+			});
 		},
-		{
-			enabled: !!worktreePath,
-			staleTime: 5_000,
-		},
-	);
+		staleTime: 5_000,
+	});
 
 	const commits = data ?? [];
 
-	const resetMutation = electronTrpc.changes.resetToCommit.useMutation({
+	const resetMutation = useMutation({
+		mutationFn: ({ commit, mode }: { commit: string; mode: ResetMode }) => {
+			if (!activeHostUrl) throw new Error("Workspace host is unavailable");
+			return getHostServiceClientByUrl(activeHostUrl).git.resetToCommit.mutate({
+				workspaceId,
+				commit,
+				mode,
+			});
+		},
 		onSuccess: () => {
 			toast.success(
-				t("v1Changes.reset.toastDone", {
+				t("changes.reset.toastDone", {
 					commit: resetTarget?.shortHash ?? "",
 				}),
 			);
-			void utils.changes.listLog.invalidate({ worktreePath });
-			void utils.changes.getStatus.invalidate({ worktreePath });
-			void utils.changes.getBranches.invalidate({ worktreePath });
+			void queryClient.invalidateQueries({
+				queryKey: ["git-log", activeHostUrl, workspaceId],
+			});
+			void queryClient.invalidateQueries({
+				queryKey: ["git-branches", activeHostUrl, workspaceId],
+			});
 			setResetTarget(null);
 			onRefresh?.();
 		},
 		onError: (error) => {
-			toast.error(t("v1Changes.reset.toastFailed", { message: error.message }));
+			toast.error(t("changes.reset.toastFailed", { message: error.message }));
 		},
 	});
 
 	const handleReset = (mode: ResetMode) => {
 		if (!resetTarget) return;
-		resetMutation.mutate({
-			worktreePath,
-			commit: resetTarget.hash,
-			mode,
-		});
+		resetMutation.mutate({ commit: resetTarget.hash, mode });
 	};
 
 	const handleToggle = (hash: string) => {
@@ -130,17 +150,17 @@ export function LogView({
 						setFilter(e.target.value);
 						setLimit(PAGE_SIZE);
 					}}
-					placeholder={t("v1Changes.log.filterPlaceholder")}
+					placeholder={t("changes.log.filterPlaceholder")}
 					className="h-7 text-xs"
 				/>
 			</div>
 			{isLoading && rows.length === 0 ? (
 				<div className="flex flex-1 items-center justify-center text-xs text-fg-mute">
-					{t("v1Changes.log.loading")}
+					{t("changes.log.loading")}
 				</div>
 			) : rows.length === 0 ? (
 				<div className="flex flex-1 items-center justify-center text-xs text-fg-mute">
-					{t("v1Changes.log.empty")}
+					{t("changes.log.empty")}
 				</div>
 			) : (
 				<div className="flex-1 overflow-y-auto" data-changes-scroll-container>
@@ -158,6 +178,7 @@ export function LogView({
 								})
 							}
 							worktreePath={worktreePath}
+							workspaceId={workspaceId}
 							projectId={projectId}
 							viewMode={fileListViewMode}
 							selectedFile={selectedFileState?.file ?? null}
@@ -174,7 +195,7 @@ export function LogView({
 								disabled={isFetching}
 								onClick={() => setLimit((n) => n + PAGE_SIZE)}
 							>
-								{t("v1Changes.log.loadMore")}
+								{t("changes.log.loadMore")}
 							</Button>
 						</div>
 					)}
@@ -208,6 +229,7 @@ interface LogRowProps {
 	onCopyHash: () => void;
 	onReset: () => void;
 	worktreePath: string;
+	workspaceId: string;
 	projectId?: string;
 	viewMode: "grouped" | "tree";
 	selectedFile: ChangedFile | null;
@@ -222,6 +244,7 @@ function LogRow({
 	onCopyHash,
 	onReset,
 	worktreePath,
+	workspaceId,
 	projectId,
 	viewMode,
 	selectedFile,
@@ -229,10 +252,23 @@ function LogRow({
 	onFileSelect,
 }: LogRowProps) {
 	const { t } = useTranslation();
-	const { data: files } = electronTrpc.changes.getCommitFiles.useQuery(
-		{ worktreePath, commitHash: commit.hash },
-		{ enabled: isExpanded, staleTime: 60_000 },
-	);
+	const { activeHostUrl } = useLocalHostService();
+	const { data } = useQuery({
+		queryKey: ["git-commit-files", activeHostUrl, workspaceId, commit.hash],
+		enabled: Boolean(activeHostUrl && workspaceId && isExpanded),
+		queryFn: () => {
+			if (!activeHostUrl) throw new Error("Workspace host is unavailable");
+			return getHostServiceClientByUrl(activeHostUrl).git.getCommitFiles.query({
+				workspaceId,
+				commitHash: commit.hash,
+			});
+		},
+		staleTime: 60_000,
+	});
+	const files = data?.files.map((file) => ({
+		...file,
+		status: file.status === "changed" ? "modified" : file.status,
+	}));
 	const isCommitSelected = selectedCommitHash === commit.hash;
 
 	return (
@@ -263,11 +299,11 @@ function LogRow({
 				</ContextMenuTrigger>
 				<ContextMenuContent className="w-56">
 					<ContextMenuItem onClick={onCopyHash}>
-						{t("v1Changes.log.copyHash")}
+						{t("changes.log.copyHash")}
 					</ContextMenuItem>
 					<ContextMenuItem onClick={onReset}>
 						<VscHistory className="mr-2 size-4" />
-						{t("v1Changes.log.resetHere")}
+						{t("changes.log.resetHere")}
 					</ContextMenuItem>
 				</ContextMenuContent>
 			</ContextMenu>

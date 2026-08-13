@@ -86,6 +86,8 @@ const PHONE_ALLOWED_PATHS = new Set<string>([
 	"phone.sessions.revoke",
 	"phone.me",
 	"workspaceCatalog.snapshot",
+	"terminalAgents.listByWorkspace",
+	"terminalAgents.getOrCreate",
 ]);
 
 const PHONE_ALLOWED_PREFIXES: readonly string[] = ["acpSessions."];

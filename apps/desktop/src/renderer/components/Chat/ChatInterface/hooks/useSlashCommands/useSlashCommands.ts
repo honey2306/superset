@@ -1,10 +1,10 @@
-import type { ChatServiceRouter } from "@superset/chat/server/desktop";
+import type { AppRouter } from "@superset/host-service";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type ChatServiceOutputs = inferRouterOutputs<ChatServiceRouter>;
+type HostServiceOutputs = inferRouterOutputs<AppRouter>;
 export type SlashCommand =
-	ChatServiceOutputs["workspace"]["getSlashCommands"][number];
+	HostServiceOutputs["chat"]["getSlashCommands"][number];
 
 /** The presentation fields a rich composer needs, independent of command host. */
 export type ComposerSlashCommand = {
