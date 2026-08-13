@@ -22,25 +22,25 @@ report_violation() {
 }
 
 report_violation \
-	"[desktop-git-env] Direct runtime imports from simple-git are forbidden. Use getSimpleGitWithShellPath from workspaces/utils/git-client.ts." \
+	"[desktop-git-env] Direct runtime imports from simple-git are forbidden. Use a centralized Git helper from main/lib/shell-env.ts." \
 	"^import(?!\\s+type\\b).*['\"]simple-git['\"]" \
 	--glob '!**/*.test.ts' \
 	--glob '!apps/desktop/src/lib/trpc/routers/workspaces/utils/git-client.ts'
 
 report_violation \
-	"[desktop-git-env] Direct simpleGit(...) construction is forbidden outside git-client.ts." \
+	"[desktop-git-env] Direct simpleGit(...) construction is forbidden outside the centralized Git helper." \
 	"\\bsimpleGit\\(" \
 	--glob '!**/*.test.ts' \
 	--glob '!apps/desktop/src/lib/trpc/routers/workspaces/utils/git-client.ts'
 
 report_violation \
-	"[desktop-git-env] Raw execFile/execFileAsync git calls are forbidden. Use execGitWithShellPath from workspaces/utils/git-client.ts." \
+	"[desktop-git-env] Raw execFile/execFileAsync git calls are forbidden. Use execGitWithShellPath from main/lib/shell-env.ts." \
 	"\\bexecFile(?:Async)?\\(\\s*['\"]git['\"]" \
 	--glob '!**/*.test.ts' \
-	--glob '!apps/desktop/src/lib/trpc/routers/workspaces/utils/git-client.ts'
+	--glob '!apps/desktop/src/main/lib/shell-env.ts'
 
 report_violation \
-	"[desktop-git-env] execWithShellEnv(\"git\", ...) is forbidden. Use execGitWithShellPath from workspaces/utils/git-client.ts." \
+	"[desktop-git-env] execWithShellEnv(\"git\", ...) is forbidden. Use execGitWithShellPath from main/lib/shell-env.ts." \
 	"\\bexecWithShellEnv\\(\\s*['\"]git['\"]" \
 	--glob '!**/*.test.ts'
 

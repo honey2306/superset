@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	applyShellEnvToProcess,
+	execGitWithShellPath,
 	getProcessEnvWithShellEnv,
 	getProcessEnvWithShellPath,
 } from "./shell-env";
@@ -74,6 +75,14 @@ describe("getProcessEnvWithShellPath preserves user git env vars", () => {
 		expect(env.GIT_EDITOR).toBe("vim");
 		expect(env.PAGER).toBe("less");
 		expect(env.GIT_PAGER).toBe("less");
+	});
+});
+
+describe("execGitWithShellPath", () => {
+	test("runs Git using the shell PATH", async () => {
+		const { stdout } = await execGitWithShellPath(["--version"]);
+
+		expect(stdout).toStartWith("git version ");
 	});
 });
 

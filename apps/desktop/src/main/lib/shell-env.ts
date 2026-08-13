@@ -199,6 +199,25 @@ export async function getProcessEnvWithShellPath(
 }
 
 /**
+ * Execute Git with the user's login-shell PATH so GUI-launched desktop apps
+ * resolve the same Git binary as an interactive terminal.
+ */
+export async function execGitWithShellPath(
+	args: string[],
+	options?: Omit<ExecFileOptionsWithStringEncoding, "encoding">,
+): Promise<{ stdout: string; stderr: string }> {
+	const baseEnv = options?.env
+		? { ...process.env, ...options.env }
+		: process.env;
+
+	return execFileAsync("git", args, {
+		...options,
+		encoding: "utf8",
+		env: await getProcessEnvWithShellPath(baseEnv),
+	});
+}
+
+/**
  * Execute a command, retrying once with shell environment if it fails with ENOENT.
  * On macOS, GUI apps launched from Finder/Dock get minimal PATH that excludes
  * homebrew and other user-installed tools. This lazily derives the user's

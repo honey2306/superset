@@ -1,11 +1,10 @@
-import { execWithShellEnv } from "./shell-env";
+import { execGitWithShellPath, execWithShellEnv } from "./shell-env";
 
 export async function getGitAuthorName(
 	repoPath?: string,
 ): Promise<string | null> {
 	try {
-		const { stdout } = await execWithShellEnv(
-			"git",
+		const { stdout } = await execGitWithShellPath(
 			["config", "--get", "user.name"],
 			{ cwd: repoPath },
 		);
