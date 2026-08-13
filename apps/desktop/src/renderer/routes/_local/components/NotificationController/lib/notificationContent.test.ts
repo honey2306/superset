@@ -6,6 +6,7 @@ function payload(
 	overrides: Partial<AgentLifecyclePayload>,
 ): AgentLifecyclePayload {
 	return {
+		eventId: "event-1",
 		eventType: "Stop",
 		terminalId: "terminal-1",
 		occurredAt: 1,

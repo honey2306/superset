@@ -2,9 +2,9 @@ import type { AppRouter } from "@superset/host-service";
 import type { TRPCClient } from "@trpc/client";
 import { useMemo } from "react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { registerTerminalCleanup } from "renderer/lib/terminal/terminal-cleanup";
 import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
-import { registerTerminalCleanup } from "renderer/stores/tabs/utils/terminal-cleanup";
 import { normalizeTerminalCommand } from "./launch-command";
 
 export interface HostTerminalTarget {

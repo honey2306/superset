@@ -7,7 +7,7 @@ import { electronQueryClient } from "renderer/providers/ElectronTRPCProvider";
 import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import superjson from "superjson";
 
-const UNAVAILABLE_HOST_URL = "http://127.0.0.1:1";
+export const UNAVAILABLE_HOST_URL = "http://127.0.0.1:1";
 
 export function HostServiceTRPCProvider({ children }: { children: ReactNode }) {
 	const { activeHostUrl } = useLocalHostService();

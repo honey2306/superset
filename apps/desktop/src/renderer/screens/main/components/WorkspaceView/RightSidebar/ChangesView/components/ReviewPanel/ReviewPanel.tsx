@@ -25,10 +25,10 @@ import { VscChevronRight } from "react-icons/vsc";
 import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { openCommentInPanes } from "renderer/lib/panes";
 import type { MessageKey } from "renderer/providers/I18nProvider";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { PRIcon } from "renderer/screens/main/components/PRIcon";
-import { openCommentInPanes } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/PanesWorkspace/panesStoreRegistry";
 import {
 	ALL_COMMENTS_COPY_ACTION_KEY,
 	buildAllCommentsClipboardText,

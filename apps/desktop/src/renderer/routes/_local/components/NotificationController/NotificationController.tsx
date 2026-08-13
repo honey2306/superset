@@ -14,7 +14,7 @@ import {
 	HostNotificationSubscriber,
 	type HostNotificationWorkspaceState,
 } from "./components/HostNotificationSubscriber";
-import { markAgentLifecycleTargetSeen } from "./lib/lifecycleEvents";
+import { forwardElectronLifecycleFallback } from "./lib/electronLifecycleFallback";
 
 interface WorkspaceHostRow {
 	workspaceId: string;
@@ -117,36 +117,20 @@ export function NotificationController() {
 			if (!workspace) return;
 
 			// Adopted shells keep their launch-time host-service hook URL. When
-			// that URL is stale, the Electron fallback still has terminal context.
-			const eventType =
-				data.eventType === "PendingQuestion"
-					? "PermissionRequest"
-					: data.eventType;
-			markAgentLifecycleTargetSeen({
-				workspaceId: data.workspaceId,
-				payload: {
-					eventType,
-					terminalId: data.terminalId,
-					occurredAt: Date.now(),
-				},
+			// that URL is stale, forward once into the authoritative host EventBus.
+			// The EventBus subscriber owns sound/native UI, preventing a duplicate
+			// main-process notification for this same fallback hook.
+			if (!activeHostUrl) return;
+			forwardElectronLifecycleFallback({
+				event: data,
 				paneLayout: workspace.paneLayout,
+				client: getHostServiceClientByUrl(activeHostUrl),
+			})?.catch((error) => {
+				console.warn(
+					"[notifications] failed to forward lifecycle event to host:",
+					error,
+				);
 			});
-
-			// Statuses derive from host bindings, so the host must hear the
-			// event too; the binding for an adopted agent persists host-side.
-			if (activeHostUrl) {
-				getHostServiceClientByUrl(activeHostUrl)
-					.notifications.hook.mutate({
-						terminalId: data.terminalId,
-						eventType,
-					})
-					.catch((error) => {
-						console.warn(
-							"[notifications] failed to forward lifecycle event to host:",
-							error,
-						);
-					});
-			}
 		},
 	);
 

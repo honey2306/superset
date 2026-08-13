@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { useHotkey } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { openFileInPanes } from "renderer/lib/panes";
 import type { WorkspaceSearchParams } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
 import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
 import { supportsWorkspaceChanges } from "renderer/routes/_local/_dashboard/workspace/$workspaceId/utils/supportsWorkspaceChanges";
@@ -17,7 +18,6 @@ import {
 } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { NotFound } from "renderer/routes/not-found";
 import { CommandPalette } from "renderer/screens/main/components/CommandPalette";
-import { openFileInPanes } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/PanesWorkspace/panesStoreRegistry";
 import { useWorkspaceFileEventBridge } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import { useWorkspaceRenameReconciliation } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceRenameReconciliation";
 import { WorkspaceLayout } from "renderer/screens/main/components/WorkspaceView/WorkspaceLayout";

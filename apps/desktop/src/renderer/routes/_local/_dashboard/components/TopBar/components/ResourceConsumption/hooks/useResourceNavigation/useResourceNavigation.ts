@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
+import { findPanesStoreByPaneId } from "renderer/lib/panes";
 import { navigateToWorkspace as navigateToWorkspaceRoute } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import type { SessionMetrics } from "../../types";
 
 export function useResourceNavigation({
@@ -10,14 +10,15 @@ export function useResourceNavigation({
 	onNavigate: () => void;
 }) {
 	const navigate = useNavigate();
-	const panes = useTabsStore((state) => state.panes);
-	const getPaneName = useCallback(
-		(session: SessionMetrics) =>
+	const getPaneName = useCallback((session: SessionMetrics) => {
+		const located = findPanesStoreByPaneId(session.paneId);
+		const pane = located?.store.getState().getPane(session.paneId)?.pane;
+		return (
 			session.title ??
-			panes[session.paneId]?.name ??
-			`Terminal ${session.sessionId.slice(0, 8)}`,
-		[panes],
-	);
+			pane?.titleOverride ??
+			`Terminal ${session.sessionId.slice(0, 8)}`
+		);
+	}, []);
 	const navigateToWorkspace = useCallback(
 		(workspaceId: string) => {
 			void navigateToWorkspaceRoute(workspaceId, navigate);

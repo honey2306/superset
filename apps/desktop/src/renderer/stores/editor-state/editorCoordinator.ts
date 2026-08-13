@@ -1,10 +1,14 @@
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import {
+	closePane,
+	createFileViewer,
+	findPanesStoreByPaneId,
+	findPanesStoreByTabId,
+	focusPane as focusPanesPane,
+	type OpenFileOptions,
+} from "renderer/lib/panes";
 import { confirmCloseTerminals } from "renderer/lib/terminal/confirm-close-terminals";
-import { getHostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/host-terminal-backend";
-import { useTabsStore } from "renderer/stores/tabs/store";
-import type { AddFileViewerPaneOptions } from "renderer/stores/tabs/types";
-import { resolveFileViewerMode } from "renderer/stores/tabs/utils";
-import { getPathBaseName } from "shared/absolute-paths";
+import { getHostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/components/Terminal/host-terminal-backend";
 import {
 	deleteDocumentBuffer,
 	discardDocumentCurrentContent,
@@ -36,17 +40,8 @@ function getDocumentState(
 }
 
 function focusPane(paneId: string): void {
-	const tabsState = useTabsStore.getState();
-	const pane = tabsState.panes[paneId];
-	if (!pane) {
-		return;
-	}
-
-	const tab = tabsState.tabs.find((item) => item.id === pane.tabId);
-	if (tab) {
-		tabsState.setActiveTab(tab.workspaceId, tab.id);
-	}
-	tabsState.setFocusedPane(pane.tabId, paneId);
+	const found = findPanesStoreByPaneId(paneId);
+	if (found) focusPanesPane(found.workspaceId, paneId);
 }
 
 function cleanupDocumentIfOrphaned(documentKey: string): void {
@@ -61,83 +56,45 @@ function cleanupDocumentIfOrphaned(documentKey: string): void {
 
 function applyFileViewerReplacement(
 	paneId: string,
-	workspaceId: string,
-	options: AddFileViewerPaneOptions,
+	_workspaceId: string,
+	options: OpenFileOptions,
 ): void {
-	const tabsState = useTabsStore.getState();
-	const pane = tabsState.panes[paneId];
-	if (!pane?.fileViewer) {
-		return;
-	}
-
-	const fileName = options.displayName ?? getPathBaseName(options.filePath);
-	const viewMode = resolveFileViewerMode({
-		filePath: options.filePath,
-		diffCategory: options.diffCategory,
-		viewMode: options.viewMode,
-		fileStatus: options.fileStatus,
+	const found = findPanesStoreByPaneId(paneId);
+	const location = found?.store.getState().getPane(paneId);
+	if (!found || !location?.pane.data.fileViewer) return;
+	found.store.getState().setPaneData({
+		paneId,
+		data: {
+			...location.pane.data,
+			fileViewer: createFileViewer(options),
+		},
 	});
-
-	useTabsStore.setState((state) => ({
-		panes: {
-			...state.panes,
-			[paneId]: {
-				...pane,
-				name: fileName,
-				fileViewer: {
-					...pane.fileViewer,
-					filePath: options.filePath,
-					viewMode,
-					isPinned: options.isPinned ?? false,
-					diffLayout: "inline",
-					diffCategory: options.diffCategory,
-					commitHash: options.commitHash,
-					oldPath: options.oldPath,
-					initialLine: options.line,
-					initialColumn: options.column,
-					displayName: options.displayName,
-				},
-			},
-		},
-		focusedPaneIds: {
-			...state.focusedPaneIds,
-			[pane.tabId]: paneId,
-		},
-		activeTabIds: {
-			...state.activeTabIds,
-			[workspaceId]: pane.tabId,
-		},
-	}));
+	found.store.getState().setActivePane({ tabId: location.tabId, paneId });
 }
 
 function executePendingIntent(
 	paneId: string,
 	intent: EditorPendingIntent,
 ): void {
+	const found = findPanesStoreByPaneId(paneId);
 	switch (intent.type) {
 		case "close-pane":
-			useTabsStore.getState().removePane(paneId);
+			if (found) closePane(found.workspaceId, paneId);
 			return;
-		case "close-tab":
-			useTabsStore.getState().removeTab(intent.tabId);
+		case "close-tab": {
+			const tab = findPanesStoreByTabId(intent.tabId);
+			if (tab) tab.store.getState().removeTab(intent.tabId);
 			return;
+		}
 		case "change-view-mode": {
-			const panes = useTabsStore.getState().panes;
-			const pane = panes[paneId];
-			if (!pane?.fileViewer) {
-				return;
-			}
-
-			useTabsStore.setState({
-				panes: {
-					...panes,
-					[paneId]: {
-						...pane,
-						fileViewer: {
-							...pane.fileViewer,
-							viewMode: intent.nextMode,
-						},
-					},
+			const location = found?.store.getState().getPane(paneId);
+			const viewer = location?.pane.data.fileViewer;
+			if (!found || !viewer) return;
+			found.store.getState().setPaneData({
+				paneId,
+				data: {
+					...location.pane.data,
+					fileViewer: { ...viewer, viewMode: intent.nextMode },
 				},
 			});
 			return;
@@ -150,41 +107,25 @@ function executePendingIntent(
 	}
 }
 
-function collectDirtyTabDocuments(tabId: string): Array<{
-	documentKey: string;
-	paneId: string;
-}> {
-	const tabsState = useTabsStore.getState();
-	const panes = Object.values(tabsState.panes).filter(
-		(pane) => pane.tabId === tabId,
-	);
+function collectDirtyTabDocuments(
+	tabId: string,
+): Array<{ documentKey: string; paneId: string }> {
+	const found = findPanesStoreByTabId(tabId);
+	const tab = found?.store.getState().getTab(tabId);
+	if (!tab) return [];
 	const sessions = useEditorSessionsStore.getState().sessions;
 	const documents = useEditorDocumentsStore.getState().documents;
 	const seen = new Set<string>();
 	const dirtyDocs: Array<{ documentKey: string; paneId: string }> = [];
-
-	for (const pane of panes) {
-		if (pane.type !== "file-viewer") {
-			continue;
-		}
-
+	for (const pane of Object.values(tab.panes)) {
+		if (pane.kind !== "file-viewer") continue;
 		const session = sessions[pane.id];
-		if (!session) {
-			continue;
-		}
-
+		if (!session) continue;
 		const document = documents[session.documentKey];
-		if (!document?.dirty || seen.has(session.documentKey)) {
-			continue;
-		}
-
+		if (!document?.dirty || seen.has(session.documentKey)) continue;
 		seen.add(session.documentKey);
-		dirtyDocs.push({
-			documentKey: session.documentKey,
-			paneId: pane.id,
-		});
+		dirtyDocs.push({ documentKey: session.documentKey, paneId: pane.id });
 	}
-
 	return dirtyDocs;
 }
 
@@ -193,13 +134,11 @@ function isDocumentExclusivelyBoundToTab(
 	tabId: string,
 ): boolean {
 	const document = getDocumentState(documentKey);
-	if (!document) {
-		return true;
-	}
-
-	const panes = useTabsStore.getState().panes;
+	if (!document) return true;
 	return document.sessionPaneIds.every(
-		(paneId) => panes[paneId]?.tabId === tabId,
+		(paneId) =>
+			findPanesStoreByPaneId(paneId)?.store.getState().getPane(paneId)
+				?.tabId === tabId,
 	);
 }
 
@@ -408,10 +347,10 @@ export async function saveDocumentForPane(
 		force?: boolean;
 	},
 ): Promise<EditorSaveResult | undefined> {
-	const tabsState = useTabsStore.getState();
-	const pane = tabsState.panes[paneId];
+	const found = findPanesStoreByPaneId(paneId);
+	const pane = found?.store.getState().getPane(paneId)?.pane;
 	const session = useEditorSessionsStore.getState().sessions[paneId];
-	if (!pane?.fileViewer || !session) {
+	if (!pane?.data.fileViewer || !session) {
 		return undefined;
 	}
 
@@ -483,28 +422,13 @@ export async function saveDocumentForPane(
 		revision: result.revision,
 	});
 
-	if (pane.fileViewer.diffCategory === "staged") {
-		useTabsStore.setState((state) => {
-			const currentPane = state.panes[paneId];
-			if (
-				!currentPane?.fileViewer ||
-				currentPane.fileViewer.diffCategory !== "staged"
-			) {
-				return state;
-			}
-
-			return {
-				panes: {
-					...state.panes,
-					[paneId]: {
-						...currentPane,
-						fileViewer: {
-							...currentPane.fileViewer,
-							diffCategory: "unstaged",
-						},
-					},
-				},
-			};
+	if (pane.data.fileViewer.diffCategory === "staged" && found) {
+		found.store.getState().setPaneData({
+			paneId,
+			data: {
+				...pane.data,
+				fileViewer: { ...pane.data.fileViewer, diffCategory: "unstaged" },
+			},
 		});
 	}
 
@@ -522,8 +446,10 @@ export function requestViewModeChange(
 		return true;
 	}
 
-	const pane = useTabsStore.getState().panes[paneId];
-	if (!pane?.fileViewer || pane.fileViewer.viewMode === nextMode) {
+	const pane = findPanesStoreByPaneId(paneId)
+		?.store.getState()
+		.getPane(paneId)?.pane;
+	if (!pane?.data.fileViewer || pane.data.fileViewer.viewMode === nextMode) {
 		return true;
 	}
 
@@ -549,66 +475,57 @@ export function requestViewModeChange(
 }
 
 export function requestPaneClose(paneId: string): boolean {
-	const pane = useTabsStore.getState().panes[paneId];
-	if (!pane) {
-		return true;
-	}
-
-	if (pane.type === "terminal") {
-		const tab = useTabsStore
-			.getState()
-			.tabs.find((candidate) => candidate.id === pane.tabId);
-		const backend = tab ? getHostTerminalBackend(tab.workspaceId) : null;
+	const found = findPanesStoreByPaneId(paneId);
+	const location = found?.store.getState().getPane(paneId);
+	if (!found || !location) return true;
+	const pane = location.pane;
+	if (pane.kind === "terminal") {
+		const backend = getHostTerminalBackend(found.workspaceId);
+		const terminalId = pane.data.terminalId ?? paneId;
 		if (backend) {
 			void confirmCloseTerminals(
-				[paneId],
-				async (terminalId) => {
-					const result = await getHostServiceClientByUrl(
-						backend.hostUrl,
-					).terminal.hasRunningProcess.query({
-						terminalId,
-						workspaceId: backend.hostWorkspaceId,
-					});
-					return result.running;
-				},
+				[terminalId],
+				async (id) =>
+					(
+						await getHostServiceClientByUrl(
+							backend.hostUrl,
+						).terminal.hasRunningProcess.query({
+							terminalId: id,
+							workspaceId: backend.hostWorkspaceId,
+						})
+					).running,
 				{
 					title: "Close terminal?",
 					description: "A process is still running in this terminal.",
 					confirmLabel: "Close terminal",
 				},
 			).then((confirmed) => {
-				if (confirmed) useTabsStore.getState().removePane(paneId);
+				if (confirmed) closePane(found.workspaceId, paneId);
 			});
 			return false;
 		}
 	}
-
-	if (pane.type !== "file-viewer") {
-		useTabsStore.getState().removePane(paneId);
-		return true;
+	if (pane.kind === "file-viewer") {
+		const session = useEditorSessionsStore.getState().sessions[paneId];
+		const document = session
+			? useEditorDocumentsStore.getState().documents[session.documentKey]
+			: null;
+		if (document?.dirty) {
+			focusPane(paneId);
+			useEditorSessionsStore
+				.getState()
+				.setPendingIntent(paneId, { type: "close-pane" }, "unsaved");
+			return false;
+		}
 	}
-
-	const session = useEditorSessionsStore.getState().sessions[paneId];
-	const document = session
-		? useEditorDocumentsStore.getState().documents[session.documentKey]
-		: null;
-
-	if (document?.dirty) {
-		focusPane(paneId);
-		useEditorSessionsStore
-			.getState()
-			.setPendingIntent(paneId, { type: "close-pane" }, "unsaved");
-		return false;
-	}
-
-	useTabsStore.getState().removePane(paneId);
+	closePane(found.workspaceId, paneId);
 	return true;
 }
 
 export function requestPreviewReplacement(
 	paneId: string,
 	workspaceId: string,
-	options: AddFileViewerPaneOptions,
+	options: OpenFileOptions,
 ): boolean {
 	const session = useEditorSessionsStore.getState().sessions[paneId];
 	const document = session
@@ -634,15 +551,13 @@ export function requestPreviewReplacement(
 }
 
 export function requestTabClose(tabId: string): boolean {
-	const tab = useTabsStore.getState().tabs.find((item) => item.id === tabId);
-	if (!tab) {
-		return true;
-	}
-
+	const found = findPanesStoreByTabId(tabId);
+	const tab = found?.store.getState().getTab(tabId);
+	if (!found || !tab) return true;
 	const dirtyDocs = collectDirtyTabDocuments(tabId);
 	if (dirtyDocs.length > 0) {
 		useEditorSessionsStore.getState().setPendingTabClose({
-			workspaceId: tab.workspaceId,
+			workspaceId: found.workspaceId,
 			tabId,
 			paneIds: dirtyDocs.map((entry) => entry.paneId),
 			documentKeys: dirtyDocs.map((entry) => entry.documentKey),
@@ -650,35 +565,33 @@ export function requestTabClose(tabId: string): boolean {
 		});
 		return false;
 	}
-
-	const terminalIds = Object.values(useTabsStore.getState().panes)
-		.filter((pane) => pane.tabId === tabId && pane.type === "terminal")
-		.map((pane) => pane.id);
-	const backend = getHostTerminalBackend(tab.workspaceId);
+	const terminalIds = Object.values(tab.panes)
+		.filter((pane) => pane.kind === "terminal")
+		.map((pane) => pane.data.terminalId ?? pane.id);
+	const backend = getHostTerminalBackend(found.workspaceId);
 	if (backend && terminalIds.length > 0) {
 		void confirmCloseTerminals(
 			terminalIds,
-			async (terminalId) => {
-				const result = await getHostServiceClientByUrl(
-					backend.hostUrl,
-				).terminal.hasRunningProcess.query({
-					terminalId,
-					workspaceId: backend.hostWorkspaceId,
-				});
-				return result.running;
-			},
+			async (terminalId) =>
+				(
+					await getHostServiceClientByUrl(
+						backend.hostUrl,
+					).terminal.hasRunningProcess.query({
+						terminalId,
+						workspaceId: backend.hostWorkspaceId,
+					})
+				).running,
 			{
 				title: "Close tab?",
 				description: "One or more terminal processes are still running.",
 				confirmLabel: "Close tab",
 			},
 		).then((confirmed) => {
-			if (confirmed) useTabsStore.getState().removeTab(tabId);
+			if (confirmed) found.store.getState().removeTab(tabId);
 		});
 		return false;
 	}
-
-	useTabsStore.getState().removeTab(tabId);
+	found.store.getState().removeTab(tabId);
 	return true;
 }
 
@@ -768,7 +681,9 @@ export async function saveAndClosePendingTab(
 	}
 
 	useEditorSessionsStore.getState().setPendingTabClose(null);
-	useTabsStore.getState().removeTab(pending.tabId);
+	findPanesStoreByTabId(pending.tabId)
+		?.store.getState()
+		.removeTab(pending.tabId);
 }
 
 export function discardAndClosePendingTab(workspaceId: string): void {
@@ -784,7 +699,9 @@ export function discardAndClosePendingTab(workspaceId: string): void {
 	}
 
 	useEditorSessionsStore.getState().setPendingTabClose(null);
-	useTabsStore.getState().removeTab(pending.tabId);
+	findPanesStoreByTabId(pending.tabId)
+		?.store.getState()
+		.removeTab(pending.tabId);
 }
 
 export function cancelPendingTabClose(workspaceId: string): void {

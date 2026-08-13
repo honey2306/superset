@@ -1,6 +1,6 @@
 import type { AgentLaunchRequest } from "@superset/shared/agent-launch";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { launchTerminalAgent } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/host-service-terminal-agent-launcher";
+import { launchTerminalAgent } from "renderer/screens/main/components/WorkspaceView/ContentView/components/Terminal/host-service-terminal-agent-launcher";
 import type { AgentSessionLaunchContext, LaunchResultPayload } from "../types";
 
 type TerminalLaunchRequest = Extract<AgentLaunchRequest, { kind: "terminal" }>;

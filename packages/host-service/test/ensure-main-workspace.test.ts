@@ -11,6 +11,7 @@ import * as schema from "../src/db/schema";
 import { projects, workspaces } from "../src/db/schema";
 import type { EventBus } from "../src/events";
 import { ensureMainWorkspaceStrict } from "../src/trpc/router/project/utils/ensure-main-workspace";
+import { WorkspaceCatalog } from "../src/workspace-catalog";
 import { insertLocalWorkspace } from "../src/workspaces/local-workspace-store";
 
 const MIGRATIONS_FOLDER = resolve(import.meta.dir, "../drizzle");
@@ -42,6 +43,7 @@ function makeCtx(db: HostDb) {
 		db,
 		git: git as never,
 		eventBus,
+		catalog: new WorkspaceCatalog({ db, eventBus: null }),
 	};
 }
 
@@ -58,6 +60,7 @@ describe("ensureMainWorkspaceStrict", () => {
 			.sync();
 		expect(row?.type).toBe("main");
 		expect(row?.projectId).toBe("p-1");
+		expect(db.select().from(schema.catalogChanges).all()).toHaveLength(1);
 	});
 
 	test("idempotent: a second call returns the same main, never a duplicate", async () => {
@@ -79,7 +82,11 @@ describe("ensureMainWorkspaceStrict", () => {
 		const db = makeDb();
 		// The race winner already committed a main for this project.
 		const winner = insertLocalWorkspace(
-			{ db, eventBus: { broadcastWorkspaceChanged: () => {} } as never },
+			{
+				db,
+				eventBus: { broadcastWorkspaceChanged: () => {} } as never,
+				catalog: new WorkspaceCatalog({ db, eventBus: null }),
+			},
 			{
 				projectId: "p-1",
 				worktreePath: REPO_PATH,

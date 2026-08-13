@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import {
 	AGENT_IDENTITY_IDS,
@@ -378,6 +379,7 @@ async function runTerminalAgent(
 			occurredAt,
 		});
 		ctx.eventBus.broadcastAgentLifecycle({
+			eventId: randomUUID(),
 			workspaceId: input.workspaceId,
 			eventType: "Attached",
 			terminalId: result.terminalId,

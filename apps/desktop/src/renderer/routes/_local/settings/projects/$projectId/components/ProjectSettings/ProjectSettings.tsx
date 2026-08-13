@@ -145,7 +145,7 @@ export function ProjectSettings({
 							<SparseCheckoutSection
 								projectId={projectId}
 								hostUrl={targetHostUrl}
-								paths={hostProject?.sparseCheckoutPaths ?? []}
+								paths={project.sparseCheckoutPaths}
 								onChanged={() => refetchHostProject()}
 							/>
 						</div>

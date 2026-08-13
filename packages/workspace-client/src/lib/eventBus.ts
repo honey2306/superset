@@ -35,6 +35,7 @@ export interface GitChangedPayload {
 }
 
 export interface AgentLifecyclePayload {
+	eventId: string;
 	eventType: AgentLifecycleEventType;
 	terminalId: string;
 	// Absent when the hook ran without `SUPERSET_AGENT_ID` set.
@@ -263,6 +264,7 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 			(entry.callback as EventListener<"agent:lifecycle">)(
 				message.workspaceId,
 				{
+					eventId: message.eventId,
 					eventType: message.eventType,
 					terminalId: message.terminalId,
 					...(message.agent ? { agent: message.agent } : {}),

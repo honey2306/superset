@@ -13,8 +13,8 @@ import { useCallback } from "react";
 import { HiMiniChatBubbleLeftRight } from "react-icons/hi2";
 import { FileMentionChip } from "renderer/components/Chat/components/FileMentionChip";
 import { parseUserMentions } from "renderer/components/Chat/utils/parseUserMentions";
+import { openFileInPanes } from "renderer/lib/panes";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import type { InterruptedMessagePreview } from "../../types";
 import { normalizeWorkspaceFilePath } from "../../utils/file-paths";
 import { MessagePartsRenderer } from "../MessagePartsRenderer";
@@ -78,7 +78,6 @@ export function MessageList({
 	workspaceCwd,
 	onAnswer,
 }: MessageListProps) {
-	const addFileViewerPane = useTabsStore((s) => s.addFileViewerPane);
 	const { t } = useTranslation();
 	const isThinking =
 		submitStatus === "submitted" || submitStatus === "streaming";
@@ -86,9 +85,9 @@ export function MessageList({
 	const handleImageClick = useCallback(
 		(url: string) => {
 			if (!workspaceId) return;
-			addFileViewerPane(workspaceId, { filePath: url, isPinned: true });
+			openFileInPanes(workspaceId, { filePath: url, isPinned: true });
 		},
-		[workspaceId, addFileViewerPane],
+		[workspaceId],
 	);
 
 	return (
@@ -194,7 +193,7 @@ export function MessageList({
 															disabled={!canOpen}
 															onClick={() => {
 																if (!normalizedPath || !workspaceId) return;
-																addFileViewerPane(workspaceId, {
+																openFileInPanes(workspaceId, {
 																	filePath: normalizedPath,
 																	isPinned: true,
 																});

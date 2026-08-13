@@ -18,6 +18,7 @@ import { LuFile, LuFolder } from "react-icons/lu";
 import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { openFileInPanes } from "renderer/lib/panes";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
@@ -29,7 +30,6 @@ import type {
 	DirectoryEntry,
 	FileSystemChangeEvent,
 } from "shared/file-tree-types";
-import { openFileInPanes } from "../../ContentView/TabsContent/PanesWorkspace/panesStoreRegistry";
 import { DeleteConfirmDialog } from "./components/DeleteConfirmDialog";
 import { FileSearchResultItem } from "./components/FileSearchResultItem";
 import { FileTreeItem } from "./components/FileTreeItem";

@@ -11,6 +11,7 @@ import {
 	LuX,
 } from "react-icons/lu";
 import { HotkeyLabel } from "renderer/hotkeys";
+import { openFileInPanes } from "renderer/lib/panes";
 import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import {
 	RightSidebarTab,
@@ -20,7 +21,6 @@ import {
 import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { useScrollContext } from "../ChangesContent";
-import { openFileInPanes } from "../ContentView/TabsContent/PanesWorkspace/panesStoreRegistry";
 import { ChangesView } from "./ChangesView";
 import { FilesView } from "./FilesView";
 import { getSidebarHeaderTabButtonClassName } from "./headerTabStyles";

@@ -223,18 +223,6 @@ function createTrpcStorageAdapter(config: TrpcStorageConfig): StateStorage {
 }
 
 /**
- * Zustand storage adapter for tabs state using tRPC
- */
-export const trpcTabsStorage = createJSONStorage(() =>
-	createTrpcStorageAdapter({
-		get: () => electronTrpcClient.uiState.tabs.get.query(),
-		// biome-ignore lint/suspicious/noExplicitAny: Zustand persist passes unknown, tRPC expects typed input
-		set: (input) => electronTrpcClient.uiState.tabs.set.mutate(input as any),
-		writeDebounceMs: 300,
-	}),
-);
-
-/**
  * Zustand storage adapter for theme state using tRPC
  */
 export const trpcThemeStorage = createJSONStorage(() =>

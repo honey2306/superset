@@ -100,12 +100,9 @@ export const projectRouter = router({
 		)
 		.mutation(({ ctx, input }) => {
 			const paths = normalizeSparseCheckoutPaths(input.paths);
-			const updated = ctx.db
-				.update(projects)
-				.set({ sparseCheckoutPaths: serializeSparseCheckoutPaths(paths) })
-				.where(eq(projects.id, input.projectId))
-				.returning({ id: projects.id })
-				.get();
+			const updated = ctx.catalog.updateProject(input.projectId, {
+				sparseCheckoutPaths: serializeSparseCheckoutPaths(paths),
+			});
 			if (!updated)
 				throw new TRPCError({
 					code: "NOT_FOUND",

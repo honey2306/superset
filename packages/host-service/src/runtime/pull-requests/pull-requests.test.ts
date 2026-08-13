@@ -403,6 +403,13 @@ describe("PullRequestRuntimeManager unlink and restore", () => {
 		manager.unlinkWorkspacePullRequest("ws");
 		expect(getWorkspace(db, "ws")?.pullRequestId).toBeNull();
 		expect(getWorkspace(db, "ws")?.suppressedPullRequestId).toBe("pr-1");
+		expect(db.select().from(catalogChanges).all()).toHaveLength(1);
+		expect(db.select().from(catalogChanges).get()).toMatchObject({
+			revision: 1,
+			entityType: "workspace",
+			entityId: "ws",
+			eventType: "updated",
+		});
 
 		await manager.refreshPullRequestsByWorkspaces(["ws"]);
 		expect(getWorkspace(db, "ws")?.pullRequestId).toBeNull();

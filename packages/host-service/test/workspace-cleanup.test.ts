@@ -142,6 +142,9 @@ function makeCtx(spec: ContextSpec): HostServiceContext & {
 		} as never,
 		runtime: {} as never,
 		eventBus: { broadcastWorkspaceChanged } as never,
+		catalog: {
+			deleteWorkspace: () => dbDeleteRun(),
+		} as never,
 	};
 	return Object.assign(ctx as HostServiceContext, {
 		__mocks: { broadcastWorkspaceChanged },

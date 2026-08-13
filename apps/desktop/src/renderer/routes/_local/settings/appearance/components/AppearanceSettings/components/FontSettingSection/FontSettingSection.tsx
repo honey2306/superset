@@ -6,7 +6,7 @@ import { useTranslation } from "renderer/providers/I18nProvider";
 import {
 	DEFAULT_TERMINAL_FONT_FAMILY,
 	DEFAULT_TERMINAL_FONT_SIZE,
-} from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/config";
+} from "renderer/screens/main/components/WorkspaceView/ContentView/components/Terminal/config";
 import {
 	DEFAULT_CODE_EDITOR_FONT_FAMILY,
 	DEFAULT_CODE_EDITOR_FONT_SIZE,

@@ -9,6 +9,7 @@ import { createApp } from "./app";
 import { AutoMateRelay, AutoMateRelayTaskClient } from "./automate-relay";
 import { getSupervisor, startDaemonBootstrap } from "./daemon";
 import { env } from "./env";
+import { installHostServiceShutdown } from "./graceful-shutdown";
 import { LocalGitCredentialProvider } from "./providers/git";
 import { PskHostAuthProvider } from "./providers/host-auth";
 import { LocalModelProvider } from "./providers/model-providers";
@@ -48,7 +49,7 @@ async function main(): Promise<void> {
 	const relayMailboxId = env.AUTOMATE_RELAY_URL
 		? mailboxId(env.ORGANIZATION_ID, getHostId())
 		: undefined;
-	const { app, injectWebSocket, db } = createApp({
+	const { app, injectWebSocket, db, dispose } = createApp({
 		config: {
 			organizationId: env.ORGANIZATION_ID,
 			dbPath: env.HOST_DB_PATH,
@@ -64,33 +65,9 @@ async function main(): Promise<void> {
 		},
 	});
 
-	// Dev-mode shutdown: kill the daemon on host-service exit so dev
-	// iteration on daemon code resets cleanly. Production keeps the
-	// daemon detached so PTYs survive host-service restarts.
-	// Per the migration plan's D5 decision.
+	// Dev mode tears down the detached daemon for clean iteration. Production
+	// deliberately leaves it alive so PTYs survive host-service restarts.
 	const isDev = process.env.NODE_ENV === "development";
-	if (isDev) {
-		let shuttingDown = false;
-		const devShutdown = async (signal: NodeJS.Signals) => {
-			if (shuttingDown) return;
-			shuttingDown = true;
-			console.log(
-				`[host-service] dev-mode ${signal} — stopping pty-daemon for clean iteration`,
-			);
-			try {
-				await getSupervisor().stop(env.ORGANIZATION_ID);
-			} catch (err) {
-				console.error(
-					"[host-service] dev shutdown: supervisor.stop failed:",
-					err,
-				);
-			} finally {
-				process.exit(0);
-			}
-		};
-		process.on("SIGINT", () => void devShutdown("SIGINT"));
-		process.on("SIGTERM", () => void devShutdown("SIGTERM"));
-	}
 
 	const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
 		// Install only after the server is listening so startup throws still
@@ -109,18 +86,14 @@ async function main(): Promise<void> {
 				})
 			: undefined;
 	relay?.start();
-	if (relay && !isDev) {
-		let shuttingDown = false;
-		const shutdown = () => {
-			if (shuttingDown) return;
-			shuttingDown = true;
-			relay.stop();
-			server.close(() => process.exit(0));
-			setTimeout(() => process.exit(0), 3_000).unref();
-		};
-		process.on("SIGINT", shutdown);
-		process.on("SIGTERM", shutdown);
-	}
+	installHostServiceShutdown({
+		server,
+		disposeApp: dispose,
+		stopRelay: relay ? () => relay.stop() : undefined,
+		stopDevDaemon: isDev
+			? () => getSupervisor().stop(env.ORGANIZATION_ID)
+			: undefined,
+	});
 	// Node detaches its own socket error handler before emitting `upgrade`, while
 	// @hono/node-ws awaits app.request() before it adopts the socket. Keep a
 	// listener through that gap so a peer ECONNRESET cannot terminate the process.

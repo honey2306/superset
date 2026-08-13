@@ -1,3 +1,5 @@
+import type { WorkspaceState } from "@superset/panes";
+import { useLiveQuery } from "@tanstack/react-db";
 import {
 	createContext,
 	type ReactNode,
@@ -5,6 +7,11 @@ import {
 	useEffect,
 	useMemo,
 } from "react";
+import {
+	configurePanesPersistence,
+	hydratePanesRepository,
+	type PanesPaneData,
+} from "renderer/lib/panes";
 import { LOCAL_HOST_SCOPE_ID } from "shared/constants";
 import {
 	getLocalProductStateCollections,
@@ -15,6 +22,29 @@ import {
 const LocalProductStateContext =
 	createContext<LocalProductStateCollections | null>(null);
 
+function PaneRepositoryHydrator({
+	collections,
+}: {
+	collections: LocalProductStateCollections;
+}) {
+	const { data: rows = [], isReady } = useLiveQuery(
+		(query) => query.from({ rows: collections.workspaceLocalState }),
+		[collections],
+	);
+
+	useEffect(() => {
+		if (!isReady) return;
+		hydratePanesRepository(
+			rows.map((row) => ({
+				workspaceId: row.workspaceId,
+				paneLayout: row.paneLayout as WorkspaceState<PanesPaneData>,
+			})),
+		);
+	}, [isReady, rows]);
+
+	return null;
+}
+
 export function LocalProductStateProvider({
 	children,
 }: {
@@ -24,7 +54,6 @@ export function LocalProductStateProvider({
 		() => getLocalProductStateCollections(LOCAL_HOST_SCOPE_ID),
 		[],
 	);
-
 	useEffect(() => {
 		void preloadLocalProductState(LOCAL_HOST_SCOPE_ID).catch((error) => {
 			console.error(
@@ -34,8 +63,23 @@ export function LocalProductStateProvider({
 		});
 	}, []);
 
+	useEffect(() => {
+		configurePanesPersistence((workspaceId, update) => {
+			const row = collections.workspaceLocalState.get(workspaceId);
+			if (!row) return false;
+			collections.workspaceLocalState.update(workspaceId, (draft) => {
+				draft.paneLayout = update(
+					draft.paneLayout as WorkspaceState<PanesPaneData>,
+				);
+			});
+			return true;
+		});
+		return () => configurePanesPersistence(null);
+	}, [collections]);
+
 	return (
 		<LocalProductStateContext.Provider value={collections}>
+			<PaneRepositoryHydrator collections={collections} />
 			{children}
 		</LocalProductStateContext.Provider>
 	);

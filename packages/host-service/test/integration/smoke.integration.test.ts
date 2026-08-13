@@ -36,8 +36,16 @@ describe("host-service smoke", () => {
 			platform: process.platform,
 		});
 		expect(Object.keys(info).sort()).toEqual(
-			["hostId", "hostName", "platform", "uptime", "version"].sort(),
+			[
+				"hostId",
+				"hostName",
+				"platform",
+				"relayMailboxId",
+				"uptime",
+				"version",
+			].sort(),
 		);
+		expect(info.relayMailboxId).toBeUndefined();
 		expect(typeof info.hostId).toBe("string");
 		expect(typeof info.hostName).toBe("string");
 		expect(typeof info.version).toBe("string");

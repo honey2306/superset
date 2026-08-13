@@ -36,9 +36,9 @@ import { derivePrLocalBranchName } from "../../trpc/router/workspace-creation/ut
 import { resolveStartPoint } from "../../trpc/router/workspace-creation/utils/resolve-start-point";
 import { deduplicateBranchName } from "../../trpc/router/workspace-creation/utils/sanitize-branch";
 import type { HostServiceContext } from "../../types";
-import { canonicalizeHostPath } from "../../workspace-catalog/canonical-path";
 import type { RunnerArtifact } from "../workspace-provisioning";
 import {
+	runCatalogCommitStep,
 	runReconciledSourceStep,
 	runSourceStep,
 	type SourceHandlerContext,
@@ -510,32 +510,17 @@ async function catalogWorkspace(
 		baseBranch?: string;
 	},
 ): Promise<{
+	projectId: string;
 	workspaceId: string;
 	disposition: GitMaterializationResult["disposition"];
 }> {
-	return runReconciledSourceStep(
+	return runCatalogCommitStep(
 		context,
 		"materialize",
 		{
 			projectId: args.projectId,
 			branch: args.branch,
 			worktreePath: args.worktreePath,
-		},
-		async (output: {
-			workspaceId: string;
-			disposition: GitMaterializationResult["disposition"];
-		}) => {
-			const row = context.ctx.db.query.workspaces
-				.findFirst({
-					where: (workspace, { eq }) => eq(workspace.id, output.workspaceId),
-				})
-				.sync();
-			return (
-				row?.projectId === args.projectId &&
-				row.branch === args.branch &&
-				canonicalizeHostPath(row.worktreePath) ===
-					canonicalizeHostPath(args.worktreePath)
-			);
 		},
 		async () => {
 			const result = await adoptExistingWorktree({
@@ -554,6 +539,7 @@ async function catalogWorkspace(
 				baseBranch: args.baseBranch,
 			});
 			return {
+				projectId: args.projectId,
 				workspaceId: result.workspace.id,
 				disposition: result.alreadyExists ? "adopted" : "created",
 			};

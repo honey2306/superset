@@ -23,6 +23,7 @@ const projSnapshot = (
 	worktreeBaseDir: null,
 	branchPrefixMode: null,
 	branchPrefixCustom: null,
+	sparseCheckoutPaths: [],
 	createdAt: 1,
 	updatedAt: 1,
 });
@@ -42,6 +43,7 @@ const wsSnapshot = (
 	upstreamRepo: null,
 	upstreamBranch: null,
 	pullRequestId: null,
+	suppressedPullRequestId: null,
 	taskId: null,
 	createdAt: 1,
 	updatedAt: 1,
@@ -50,7 +52,7 @@ const wsSnapshot = (
 describe("catalogProjection", () => {
 	test("installSnapshot indexes rows by id and preserves revision", () => {
 		const state = installSnapshot({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			revision: 5,
 			projects: [projSnapshot("p1")],
 			workspaces: [wsSnapshot("w1", "p1")],
@@ -63,7 +65,7 @@ describe("catalogProjection", () => {
 
 	test("applyChanges applies only forward-going revisions", () => {
 		const base = installSnapshot({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			revision: 10,
 			projects: [projSnapshot("p1")],
 			workspaces: [],
@@ -71,7 +73,7 @@ describe("catalogProjection", () => {
 		});
 		const next = applyChanges(base, [
 			{
-				schemaVersion: 1,
+				schemaVersion: 2,
 				revision: 9, // stale — must be ignored
 				entityType: "project",
 				entityId: "p1",
@@ -80,7 +82,7 @@ describe("catalogProjection", () => {
 				occurredAt: 1,
 			},
 			{
-				schemaVersion: 1,
+				schemaVersion: 2,
 				revision: 11,
 				entityType: "workspace",
 				entityId: "w1",
@@ -94,10 +96,69 @@ describe("catalogProjection", () => {
 		expect(next.revision).toBe(11);
 	});
 
+	test("snapshot and changes preserve catalog-owned projection fields", () => {
+		const project = {
+			...projSnapshot("p1"),
+			sparseCheckoutPaths: ["apps/desktop"],
+		};
+		const workspace = {
+			...wsSnapshot("w1", "p1"),
+			suppressedPullRequestId: "pr-1",
+		};
+		const installed = installSnapshot({
+			schemaVersion: 2,
+			revision: 1,
+			projects: [project],
+			workspaces: [workspace],
+			health: { unresolvedIdentityConflicts: 0 },
+		});
+		expect(installed.projects.get("p1")?.sparseCheckoutPaths).toEqual([
+			"apps/desktop",
+		]);
+		expect(installed.workspaces.get("w1")?.suppressedPullRequestId).toBe(
+			"pr-1",
+		);
+
+		const next = applyChanges(installed, [
+			{
+				schemaVersion: 2,
+				revision: 2,
+				entityType: "project",
+				entityId: "p1",
+				eventType: "updated",
+				snapshot: {
+					...project,
+					sparseCheckoutPaths: ["packages/host-service"],
+				},
+				occurredAt: 2,
+			},
+			{
+				schemaVersion: 2,
+				revision: 3,
+				entityType: "workspace",
+				entityId: "w1",
+				eventType: "updated",
+				snapshot: {
+					...workspace,
+					projectId: "p2",
+					suppressedPullRequestId: "pr-2",
+				},
+				occurredAt: 3,
+			},
+		]);
+		expect(next.projects.get("p1")?.sparseCheckoutPaths).toEqual([
+			"packages/host-service",
+		]);
+		expect(next.workspaces.get("w1")).toMatchObject({
+			projectId: "p2",
+			suppressedPullRequestId: "pr-2",
+		});
+	});
+
 	test("workspace delete removes only the target row", () => {
 		const base = applyChanges(emptyProjection(), [
 			{
-				schemaVersion: 1,
+				schemaVersion: 2,
 				revision: 1,
 				entityType: "workspace",
 				entityId: "w1",
@@ -106,7 +167,7 @@ describe("catalogProjection", () => {
 				occurredAt: 1,
 			},
 			{
-				schemaVersion: 1,
+				schemaVersion: 2,
 				revision: 2,
 				entityType: "workspace",
 				entityId: "w2",
@@ -117,7 +178,7 @@ describe("catalogProjection", () => {
 		]);
 		const next = applyChanges(base, [
 			{
-				schemaVersion: 1,
+				schemaVersion: 2,
 				revision: 3,
 				entityType: "workspace",
 				entityId: "w1",

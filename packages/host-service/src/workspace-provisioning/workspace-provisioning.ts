@@ -30,6 +30,12 @@ export interface ProvisioningRunnerContext {
 	operationId: string;
 	journal: OperationJournal;
 	broadcast: (operation: WorkspaceOperation) => void;
+	throwIfCancellationRequested: () => void;
+	beginCatalogCommit: () => void;
+	markCatalogCommitted: (args: {
+		projectId: string;
+		workspaceId: string;
+	}) => void;
 }
 
 export interface ProvisioningRunnerOutcome {
@@ -62,6 +68,13 @@ export interface RunnerArtifact {
  * `trpc/router/project`. See `workspace-provisioning-runner.ts` for the
  * production adapter.
  */
+export class ProvisioningCancelledError extends Error {
+	constructor() {
+		super("Workspace provisioning was cancelled");
+		this.name = "ProvisioningCancelledError";
+	}
+}
+
 export type ProvisioningRunner = (
 	ctx: ProvisioningRunnerContext,
 ) => Promise<ProvisioningRunnerOutcome>;
@@ -236,15 +249,49 @@ export class WorkspaceProvisioning {
 			throw err;
 		}
 
-		this.journal.patch(operationId, { state: "running", stage: "resolving" });
+		if (
+			!this.journal.patchActive(operationId, {
+				state: "running",
+				stage: "resolving",
+			})
+		) {
+			if (this.journal.isCancellationRequested(operationId)) {
+				this.journal.markCompensating(operationId);
+				this.broadcast(operationId);
+				const cleanup = await this.compensatePreCommit(operationId);
+				this.journal.finalizeCancellation(operationId, cleanup);
+				this.broadcast(operationId);
+			}
+			leases.release();
+			return { operationId, operation: this.getRequired(operationId) };
+		}
 		this.broadcast(operationId);
 		try {
+			const throwIfCancellationRequested = () => {
+				if (this.journal.isCancellationRequested(operationId)) {
+					throw new ProvisioningCancelledError();
+				}
+			};
 			const outcome = await this.deps.runner({
 				request,
 				operationId,
 				journal: this.journal,
 				broadcast: () => this.broadcast(operationId),
+				throwIfCancellationRequested,
+				beginCatalogCommit: () => {
+					if (!this.journal.beginCatalogCommit(operationId)) {
+						throw new ProvisioningCancelledError();
+					}
+					this.broadcast(operationId);
+				},
+				markCatalogCommitted: (args) => {
+					if (!this.commitCatalogReceipt(operationId, args)) {
+						throw new ProvisioningCancelledError();
+					}
+					this.broadcast(operationId);
+				},
 			});
+			throwIfCancellationRequested();
 			// Record artifacts BEFORE marking succeeded so compensation on a
 			// crash right here still knows what to look at. Journalled ids
 			// have no FK back to Catalog, so a later Workspace delete does
@@ -258,12 +305,17 @@ export class WorkspaceProvisioning {
 			// failure still keeps the workspace routable (execplan §Operation
 			// state machine: `workspaceId` is exposed as soon as commit
 			// succeeds, even while initial sessions are starting).
-			this.journal.patch(operationId, {
-				stage: "starting-runtime",
-				projectId: outcome.projectId,
-				workspaceId: outcome.workspaceId,
-				catalogCommittedAt: Date.now(),
-			});
+			const committedRow = this.journal.get(operationId);
+			if (committedRow?.catalogCommittedAt === null) {
+				if (
+					!this.commitCatalogReceipt(operationId, {
+						projectId: outcome.projectId,
+						workspaceId: outcome.workspaceId,
+					})
+				) {
+					throw new ProvisioningCancelledError();
+				}
+			}
 			this.broadcast(operationId);
 
 			// Start initial sessions if configured. Failures on required
@@ -309,17 +361,22 @@ export class WorkspaceProvisioning {
 				};
 			}
 
-			this.journal.patch(operationId, {
-				state: "succeeded",
-				stage: null,
-				completedAt: Date.now(),
-				launchPayloadJson: null,
-				resultJson: stableJson({
-					disposition: outcome.disposition,
-					launches,
-					warnings,
-				}),
-			});
+			if (
+				!this.journal.patchActive(operationId, {
+					state: "succeeded",
+					stage: null,
+					completedAt: Date.now(),
+					launchPayloadJson: null,
+					resultJson: stableJson({
+						disposition: outcome.disposition,
+						launches,
+						warnings,
+					}),
+				})
+			) {
+				leases.release();
+				return { operationId, operation: this.getRequired(operationId) };
+			}
 			this.broadcast(operationId);
 			leases.release();
 			return {
@@ -327,38 +384,30 @@ export class WorkspaceProvisioning {
 				operation: this.getRequired(operationId),
 			};
 		} catch (err) {
+			const wasCancelled =
+				err instanceof ProvisioningCancelledError ||
+				this.journal.isCancellationRequested(operationId);
 			const failure = classifyFailure(err);
 			// Run compensation on any pre-commit failure (workspaceId still
 			// null in the journal). Post-commit failures are handled by the
 			// separate `required` intent branch above and never reach here.
 			const currentRow = this.journal.get(operationId);
 			let cleanupState = failure.cleanup;
-			if (
-				currentRow &&
-				!currentRow.catalogCommittedAt &&
-				this.deps.gitFactory
-			) {
-				try {
-					const compensationOutcome = await compensateOperation(
-						{
-							db: this.deps.db,
-							git: this.deps.gitFactory,
-							repoRoot: this.resolveRepoRootForOperation(operationId),
-						},
-						operationId,
-					);
-					if (compensationOutcome.state === "incomplete") {
-						cleanupState = "incomplete";
-					} else if (compensationOutcome.state === "complete") {
-						cleanupState = "complete";
-					}
-				} catch (compensationErr) {
-					console.warn(
-						`[workspace-provisioning] compensation threw for ${operationId}:`,
-						compensationErr,
-					);
-					cleanupState = "incomplete";
-				}
+			if (wasCancelled && currentRow?.catalogCommittedAt === null) {
+				this.journal.markCompensating(operationId);
+				this.broadcast(operationId);
+			}
+			if (currentRow && !currentRow.catalogCommittedAt) {
+				cleanupState = await this.compensatePreCommit(operationId);
+			}
+			if (wasCancelled) {
+				this.journal.finalizeCancellation(
+					operationId,
+					cleanupState === "incomplete" ? "incomplete" : "complete",
+				);
+				this.broadcast(operationId);
+				leases.release();
+				return { operationId, operation: this.getRequired(operationId) };
 			}
 			this.journal.patch(operationId, {
 				state: "failed",
@@ -377,6 +426,48 @@ export class WorkspaceProvisioning {
 				operation: this.getRequired(operationId),
 			};
 		}
+	}
+
+	private async compensatePreCommit(
+		operationId: string,
+	): Promise<"complete" | "incomplete"> {
+		const createdArtifacts = this.deps.db
+			.select()
+			.from(workspaceOperationArtifacts)
+			.where(eq(workspaceOperationArtifacts.operationId, operationId))
+			.all()
+			.some((artifact) => artifact.ownership === "created");
+		if (!this.deps.gitFactory) {
+			return createdArtifacts ? "incomplete" : "complete";
+		}
+		try {
+			const outcome = await compensateOperation(
+				{
+					db: this.deps.db,
+					git: this.deps.gitFactory,
+					repoRoot: this.resolveRepoRootForOperation(operationId),
+				},
+				operationId,
+			);
+			return outcome.state === "complete" ? "complete" : "incomplete";
+		} catch (err) {
+			console.warn(
+				`[workspace-provisioning] compensation threw for ${operationId}:`,
+				err,
+			);
+			return "incomplete";
+		}
+	}
+
+	private commitCatalogReceipt(
+		operationId: string,
+		args: { projectId: string; workspaceId: string },
+	): boolean {
+		const atomicCommit = (this.deps.catalog as Partial<WorkspaceCatalog>)
+			.commitProvisioningOperation;
+		return atomicCommit
+			? atomicCommit.call(this.deps.catalog, operationId, args)
+			: this.journal.markCatalogCommitted(operationId, args);
 	}
 
 	get(operationId: string): WorkspaceOperation | undefined {
@@ -505,18 +596,22 @@ export class WorkspaceProvisioning {
 			);
 		}
 		if (args.action === "cancel") {
-			if (row.state === "succeeded") {
+			const result = this.journal.requestCancellation(args.operationId);
+			if (result === "too-late") {
 				throw new ProvisioningInputError(
-					"INVALID_SOURCE",
+					"TOO_LATE_TO_CANCEL",
 					"TOO_LATE_TO_CANCEL",
 				);
 			}
-			this.journal.patch(args.operationId, {
-				state: "cancelled",
-				cancelRequestedAt: Date.now(),
-				completedAt: Date.now(),
-				launchPayloadJson: null,
-			});
+			if (result === "not-found") {
+				throw new ProvisioningInputError(
+					"INVALID_SOURCE",
+					`Operation ${args.operationId} not found`,
+				);
+			}
+			if (!this.inFlight.has(args.operationId)) {
+				this.journal.finalizeCancellation(args.operationId, "complete");
+			}
 			this.broadcast(args.operationId);
 			return this.getRequired(args.operationId);
 		}

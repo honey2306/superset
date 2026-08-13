@@ -26,7 +26,7 @@ describe("workspaceCatalog tRPC boundary (M1)", () => {
 	test("snapshot: empty db → empty rows + revision 0 + zero unresolved conflicts", async () => {
 		host = await createTestHost();
 		const snapshot = await host.trpc.workspaceCatalog.snapshot.query();
-		expect(snapshot.schemaVersion).toBe(1);
+		expect(snapshot.schemaVersion).toBe(2);
 		expect(snapshot.revision).toBe(0);
 		expect(snapshot.projects).toEqual([]);
 		expect(snapshot.workspaces).toEqual([]);

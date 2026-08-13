@@ -192,7 +192,6 @@
         "react-hotkeys-hook": "5.2.4",
         "react-icons": "5.6.0",
         "react-markdown": "10.1.0",
-        "react-mosaic-component": "6.1.1",
         "react-resizable-panels": "3.0.6",
         "react-syntax-highlighter": "16.1.1",
         "rehype-raw": "7.0.0",
@@ -3827,8 +3826,6 @@
 
     "dnd-core": ["dnd-core@16.0.1", "https://npm.corp.kuaishou.com/dnd-core/-/dnd-core-16.0.1.tgz", { "dependencies": { "@react-dnd/asap": "^5.0.1", "@react-dnd/invariant": "^4.0.1", "redux": "^4.2.0" } }, "sha512-HK294sl7tbw6F6IeuK16YSBUoorvHpY8RHO+9yFfaJyCDVb6n7PRcezrOEOa2SBCqiYpemh5Jx20ZcjKdFAVng=="],
 
-    "dnd-multi-backend": ["dnd-multi-backend@8.1.2", "https://npm.corp.kuaishou.com/dnd-multi-backend/-/dnd-multi-backend-8.1.2.tgz", { "peerDependencies": { "dnd-core": "^16.0.1" } }, "sha512-KPDVEsiM+6gNEegqZYTWJQgJxYV4vB91tUrvoKJjaS0wwWqT/jNU0P7xJAwCue/cbasJNvk2dFZH7tC+bjX1Rg=="],
-
     "dnssd-advertise": ["dnssd-advertise@1.1.6", "https://npm.corp.kuaishou.com/dnssd-advertise/-/dnssd-advertise-1.1.6.tgz", {}, "sha512-Ndrrf6BMPalkQPd/zubL+4YghH2J9NspapQ09uDXwYbvOPkP0oaqf5CkcwJ0b50kS2O3ul6yVu+jz+RY62Cejg=="],
 
     "dom-accessibility-api": ["dom-accessibility-api@0.5.16", "https://npm.corp.kuaishou.com/dom-accessibility-api/-/dom-accessibility-api-0.5.16.tgz", {}, "sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg=="],
@@ -4420,8 +4417,6 @@
     "immediate": ["immediate@3.0.6", "https://npm.corp.kuaishou.com/immediate/-/immediate-3.0.6.tgz", {}, "sha512-XXOFtyqDjNDAQxVfYxuF7g9Il/IbWmmlQg2MYKOH8ExIT1qg6xc4zyS3HaEEATgs1btfzxq15ciUiY7gjSXRGQ=="],
 
     "immer": ["immer@11.1.16", "https://npm.corp.kuaishou.com/immer/-/immer-11.1.16.tgz", {}, "sha512-Xs7H9rBc+kti1J6RueUvbEBkmOz7jqj11XYgf+YMXAYzu8EeE7hwZ9poLXdVfVnGmJu7QAf41T7H2KuF6QoK6Q=="],
-
-    "immutability-helper": ["immutability-helper@3.1.1", "https://npm.corp.kuaishou.com/immutability-helper/-/immutability-helper-3.1.1.tgz", {}, "sha512-Q0QaXjPjwIju/28TsugCHNEASwoCcJSyJV3uO1sOIQGI0jKgm9f41Lvz0DZj3n46cNCyAZTsEYoY4C2bVRUzyQ=="],
 
     "immutable": ["immutable@5.1.9", "https://npm.corp.kuaishou.com/immutable/-/immutable-5.1.9.tgz", {}, "sha512-m8nVez3rwrgmWxtLMt1ZYXB2Lv7OKYn/disyxAlSDYAlKSlFoPPfIAmAM/M5xqL4m4C/wAPw7S2/CNaUii1Hxg=="],
 
@@ -5517,8 +5512,6 @@
 
     "rc9": ["rc9@3.0.1", "https://npm.corp.kuaishou.com/rc9/-/rc9-3.0.1.tgz", { "dependencies": { "defu": "^6.1.6", "destr": "^2.0.5" } }, "sha512-gMDyleLWVE+i6Sgtc0QbbY6pEKqYs97NGi6isHQPqYlLemPoO8dxQ3uGi0f4NiP98c+jMW6cG1Kx9dDwfvqARQ=="],
 
-    "rdndmb-html5-to-touch": ["rdndmb-html5-to-touch@8.1.2", "https://npm.corp.kuaishou.com/rdndmb-html5-to-touch/-/rdndmb-html5-to-touch-8.1.2.tgz", { "dependencies": { "dnd-multi-backend": "^8.1.2", "react-dnd-html5-backend": "^16.0.1", "react-dnd-touch-backend": "^16.0.1" } }, "sha512-efi3MaXYxWaLMd5xzF1bVvmX8erTMhYHSlaMjQe+tynf4IdtgRYfKLwYg+4Z5eq4k7idrjKHQOIMDE6D8LjnOA=="],
-
     "react": ["react@19.2.3", "https://npm.corp.kuaishou.com/react/-/react-19.2.3.tgz", {}, "sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA=="],
 
     "react-day-picker": ["react-day-picker@9.14.0", "https://npm.corp.kuaishou.com/react-day-picker/-/react-day-picker-9.14.0.tgz", { "dependencies": { "@date-fns/tz": "^1.4.1", "@tabby_ai/hijri-converter": "1.0.5", "date-fns": "^4.1.0", "date-fns-jalali": "4.1.0-0" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-tBaoDWjPwe0M5pGrum4H0SR6Lyk+BO9oHnp9JbKpGKW2mlraNPgP9BMfsg5pWpwrssARmeqk7YBl2oXutZTaHA=="],
@@ -5529,13 +5522,7 @@
 
     "react-dnd-html5-backend": ["react-dnd-html5-backend@16.0.1", "https://npm.corp.kuaishou.com/react-dnd-html5-backend/-/react-dnd-html5-backend-16.0.1.tgz", { "dependencies": { "dnd-core": "^16.0.1" } }, "sha512-Wu3dw5aDJmOGw8WjH1I1/yTH+vlXEL4vmjk5p+MHxP8HuHJS1lAGeIdG/hze1AvNeXWo/JgULV87LyQOr+r5jw=="],
 
-    "react-dnd-multi-backend": ["react-dnd-multi-backend@8.1.2", "https://npm.corp.kuaishou.com/react-dnd-multi-backend/-/react-dnd-multi-backend-8.1.2.tgz", { "dependencies": { "dnd-multi-backend": "^8.1.2", "react-dnd-preview": "^8.1.2" }, "peerDependencies": { "dnd-core": "^16.0.1", "react": "^16.14.0 || ^17.0.2 || ^18.0.0", "react-dnd": "^16.0.1", "react-dom": "^16.14.0 || ^17.0.2 || ^18.0.0" } }, "sha512-Ecj+gwr5B7zRiWqkDU5sUvUmufcu97WnsZFHnqHrWFJhTXAXQnhrperHLFktNP2CnQYtAgbucodr1if0MWpEaA=="],
-
-    "react-dnd-preview": ["react-dnd-preview@8.1.2", "https://npm.corp.kuaishou.com/react-dnd-preview/-/react-dnd-preview-8.1.2.tgz", { "peerDependencies": { "react": "^16.14.0 || ^17.0.2 || ^18.0.0", "react-dnd": "^16.0.1" } }, "sha512-j5M1NcQBItOCYXONRbCNs6MzW7u4KygeOGZlztNNguTs1/f2d7q1fRnQjFLjCpgeg5Gy/JrTFrbRThZglJP5dg=="],
-
     "react-dnd-test-backend": ["react-dnd-test-backend@16.0.1", "https://npm.corp.kuaishou.com/react-dnd-test-backend/-/react-dnd-test-backend-16.0.1.tgz", { "dependencies": { "dnd-core": "^16.0.1" } }, "sha512-sUsQKMmoachP3AGaHLZD4JZWq2dHPoiLRG3YVuC0gXJtGENk3PVR+uRIrml7BEnnTyv+RVeoNK2ziL38Ggh8cw=="],
-
-    "react-dnd-touch-backend": ["react-dnd-touch-backend@16.0.1", "https://npm.corp.kuaishou.com/react-dnd-touch-backend/-/react-dnd-touch-backend-16.0.1.tgz", { "dependencies": { "@react-dnd/invariant": "^4.0.1", "dnd-core": "^16.0.1" } }, "sha512-NonoCABzzjyWGZuDxSG77dbgMZ2Wad7eQiCd/ECtsR2/NBLTjGksPUx9UPezZ1nQ/L7iD130Tz3RUshL/ClKLA=="],
 
     "react-dom": ["react-dom@19.2.3", "https://npm.corp.kuaishou.com/react-dom/-/react-dom-19.2.3.tgz", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.3" } }, "sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg=="],
 
@@ -5556,8 +5543,6 @@
     "react-is-19": ["react-is@19.2.8", "https://npm.corp.kuaishou.com/react-is/-/react-is-19.2.8.tgz", {}, "sha512-s5un28nYxKJw5gvUHyW5PCC28CvBqLu9r3cWgzHT4Vo/5fqqkFcdRYsGcKf50WMPpjjFZS5d76fn3YCo2njKwQ=="],
 
     "react-markdown": ["react-markdown@10.1.0", "https://npm.corp.kuaishou.com/react-markdown/-/react-markdown-10.1.0.tgz", { "dependencies": { "@types/hast": "^3.0.0", "@types/mdast": "^4.0.0", "devlop": "^1.0.0", "hast-util-to-jsx-runtime": "^2.0.0", "html-url-attributes": "^3.0.0", "mdast-util-to-hast": "^13.0.0", "remark-parse": "^11.0.0", "remark-rehype": "^11.0.0", "unified": "^11.0.0", "unist-util-visit": "^5.0.0", "vfile": "^6.0.0" }, "peerDependencies": { "@types/react": ">=18", "react": ">=18" } }, "sha512-qKxVopLT/TyA6BX3Ue5NwabOsAzm0Q7kAPwq6L+wWDwisYs7R8vZ0nRXqq6rkueboxpkjvLGU9fWifiX/ZZFxQ=="],
-
-    "react-mosaic-component": ["react-mosaic-component@6.1.1", "https://npm.corp.kuaishou.com/react-mosaic-component/-/react-mosaic-component-6.1.1.tgz", { "dependencies": { "classnames": "^2.3.2", "immutability-helper": "^3.1.1", "lodash": "^4.17.21", "prop-types": "^15.8.1", "rdndmb-html5-to-touch": "^8.0.0", "react-dnd": "^16.0.1", "react-dnd-html5-backend": "^16.0.1", "react-dnd-multi-backend": "^8.0.0", "react-dnd-touch-backend": "^16.0.1", "uuid": "^9.0.0" }, "peerDependencies": { "react": ">=16" } }, "sha512-Ivuj6AxRDlo/H8OiEDU1mdgivxuKbwGOa5Ub6Yf+bHcu0JWioT7ttlpCWF63/gKrJBlRMB6fW9/eNOXINg9+Gg=="],
 
     "react-native": ["react-native@0.87.0", "https://npm.corp.kuaishou.com/react-native/-/react-native-0.87.0.tgz", { "dependencies": { "@react-native/asset-utils": "0.87.0", "@react-native/codegen": "0.87.0", "@react-native/community-cli-plugin": "0.87.0", "@react-native/gradle-plugin": "0.87.0", "@react-native/normalize-colors": "0.87.0", "@react-native/virtualized-lists": "0.87.0", "anser": "^1.4.9", "ansi-regex": "^5.0.0", "babel-plugin-syntax-hermes-parser": "0.36.1", "base64-js": "^1.5.1", "commander": "^12.0.0", "flow-enums-runtime": "^0.0.6", "hermes-compiler": "250829098.0.16", "invariant": "^2.2.4", "memoize-one": "^5.0.0", "metro-runtime": "^0.87.0", "metro-source-map": "^0.87.0", "nullthrows": "^1.1.1", "pretty-format": "^29.7.0", "promise": "^8.3.0", "react-devtools-core": "^6.1.5", "react-refresh": "^0.14.0", "regenerator-runtime": "^0.13.2", "scheduler": "0.27.0", "semver": "^7.1.3", "stacktrace-parser": "^0.1.10", "tinyglobby": "^0.2.15", "whatwg-fetch": "^3.0.0", "ws": "^7.5.10", "yargs": "^17.6.2" }, "peerDependencies": { "@types/react": "^19.1.1", "react": "^19.2.3" }, "bin": { "react-native": "cli.js" } }, "sha512-e7CeZOm1wBksIISI5oLNmH4/GJCqWrfNphF7PuBsLY2qUM6mtzqL23N7iLTW6U7LF45qYi+a4iAp5Y1kSk1vVw=="],
 
@@ -7894,8 +7879,6 @@
     "raw-body/iconv-lite": ["iconv-lite@0.7.3", "https://npm.corp.kuaishou.com/iconv-lite/-/iconv-lite-0.7.3.tgz", { "dependencies": { "safer-buffer": ">= 2.1.2 < 3.0.0" } }, "sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ=="],
 
     "react-devtools-core/ws": ["ws@7.5.13", "https://npm.corp.kuaishou.com/ws/-/ws-7.5.13.tgz", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": "^5.0.2" } }, "sha512-rsKI6xDBFVf4r/x8XyChGK04QR/XHroxs/jUcoWvtEZM8TPU/X/uIY9B1CsSzYws9ZJb/6bbBu7dPhFW00CAoA=="],
-
-    "react-mosaic-component/uuid": ["uuid@9.0.1", "https://npm.corp.kuaishou.com/uuid/-/uuid-9.0.1.tgz", { "bin": { "uuid": "dist/bin/uuid" } }, "sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA=="],
 
     "react-native/ansi-regex": ["ansi-regex@5.0.1", "https://npm.corp.kuaishou.com/ansi-regex/-/ansi-regex-5.0.1.tgz", {}, "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ=="],
 

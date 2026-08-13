@@ -28,6 +28,7 @@ const project = (id: string): WorkspaceCatalogSnapshot["projects"][number] => ({
 	worktreeBaseDir: null,
 	branchPrefixMode: null,
 	branchPrefixCustom: null,
+	sparseCheckoutPaths: [],
 	createdAt: 1,
 	updatedAt: 1,
 });
@@ -48,13 +49,14 @@ const workspace = (
 	upstreamRepo: null,
 	upstreamBranch: null,
 	pullRequestId: null,
+	suppressedPullRequestId: null,
 	taskId: null,
 	createdAt,
 	updatedAt: createdAt,
 });
 
 const snapshot: WorkspaceCatalogSnapshot = {
-	schemaVersion: 1,
+	schemaVersion: 2,
 	revision: 10,
 	projects: [project("proj-a"), project("proj-b")],
 	workspaces: [

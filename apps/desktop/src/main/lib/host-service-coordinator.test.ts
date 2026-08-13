@@ -88,6 +88,7 @@ mock.module("electron", () => ({
 
 mock.module("electron-log/main", () => ({
 	default: {
+		debug: () => {},
 		info: () => {},
 		warn: () => {},
 		error: () => {},
@@ -306,15 +307,19 @@ describe("HostServiceCoordinator.reset", () => {
 	});
 });
 
+interface AdoptableInstance {
+	pid: number;
+	port: number;
+	secret: string;
+	status: "running" | "starting" | "stopped";
+	owned: boolean;
+}
+
 interface AdoptableInternals {
-	instance: {
-		pid: number;
-		port: number;
-		secret: string;
-		status: string;
-		owned: boolean;
-	} | null;
+	instance: AdoptableInstance | null;
+	adoptedRecovery: Promise<void> | null;
 	spawn: ReturnType<typeof mock>;
+	superviseAdoptedInstance(instance: AdoptableInstance): Promise<void>;
 }
 
 describe("HostServiceCoordinator single-flight / adoption", () => {
@@ -365,6 +370,73 @@ describe("HostServiceCoordinator single-flight / adoption", () => {
 		expect(conn.port).toBe(60000);
 	});
 
+	test("does not adopt a healthy endpoint whose manifested owner pid is dead", async () => {
+		manifestStore.current = baseManifest(4321, "http://127.0.0.1:55555");
+		isProcessAliveMock.mockImplementation(() => false);
+
+		const conn = await coordinator.start(spawnConfig);
+
+		expect(pollHealthCheckMock).not.toHaveBeenCalled();
+		expect(spawnMock).toHaveBeenCalledTimes(1);
+		expect(conn.port).toBe(60000);
+	});
+
+	test("adopter B clears owner A's stale connection and recovers through startOrAdopt", async () => {
+		const internals = coordinator as unknown as AdoptableInternals & {
+			startOrAdopt: ReturnType<typeof mock>;
+		};
+		const adopted: AdoptableInstance = {
+			pid: 4321,
+			port: 55555,
+			secret: "manifest-secret",
+			status: "running",
+			owned: false,
+		};
+		internals.instance = adopted;
+		isProcessAliveMock.mockImplementation(() => false);
+		coordinator.setConfigProvider(async () => spawnConfig);
+		internals.startOrAdopt = mock(async () => ({
+			port: 60000,
+			secret: "replacement",
+			machineId: "host-1",
+		}));
+
+		await internals.superviseAdoptedInstance(adopted);
+		await internals.adoptedRecovery;
+
+		expect(internals.instance).toBeNull();
+		expect(internals.startOrAdopt).toHaveBeenCalledTimes(1);
+	});
+
+	test("coalesces concurrent stale-adoption recovery into one start", async () => {
+		const internals = coordinator as unknown as AdoptableInternals & {
+			startOrAdopt: ReturnType<typeof mock>;
+		};
+		const adopted: AdoptableInstance = {
+			pid: 4321,
+			port: 55555,
+			secret: "manifest-secret",
+			status: "running",
+			owned: false,
+		};
+		internals.instance = adopted;
+		pollHealthCheckMock.mockImplementation(() => Promise.resolve(false));
+		coordinator.setConfigProvider(async () => spawnConfig);
+		internals.startOrAdopt = mock(async () => ({
+			port: 60000,
+			secret: "replacement",
+			machineId: "host-1",
+		}));
+
+		await Promise.all([
+			internals.superviseAdoptedInstance(adopted),
+			internals.superviseAdoptedInstance(adopted),
+		]);
+		await internals.adoptedRecovery;
+
+		expect(internals.startOrAdopt).toHaveBeenCalledTimes(1);
+	});
+
 	test("under-lock double-check adopts a manifest that appears after the first miss", async () => {
 		manifestStore.current = baseManifest(4321, "http://127.0.0.1:55555");
 		// Outer adopt attempt sees nothing; the re-check under the lock does.
@@ -405,6 +477,99 @@ describe("HostServiceCoordinator single-flight / adoption", () => {
 
 		releaseSpawn();
 		expect(await first).toEqual(await second);
+	});
+
+	test("stop waits for a pending start and prevents it from publishing", async () => {
+		manifestStore.current = null;
+		let releaseSpawn: () => void = () => {};
+		spawnMock.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					releaseSpawn = () =>
+						resolve({
+							port: 60000,
+							secret: "fresh-secret",
+							machineId: "host-1",
+						});
+				}),
+		);
+
+		const start = coordinator.start(spawnConfig);
+		for (
+			let attempt = 0;
+			attempt < 10 && spawnMock.mock.calls.length === 0;
+			attempt++
+		) {
+			await Promise.resolve();
+		}
+		const stopped = coordinator.stop();
+		let stopSettled = false;
+		void stopped.then(() => {
+			stopSettled = true;
+		});
+		await Promise.resolve();
+		expect(stopSettled).toBe(false);
+
+		releaseSpawn();
+		await expect(start).rejects.toThrow("lifecycle was stopped");
+		await stopped;
+		expect(coordinator.getConnection()).toBeNull();
+	});
+
+	test("stop during adoption health check prevents late adoption", async () => {
+		manifestStore.current = baseManifest(4321, "http://127.0.0.1:55555");
+		let finishHealthCheck: (healthy: boolean) => void = () => {};
+		pollHealthCheckMock.mockImplementation(
+			() =>
+				new Promise<boolean>((resolve) => {
+					finishHealthCheck = resolve;
+				}),
+		);
+
+		const start = coordinator.start(spawnConfig);
+		await Promise.resolve();
+		const stopped = coordinator.stop();
+		finishHealthCheck(true);
+
+		await expect(start).rejects.toThrow("lifecycle was stopped");
+		await stopped;
+		expect(spawnMock).not.toHaveBeenCalled();
+		expect((coordinator as unknown as AdoptableInternals).instance).toBeNull();
+	});
+
+	test("stop cancels pending adopted recovery before it can start", async () => {
+		const internals = coordinator as unknown as AdoptableInternals & {
+			startOrAdopt: ReturnType<typeof mock>;
+		};
+		const adopted: AdoptableInstance = {
+			pid: 4321,
+			port: 55555,
+			secret: "manifest-secret",
+			status: "running",
+			owned: false,
+		};
+		internals.instance = adopted;
+		pollHealthCheckMock.mockImplementation(() => Promise.resolve(false));
+		let releaseConfig: () => void = () => {};
+		coordinator.setConfigProvider(
+			() =>
+				new Promise((resolve) => {
+					releaseConfig = () => resolve(spawnConfig);
+				}),
+		);
+		internals.startOrAdopt = mock(async () => ({
+			port: 60000,
+			secret: "replacement",
+			machineId: "host-1",
+		}));
+
+		await internals.superviseAdoptedInstance(adopted);
+		const stopped = coordinator.stop();
+		releaseConfig();
+		await stopped;
+
+		expect(internals.startOrAdopt).not.toHaveBeenCalled();
+		expect(internals.instance).toBeNull();
 	});
 
 	test("adopted fast-path drops a dead foreign entry and re-spawns", async () => {

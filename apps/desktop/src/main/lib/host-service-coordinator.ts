@@ -92,6 +92,9 @@ const START_OR_ADOPT_DEADLINE_MS = SPAWN_LOCK_STALE_MS + HEALTH_POLL_TIMEOUT_MS;
 /** Poll interval while waiting for a peer instance's spawn to go healthy. */
 const ADOPT_WAIT_INTERVAL_MS = 250;
 
+/** Revalidate foreign-owned connections so an adopter never stays stale. */
+const ADOPT_SUPERVISION_INTERVAL_MS = 5_000;
+
 // High, uncommon user-space range: above usual web/dev server ports and below
 // macOS's default ephemeral range, while still falling back if occupied.
 const STABLE_PORT_BASE = 48_000;
@@ -124,12 +127,22 @@ function isValidPort(port: number | null | undefined): port is number {
 export class HostServiceCoordinator extends EventEmitter {
 	private instance: HostServiceProcess | null = null;
 	private pendingStart: Promise<Connection> | null = null;
+	private disposed = false;
+	private lifecycleAbortController = new AbortController();
 	private lastKnownPort: number | null = null;
 	private scriptPath = path.join(__dirname, "host-service.js");
 	private machineId = getHostId();
 	private devReloadWatcher: fs.FSWatcher | null = null;
 	private respawnState: RespawnState | null = null;
 	private configProvider: (() => Promise<SpawnConfig | null>) | null = null;
+	private adoptedSupervisionTimer: ReturnType<typeof setTimeout> | null = null;
+	private adoptedRecovery: Promise<void> | null = null;
+	private lifecycleGeneration = 0;
+	private scheduleAdoptedSupervisionTimer: (
+		run: () => void,
+		delayMs: number,
+	) => ReturnType<typeof setTimeout> = (run, delayMs) =>
+		setTimeout(run, delayMs);
 	private scheduleRespawnTimer: (
 		run: () => void,
 		delayMs: number,
@@ -156,13 +169,33 @@ export class HostServiceCoordinator extends EventEmitter {
 	}
 
 	async start(config: SpawnConfig): Promise<Connection> {
+		this.activate();
 		return this.startWithPreferredPorts(config);
+	}
+
+	private activate(): void {
+		if (!this.disposed) return;
+		this.disposed = false;
+		this.lifecycleGeneration += 1;
+		this.lifecycleAbortController = new AbortController();
+	}
+
+	private assertLifecycleActive(generation: number): void {
+		if (
+			this.disposed ||
+			generation !== this.lifecycleGeneration ||
+			this.lifecycleAbortController.signal.aborted
+		) {
+			throw new Error("Host service lifecycle was stopped");
+		}
 	}
 
 	private async startWithPreferredPorts(
 		config: SpawnConfig,
 		preferredPorts?: Iterable<number>,
 	): Promise<Connection> {
+		const generation = this.lifecycleGeneration;
+		this.assertLifecycleActive(generation);
 		const existing = this.instance;
 		if (existing?.status === "running") {
 			// An adopted entry points at a foreign instance's child we don't
@@ -184,6 +217,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		const startPromise = this.startOrAdopt(
 			config,
 			preferredPorts ?? this.getPreferredPorts(),
+			generation,
 		);
 		this.pendingStart = startPromise;
 
@@ -212,28 +246,40 @@ export class HostServiceCoordinator extends EventEmitter {
 		if (isValidPort(port)) this.lastKnownPort = port;
 	}
 
-	stop(): void {
-		// A crashed child is removed before its timer fires, so this must happen
-		// even when no instance is currently tracked.
+	async stop(): Promise<void> {
+		// Abort first so every pending lock wait, adoption check, spawn, and health
+		// poll observes disposal before it can publish a new running instance.
+		this.disposed = true;
+		this.lifecycleGeneration += 1;
+		this.lifecycleAbortController.abort();
 		this.clearRespawnState();
+		this.clearAdoptedSupervision();
+
+		const pending: Promise<unknown>[] = [];
+		if (this.pendingStart) pending.push(this.pendingStart);
+		if (this.adoptedRecovery) pending.push(this.adoptedRecovery);
 		const instance = this.instance;
-		if (!instance) return;
+		if (instance) {
+			const previousStatus = instance.status;
+			instance.status = "stopped";
+			this.rememberPort(instance.port);
 
-		const previousStatus = instance.status;
-		instance.status = "stopped";
-		this.rememberPort(instance.port);
+			// Only owned children are ours to kill + de-manifest. Adopted entries
+			// belong to another live app instance, so only drop our local reference.
+			if (instance.owned) {
+				if (instance.pid > 0) {
+					try {
+						killProcess(instance.pid, "SIGTERM");
+					} catch {}
+				}
+				removeManifest(LOCAL_HOST_SCOPE_ID);
+			}
 
-		// Only owned children are ours to kill + de-manifest. Adopted entries
-		// belong to another live app instance, so only drop our local reference.
-		if (instance.owned) {
-			try {
-				killProcess(instance.pid, "SIGTERM");
-			} catch {}
-			removeManifest(LOCAL_HOST_SCOPE_ID);
+			this.instance = null;
+			this.emitStatus("stopped", previousStatus);
 		}
 
-		this.instance = null;
-		this.emitStatus("stopped", previousStatus);
+		await Promise.allSettled(pending);
 	}
 
 	/**
@@ -248,7 +294,8 @@ export class HostServiceCoordinator extends EventEmitter {
 
 	async restart(config: SpawnConfig): Promise<Connection> {
 		const preferredPorts = this.getPreferredPorts();
-		this.stop();
+		await this.stop();
+		this.activate();
 		return this.startWithPreferredPorts(config, preferredPorts);
 	}
 
@@ -257,7 +304,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		const preferredPorts = this.getPreferredPorts();
 		const manifestPid = readManifest(LOCAL_HOST_SCOPE_ID)?.pid;
 
-		this.stop();
+		await this.stop();
 
 		if (manifestPid != null && isProcessAlive(manifestPid)) {
 			try {
@@ -271,6 +318,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		}
 
 		removeManifest(LOCAL_HOST_SCOPE_ID);
+		this.activate();
 		return this.startWithPreferredPorts(config, preferredPorts);
 	}
 
@@ -389,22 +437,34 @@ export class HostServiceCoordinator extends EventEmitter {
 	private async startOrAdopt(
 		config: SpawnConfig,
 		preferredPorts: Iterable<number>,
+		generation: number,
 	): Promise<Connection> {
-		const adopted = await this.tryAdopt();
+		this.assertLifecycleActive(generation);
+		const adopted = await this.tryAdopt(generation);
+		this.assertLifecycleActive(generation);
 		if (adopted) return adopted;
 
 		const deadline = Date.now() + START_OR_ADOPT_DEADLINE_MS;
 		for (;;) {
+			this.assertLifecycleActive(generation);
 			const lock = acquireSpawnLock(LOCAL_HOST_SCOPE_ID, {
 				staleMs: SPAWN_LOCK_STALE_MS,
 			});
 			if (lock) {
 				try {
+					this.assertLifecycleActive(generation);
 					// A peer may have finished spawning between our first adopt
 					// attempt and taking the lock — re-check before spawning.
-					const raced = await this.tryAdopt();
+					const raced = await this.tryAdopt(generation);
+					this.assertLifecycleActive(generation);
 					if (raced) return raced;
-					return await this.spawn(config, preferredPorts);
+					const connection = await this.spawn(
+						config,
+						preferredPorts,
+						generation,
+					);
+					this.assertLifecycleActive(generation);
+					return connection;
 				} finally {
 					lock.release();
 				}
@@ -412,7 +472,8 @@ export class HostServiceCoordinator extends EventEmitter {
 
 			// A live peer holds the lock and is mid-spawn: wait for its manifest
 			// to become healthy, then adopt it.
-			const peer = await this.tryAdopt();
+			const peer = await this.tryAdopt(generation);
+			this.assertLifecycleActive(generation);
 			if (peer) return peer;
 
 			if (Date.now() >= deadline) {
@@ -420,7 +481,17 @@ export class HostServiceCoordinator extends EventEmitter {
 					"Timed out waiting to start or adopt the embedded host service",
 				);
 			}
-			await new Promise((r) => setTimeout(r, ADOPT_WAIT_INTERVAL_MS));
+			await new Promise<void>((resolve) => {
+				const timer = setTimeout(resolve, ADOPT_WAIT_INTERVAL_MS);
+				this.lifecycleAbortController.signal.addEventListener(
+					"abort",
+					() => {
+						clearTimeout(timer);
+						resolve();
+					},
+					{ once: true },
+				);
+			});
 		}
 	}
 
@@ -429,9 +500,10 @@ export class HostServiceCoordinator extends EventEmitter {
 	 * points at a healthy endpoint. Registers a foreign-owned in-process entry
 	 * and returns its connection, or null when there's nothing healthy to adopt.
 	 */
-	private async tryAdopt(): Promise<Connection | null> {
+	private async tryAdopt(generation: number): Promise<Connection | null> {
+		this.assertLifecycleActive(generation);
 		const manifest = readManifest(LOCAL_HOST_SCOPE_ID);
-		if (!manifest) return null;
+		if (!manifest || !isProcessAlive(manifest.pid)) return null;
 
 		let port: number;
 		try {
@@ -445,7 +517,12 @@ export class HostServiceCoordinator extends EventEmitter {
 			manifest.endpoint,
 			manifest.authToken,
 			ADOPT_HEALTH_TIMEOUT_MS,
+			() =>
+				this.disposed ||
+				generation !== this.lifecycleGeneration ||
+				this.lifecycleAbortController.signal.aborted,
 		);
+		this.assertLifecycleActive(generation);
 		if (!healthy) return null;
 
 		const previous = this.instance;
@@ -458,6 +535,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		};
 		this.rememberPort(port);
 		this.emitStatus("running", previous?.status ?? null);
+		this.armAdoptedSupervision(this.instance);
 
 		log.info(
 			`[host-service] adopted existing host on port ${port} (pid ${manifest.pid})`,
@@ -465,13 +543,80 @@ export class HostServiceCoordinator extends EventEmitter {
 		return { port, secret: manifest.authToken, machineId: this.machineId };
 	}
 
+	private armAdoptedSupervision(instance: HostServiceProcess): void {
+		this.clearAdoptedSupervision();
+		if (instance.owned || instance.status !== "running") return;
+		this.adoptedSupervisionTimer = this.scheduleAdoptedSupervisionTimer(() => {
+			this.adoptedSupervisionTimer = null;
+			void this.superviseAdoptedInstance(instance);
+		}, ADOPT_SUPERVISION_INTERVAL_MS);
+		this.adoptedSupervisionTimer.unref?.();
+	}
+
+	private clearAdoptedSupervision(): void {
+		if (this.adoptedSupervisionTimer) {
+			clearTimeout(this.adoptedSupervisionTimer);
+			this.adoptedSupervisionTimer = null;
+		}
+	}
+
+	private async superviseAdoptedInstance(
+		instance: HostServiceProcess,
+	): Promise<void> {
+		if (this.instance !== instance || instance.owned) return;
+		const healthy =
+			isProcessAlive(instance.pid) &&
+			(await pollHealthCheck(
+				`http://127.0.0.1:${instance.port}`,
+				instance.secret,
+				ADOPT_HEALTH_TIMEOUT_MS,
+			));
+		if (this.instance !== instance) return;
+		if (healthy) {
+			this.armAdoptedSupervision(instance);
+			return;
+		}
+
+		this.instance = null;
+		this.emitStatus("stopped", "running");
+		log.warn(
+			`[host-service] adopted host became unavailable (pid ${instance.pid}); recovering`,
+		);
+		this.recoverAdoptedInstance();
+	}
+
+	private recoverAdoptedInstance(): void {
+		if (this.adoptedRecovery) return;
+		const generation = this.lifecycleGeneration;
+		const recovery = (async () => {
+			const config = await this.configProvider?.();
+			if (generation !== this.lifecycleGeneration) return;
+			if (!config) throw new Error("no config available");
+			// Recovery must not reactivate a coordinator that stop() disposed after
+			// the generation check above.
+			await this.startWithPreferredPorts(config);
+		})()
+			.catch((error) => {
+				if (generation !== this.lifecycleGeneration) return;
+				log.error("[host-service] adopted host recovery failed:", error);
+				this.scheduleRespawn("adopted host recovery failed");
+			})
+			.finally(() => {
+				if (this.adoptedRecovery === recovery) this.adoptedRecovery = null;
+			});
+		this.adoptedRecovery = recovery;
+	}
+
 	// ── Spawn ─────────────────────────────────────────────────────────
 
 	private async spawn(
 		config: SpawnConfig,
 		preferredPorts: Iterable<number> = this.getPreferredPorts(),
+		generation = this.lifecycleGeneration,
 	): Promise<Connection> {
+		this.assertLifecycleActive(generation);
 		const port = await findFreePort(preferredPorts);
+		this.assertLifecycleActive(generation);
 		this.rememberPort(port);
 		const secret = randomBytes(32).toString("hex");
 
@@ -486,6 +631,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		this.emitStatus("starting", null);
 
 		const childEnv = await this.buildEnv(port, secret, config);
+		this.assertLifecycleActive(generation);
 		const logFd = openRotatingLogFd(
 			path.join(manifestDir(LOCAL_HOST_SCOPE_ID), "host-service.log"),
 			MAX_HOST_LOG_BYTES,
@@ -547,8 +693,21 @@ export class HostServiceCoordinator extends EventEmitter {
 			endpoint,
 			secret,
 			HEALTH_POLL_TIMEOUT_MS,
-			() => childExited,
+			() =>
+				childExited ||
+				this.disposed ||
+				generation !== this.lifecycleGeneration ||
+				this.lifecycleAbortController.signal.aborted,
 		);
+		if (
+			this.disposed ||
+			generation !== this.lifecycleGeneration ||
+			this.lifecycleAbortController.signal.aborted
+		) {
+			if (!childExited) child.kill("SIGTERM");
+			if (this.instance === instance) this.instance = null;
+			throw new Error("Host service lifecycle was stopped");
+		}
 		if (!healthy) {
 			if (!childExited) child.kill("SIGTERM");
 			this.instance = null;
@@ -560,6 +719,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		}
 
 		instance.status = "running";
+		this.clearAdoptedSupervision();
 
 		log.info(`[host-service] listening on port ${port}`);
 		this.emitStatus("running", "starting");

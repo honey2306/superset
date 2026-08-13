@@ -146,5 +146,8 @@ export interface WorkspaceOperation {
 	failure?: WorkspaceOperationFailure;
 	createdAt: number;
 	updatedAt: number;
+	/** Present while cancellation is requested but the runner is still stopping
+	 * or compensating, and retained on the terminal receipt for auditability. */
+	cancelRequestedAt?: number;
 	completedAt?: number;
 }

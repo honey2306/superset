@@ -34,7 +34,7 @@ describe("withQuotaGuard", () => {
 		expect(values.get("collection")).toBe("saved");
 	});
 
-	it("swallows quota exhaustion when reclaim cannot free space, without retrying", () => {
+	it("reports and rethrows quota exhaustion when reclaim cannot free space", () => {
 		let attempts = 0;
 		const failures: string[] = [];
 		const guarded = withQuotaGuard(
@@ -52,7 +52,9 @@ describe("withQuotaGuard", () => {
 				onPersistFailed: (key) => failures.push(key),
 			},
 		) as { storage: Storage };
-		expect(() => guarded.storage.setItem("collection", "value")).not.toThrow();
+		expect(() => guarded.storage.setItem("collection", "value")).toThrow(
+			"quota exhausted",
+		);
 		expect(attempts).toBe(1);
 		expect(failures).toEqual(["collection"]);
 	});

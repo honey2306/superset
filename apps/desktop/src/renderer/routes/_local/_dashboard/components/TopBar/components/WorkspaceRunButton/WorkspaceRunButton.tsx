@@ -20,11 +20,11 @@ import {
 import { useWorkspaceRunDefinition } from "renderer/hooks/host-service/useWorkspaceRunDefinition";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { addTerminalPane, closePane, updatePaneData } from "renderer/lib/panes";
+import { useHostTerminalLauncher } from "renderer/lib/terminal/host-terminal-launcher";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceRunCommand } from "renderer/routes/_local/_dashboard/workspace/$workspaceId/hooks/useWorkspaceRunCommand";
-import { waitForHostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/host-terminal-backend";
 import { useSetSettingsSearchQuery } from "renderer/stores/settings-state";
-import { useTabsStore } from "renderer/stores/tabs/store";
 
 interface WorkspaceRunButtonProps {
 	projectId?: string | null;
@@ -41,13 +41,7 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 	const navigate = useNavigate();
 	const setSettingsSearchQuery = useSetSettingsSearchQuery();
 	const hotkeyText = useHotkeyDisplay("RUN_WORKSPACE_COMMAND").text;
-	const addTab = useTabsStore((state) => state.addTab);
-	const removePane = useTabsStore((state) => state.removePane);
-	const setPaneName = useTabsStore((state) => state.setPaneName);
-	const setPaneStatus = useTabsStore((state) => state.setPaneStatus);
-	const setPaneLifecycleScript = useTabsStore(
-		(state) => state.setPaneLifecycleScript,
-	);
+	const terminalLauncher = useHostTerminalLauncher();
 	const {
 		canForceStop,
 		forceStopWorkspaceRun,
@@ -97,39 +91,41 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 
 	const launchLifecycleScript = useCallback(
 		async (kind: "setup" | "teardown") => {
-			const { paneId } = addTab(workspaceId);
 			const label = kind === "setup" ? "Workspace Setup" : "Workspace Teardown";
-			setPaneName(paneId, label);
-			setPaneLifecycleScript(paneId, { kind, state: "running" });
+			const opened = addTerminalPane(workspaceId, {
+				title: label,
+				data: { lifecycleScript: { kind, state: "running" } },
+			});
+			if (opened.status !== "applied") {
+				toast.error("Workspace panes are not available yet");
+				return;
+			}
+			const { paneId } = opened.value;
 			try {
-				const backend = await waitForHostTerminalBackend(workspaceId);
+				const target = terminalLauncher.resolve(workspaceId);
 				const result = await getHostServiceClientByUrl(
-					backend.hostUrl,
+					target.hostUrl,
 				).config.launchLifecycleScript.mutate({
-					workspaceId: backend.hostWorkspaceId,
+					workspaceId: target.workspaceId,
 					terminalId: paneId,
 					kind,
 				});
 				if (result.status === "not-configured") {
-					removePane(paneId);
+					closePane(workspaceId, paneId);
 					toast.error(`No ${kind} script configured`);
 				}
 			} catch (error) {
-				setPaneLifecycleScript(paneId, { kind, state: "failed" });
-				setPaneStatus(paneId, "failed");
+				updatePaneData(workspaceId, paneId, (data) => ({
+					...data,
+					status: "failed",
+					lifecycleScript: { kind, state: "failed" },
+				}));
 				toast.error(`Failed to run ${kind} script`, {
 					description: error instanceof Error ? error.message : String(error),
 				});
 			}
 		},
-		[
-			addTab,
-			removePane,
-			setPaneLifecycleScript,
-			setPaneName,
-			setPaneStatus,
-			workspaceId,
-		],
+		[terminalLauncher, workspaceId],
 	);
 
 	const buttonLabel = isRunning

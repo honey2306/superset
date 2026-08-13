@@ -1,7 +1,11 @@
 import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { runSourceStep, type SourceHandler } from "./types";
+import {
+	runCatalogCommitStep,
+	runSourceStep,
+	type SourceHandler,
+} from "./types";
 
 /**
  * `ProjectTarget.temporary` — the singleton temporary Project (execplan
@@ -88,7 +92,7 @@ export const temporaryHandler: SourceHandler = async (context) => {
 			return { repoPath, branch };
 		},
 	);
-	const committed = await runSourceStep(
+	const committed = await runCatalogCommitStep(
 		context,
 		"catalog",
 		{ singletonKey, repoPath: prepared.repoPath },

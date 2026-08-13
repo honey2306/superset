@@ -1,30 +1,22 @@
 import { join } from "node:path";
 import type { BrowserWindow } from "electron";
-import { app, Notification, nativeTheme } from "electron";
+import { app, nativeTheme } from "electron";
 import log from "electron-log/main";
 import { createWindow } from "lib/electron-app/factories/windows/create";
 import { createAppRouter } from "lib/trpc/routers";
-import { NOTIFICATION_EVENTS, PLATFORM } from "shared/constants";
+import { PLATFORM } from "shared/constants";
 import {
 	env,
 	getWorkspaceName as getEnvWorkspaceName,
 } from "shared/env.shared";
-import type { AgentLifecycleEvent } from "shared/notification-types";
 import { createIPCHandler } from "trpc-electron/main";
 import { productName } from "~/package.json";
-import { appState } from "../lib/app-state";
 import { attachEditContextMenu } from "../lib/edit-context-menu";
 import { createApplicationMenu } from "../lib/menu";
-import { playNotificationSound } from "../lib/notification-sound";
-import { NotificationManager } from "../lib/notifications/notification-manager";
 import {
 	notificationsApp,
 	notificationsEmitter,
 } from "../lib/notifications/server";
-import {
-	extractWorkspaceIdFromUrl,
-	getNotificationTitle,
-} from "../lib/notifications/utils";
 import {
 	getInitialWindowBounds,
 	loadWindowState,
@@ -93,7 +85,7 @@ export async function MainWindow() {
 		trafficLightPosition: { x: 16, y: 16 },
 		webPreferences: {
 			preload: join(__dirname, "../preload/index.js"),
-			webviewTag: true,
+			webviewTag: false,
 			// Isolate Electron session from system browser cookies
 			// This ensures desktop uses bearer token auth, not web cookies
 			partition: "persist:superset",
@@ -164,48 +156,10 @@ export async function MainWindow() {
 		},
 	);
 
-	const notificationManager = new NotificationManager({
-		isSupported: () => Notification.isSupported(),
-		createNotification: (opts) => new Notification(opts),
-		playSound: playNotificationSound,
-		onNotificationClick: (ids) => {
-			window.show();
-			window.focus();
-			if (ids.workspaceId && ids.terminalId) {
-				notificationsEmitter.emit(
-					NOTIFICATION_EVENTS.FOCUS_NOTIFICATION_SOURCE,
-					{
-						workspaceId: ids.workspaceId,
-						source: { type: "terminal", id: ids.terminalId },
-					},
-				);
-				return;
-			}
-			notificationsEmitter.emit(NOTIFICATION_EVENTS.FOCUS_TAB, ids);
-		},
-		getVisibilityContext: () => ({
-			isFocused: window.isFocused(),
-			currentWorkspaceId: extractWorkspaceIdFromUrl(
-				window.webContents.getURL(),
-			),
-			tabsState: appState.data?.tabsState,
-		}),
-		getNotificationTitle: (event) =>
-			getNotificationTitle({
-				tabId: event.tabId,
-				paneId: event.paneId,
-				tabs: appState.data?.tabsState?.tabs,
-				panes: appState.data?.tabsState?.panes,
-			}),
-	});
-	notificationManager.start();
-
-	notificationsEmitter.on(
-		NOTIFICATION_EVENTS.AGENT_LIFECYCLE,
-		(event: AgentLifecycleEvent) => {
-			notificationManager.handleAgentLifecycle(event);
-		},
-	);
+	// Agent lifecycle hooks are projected through the authenticated renderer's
+	// host EventBus subscriber. Keeping native notification policy there lets it
+	// use the durable Panes projection even when a workspace view is unmounted,
+	// and avoids a second main-process notification for the same hook.
 
 	// macOS Sequoia+: occluded/minimized windows can lose compositor layers
 	if (PLATFORM.IS_MAC) {
@@ -312,7 +266,6 @@ export async function MainWindow() {
 
 		// browserManager removed with internal browser feature
 		server.close();
-		notificationManager.dispose();
 		notificationsEmitter.removeAllListeners();
 		ipcHandler?.detachWindow(window);
 		currentWindow = null;

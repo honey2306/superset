@@ -278,20 +278,16 @@ export class PullRequestRuntimeManager {
 			.where(eq(workspaces.id, workspaceId))
 			.get();
 		if (!workspace?.pullRequestId) return;
-		this.db
-			.update(workspaces)
-			.set({ suppressedPullRequestId: workspace.pullRequestId })
-			.where(eq(workspaces.id, workspaceId))
-			.run();
-		this.catalog.updateWorkspace(workspaceId, { pullRequestId: null });
+		this.catalog.updateWorkspace(workspaceId, {
+			pullRequestId: null,
+			suppressedPullRequestId: workspace.pullRequestId,
+		});
 	}
 
 	async restoreWorkspacePullRequest(workspaceId: string): Promise<void> {
-		this.db
-			.update(workspaces)
-			.set({ suppressedPullRequestId: null })
-			.where(eq(workspaces.id, workspaceId))
-			.run();
+		this.catalog.updateWorkspace(workspaceId, {
+			suppressedPullRequestId: null,
+		});
 		await this.syncOneWorkspace(workspaceId);
 	}
 	private readonly db: HostDb;
@@ -497,13 +493,9 @@ export class PullRequestRuntimeManager {
 		});
 
 		const upstream = deriveCheckoutPullRequestUpstream(repo, pullRequest);
-		this.db
-			.update(workspaces)
-			.set({ suppressedPullRequestId: null })
-			.where(eq(workspaces.id, workspaceId))
-			.run();
 		this.catalog.updateWorkspace(workspaceId, {
 			pullRequestId: rowId,
+			suppressedPullRequestId: null,
 			headSha: pullRequest.headRefOid,
 			upstreamOwner: upstream?.owner ?? null,
 			upstreamRepo: upstream?.name ?? null,

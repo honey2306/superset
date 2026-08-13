@@ -21,6 +21,11 @@ esac
 
 printf '{}\n'
 
+# Mint one stable identity for the primary attempt and every fallback/retry.
+EVENT_ID=$(uuidgen 2>/dev/null || printf '%s-%s-%s' "$(date +%s)" "$$" "$RANDOM")
+OCCURRED_AT_SECONDS=$(date +%s)
+OCCURRED_AT=$((OCCURRED_AT_SECONDS * 1000))
+
 V1_EVENT_TYPE="$EVENT_TYPE"
 case "$V1_EVENT_TYPE" in
   SessionStart) V1_EVENT_TYPE="Start" ;;
@@ -31,8 +36,8 @@ json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
 
-if [ -n "$SUPERSET_HOST_AGENT_HOOK_URL" ] && [ -n "$SUPERSET_TERMINAL_ID" ]; then
-  PAYLOAD="{\"json\":{\"terminalId\":\"$(json_escape "$SUPERSET_TERMINAL_ID")\",\"eventType\":\"$(json_escape "$EVENT_TYPE")\",\"agent\":{\"agentId\":\"$(json_escape "$SUPERSET_AGENT_ID")\",\"sessionId\":\"$(json_escape "$HOOK_SESSION_ID")\"}}}"
+if [ -n "$SUPERSET_HOST_AGENT_HOOK_URL" ] && [ -n "$SUPERSET_HOST_AGENT_HOOK_CAPABILITY" ] && [ -n "$SUPERSET_TERMINAL_ID" ]; then
+  PAYLOAD="{\"json\":{\"terminalId\":\"$(json_escape "$SUPERSET_TERMINAL_ID")\",\"eventId\":\"$(json_escape "$EVENT_ID")\",\"occurredAt\":$OCCURRED_AT,\"capabilityToken\":\"$(json_escape "$SUPERSET_HOST_AGENT_HOOK_CAPABILITY")\",\"eventType\":\"$(json_escape "$EVENT_TYPE")\",\"agent\":{\"agentId\":\"$(json_escape "$SUPERSET_AGENT_ID")\",\"sessionId\":\"$(json_escape "$HOOK_SESSION_ID")\"}}}"
 
   STATUS_CODE=$(curl -sX POST "$SUPERSET_HOST_AGENT_HOOK_URL" \
     --connect-timeout 2 --max-time 5 \
@@ -58,6 +63,9 @@ curl -sG "http://127.0.0.1:${SUPERSET_PORT:-{{DEFAULT_PORT}}}/hook/complete" \
   --data-urlencode "sessionId=$HOOK_SESSION_ID" \
   --data-urlencode "hookSessionId=$HOOK_SESSION_ID" \
   --data-urlencode "eventType=$V1_EVENT_TYPE" \
+  --data-urlencode "eventId=$EVENT_ID" \
+  --data-urlencode "occurredAt=$OCCURRED_AT" \
+  --data-urlencode "capabilityToken=$SUPERSET_HOST_AGENT_HOOK_CAPABILITY" \
   --data-urlencode "env=$SUPERSET_ENV" \
   --data-urlencode "version=$SUPERSET_HOOK_VERSION" \
   > /dev/null 2>&1

@@ -2,6 +2,7 @@ import type { Octokit } from "@octokit/rest";
 import type { ChatService } from "@superset/chat/server/desktop";
 import type { HostDb } from "./db";
 import type { EventBus } from "./events";
+import type { NotificationHookSecurity } from "./notifications/notification-hook-security";
 import type { AuthKind } from "./providers/host-auth";
 import type { AcpSessionRuntime } from "./runtime/acp-sessions";
 import type { ChatRuntimeManager } from "./runtime/chat";
@@ -26,6 +27,7 @@ export interface HostServiceRuntime {
 	auth: ChatService;
 	chat: ChatRuntimeManager;
 	filesystem: WorkspaceFilesystemManager;
+	notificationHooks: NotificationHookSecurity;
 	phoneAuth: PhoneAuthService;
 	pullRequests: PullRequestRuntimeManager;
 	workspaceProvisioning: WorkspaceProvisioning;

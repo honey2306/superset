@@ -16,7 +16,11 @@ import {
 } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import type { Tab } from "renderer/stores/tabs/types";
+
+export interface PaneTabTarget {
+	id: string;
+	name: string;
+}
 
 export interface PaneContextMenuActions {
 	onSplitHorizontal: () => void;
@@ -24,7 +28,7 @@ export interface PaneContextMenuActions {
 	onEqualizePaneSplits?: () => void;
 	onClosePane: () => void;
 	currentTabId: string;
-	availableTabs: Tab[];
+	availableTabs: PaneTabTarget[];
 	onMoveToTab: (tabId: string) => void;
 	onMoveToNewTab: () => void;
 }

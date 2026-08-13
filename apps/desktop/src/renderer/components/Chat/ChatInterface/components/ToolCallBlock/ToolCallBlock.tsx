@@ -5,10 +5,10 @@ import { WebSearchTool } from "@superset/ui/ai-elements/web-search-tool";
 import { getToolName } from "ai";
 import { FileIcon, FolderIcon, GlobeIcon } from "lucide-react";
 import { useCallback, useMemo } from "react";
+import { openFileInPanes, usePanesWorkspaceState } from "renderer/lib/panes";
 import { posthog } from "renderer/lib/posthog";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useChangesStore } from "renderer/stores/changes";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import type { ChangeCategory } from "shared/changes-types";
 import { READ_ONLY_TOOLS } from "../../constants";
 import { normalizeWorkspaceFilePath } from "../../utils/file-paths";
@@ -81,9 +81,7 @@ export function ToolCallBlock({
 	const hideUnchangedRegions = useChangesStore(
 		(store) => store.hideUnchangedRegions,
 	);
-	const addFileViewerPane = useTabsStore((store) => store.addFileViewerPane);
-	const panes = useTabsStore((store) => store.panes);
-	const tabs = useTabsStore((store) => store.tabs);
+	const panesWorkspace = usePanesWorkspaceState(workspaceId);
 	const toolDisplayName = toolName
 		.replace("mastra_workspace_", "")
 		.replaceAll("_", " ");
@@ -102,7 +100,7 @@ export function ToolCallBlock({
 			if (!workspaceId) return;
 			const normalizedPath = normalizeFilePath(filePath);
 			if (!normalizedPath) return;
-			addFileViewerPane(workspaceId, { filePath: normalizedPath });
+			openFileInPanes(workspaceId, { filePath: normalizedPath });
 			posthog.capture("chat_file_opened_from_tool", {
 				workspace_id: workspaceId,
 				session_id: sessionId ?? null,
@@ -111,42 +109,31 @@ export function ToolCallBlock({
 				open_target: "view",
 			});
 		},
-		[
-			addFileViewerPane,
-			normalizeFilePath,
-			organizationId,
-			sessionId,
-			toolName,
-			workspaceId,
-		],
+		[normalizeFilePath, organizationId, sessionId, toolName, workspaceId],
 	);
 	const workspaceDiffPaneByFilePath = useMemo(() => {
 		if (!workspaceId) return new Map<string, DiffPaneTarget>();
 
-		const workspaceTabIds = new Set(
-			tabs
-				.filter((tab) => tab.workspaceId === workspaceId)
-				.map((tab) => tab.id),
-		);
 		const diffPaneByFilePath = new Map<string, DiffPaneTarget>();
 
-		for (const pane of Object.values(panes)) {
-			if (pane?.type !== "file-viewer") continue;
-			if (!workspaceTabIds.has(pane.tabId)) continue;
+		for (const tab of panesWorkspace.tabs) {
+			for (const pane of Object.values(tab.panes)) {
+				if (pane.kind !== "file-viewer") continue;
 
-			const fileViewer = pane.fileViewer;
-			if (!fileViewer?.filePath || !fileViewer.diffCategory) continue;
-			if (diffPaneByFilePath.has(fileViewer.filePath)) continue;
+				const fileViewer = pane.data.fileViewer;
+				if (!fileViewer?.filePath || !fileViewer.diffCategory) continue;
+				if (diffPaneByFilePath.has(fileViewer.filePath)) continue;
 
-			diffPaneByFilePath.set(fileViewer.filePath, {
-				diffCategory: fileViewer.diffCategory,
-				commitHash: fileViewer.commitHash,
-				oldPath: fileViewer.oldPath,
-			});
+				diffPaneByFilePath.set(fileViewer.filePath, {
+					diffCategory: fileViewer.diffCategory,
+					commitHash: fileViewer.commitHash,
+					oldPath: fileViewer.oldPath,
+				});
+			}
 		}
 
 		return diffPaneByFilePath;
-	}, [panes, tabs, workspaceId]);
+	}, [panesWorkspace.tabs, workspaceId]);
 	const getDiffPaneTargetForFile = useCallback(
 		(filePath: string) => {
 			const normalizedPath = normalizeFilePath(filePath);
@@ -162,7 +149,7 @@ export function ToolCallBlock({
 			const diffPaneTarget = getDiffPaneTargetForFile(filePath);
 			if (!normalizedPath) return;
 
-			addFileViewerPane(workspaceId, {
+			openFileInPanes(workspaceId, {
 				filePath: normalizedPath,
 				diffCategory: diffPaneTarget?.diffCategory ?? "unstaged",
 				commitHash: diffPaneTarget?.commitHash,
@@ -178,7 +165,6 @@ export function ToolCallBlock({
 			});
 		},
 		[
-			addFileViewerPane,
 			getDiffPaneTargetForFile,
 			normalizeFilePath,
 			organizationId,

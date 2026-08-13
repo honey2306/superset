@@ -1,4 +1,4 @@
-import type { AddFileViewerPaneOptions } from "renderer/stores/tabs/types";
+import type { OpenFileOptions } from "renderer/lib/panes";
 import type { ChangeCategory } from "shared/changes-types";
 import type { FileViewerMode } from "shared/tabs-types";
 
@@ -27,7 +27,7 @@ export type EditorPendingIntent =
 	| {
 			type: "replace-preview";
 			workspaceId: string;
-			options: AddFileViewerPaneOptions;
+			options: OpenFileOptions;
 	  }
 	| { type: "quit-app" };
 

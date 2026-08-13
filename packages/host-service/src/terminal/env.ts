@@ -173,12 +173,9 @@ interface BuildV2TerminalEnvParams {
 	supersetEnv: "development" | "production";
 	agentHookPort: string;
 	agentHookVersion: string;
-	/**
-	 * tRPC URL for the host-service notifications.hook mutation.
-	 * Endpoint is unauthenticated by design — it only broadcasts chimes,
-	 * no state change. See the router for rationale.
-	 */
+	/** tRPC URL and terminal-scoped capability for lifecycle hooks. */
 	hostAgentHookUrl?: string;
+	hostAgentHookCapability?: string;
 }
 
 /**
@@ -202,6 +199,7 @@ export function buildV2TerminalEnv(
 		agentHookPort,
 		agentHookVersion,
 		hostAgentHookUrl,
+		hostAgentHookCapability,
 	} = params;
 
 	// Defense in depth — baseEnv is pre-stripped at init, but strip again
@@ -237,12 +235,12 @@ export function buildV2TerminalEnv(
 	env.SUPERSET_ENV = supersetEnv;
 	env.SUPERSET_AGENT_HOOK_PORT = agentHookPort;
 	env.SUPERSET_AGENT_HOOK_VERSION = agentHookVersion;
-	// v2 — agent posts to host-service so the renderer can play the sound
-	// client-side. No auth token: the endpoint is unauthenticated by design
-	// (it only broadcasts chimes). The notify-hook script falls back to
-	// the electron endpoint when this URL isn't set.
-	if (hostAgentHookUrl) {
+	// v2 — the shell gets only a terminal-scoped hook capability, never the
+	// Host PSK. The same capability and event identity traverse the Electron
+	// fallback so a lost primary response remains exactly-once.
+	if (hostAgentHookUrl && hostAgentHookCapability) {
 		env.SUPERSET_HOST_AGENT_HOOK_URL = hostAgentHookUrl;
+		env.SUPERSET_HOST_AGENT_HOOK_CAPABILITY = hostAgentHookCapability;
 	}
 
 	if (supersetHomeDir) {

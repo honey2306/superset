@@ -58,6 +58,9 @@ app.get("/hook/complete", (req, res) => {
 		hookSessionId,
 		resourceId,
 		eventType,
+		eventId,
+		occurredAt,
+		capabilityToken,
 		env: clientEnv,
 		version,
 	} = req.query;
@@ -96,6 +99,7 @@ app.get("/hook/complete", (req, res) => {
 		workspaceId as string | undefined,
 	);
 
+	const parsedOccurredAt = Number(occurredAt);
 	const event: AgentLifecycleEvent = {
 		paneId: resolvedPaneId,
 		tabId: tabId as string | undefined,
@@ -103,6 +107,11 @@ app.get("/hook/complete", (req, res) => {
 		workspaceName: workspaceName as string | undefined,
 		terminalId: terminalId as string | undefined,
 		eventType: mappedEventType,
+		eventId: eventId as string | undefined,
+		occurredAt: Number.isSafeInteger(parsedOccurredAt)
+			? parsedOccurredAt
+			: undefined,
+		capabilityToken: capabilityToken as string | undefined,
 	};
 
 	if (DEBUG_HOOKS_ENABLED) {
@@ -117,6 +126,8 @@ app.get("/hook/complete", (req, res) => {
 			terminalId: terminalId as string | undefined,
 			hookSessionId: hookSessionId as string | undefined,
 			resourceId: resourceId as string | undefined,
+			eventId: eventId as string | undefined,
+			occurredAt: event.occurredAt,
 			resolvedPaneId,
 		});
 	}

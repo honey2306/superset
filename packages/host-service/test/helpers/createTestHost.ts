@@ -63,6 +63,7 @@ export interface TestHost {
 	stop: () => Promise<void>;
 	psk: string;
 	dbPath: string;
+	notificationHookCapability: (terminalId: string) => string;
 	apiCalls: Array<{ path: string; input: unknown }>;
 
 	/** tRPC client that talks to the real Hono app via in-process fetch. */
@@ -197,6 +198,7 @@ export async function createTestHost(
 		stop,
 		psk,
 		dbPath,
+		notificationHookCapability: result.notificationHookCapability,
 		apiCalls: [],
 		trpc,
 		unauthenticatedTrpc,

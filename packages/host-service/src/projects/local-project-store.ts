@@ -11,12 +11,11 @@ export type HostProjectRow = typeof projects.$inferSelect;
 export interface ProjectStoreContext {
 	db: HostDb;
 	eventBus: EventBus;
-	/**
-	 * When present, mutations flow through the Catalog so the entity write
-	 * and `catalog_changes` row commit together. Legacy tests that seed
-	 * rows directly may omit it.
+	/** Production mutations must flow through the Catalog so the entity write
+	 * and `catalog_changes` row commit together. Tests may still seed their
+	 * databases directly before constructing this context.
 	 */
-	catalog?: WorkspaceCatalog;
+	catalog: WorkspaceCatalog;
 }
 
 export function toProjectSnapshot(row: HostProjectRow): ProjectSnapshot {
@@ -71,17 +70,7 @@ export function updateLocalProject(
 ): HostProjectRow | undefined {
 	const existing = getLocalProject(ctx.db, id);
 	if (!existing) return undefined;
-	let row: HostProjectRow | undefined;
-	if (ctx.catalog) {
-		row = ctx.catalog.updateProject(id, patch);
-	} else {
-		ctx.db
-			.update(projects)
-			.set({ ...patch, updatedAt: Date.now() })
-			.where(eq(projects.id, id))
-			.run();
-		row = getLocalProject(ctx.db, id);
-	}
+	const row = ctx.catalog.updateProject(id, patch);
 	if (!row) return undefined;
 	emitProjectChanged(ctx.eventBus, "updated", row);
 	return row;

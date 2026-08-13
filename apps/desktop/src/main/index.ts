@@ -204,7 +204,7 @@ app.on("before-quit", async (event) => {
 		if (forceFullCleanup) {
 			await getHostServiceCoordinator().shutdownPtyDaemon();
 		}
-		getHostServiceCoordinator().stop();
+		await getHostServiceCoordinator().stop();
 		disposeTray();
 	} catch (error) {
 		console.error("[main] Cleanup during quit failed:", error);
@@ -231,8 +231,10 @@ if (process.env.NODE_ENV === "development") {
 		if (signalHandled) return;
 		signalHandled = true;
 		console.log(`[main] Received ${signal}, quitting...`);
-		getHostServiceCoordinator().stop();
-		void stopNetworkLogger().finally(() => app.exit(0));
+		void Promise.allSettled([
+			getHostServiceCoordinator().stop(),
+			stopNetworkLogger(),
+		]).finally(() => app.exit(0));
 	};
 
 	process.on("SIGTERM", () => handleTerminationSignal("SIGTERM"));

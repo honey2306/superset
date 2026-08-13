@@ -21,6 +21,7 @@ export interface ProjectSnapshotShape {
 	worktreeBaseDir: string | null;
 	branchPrefixMode: "none" | "github" | "author" | "custom" | null;
 	branchPrefixCustom: string | null;
+	sparseCheckoutPaths: string[];
 	createdAt: number;
 	updatedAt: number;
 }
@@ -37,13 +38,14 @@ export interface WorkspaceSnapshotShape {
 	upstreamRepo: string | null;
 	upstreamBranch: string | null;
 	pullRequestId: string | null;
+	suppressedPullRequestId: string | null;
 	taskId: string | null;
 	createdAt: number;
 	updatedAt: number;
 }
 
 export interface WorkspaceCatalogSnapshot {
-	schemaVersion: 1;
+	schemaVersion: 2;
 	revision: number;
 	projects: ProjectSnapshotShape[];
 	workspaces: WorkspaceSnapshotShape[];
@@ -51,7 +53,7 @@ export interface WorkspaceCatalogSnapshot {
 }
 
 export interface WorkspaceCatalogChange {
-	schemaVersion: 1;
+	schemaVersion: 2;
 	revision: number;
 	entityType: CatalogEntityType;
 	entityId: string;

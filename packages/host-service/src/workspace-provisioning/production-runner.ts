@@ -1,12 +1,11 @@
 import type { HostServiceContext } from "../types";
-import type { OperationJournal } from "./operation-journal";
 import {
 	existingProjectHandler,
 	projectMaterializerHandler,
 	setupExistingHandler,
 	temporaryHandler,
 } from "./sources";
-import type { InitialLaunchResult, ProvisionWorkspaceRequest } from "./types";
+import type { InitialLaunchResult } from "./types";
 import type {
 	ProvisioningRunner,
 	ProvisioningRunnerOutcome,
@@ -26,18 +25,18 @@ export interface ProvisioningRunnerAdapters {
 export function createProductionRunner(
 	adapters: ProvisioningRunnerAdapters,
 ): ProvisioningRunner {
-	return async ({ request, operationId, journal }) => {
+	return async (runnerContext) => {
 		const ctx = adapters.ctxFactory();
-		return dispatch(request, operationId, journal, ctx);
+		return dispatch(runnerContext, ctx);
 	};
 }
 
 async function dispatch(
-	request: ProvisionWorkspaceRequest,
-	operationId: string,
-	journal: OperationJournal,
+	runnerContext: Parameters<ProvisioningRunner>[0],
 	ctx: HostServiceContext,
 ): Promise<ProvisioningRunnerOutcome> {
+	const { request, operationId, journal } = runnerContext;
+	runnerContext.throwIfCancellationRequested();
 	const stepKey = `source:${request.project.kind}:${request.source.kind}`;
 	const completed = journal.getCompletedStepOutput<SourceStepOutput>(
 		operationId,
@@ -59,6 +58,9 @@ async function dispatch(
 		ctx,
 		launches,
 		warnings,
+		throwIfCancellationRequested: runnerContext.throwIfCancellationRequested,
+		beginCatalogCommit: runnerContext.beginCatalogCommit,
+		markCatalogCommitted: runnerContext.markCatalogCommitted,
 	};
 	const outcome = await (async () => {
 		switch (request.project.kind) {

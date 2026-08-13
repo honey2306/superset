@@ -9,6 +9,7 @@ import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { useNotificationStore } from "renderer/stores/notifications";
 import { useRingtoneStore } from "renderer/stores/ringtone";
 import { getNativeNotificationContent } from "./notificationContent";
+import { shouldSuppressNotification } from "./notificationVisibility";
 import {
 	isNotificationTargetVisible,
 	type NotificationTarget,
@@ -55,7 +56,19 @@ export function handleAgentLifecycleEvent({
 	) {
 		return;
 	}
-	if (shouldSuppress(target, paneLayout)) return;
+	if (
+		shouldSuppressNotification({
+			target,
+			paneLayout,
+			currentWorkspaceId: getCurrentWorkspaceId(),
+			documentHidden: typeof document !== "undefined" ? document.hidden : false,
+			windowFocused:
+				typeof document !== "undefined" && typeof window !== "undefined"
+					? document.hasFocus()
+					: false,
+		})
+	)
+		return;
 
 	const ringtoneId = useRingtoneStore.getState().selectedRingtoneId;
 	void playRingtone({ ringtoneId, volume, muted });
@@ -126,20 +139,6 @@ function getCurrentWorkspaceId(): string | null {
 	} catch {
 		return null;
 	}
-}
-
-function shouldSuppress(
-	target: NotificationTarget,
-	paneLayout: WorkspaceState<PaneViewerData> | null | undefined,
-): boolean {
-	if (typeof document !== "undefined" && document.hidden) return false;
-	if (typeof window !== "undefined" && !document.hasFocus()) return false;
-
-	return isNotificationTargetVisible({
-		currentWorkspaceId: getCurrentWorkspaceId(),
-		paneLayout,
-		target,
-	});
 }
 
 function showNativeNotification({

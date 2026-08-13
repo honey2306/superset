@@ -9,6 +9,10 @@ import { cors } from "hono/cors";
 import { createDb, type HostDb } from "./db";
 import { EventBus, GitWatcher, registerEventBusRoute } from "./events";
 import {
+	NotificationHookSecurity,
+	setActiveNotificationHookSecurity,
+} from "./notifications/notification-hook-security";
+import {
 	CompositeHostAuthProvider,
 	type HostAuthProvider,
 	PhoneSessionAuthProvider,
@@ -92,6 +96,7 @@ export interface CreateAppResult {
 	app: Hono;
 	injectWebSocket: ReturnType<typeof createNodeWebSocket>["injectWebSocket"];
 	db: HostDb;
+	notificationHookCapability: (terminalId: string) => string;
 	dispose: () => Promise<void>;
 }
 
@@ -138,6 +143,8 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	const execGh: ExecGh = options.execGh ?? defaultExecGh;
 
 	const filesystem = new WorkspaceFilesystemManager({ db });
+	const notificationHooks = new NotificationHookSecurity(config.dbPath);
+	setActiveNotificationHookSecurity(notificationHooks);
 
 	// Phone auth substrate. Constructed early so the composite auth provider
 	// below can layer phone-session validation on top of the PSK the caller
@@ -326,6 +333,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		auth: chatService,
 		chat: chatRuntime,
 		filesystem,
+		notificationHooks,
 		phoneAuth,
 		pullRequests: pullRequestRuntime,
 		workspaceProvisioning,
@@ -488,7 +496,14 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		}
 	};
 
-	return { app, injectWebSocket, db, dispose };
+	return {
+		app,
+		injectWebSocket,
+		db,
+		notificationHookCapability: (terminalId) =>
+			notificationHooks.capabilityForTerminal(terminalId),
+		dispose,
+	};
 }
 
 /**

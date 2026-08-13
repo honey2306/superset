@@ -1,5 +1,4 @@
 import { WorkerPoolContextProvider } from "@pierre/diffs/react";
-import { WorkspaceClientProvider } from "@superset/workspace-client";
 import {
 	createFileRoute,
 	Outlet,
@@ -10,20 +9,14 @@ import { useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { dragDropManager } from "renderer/lib/dnd";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import {
-	getHostServiceHeaders,
-	getHostServiceWsToken,
-} from "renderer/lib/host-service-auth";
+import { findPanesStoreByPaneId, updatePaneData } from "renderer/lib/panes";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
-import { HostServiceTRPCProvider } from "renderer/providers/HostServiceTRPCProvider";
 import { GitInitConfirmDialog } from "renderer/routes/_local/_dashboard/components/AddRepositoryModals/components/GitInitConfirmDialog";
 import { DaemonAutoUpdateFailureDialog } from "renderer/routes/_local/components/DaemonAutoUpdateFailureDialog";
 import { DashboardNewWorkspaceModal } from "renderer/routes/_local/components/DashboardNewWorkspaceModal";
 import { DiffThemeSync } from "renderer/routes/_local/components/DiffThemeSync";
 import { AgentSessionLaunchEffects } from "renderer/screens/main/components/AgentSessionLaunchEffects";
 import { useSettingsStore } from "renderer/stores/settings-state";
-import { useTabsStore } from "renderer/stores/tabs/store";
-import { useAgentHookListener } from "renderer/stores/tabs/useAgentHookListener";
 import { NOTIFICATION_EVENTS } from "shared/constants";
 import { AgentHooks } from "./components/AgentHooks";
 import { DockBadgeController } from "./components/DockBadgeController";
@@ -32,10 +25,8 @@ import { NotificationController } from "./components/NotificationController";
 import { TeardownLogsDialog } from "./components/TeardownLogsDialog";
 import { createPierreWorker } from "./lib/pierreWorker";
 import { DeletingWorkspacesProvider } from "./providers/DeletingWorkspacesProvider";
-import {
-	LocalHostServiceProvider,
-	useLocalHostService,
-} from "./providers/LocalHostServiceProvider";
+import { LocalHostApiProviders } from "./providers/LocalHostApiProviders";
+import { LocalHostServiceProvider } from "./providers/LocalHostServiceProvider";
 import { LocalProductStateProvider } from "./providers/LocalProductStateProvider";
 import { WorkspaceCatalogProvider } from "./providers/WorkspaceCatalogProvider";
 
@@ -47,8 +38,6 @@ function LocalLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const setOriginRoute = useSettingsStore((s) => s.setOriginRoute);
-
-	useAgentHookListener();
 
 	// Seed the parked-terminal eviction cap from settings (SUPER-1545).
 	const { data: parkedRuntimeCap } =
@@ -90,17 +79,25 @@ function LocalLayout() {
 			) {
 				return;
 			}
-			const pane = useTabsStore.getState().panes[event.data.paneId];
-			if (pane?.workspaceRun?.state === "running") {
-				const nextState =
-					event.data.reason === "killed"
-						? "stopped-by-user"
-						: "stopped-by-exit";
-				useTabsStore.getState().setPaneWorkspaceRun(event.data.paneId, {
-					...pane.workspaceRun,
-					state: nextState,
-				});
-			}
+			const exitData = event.data;
+			const paneId = exitData.paneId;
+			if (!paneId) return;
+			const workspaceId =
+				exitData.workspaceId ?? findPanesStoreByPaneId(paneId)?.workspaceId;
+			if (!workspaceId) return;
+			updatePaneData(workspaceId, paneId, (data) => {
+				if (data.workspaceRun?.state !== "running") return data;
+				return {
+					...data,
+					workspaceRun: {
+						...data.workspaceRun,
+						state:
+							exitData.reason === "killed"
+								? "stopped-by-user"
+								: "stopped-by-exit",
+					},
+				};
+			});
 		},
 	});
 
@@ -155,23 +152,5 @@ function LocalLayout() {
 				</LocalHostServiceProvider>
 			</LocalProductStateProvider>
 		</DndProvider>
-	);
-}
-
-function LocalHostApiProviders({ children }: { children: React.ReactNode }) {
-	const { activeHostUrl } = useLocalHostService();
-	if (!activeHostUrl) return null;
-
-	return (
-		<HostServiceTRPCProvider>
-			<WorkspaceClientProvider
-				cacheKey="embedded-host"
-				hostUrl={activeHostUrl}
-				headers={() => getHostServiceHeaders(activeHostUrl)}
-				wsToken={() => getHostServiceWsToken(activeHostUrl)}
-			>
-				{children}
-			</WorkspaceClientProvider>
-		</HostServiceTRPCProvider>
 	);
 }

@@ -1,4 +1,4 @@
-import { retargetPanesFileViewerPaths } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/PanesWorkspace/panesStoreRegistry";
+import { retargetPanesFileViewerPaths } from "renderer/lib/panes";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import { useChangesStore } from "renderer/stores/changes";
 

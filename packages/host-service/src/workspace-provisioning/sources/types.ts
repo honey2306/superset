@@ -1,15 +1,4 @@
-/**
- * Source-specific handlers (execplan §File map).
- *
- * `sources/` decomposes the production runner's big `switch (project.kind)`
- * into one file per `ProjectTarget × WorkspaceSource` shape. Each handler
- * receives the host context and durable journal and returns a
- * `ProvisioningRunnerOutcome`.
- *
- * Split rationale (execplan §Commit and compensation): every source needs
- * its own resolve → materialize → catalog-commit → runtime sequence, and
- * its Git receipts must be independently resumable.
- */
+/** Source-specific handlers and durable side-effect checkpoints. */
 
 import type { HostServiceContext } from "../../types";
 import type { OperationJournal } from "../operation-journal";
@@ -23,6 +12,12 @@ export interface SourceHandlerContext {
 	ctx: HostServiceContext;
 	launches: InitialLaunchResult[];
 	warnings: Array<{ code: string; message: string }>;
+	throwIfCancellationRequested: () => void;
+	beginCatalogCommit: () => void;
+	markCatalogCommitted: (args: {
+		projectId: string;
+		workspaceId: string;
+	}) => void;
 }
 
 export type SourceHandler = (
@@ -36,19 +31,14 @@ export function sourceStepKey(
 	return `source:${context.request.project.kind}:${context.request.source.kind}:${stepName}`;
 }
 
-/**
- * Journal an external source/materializer call separately from the outer
- * source receipt. If the host dies after the materializer returns
- * but before the parent operation advances, retry can reuse the returned
- * identity instead of calling Git/materialization a second time.
- */
 export async function runSourceStep<T extends object>(
 	context: SourceHandlerContext,
 	stepName: string,
 	input: Record<string, unknown>,
 	work: () => Promise<T>,
 ): Promise<T> {
-	const stepKey = `source:${context.request.project.kind}:${context.request.source.kind}:${stepName}`;
+	context.throwIfCancellationRequested();
+	const stepKey = sourceStepKey(context, stepName);
 	const completed = context.journal.getCompletedStepOutput<
 		Record<string, unknown>
 	>(context.operationId, stepKey);
@@ -56,6 +46,7 @@ export async function runSourceStep<T extends object>(
 
 	context.journal.markStepStarted(context.operationId, stepKey, input);
 	const output = await work();
+	context.throwIfCancellationRequested();
 	context.journal.markStepComplete(
 		context.operationId,
 		stepKey,
@@ -64,13 +55,6 @@ export async function runSourceStep<T extends object>(
 	return output;
 }
 
-/**
- * Like `runSourceStep`, but lets a materializer reconcile a completed receipt
- * against the external Git/filesystem state before trusting it. A receipt is
- * only a hint until the resource it describes still exists; this is what
- * makes a retry after a crash safe in both directions (no duplicate worktree
- * and no stale receipt pointing at a deleted one).
- */
 export async function runReconciledSourceStep<T extends object>(
 	context: SourceHandlerContext,
 	stepName: string,
@@ -78,6 +62,7 @@ export async function runReconciledSourceStep<T extends object>(
 	isValid: (output: T) => Promise<boolean>,
 	work: () => Promise<T>,
 ): Promise<T> {
+	context.throwIfCancellationRequested();
 	const stepKey = sourceStepKey(context, stepName);
 	const completed = context.journal.getCompletedStepOutput<T>(
 		context.operationId,
@@ -87,6 +72,38 @@ export async function runReconciledSourceStep<T extends object>(
 
 	context.journal.markStepStarted(context.operationId, stepKey, input);
 	const output = await work();
+	context.throwIfCancellationRequested();
+	context.journal.markStepComplete(
+		context.operationId,
+		stepKey,
+		output as Record<string, unknown>,
+	);
+	return output;
+}
+
+/** Claim the cancellation boundary before entering a Catalog transaction. */
+export async function runCatalogCommitStep<
+	T extends { projectId: string; workspaceId: string },
+>(
+	context: SourceHandlerContext,
+	stepName: string,
+	input: Record<string, unknown>,
+	work: () => Promise<T>,
+): Promise<T> {
+	const stepKey = sourceStepKey(context, stepName);
+	const completed = context.journal.getCompletedStepOutput<T>(
+		context.operationId,
+		stepKey,
+	);
+	if (completed) {
+		context.markCatalogCommitted(completed);
+		return completed;
+	}
+	context.throwIfCancellationRequested();
+	context.journal.markStepStarted(context.operationId, stepKey, input);
+	context.beginCatalogCommit();
+	const output = await work();
+	context.markCatalogCommitted(output);
 	context.journal.markStepComplete(
 		context.operationId,
 		stepKey,

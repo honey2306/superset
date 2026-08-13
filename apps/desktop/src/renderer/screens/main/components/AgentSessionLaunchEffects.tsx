@@ -6,6 +6,7 @@ import { toast } from "@superset/ui/sonner";
 import { useCallback, useEffect, useRef } from "react";
 import { launchAgentSession } from "renderer/lib/agent-session-orchestrator";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { addTerminalPane, openPresetInPanes } from "renderer/lib/panes";
 import { useHostTerminalLauncher } from "renderer/lib/terminal/host-terminal-launcher";
 import { buildTerminalCommand } from "renderer/lib/terminal/launch-command";
 import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
@@ -13,8 +14,6 @@ import {
 	type PendingTerminalSetup,
 	useAgentSessionLaunchStore,
 } from "renderer/stores/agent-session-launch";
-import { useTabsStore } from "renderer/stores/tabs/store";
-import { useTabsWithPresets } from "renderer/stores/tabs/useTabsWithPresets";
 import { DEFAULT_AUTO_APPLY_DEFAULT_PRESET } from "shared/constants";
 
 /** Mounted at app root to survive dialog unmounts. */
@@ -34,19 +33,16 @@ export function AgentSessionLaunchEffects() {
 
 	const processingRef = useRef<Set<string>>(new Set());
 
-	const addTab = useTabsStore((state) => state.addTab);
-	const setTabAutoTitle = useTabsStore((state) => state.setTabAutoTitle);
-	const { openPreset } = useTabsWithPresets();
 	const terminalLauncher = useHostTerminalLauncher();
 
 	const openPresetsInActiveTab = useCallback(
 		(workspaceId: string, presets: PendingTerminalSetup["defaultPresets"]) => {
 			for (const preset of presets ?? []) {
 				if (preset.commands.length === 0) continue;
-				openPreset(workspaceId, preset, { target: "active-tab" });
+				openPresetInPanes(workspaceId, preset, { target: "active-tab" });
 			}
 		},
-		[openPreset],
+		[],
 	);
 
 	const resolveSetupLaunchRequest = useCallback(
@@ -143,8 +139,16 @@ export function AgentSessionLaunchEffects() {
 			const { agentCommand, agentLaunchRequest } = setup;
 
 			if (hasSetupScript) {
-				const { tabId, paneId } = addTab(setup.workspaceId);
-				setTabAutoTitle(tabId, "Workspace Setup");
+				const opened = addTerminalPane(setup.workspaceId, {
+					title: "Workspace Setup",
+					dedupeKey: `workspace-setup:${setup.workspaceId}`,
+				});
+				if (opened.status !== "applied") {
+					toast.error("Workspace panes are not available yet");
+					onComplete();
+					return;
+				}
+				const { paneId } = opened.value;
 				if (hasPresets) {
 					openPresetsInActiveTab(setup.workspaceId, presets);
 				}
@@ -188,8 +192,6 @@ export function AgentSessionLaunchEffects() {
 			onComplete();
 		},
 		[
-			addTab,
-			setTabAutoTitle,
 			launchAgentViaOrchestrator,
 			runSetupCommandsInPane,
 			openPresetsInActiveTab,

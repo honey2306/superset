@@ -148,8 +148,7 @@ function buildHostServiceSubmenu(
 			label: "  Stop",
 			enabled: isRunning,
 			click: () => {
-				coordinator.stop();
-				void updateTrayMenu();
+				void coordinator.stop().finally(() => void updateTrayMenu());
 			},
 		},
 	];

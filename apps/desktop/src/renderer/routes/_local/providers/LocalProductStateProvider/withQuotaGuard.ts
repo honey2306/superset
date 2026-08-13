@@ -37,7 +37,9 @@ export function withQuotaGuard<T>(options: T, handlers: QuotaGuardHandlers): T {
 				if (!isQuotaExceeded(error)) throw error;
 				if (handlers.reclaim() === 0) {
 					handlers.onPersistFailed(key, error);
-					return;
+					// A notification is not durability. Propagate quota exhaustion so
+					// callers cannot acknowledge a migration whose write never landed.
+					throw error;
 				}
 			}
 			try {
@@ -45,6 +47,7 @@ export function withQuotaGuard<T>(options: T, handlers: QuotaGuardHandlers): T {
 			} catch (error) {
 				if (!isQuotaExceeded(error)) throw error;
 				handlers.onPersistFailed(key, error);
+				throw error;
 			}
 		},
 	};

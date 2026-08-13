@@ -26,6 +26,7 @@ export interface GitChangedMessage {
 
 export interface AgentLifecycleMessage {
 	type: "agent:lifecycle";
+	eventId: string;
 	workspaceId: string;
 	eventType: AgentLifecycleEventType;
 	terminalId: string;

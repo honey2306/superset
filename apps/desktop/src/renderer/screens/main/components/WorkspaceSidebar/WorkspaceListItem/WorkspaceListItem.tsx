@@ -15,17 +15,20 @@ import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useHoverGitHubStatus } from "renderer/lib/githubQueryPolicy";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import {
+	clearWorkspacePaneStatuses,
+	usePanesWorkspaceState,
+} from "renderer/lib/panes";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
 import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import { WorkspaceRunIndicator } from "renderer/screens/main/components/WorkspaceRunIndicator";
-import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
 import { useBranchSyncInvalidation } from "renderer/screens/main/hooks/useBranchSyncInvalidation";
 import { useGitChangesStatus } from "renderer/screens/main/hooks/useGitChangesStatus";
 import { useWorkspaceRename } from "renderer/screens/main/hooks/useWorkspaceRename";
 import { useActiveDragItemStore } from "renderer/stores/active-drag-item";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { getHighestPriorityStatus } from "shared/tabs-types";
 import { CollapsedWorkspaceItem } from "./CollapsedWorkspaceItem";
@@ -81,10 +84,8 @@ export function WorkspaceListItem({
 		isWorktree: type === "worktree",
 	});
 	const rename = useWorkspaceRename(id, name, branch);
-	const { hostUrl, hostWorkspaceId } = useHostServiceTerminal({
-		workspaceId: id,
-		worktreePath,
-	});
+	const { activeHostUrl: hostUrl } = useLocalHostService();
+	const hostWorkspaceId = hostUrl ? id : null;
 	const { data: pullRequestState, refetch: refetchPullRequestState } = useQuery(
 		{
 			queryKey: ["host-service", "pull-requests", hostUrl, hostWorkspaceId],
@@ -115,18 +116,13 @@ export function WorkspaceListItem({
 	);
 	const clearWorkspaceTerminalStatuses =
 		useClearWorkspaceTerminalStatusesAtHost(hostUrl, hostWorkspaceId);
-	const workspaceRunState = useTabsStore((state) => {
-		for (const pane of Object.values(state.panes)) {
-			if (pane.type === "terminal" && pane.workspaceRun?.workspaceId === id) {
-				return pane.workspaceRun.state;
-			}
-		}
-		return null;
-	});
-	const clearWorkspaceAttentionStatus = useTabsStore(
-		(s) => s.clearWorkspaceAttentionStatus,
-	);
-	const resetWorkspaceStatus = useTabsStore((s) => s.resetWorkspaceStatus);
+	const panesWorkspace = usePanesWorkspaceState(id);
+	const workspaceRunState = panesWorkspace.tabs
+		.flatMap((tab) => Object.values(tab.panes))
+		.find(
+			(pane) =>
+				pane.kind === "terminal" && pane.data.workspaceRun?.workspaceId === id,
+		)?.data.workspaceRun?.state;
 	const { setWorkspaceUnread } = useDashboardSidebarState();
 	const isSelected = useWorkspaceSelectionStore((s) => s.selectedIds.has(id));
 	const selectionStore = useWorkspaceSelectionStore;
@@ -238,7 +234,7 @@ export function WorkspaceListItem({
 
 		selectionStore.getState().clearSelection();
 		selectionStore.setState({ lastClickedId: id });
-		clearWorkspaceAttentionStatus(id);
+		clearWorkspacePaneStatuses(id);
 		markWorkspaceTerminalsSeen();
 		navigateToWorkspace(id, navigate);
 	};
@@ -504,7 +500,7 @@ export function WorkspaceListItem({
 					}
 				}}
 				onResetStatus={() => {
-					resetWorkspaceStatus(id);
+					clearWorkspacePaneStatuses(id);
 					void clearWorkspaceTerminalStatuses();
 				}}
 				onDelete={handleDeleteClick}
