@@ -7,17 +7,16 @@ import {
 import { cn } from "@superset/ui/utils";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { HiOutlineChevronDown, HiOutlineChevronRight } from "react-icons/hi2";
-import { useIsV2CloudEnabled } from "renderer/hooks/useIsV2CloudEnabled";
-import { ResourceMetricsSummary } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/ResourceConsumption/components/ResourceMetricsSummary";
-import { UsageSeverityBadge } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/ResourceConsumption/components/UsageSeverityBadge";
-import { useResourceNavigation } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/ResourceConsumption/hooks/useResourceNavigation";
-import { useResourceSnapshot } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/ResourceConsumption/hooks/useResourceSnapshot";
-import type { WorkspaceMetrics } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/ResourceConsumption/types";
+import { ResourceMetricsSummary } from "renderer/routes/_local/_dashboard/components/TopBar/components/ResourceConsumption/components/ResourceMetricsSummary";
+import { UsageSeverityBadge } from "renderer/routes/_local/_dashboard/components/TopBar/components/ResourceConsumption/components/UsageSeverityBadge";
+import { useResourceNavigation } from "renderer/routes/_local/_dashboard/components/TopBar/components/ResourceConsumption/hooks/useResourceNavigation";
+import { useResourceSnapshot } from "renderer/routes/_local/_dashboard/components/TopBar/components/ResourceConsumption/hooks/useResourceSnapshot";
+import type { WorkspaceMetrics } from "renderer/routes/_local/_dashboard/components/TopBar/components/ResourceConsumption/types";
 import {
 	formatCpu,
 	formatMemory,
-} from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/ResourceConsumption/utils/formatters";
-import { getUsageSeverity } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/ResourceConsumption/utils/resourceSeverity";
+} from "renderer/routes/_local/_dashboard/components/TopBar/components/ResourceConsumption/utils/formatters";
+import { getUsageSeverity } from "renderer/routes/_local/_dashboard/components/TopBar/components/ResourceConsumption/utils/resourceSeverity";
 import { useFrameStackStore } from "../../core/frames";
 import { useCommandPaletteQuery } from "../CommandPalette/CommandPalette";
 
@@ -37,11 +36,10 @@ interface ResourceRow {
 export function ResourcesFrame() {
 	const rawQuery = useCommandPaletteQuery();
 	const query = rawQuery.trim().toLowerCase();
-	const surface = useIsV2CloudEnabled() ? "v2" : "v1";
 	const setOpen = useFrameStackStore((state) => state.setOpen);
-	const { snapshot } = useResourceSnapshot(surface);
+	const { snapshot } = useResourceSnapshot();
 	const { getPaneName, navigateToWorkspace, navigateToPane } =
-		useResourceNavigation({ surface, onNavigate: () => setOpen(false) });
+		useResourceNavigation({ onNavigate: () => setOpen(false) });
 	const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(
 		new Set(),
 	);

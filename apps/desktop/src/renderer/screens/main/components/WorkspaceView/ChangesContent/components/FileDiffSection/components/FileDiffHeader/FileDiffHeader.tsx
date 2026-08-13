@@ -88,7 +88,7 @@ export function FileDiffHeader({
 						type="button"
 						className="group/filename flex items-center gap-1 text-xs truncate min-w-0 hover:underline hover:text-accent-solid cursor-pointer font-mono"
 						onClick={onOpenInEditor}
-						aria-label={t("v1Changes.fileDiffHeader.openInEditor", {
+						aria-label={t("changes.fileDiffHeader.openInEditor", {
 							path: file.path,
 						})}
 					>
@@ -97,7 +97,7 @@ export function FileDiffHeader({
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="bottom" showArrow={false}>
-					{t("v1Changes.fileDiffHeader.clickToOpenInEditor")}
+					{t("changes.fileDiffHeader.clickToOpenInEditor")}
 				</TooltipContent>
 			</Tooltip>
 
@@ -117,8 +117,8 @@ export function FileDiffHeader({
 				</TooltipTrigger>
 				<TooltipContent side="bottom" showArrow={false}>
 					{isCopied
-						? t("v1Changes.fileDiffHeader.copied")
-						: t("v1Changes.fileDiffHeader.copyPath")}
+						? t("changes.fileDiffHeader.copied")
+						: t("changes.fileDiffHeader.copyPath")}
 				</TooltipContent>
 			</Tooltip>
 
@@ -143,8 +143,8 @@ export function FileDiffHeader({
 					</TooltipTrigger>
 					<TooltipContent side="bottom" showArrow={false}>
 						{isEditing
-							? t("v1Changes.fileDiffHeader.switchToReadOnly")
-							: t("v1Changes.fileDiffHeader.editFile")}
+							? t("changes.fileDiffHeader.switchToReadOnly")
+							: t("changes.fileDiffHeader.editFile")}
 					</TooltipContent>
 				</Tooltip>
 			)}
@@ -182,7 +182,7 @@ export function FileDiffHeader({
 					htmlFor={`viewed-${fileKey}`}
 					className="text-fg-mute cursor-pointer"
 				>
-					{t("v1Changes.fileDiffHeader.viewed")}
+					{t("changes.fileDiffHeader.viewed")}
 				</label>
 			</div>
 
@@ -207,8 +207,8 @@ export function FileDiffHeader({
 						</TooltipTrigger>
 						<TooltipContent side="bottom" showArrow={false}>
 							{isDeleteAction
-								? t("v1Changes.fileDiffHeader.delete")
-								: t("v1Changes.fileDiffHeader.discardChanges")}
+								? t("changes.fileDiffHeader.delete")
+								: t("changes.fileDiffHeader.discardChanges")}
 						</TooltipContent>
 					</Tooltip>
 				)}
@@ -229,7 +229,7 @@ export function FileDiffHeader({
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent side="bottom" showArrow={false}>
-									{t("v1Changes.fileDiffHeader.stage")}
+									{t("changes.fileDiffHeader.stage")}
 								</TooltipContent>
 							</Tooltip>
 						)}
@@ -247,7 +247,7 @@ export function FileDiffHeader({
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent side="bottom" showArrow={false}>
-									{t("v1Changes.fileDiffHeader.unstage")}
+									{t("changes.fileDiffHeader.unstage")}
 								</TooltipContent>
 							</Tooltip>
 						)}

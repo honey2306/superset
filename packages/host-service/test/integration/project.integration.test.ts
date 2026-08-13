@@ -89,11 +89,7 @@ describe("project router integration", () => {
 		});
 		expect(result.candidates).toHaveLength(1);
 		expect(result.candidates[0]).toMatchObject({ id, name: "local-name" });
-		expect(
-			host.apiCalls.some(
-				(c) => c.path === "v2Project.findByGitHubRemote.query",
-			),
-		).toBe(false);
+		expect(host.apiCalls).toEqual([]);
 	});
 
 	test("findByPath returns empty candidates when repo has no parsed remote and no local project", async () => {
@@ -123,10 +119,28 @@ describe("project router integration", () => {
 			repoPath: repo.repoPath,
 		});
 		expect(result.candidates).toEqual([]);
+		expect(host.apiCalls).toEqual([]);
+	});
+
+	test("remove deletes a local project without cloud cleanup", async () => {
+		const host = await createTestHost();
+		const repo = await createGitFixture();
+		dispose = async () => {
+			await host.dispose();
+			repo.dispose();
+		};
+		const project = seedProject(host, { repoPath: repo.repoPath });
+
+		const result = await host.trpc.project.remove.mutate({
+			projectId: project.id,
+		});
+
+		expect(result).toEqual({ success: true, repoPath: repo.repoPath });
 		expect(
-			host.apiCalls.some(
-				(c) => c.path === "v2Project.findByGitHubRemote.query",
-			),
+			await host.trpc.project.get.query({ projectId: project.id }),
+		).toBeNull();
+		expect(
+			host.apiCalls.some((call) => call.path.startsWith("v2Project.")),
 		).toBe(false);
 	});
 });

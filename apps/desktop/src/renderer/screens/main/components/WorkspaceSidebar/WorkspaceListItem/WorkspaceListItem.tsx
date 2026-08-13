@@ -1,24 +1,24 @@
 import { Input } from "@superset/ui/input";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { HiEllipsisHorizontal } from "react-icons/hi2";
 import { useHighestAcpSessionStatusAtHost } from "renderer/hooks/host-service/useAcpSessionStatuses";
-import { useHighestTerminalAgentStatusAtHost } from "renderer/hooks/host-service/useTerminalAgentStatuses";
 import {
 	useClearWorkspaceTerminalStatusesAtHost,
 	useMarkWorkspaceTerminalsSeenAtHost,
-} from "renderer/hooks/host-service/useV2NotificationStatus";
+} from "renderer/hooks/host-service/useNotificationStatus";
+import { useHighestTerminalAgentStatusAtHost } from "renderer/hooks/host-service/useTerminalAgentStatuses";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useHoverGitHubStatus } from "renderer/lib/githubQueryPolicy";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
-import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
+import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
 import { WorkspaceRunIndicator } from "renderer/screens/main/components/WorkspaceRunIndicator";
 import { useHostServiceTerminal } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/hooks/useHostServiceTerminal";
 import { useBranchSyncInvalidation } from "renderer/screens/main/hooks/useBranchSyncInvalidation";
@@ -67,7 +67,7 @@ export function WorkspaceListItem({
 	orderedWorkspaceIds = [],
 }: WorkspaceListItemProps) {
 	const { t } = useTranslation();
-	const electronUtils = electronTrpc.useUtils();
+	const queryClient = useQueryClient();
 	const isBranchWorkspace = type === "branch";
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
@@ -84,7 +84,6 @@ export function WorkspaceListItem({
 	const { hostUrl, hostWorkspaceId } = useHostServiceTerminal({
 		workspaceId: id,
 		worktreePath,
-		forceEnabled: true,
 	});
 	const { data: pullRequestState, refetch: refetchPullRequestState } = useQuery(
 		{
@@ -187,14 +186,24 @@ export function WorkspaceListItem({
 		staleTime: GITHUB_STATUS_STALE_TIME,
 	});
 
-	const { data: aheadBehind, refetch: refetchAheadBehind } =
-		electronTrpc.workspaces.getAheadBehind.useQuery(
-			{ workspaceId: id },
-			{
-				enabled: isBranchWorkspace,
-				staleTime: GITHUB_STATUS_STALE_TIME,
-			},
-		);
+	const { data: aheadBehind, refetch: refetchAheadBehind } = useQuery({
+		queryKey: ["host-workspace-ahead-behind", hostUrl, hostWorkspaceId],
+		enabled: isBranchWorkspace && Boolean(hostUrl && hostWorkspaceId),
+		staleTime: GITHUB_STATUS_STALE_TIME,
+		queryFn: async () => {
+			if (!hostUrl || !hostWorkspaceId) return { ahead: 0, behind: 0 };
+			const status = await getHostServiceClientByUrl(
+				hostUrl,
+			).git.getStatus.query({
+				workspaceId: hostWorkspaceId,
+				priority: "background",
+			});
+			return {
+				ahead: status.currentBranch.aheadCount,
+				behind: status.currentBranch.behindCount,
+			};
+		},
+	});
 
 	useBranchSyncInvalidation({
 		gitBranch: localChanges?.branch,
@@ -275,8 +284,8 @@ export function WorkspaceListItem({
 	const openUrl = electronTrpc.external.openUrl.useMutation();
 	const refreshLinkedPullRequest = async () => {
 		await refetchPullRequestState();
-		await electronUtils.workspaces.getGitHubStatus.invalidate({
-			workspaceId: id,
+		await queryClient.invalidateQueries({
+			queryKey: ["host-github-status", hostUrl, hostWorkspaceId],
 		});
 	};
 	const handleUnlinkPullRequest = async () => {

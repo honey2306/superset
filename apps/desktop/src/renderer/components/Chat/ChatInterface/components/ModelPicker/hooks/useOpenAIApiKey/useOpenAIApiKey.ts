@@ -1,5 +1,5 @@
-import { chatServiceTrpc } from "@superset/chat/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 
 function getErrorMessage(error: unknown, fallback: string): string {
 	if (error instanceof Error && error.message.trim()) {
@@ -41,11 +41,11 @@ export function useOpenAIApiKey({
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	const { data: openAIStatus, refetch: refetchOpenAIStatus } =
-		chatServiceTrpc.auth.getOpenAIStatus.useQuery();
+		hostServiceTrpc.auth.getOpenAIStatus.useQuery();
 	const setOpenAIApiKeyMutation =
-		chatServiceTrpc.auth.setOpenAIApiKey.useMutation();
+		hostServiceTrpc.auth.setOpenAIApiKey.useMutation();
 	const clearOpenAIApiKeyMutation =
-		chatServiceTrpc.auth.clearOpenAIApiKey.useMutation();
+		hostServiceTrpc.auth.clearOpenAIApiKey.useMutation();
 	const isPending =
 		setOpenAIApiKeyMutation.isPending || clearOpenAIApiKeyMutation.isPending;
 

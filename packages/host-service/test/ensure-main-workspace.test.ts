@@ -14,7 +14,6 @@ import { ensureMainWorkspaceStrict } from "../src/trpc/router/project/utils/ensu
 import { insertLocalWorkspace } from "../src/workspaces/local-workspace-store";
 
 const MIGRATIONS_FOLDER = resolve(import.meta.dir, "../drizzle");
-const ORG_ID = "00000000-0000-0000-0000-000000000001";
 const REPO_PATH = "/repo";
 
 function makeDb(): HostDb {
@@ -39,35 +38,9 @@ function makeCtx(db: HostDb) {
 		raw: mock(async () => "feat/main\n"),
 		revparse: mock(async () => "feat/main"),
 	}));
-	// host.ensure resolves; v2Workspace.create echoes the id back so no relink.
-	const api = {
-		host: { ensure: { mutate: mock(async () => ({ machineId: "m1" })) } },
-		v2Workspace: {
-			create: {
-				mutate: mock(async (input: { id?: string }) => ({
-					id: input.id,
-					organizationId: ORG_ID,
-					projectId: "p-1",
-					hostId: "m1",
-					name: "feat/main",
-					branch: "feat/main",
-					type: "main",
-					createdByUserId: null,
-					taskId: null,
-					createdAt: new Date(),
-					updatedAt: new Date(),
-					txid: 1,
-				})),
-			},
-			updateNameFromHost: { mutate: mock(async () => ({})) },
-		},
-	} as never;
 	return {
-		api,
 		db,
 		git: git as never,
-		organizationId: ORG_ID,
-		clientMachineId: "m1",
 		eventBus,
 	};
 }

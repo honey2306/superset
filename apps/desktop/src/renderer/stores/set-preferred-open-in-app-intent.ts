@@ -1,4 +1,4 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import { create } from "zustand";
 
 export interface SetPreferredOpenInAppTarget {

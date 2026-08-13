@@ -2,7 +2,6 @@ import { describe, expect, it } from "bun:test";
 import {
 	extractWorkspaceIdFromUrl,
 	getNotificationTitle,
-	getWorkspaceName,
 	isPaneVisible,
 } from "./utils";
 
@@ -195,37 +194,5 @@ describe("getNotificationTitle", () => {
 		expect(
 			getNotificationTitle({ tabId: "t1", tabs: tabsWithWhitespace }),
 		).toBe("Tab");
-	});
-});
-
-describe("getWorkspaceName", () => {
-	it("returns workspace.name when available", () => {
-		expect(
-			getWorkspaceName({
-				workspace: { name: "My Workspace", worktreeId: null },
-			}),
-		).toBe("My Workspace");
-	});
-
-	it("returns worktree.branch when no workspace name", () => {
-		expect(
-			getWorkspaceName({
-				workspace: { name: null, worktreeId: "wt1" },
-				worktree: { branch: "feature/test" },
-			}),
-		).toBe("feature/test");
-	});
-
-	it("returns Workspace as fallback", () => {
-		expect(getWorkspaceName({})).toBe("Workspace");
-	});
-
-	it("returns Workspace when all values are null", () => {
-		expect(
-			getWorkspaceName({
-				workspace: { name: null, worktreeId: null },
-				worktree: { branch: null },
-			}),
-		).toBe("Workspace");
 	});
 });

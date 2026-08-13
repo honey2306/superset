@@ -2,7 +2,6 @@ import { createTRPCReact } from "@trpc/react-query";
 import { initTRPC } from "@trpc/server";
 import superjson from "superjson";
 import type { AppRouter } from "./routers";
-import { NotGitRepoError } from "./routers/workspaces/utils/git";
 
 /**
  * Core tRPC initialization
@@ -28,11 +27,6 @@ const sentryMiddleware = t.middleware(async ({ next, path, type }) => {
 
 			// Get the original error if it's wrapped in a TRPCError
 			const originalError = error.cause instanceof Error ? error.cause : error;
-
-			// Don't report expected user conditions to Sentry
-			if (originalError instanceof NotGitRepoError) {
-				return result;
-			}
 
 			try {
 				const Sentry = await import("@sentry/electron/main");

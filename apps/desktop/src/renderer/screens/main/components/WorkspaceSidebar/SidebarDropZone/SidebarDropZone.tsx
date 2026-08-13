@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { LuFolderPlus, LuLoader, LuX } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { useFolderFirstImport } from "renderer/routes/_local/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
 
 interface SidebarDropZoneProps {
 	children: ReactNode;

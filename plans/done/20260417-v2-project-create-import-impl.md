@@ -1,6 +1,6 @@
 # V2 Project Create & Import — Implementation Plan
 
-Companion to [`docs/design/v2-project-create-import.md`](../../docs/design/v2-project-create-import.md).
+Historical implementation record. Its companion cloud-era design was removed after the local-first Workspace Catalog cutover.
 
 ---
 

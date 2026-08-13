@@ -4,6 +4,7 @@ import {
 	planPortScanSync,
 	REAP_INTERVAL_MS,
 	shouldReapRow,
+	shouldReapRowlessSession,
 } from "./reaper.ts";
 
 const noneLive = () => false;
@@ -113,6 +114,32 @@ describe("planPortScanSync", () => {
 		});
 
 		expect(plan.unregister).toEqual([]);
+	});
+});
+
+describe("shouldReapRowlessSession", () => {
+	it("never reaps a transient session still managed by this host", () => {
+		expect(
+			shouldReapRowlessSession({
+				wasMissingLastPass: true,
+				isManagedTransient: true,
+			}),
+		).toBe(false);
+	});
+
+	it("uses the normal two-pass policy after a host restart loses transient ownership", () => {
+		expect(
+			shouldReapRowlessSession({
+				wasMissingLastPass: false,
+				isManagedTransient: false,
+			}),
+		).toBe(false);
+		expect(
+			shouldReapRowlessSession({
+				wasMissingLastPass: true,
+				isManagedTransient: false,
+			}),
+		).toBe(true);
 	});
 });
 

@@ -18,8 +18,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("commit");
-		expect(state.labelKey).toBe("v1Changes.primaryAction.commit");
-		expect(state.tooltipKey).toBe("v1Changes.primaryAction.commitStaged");
+		expect(state.labelKey).toBe("changes.primaryAction.commit");
+		expect(state.tooltipKey).toBe("changes.primaryAction.commitStaged");
 		expect(state.disabled).toBe(false);
 	});
 
@@ -38,8 +38,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("sync");
-		expect(state.labelKey).toBe("v1Changes.primaryAction.sync");
-		expect(state.tooltipKey).toBe("v1Changes.primaryAction.syncTooltip");
+		expect(state.labelKey).toBe("changes.primaryAction.sync");
+		expect(state.tooltipKey).toBe("changes.primaryAction.syncTooltip");
 		expect(state.tooltipValues).toEqual({ pull: 1, push: 2 });
 	});
 
@@ -58,8 +58,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("push");
-		expect(state.labelKey).toBe("v1Changes.push.push");
-		expect(state.tooltipKey).toBe("v1Changes.push.pushCommits");
+		expect(state.labelKey).toBe("changes.push.push");
+		expect(state.tooltipKey).toBe("changes.push.pushCommits");
 		expect(state.tooltipValues).toEqual({ count: 2 });
 	});
 
@@ -78,8 +78,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("pull");
-		expect(state.labelKey).toBe("v1Changes.primaryAction.pull");
-		expect(state.tooltipKey).toBe("v1Changes.primaryAction.pullTooltip");
+		expect(state.labelKey).toBe("changes.primaryAction.pull");
+		expect(state.tooltipKey).toBe("changes.primaryAction.pullTooltip");
 		expect(state.tooltipValues).toEqual({ count: 2 });
 	});
 
@@ -98,8 +98,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("push");
-		expect(state.labelKey).toBe("v1Changes.push.publishBranch");
-		expect(state.tooltipKey).toBe("v1Changes.push.publishBranchTooltip");
+		expect(state.labelKey).toBe("changes.push.publishBranch");
+		expect(state.tooltipKey).toBe("changes.push.publishBranchTooltip");
 	});
 
 	test("shows push label for unpublished branch with existing PR", () => {
@@ -121,8 +121,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("push");
-		expect(state.labelKey).toBe("v1Changes.push.toPR");
-		expect(state.tooltipKey).toBe("v1Changes.push.pushChangesTooltip");
+		expect(state.labelKey).toBe("changes.push.toPR");
+		expect(state.tooltipKey).toBe("changes.push.pushChangesTooltip");
 		expect(state.tooltipValues).toEqual({
 			count: 0,
 			target: "Kitenite:feature/pr-branch",
@@ -144,8 +144,8 @@ describe("getPrimaryAction", () => {
 		});
 
 		expect(state.action).toBe("commit");
-		expect(state.labelKey).toBe("v1Changes.primaryAction.commit");
+		expect(state.labelKey).toBe("changes.primaryAction.commit");
 		expect(state.disabled).toBe(true);
-		expect(state.tooltipKey).toBe("v1Changes.primaryAction.noStagedChanges");
+		expect(state.tooltipKey).toBe("changes.primaryAction.noStagedChanges");
 	});
 });

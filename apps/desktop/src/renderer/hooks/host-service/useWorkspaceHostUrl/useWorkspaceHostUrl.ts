@@ -1,14 +1,12 @@
-import { buildHostRoutingKey } from "@superset/shared/host-routing";
 import { useMemo } from "react";
-import { useRelayUrl } from "renderer/hooks/useRelayUrl";
-import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
+import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
 
 export type WorkspaceHostTarget =
 	| { status: "loading" }
 	| { status: "not-found" }
 	| { status: "local-starting"; hostId: string }
-	| { status: "ready"; kind: "local" | "remote"; hostId: string; url: string };
+	| { status: "ready"; kind: "local"; hostId: string; url: string };
 
 /**
  * Resolves a workspace ID to its owning host-service target.
@@ -21,9 +19,7 @@ export function useWorkspaceHostTarget(
 	workspaceId: string | null,
 ): WorkspaceHostTarget {
 	const { machineId, activeHostUrl } = useLocalHostService();
-	const relayUrl = useRelayUrl();
-
-	const { workspaces, isReady } = useHostWorkspaces();
+	const { workspaces, isReady } = useWorkspaceCatalog();
 	const match = workspaceId
 		? (workspaces.find((w) => w.id === workspaceId) ?? null)
 		: null;
@@ -31,25 +27,16 @@ export function useWorkspaceHostTarget(
 	return useMemo(() => {
 		if (!workspaceId || (!isReady && !match)) return { status: "loading" };
 		if (!match) return { status: "not-found" };
-		if (machineId && match.hostId === machineId) {
-			if (activeHostUrl) {
-				return {
-					status: "ready",
-					kind: "local",
-					hostId: match.hostId,
-					url: activeHostUrl,
-				};
-			}
-			return { status: "local-starting", hostId: match.hostId };
+		if (activeHostUrl) {
+			return {
+				status: "ready",
+				kind: "local",
+				hostId: machineId,
+				url: activeHostUrl,
+			};
 		}
-		const routingKey = buildHostRoutingKey(match.organizationId, match.hostId);
-		return {
-			status: "ready",
-			kind: "remote",
-			hostId: match.hostId,
-			url: `${relayUrl}/hosts/${routingKey}`,
-		};
-	}, [workspaceId, isReady, match, machineId, activeHostUrl, relayUrl]);
+		return { status: "local-starting", hostId: machineId };
+	}, [workspaceId, isReady, match, machineId, activeHostUrl]);
 }
 
 /**

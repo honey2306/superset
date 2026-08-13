@@ -1,4 +1,4 @@
-import type { FileOpenMode } from "@superset/local-db";
+import type { FileOpenMode } from "@superset/shared/desktop-types";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { DEFAULT_FILE_OPEN_MODE } from "shared/constants";
 

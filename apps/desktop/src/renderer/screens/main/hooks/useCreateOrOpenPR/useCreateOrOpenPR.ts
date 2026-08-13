@@ -1,9 +1,11 @@
 import { toast } from "@superset/ui/sonner";
+import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 
 interface UseCreateOrOpenPROptions {
-	worktreePath?: string;
+	workspaceId?: string;
 	onSuccess?: () => void;
 }
 
@@ -13,18 +15,30 @@ interface UseCreateOrOpenPRResult {
 }
 
 export function useCreateOrOpenPR({
-	worktreePath,
+	workspaceId,
 	onSuccess,
 }: UseCreateOrOpenPROptions): UseCreateOrOpenPRResult {
-	const { mutateAsync, isPending } =
-		electronTrpc.changes.createPR.useMutation();
+	const { activeHostUrl } = useLocalHostService();
+	const { mutateAsync, isPending } = useMutation({
+		mutationFn: (input: { allowOutOfDate?: boolean }) => {
+			if (!activeHostUrl || !workspaceId) {
+				throw new Error("Workspace host is unavailable");
+			}
+			return getHostServiceClientByUrl(
+				activeHostUrl,
+			).git.createPullRequest.mutate({
+				workspaceId,
+				allowOutOfDate: input.allowOutOfDate,
+			});
+		},
+	});
 
 	const createOrOpenPR = useCallback(() => {
-		if (!worktreePath || isPending) return;
+		if (!workspaceId || !activeHostUrl || isPending) return;
 
 		void (async () => {
 			try {
-				const result = await mutateAsync({ worktreePath });
+				const result = await mutateAsync({});
 				window.open(result.url, "_blank", "noopener,noreferrer");
 				toast.success("Opening GitHub...");
 				onSuccess?.();
@@ -46,10 +60,7 @@ export function useCreateOrOpenPR({
 			}
 
 			try {
-				const result = await mutateAsync({
-					worktreePath,
-					allowOutOfDate: true,
-				});
+				const result = await mutateAsync({ allowOutOfDate: true });
 				window.open(result.url, "_blank", "noopener,noreferrer");
 				toast.success("Opening GitHub...");
 				onSuccess?.();
@@ -59,7 +70,7 @@ export function useCreateOrOpenPR({
 				toast.error(`Failed: ${retryMessage}`);
 			}
 		})();
-	}, [isPending, mutateAsync, onSuccess, worktreePath]);
+	}, [activeHostUrl, isPending, mutateAsync, onSuccess, workspaceId]);
 
 	return {
 		createOrOpenPR,

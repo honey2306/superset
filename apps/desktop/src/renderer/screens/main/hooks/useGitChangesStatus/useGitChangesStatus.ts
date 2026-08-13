@@ -43,10 +43,8 @@ function normalizeFiles(
  * Compatibility adapter for the v1 changes surfaces.
  *
  * Workspace catalog rows are owned by host-service and are no longer mirrored
- * into Electron's legacy local.db. Reading status through the old
- * `electronTrpc.changes` router therefore rejects newly-created workspaces as
- * unregistered. Keep the existing UI model for now, but source it from the
- * workspace-scoped host-service git router.
+ * into Electron's legacy local.db. Keep the existing UI model for now, but
+ * source it from the workspace-scoped host-service git router.
  */
 export function useGitChangesStatus({
 	workspaceId = "",

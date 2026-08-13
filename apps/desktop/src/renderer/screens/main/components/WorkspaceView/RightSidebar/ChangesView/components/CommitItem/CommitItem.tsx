@@ -65,7 +65,7 @@ function CommitHeader({
 			<ContextMenuContent className="w-52">
 				<ContextMenuItem onClick={handleCopyCommitHash}>
 					<VscClippy className="mr-2 size-4" />
-					{t("v1Changes.commitItem.copyHash")}
+					{t("changes.commitItem.copyHash")}
 				</ContextMenuItem>
 			</ContextMenuContent>
 		</ContextMenu>

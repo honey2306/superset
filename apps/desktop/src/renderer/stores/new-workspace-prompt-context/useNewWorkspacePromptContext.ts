@@ -1,18 +1,12 @@
 import { useEffect, useMemo } from "react";
 import { resolveHostUrl } from "renderer/hooks/host-service/useHostTargetUrl";
-import { useRelayUrl } from "renderer/hooks/useRelayUrl";
-import { authClient } from "renderer/lib/auth-client";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import type {
 	LinkedIssue,
 	LinkedPR,
 } from "renderer/stores/new-workspace-draft";
 import { buildSubmitPrompt } from "./buildSubmitPrompt";
-import {
-	fetchGitHubIssueBody,
-	fetchInternalTaskBody,
-	fetchPrBody,
-} from "./fetchers";
+import { fetchGitHubIssueBody, fetchPrBody } from "./fetchers";
 import { useNewWorkspacePromptContextStore } from "./store";
 
 export interface NewWorkspacePromptContextApi {
@@ -32,21 +26,16 @@ export function useNewWorkspacePromptContext(args: {
 }): NewWorkspacePromptContextApi {
 	const { projectId, hostId, linkedPR, linkedIssues } = args;
 	const { machineId, activeHostUrl } = useLocalHostService();
-	const { data: session } = authClient.useSession();
-	const activeOrganizationId = session?.session?.activeOrganizationId ?? null;
-	const relayUrl = useRelayUrl();
 
 	const hostUrl = useMemo(() => {
 		const id = hostId ?? machineId;
-		if (!id || !activeOrganizationId) return null;
+		if (!id) return null;
 		return resolveHostUrl({
 			hostId: id,
 			machineId,
 			activeHostUrl,
-			organizationId: activeOrganizationId,
-			relayUrl,
 		});
-	}, [hostId, machineId, activeHostUrl, activeOrganizationId, relayUrl]);
+	}, [hostId, machineId, activeHostUrl]);
 
 	useEffect(() => {
 		if (!projectId || !hostUrl) return;
@@ -64,11 +53,6 @@ export function useNewWorkspacePromptContext(args: {
 				const issueNumber = issue.number;
 				store.register(`github-issue:${issueNumber}`, () =>
 					fetchGitHubIssueBody({ issueNumber, projectId, hostUrl }),
-				);
-			} else if (issue.source === "internal" && issue.taskId) {
-				const taskId = issue.taskId;
-				store.register(`task:${taskId}`, () =>
-					fetchInternalTaskBody({ taskId }),
 				);
 			}
 		}

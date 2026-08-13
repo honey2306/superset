@@ -1,4 +1,4 @@
-import type { TerminalPreset } from "@superset/local-db";
+import type { TerminalPreset } from "@superset/shared/desktop-types";
 import {
 	DropdownMenuItem,
 	DropdownMenuSeparator,
@@ -12,7 +12,7 @@ import {
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
 import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
-import { PRESET_HOTKEY_IDS } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/usePresetHotkeys";
+import { PRESET_HOTKEY_IDS } from "renderer/routes/_local/_dashboard/workspace/$workspaceId/hooks/usePresetHotkeys";
 
 interface PresetsSubmenuProps {
 	presets: TerminalPreset[];

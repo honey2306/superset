@@ -1,6 +1,7 @@
-import { chatServiceTrpc } from "@superset/chat/client";
 import { toast } from "@superset/ui/sonner";
 import { useCallback } from "react";
+import { useHostWorkspaceIdForCwd } from "renderer/components/Chat/utils/useHostWorkspaceIdForCwd";
+import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 import type {
 	McpOverviewPayload,
 	ModelOption,
@@ -46,9 +47,10 @@ export function useSlashCommandExecutor({
 	loadMcpOverview,
 	onTrackEvent,
 }: UseSlashCommandExecutorOptions) {
+	const workspaceId = useHostWorkspaceIdForCwd(cwd);
 	const { mutateAsync: resolveSlashCommandMutateAsync } =
-		chatServiceTrpc.workspace.resolveSlashCommand.useMutation();
-	const chatServiceTrpcUtils = chatServiceTrpc.useUtils();
+		hostServiceTrpc.chat.resolveSlashCommand.useMutation();
+	const hostServiceTrpcUtils = hostServiceTrpc.useUtils();
 
 	const resolveSlashCommandInput = useCallback(
 		async (inputText: string): Promise<ResolveSlashCommandResult> => {
@@ -58,8 +60,11 @@ export function useSlashCommandExecutor({
 			}
 
 			try {
+				if (!workspaceId) {
+					throw new Error("Workspace is not available on the local host");
+				}
 				const resolvedCommand = await resolveSlashCommandMutateAsync({
-					cwd,
+					workspaceId,
 					text,
 				});
 
@@ -138,8 +143,8 @@ export function useSlashCommandExecutor({
 							try {
 								const overview = loadMcpOverview
 									? await loadMcpOverview(cwd)
-									: await chatServiceTrpcUtils.workspace.getMcpOverview.fetch({
-											cwd,
+									: await hostServiceTrpcUtils.chat.getMcpOverview.fetch({
+											workspaceId,
 										});
 								onClearError();
 								onShowMcpOverview(overview);
@@ -221,8 +226,9 @@ export function useSlashCommandExecutor({
 			loadMcpOverview,
 			onStartFreshSession,
 			onStopActiveResponse,
-			chatServiceTrpcUtils.workspace.getMcpOverview,
+			hostServiceTrpcUtils.chat.getMcpOverview,
 			resolveSlashCommandMutateAsync,
+			workspaceId,
 		],
 	);
 

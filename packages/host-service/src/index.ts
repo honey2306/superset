@@ -1,12 +1,14 @@
-export { createApiClient } from "./api";
 export { type CreateAppOptions, type CreateAppResult, createApp } from "./app";
+export {
+	type DaemonSupervisor,
+	getSupervisor,
+	startDaemonBootstrap,
+} from "./daemon";
 export type { HostDb } from "./db";
 export type {
 	ClientMessage as EventBusClientMessage,
 	ServerMessage as EventBusServerMessage,
 } from "./events";
-export type { ApiAuthProvider } from "./providers/auth";
-export { DeviceKeyApiAuthProvider, JwtApiAuthProvider } from "./providers/auth";
 export {
 	CloudGitCredentialProvider,
 	LocalGitCredentialProvider,
@@ -27,4 +29,4 @@ export type {
 	TeardownFailureCause,
 } from "./trpc/error-types";
 export type { AppRouter } from "./trpc/router";
-export type { ApiClient, HostServiceContext } from "./types";
+export type { HostServiceContext } from "./types";

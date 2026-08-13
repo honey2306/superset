@@ -6,17 +6,12 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app";
 import { getSupervisor, startDaemonBootstrap } from "./daemon";
 import { env } from "./env";
-import {
-	ConfigFileSessionTokenSource,
-	JwtApiAuthProvider,
-} from "./providers/auth";
 import { LocalGitCredentialProvider } from "./providers/git";
 import { PskHostAuthProvider } from "./providers/host-auth";
 import { LocalModelProvider } from "./providers/model-providers";
 import { installProcessSafetyNet } from "./safety";
 import { startTerminalBaseEnvResolution } from "./terminal/env";
 import { startTerminalReaper } from "./terminal/reaper";
-import { ensureHostAndConnectRelay } from "./tunnel";
 
 function resolveDefaultWebAppDir(): string | undefined {
 	try {
@@ -47,33 +42,15 @@ async function main(): Promise<void> {
 	// daemon takes time to come up or fails entirely.
 	startDaemonBootstrap(env.ORGANIZATION_ID);
 
-	const configTokenSource = env.SUPERSET_AUTH_CONFIG_PATH
-		? new ConfigFileSessionTokenSource({
-				configPath: env.SUPERSET_AUTH_CONFIG_PATH,
-				apiUrl: env.SUPERSET_API_URL,
-			})
-		: null;
-	const authProvider = new JwtApiAuthProvider({
-		getSessionToken: configTokenSource
-			? () => configTokenSource.getSessionToken()
-			: async () => env.AUTH_TOKEN,
-		onInvalidateCache: configTokenSource
-			? () => configTokenSource.invalidateCache()
-			: undefined,
-		apiUrl: env.SUPERSET_API_URL,
-	});
-
-	const { app, injectWebSocket, api, db } = createApp({
+	const { app, injectWebSocket, db } = createApp({
 		config: {
 			organizationId: env.ORGANIZATION_ID,
 			dbPath: env.HOST_DB_PATH,
-			cloudApiUrl: env.SUPERSET_API_URL,
 			migrationsFolder: env.HOST_MIGRATIONS_FOLDER,
 			allowedOrigins: env.CORS_ORIGINS ?? [],
 			webAppDir: env.SUPERSET_WEB_APP_DIR ?? resolveDefaultWebAppDir(),
 		},
 		providers: {
-			auth: authProvider,
 			hostAuth: new PskHostAuthProvider(env.HOST_SERVICE_SECRET),
 			credentials: new LocalGitCredentialProvider(),
 			modelResolver: new LocalModelProvider(),
@@ -115,23 +92,12 @@ async function main(): Promise<void> {
 		console.log(`[host-service] listening on http://localhost:${info.port}`);
 
 		startTerminalReaper(db);
-
-		if (env.ORGANIZATION_ID) {
-			void ensureHostAndConnectRelay({
-				api,
-				relayUrl: env.RELAY_URL,
-				localPort: info.port,
-				organizationId: env.ORGANIZATION_ID,
-				authProvider,
-				hostServiceSecret: env.HOST_SERVICE_SECRET,
-			});
-		}
 	});
 	// Node detaches its own socket error handler before emitting `upgrade`, while
 	// @hono/node-ws awaits app.request() before it adopts the socket. Keep a
 	// listener through that gap so a peer ECONNRESET cannot terminate the process.
 	server.on("upgrade", (request: IncomingMessage, socket: Duplex) => {
-		// Query strings can contain the host-service secret for relayed requests.
+		// Query strings can contain the host-service secret for proxied requests.
 		const requestPath = request.url?.split("?")[0] ?? "<unknown>";
 		socket.on("error", (error: NodeJS.ErrnoException) => {
 			console.warn(

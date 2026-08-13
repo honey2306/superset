@@ -5,7 +5,7 @@
  * mounting the v2 workspace UI. Maintains a paneId → terminalId mapping so
  * pane identity (v1) and backend session identity (host-service) can diverge.
  *
- * See: plans/20260724-v1-v2-terminal-fusion.md (Milestone 1)
+ * See: plans/done/20260724-v1-v2-terminal-fusion.md (Milestone 1)
  */
 import type { AppRouter } from "@superset/host-service";
 import type { TRPCClient } from "@trpc/client";
@@ -68,12 +68,12 @@ function trimTrailingSeparators(path: string): string {
  */
 export async function resolveHostWorkspaceId(
 	client: TRPCClient<AppRouter>,
-	v1WorkspaceId: string,
+	workspaceId: string,
 	worktreePath: string,
 ): Promise<string> {
 	const hostWorkspaces = await client.workspace.list.query();
 	const exactId = hostWorkspaces.find(
-		(workspace) => workspace.id === v1WorkspaceId,
+		(workspace) => workspace.id === workspaceId,
 	);
 	if (exactId) return exactId.id;
 
@@ -85,7 +85,7 @@ export async function resolveHostWorkspaceId(
 	if (matchingPath) return matchingPath.id;
 
 	throw new Error(
-		`Workspace ${v1WorkspaceId} is not registered with the local host service`,
+		`Workspace ${workspaceId} is not registered with the local host service`,
 	);
 }
 

@@ -28,8 +28,8 @@ export function ViewModeToggle({
 					className="size-6 p-0"
 					aria-label={
 						viewMode === "grouped"
-							? t("v1Changes.viewMode.switchToTree")
-							: t("v1Changes.viewMode.switchToGrouped")
+							? t("changes.viewMode.switchToTree")
+							: t("changes.viewMode.switchToGrouped")
 					}
 				>
 					{viewMode === "grouped" ? (
@@ -41,8 +41,8 @@ export function ViewModeToggle({
 			</TooltipTrigger>
 			<TooltipContent side="top" showArrow={false}>
 				{viewMode === "grouped"
-					? t("v1Changes.viewMode.switchToTree")
-					: t("v1Changes.viewMode.switchToGrouped")}
+					? t("changes.viewMode.switchToTree")
+					: t("changes.viewMode.switchToGrouped")}
 			</TooltipContent>
 		</Tooltip>
 	);

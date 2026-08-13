@@ -3,10 +3,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 import { isSidebarProjectVisible } from "renderer/hooks/isSidebarProjectVisible";
 import { useHotkey } from "renderer/hotkeys";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
-import { isSidebarWorkspaceVisible } from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal";
-import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
+import { useLocalCollections } from "renderer/routes/_local/providers/LocalProductStateProvider";
+import { isSidebarWorkspaceVisible } from "renderer/routes/_local/providers/LocalProductStateProvider/dashboardSidebarLocal";
+import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
 import type {
 	SidebarSection,
 	SidebarWorkspace,
@@ -39,13 +39,17 @@ type SidebarGroup = {
  */
 export function useWorkspaceShortcuts() {
 	const { projects, workspaces } = useWorkspaceCatalog();
-	const collections = useCollections();
+	const collections = useLocalCollections();
 	const { data: localWorkspaceRows = [] } = useLiveQuery(
-		(q) => q.from({ rows: collections.v2WorkspaceLocalState }),
+		(q) => q.from({ rows: collections.workspaceLocalState }),
+		[collections],
+	);
+	const { data: localProjectRows = [] } = useLiveQuery(
+		(q) => q.from({ rows: collections.sidebarProjects }),
 		[collections],
 	);
 	const { data: sectionRows = [] } = useLiveQuery(
-		(q) => q.from({ rows: collections.v2SidebarSections }),
+		(q) => q.from({ rows: collections.sidebarSections }),
 		[collections],
 	);
 	const navigate = useNavigate();
@@ -53,6 +57,9 @@ export function useWorkspaceShortcuts() {
 	const groups = useMemo<SidebarGroup[]>(() => {
 		const localByWorkspaceId = new Map(
 			localWorkspaceRows.map((row) => [row.workspaceId, row]),
+		);
+		const localByProjectId = new Map(
+			localProjectRows.map((row) => [row.projectId, row]),
 		);
 		return projects.filter(isSidebarProjectVisible).flatMap((project) => {
 			const projectWorkspaces = workspaces
@@ -117,15 +124,16 @@ export function useWorkspaceShortcuts() {
 					tabOrder: section.tabOrder,
 				})),
 			].sort((a, b) => a.tabOrder - b.tabOrder);
+			const localProject = localByProjectId.get(project.id);
 			return [
 				{
 					project: {
 						id: project.id,
 						name: project.name,
-						color: "hsl(var(--primary))",
+						color: localProject?.color ?? "hsl(var(--primary))",
 						githubOwner: project.repoOwner,
 						mainRepoPath: project.repoPath,
-						hideImage: false,
+						hideImage: localProject?.hideImage ?? false,
 						iconUrl: null,
 					},
 					workspaces: projectWorkspaces,
@@ -134,7 +142,7 @@ export function useWorkspaceShortcuts() {
 				},
 			];
 		});
-	}, [localWorkspaceRows, projects, sectionRows, workspaces]);
+	}, [localProjectRows, localWorkspaceRows, projects, sectionRows, workspaces]);
 
 	const allWorkspaces = groups.flatMap((group) => {
 		const topLevelWorkspacesById = new Map(

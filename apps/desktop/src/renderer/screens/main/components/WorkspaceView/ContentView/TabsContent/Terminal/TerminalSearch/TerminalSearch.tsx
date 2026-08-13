@@ -126,12 +126,12 @@ export function TerminalSearch({
 				value={query}
 				onChange={handleInputChange}
 				onKeyDown={handleKeyDown}
-				placeholder={t("v2Workspace.terminalSearch.find")}
+				placeholder={t("workspace.terminalSearch.find")}
 				className="h-6 min-w-0 w-28 flex-shrink bg-transparent text-sm text-fg placeholder:text-fg-mute focus:outline-none"
 			/>
 			{matchCount === 0 && query && (
 				<span className="text-xs text-fg-mute whitespace-nowrap px-1">
-					{t("v2Workspace.terminalSearch.noResults")}
+					{t("workspace.terminalSearch.noResults")}
 				</span>
 			)}
 			<div className="flex items-center shrink-0">
@@ -150,7 +150,7 @@ export function TerminalSearch({
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom">
-						{t("v2Workspace.terminalSearch.matchCase")}
+						{t("workspace.terminalSearch.matchCase")}
 					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
@@ -164,7 +164,7 @@ export function TerminalSearch({
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom">
-						{t("v2Workspace.terminalSearch.previous")}
+						{t("workspace.terminalSearch.previous")}
 					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
@@ -178,7 +178,7 @@ export function TerminalSearch({
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom">
-						{t("v2Workspace.terminalSearch.next")}
+						{t("workspace.terminalSearch.next")}
 					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
@@ -192,7 +192,7 @@ export function TerminalSearch({
 						</button>
 					</TooltipTrigger>
 					<TooltipContent side="bottom">
-						{t("v2Workspace.terminalSearch.close")}
+						{t("workspace.terminalSearch.close")}
 					</TooltipContent>
 				</Tooltip>
 			</div>

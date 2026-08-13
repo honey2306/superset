@@ -151,7 +151,7 @@ warning. Would need module-mocking `PLATFORM`; not worth the harness.
 ## Files changed
 
 ```
-apps/desktop/plans/20260412-keyboard-recorder-ctrl-binding-fix.md  (this doc)
+apps/desktop/plans/done/20260412-keyboard-recorder-ctrl-binding-fix.md  (this doc)
 apps/desktop/src/renderer/hotkeys/
     display.ts
     display.test.ts                                       (new)

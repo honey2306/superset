@@ -64,7 +64,7 @@ export function TabContentContextMenu({
 	closeLabel,
 }: TabContentContextMenuProps) {
 	const { t } = useTranslation();
-	const resolvedCloseLabel = closeLabel ?? t("v2Workspace.context.closePane");
+	const resolvedCloseLabel = closeLabel ?? t("workspace.context.closePane");
 	const clearShortcut = useHotkeyDisplay("CLEAR_TERMINAL").text;
 	const showClearShortcut = clearShortcut !== "Unassigned";
 	const scrollToBottomShortcut = useHotkeyDisplay("SCROLL_TO_BOTTOM").text;
@@ -110,14 +110,14 @@ export function TabContentContextMenu({
 				{getSelection && (
 					<ContextMenuItem disabled={!hasSelection} onSelect={handleCopy}>
 						<LuClipboardCopy className="size-4" />
-						{t("v2Workspace.paneRegistry.copy")}
+						{t("workspace.paneRegistry.copy")}
 						<ContextMenuShortcut>{modKey}C</ContextMenuShortcut>
 					</ContextMenuItem>
 				)}
 				{onPaste && (
 					<ContextMenuItem disabled={!hasClipboard} onSelect={handlePaste}>
 						<LuClipboard className="size-4" />
-						{t("v2Workspace.paneRegistry.paste")}
+						{t("workspace.paneRegistry.paste")}
 						<ContextMenuShortcut>{modKey}V</ContextMenuShortcut>
 					</ContextMenuItem>
 				)}
@@ -125,7 +125,7 @@ export function TabContentContextMenu({
 				{onClearTerminal && (
 					<ContextMenuItem onSelect={onClearTerminal}>
 						<LuEraser className="size-4" />
-						{t("v2Workspace.paneRegistry.clearTerminal")}
+						{t("workspace.paneRegistry.clearTerminal")}
 						{showClearShortcut && (
 							<ContextMenuShortcut>{clearShortcut}</ContextMenuShortcut>
 						)}
@@ -134,7 +134,7 @@ export function TabContentContextMenu({
 				{onScrollToBottom && (
 					<ContextMenuItem onSelect={onScrollToBottom}>
 						<LuArrowDownToLine className="size-4" />
-						{t("v2Workspace.paneRegistry.scrollToBottom")}
+						{t("workspace.paneRegistry.scrollToBottom")}
 						{showScrollToBottomShortcut && (
 							<ContextMenuShortcut>
 								{scrollToBottomShortcut}
@@ -147,7 +147,7 @@ export function TabContentContextMenu({
 					<>
 						<ContextMenuItem onSelect={onMarkAsUnread}>
 							<LuEyeOff className="size-4" />
-							{t("v2Workspace.paneRegistry.markUnread")}
+							{t("workspace.paneRegistry.markUnread")}
 						</ContextMenuItem>
 						<ContextMenuSeparator />
 					</>

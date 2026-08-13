@@ -1,0 +1,114 @@
+import type { SplitPosition } from "@superset/panes";
+import { AGENT_TYPES, type AgentType } from "@superset/shared/agent-command";
+import type { TerminalPreset } from "@superset/shared/desktop-types";
+
+/**
+ * Where a preset should open, mirroring v1's `PresetOpenTarget`. M2 only
+ * supports the single-command launch shapes (`new-tab` and `active-tab` /
+ * split-pane); the multi-command parallel/sequential execution modes are
+ * a fidelity follow-up.
+ */
+export type PanesPresetTarget = "new-tab" | "active-tab" | "current-pane";
+
+export interface PanesPresetOpenOptions {
+	target: PanesPresetTarget;
+	/** Active tab id, or null when there is no active tab (forces addTab). */
+	activeTabId?: string | null;
+	activePaneId?: string | null;
+	/** UUID generator for the new terminal id. Injected for deterministic tests. */
+	randomUuid?: () => string;
+}
+
+export type PanesPresetOpenPlan =
+	| {
+			kind: "addTab";
+			terminalId: string;
+			agentName: AgentType | undefined;
+			initialCommand: string | undefined;
+			fallbackCommand: string | undefined;
+			initialCwd: string | undefined;
+			titleOverride: string | undefined;
+	  }
+	| {
+			kind: "replacePane";
+			tabId: string;
+			paneId: string;
+			terminalId: string;
+			agentName: AgentType | undefined;
+			initialCommand: string | undefined;
+			fallbackCommand: string | undefined;
+			initialCwd: string | undefined;
+			titleOverride: string | undefined;
+	  }
+	| {
+			kind: "splitPane";
+			tabId: string;
+			position: SplitPosition;
+			terminalId: string;
+			agentName: AgentType | undefined;
+			initialCommand: string | undefined;
+			fallbackCommand: string | undefined;
+			initialCwd: string | undefined;
+			titleOverride: string | undefined;
+	  };
+
+/**
+ * Plan how a preset opens into the panes store, without touching the store.
+ *
+ * Terminal-only and single-pane. Built-in agent presets are identified by
+ * name and routed through the formal host `agents.run` path by the opener;
+ * their command is retained only as a compatibility fallback. Other presets
+ * continue to run their joined commands as the session `initialCommand`.
+ *
+ * Pure: input → output. The hook (`usePanesPresetOpeners`) applies the
+ * plan to the panes store; this function is the testable core.
+ */
+export function planPanesPresetOpen(
+	preset: Pick<TerminalPreset, "commands" | "cwd" | "name">,
+	options: PanesPresetOpenOptions,
+): PanesPresetOpenPlan {
+	const {
+		target,
+		activeTabId = null,
+		activePaneId = null,
+		randomUuid = () => crypto.randomUUID(),
+	} = options;
+	const terminalId = randomUuid();
+	const command =
+		preset.commands.length > 0 ? preset.commands.join(" && ") : undefined;
+	const normalizedName = preset.name.trim().toLowerCase();
+	const agentName = AGENT_TYPES.find((agent) => agent === normalizedName);
+	const initialCommand = agentName ? undefined : command;
+	const fallbackCommand = agentName ? command : undefined;
+	const initialCwd = preset.cwd || undefined;
+	const titleOverride = preset.name?.trim() || undefined;
+
+	const base = {
+		terminalId,
+		agentName,
+		initialCommand,
+		fallbackCommand,
+		initialCwd,
+		titleOverride,
+	};
+
+	if (target === "current-pane" && activeTabId && activePaneId) {
+		return {
+			kind: "replacePane",
+			tabId: activeTabId,
+			paneId: activePaneId,
+			...base,
+		};
+	}
+
+	if (target === "active-tab" && activeTabId) {
+		return {
+			kind: "splitPane",
+			tabId: activeTabId,
+			position: "right",
+			...base,
+		};
+	}
+
+	return { kind: "addTab", ...base };
+}

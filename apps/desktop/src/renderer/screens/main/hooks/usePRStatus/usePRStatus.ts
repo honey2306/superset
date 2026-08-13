@@ -1,8 +1,7 @@
-import type { GitHubStatus } from "@superset/local-db";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import type { GitHubStatus } from "@superset/shared/desktop-types";
 import {
 	type GitHubStatusQuerySurface,
-	getGitHubStatusQueryPolicy,
+	useHostGitHubStatus,
 } from "renderer/lib/githubQueryPolicy";
 
 interface UsePRStatusOptions {
@@ -23,27 +22,20 @@ interface UsePRStatusResult {
 	refetch: () => void;
 }
 
-/**
- * Hook to fetch and manage GitHub PR status for a workspace.
- * Returns PR info, loading state, and refetch function.
- */
 export function usePRStatus({
 	workspaceId,
 	enabled = true,
 	surface = "workspace-page",
 }: UsePRStatusOptions): UsePRStatusResult {
-	const queryPolicy = getGitHubStatusQueryPolicy(surface, {
-		hasWorkspaceId: !!workspaceId,
-		isActive: enabled,
-	});
 	const {
 		data: githubStatus,
 		isLoading,
 		refetch,
-	} = electronTrpc.workspaces.getGitHubStatus.useQuery(
-		{ workspaceId: workspaceId ?? "" },
-		queryPolicy,
-	);
+	} = useHostGitHubStatus({
+		workspaceId,
+		surface,
+		isActive: enabled,
+	});
 
 	return {
 		pr: githubStatus?.pr ?? null,
@@ -51,6 +43,6 @@ export function usePRStatus({
 		branchExistsOnRemote: githubStatus?.branchExistsOnRemote ?? false,
 		previewUrl: githubStatus?.previewUrl,
 		isLoading,
-		refetch,
+		refetch: () => void refetch(),
 	};
 }

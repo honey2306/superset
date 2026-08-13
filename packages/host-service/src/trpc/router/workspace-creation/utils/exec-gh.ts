@@ -11,7 +11,7 @@ export interface ExecGhOptions {
 
 /**
  * Shell to `gh`. Relies on the user's existing `gh auth login` rather than
- * the git credential manager, matching V1. Returns parsed JSON when stdout
+ * the git credential manager. Returns parsed JSON when stdout
  * is JSON, else the trimmed string. Throws on non-zero exit so callers can
  * fall back.
  */

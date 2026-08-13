@@ -1,5 +1,6 @@
 import { Button } from "@superset/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
+import { workspaceTrpc } from "@superset/workspace-client";
 import { useParams } from "@tanstack/react-router";
 import { useCallback } from "react";
 import {
@@ -10,17 +11,16 @@ import {
 	LuX,
 } from "react-icons/lu";
 import { HotkeyLabel } from "renderer/hotkeys";
-import { electronTrpc } from "renderer/lib/electron-trpc";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import {
 	RightSidebarTab,
 	SidebarMode,
 	useSidebarStore,
 } from "renderer/stores/sidebar-state";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { useScrollContext } from "../ChangesContent";
+import { openFileInPanes } from "../ContentView/TabsContent/PanesWorkspace/panesStoreRegistry";
 import { ChangesView } from "./ChangesView";
 import { FilesView } from "./FilesView";
 import { getSidebarHeaderTabButtonClassName } from "./headerTabStyles";
@@ -93,44 +93,34 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 		setMode(isExpanded ? SidebarMode.Tabs : SidebarMode.Changes);
 	};
 
-	const addFileViewerPane = useTabsStore((s) => s.addFileViewerPane);
-	const trpcUtils = electronTrpc.useUtils();
+	const hostUtils = workspaceTrpc.useUtils();
 	const { scrollToFile } = useScrollContext();
 
 	const invalidateFileContent = useCallback(
 		(absolutePath: string) => {
-			const invalidations: Promise<unknown>[] = [];
-			if (workspaceId) {
-				invalidations.push(
-					trpcUtils.filesystem.readFile.invalidate({
-						workspaceId,
-						absolutePath,
-					}),
-				);
-			}
-			if (worktreePath) {
-				invalidations.push(
-					trpcUtils.changes.getGitFileContents.invalidate({
-						worktreePath,
-						absolutePath,
-					}),
-				);
-			}
-			Promise.all(invalidations).catch((error) => {
+			if (!workspaceId) return;
+
+			Promise.all([
+				hostUtils.filesystem.readFile.invalidate({
+					workspaceId,
+					absolutePath,
+				}),
+				hostUtils.git.getDiff.invalidate({ workspaceId }),
+			]).catch((error) => {
 				console.error(
 					"[RightSidebar/invalidateFileContent] Failed to invalidate file content queries:",
 					{ absolutePath, error },
 				);
 			});
 		},
-		[workspaceId, worktreePath, trpcUtils],
+		[workspaceId, hostUtils],
 	);
 
 	const handleFileOpenPane = useCallback(
 		(file: ChangedFile, category: ChangeCategory, commitHash?: string) => {
 			if (!workspaceId || !worktreePath) return;
 			const absolutePath = toAbsoluteWorkspacePath(worktreePath, file.path);
-			addFileViewerPane(workspaceId, {
+			openFileInPanes(workspaceId, {
 				filePath: absolutePath,
 				diffCategory: category,
 				fileStatus: file.status,
@@ -141,7 +131,7 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 			});
 			invalidateFileContent(absolutePath);
 		},
-		[workspaceId, worktreePath, addFileViewerPane, invalidateFileContent],
+		[workspaceId, worktreePath, invalidateFileContent],
 	);
 
 	const handleFileScrollTo = useCallback(

@@ -1,10 +1,10 @@
 import type { WorkspaceState } from "@superset/panes";
 import type { PaneViewerData } from "renderer/lib/panes/pane-viewer-data";
-import type { AppCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider/collections";
+import type { LocalCollections } from "renderer/routes/_local/providers/LocalProductStateProvider/collections";
 import {
 	getPrependTabOrder,
 	isSidebarWorkspaceVisible,
-} from "renderer/routes/_authenticated/providers/CollectionsProvider/dashboardSidebarLocal";
+} from "renderer/routes/_local/providers/LocalProductStateProvider/dashboardSidebarLocal";
 import {
 	appendLaunchesToPaneLayout,
 	type WorkspacePaneAgentLaunch,
@@ -17,12 +17,12 @@ import {
  * canonical ID returned by Provisioning or Catalog.
  */
 export function writeWorkspacePaneLayout(
-	collections: AppCollections,
+	collections: LocalCollections,
 	workspace: { id: string; projectId: string; isUnnamed?: boolean },
 	terminals: Array<{ terminalId: string; label?: string }>,
 	agents: WorkspacePaneAgentLaunch[],
 ): void {
-	const existing = collections.v2WorkspaceLocalState.get(workspace.id);
+	const existing = collections.workspaceLocalState.get(workspace.id);
 	const paneLayout = appendLaunchesToPaneLayout({
 		existing: existing?.paneLayout as
 			| WorkspaceState<PaneViewerData>
@@ -32,7 +32,7 @@ export function writeWorkspacePaneLayout(
 	});
 
 	if (existing) {
-		collections.v2WorkspaceLocalState.update(workspace.id, (draft) => {
+		collections.workspaceLocalState.update(workspace.id, (draft) => {
 			draft.paneLayout = paneLayout;
 			if (workspace.isUnnamed !== undefined) {
 				draft.isUnnamed = workspace.isUnnamed;
@@ -42,7 +42,7 @@ export function writeWorkspacePaneLayout(
 	}
 
 	const topLevelItems = [
-		...Array.from(collections.v2WorkspaceLocalState.state.values())
+		...Array.from(collections.workspaceLocalState.state.values())
 			.filter(
 				(item) =>
 					item.sidebarState.projectId === workspace.projectId &&
@@ -50,11 +50,11 @@ export function writeWorkspacePaneLayout(
 					isSidebarWorkspaceVisible(item),
 			)
 			.map((item) => ({ tabOrder: item.sidebarState.tabOrder })),
-		...Array.from(collections.v2SidebarSections.state.values())
+		...Array.from(collections.sidebarSections.state.values())
 			.filter((item) => item.projectId === workspace.projectId)
 			.map((item) => ({ tabOrder: item.tabOrder })),
 	];
-	collections.v2WorkspaceLocalState.insert({
+	collections.workspaceLocalState.insert({
 		workspaceId: workspace.id,
 		createdAt: new Date(),
 		...(workspace.isUnnamed !== undefined

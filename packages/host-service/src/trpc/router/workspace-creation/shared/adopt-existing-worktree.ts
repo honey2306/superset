@@ -5,20 +5,16 @@ import { workspaces } from "../../../../db/schema";
 import type { HostServiceContext } from "../../../../types";
 import {
 	deleteLocalWorkspace,
-	getLocalWorkspace,
 	insertLocalWorkspace,
-	toCloudShape,
+	toWorkspaceView,
 	updateLocalWorkspace,
 	type WorkspaceStoreContext,
+	type WorkspaceView,
 } from "../../../../workspaces/local-workspace-store";
 import { gitConfigWrite } from "../../git/utils/config-write";
 import type { GitClient } from "./types";
 
-export type AdoptedWorkspace = NonNullable<
-	Awaited<
-		ReturnType<HostServiceContext["api"]["v2Workspace"]["getFromHost"]["query"]>
-	>
->;
+export type AdoptedWorkspace = WorkspaceView;
 
 export interface AdoptExistingWorktreeArgs {
 	ctx: HostServiceContext;
@@ -28,11 +24,9 @@ export interface AdoptExistingWorktreeArgs {
 	worktreePath: string;
 	workspaceName: string;
 	baseBranch?: string;
-	/** v1→v2 migration relinks to a known cloud id; other callers leave undefined. */
-	existingWorkspaceId?: string;
 	/** Optimistic-UI idempotency key; becomes the row id when creating fresh. */
 	idempotencyId?: string;
-	/** Task link recorded on the row; ignored on relink. */
+	/** Task link recorded on a newly created row. */
 	taskId?: string;
 }
 
@@ -48,8 +42,7 @@ export interface AdoptExistingWorktreeResult {
  * all the stale-row hygiene (relink by branch, relink-on-rename by path,
  * conflict cleanup) so callers don't reinvent it.
  *
- * Fully local — the host's own table is authoritative and workspaces have
- * no cloud mirror.
+ * The host's local workspace table is authoritative.
  *
  * Cross-project safety is the caller's responsibility — only pass a
  * `worktreePath` that came from `git worktree list` on this project's
@@ -67,7 +60,6 @@ export async function adoptExistingWorktree(
 		worktreePath,
 		workspaceName,
 		baseBranch,
-		existingWorkspaceId,
 		idempotencyId,
 		taskId,
 	} = args;
@@ -76,41 +68,6 @@ export async function adoptExistingWorktree(
 		eventBus: ctx.eventBus,
 		catalog: ctx.catalog,
 	};
-
-	if (existingWorkspaceId) {
-		await recordBaseBranch(git, branch, baseBranch);
-		deleteLocalWorkspaceConflicts(store, {
-			projectId,
-			worktreePath,
-			branch,
-			keepWorkspaceId: existingWorkspaceId,
-		});
-		const existing = getLocalWorkspace(ctx.db, existingWorkspaceId);
-		if (existing) {
-			const updated =
-				updateLocalWorkspace(store, existingWorkspaceId, {
-					projectId,
-					worktreePath,
-					branch,
-				}) ?? existing;
-			return {
-				workspace: toCloudShape(updated, ctx.organizationId),
-				alreadyExists: true,
-			};
-		}
-		const inserted = insertLocalWorkspace(store, {
-			id: existingWorkspaceId,
-			projectId,
-			worktreePath,
-			branch,
-			name: workspaceName,
-			taskId: taskId ?? null,
-		});
-		return {
-			workspace: toCloudShape(inserted, ctx.organizationId),
-			alreadyExists: true,
-		};
-	}
 
 	// Already linked at this exact (branch, path) — reuse the row.
 	const existingByBranch = ctx.db.query.workspaces
@@ -124,7 +81,7 @@ export async function adoptExistingWorktree(
 	if (existingByBranch && existingByBranch.worktreePath === worktreePath) {
 		await recordBaseBranch(git, branch, baseBranch);
 		return {
-			workspace: toCloudShape(existingByBranch, ctx.organizationId),
+			workspace: toWorkspaceView(existingByBranch, ctx.organizationId),
 			alreadyExists: true,
 		};
 	}
@@ -150,7 +107,7 @@ export async function adoptExistingWorktree(
 		await recordBaseBranch(git, branch, baseBranch);
 		if (updated) {
 			return {
-				workspace: toCloudShape(updated, ctx.organizationId),
+				workspace: toWorkspaceView(updated, ctx.organizationId),
 				alreadyExists: true,
 			};
 		}
@@ -185,7 +142,7 @@ export async function adoptExistingWorktree(
 	}
 
 	return {
-		workspace: toCloudShape(inserted, ctx.organizationId),
+		workspace: toWorkspaceView(inserted, ctx.organizationId),
 		alreadyExists: false,
 	};
 }

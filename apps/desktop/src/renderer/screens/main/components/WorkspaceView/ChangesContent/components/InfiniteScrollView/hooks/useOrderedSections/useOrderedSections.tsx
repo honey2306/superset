@@ -20,6 +20,7 @@ export interface OrderedSection {
 interface UseOrderedSectionsInput {
 	sectionOrder: ChangeCategory[];
 	baseBranch: string;
+	workspaceId: string;
 	worktreePath: string;
 	scrollElementRef: RefObject<HTMLDivElement | null>;
 	collapsedFiles: Set<string>;
@@ -39,6 +40,7 @@ interface UseOrderedSectionsInput {
 export function useOrderedSections({
 	sectionOrder,
 	baseBranch,
+	workspaceId,
 	worktreePath,
 	scrollElementRef,
 	collapsedFiles,
@@ -90,6 +92,7 @@ export function useOrderedSections({
 						<CommitSection
 							key={commit.hash}
 							commit={commit}
+							workspaceId={workspaceId}
 							worktreePath={worktreePath}
 							collapsedFiles={collapsedFiles}
 							onToggleFile={onToggleFile}

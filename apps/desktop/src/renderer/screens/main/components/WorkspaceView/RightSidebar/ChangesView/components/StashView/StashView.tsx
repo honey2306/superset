@@ -7,6 +7,8 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import {
 	VscChevronDown,
@@ -15,8 +17,9 @@ import {
 	VscGitStashApply,
 	VscTrash,
 } from "react-icons/vsc";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import { formatRelativeDate } from "../../utils";
 import { DiscardConfirmDialog } from "../DiscardConfirmDialog";
 
@@ -25,54 +28,96 @@ interface StashViewProps {
 	onRefresh?: () => void;
 }
 
-export function StashView({ worktreePath, onRefresh }: StashViewProps) {
+export function StashView({ onRefresh }: StashViewProps) {
 	const { t } = useTranslation();
-	const utils = electronTrpc.useUtils();
+	const { workspaceId } = useParams({ strict: false });
+	const { activeHostUrl } = useLocalHostService();
+	const queryClient = useQueryClient();
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 	const [dropTarget, setDropTarget] = useState<number | null>(null);
 
-	const { data, isLoading } = electronTrpc.changes.stashList.useQuery(
-		{ worktreePath },
-		{ enabled: !!worktreePath, staleTime: 5_000 },
-	);
+	const stashListQueryKey = [
+		"git-stash-list",
+		activeHostUrl,
+		workspaceId,
+	] as const;
+	const { data, isLoading } = useQuery({
+		queryKey: stashListQueryKey,
+		enabled: Boolean(activeHostUrl && workspaceId),
+		queryFn: () => {
+			if (!activeHostUrl || !workspaceId) {
+				throw new Error("Workspace host is unavailable");
+			}
+			return getHostServiceClientByUrl(activeHostUrl).git.stashList.query({
+				workspaceId,
+			});
+		},
+		staleTime: 5_000,
+	});
 
 	const stashes = data ?? [];
 
 	const invalidateAll = () => {
-		void utils.changes.stashList.invalidate({ worktreePath });
-		void utils.changes.getStatus.invalidate({ worktreePath });
+		void queryClient.invalidateQueries({ queryKey: stashListQueryKey });
 		onRefresh?.();
 	};
 
-	const applyMutation = electronTrpc.changes.stashApplyAt.useMutation({
+	const applyMutation = useMutation({
+		mutationFn: ({ index }: { index: number }) => {
+			if (!activeHostUrl || !workspaceId) {
+				throw new Error("Workspace host is unavailable");
+			}
+			return getHostServiceClientByUrl(activeHostUrl).git.stashApplyAt.mutate({
+				workspaceId,
+				index,
+			});
+		},
 		onSuccess: () => {
-			toast.success(t("v1Changes.stashes.toastApplied"));
+			toast.success(t("changes.stashes.toastApplied"));
 			invalidateAll();
 		},
 		onError: (error) =>
 			toast.error(
-				t("v1Changes.stashes.toastApplyFailed", { message: error.message }),
+				t("changes.stashes.toastApplyFailed", { message: error.message }),
 			),
 	});
-	const popMutation = electronTrpc.changes.stashPopAt.useMutation({
+	const popMutation = useMutation({
+		mutationFn: ({ index }: { index: number }) => {
+			if (!activeHostUrl || !workspaceId) {
+				throw new Error("Workspace host is unavailable");
+			}
+			return getHostServiceClientByUrl(activeHostUrl).git.stashPopAt.mutate({
+				workspaceId,
+				index,
+			});
+		},
 		onSuccess: () => {
-			toast.success(t("v1Changes.stashes.toastPopped"));
+			toast.success(t("changes.stashes.toastPopped"));
 			invalidateAll();
 		},
 		onError: (error) =>
 			toast.error(
-				t("v1Changes.stashes.toastPopFailed", { message: error.message }),
+				t("changes.stashes.toastPopFailed", { message: error.message }),
 			),
 	});
-	const dropMutation = electronTrpc.changes.stashDropAt.useMutation({
+	const dropMutation = useMutation({
+		mutationFn: ({ index }: { index: number }) => {
+			if (!activeHostUrl || !workspaceId) {
+				throw new Error("Workspace host is unavailable");
+			}
+			return getHostServiceClientByUrl(activeHostUrl).git.stashDropAt.mutate({
+				workspaceId,
+				index,
+			});
+		},
 		onSuccess: () => {
-			toast.success(t("v1Changes.stashes.toastDropped"));
+			toast.success(t("changes.stashes.toastDropped"));
 			setDropTarget(null);
 			invalidateAll();
 		},
 		onError: (error) =>
 			toast.error(
-				t("v1Changes.stashes.toastDropFailed", { message: error.message }),
+				t("changes.stashes.toastDropFailed", { message: error.message }),
 			),
 	});
 
@@ -88,7 +133,7 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 	if (isLoading && stashes.length === 0) {
 		return (
 			<div className="flex flex-1 items-center justify-center text-xs text-fg-mute">
-				{t("v1Changes.stashes.loading")}
+				{t("changes.stashes.loading")}
 			</div>
 		);
 	}
@@ -96,7 +141,7 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 	if (stashes.length === 0) {
 		return (
 			<div className="flex flex-1 items-center justify-center text-xs text-fg-mute">
-				{t("v1Changes.stashes.empty")}
+				{t("changes.stashes.empty")}
 			</div>
 		);
 	}
@@ -150,14 +195,9 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 										size="sm"
 										className="h-6 px-2 text-[11px]"
 										disabled={isPending}
-										onClick={() =>
-											applyMutation.mutate({
-												worktreePath,
-												index: entry.index,
-											})
-										}
+										onClick={() => applyMutation.mutate({ index: entry.index })}
 									>
-										{t("v1Changes.stashes.apply")}
+										{t("changes.stashes.apply")}
 									</Button>
 									<DropdownMenu>
 										<DropdownMenuTrigger asChild>
@@ -165,7 +205,7 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 												variant="ghost"
 												size="icon"
 												className="size-6"
-												aria-label={t("v1Changes.stashes.moreActions")}
+												aria-label={t("changes.stashes.moreActions")}
 											>
 												<VscEllipsis className="size-3.5" />
 											</Button>
@@ -173,22 +213,19 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 										<DropdownMenuContent align="end" className="w-40">
 											<DropdownMenuItem
 												onClick={() =>
-													popMutation.mutate({
-														worktreePath,
-														index: entry.index,
-													})
+													popMutation.mutate({ index: entry.index })
 												}
 												className="text-xs"
 											>
 												<VscGitStashApply className="mr-2 size-4" />
-												{t("v1Changes.stashes.pop")}
+												{t("changes.stashes.pop")}
 											</DropdownMenuItem>
 											<DropdownMenuItem
 												onClick={() => setDropTarget(entry.index)}
 												className="text-xs text-destructive focus:text-destructive"
 											>
 												<VscTrash className="mr-2 size-4" />
-												{t("v1Changes.stashes.drop")}
+												{t("changes.stashes.drop")}
 											</DropdownMenuItem>
 										</DropdownMenuContent>
 									</DropdownMenu>
@@ -196,7 +233,7 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 							</div>
 							{isExpanded && (
 								<StashFilesList
-									worktreePath={worktreePath}
+									workspaceId={workspaceId ?? ""}
 									index={entry.index}
 								/>
 							)}
@@ -209,14 +246,14 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 				onOpenChange={(open) => {
 					if (!open) setDropTarget(null);
 				}}
-				title={t("v1Changes.stashes.dropTitle")}
-				description={t("v1Changes.stashes.dropDesc")}
+				title={t("changes.stashes.dropTitle")}
+				description={t("changes.stashes.dropDesc")}
 				onConfirm={() => {
 					if (dropTarget !== null) {
-						dropMutation.mutate({ worktreePath, index: dropTarget });
+						dropMutation.mutate({ index: dropTarget });
 					}
 				}}
-				confirmLabel={t("v1Changes.stashes.drop")}
+				confirmLabel={t("changes.stashes.drop")}
 				confirmDisabled={dropMutation.isPending}
 			/>
 		</>
@@ -224,16 +261,25 @@ export function StashView({ worktreePath, onRefresh }: StashViewProps) {
 }
 
 function StashFilesList({
-	worktreePath,
+	workspaceId,
 	index,
 }: {
-	worktreePath: string;
+	workspaceId: string;
 	index: number;
 }) {
-	const { data: files } = electronTrpc.changes.stashFiles.useQuery(
-		{ worktreePath, index },
-		{ staleTime: 60_000 },
-	);
+	const { activeHostUrl } = useLocalHostService();
+	const { data: files } = useQuery({
+		queryKey: ["git-stash-files", activeHostUrl, workspaceId, index],
+		enabled: Boolean(activeHostUrl && workspaceId),
+		queryFn: () => {
+			if (!activeHostUrl) throw new Error("Workspace host is unavailable");
+			return getHostServiceClientByUrl(activeHostUrl).git.stashFiles.query({
+				workspaceId,
+				index,
+			});
+		},
+		staleTime: 60_000,
+	});
 	if (!files || files.length === 0) return null;
 	return (
 		<div className="ml-4 pl-1.5 border-l border-line pb-1">

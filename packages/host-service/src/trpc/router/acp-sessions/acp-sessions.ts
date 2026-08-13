@@ -26,7 +26,7 @@ import {
 import { protectedProcedure, router } from "../../index";
 
 /**
- * Every ACP procedure except `list` sits behind the pre-release feature gate
+ * Every ACP procedure except `list` sits behind the host capability switch
  * (see HostServiceRuntime.acpSessionsEnabled) — a disabled host rejects the
  * surface with PRECONDITION_FAILED instead of exposing half-shipped behavior.
  * `list` stays ungated and answers `enabled: false` so clients can feature-
@@ -36,8 +36,7 @@ const gatedProcedure = protectedProcedure.use(({ ctx, next }) => {
 	if (!ctx.runtime.acpSessionsEnabled) {
 		throw new TRPCError({
 			code: "PRECONDITION_FAILED",
-			message:
-				"ACP sessions are disabled on this host (requires a canary build of the desktop app)",
+			message: "ACP sessions are disabled on this host",
 		});
 	}
 	return next();

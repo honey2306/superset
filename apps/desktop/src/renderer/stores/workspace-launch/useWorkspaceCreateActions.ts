@@ -1,8 +1,8 @@
 import type { AgentLaunchRequest } from "@superset/shared/agent-launch";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
+import { useLocalCollections } from "renderer/routes/_local/providers/LocalProductStateProvider";
 import {
 	launchesToPaneLayoutInputs,
 	toProvisionWorkspaceRequest,
@@ -38,7 +38,7 @@ export function useWorkspaceCreate() {
 	const navigate = useNavigate();
 	const adapter = useWorkspaceProvisioningAdapter();
 	const workspaceLaunch = useWorkspaceLaunch(adapter);
-	const collections = useCollections();
+	const collections = useLocalCollections();
 	const [isPending, setIsPending] = useState(false);
 
 	const mutateAsyncWithPendingSetup = useCallback(
@@ -93,7 +93,7 @@ export function useWorkspaceCreateFromPr() {
 	const navigate = useNavigate();
 	const adapter = useWorkspaceProvisioningAdapter();
 	const workspaceLaunch = useWorkspaceLaunch(adapter);
-	const collections = useCollections();
+	const collections = useLocalCollections();
 	const [isPending, setIsPending] = useState(false);
 
 	const mutateAsyncWithSetup = useCallback(

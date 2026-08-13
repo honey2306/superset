@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
+import { useLocalCollections } from "renderer/routes/_local/providers/LocalProductStateProvider";
 import {
 	useWorkspaceLaunch,
 	useWorkspaceProvisioningAdapter,
@@ -13,7 +13,7 @@ export function useOpenMainRepoWorkspace() {
 	const navigate = useNavigate();
 	const adapter = useWorkspaceProvisioningAdapter();
 	const workspaceLaunch = useWorkspaceLaunch(adapter);
-	const collections = useCollections();
+	const collections = useLocalCollections();
 	const [isPending, setIsPending] = useState(false);
 
 	const mutateAsync = useCallback(

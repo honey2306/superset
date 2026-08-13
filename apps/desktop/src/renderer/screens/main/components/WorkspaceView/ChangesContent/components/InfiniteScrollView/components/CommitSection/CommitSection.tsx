@@ -1,11 +1,12 @@
+import { workspaceTrpc } from "@superset/workspace-client";
 import { type RefObject, useState } from "react";
 import { LuChevronDown, LuChevronRight } from "react-icons/lu";
-import { electronTrpc } from "renderer/lib/electron-trpc";
-import type { CommitInfo } from "shared/changes-types";
+import type { ChangedFile, CommitInfo } from "shared/changes-types";
 import { VirtualizedFileList } from "../../../VirtualizedFileList";
 
 interface CommitSectionProps {
 	commit: CommitInfo;
+	workspaceId: string;
 	worktreePath: string;
 	collapsedFiles: Set<string>;
 	onToggleFile: (key: string) => void;
@@ -14,6 +15,7 @@ interface CommitSectionProps {
 
 export function CommitSection({
 	commit,
+	workspaceId,
 	worktreePath,
 	collapsedFiles,
 	onToggleFile,
@@ -21,15 +23,19 @@ export function CommitSection({
 }: CommitSectionProps) {
 	const [isCommitExpanded, setIsCommitExpanded] = useState(false);
 
-	const { data: commitFiles } = electronTrpc.changes.getCommitFiles.useQuery(
+	const { data: commitFiles } = workspaceTrpc.git.getCommitFiles.useQuery(
 		{
-			worktreePath,
+			workspaceId,
 			commitHash: commit.hash,
 		},
 		{ enabled: isCommitExpanded },
 	);
 
-	const files = commitFiles ?? [];
+	const files: ChangedFile[] =
+		commitFiles?.files.map((file) => ({
+			...file,
+			status: file.status === "changed" ? "modified" : file.status,
+		})) ?? [];
 
 	return (
 		<div className="border-b border-line">

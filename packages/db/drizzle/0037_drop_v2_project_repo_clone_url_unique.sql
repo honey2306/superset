@@ -1,1 +1,0 @@
-DROP INDEX "v2_projects_org_repo_clone_url_unique";

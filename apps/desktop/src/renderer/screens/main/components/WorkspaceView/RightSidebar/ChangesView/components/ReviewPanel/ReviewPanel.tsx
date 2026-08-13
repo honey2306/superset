@@ -1,4 +1,7 @@
-import type { GitHubStatus, PullRequestComment } from "@superset/local-db";
+import type {
+	GitHubStatus,
+	PullRequestComment,
+} from "@superset/shared/desktop-types";
 import { Avatar, AvatarFallback, AvatarImage } from "@superset/ui/avatar";
 import {
 	Collapsible,
@@ -8,6 +11,7 @@ import {
 import { Skeleton } from "@superset/ui/skeleton";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
 	LuArrowUpRight,
@@ -18,11 +22,13 @@ import {
 	LuUndo2,
 } from "react-icons/lu";
 import { VscChevronRight } from "react-icons/vsc";
+import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import type { MessageKey } from "renderer/providers/I18nProvider";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { PRIcon } from "renderer/screens/main/components/PRIcon";
-import { useTabsStore } from "renderer/stores/tabs/store";
+import { openCommentInPanes } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/PanesWorkspace/panesStoreRegistry";
 import {
 	ALL_COMMENTS_COPY_ACTION_KEY,
 	buildAllCommentsClipboardText,
@@ -70,13 +76,26 @@ export function ReviewPanel({
 		typeof setTimeout
 	> | null>(null);
 	const copyToClipboardMutation = electronTrpc.external.copyText.useMutation();
-	const resolveThreadMutation =
-		electronTrpc.workspaces.resolveReviewThread.useMutation();
-	const openCommentPane = useTabsStore((s) => s.openCommentPane);
-
+	const hostUrl = useWorkspaceHostUrl(workspaceId ?? null);
+	const resolveThreadMutation = useMutation({
+		mutationFn: (input: {
+			workspaceId: string;
+			threadId: string;
+			resolve: boolean;
+		}) => {
+			if (!hostUrl) throw new Error("Workspace host is unavailable");
+			return getHostServiceClientByUrl(
+				hostUrl,
+			).git.setReviewThreadResolution.mutate({
+				workspaceId: input.workspaceId,
+				threadId: input.threadId,
+				resolved: input.resolve,
+			});
+		},
+	});
 	const handleOpenComment = (comment: PullRequestComment) => {
 		if (!workspaceId) return;
-		openCommentPane(workspaceId, {
+		openCommentInPanes(workspaceId, {
 			commentId: comment.id,
 			authorLogin: comment.authorLogin,
 			avatarUrl: comment.avatarUrl,
@@ -129,7 +148,7 @@ export function ReviewPanel({
 		void copyTextToClipboard({
 			text: buildCommentClipboardText(comment, t),
 			actionKey: getCommentCopyActionKey(comment.id),
-			errorToastKey: "v1Changes.review.toastCopyCommentFailed",
+			errorToastKey: "changes.review.toastCopyCommentFailed",
 		});
 	};
 
@@ -152,10 +171,10 @@ export function ReviewPanel({
 					const message =
 						error instanceof Error ? error.message : "Unknown error";
 					toast.error(
-						t("v1Changes.review.toastResolveFailed", {
+						t("changes.review.toastResolveFailed", {
 							action: comment.isResolved
-								? t("v1Changes.review.ariaUndoDone")
-								: t("v1Changes.review.ariaMarkDone"),
+								? t("changes.review.ariaUndoDone")
+								: t("changes.review.ariaMarkDone"),
 							message,
 						}),
 					);
@@ -174,7 +193,7 @@ export function ReviewPanel({
 	if (isLoading && !pr) {
 		return (
 			<div className="flex h-full items-center justify-center text-sm text-fg-mute">
-				{t("v1Changes.review.loading")}
+				{t("changes.review.loading")}
 			</div>
 		);
 	}
@@ -182,7 +201,7 @@ export function ReviewPanel({
 	if (!pr) {
 		return (
 			<div className="flex h-full items-center justify-center px-4 text-center text-sm text-fg-mute">
-				{t("v1Changes.review.openPR")}
+				{t("changes.review.openPR")}
 			</div>
 		);
 	}
@@ -197,11 +216,11 @@ export function ReviewPanel({
 	).length;
 	const checksSummary =
 		relevantChecks.length > 0
-			? t("v1Changes.review.checksPassing", {
+			? t("changes.review.checksPassing", {
 					passing: passingChecks,
 					total: relevantChecks.length,
 				})
-			: t("v1Changes.review.noChecksReported");
+			: t("changes.review.noChecksReported");
 	const checksStatus = relevantChecks.length > 0 ? pr.checksStatus : "none";
 	const checksStatusConfig = checkSummaryIconConfig[checksStatus];
 	const ChecksStatusIcon = checksStatusConfig.icon;
@@ -210,14 +229,14 @@ export function ReviewPanel({
 	const commentsCountLabel = isCommentsLoading ? "..." : comments.length;
 	const copyAllCommentsLabel =
 		copiedActionKey === ALL_COMMENTS_COPY_ACTION_KEY
-			? t("v1Changes.review.copied")
-			: t("v1Changes.review.copyAll");
+			? t("changes.review.copied")
+			: t("changes.review.copyAll");
 
 	const handleCopyCommentsList = () => {
 		void copyTextToClipboard({
 			text: buildAllCommentsClipboardText(activeComments, t),
 			actionKey: ALL_COMMENTS_COPY_ACTION_KEY,
-			errorToastKey: "v1Changes.review.toastCopyCommentsFailed",
+			errorToastKey: "changes.review.toastCopyCommentsFailed",
 		});
 	};
 
@@ -249,7 +268,7 @@ export function ReviewPanel({
 			}
 			if (failed.length > 0) {
 				toast.error(
-					t("v1Changes.review.toastResolveAllFailed", { count: failed.length }),
+					t("changes.review.toastResolveAllFailed", { count: failed.length }),
 				);
 			}
 		} finally {
@@ -308,7 +327,7 @@ export function ReviewPanel({
 						type="button"
 						onClick={() => handleOpenComment(comment)}
 						className="flex min-w-0 flex-1 items-start gap-2 text-left"
-						aria-label={t("v1Changes.review.ariaViewCommentBy", {
+						aria-label={t("changes.review.ariaViewCommentBy", {
 							author: comment.authorLogin,
 						})}
 					>
@@ -327,8 +346,8 @@ export function ReviewPanel({
 								disabled={resolvingThreadIds.has(comment.threadId)}
 								aria-label={
 									comment.isResolved
-										? t("v1Changes.review.ariaUndoDone")
-										: t("v1Changes.review.ariaMarkDone")
+										? t("changes.review.ariaUndoDone")
+										: t("changes.review.ariaMarkDone")
 								}
 							>
 								{resolvingThreadIds.has(comment.threadId) ? (
@@ -350,8 +369,8 @@ export function ReviewPanel({
 							}}
 							aria-label={
 								isCopied
-									? t("v1Changes.review.ariaCopiedComment")
-									: t("v1Changes.review.ariaCopyComment")
+									? t("changes.review.ariaCopiedComment")
+									: t("changes.review.ariaCopyComment")
 							}
 						>
 							{isCopied ? (
@@ -366,7 +385,7 @@ export function ReviewPanel({
 								target="_blank"
 								rel="noopener noreferrer"
 								className="inline-flex size-5 items-center justify-center rounded-sm text-fg-mute transition-colors hover:bg-hover hover:text-fg"
-								aria-label={t("v1Changes.review.ariaOpenCommentGitHub")}
+								aria-label={t("changes.review.ariaOpenCommentGitHub")}
 							>
 								<LuArrowUpRight className="size-3" />
 							</a>
@@ -405,7 +424,7 @@ export function ReviewPanel({
 					</span>
 					{requestedReviewers.length > 0 && (
 						<span className="truncate text-[10px] text-fg-mute">
-							{t("v1Changes.review.awaiting", {
+							{t("changes.review.awaiting", {
 								reviewers: requestedReviewers.join(", "),
 							})}
 						</span>
@@ -430,7 +449,7 @@ export function ReviewPanel({
 							)}
 						/>
 						<span className="text-xs font-medium truncate">
-							{t("v1Changes.review.checks")}
+							{t("changes.review.checks")}
 						</span>
 						<span className="text-[10px] text-fg-mute shrink-0">
 							{relevantChecks.length}
@@ -456,7 +475,7 @@ export function ReviewPanel({
 				<CollapsibleContent className="px-0.5 pb-1 min-w-0 overflow-hidden">
 					{relevantChecks.length === 0 ? (
 						<div className="px-1.5 py-1 text-xs text-fg-mute">
-							{t("v1Changes.review.noChecksReportedSentence")}
+							{t("changes.review.noChecksReportedSentence")}
 						</div>
 					) : (
 						relevantChecks.map((check) => {
@@ -537,7 +556,7 @@ export function ReviewPanel({
 							)}
 						/>
 						<span className="text-xs font-medium truncate">
-							{t("v1Changes.review.comments")}
+							{t("changes.review.comments")}
 						</span>
 						<span className="text-[10px] text-fg-mute shrink-0">
 							{commentsCountLabel}
@@ -557,7 +576,7 @@ export function ReviewPanel({
 									) : (
 										<LuCheckCheck className="size-3" />
 									)}
-									<span>{t("v1Changes.review.markAllDone")}</span>
+									<span>{t("changes.review.markAllDone")}</span>
 								</button>
 							)}
 							<button
@@ -584,7 +603,7 @@ export function ReviewPanel({
 						</div>
 					) : comments.length === 0 ? (
 						<div className="px-1.5 py-1 text-xs text-fg-mute">
-							{t("v1Changes.review.noComments")}
+							{t("changes.review.noComments")}
 						</div>
 					) : (
 						renderCommentList(activeComments)
@@ -611,7 +630,7 @@ export function ReviewPanel({
 							)}
 						/>
 						<span className="text-xs font-medium truncate">
-							{t("v1Changes.review.resolved")}
+							{t("changes.review.resolved")}
 						</span>
 						<span className="text-[10px] text-fg-mute shrink-0">
 							{resolvedComments.length}

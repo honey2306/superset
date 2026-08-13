@@ -150,12 +150,7 @@ describe("bug-hunt-2: partial-failure consistency", () => {
 
 	test("workspace.delete with a worktree dir already removed manually still cleans up the row", async () => {
 		const workspaceId = randomUUID();
-		host = await createTestHost({
-			apiOverrides: {
-				"v2Workspace.getFromHost.query": () => ({ type: "feature" }),
-				"v2Workspace.delete.mutate": () => ({ success: true }),
-			},
-		});
+		host = await createTestHost();
 		host.db
 			.insert(projects)
 			.values({ id: projectId, repoPath: repo.repoPath })
@@ -187,12 +182,7 @@ describe("bug-hunt-2: partial-failure consistency", () => {
 
 	test("workspaceCleanup.destroy succeeds even if the worktree dir was deleted manually", async () => {
 		const workspaceId = randomUUID();
-		host = await createTestHost({
-			apiOverrides: {
-				"v2Workspace.getFromHost.query": () => ({ type: "feature" }),
-				"v2Workspace.delete.mutate": () => ({ success: true }),
-			},
-		});
+		host = await createTestHost();
 		host.db
 			.insert(projects)
 			.values({ id: projectId, repoPath: repo.repoPath })

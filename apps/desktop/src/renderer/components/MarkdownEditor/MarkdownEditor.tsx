@@ -36,7 +36,6 @@ import { BubbleMenu } from "@tiptap/react/menus";
 import { common, createLowlight } from "lowlight";
 import { useEffect, useRef } from "react";
 import { BubbleMenuToolbar } from "renderer/components/MarkdownRenderer/components/TipTapMarkdownRenderer/components/BubbleMenuToolbar";
-import { env } from "renderer/env.renderer";
 import { useInlineUrlPolicy } from "renderer/lib/clickPolicy";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { Markdown } from "tiptap-markdown";
@@ -50,46 +49,6 @@ import {
 import { SlashCommand } from "./components/SlashCommand";
 
 const lowlight = createLowlight(common);
-
-const LINEAR_IMAGE_HOST = "uploads.linear.app";
-
-function isLinearImageUrl(src: string): boolean {
-	try {
-		const url = new URL(src);
-		return url.host === LINEAR_IMAGE_HOST;
-	} catch {
-		return false;
-	}
-}
-
-function getLinearProxyUrl(linearUrl: string): string {
-	const proxyUrl = new URL(`${env.NEXT_PUBLIC_API_URL}/api/proxy/linear-image`);
-	proxyUrl.searchParams.set("url", linearUrl);
-	return proxyUrl.toString();
-}
-
-const LinearImage = Image.extend({
-	addAttributes() {
-		return {
-			...this.parent?.(),
-			src: {
-				default: null,
-				parseHTML: (element) => element.getAttribute("src"),
-				renderHTML: (attributes) => {
-					const src = attributes.src;
-					if (!src) return { src: null };
-					const proxiedSrc = isLinearImageUrl(src)
-						? getLinearProxyUrl(src)
-						: src;
-					return {
-						src: proxiedSrc,
-						crossorigin: isLinearImageUrl(src) ? "use-credentials" : undefined,
-					};
-				},
-			},
-		};
-	},
-});
 
 const HEADING_CLASSES: Record<number, string> = {
 	1: "text-3xl font-bold leading-tight mt-0 mb-3",
@@ -291,7 +250,7 @@ export function MarkdownEditor({
 				openOnClick: false,
 				HTMLAttributes: { class: "text-accent-solid underline" },
 			}),
-			LinearImage.configure({
+			Image.configure({
 				HTMLAttributes: { class: "max-w-full h-auto rounded-ds-3 my-3" },
 			}),
 			TableKit.configure({

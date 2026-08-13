@@ -16,7 +16,7 @@ import {
 import { UpdatesPill } from "renderer/components/UpdatesPill";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useOpenMainRepoWorkspace } from "renderer/react-query/workspaces";
-import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
+import { useFolderFirstImport } from "renderer/routes/_local/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
 import {
 	useOpenNewProjectModal,
 	useOpenTemplateGalleryModal,

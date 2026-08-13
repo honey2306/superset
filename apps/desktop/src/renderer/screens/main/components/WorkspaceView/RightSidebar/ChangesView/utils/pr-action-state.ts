@@ -29,28 +29,28 @@ export function getPRActionState({
 	if (!hasRepo) {
 		return {
 			canCreatePR: false,
-			createPRBlockedReason: "v1Changes.prAction.githubNotAvailable",
+			createPRBlockedReason: "changes.prAction.githubNotAvailable",
 		};
 	}
 
 	if (isDefaultBranch) {
 		return {
 			canCreatePR: false,
-			createPRBlockedReason: "v1Changes.prAction.cannotFromDefault",
+			createPRBlockedReason: "changes.prAction.cannotFromDefault",
 		};
 	}
 
 	if (!hasUpstream) {
 		return {
 			canCreatePR: false,
-			createPRBlockedReason: "v1Changes.prAction.publishBranch",
+			createPRBlockedReason: "changes.prAction.publishBranch",
 		};
 	}
 
 	if (pushCount > 0 || pullCount > 0) {
 		return {
 			canCreatePR: false,
-			createPRBlockedReason: "v1Changes.prAction.syncWithUpstream",
+			createPRBlockedReason: "changes.prAction.syncWithUpstream",
 		};
 	}
 

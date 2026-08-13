@@ -6,7 +6,8 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import type { HostDb } from "../../db";
 import * as schema from "../../db/schema";
-import { pullRequests, workspaces } from "../../db/schema";
+import { catalogChanges, pullRequests, workspaces } from "../../db/schema";
+import { WorkspaceCatalog } from "../../workspace-catalog";
 import { PullRequestRuntimeManager } from "./pull-requests";
 
 // All tests run the real manager against a real, migrated, in-memory SQLite
@@ -147,6 +148,7 @@ function createManager(
 ) {
 	return new PullRequestRuntimeManager({
 		db,
+		catalog: new WorkspaceCatalog({ db, eventBus: null }),
 		execGh:
 			(overrides.execGh as never) ??
 			((async () => {
@@ -206,7 +208,50 @@ async function withSilencedWarnings<T>(fn: () => Promise<T>): Promise<T> {
 	}
 }
 
-describe("PullRequestRuntimeManager direct checkout PR linking", () => {
+describe("PullRequestRuntimeManager catalog projection writes", () => {
+	test("journals lazily discovered project repository metadata", async () => {
+		const db = createRealDb();
+		db.insert(schema.projects)
+			.values({
+				id: PROJECT_ID,
+				repoPath: "/repo",
+				createdAt: Date.now(),
+			})
+			.run();
+		const manager = createManager(db, {
+			git: async () => ({
+				remote: async () => `https://github.com/${REPO.owner}/${REPO.name}.git`,
+				raw: async () => "origin/main\n",
+			}),
+		});
+
+		const repo = await (
+			manager as unknown as {
+				getProjectRepository: (projectId: string) => Promise<unknown>;
+			}
+		).getProjectRepository(PROJECT_ID);
+
+		expect(repo).toMatchObject({
+			provider: "github",
+			owner: REPO.owner,
+			name: REPO.name,
+			remoteName: "origin",
+		});
+		const change = db.select().from(catalogChanges).get();
+		expect(change).toMatchObject({
+			revision: 1,
+			entityType: "project",
+			entityId: PROJECT_ID,
+			eventType: "updated",
+		});
+		expect(JSON.parse(change?.snapshotJson ?? "{}")).toMatchObject({
+			repoProvider: "github",
+			repoOwner: REPO.owner,
+			repoName: REPO.name,
+			remoteName: "origin",
+		});
+	});
+
 	test("links a fork PR workspace to the selected PR and records fork upstream", async () => {
 		const db = createRealDb();
 		seedProject(db);
@@ -241,6 +286,20 @@ describe("PullRequestRuntimeManager direct checkout PR linking", () => {
 		expect(pr?.repoOwner).toBe("base-owner");
 		expect(pr?.repoName).toBe("base-repo");
 		expect(pr?.headBranch).toBe("fix-typo");
+
+		const change = db.select().from(catalogChanges).get();
+		expect(change?.revision).toBe(1);
+		expect(change?.entityType).toBe("workspace");
+		expect(change?.entityId).toBe("ws");
+		expect(change?.eventType).toBe("updated");
+		expect(JSON.parse(change?.snapshotJson ?? "{}")).toMatchObject({
+			id: "ws",
+			pullRequestId: prId,
+			headSha: "abc123",
+			upstreamOwner: "fork-owner",
+			upstreamRepo: "fork-repo",
+			upstreamBranch: "fix-typo",
+		});
 	});
 
 	test("keeps a deleted-fork PR link when no upstream can be recorded", async () => {

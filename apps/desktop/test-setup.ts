@@ -129,6 +129,11 @@ Object.defineProperty(globalThis, "localStorage", {
 	writable: true,
 	configurable: true,
 });
+Object.defineProperty(globalThis.window, "localStorage", {
+	value: mockLocalStorage,
+	writable: true,
+	configurable: true,
+});
 
 // =============================================================================
 // Electron Preload Mocks (exposed via contextBridge in real app)
@@ -259,10 +264,6 @@ const localDbMock = () => ({
 	workspaces: mockTable("workspaces"),
 	worktrees: mockTable("worktrees"),
 	settings: mockTable("settings"),
-	users: mockTable("users"),
-	organizations: mockTable("organizations"),
-	organizationMembers: mockTable("organization_members"),
-	tasks: mockTable("tasks"),
 	workspaceSections: mockTable("workspace_sections"),
 	agentPresetOverrideSchema,
 	agentPresetOverrideEnvelopeSchema,

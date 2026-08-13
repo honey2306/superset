@@ -1,13 +1,10 @@
-import { FEATURE_FLAGS } from "@superset/shared/constants";
 import { getEventBus } from "@superset/workspace-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useEffect, useMemo } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
-import { useCatalogWorkspaces } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
+import { useCatalogWorkspaces } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import type { EnrichedPort } from "shared/types";
 
 const PORTS_FALLBACK_REFETCH_INTERVAL_MS = 10_000;
@@ -15,12 +12,12 @@ const PORTS_FALLBACK_REFETCH_INTERVAL_MS = 10_000;
 export interface WorkspacePortGroup {
 	workspaceId: string;
 	workspaceName: string;
-	ports: V1WorkspacePort[];
+	ports: WorkspacePort[];
 }
 
-export interface V1WorkspacePort extends EnrichedPort {
-	hostUrl: string | null;
-	killWorkspaceId?: string;
+export interface WorkspacePort extends EnrichedPort {
+	hostUrl: string;
+	killWorkspaceId: string;
 }
 
 function normalizePath(path: string): string {
@@ -29,42 +26,27 @@ function normalizePath(path: string): string {
 
 export function usePortsData() {
 	const { workspaces: allWorkspaces } = useCatalogWorkspaces();
-	const hostEnabled =
-		useFeatureFlagEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ?? false;
 	const { activeHostUrl } = useLocalHostService();
 	const queryClient = useQueryClient();
-
-	const utils = electronTrpc.useUtils();
-
-	const { data: localPorts } = electronTrpc.ports.getAll.useQuery(undefined, {
-		// Keep a low-frequency safety net in case subscription events are missed.
-		refetchInterval: PORTS_FALLBACK_REFETCH_INTERVAL_MS,
-	});
-
-	electronTrpc.ports.subscribe.useSubscription(undefined, {
-		onData: () => {
-			utils.ports.getAll.invalidate();
-		},
-	});
 
 	const hostQueryKey = useMemo(
 		() =>
 			[
-				"v1-host-service-ports",
+				"host-service-ports",
 				activeHostUrl,
 				allWorkspaces.map((workspace) => workspace.id),
 			] as const,
 		[activeHostUrl, allWorkspaces],
 	);
-	const { data: hostPorts = [] } = useQuery({
+	const { data: ports = [] } = useQuery({
 		queryKey: hostQueryKey,
-		enabled: hostEnabled && Boolean(activeHostUrl && allWorkspaces.length),
+		enabled: Boolean(activeHostUrl && allWorkspaces.length),
 		refetchInterval: PORTS_FALLBACK_REFETCH_INTERVAL_MS,
-		queryFn: async (): Promise<V1WorkspacePort[]> => {
+		queryFn: async (): Promise<WorkspacePort[]> => {
 			if (!activeHostUrl || allWorkspaces.length === 0) return [];
 			const client = getHostServiceClientByUrl(activeHostUrl);
 			const hostWorkspaces = await client.workspace.list.query();
-			const v1ByPath = new Map(
+			const workspaceIdByPath = new Map(
 				allWorkspaces
 					.filter((workspace) => workspace.worktreePath)
 					.map((workspace) => [
@@ -72,22 +54,28 @@ export function usePortsData() {
 						workspace.id,
 					]),
 			);
-			const hostToV1 = new Map(
+			const visibleWorkspaceIdByHostId = new Map(
 				hostWorkspaces.flatMap((workspace) => {
-					const v1Id = v1ByPath.get(normalizePath(workspace.worktreePath));
-					return v1Id ? [[workspace.id, v1Id] as const] : [];
+					const visibleWorkspaceId = workspaceIdByPath.get(
+						normalizePath(workspace.worktreePath),
+					);
+					return visibleWorkspaceId
+						? [[workspace.id, visibleWorkspaceId] as const]
+						: [];
 				}),
 			);
-			const workspaceIds = [...hostToV1.keys()];
+			const workspaceIds = [...visibleWorkspaceIdByHostId.keys()];
 			if (workspaceIds.length === 0) return [];
-			const ports = await client.ports.getAll.query({ workspaceIds });
-			return ports.flatMap((port) => {
-				const v1WorkspaceId = hostToV1.get(port.workspaceId);
-				if (!v1WorkspaceId) return [];
+			const hostPorts = await client.ports.getAll.query({ workspaceIds });
+			return hostPorts.flatMap((port) => {
+				const visibleWorkspaceId = visibleWorkspaceIdByHostId.get(
+					port.workspaceId,
+				);
+				if (!visibleWorkspaceId) return [];
 				return [
 					{
 						...port,
-						workspaceId: v1WorkspaceId,
+						workspaceId: visibleWorkspaceId,
 						killWorkspaceId: port.workspaceId,
 						hostUrl: activeHostUrl,
 					},
@@ -97,7 +85,7 @@ export function usePortsData() {
 	});
 
 	useEffect(() => {
-		if (!hostEnabled || !activeHostUrl) return;
+		if (!activeHostUrl) return;
 		const bus = getEventBus(activeHostUrl, () =>
 			getHostServiceWsToken(activeHostUrl),
 		);
@@ -109,12 +97,7 @@ export function usePortsData() {
 			remove();
 			release();
 		};
-	}, [activeHostUrl, hostEnabled, hostQueryKey, queryClient]);
-
-	const ports = useMemo<V1WorkspacePort[]>(
-		() => (hostEnabled ? hostPorts : (localPorts ?? [])),
-		[hostEnabled, hostPorts, localPorts],
-	);
+	}, [activeHostUrl, hostQueryKey, queryClient]);
 
 	const workspaceNames = useMemo(() => {
 		return allWorkspaces.reduce(
@@ -127,7 +110,7 @@ export function usePortsData() {
 	}, [allWorkspaces]);
 
 	const workspacePortGroups = useMemo(() => {
-		const groupMap = new Map<string, V1WorkspacePort[]>();
+		const groupMap = new Map<string, WorkspacePort[]>();
 
 		for (const port of ports) {
 			const existing = groupMap.get(port.workspaceId);

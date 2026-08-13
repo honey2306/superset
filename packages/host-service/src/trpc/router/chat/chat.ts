@@ -61,15 +61,8 @@ export const chatRouter = router({
 				metadata: messageMetadataSchema,
 			}),
 		)
-		.mutation(async ({ ctx, input }) => {
-			const result = await ctx.runtime.chat.sendMessage(input);
-			// Fire-and-forget cloud lastActiveAt update so the session selector
-			// keeps reordering after activity. Failures here must not block the
-			// turn — the user already sees their message land via the snapshot.
-			void ctx.api.chat.updateSession
-				.mutate({ sessionId: input.sessionId, lastActiveAt: new Date() })
-				.catch(() => {});
-			return result;
+		.mutation(({ ctx, input }) => {
+			return ctx.runtime.chat.sendMessage(input);
 		}),
 
 	endSession: protectedProcedure
@@ -136,6 +129,18 @@ export const chatRouter = router({
 			return ctx.runtime.chat.respondToPlan(input);
 		}),
 
+	searchFiles: protectedProcedure
+		.input(
+			workspaceSlashInput.extend({
+				query: z.string(),
+				includeHidden: z.boolean().default(false),
+				limit: z.number().int().positive().max(100).default(20),
+			}),
+		)
+		.query(({ ctx, input }) => {
+			return ctx.runtime.chat.searchFiles(input);
+		}),
+
 	getSlashCommands: protectedProcedure
 		.input(workspaceSlashInput)
 		.query(({ ctx, input }) => {
@@ -158,12 +163,12 @@ export const chatRouter = router({
 				text: z.string(),
 			}),
 		)
-		.mutation(({ ctx, input }) => {
+		.query(({ ctx, input }) => {
 			return ctx.runtime.chat.previewSlashCommand(input);
 		}),
 
 	getMcpOverview: protectedProcedure
-		.input(sessionInput)
+		.input(workspaceSlashInput)
 		.query(({ ctx, input }) => {
 			return ctx.runtime.chat.getMcpOverview(input);
 		}),

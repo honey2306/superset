@@ -15,12 +15,14 @@ import { useOrderedSections } from "./hooks/useOrderedSections";
 
 interface InfiniteScrollViewProps {
 	status: GitChangesStatus;
+	workspaceId: string;
 	worktreePath: string;
 	baseBranch: string;
 }
 
 export function InfiniteScrollView({
 	status,
+	workspaceId,
 	worktreePath,
 	baseBranch,
 }: InfiniteScrollViewProps) {
@@ -44,7 +46,7 @@ export function InfiniteScrollView({
 	const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
 
 	const { stageFileMutation, unstageFileMutation, handleDiscard, isActioning } =
-		useFileMutations({ worktreePath });
+		useFileMutations({ workspaceId, worktreePath });
 
 	const totals = useMemo(() => {
 		const allFiles = [
@@ -139,6 +141,7 @@ export function InfiniteScrollView({
 	const orderedSections = useOrderedSections({
 		sectionOrder,
 		baseBranch,
+		workspaceId,
 		worktreePath,
 		scrollElementRef: containerRef,
 		collapsedFiles,
@@ -166,14 +169,14 @@ export function InfiniteScrollView({
 	if (!hasChanges) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-3 text-fg-mute">
-				<div>{t("v1Changes.noChangesDetected")}</div>
+				<div>{t("changes.noChangesDetected")}</div>
 				{isExpandedView ? (
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={() => setSidebarMode(SidebarMode.Tabs)}
 					>
-						{t("v1Changes.closeExpandedView")}
+						{t("changes.closeExpandedView")}
 					</Button>
 				) : null}
 			</div>

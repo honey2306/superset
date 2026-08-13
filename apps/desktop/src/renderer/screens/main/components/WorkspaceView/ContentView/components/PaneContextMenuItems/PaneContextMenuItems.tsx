@@ -56,18 +56,18 @@ export function PaneContextMenuItems({
 		<>
 			<ContextMenuItem onSelect={actions.onSplitHorizontal}>
 				<LuRows2 className="size-4" />
-				{t("v2Workspace.context.splitHorizontal")}
+				{t("workspace.context.splitHorizontal")}
 				{renderShortcut(splitDownShortcut)}
 			</ContextMenuItem>
 			<ContextMenuItem onSelect={actions.onSplitVertical}>
 				<LuColumns2 className="size-4" />
-				{t("v2Workspace.context.splitVertical")}
+				{t("workspace.context.splitVertical")}
 				{renderShortcut(splitRightShortcut)}
 			</ContextMenuItem>
 			{actions.onEqualizePaneSplits && (
 				<ContextMenuItem onSelect={actions.onEqualizePaneSplits}>
 					<LuEqual className="size-4" />
-					{t("v2Workspace.context.equalize")}
+					{t("workspace.context.equalize")}
 					{renderShortcut(equalizePaneSplitsShortcut)}
 				</ContextMenuItem>
 			)}
@@ -75,7 +75,7 @@ export function PaneContextMenuItems({
 			<ContextMenuSub>
 				<ContextMenuSubTrigger className="gap-2">
 					<LuMoveRight className="size-4" />
-					{t("v2Workspace.context.moveToTab")}
+					{t("workspace.context.moveToTab")}
 				</ContextMenuSubTrigger>
 				<ContextMenuSubContent>
 					{targetTabs.map((tab) => (
@@ -89,7 +89,7 @@ export function PaneContextMenuItems({
 					{targetTabs.length > 0 && <ContextMenuSeparator />}
 					<ContextMenuItem onSelect={actions.onMoveToNewTab}>
 						<LuPlus className="size-4" />
-						{t("v2Workspace.context.newTab")}
+						{t("workspace.context.newTab")}
 					</ContextMenuItem>
 				</ContextMenuSubContent>
 			</ContextMenuSub>

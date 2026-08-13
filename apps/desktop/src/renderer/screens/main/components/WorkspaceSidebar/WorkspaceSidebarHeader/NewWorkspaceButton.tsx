@@ -3,7 +3,7 @@ import { useMatchRoute } from "@tanstack/react-router";
 import { LuPlus } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
 import { STROKE_WIDTH_THICK } from "../constants";
 

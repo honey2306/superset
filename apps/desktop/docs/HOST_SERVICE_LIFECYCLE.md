@@ -2,75 +2,102 @@
 
 ## Architecture
 
-Electron main owns app lifecycle, tray, and host-service management. Host-service runs as a child process **coupled to Electron** — it starts and stops with the app. Terminal sessions (PTYs) survive Electron restarts via a separate `pty-daemon` that host-service supervises on its own detached lifecycle.
+Superset Desktop starts one Embedded Host for the current local machine. The
+processes deliberately have two lifetime classes:
 
-```
-┌─────────────────────────────────────────────────────┐
-│ Electron Main Process                               │
-│                                                     │
-│  ┌──────────┐  ┌──────────────────────┐  ┌───────┐ │
-│  │   Tray   │  │ HostServiceCoordinator│  │Windows│ │
-│  │ (macOS)  │  │                      │  │       │ │
-│  │ restart  │◄─┤ status events        │  │ hide/ │ │
-│  │ stop     │  │ start/stop per org   │  │ show  │ │
-│  │ quit ────┼──┼──► app.quit()        │  │       │ │
-│  └──────────┘  └──────┬───────────────┘  └───────┘ │
-└───────────────────────┼─────────────────────────────┘
-                        │ spawn (attached, detached:false)
-          ┌─────────────┼─────────────┐
-          │             │             │
-          ▼             ▼             ▼
-   ┌────────────┐ ┌────────────┐ ┌────────────┐
-   │host-service│ │host-service│ │host-service│
-   │  (org A)   │ │  (org B)   │ │  (org C)   │
-   │            │ │            │ │            │
-   │ HTTP/tRPC  │ │ HTTP/tRPC  │ │ HTTP/tRPC  │
-   │            │ │            │ │            │
-   │ supervises │ │ supervises │ │ supervises │
-   │ pty-daemon │ │ pty-daemon │ │ pty-daemon │
-   └─────┬──────┘ └─────┬──────┘ └─────┬──────┘
-         │              │              │
-         ▼              ▼              ▼
-   ┌────────────┐ ┌────────────┐ ┌────────────┐
-   │ pty-daemon │ │ pty-daemon │ │ pty-daemon │
-   │ (detached) │ │ (detached) │ │ (detached) │
-   │  → PTYs    │ │  → PTYs    │ │  → PTYs    │
-   └────────────┘ └────────────┘ └────────────┘
+```text
+Electron main
+  - owns windows, native integration, and application lifecycle
+  - starts/stops one Embedded Host
+        |
+        v
+Embedded Host (attached child process)
+  - owns host.db and Host API authority
+  - evaluates local Todo and Automation schedules
+  - connects to detached runtime daemons
+        |
+        +-- pty-daemon -> terminal PTYs
+        `-- acp-daemon -> ACP adapters and active interactions
 ```
 
-### Quit behavior
+The Embedded Host is coupled to Electron: it starts with Desktop and stops when
+Desktop exits. It is not an independently selected organization Host, a remote
+workspace Host, or an OS background service.
 
-Electron `before-quit` always SIGTERMs every host-service via `coordinator.stopAll()`. There is no "release" mode — host-services no longer outlive the app.
+The renderer has no process-lifecycle authority. It consumes Host state and
+keeps presentation state in `Panes`, the sole workspace layout and pane model.
+A route change, workspace switch, pane remount, or renderer restart may detach a
+view, but it does not itself terminate a Host runtime.
 
-What survives a quit:
-- **pty-daemon + open PTYs** — pty-daemon is spawned by host-service with `detached: true`. On the next launch, host-service adopts the existing pty-daemon via its socket/manifest. See `packages/host-service/src/daemon/DaemonSupervisor.ts`.
+## Detached runtime ownership
 
-What does **not** survive:
-- In-flight chat completions, file watchers, durable-session reads. These are bound to host-service's process and tear down with it. The renderer handles reconnect on next launch.
+PTY and ACP lifetimes are independent from both renderer components and the
+Embedded Host process:
 
-### How host-service is reaped
+- `pty-daemon` owns terminal child processes and supports reconnect through its
+  local socket and manifest.
+- `acp-daemon` owns ACP adapter stdio, journals, in-flight turns, pending
+  permissions/questions, and active session state. A replacement Host adopts
+  its local socket and resumes stream subscriptions.
+- Canonical Project/Workspace identity and recoverable session bindings remain
+  in `host.db`; detached daemons are runtime owners, not competing data
+  authorities.
 
-| Quit path | Mechanism |
-|---|---|
-| Clean `before-quit` (Cmd+Q, tray quit, auto-update install) | `coordinator.stopAll()` SIGTERMs each child; child closes its HTTP server and exits within `SHUTDOWN_GRACE_MS` (3s) |
-| Electron force-killed / crash | Parent-pid watchdog inside host-service (`apps/desktop/src/main/host-service/index.ts`) polls `process.ppid`. When Electron's pid is gone, the child shuts down voluntarily |
-| Dev `bun dev` SIGTERM/SIGINT | Coordinator's `stopAll()` runs in the signal handler before `app.exit()` |
+In production, normal Host shutdown disconnects from the detached daemons so
+supported sessions can reconnect on the next launch. Development shutdown may
+stop the PTY daemon intentionally so a changed bundle starts fresh. **Quit
+Completely** and explicit runtime-close actions are destructive by design.
 
-The watchdog only runs when `HOST_PARENT_PID` is set in the child env — CLI-spawned host-services (`packages/cli`) explicitly skip coupling and use `detached: true` for their own deployment model.
+## Close and detach semantics
 
-### Manifest
+- Detaching or unmounting a terminal pane releases renderer resources only.
+  Explicit terminal close terminates the PTY through the Host runtime.
+- Detaching an ACP pane view releases its renderer subscription only. The ACP
+  adapter remains daemon-owned and may continue an active interaction.
+- The user-facing **Close agent session** action is not a detach. It invokes the
+  Host's explicit ACP `close` operation, tears down the adapter, and deletes the
+  durable recoverable session rows. If that operation fails, the pane remains
+  visible so the user can retry.
+- Closing a whole `Panes` tab invokes the same ACP close semantics for contained
+  agent sessions.
 
-Each host-service still writes `~/.superset/host/{orgId}/manifest.json` (pid, endpoint, authToken, app version). Electron's coordinator no longer reads it for adoption; the manifest is now consumed by:
+## Automation lifetime
 
-- **CLI** (`packages/cli`) — finds and talks to a running host-service for `status`/`stop`/`start` commands.
-- **`coordinator.reset()`** — SIGKILLs whatever pid the manifest names as a recovery escape hatch when a wedged host-service has been left behind (superset-sh/superset#4299).
+The local Automation scheduler is constructed inside the Embedded Host and
+reads only `host.db`. It ticks while the Host process is alive and can execute
+while offline, but it is application-bound: when Desktop is closed there is no
+scheduler process to evaluate due work, and Desktop is not woken by the OS.
+Overdue work is considered when the Host starts again according to the local
+scheduler's recurrence rules.
 
-Host-service writes the manifest on boot but does not remove it on exit; coordinator removes it on `stop()` and when the child exits.
+## Phone lifetime and exposure
 
-### Design decisions
+Phone access is experimental, internal-build-only, and non-gating. Internal
+builds bind the same Embedded Host to the trusted local LAN and serve the phone
+web bundle from it; stable builds remain loopback-only. Pairing yields a
+revocable Host-scoped session with an allowlisted API surface.
 
-- **Coupled to Electron.** PTY survival is owned by pty-daemon, not host-service. No reason for host-service itself to outlive the app — coupling deletes the adoption codepath and removes a class of "wedged adopted service" bugs.
-- **CLI keeps its own spawn.** Standalone host-service deployments (CLI-driven) still use detached lifetime via `packages/cli/src/lib/host/spawn.ts`. The coordinator's coupling only applies to Electron-spawned children.
-- **No supervisor process.** Electron main owns everything.
-- **No tray on Windows/Linux.** Services stop with the app.
-- **Manifest handling stays single-sourced.** Both desktop and CLI use the same `host-service-manifest.ts` API. Files are written with 0o600 permissions.
+Phone exposure neither starts a second Host nor changes Desktop readiness,
+authority, sign-in, or release gates. Closing Desktop stops the Embedded Host
+and therefore makes the phone surface unavailable even if detached PTY or ACP
+runtime processes remain alive.
+
+## Host shutdown and reaping
+
+Electron `before-quit` calls the coordinator's stop path and SIGTERMs the
+attached Host child. The child closes its HTTP server, drains briefly, releases
+daemon supervision, and exits. If Electron crashes, the Host's parent-PID
+watchdog observes the missing parent and performs the same shutdown.
+
+| Exit path | Embedded Host behavior |
+| --- | --- |
+| Clean quit, tray quit, or update install | Electron stops the attached child; the child drains HTTP and releases daemon connections |
+| Electron force-kill or crash | Parent-PID watchdog initiates Host shutdown |
+| Development SIGTERM/SIGINT | Coordinator stops the Host before Electron exits; development daemon policy may intentionally start fresh |
+
+The local Host manifest records PID, endpoint, credentials, and the internal
+local identity used for storage paths. It supports health/recovery tooling; it
+is not a directory of additional or remotely adoptable Hosts.
+
+See [`../../../docs/CURRENT_ARCHITECTURE.md`](../../../docs/CURRENT_ARCHITECTURE.md)
+for the repository-wide authority and product boundary.

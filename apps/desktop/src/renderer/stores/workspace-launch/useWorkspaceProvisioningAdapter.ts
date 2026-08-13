@@ -7,7 +7,7 @@ import {
 import { useMemo } from "react";
 import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { useMaybeLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useMaybeLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 
 /** Create a durable Provisioning adapter for any reachable host URL. */
 export function createWorkspaceProvisioningAdapter(

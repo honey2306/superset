@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getWorkspaceCreationBranchesQueryKey } from "renderer/hooks/host-workspaces/useWorkspaceCreationBranches";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import { useWorkspaceProvisioningSubmission } from "renderer/stores/workspace-launch";
 
 export function useImportAllWorktrees() {

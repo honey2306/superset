@@ -31,12 +31,6 @@ import { isMainWorkspace } from "./is-main-workspace";
  */
 const destroysInFlight = new Set<string>();
 
-/**
- * The local catalog is the delete commit point. A legacy cloud mirror must
- * never keep an offline delete request pending indefinitely after that point.
- */
-const LEGACY_CLOUD_DELETE_TIMEOUT_MS = 3_000;
-
 /** @internal — exposed for tests to introspect / clear the guard. */
 export const __testDestroysInFlight = destroysInFlight;
 
@@ -133,13 +127,13 @@ export const workspaceCleanupRouter = router({
 	 *   0. Preflight     — dirty-worktree check (skip if force)
 	 *   1. Teardown      — run .superset/teardown.sh (skip if force)
 	 *   2. Local cleanup — PTYs, worktree
-	 *   3. Cloud delete  ← authoritative UI state
+	 *   3. Host sqlite   — local catalog cleanup
 	 *   4. Branch delete — optional local branch cleanup
-	 *   5. Host sqlite   — local index cleanup
+	 *   5. Caches        — invalidate process-local state
 	 *
-	 * Worktree removal is intentionally before cloud delete. If it fails
-	 * while the path still exists, the cloud row remains so the workspace is
-	 * still visible and delete can be retried instead of orphaning disk state.
+	 * Worktree removal is intentionally before the local catalog delete. If it
+	 * fails while the path still exists, the row remains visible and deletion
+	 * can be retried instead of orphaning disk state.
 	 *
 	 * Force semantics:
 	 *   - skips preflight (step 0)
@@ -158,8 +152,6 @@ export const workspaceCleanupRouter = router({
 	 *   - INTERNAL_SERVER_ERROR with `data.teardownFailure` → teardown
 	 *                            script failed; prompt force-retry
 	 *   - BAD_REQUEST          → main workspace; cannot be deleted
-	 *   - PRECONDITION_FAILED  → no cloud API configured
-	 *   - pass-through         → cloud auth / network failure
 	 */
 	destroy: protectedProcedure
 		.input(
@@ -410,8 +402,8 @@ async function runDestroy(
 			}
 			if (stillRegistered) {
 				// git still tracks a live worktree here — removal genuinely
-				// failed. Keep the cloud row so the workspace stays visible and
-				// retryable instead of orphaning disk past the cloud commit point.
+				// failed. Keep the local row so the workspace stays visible and
+				// retryable instead of orphaning disk past the catalog commit point.
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
 					message: `Failed to remove worktree at ${local.worktreePath}`,
@@ -422,27 +414,11 @@ async function runDestroy(
 	}
 
 	// ─── Step 3: Local delete (authoritative) ─────────────────────
-	// The local row is the commit point and the only record. The cloud
-	// delete is best-effort legacy cleanup for rows mirrored before
-	// workspaces went fully local.
+	// The local catalog row is the commit point and the only workspace record.
 	deleteLocalWorkspace(
 		{ db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog },
 		input.workspaceId,
 	);
-	let cloudDeleted = false;
-	try {
-		await withTimeout(
-			ctx.api.v2Workspace.delete.mutate({ id: input.workspaceId }),
-			LEGACY_CLOUD_DELETE_TIMEOUT_MS,
-			"Legacy cloud cleanup",
-		);
-		cloudDeleted = true;
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		warnings.push(
-			`Legacy cloud cleanup failed (stale mirror row may remain): ${message}`,
-		);
-	}
 
 	// ─── Step 4: Optional branch delete ────────────────────────────
 	// After the local commit point so a failure here can't block the delete.
@@ -472,30 +448,8 @@ async function runDestroy(
 
 	return {
 		success: true,
-		cloudDeleted,
 		worktreeRemoved,
 		branchDeleted,
 		warnings,
 	};
-}
-
-async function withTimeout<T>(
-	promise: Promise<T>,
-	timeoutMs: number,
-	label: string,
-): Promise<T> {
-	let timeout: ReturnType<typeof setTimeout> | undefined;
-	try {
-		return await Promise.race([
-			promise,
-			new Promise<never>((_, reject) => {
-				timeout = setTimeout(
-					() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
-					timeoutMs,
-				);
-			}),
-		]);
-	} finally {
-		if (timeout) clearTimeout(timeout);
-	}
 }

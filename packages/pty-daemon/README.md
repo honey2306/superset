@@ -3,9 +3,9 @@
 Long-lived PTY-owning process for the v2 desktop terminal. host-service is a
 client over a Unix socket; routine host-service upgrades don't touch shells.
 
-Implements [Phase 1](../../apps/desktop/plans/done/20260429-pty-daemon-implementation.md)
+Implements [Phase 1](../../plans/done/pty-lifecycle-cleanup.md)
 (daemon owns PTYs across host-service restarts) and
-[Phase 2](../../apps/desktop/plans/done/20260501-pty-daemon-phase2-implementation.md)
+[Phase 2](../../plans/done/pty-lifecycle-cleanup.md)
 (fd-handoff so sessions survive daemon-binary upgrades too).
 
 This package is **standalone**: it does not import from `@superset/host-service`
@@ -80,7 +80,7 @@ build.ts                        # Bun bundler → dist/pty-daemon.js (target: no
 - **Stateless from the client's perspective.** Every protocol call carries
   full context. No client tracking, no session tombstones, no business
   rules. Single design principle from
-  [the implementation plan](../../apps/desktop/plans/done/20260429-pty-daemon-implementation.md#the-single-design-principle).
+  [the implementation plan](../../plans/done/pty-lifecycle-cleanup.md#the-single-design-principle).
 - **Auth boundary = Unix socket file mode 0600.** No in-band tokens. The
   daemon trusts whoever can open the socket.
 - **Buffer is in-memory only.** Survives host-service restarts (because the

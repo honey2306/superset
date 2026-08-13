@@ -18,31 +18,21 @@ export interface DisposeHostSessionsResult {
 	coordinatorUnavailable: boolean;
 }
 
-/**
- * Build a host-service client for every running local host-service (one per
- * org). Disposal is broadcast to all of them because the electron delete path
- * doesn't know which org owns the workspace; each host no-ops for workspaces it
- * doesn't own, so this is safe and covers non-active-org workspaces too.
- *
- * Returns null (not []) when the coordinator lookup FAILS — the caller must
- * distinguish "no hosts running" (safe: nothing to dispose) from "couldn't ask"
- * (a real failure that would otherwise masquerade as success).
- */
-async function localHostClients(utils: ElectronTrpcUtils) {
-	let connections: { port: number; secret: string }[];
+/** Resolve the one embedded host client. Null means no host is running. */
+async function localHostClient(utils: ElectronTrpcUtils) {
+	let connection: { port: number; secret: string } | null;
 	try {
-		connections = await utils.hostServiceCoordinator.getConnections.fetch(
+		connection = await utils.hostServiceCoordinator.getConnection.fetch(
 			undefined,
 			{ staleTime: 0 },
 		);
 	} catch {
-		return null;
+		return { kind: "unavailable" } as const;
 	}
-	return (connections ?? []).map(({ port, secret }) => {
-		const url = `http://127.0.0.1:${port}`;
-		setHostServiceSecret(url, secret);
-		return getHostServiceClientByUrl(url);
-	});
+	if (!connection) return { kind: "stopped" } as const;
+	const url = `http://127.0.0.1:${connection.port}`;
+	setHostServiceSecret(url, connection.secret);
+	return { kind: "ready", client: getHostServiceClientByUrl(url) } as const;
 }
 
 async function disposeViaHosts(
@@ -58,30 +48,21 @@ async function disposeViaHosts(
 		unreachableHosts: 0,
 		coordinatorUnavailable: false,
 	};
-	const clients = await localHostClients(utils);
-	if (clients === null) {
-		console.warn("Failed to enumerate host services for dispose", logContext);
+	const host = await localHostClient(utils);
+	if (host.kind === "unavailable") {
+		console.warn("Failed to resolve embedded host for dispose", logContext);
 		result.coordinatorUnavailable = true;
 		return result;
 	}
-	const outcomes = await Promise.all(
-		clients.map((client) =>
-			run(client).catch((error) => {
-				console.warn("Failed to dispose host sessions", {
-					...logContext,
-					error,
-				});
-				return null;
-			}),
-		),
-	);
-	for (const outcome of outcomes) {
-		if (!outcome) {
-			result.unreachableHosts += 1;
-			continue;
-		}
-		result.terminated += outcome.terminated;
-		result.failed += outcome.failed;
+	if (host.kind === "stopped") return result;
+
+	try {
+		const outcome = await run(host.client);
+		result.terminated = outcome.terminated;
+		result.failed = outcome.failed;
+	} catch (error) {
+		console.warn("Failed to dispose host sessions", { ...logContext, error });
+		result.unreachableHosts = 1;
 	}
 	return result;
 }
@@ -89,7 +70,7 @@ async function disposeViaHosts(
 /**
  * The electron delete/close/deleteWorktree paths only kill the main-process
  * daemon's terminals, so a workspace's host-service sessions (backgrounded,
- * renderer-detached ones included) would leak. Tell every local host-service
+ * renderer-detached ones included) would leak. Tell the embedded host-service
  * to dispose them and report what happened — callers surface failures via
  * {@link toastDisposeFailures}. Never throws.
  */
@@ -146,8 +127,7 @@ export function toastDisposeFailures(
 		},
 	};
 
-	// A no-stamp failure (couldn't reach a host, or couldn't even enumerate
-	// them) is the more urgent line: those sessions have no background retry,
+	// A no-stamp failure (couldn't reach the host, or couldn't resolve it) is the more urgent line: those sessions have no background retry,
 	// so lead with that even when confirmed failures also exist.
 	if (unreached) {
 		const alsoFailed =

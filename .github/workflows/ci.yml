@@ -118,8 +118,6 @@ jobs:
         run: bun run install:deps
 
       - name: Test
-        env:
-          RELAY_URL: ${{ secrets.RELAY_URL }}
         run: bun run test
 
   typecheck:
@@ -177,6 +175,4 @@ jobs:
         run: bun run install:deps
 
       - name: Build Desktop
-        env:
-          RELAY_URL: ${{ secrets.RELAY_URL }}
         run: bun turbo run build --filter=@superset/desktop

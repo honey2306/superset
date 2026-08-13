@@ -1,62 +1,57 @@
 # Host Service Architecture
 
-What a host service is, how it's layered, and what needs to change.
+Superset Desktop embeds one Host service for the current local machine. The
+Host is the sole runtime and persistence authority for local product domains;
+Electron owns application lifecycle and native presentation, while the renderer
+owns presentation and rebuildable projections.
 
-## What is a host service?
-
-A process that runs workspaces on a machine — laptop or remote server. It clones repos, runs terminals, watches filesystems, runs AI chat, and registers itself with the cloud as a **host**.
-
-A **device** is anything that connects (phone, browser, desktop app). A **host** is something that runs workspaces. A MacBook is both. A phone is only a device. A remote server is only a host.
-
-The host service must be deployable standalone with zero Electron awareness.
+See [`../../../docs/CURRENT_ARCHITECTURE.md`](../../../docs/CURRENT_ARCHITECTURE.md)
+for the repository-wide product boundary.
 
 ## Layering
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  ELECTRON DESKTOP (apps/desktop)                             │
-│                                                              │
-│  Owns:                                                       │
-│  - Spawning / adopting / releasing host service processes    │
-│  - Desktop-specific credential providers                     │
-│  - Session config (auth token, cloud API URL)                │
-│  - System tray UI                                            │
-│  - Quit flow (release vs stop)                               │
-│  - Manifest files (on-disk persistence for process adoption) │
-│                                                              │
-│  Does NOT own:                                               │
-│  - Workspace CRUD, host registration, terminal sessions      │
-│  - Organization metadata (the host service knows its own)    │
-│  - Any business logic a remote host would also need          │
-├──────────────────────────────────────────────────────────────┤
-│  HOST SERVICE (packages/host-service)                        │
-│                                                              │
-│  Owns:                                                       │
-│  - Workspace lifecycle (create, delete, list)                │
-│  - Host registration with the cloud                          │
-│  - Terminal PTY management                                   │
-│  - Filesystem watching                                       │
-│  - Git operations                                            │
-│  - AI chat runtime                                           │
-│  - Its own identity and metadata (host.info endpoint)        │
-│                                                              │
-│  Does NOT own:                                               │
-│  - How it was started (Electron vs systemd vs docker)        │
-│  - Credential discovery (keychain, ~/.claude, git cred mgr) │
-│  - Default paths like ~/.superset/host.db                    │
-│  - Electron concepts (resourcesPath, manifests, etc.)        │
-└──────────────────────────────────────────────────────────────┘
+```text
+Electron main
+  - starts and stops the embedded Host with the app
+  - owns windows, native menus, updates, and OS integration
+  - supplies local credentials and configuration
+        |
+        v
+Embedded Host (`packages/host-service`)
+  - WorkspaceCatalog: canonical Project and Workspace identity (`host.db`)
+  - workspace provisioning: Git + filesystem materialization
+  - Git and filesystem APIs
+  - terminal and ACP session execution
+  - local Todo and Automation persistence/scheduling
+  - GitHub Issue, pull-request, review, and checks integration
+        |
+        +-- renderer: UI and rebuildable catalog/runtime projections
+        `-- paired phone: direct trusted LAN/Tailscale connection
 ```
 
-## Host vs Device
+## Authority rules
 
-Rename in host service context:
-- `deviceClientId` → `hostId` (generated internally from machine identity)
-- `deviceName` → `hostName` (generated internally from `os.hostname()`)
-- `device.ensureV2Host` → `host.register`
+- `host.db` and Host APIs are authoritative for Projects, Workspaces, local
+  Todos, Automations, Automation runs, phone sessions, and Host runtime records.
+- `WorkspaceCatalog` is the only Project/Workspace identity seam. A renderer
+  cache, route, pane layout, or optimistic row is never a second authority.
+- Git, filesystem, diff, terminal, and ACP operations execute through the Host.
+- Legacy Electron `local.db`, Electric collections, and cloud Tasks are not
+  Desktop domain sources or fallback merge inputs.
+- GitHub is an external integration, not the owner of local Workspace state.
 
-Host identity is intrinsic — the host service generates it at startup, not passed in as config.
+## Phone boundary
 
----
+A phone reaches this embedded Host directly over a trusted LAN or Tailscale
+address. Desktop creates a short-lived pairing code; redemption yields a
+revocable, host-scoped session. There is no Relay hop, remote-host discovery,
+or remote workspace-host control plane.
 
-For API shapes, boundaries, and concrete migration steps, see [HOST_SERVICE_BOUNDARIES.md](./HOST_SERVICE_BOUNDARIES.md).
+## Cloud boundary
+
+Account/authentication, GitHub, updates, downloads, and marketing may use the
+remaining API/web applications. Those applications do not own or synchronize
+Desktop Workspace, Todo, Automation, terminal, filesystem, Git, or ACP state.
+
+For process lifetime and detached runtime recovery, see
+[HOST_SERVICE_LIFECYCLE.md](./HOST_SERVICE_LIFECYCLE.md).

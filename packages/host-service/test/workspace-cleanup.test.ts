@@ -36,7 +36,6 @@ afterEach(() => {
 interface ContextSpec {
 	workspace?: WorkspaceRow;
 	project?: ProjectRow;
-	cloudDelete?: () => Promise<unknown>;
 	gitStatus?: { isClean: () => boolean };
 	revListCount?: string | (() => Promise<string>);
 	gitFactoryThrows?: boolean;
@@ -48,12 +47,10 @@ interface ContextSpec {
 	// Whether `git branch --list` finds the branch (defaults to present).
 	branchExists?: boolean;
 	dbDeleteThrows?: boolean | "once";
-	noApi?: boolean;
 }
 
 function makeCtx(spec: ContextSpec): HostServiceContext & {
 	__mocks: {
-		cloudDelete: ReturnType<typeof mock>;
 		broadcastWorkspaceChanged: ReturnType<typeof mock>;
 	};
 } {
@@ -66,8 +63,6 @@ function makeCtx(spec: ContextSpec): HostServiceContext & {
 	const projectFindFirst = mock(() => ({
 		sync: () => spec.project,
 	}));
-
-	const cloudDelete = mock(spec.cloudDelete ?? (async () => undefined));
 
 	const status = mock(async () => spec.gitStatus ?? { isClean: () => true });
 	const revList = mock(async () =>
@@ -127,13 +122,6 @@ function makeCtx(spec: ContextSpec): HostServiceContext & {
 		organizationId: "org-1",
 		git: git as never,
 		github: (async () => ({})) as never,
-		api: spec.noApi
-			? undefined
-			: ({
-					v2Workspace: {
-						delete: { mutate: cloudDelete },
-					},
-				} as never),
 		db: {
 			query: {
 				workspaces: { findFirst: workspaceFindFirst },
@@ -156,7 +144,7 @@ function makeCtx(spec: ContextSpec): HostServiceContext & {
 		eventBus: { broadcastWorkspaceChanged } as never,
 	};
 	return Object.assign(ctx as HostServiceContext, {
-		__mocks: { cloudDelete, broadcastWorkspaceChanged },
+		__mocks: { broadcastWorkspaceChanged },
 	});
 }
 
@@ -390,34 +378,6 @@ describe("workspaceCleanup.destroy in-flight guard", () => {
 		expect(__testDestroysInFlight.has("ws-1")).toBe(false);
 	});
 
-	test("cloud delete failure degrades to a warning (local delete is the commit point)", async () => {
-		const ctx = makeCtx({
-			workspace: {
-				id: "ws-1",
-				projectId: "p-1",
-				worktreePath: "/missing/wt",
-				branch: "feature",
-			},
-			project: { id: "p-1", repoPath: "/repo" },
-			cloudDelete: async () => {
-				throw new Error("cloud is down");
-			},
-		});
-		const caller = workspaceCleanupRouter.createCaller(ctx);
-		const result = await caller.destroy({
-			workspaceId: "ws-1",
-			deleteBranch: false,
-			force: true,
-		});
-		expect(result.success).toBe(true);
-		expect(result.cloudDeleted).toBe(false);
-		expect(
-			result.warnings.some((w) => w.includes("Legacy cloud cleanup failed")),
-		).toBe(true);
-		expect(ctx.__mocks.broadcastWorkspaceChanged).toHaveBeenCalledTimes(1);
-		expect(__testDestroysInFlight.has("ws-1")).toBe(false);
-	});
-
 	test("rejects a concurrent call with CONFLICT + DELETE_IN_PROGRESS cause", async () => {
 		__testDestroysInFlight.add("ws-1");
 		const caller = workspaceCleanupRouter.createCaller(makeCtx({}));
@@ -496,7 +456,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 
 	test("worktree removal failure blocks local delete while the path still exists", async () => {
 		const tmp = mkdtempSync(join(tmpdir(), "workspace-delete-"));
-		let cloudCallCount = 0;
 		try {
 			const ctx = makeCtx({
 				workspace: {
@@ -506,9 +465,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 					branch: "feature",
 				},
 				project: { id: "p-1", repoPath: "/repo" },
-				cloudDelete: async () => {
-					cloudCallCount += 1;
-				},
 				worktreeRemove: async () => {
 					throw new Error("worktree remove boom");
 				},
@@ -525,7 +481,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 					force: true,
 				}),
 			).rejects.toThrow(/Failed to remove worktree/i);
-			expect(cloudCallCount).toBe(0);
 			expect(ctx.__mocks.broadcastWorkspaceChanged).not.toHaveBeenCalled();
 		} finally {
 			rmSync(tmp, { recursive: true, force: true });
@@ -534,7 +489,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 
 	test("git open failure blocks local delete while the worktree path still exists", async () => {
 		const tmp = mkdtempSync(join(tmpdir(), "workspace-delete-"));
-		let cloudCallCount = 0;
 		try {
 			const ctx = makeCtx({
 				workspace: {
@@ -544,9 +498,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 					branch: "feature",
 				},
 				project: { id: "p-1", repoPath: "/repo" },
-				cloudDelete: async () => {
-					cloudCallCount += 1;
-				},
 				gitFactoryThrows: true,
 			});
 			const caller = workspaceCleanupRouter.createCaller(ctx);
@@ -558,15 +509,13 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 					force: true,
 				}),
 			).rejects.toThrow(/Failed to verify worktree removal/i);
-			expect(cloudCallCount).toBe(0);
 		} finally {
 			rmSync(tmp, { recursive: true, force: true });
 		}
 	});
 
-	test("missing project metadata warns but still deletes local + cloud state", async () => {
+	test("missing project metadata warns but still deletes local state", async () => {
 		const tmp = mkdtempSync(join(tmpdir(), "workspace-delete-"));
-		let cloudCallCount = 0;
 		try {
 			const ctx = makeCtx({
 				workspace: {
@@ -576,9 +525,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 					branch: "feature",
 				},
 				project: undefined,
-				cloudDelete: async () => {
-					cloudCallCount += 1;
-				},
 			});
 			const caller = workspaceCleanupRouter.createCaller(ctx);
 
@@ -589,18 +535,16 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 			});
 
 			expect(result.success).toBe(true);
-			expect(result.cloudDeleted).toBe(true);
 			expect(result.worktreeRemoved).toBe(false);
 			expect(result.warnings).toContain(
 				`Skipped worktree removal at ${tmp}: project metadata is missing`,
 			);
-			expect(cloudCallCount).toBe(1);
 		} finally {
 			rmSync(tmp, { recursive: true, force: true });
 		}
 	});
 
-	test("destroy completes without a cloud API (local-first)", async () => {
+	test("destroy is fully local", async () => {
 		const tmp = mkdtempSync(join(tmpdir(), "workspace-delete-"));
 		try {
 			const ctx = makeCtx({
@@ -611,7 +555,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 					branch: "feature",
 				},
 				project: { id: "p-1", repoPath: "/repo" },
-				noApi: true,
 			});
 			const caller = workspaceCleanupRouter.createCaller(ctx);
 
@@ -621,7 +564,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 				force: true,
 			});
 			expect(result.success).toBe(true);
-			expect(result.cloudDeleted).toBe(false);
 			expect(ctx.__mocks.broadcastWorkspaceChanged).toHaveBeenCalledTimes(1);
 		} finally {
 			rmSync(tmp, { recursive: true, force: true });
@@ -629,7 +571,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 	});
 
 	test("branch delete failure is reported as a warning after the local commit point", async () => {
-		let cloudCallCount = 0;
 		const ctx = makeCtx({
 			workspace: {
 				id: "ws-1",
@@ -638,9 +579,6 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 				branch: "feature",
 			},
 			project: { id: "p-1", repoPath: "/repo" },
-			cloudDelete: async () => {
-				cloudCallCount += 1;
-			},
 			branchDelete: async () => {
 				throw new Error("branch delete boom");
 			},
@@ -653,13 +591,11 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 			force: true,
 		});
 		expect(result.success).toBe(true);
-		expect(result.cloudDeleted).toBe(true);
 		expect(result.worktreeRemoved).toBe(true);
 		expect(result.branchDeleted).toBe(false);
 		expect(result.warnings).toContain(
 			"Failed to delete branch feature: branch delete boom",
 		);
-		expect(cloudCallCount).toBe(1);
 	});
 
 	test("sqlite row-delete failure fails the destroy (local delete is the commit point)", async () => {
@@ -681,6 +617,5 @@ describe("workspaceCleanup.destroy cleanup ordering", () => {
 				force: true,
 			}),
 		).rejects.toThrow(/sqlite delete boom/);
-		expect(ctx.__mocks.cloudDelete).not.toHaveBeenCalled();
 	});
 });

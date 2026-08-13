@@ -1,6 +1,5 @@
 <div align="center">
 
-<img width="full" alt="Superset" src="apps/marketing/public/images/readme-hero.png" />
 
 ### The Code Editor for AI Agents
 
@@ -33,7 +32,7 @@ Superset orchestrates CLI-based coding agents across isolated git worktrees, wit
 - **Monitor all your agents** from one place and get notified when they need attention
 - **Review and edit changes quickly** with the built-in diff viewer and editor
 - **Open any workspace where you need it** with one-click handoff to your editor or terminal
-- **Reach your workspaces from anywhere** via remote hosts, the CLI, the SDK, or MCP
+- **Manage work locally** with one embedded Host authority for workspaces, Git, files, terminals, todos, and automations
 
 Wait less, ship more.
 
@@ -51,7 +50,7 @@ Run 10+ coding agents at once, each in its own git worktree with its own branch,
 
 </td>
 <td width="50%">
-  <a href="https://docs.superset.sh/workspaces"><img src="apps/marketing/public/images/readme/parallel-workspaces.png" alt="Superset sidebar with multiple workspaces running agents in parallel" width="100%" /></a>
+  <a href="https://docs.superset.sh/workspaces">Read the documentation →</a>
 </td>
 </tr>
 <tr>
@@ -65,7 +64,7 @@ Track every agent from the sidebar, with working indicators, completion chimes, 
 
 </td>
 <td width="50%">
-  <a href="https://docs.superset.sh/agent-integration"><img src="apps/marketing/public/images/readme/agent-monitoring.png" alt="Agent status indicators in the workspace sidebar" width="100%" /></a>
+  <a href="https://docs.superset.sh/agent-integration">Read the documentation →</a>
 </td>
 </tr>
 <tr>
@@ -79,7 +78,7 @@ Tabs, infinite splits, presets, and persistent sessions that survive restarts. P
 
 </td>
 <td width="50%">
-  <a href="https://docs.superset.sh/terminal-integration"><img src="apps/marketing/public/images/readme/terminal.png" alt="Split terminals running agents side by side" width="100%" /></a>
+  <a href="https://docs.superset.sh/terminal-integration">Read the documentation →</a>
 </td>
 </tr>
 <tr>
@@ -93,7 +92,7 @@ Inspect, comment on, and edit agent changes without leaving the app, then commit
 
 </td>
 <td width="50%">
-  <a href="https://docs.superset.sh/diff-viewer"><img src="apps/marketing/public/images/readme/diff-viewer.png" alt="Reviewing an agent's changes in the diff viewer" width="100%" /></a>
+  <a href="https://docs.superset.sh/diff-viewer">Read the documentation →</a>
 </td>
 </tr>
 <tr>
@@ -107,7 +106,7 @@ Preview running dev servers in a browser pane. Ports are detected per workspace,
 
 </td>
 <td width="50%">
-  <a href="https://docs.superset.sh/browser"><img src="apps/marketing/public/images/readme/browser-ports.png" alt="In-app browser previewing a dev server with detected ports" width="100%" /></a>
+  <a href="https://docs.superset.sh/browser">Read the documentation →</a>
 </td>
 </tr>
 <tr>
@@ -115,27 +114,27 @@ Preview running dev servers in a browser pane. Ports are detected per workspace,
 
 ### Automations
 
-Run agent sessions on a schedule: triage issues overnight, draft the weekly changelog, keep dependencies fresh.
+Run locally stored agent sessions on a schedule: triage GitHub issues overnight, draft the weekly changelog, keep dependencies fresh. Schedules and run history stay on the embedded Host.
 
 [Docs →](https://docs.superset.sh/automations)
 
 </td>
 <td width="50%">
-  <a href="https://docs.superset.sh/automations"><img src="apps/marketing/public/images/readme/automations.png" alt="Scheduled agent automations" width="100%" /></a>
+  <a href="https://docs.superset.sh/automations">Read the documentation →</a>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="middle">
 
-### Remote Workspaces
+### Phone Access
 
-Connect another machine and reach its workspaces from anywhere: the desktop app, the CLI, or your phone. Wake offline hosts with a custom command.
-
-[Docs →](https://docs.superset.sh/remote-workspaces)
+Pair your phone directly with the desktop host over a trusted local network or Tailscale. Phone access uses a host-scoped session and does not route through a cloud relay.
 
 </td>
 <td width="50%">
-  <a href="https://docs.superset.sh/remote-workspaces"><img src="apps/docs/public/images/remote-workspaces-hosts-members.png" alt="Hosts and members in organization settings" width="100%" /></a>
+
+Workspaces and agent sessions remain owned by the current machine. Pairing and session revocation are managed from Desktop settings.
+
 </td>
 </tr>
 <tr>
@@ -149,7 +148,7 @@ Jump to any workspace, action, or setting from one search box.
 
 </td>
 <td width="50%">
-  <a href="https://docs.superset.sh/keyboard-shortcuts"><img src="apps/marketing/public/images/readme/command-palette.png" alt="Command palette searching across workspaces and actions" width="100%" /></a>
+  <a href="https://docs.superset.sh/keyboard-shortcuts">Read the documentation →</a>
 </td>
 </tr>
 </table>
@@ -159,7 +158,7 @@ Jump to any workspace, action, or setting from one search box.
 - **[Model picker & custom agents](https://docs.superset.sh/agent-integration)**: choose a model and reasoning effort at launch, and add any terminal agent with its own icon
 - **[Workspace setup scripts](https://docs.superset.sh/setup-teardown-scripts)**: automate env setup, dependency installs, and dev servers per workspace
 - **[Terminal presets](https://docs.superset.sh/terminal-presets)**: save agent and shell layouts and open them with one keystroke
-- **[Slack & Linear](https://docs.superset.sh/use-with-linear)**: spin up workspaces from Slack messages or Linear issues
+- **GitHub Issues & pull requests**: search repository work, launch a workspace, review checks and conversations, and publish through the Host's GitHub integration
 - **[Open in your IDE](https://docs.superset.sh/use-with-ide)**: one-click handoff to Cursor, VS Code, or any editor
 - **[Custom themes](https://docs.superset.sh/custom-themes)**: build, edit, and import theme files
 - **[Keyboard shortcuts](https://docs.superset.sh/keyboard-shortcuts)**: every action is remappable via **Settings → Keyboard Shortcuts** (⌘/)
@@ -196,26 +195,19 @@ Agents get more than a terminal:
 - **Status and notifications**: working indicators, completion chimes, and dock badges when an agent needs you
 - **Built-in chat**: talk to models in a chat pane, with inline tool approvals and plan review
 
-## More Than a Desktop App
+## Local-First Desktop
 
-Every surface talks to the same workspaces, so you can start a task in the app and check on it from anywhere.
+The embedded Host is the single authority for Workspace Catalog identity, Git,
+filesystem, terminal and ACP execution, Todos, and Automations. Desktop does not
+merge those domains from a cloud Tasks service, Electric, or legacy
+`local.db` state.
 
-| Surface | What you get |
-|:--------|:-------------|
-| [**Desktop App**](https://github.com/superset-sh/superset/releases/latest) | The full IDE: terminals, diff viewer, in-app browser, automations |
-| [**CLI**](https://docs.superset.sh/cli/getting-started) | A single `superset` binary to manage workspaces, agents, terminals, and hosts from any shell |
-| [**TypeScript SDK**](https://docs.superset.sh/sdk/getting-started) | Drive Superset programmatically with [`@superset_sh/sdk`](https://www.npmjs.com/package/@superset_sh/sdk) from Node, Bun, or Deno |
-| [**MCP Server**](https://docs.superset.sh/mcp) | Let Claude Code, Codex, Cursor, and other agents create and manage workspaces themselves |
+GitHub remains connected for Issues, pull requests, reviews, checks, and
+publishing Git operations. Phone access connects directly to the current
+Desktop Host over a trusted LAN or Tailscale address using a revocable paired
+session; it does not use a cloud relay or a remote-host directory.
 
-The CLI comes bundled with the desktop app, or install it standalone:
-
-```bash
-curl -fsSL https://superset.sh/cli/install.sh | sh
-# or
-brew install superset-sh/tap/superset
-```
-
-An iOS app is coming soon so you can check on your agents from your phone.
+See [Current Desktop Architecture](docs/CURRENT_ARCHITECTURE.md).
 
 ## Requirements
 
@@ -254,10 +246,11 @@ app identity and ports so the development desktop app can run alongside the
 installed Superset app and other development worktrees.
 
 No Neon account or third-party credentials are needed. `setup.local.sh` brings
-up a local Postgres + Electric stack via Docker and seeds a dev account. Sign in
-with the **"Sign in as dev"** button (or `admin@local.test` / `supersetdev`).
+up the local services used by the monorepo. Superset Desktop itself opens
+without sign-in; the seeded dev account is only for web/API surfaces that still
+exercise cloud account flows.
 
-Prereqs: `bun`, `docker`, `jq`, `caddy` (`brew install jq caddy && caddy trust`).
+Prereqs: `bun`, `docker`, `jq` (`brew install jq`).
 
 See [**DEVELOPMENT.md**](./DEVELOPMENT.md) for the full guide: what the setup script does, manual setup against real services, common commands, troubleshooting, and how to build the desktop app. Contribution process lives in [**CONTRIBUTING.md**](./CONTRIBUTING.md).
 
@@ -286,7 +279,7 @@ Keyboard shortcuts are customizable via **Settings → Keyboard Shortcuts** (⌘
   <a href="https://vitejs.dev/"><img src="https://img.shields.io/badge/Vite-%23646CFF.svg?logo=vite&logoColor=white" alt="Vite" /></a>
   <a href="https://biomejs.dev/"><img src="https://img.shields.io/badge/Biome-339AF0?logo=biome&logoColor=white" alt="Biome" /></a>
   <a href="https://orm.drizzle.team/"><img src="https://img.shields.io/badge/Drizzle%20ORM-FFE873?logo=drizzle&logoColor=black" alt="Drizzle ORM" /></a>
-  <a href="https://neon.tech/"><img src="https://img.shields.io/badge/Neon-00E9CA?logo=neon&logoColor=white" alt="Neon" /></a>
+  <a href="https://sqlite.org/"><img src="https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white" alt="SQLite" /></a>
   <a href="https://trpc.io/"><img src="https://img.shields.io/badge/tRPC-2596BE?logo=trpc&logoColor=white" alt="tRPC" /></a>
 </p>
 

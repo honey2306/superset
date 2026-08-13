@@ -1,4 +1,4 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
 import { useRef } from "react";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";

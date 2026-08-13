@@ -1,5 +1,5 @@
 import { useDeferredValue } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useProjectDefaultApp } from "renderer/routes/_local/hooks/useProjectDefaultApp";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import type { ChangesViewMode } from "../../types";
 import { FileListGrouped } from "./FileListGrouped";
@@ -48,10 +48,7 @@ export function FileList({
 	isExpandedView,
 	projectId,
 }: FileListProps) {
-	const { data: defaultApp } = electronTrpc.projects.getDefaultApp.useQuery(
-		{ projectId: projectId ?? "" },
-		{ enabled: !!projectId },
-	);
+	const { app: defaultApp } = useProjectDefaultApp(projectId);
 	const deferredFiles = useDeferredValue(files);
 	const shouldVirtualize = files.length >= LARGE_FILE_LIST_THRESHOLD;
 	const filesForRender = shouldVirtualize ? deferredFiles : files;

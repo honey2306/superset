@@ -1,4 +1,4 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import { useParams } from "@tanstack/react-router";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useSidebarStore } from "renderer/stores/sidebar-state";
@@ -8,7 +8,7 @@ import { PresetsBar } from "./components/PresetsBar";
 import { useShowPresetsBar } from "./hooks/useShowPresetsBar";
 import { TabsContent } from "./TabsContent";
 import { GroupStrip } from "./TabsContent/GroupStrip";
-import { V1PanesWorkspace } from "./TabsContent/V1PanesWorkspace";
+import { PanesWorkspace } from "./TabsContent/PanesWorkspace";
 
 interface ContentViewProps {
 	defaultExternalApp?: ExternalApp | null;
@@ -34,7 +34,7 @@ export function ContentView({
 	});
 
 	if (workspaceId) {
-		return <V1PanesWorkspace workspaceId={workspaceId} />;
+		return <PanesWorkspace workspaceId={workspaceId} />;
 	}
 
 	return (

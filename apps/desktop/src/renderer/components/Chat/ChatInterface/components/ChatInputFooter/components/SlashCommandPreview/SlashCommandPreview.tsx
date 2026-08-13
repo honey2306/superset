@@ -1,6 +1,7 @@
-import { chatServiceTrpc } from "@superset/chat/client";
 import { usePromptInputController } from "@superset/ui/ai-elements/prompt-input";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useHostWorkspaceIdForCwd } from "renderer/components/Chat/utils/useHostWorkspaceIdForCwd";
+import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { SlashCommandParamField } from "./components/SlashCommandParamField";
 import {
@@ -53,6 +54,7 @@ export function SlashCommandPreview({
 	const inputValue = textInput.value;
 	const slashPreviewInput = normalizeSlashPreviewInput(inputValue);
 	const parsedInput = useMemo(() => parseSlashInput(inputValue), [inputValue]);
+	const workspaceId = useHostWorkspaceIdForCwd(cwd);
 
 	const [debouncedSlashPreviewInput, setDebouncedSlashPreviewInput] =
 		useState("");
@@ -65,13 +67,13 @@ export function SlashCommandPreview({
 	}, [slashPreviewInput]);
 
 	const { data: slashPreview } =
-		chatServiceTrpc.workspace.previewSlashCommand.useQuery(
+		hostServiceTrpc.chat.previewSlashCommand.useQuery(
 			{
-				cwd,
+				workspaceId: workspaceId ?? "",
 				text: debouncedSlashPreviewInput,
 			},
 			{
-				enabled: debouncedSlashPreviewInput.length > 1 && !!cwd,
+				enabled: debouncedSlashPreviewInput.length > 1 && workspaceId !== null,
 				staleTime: 250,
 				placeholderData: (previous) => previous,
 			},

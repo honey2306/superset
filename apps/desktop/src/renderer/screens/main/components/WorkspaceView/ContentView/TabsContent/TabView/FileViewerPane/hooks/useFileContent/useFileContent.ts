@@ -1,5 +1,9 @@
+import { workspaceTrpc } from "@superset/workspace-client";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { toRelativeWorkspacePath } from "shared/absolute-paths";
 import type { ChangeCategory } from "shared/changes-types";
 import { detectLanguage } from "shared/detect-language";
 import { getImageMimeType, isImageFile } from "shared/file-types";
@@ -45,22 +49,42 @@ export function useFileContent({
 	const isRemote =
 		filePath.startsWith("https://") || filePath.startsWith("http://");
 
-	const { data: branchData } = electronTrpc.changes.getBranches.useQuery(
-		{ worktreePath },
-		{
-			enabled: !isRemote && !!worktreePath && diffCategory === "against-base",
-			staleTime: BRANCH_QUERY_STALE_TIME_MS,
-			refetchOnWindowFocus: false,
+	const hostUrl = useWorkspaceHostUrl(workspaceId ?? null);
+	const { data: branchData } = useQuery({
+		queryKey: ["git-file-viewer-branches", hostUrl, workspaceId],
+		enabled:
+			!isRemote &&
+			Boolean(hostUrl && workspaceId) &&
+			diffCategory === "against-base",
+		queryFn: async () => {
+			if (!hostUrl || !workspaceId) {
+				throw new Error("Workspace host is unavailable");
+			}
+			const client = getHostServiceClientByUrl(hostUrl);
+			const [branches, status] = await Promise.all([
+				client.git.listBranches.query({ workspaceId }),
+				client.git.getStatus.query({
+					workspaceId,
+					priority: "background",
+				}),
+			]);
+			return {
+				...branches,
+				currentBranch:
+					branches.branches.find((branch) => branch.isHead)?.name ?? null,
+				defaultBranch: status.defaultBranch.name,
+			};
 		},
-	);
-	const effectiveBaseBranch =
-		branchData?.worktreeBaseBranch ?? branchData?.defaultBranch ?? "main";
+		staleTime: BRANCH_QUERY_STALE_TIME_MS,
+		refetchOnWindowFocus: false,
+	});
+	const effectiveBaseBranch = branchData?.defaultBranch ?? "main";
 
 	const isImage = isImageFile(filePath);
 
 	const rawReadEnabled =
 		!isRemote && viewMode !== "diff" && !isImage && !!filePath && !!workspaceId;
-	const rawQuery = electronTrpc.filesystem.readFile.useQuery(
+	const rawQuery = workspaceTrpc.filesystem.readFile.useQuery(
 		{
 			workspaceId: workspaceId ?? "",
 			absolutePath: filePath,
@@ -109,7 +133,7 @@ export function useFileContent({
 		isImage &&
 		!!filePath &&
 		!!workspaceId;
-	const imageQuery = electronTrpc.filesystem.readFile.useQuery(
+	const imageQuery = workspaceTrpc.filesystem.readFile.useQuery(
 		{
 			workspaceId: workspaceId ?? "",
 			absolutePath: filePath,
@@ -154,38 +178,59 @@ export function useFileContent({
 	const isUnstagedDiff = viewMode === "diff" && diffCategory === "unstaged";
 	const isGitDiff =
 		viewMode === "diff" && !!diffCategory && diffCategory !== "unstaged";
+	const relativePath = toRelativeWorkspacePath(worktreePath, filePath);
+	const oldRelativePath = oldPath
+		? toRelativeWorkspacePath(worktreePath, oldPath)
+		: undefined;
 
 	const { data: gitDiffData, isLoading: isLoadingGitDiff } =
-		electronTrpc.changes.getGitFileContents.useQuery(
+		workspaceTrpc.git.getDiff.useQuery(
 			{
-				worktreePath,
-				absolutePath: filePath,
-				oldAbsolutePath: oldPath,
+				workspaceId: workspaceId ?? "",
+				path: relativePath,
+				oldPath: oldRelativePath,
 				category:
-					(diffCategory as "against-base" | "committed" | "staged") ?? "staged",
+					diffCategory === "committed" ? "commit" : (diffCategory ?? "staged"),
 				commitHash,
-				defaultBranch:
+				baseBranch:
 					diffCategory === "against-base" ? effectiveBaseBranch : undefined,
 			},
 			{
-				enabled: !isRemote && isGitDiff && !!filePath && !!worktreePath,
+				enabled:
+					!isRemote &&
+					isGitDiff &&
+					!!filePath &&
+					!!worktreePath &&
+					!!workspaceId,
+				select: (data) => ({
+					original: data.oldFile.contents,
+					modified: data.newFile.contents,
+					language: detectLanguage(filePath),
+				}),
 			},
 		);
 
 	const { data: gitOriginal, isLoading: isLoadingGitOriginal } =
-		electronTrpc.changes.getGitOriginalContent.useQuery(
+		workspaceTrpc.git.getDiff.useQuery(
 			{
-				worktreePath,
-				absolutePath: filePath,
-				oldAbsolutePath: oldPath,
+				workspaceId: workspaceId ?? "",
+				path: relativePath,
+				oldPath: oldRelativePath,
+				category: "unstaged",
 			},
 			{
-				enabled: !isRemote && isUnstagedDiff && !!filePath && !!worktreePath,
+				enabled:
+					!isRemote &&
+					isUnstagedDiff &&
+					!!filePath &&
+					!!worktreePath &&
+					!!workspaceId,
+				select: (data) => data.oldFile,
 			},
 		);
 
 	const { data: workingCopy, isLoading: isLoadingWorkingCopy } =
-		electronTrpc.filesystem.readFile.useQuery(
+		workspaceTrpc.filesystem.readFile.useQuery(
 			{
 				workspaceId: workspaceId ?? "",
 				absolutePath: filePath,
@@ -212,7 +257,7 @@ export function useFileContent({
 				}
 			}
 			return {
-				original: gitOriginal.content,
+				original: gitOriginal.contents,
 				modified: modifiedContent,
 				language: detectLanguage(filePath),
 			};

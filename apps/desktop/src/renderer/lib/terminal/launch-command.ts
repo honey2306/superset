@@ -1,37 +1,11 @@
-import { waitForTerminalSessionReady } from "./session-readiness";
-
-interface TerminalCreateOrAttachInput {
-	paneId: string;
-	tabId: string;
-	workspaceId: string;
-	cwd?: string;
-	joinPending?: boolean;
+export function normalizeTerminalCommand(command: string): string {
+	return command.endsWith("\n") ? command : `${command}\n`;
 }
 
 interface TerminalWriteInput {
 	paneId: string;
 	data: string;
 	throwOnError?: boolean;
-}
-
-interface LaunchCommandInPaneOptions {
-	paneId: string;
-	tabId: string;
-	workspaceId: string;
-	command: string;
-	cwd?: string;
-	createOrAttach: (input: TerminalCreateOrAttachInput) => Promise<unknown>;
-	write: (input: TerminalWriteInput) => Promise<unknown>;
-	noExecute?: boolean;
-	/**
-	 * Only use this for panes that will mount immediately in the active tab.
-	 * Background tabs must use the helper-side attach path instead.
-	 */
-	waitForMountedSession?: boolean;
-}
-
-export function normalizeTerminalCommand(command: string): string {
-	return command.endsWith("\n") ? command : `${command}\n`;
 }
 
 interface WriteCommandInPaneOptions {
@@ -76,54 +50,4 @@ export async function writeCommandsInPane({
 	const command = buildTerminalCommand(commands);
 	if (!command) return;
 	await writeCommandInPane({ paneId, command, write });
-}
-
-export async function launchCommandInPane({
-	paneId,
-	tabId,
-	workspaceId,
-	command,
-	cwd,
-	createOrAttach,
-	write,
-	noExecute,
-	waitForMountedSession,
-}: LaunchCommandInPaneOptions): Promise<void> {
-	if (waitForMountedSession) {
-		await waitForTerminalSessionReady(paneId);
-		await writeCommandInPane({ paneId, command, write, noExecute });
-		return;
-	}
-
-	await ensureTerminalAttached({
-		paneId,
-		tabId,
-		workspaceId,
-		cwd,
-		createOrAttach,
-	});
-
-	await writeCommandInPane({ paneId, command, write, noExecute });
-}
-
-export async function ensureTerminalAttached({
-	paneId,
-	tabId,
-	workspaceId,
-	cwd,
-	createOrAttach,
-}: {
-	paneId: string;
-	tabId: string;
-	workspaceId: string;
-	cwd?: string;
-	createOrAttach: (input: TerminalCreateOrAttachInput) => Promise<unknown>;
-}): Promise<void> {
-	await createOrAttach({
-		paneId,
-		tabId,
-		workspaceId,
-		cwd,
-		joinPending: true,
-	});
 }

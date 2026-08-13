@@ -16,16 +16,16 @@ import { collectDevFlagOverrides } from "./dev-flag-overrides";
 describe("collectDevFlagOverrides", () => {
 	test('returns {flag: true} for a superset:debug:<flag>="1" entry', () => {
 		const overrides = collectDevFlagOverrides(
-			["superset:debug:v2-panes-in-v1"],
+			["superset:debug:test-feature"],
 			(_k) => "1",
 			"superset:debug:",
 		);
-		expect(overrides).toEqual({ "v2-panes-in-v1": true });
+		expect(overrides).toEqual({ "test-feature": true });
 	});
 
 	test('ignores entries not equal to "1"', () => {
 		const overrides = collectDevFlagOverrides(
-			["superset:debug:v2-panes-in-v1"],
+			["superset:debug:test-feature"],
 			() => "0",
 			"superset:debug:",
 		);
@@ -34,11 +34,11 @@ describe("collectDevFlagOverrides", () => {
 
 	test("ignores entries without the prefix", () => {
 		const overrides = collectDevFlagOverrides(
-			["other-key", "superset:debug:v2-panes-in-v1"],
-			(k) => (k === "superset:debug:v2-panes-in-v1" ? "1" : "1"),
+			["other-key", "superset:debug:test-feature"],
+			(k) => (k === "superset:debug:test-feature" ? "1" : "1"),
 			"superset:debug:",
 		);
-		expect(overrides).toEqual({ "v2-panes-in-v1": true });
+		expect(overrides).toEqual({ "test-feature": true });
 	});
 
 	test("handles null values from the getter", () => {
@@ -52,16 +52,13 @@ describe("collectDevFlagOverrides", () => {
 
 	test("collects multiple flags", () => {
 		const overrides = collectDevFlagOverrides(
-			[
-				"superset:debug:v2-panes-in-v1",
-				"superset:debug:v1-host-service-terminal",
-			],
+			["superset:debug:test-feature", "superset:debug:hiring-banner"],
 			() => "1",
 			"superset:debug:",
 		);
 		expect(overrides).toEqual({
-			"v2-panes-in-v1": true,
-			"v1-host-service-terminal": true,
+			"test-feature": true,
+			"hiring-banner": true,
 		});
 	});
 });

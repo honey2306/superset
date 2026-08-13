@@ -12,6 +12,11 @@ import * as os from "node:os";
 import path from "node:path";
 
 const APP_VERSION = "1.2.3";
+let appIsPackaged = false;
+let appName = "Superset";
+const originalResourcesPath = (
+	process as typeof process & { resourcesPath?: string }
+).resourcesPath;
 let killedPids: Array<{ pid: number; signal: NodeJS.Signals | number }> = [];
 let killProcessError: NodeJS.ErrnoException | null = null;
 
@@ -70,7 +75,10 @@ mock.module("./host-service-utils", () => ({
 mock.module("electron", () => ({
 	app: {
 		getVersion: () => APP_VERSION,
-		isPackaged: false,
+		getName: () => appName,
+		get isPackaged() {
+			return appIsPackaged;
+		},
 		getAppPath: () => "/tmp/app",
 	},
 	dialog: {
@@ -100,6 +108,14 @@ mock.module("./local-db", () => ({
 	},
 }));
 
+const realShellEnv = await import("./shell-env");
+mock.module("./shell-env", () => ({
+	...realShellEnv,
+	getProcessEnvWithShellPath: mock(async (env: Record<string, string>) => ({
+		...env,
+	})),
+}));
+
 const { HOST_SERVICE_RESPAWN_MAX_ATTEMPTS } = await import(
 	"./host-service-respawn"
 );
@@ -113,14 +129,21 @@ const baseManifest = (pid: number, endpoint = "http://127.0.0.1:55555") => ({
 	organizationId: "org-1",
 });
 
-const spawnConfig = { authToken: "token", cloudApiUrl: "https://api.example" };
+const spawnConfig = {};
 
 interface HostServiceCoordinatorInternals {
-	getPreferredPorts(organizationId: string): number[];
-	rememberPort(organizationId: string, port: number): void;
+	getPreferredPorts(): number[];
+	rememberPort(port: number): void;
+	buildEnv(
+		port: number,
+		secret: string,
+		config: typeof spawnConfig,
+	): Promise<Record<string, string>>;
 }
 
 function resetMocks(): void {
+	appIsPackaged = false;
+	appName = "Superset";
 	manifestStore.current = null;
 	readManifestMock.mockClear();
 	removeManifestMock.mockClear();
@@ -146,18 +169,18 @@ describe("HostServiceCoordinator preferred ports", () => {
 	});
 
 	afterEach(() => {
-		coordinator.stopAll();
+		coordinator.stop();
 		if (testManifestRoot) {
 			fs.rmSync(testManifestRoot, { recursive: true, force: true });
 			testManifestRoot = "";
 		}
 	});
 
-	test("prefers the last known port, then a stable org port", () => {
+	test("prefers the last known port, then the stable local scope port", () => {
 		const internals = coordinator as unknown as HostServiceCoordinatorInternals;
-		internals.rememberPort("org-1", 46666);
+		internals.rememberPort(46666);
 
-		const ports = internals.getPreferredPorts("org-1");
+		const ports = internals.getPreferredPorts();
 
 		expect(ports[0]).toBe(46666);
 		expect(ports[1]).toBeGreaterThanOrEqual(48_000);
@@ -167,13 +190,43 @@ describe("HostServiceCoordinator preferred ports", () => {
 	test("uses a deterministic stable port when no previous port exists", () => {
 		const internals = coordinator as unknown as HostServiceCoordinatorInternals;
 
-		const ports = internals.getPreferredPorts("org-1");
-		const secondRead = internals.getPreferredPorts("org-1");
+		const ports = internals.getPreferredPorts();
+		const secondRead = internals.getPreferredPorts();
 
 		expect(ports).toEqual(secondRead);
 		expect(ports).toHaveLength(1);
 		expect(ports[0]).toBeGreaterThanOrEqual(48_000);
 		expect(ports[0]).toBeLessThan(49_000);
+	});
+});
+
+describe("HostServiceCoordinator ACP environment", () => {
+	let coordinator: InstanceType<typeof HostServiceCoordinator>;
+
+	beforeEach(() => {
+		resetMocks();
+		testManifestRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hsc-test-"));
+		(process as typeof process & { resourcesPath?: string }).resourcesPath =
+			"/tmp/resources";
+		coordinator = new HostServiceCoordinator();
+	});
+
+	afterEach(() => {
+		coordinator.stop();
+		fs.rmSync(testManifestRoot, { recursive: true, force: true });
+		testManifestRoot = "";
+		(process as typeof process & { resourcesPath?: string }).resourcesPath =
+			originalResourcesPath;
+	});
+
+	test("enables ACP sessions for packaged stable builds", async () => {
+		appIsPackaged = true;
+		const internals = coordinator as unknown as HostServiceCoordinatorInternals;
+
+		const env = await internals.buildEnv(40000, "secret", spawnConfig);
+
+		expect(env.SUPERSET_ACP_SESSIONS).toBe("1");
+		expect(env.HOST_SERVICE_HOSTNAME).toBe("127.0.0.1");
 	});
 });
 
@@ -195,7 +248,7 @@ describe("HostServiceCoordinator.reset", () => {
 	});
 
 	afterEach(() => {
-		coordinator.stopAll();
+		coordinator.stop();
 		if (testManifestRoot) {
 			fs.rmSync(testManifestRoot, { recursive: true, force: true });
 			testManifestRoot = "";
@@ -205,7 +258,7 @@ describe("HostServiceCoordinator.reset", () => {
 	test("removes manifest, SIGKILLs live pid, then spawns fresh", async () => {
 		manifestStore.current = baseManifest(8888);
 
-		const conn = await coordinator.reset("org-1", spawnConfig);
+		const conn = await coordinator.reset(spawnConfig);
 
 		expect(killedPids).toContainEqual({ pid: 8888, signal: "SIGKILL" });
 		expect(removeManifestMock).toHaveBeenCalled();
@@ -220,7 +273,7 @@ describe("HostServiceCoordinator.reset", () => {
 		err.code = "ESRCH";
 		killProcessError = err;
 
-		const conn = await coordinator.reset("org-1", spawnConfig);
+		const conn = await coordinator.reset(spawnConfig);
 
 		expect(killProcessMock).toHaveBeenCalledWith(7777, "SIGKILL");
 		expect(removeManifestMock).toHaveBeenCalled();
@@ -231,7 +284,7 @@ describe("HostServiceCoordinator.reset", () => {
 	test("is safe when no manifest exists — no kill, still spawns", async () => {
 		manifestStore.current = null;
 
-		const conn = await coordinator.reset("org-1", spawnConfig);
+		const conn = await coordinator.reset(spawnConfig);
 
 		expect(killedPids).toHaveLength(0);
 		// removeManifest is called unconditionally — that's fine, the impl
@@ -245,7 +298,7 @@ describe("HostServiceCoordinator.reset", () => {
 		manifestStore.current = baseManifest(9999);
 		isProcessAliveMock.mockImplementationOnce(() => false);
 
-		const conn = await coordinator.reset("org-1", spawnConfig);
+		const conn = await coordinator.reset(spawnConfig);
 
 		expect(killedPids).toHaveLength(0);
 		expect(spawnMock).toHaveBeenCalledTimes(1);
@@ -254,16 +307,13 @@ describe("HostServiceCoordinator.reset", () => {
 });
 
 interface AdoptableInternals {
-	instances: Map<
-		string,
-		{
-			pid: number;
-			port: number;
-			secret: string;
-			status: string;
-			owned: boolean;
-		}
-	>;
+	instance: {
+		pid: number;
+		port: number;
+		secret: string;
+		status: string;
+		owned: boolean;
+	} | null;
 	spawn: ReturnType<typeof mock>;
 }
 
@@ -284,7 +334,7 @@ describe("HostServiceCoordinator single-flight / adoption", () => {
 	});
 
 	afterEach(() => {
-		coordinator.stopAll();
+		coordinator.stop();
 		if (testManifestRoot) {
 			fs.rmSync(testManifestRoot, { recursive: true, force: true });
 			testManifestRoot = "";
@@ -295,21 +345,21 @@ describe("HostServiceCoordinator single-flight / adoption", () => {
 		manifestStore.current = baseManifest(4321, "http://127.0.0.1:55555");
 		pollHealthCheckMock.mockImplementation(() => Promise.resolve(true));
 
-		const conn = await coordinator.start("org-1", spawnConfig);
+		const conn = await coordinator.start(spawnConfig);
 
 		expect(spawnMock).not.toHaveBeenCalled();
 		expect(conn.port).toBe(55555);
 		expect(conn.secret).toBe("manifest-secret");
 
 		const internals = coordinator as unknown as AdoptableInternals;
-		expect(internals.instances.get("org-1")?.owned).toBe(false);
+		expect(internals.instance?.owned).toBe(false);
 	});
 
 	test("spawns when the manifest health-check fails", async () => {
 		manifestStore.current = baseManifest(4321, "http://127.0.0.1:55555");
 		pollHealthCheckMock.mockImplementation(() => Promise.resolve(false));
 
-		const conn = await coordinator.start("org-1", spawnConfig);
+		const conn = await coordinator.start(spawnConfig);
 
 		expect(spawnMock).toHaveBeenCalledTimes(1);
 		expect(conn.port).toBe(60000);
@@ -321,25 +371,55 @@ describe("HostServiceCoordinator single-flight / adoption", () => {
 		readManifestMock.mockImplementationOnce(() => null);
 		pollHealthCheckMock.mockImplementation(() => Promise.resolve(true));
 
-		const conn = await coordinator.start("org-1", spawnConfig);
+		const conn = await coordinator.start(spawnConfig);
 
 		expect(spawnMock).not.toHaveBeenCalled();
 		expect(conn.port).toBe(55555);
 	});
 
+	test("coalesces concurrent starts into one embedded host spawn", async () => {
+		manifestStore.current = null;
+		let releaseSpawn: () => void = () => {};
+		spawnMock.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					releaseSpawn = () =>
+						resolve({
+							port: 60000,
+							secret: "fresh-secret",
+							machineId: "host-1",
+						});
+				}),
+		);
+
+		const first = coordinator.start(spawnConfig);
+		const second = coordinator.start(spawnConfig);
+		for (
+			let attempt = 0;
+			attempt < 10 && spawnMock.mock.calls.length === 0;
+			attempt++
+		) {
+			await Promise.resolve();
+		}
+		expect(spawnMock).toHaveBeenCalledTimes(1);
+
+		releaseSpawn();
+		expect(await first).toEqual(await second);
+	});
+
 	test("adopted fast-path drops a dead foreign entry and re-spawns", async () => {
 		const internals = coordinator as unknown as AdoptableInternals;
-		internals.instances.set("org-1", {
+		internals.instance = {
 			pid: 4321,
 			port: 55555,
 			secret: "manifest-secret",
 			status: "running",
 			owned: false,
-		});
+		};
 		manifestStore.current = null;
 		isProcessAliveMock.mockImplementation(() => false);
 
-		const conn = await coordinator.start("org-1", spawnConfig);
+		const conn = await coordinator.start(spawnConfig);
 
 		expect(spawnMock).toHaveBeenCalledTimes(1);
 		expect(conn.port).toBe(60000);
@@ -347,49 +427,76 @@ describe("HostServiceCoordinator single-flight / adoption", () => {
 
 	test("stop on an adopted entry does not SIGTERM and keeps the manifest", () => {
 		const internals = coordinator as unknown as AdoptableInternals;
-		internals.instances.set("org-1", {
+		internals.instance = {
 			pid: 4321,
 			port: 55555,
 			secret: "manifest-secret",
 			status: "running",
 			owned: false,
-		});
+		};
 
-		coordinator.stop("org-1");
+		coordinator.stop();
 
 		expect(killedPids).toHaveLength(0);
 		expect(removeManifestMock).not.toHaveBeenCalled();
-		expect(internals.instances.get("org-1")).toBeUndefined();
+		expect(internals.instance).toBeNull();
 	});
 
 	test("stop on an owned entry SIGTERMs the child and removes the manifest", () => {
 		const internals = coordinator as unknown as AdoptableInternals;
-		internals.instances.set("org-1", {
+		internals.instance = {
 			pid: 4321,
 			port: 55555,
 			secret: "own-secret",
 			status: "running",
 			owned: true,
-		});
+		};
 
-		coordinator.stop("org-1");
+		coordinator.stop();
 
 		expect(killedPids).toContainEqual({ pid: 4321, signal: "SIGTERM" });
 		expect(removeManifestMock).toHaveBeenCalled();
-		expect(internals.instances.get("org-1")).toBeUndefined();
+		expect(internals.instance).toBeNull();
+	});
+});
+
+describe("HostServiceCoordinator full quit", () => {
+	test("asks the running embedded host to kill sessions and stop its daemon", async () => {
+		resetMocks();
+		const coordinator = new HostServiceCoordinator();
+		const internals = coordinator as unknown as AdoptableInternals & {
+			stopDaemon: ReturnType<typeof mock>;
+		};
+		internals.instance = {
+			pid: 1001,
+			port: 51001,
+			secret: "secret-1",
+			status: "running",
+			owned: true,
+		};
+		internals.stopDaemon = mock(async () => {});
+
+		await coordinator.shutdownPtyDaemon();
+
+		expect(internals.stopDaemon).toHaveBeenCalledTimes(1);
+		expect(internals.stopDaemon).toHaveBeenCalledWith({
+			port: 51001,
+			secret: "secret-1",
+			machineId: "host-1",
+		});
 	});
 });
 
 describe("HostServiceCoordinator crash respawn", () => {
 	let coordinator: InstanceType<typeof HostServiceCoordinator>;
 	let internals: {
-		instances: Map<string, unknown>;
-		respawns: Map<
-			string,
-			{ attempts: number; timer: unknown; stableTimer: unknown }
-		>;
+		instance: AdoptableInternals["instance"];
+		respawnState: {
+			attempts: number;
+			timer: unknown;
+			stableTimer: unknown;
+		} | null;
 		handleChildExit(
-			organizationId: string,
 			childPid: number,
 			code: number | null,
 			signal: NodeJS.Signals | null,
@@ -399,13 +506,13 @@ describe("HostServiceCoordinator crash respawn", () => {
 	let startMock: ReturnType<typeof mock>;
 
 	function trackRunning(pid: number): void {
-		internals.instances.set("org-1", {
+		internals.instance = {
 			pid,
 			port: 55555,
 			secret: "secret",
 			status: "running",
 			owned: true,
-		});
+		};
 	}
 
 	async function flushTimer(): Promise<void> {
@@ -434,13 +541,13 @@ describe("HostServiceCoordinator crash respawn", () => {
 			return { unref() {} } as unknown as ReturnType<typeof setTimeout>;
 		};
 		startMock = mock(async () => {
-			internals.instances.set("org-1", {
+			internals.instance = {
 				pid: 60001,
 				port: 60000,
 				secret: "fresh",
 				status: "running",
 				owned: true,
-			});
+			};
 			return { port: 60000, secret: "fresh", machineId: "host-1" };
 		});
 		(
@@ -450,7 +557,7 @@ describe("HostServiceCoordinator crash respawn", () => {
 	});
 
 	afterEach(() => {
-		coordinator.stopAll();
+		coordinator.stop();
 		fs.rmSync(testManifestRoot, { recursive: true, force: true });
 		testManifestRoot = "";
 	});
@@ -458,9 +565,9 @@ describe("HostServiceCoordinator crash respawn", () => {
 	test("restarts a crashed running child with jittered backoff", async () => {
 		trackRunning(1111);
 
-		internals.handleChildExit("org-1", 1111, null, "SIGKILL");
+		internals.handleChildExit(1111, null, "SIGKILL");
 
-		expect(internals.respawns.get("org-1")?.attempts).toBe(1);
+		expect(internals.respawnState?.attempts).toBe(1);
 		expect(pendingTimers[0]?.delayMs).toBeGreaterThanOrEqual(500);
 		expect(pendingTimers[0]?.delayMs).toBeLessThanOrEqual(1500);
 		expect(showAlertMock).not.toHaveBeenCalled();
@@ -468,7 +575,7 @@ describe("HostServiceCoordinator crash respawn", () => {
 		expect(startMock).toHaveBeenCalledTimes(1);
 	});
 
-	test("does not resurrect a service after stopAll", async () => {
+	test("does not resurrect a service after stop", async () => {
 		let releaseConfig: () => void = () => {};
 		coordinator.setConfigProvider(
 			() =>
@@ -477,12 +584,12 @@ describe("HostServiceCoordinator crash respawn", () => {
 				}),
 		);
 		trackRunning(2222);
-		internals.handleChildExit("org-1", 2222, null, "SIGKILL");
+		internals.handleChildExit(2222, null, "SIGKILL");
 
 		const timer = pendingTimers.shift();
 		if (!timer) throw new Error("no respawn timer was scheduled");
 		timer.run();
-		coordinator.stopAll();
+		coordinator.stop();
 		releaseConfig();
 		await Promise.resolve();
 		await Promise.resolve();
@@ -492,16 +599,20 @@ describe("HostServiceCoordinator crash respawn", () => {
 
 	test("alerts only after the retry budget is exhausted", () => {
 		trackRunning(3333);
-		internals.respawns.set("org-1", {
+		internals.respawnState = {
 			attempts: HOST_SERVICE_RESPAWN_MAX_ATTEMPTS,
 			timer: null,
 			stableTimer: null,
-		});
+		};
 
-		internals.handleChildExit("org-1", 3333, null, "SIGKILL");
+		internals.handleChildExit(3333, null, "SIGKILL");
 
-		expect(showAlertMock).toHaveBeenCalledTimes(1);
-		expect(internals.respawns.has("org-1")).toBe(false);
+		expect(showAlertMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				message: expect.stringContaining("host service for Local"),
+			}),
+		);
+		expect(internals.respawnState).toBeNull();
 	});
 });
 

@@ -258,12 +258,7 @@ describe("bug-hunt: idempotency + double-fire", () => {
 	});
 
 	test("workspaceCleanup.destroy is idempotent on a non-existent workspace id", async () => {
-		host = await createTestHost({
-			apiOverrides: {
-				"v2Workspace.getFromHost.query": () => null,
-				"v2Workspace.delete.mutate": () => ({ success: true }),
-			},
-		});
+		host = await createTestHost();
 		const id = randomUUID();
 		const a = await host.trpc.workspaceCleanup.destroy.mutate({
 			workspaceId: id,
@@ -276,11 +271,7 @@ describe("bug-hunt: idempotency + double-fire", () => {
 	});
 
 	test("project.remove is idempotent across two calls", async () => {
-		host = await createTestHost({
-			apiOverrides: {
-				"v2Project.delete.mutate": () => ({ success: true }),
-			},
-		});
+		host = await createTestHost();
 		const id = randomUUID();
 		const a = await host.trpc.project.remove.mutate({ projectId: id });
 		const b = await host.trpc.project.remove.mutate({ projectId: id });
@@ -289,20 +280,7 @@ describe("bug-hunt: idempotency + double-fire", () => {
 	});
 
 	test("two concurrent workspace.create calls with the same branch don't collide silently", async () => {
-		host = await createTestHost({
-			apiOverrides: {
-				"host.ensure.mutate": () => ({ machineId: "m1" }),
-				"v2Workspace.create.mutate": (input: unknown) => {
-					const i = input as { branch: string; name: string };
-					return {
-						id: randomUUID(),
-						projectId,
-						branch: i.branch,
-						name: i.name,
-					};
-				},
-			},
-		});
+		host = await createTestHost({});
 		host.db
 			.insert(projects)
 			.values({ id: projectId, repoPath: repo.repoPath })

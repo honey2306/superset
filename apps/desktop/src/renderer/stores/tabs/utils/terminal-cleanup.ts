@@ -1,6 +1,3 @@
-import { rejectTerminalSessionReady } from "../../../lib/terminal/session-readiness";
-import { electronTrpcClient } from "../../../lib/trpc-client";
-
 type TerminalCleanup = () => void | Promise<void>;
 
 const terminalCleanupByPaneId = new Map<string, TerminalCleanup>();
@@ -17,27 +14,23 @@ export const registerTerminalCleanup = (
 	};
 };
 
-/**
- * Uses standalone tRPC client to avoid React hook dependencies
- */
-export const killTerminalForPane = (paneId: string): void => {
-	rejectTerminalSessionReady(
-		paneId,
-		new Error("Terminal pane was closed before the session became ready"),
-	);
-
+export const killTerminalForPane = (paneId: string): boolean => {
 	const registeredCleanup = terminalCleanupByPaneId.get(paneId);
-	if (registeredCleanup) {
-		terminalCleanupByPaneId.delete(paneId);
-		Promise.resolve()
-			.then(registeredCleanup)
-			.catch((error) => {
-				console.warn(`Failed to clean up terminal for pane ${paneId}:`, error);
-			});
-		return;
-	}
+	if (!registeredCleanup) return false;
 
-	electronTrpcClient.terminal.kill.mutate({ paneId }).catch((error) => {
-		console.warn(`Failed to kill terminal for pane ${paneId}:`, error);
-	});
+	terminalCleanupByPaneId.delete(paneId);
+	Promise.resolve()
+		.then(registeredCleanup)
+		.catch((error) => {
+			console.warn(`Failed to clean up terminal for pane ${paneId}:`, error);
+		});
+	return true;
+};
+
+export const killTerminalForPaneOrSession = (
+	paneId: string,
+	terminalId: string,
+	killSession: (terminalId: string) => void,
+): void => {
+	if (!killTerminalForPane(paneId)) killSession(terminalId);
 };

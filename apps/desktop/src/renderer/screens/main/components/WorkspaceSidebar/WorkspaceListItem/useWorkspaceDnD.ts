@@ -5,7 +5,7 @@ import {
 	useMoveWorkspacesToSection,
 	useMoveWorkspaceToSection,
 } from "renderer/react-query/workspaces";
-import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
 import { useActiveDragItemStore } from "renderer/stores/active-drag-item";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { SECTION_DND_TYPE } from "../constants";

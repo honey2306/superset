@@ -6,8 +6,7 @@
  * branches of the same name and namespaces by author.
  * If GitHub no longer reports the fork owner, fall back to `pr/<number>` so
  * the checkout can still recover from GitHub's synthetic PR ref.
- *
- * Mirrors v1 (`apps/desktop/src/lib/trpc/routers/workspaces/utils/git.ts:1630`).
+
  */
 export function derivePrLocalBranchName(pr: {
 	number?: number;

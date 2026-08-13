@@ -1,5 +1,5 @@
+import { execWithShellEnv } from "main/lib/shell-env";
 import { publicProcedure, router } from "..";
-import { execWithShellEnv } from "./workspaces/utils/shell-env";
 
 interface GhDetectResult {
 	installed: boolean;

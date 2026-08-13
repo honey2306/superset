@@ -16,7 +16,5 @@ export interface StaticPortsResult {
 
 export interface EnrichedPort extends DetectedPort {
 	label: string | null;
-	// null → port belongs to the local Electron port manager.
-	// string → URL of the remote host-service that owns this port; kill routes there.
-	hostUrl: string | null;
+	hostUrl: string;
 }

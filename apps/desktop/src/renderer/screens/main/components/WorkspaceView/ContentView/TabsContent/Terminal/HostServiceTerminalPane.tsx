@@ -1,20 +1,5 @@
-/**
- * Host-service terminal pane for v1 workspace (Milestone 2).
- *
- * When the `v1-host-service-terminal` feature flag is enabled, this component
- * replaces the legacy v1 Terminal's data path with the v2-grade byte-safe
- * pipeline: terminalRuntimeRegistry + terminal-ws-transport. xterm receives
- * Uint8Array directly from the WebSocket binary frames, so split UTF-8
- * sequences are handled by xterm's internal state machine instead of being
- * mangled by per-chunk toString("utf8").
- *
- * The v1 tab/pane UX (container, context menu, hotkeys) is preserved — this
- * pane is a drop-in replacement for the data transport only.
- *
- * See: plans/20260724-v1-v2-terminal-fusion.md (Milestone 2)
- */
+/** Host-service-backed terminal pane shared by both pane hosts. */
 
-import { FEATURE_FLAGS } from "@superset/shared/constants";
 import type { Terminal as XTerm } from "@xterm/xterm";
 import {
 	useCallback,
@@ -28,20 +13,16 @@ import { deriveTerminalAgentStatus } from "renderer/hooks/host-service/useTermin
 import { useHotkey } from "renderer/hotkeys";
 import { useTerminalFilePolicy } from "renderer/lib/clickPolicy/policies/useTerminalFilePolicy";
 import { useTerminalUrlPolicy } from "renderer/lib/clickPolicy/policies/useTerminalUrlPolicy";
-import { posthog } from "renderer/lib/posthog";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTerminalAppearance } from "renderer/lib/terminal/appearance/useTerminalAppearance";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import type { ConnectionState } from "renderer/lib/terminal/terminal-ws-transport";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
-import { useTabsStore } from "renderer/stores/tabs/store";
+import { useProjectDefaultApp } from "renderer/routes/_local/hooks/useProjectDefaultApp";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { useTerminalCallbacksStore } from "renderer/stores/tabs/terminal-callbacks";
-import {
-	killTerminalForPane,
-	registerTerminalCleanup,
-} from "renderer/stores/tabs/utils/terminal-cleanup";
-import { setPaneWorkspaceRunState } from "renderer/stores/tabs/workspace-run";
+import { registerTerminalCleanup } from "renderer/stores/tabs/utils/terminal-cleanup";
 import { useTheme } from "renderer/stores/theme/store";
 import { resolveTerminalThemeType } from "renderer/stores/theme/utils";
 import type { PaneStatus } from "shared/tabs-types";
@@ -53,7 +34,7 @@ import type {
 	HostServiceTerminalPaneBridge,
 	HostServiceTerminalPaneSnapshot,
 } from "./host-service-terminal-pane-bridge";
-import { isPaneDestroyed } from "./pane-guards";
+import { registerHostTerminalBackend } from "./host-terminal-backend";
 import {
 	TerminalRichInput,
 	terminalRichInputOpenStore,
@@ -61,8 +42,7 @@ import {
 } from "./RichInput";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
 import { TerminalSearch } from "./TerminalSearch";
-import { registerV1HostTerminalBackend } from "./v1-host-terminal-backend";
-import * as v1TerminalCache from "./v1-terminal-cache";
+import { buildTerminalFileLinkAction } from "./terminal-file-link-action";
 
 export interface HostServiceTerminalPaneProps {
 	paneId: string;
@@ -71,22 +51,20 @@ export interface HostServiceTerminalPaneProps {
 	/** Persisted backend identity supplied by the @superset/panes host. */
 	terminalId?: string;
 	/** Routes pane state/lifecycle writes to a non-legacy UI host. */
-	paneBridge?: HostServiceTerminalPaneBridge;
+	paneBridge: HostServiceTerminalPaneBridge;
 	/**
 	 * Optional shell command run once on session create (preset launch).
 	 * When provided, forwarded to host-service `createSession` as
 	 * `initialCommand`; when omitted, the session spawns a plain shell.
-	 * Used by the v1-panes mount to launch agent presets.
+	 * Used by the panes mount to launch agent presets.
 	 */
 	initialCommand?: string;
 	/**
 	 * Optional working directory for the session. When provided, takes
 	 * precedence over the v1 tabs store pane's `initialCwd`. Used by the
-	 * v1-panes mount (whose panes do not live in the v1 tabs store).
+	 * panes mount (whose panes do not live in the v1 tabs store).
 	 */
 	initialCwd?: string;
-	/** Bypass the v1 host-terminal rollout flag for a v2 panes host. */
-	forceHostService?: boolean;
 }
 
 export function HostServiceTerminalPane({
@@ -97,15 +75,16 @@ export function HostServiceTerminalPane({
 	paneBridge,
 	initialCommand,
 	initialCwd,
-	forceHostService,
 }: HostServiceTerminalPaneProps) {
 	const { t } = useTranslation();
 	const { workspace: workspaceData } = useCatalogWorkspace(workspaceId);
+	const { app: defaultOpenInApp } = useProjectDefaultApp(
+		workspaceData?.projectId,
+	);
 	const { adapter, enabled, status, hostUrl, hostWorkspaceId } =
 		useHostServiceTerminal({
 			workspaceId,
 			worktreePath: workspaceData?.worktreePath,
-			forceEnabled: forceHostService,
 		});
 	const filePolicy = useTerminalFilePolicy();
 	const urlPolicy = useTerminalUrlPolicy();
@@ -115,99 +94,48 @@ export function HostServiceTerminalPane({
 	const [runtimeReady, setRuntimeReady] = useState(false);
 	const [exitCode, setExitCode] = useState<number | null>(null);
 	const [isRestarting, setIsRestarting] = useState(false);
-	const legacyPane = useTabsStore((state) => state.panes[paneId]);
-	const legacyFocusedPaneId = useTabsStore(
-		(state) => state.focusedPaneIds[tabId],
-	);
-	const addFileViewerPane = useTabsStore((state) => state.addFileViewerPane);
 	const paneBridgeRef = useRef(paneBridge);
 	paneBridgeRef.current = paneBridge;
-	const paneSnapshot = paneBridge?.getSnapshot() ?? legacyPane ?? null;
+	const paneSnapshot = paneBridge.getSnapshot();
 	const getPaneSnapshot = useCallback(
 		(): HostServiceTerminalPaneSnapshot | null =>
-			paneBridgeRef.current?.getSnapshot() ??
-			useTabsStore.getState().panes[paneId] ??
-			null,
-		[paneId],
+			paneBridgeRef.current.getSnapshot(),
+		[],
 	);
 	const isCurrentPaneDestroyed = useCallback(
-		() =>
-			paneBridgeRef.current?.isDestroyed() ??
-			isPaneDestroyed(useTabsStore.getState().panes, paneId),
-		[paneId],
+		() => paneBridgeRef.current.isDestroyed(),
+		[],
 	);
-	const setPaneTitle = useCallback(
-		(title: string) => {
-			const bridge = paneBridgeRef.current;
-			if (bridge) {
-				bridge.setTitle(title);
-			} else {
-				useTabsStore.getState().setPaneName(paneId, title);
-			}
-		},
-		[paneId],
-	);
-	const setPaneStatus = useCallback(
-		(nextStatus: PaneStatus) => {
-			const bridge = paneBridgeRef.current;
-			if (bridge) {
-				bridge.setStatus(nextStatus);
-			} else {
-				useTabsStore.getState().setPaneStatus(paneId, nextStatus);
-			}
-		},
-		[paneId],
-	);
+	const setPaneTitle = useCallback((title: string) => {
+		paneBridgeRef.current.setTitle(title);
+	}, []);
+	const setPaneStatus = useCallback((nextStatus: PaneStatus) => {
+		paneBridgeRef.current.setStatus(nextStatus);
+	}, []);
 	const setPaneLifecycleScript = useCallback(
 		(
 			script: NonNullable<HostServiceTerminalPaneSnapshot["lifecycleScript"]>,
 		) => {
-			const bridge = paneBridgeRef.current;
-			if (bridge) {
-				bridge.setLifecycleScript(script);
-			} else {
-				useTabsStore.getState().setPaneLifecycleScript(paneId, script);
-			}
+			paneBridgeRef.current.setLifecycleScript(script);
 		},
-		[paneId],
+		[],
 	);
 	const setWorkspaceRunState = useCallback(
 		(state: "running" | "stopped-by-user" | "stopped-by-exit") => {
-			const bridge = paneBridgeRef.current;
-			if (bridge) {
-				bridge.setWorkspaceRunState(state);
-			} else {
-				setPaneWorkspaceRunState(paneId, state);
-			}
+			paneBridgeRef.current.setWorkspaceRunState(state);
 		},
-		[paneId],
+		[],
 	);
-	const closePane = useCallback(() => {
-		const bridge = paneBridgeRef.current;
-		if (bridge) {
-			bridge.close();
-		} else {
-			useTabsStore.getState().removePane(paneId);
-		}
-	}, [paneId]);
-	const clearPaneInitialData = useCallback(() => {
-		const bridge = paneBridgeRef.current;
-		if (bridge) {
-			bridge.clearInitialData();
-		} else {
-			useTabsStore.getState().clearPaneInitialData(paneId);
-		}
-	}, [paneId]);
+	const closePane = useCallback(() => paneBridgeRef.current.close(), []);
+	const clearPaneInitialData = useCallback(
+		() => paneBridgeRef.current.clearInitialData(),
+		[],
+	);
 	const updatePaneCwd = useCallback(
 		(cwd: string | null, confirmed: boolean) => {
-			const bridge = paneBridgeRef.current;
-			if (bridge) {
-				bridge.setCwd(cwd, confirmed);
-			} else {
-				useTabsStore.getState().updatePaneCwd(paneId, cwd, confirmed);
-			}
+			paneBridgeRef.current.setCwd(cwd, confirmed);
 		},
-		[paneId],
+		[],
 	);
 	const initialCwdRef = useRef(initialCwd ?? paneSnapshot?.initialCwd);
 	initialCwdRef.current = initialCwd ?? paneSnapshot?.initialCwd;
@@ -246,7 +174,7 @@ export function HostServiceTerminalPane({
 		[terminalId, instanceId],
 	);
 	const connectionState = useSyncExternalStore(subscribe, getSnapshot);
-	const isFocused = paneBridge?.isFocused ?? legacyFocusedPaneId === paneId;
+	const isFocused = paneBridge.isFocused;
 	const agentBindings = useTerminalAgentBindingsAtHost(
 		hostUrl,
 		hostWorkspaceId,
@@ -256,7 +184,7 @@ export function HostServiceTerminalPane({
 
 	useEffect(() => {
 		if (!hostUrl || !hostWorkspaceId) return;
-		return registerV1HostTerminalBackend(workspaceId, {
+		return registerHostTerminalBackend(workspaceId, {
 			hostUrl,
 			hostWorkspaceId,
 		});
@@ -297,13 +225,6 @@ export function HostServiceTerminalPane({
 		let cancelled = false;
 		setError(null);
 		setRuntimeReady(false);
-		// A feature-flag refresh can move an already-mounted pane from the
-		// legacy backend to host-service. Retire the parked legacy runtime first
-		// so the same pane cannot leave two live PTYs behind.
-		if (v1TerminalCache.has(paneId)) {
-			killTerminalForPane(paneId);
-			v1TerminalCache.dispose(paneId);
-		}
 		// Keep this registration while the pane is parked. Inactive tabs unmount
 		// their React tree, but closing them later must still dispose the host PTY.
 		registerTerminalCleanup(paneId, () => a.kill(paneId));
@@ -358,18 +279,7 @@ export function HostServiceTerminalPane({
 		void setup();
 		return () => {
 			cancelled = true;
-			if (
-				!forceHostService &&
-				!isCurrentPaneDestroyed() &&
-				posthog.isFeatureEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ===
-					false
-			) {
-				// A live flag rollback switches this pane back to legacy. Kill
-				// the host session so both backends cannot survive for one pane.
-				void a.kill(paneId);
-			} else {
-				a.detach(paneId);
-			}
+			a.detach(paneId);
 			xtermRef.current = null;
 		};
 	}, [
@@ -382,7 +292,6 @@ export function HostServiceTerminalPane({
 		clearPaneInitialData,
 		isCurrentPaneDestroyed,
 		t,
-		forceHostService,
 	]);
 
 	// Reconnect when the host URL/token source changes. A visual theme change
@@ -574,10 +483,13 @@ export function HostServiceTerminalPane({
 			tid,
 			{
 				stat: async (path) => {
+					if (!hostUrl || !hostWorkspaceId) return null;
 					try {
-						return await electronTrpcClient.external.statPath.mutate({
+						return await getHostServiceClientByUrl(
+							hostUrl,
+						).filesystem.statPath.mutate({
 							path,
-							workspaceId,
+							workspaceId: hostWorkspaceId,
 						});
 					} catch {
 						return null;
@@ -587,21 +499,16 @@ export function HostServiceTerminalPane({
 					const action = filePolicy.getAction(event);
 					if (!action || !link.resolvedPath) return;
 					event.preventDefault();
-					if (action === "external" || link.isDirectory) {
-						void electronTrpcClient.external.openFileInEditor.mutate({
-							path: link.resolvedPath,
-							line: link.row,
-							column: link.col,
-							projectId: workspaceData?.projectId,
-						});
+					const linkAction = buildTerminalFileLinkAction(
+						action,
+						{ ...link, resolvedPath: link.resolvedPath },
+						defaultOpenInApp ?? "cursor",
+					);
+					if (linkAction.kind === "external") {
+						void electronTrpcClient.external.openInApp.mutate(linkAction.input);
 						return;
 					}
-					addFileViewerPane(workspaceId, {
-						filePath: link.resolvedPath,
-						line: link.row,
-						column: link.col,
-						openInNewTab: action === "newTab",
-					});
+					paneBridgeRef.current.openFileViewer(linkAction.input);
 				},
 				onUrlClick: (event: MouseEvent, url: string) => {
 					const action = urlPolicy.getAction(event);
@@ -621,9 +528,9 @@ export function HostServiceTerminalPane({
 		runtimeReady,
 		filePolicy,
 		urlPolicy,
-		workspaceId,
-		workspaceData?.projectId,
-		addFileViewerPane,
+		hostUrl,
+		hostWorkspaceId,
+		defaultOpenInApp,
 	]);
 
 	if (status === "starting") {

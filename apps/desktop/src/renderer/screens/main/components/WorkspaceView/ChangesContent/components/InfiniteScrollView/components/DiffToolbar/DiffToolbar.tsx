@@ -74,11 +74,11 @@ export function DiffToolbar({
 		<div className="flex items-center gap-3 px-3 py-2.5 border-b border-r border-line bg-background sticky top-0 z-30">
 			<div className="flex items-center gap-3 text-xs text-fg-mute flex-1">
 				<span>
-					{viewedCount}/{totalFiles} {t("v1Changes.toolbar.viewed")}
+					{viewedCount}/{totalFiles} {t("changes.toolbar.viewed")}
 				</span>
 				{!focusMode && (
 					<span className="flex items-center gap-1 font-mono">
-						{totalFiles} {t("v1Changes.toolbar.files")}
+						{totalFiles} {t("changes.toolbar.files")}
 						{totalAdditions > 0 && (
 							<span className="text-success dark:text-success">
 								+{totalAdditions}
@@ -116,10 +116,10 @@ export function DiffToolbar({
 						onClick={onNavigatePrev}
 						disabled={isFirstFile}
 						className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-fg-mute transition-colors hover:text-fg hover:bg-accent-tint disabled:opacity-30 disabled:pointer-events-none"
-						aria-label={t("v1Changes.toolbar.prevFile")}
+						aria-label={t("changes.toolbar.prevFile")}
 					>
 						<LuChevronUp className="size-3.5" />
-						{t("v1Changes.toolbar.prev")}
+						{t("changes.toolbar.prev")}
 					</button>
 
 					<DropdownMenu>
@@ -162,9 +162,9 @@ export function DiffToolbar({
 						onClick={onNavigateNext}
 						disabled={isLastFile}
 						className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-fg-mute transition-colors hover:text-fg hover:bg-accent-tint disabled:opacity-30 disabled:pointer-events-none"
-						aria-label={t("v1Changes.toolbar.nextFile")}
+						aria-label={t("changes.toolbar.nextFile")}
 					>
-						{t("v1Changes.toolbar.next")}
+						{t("changes.toolbar.next")}
 						<LuChevronDown className="size-3.5" />
 					</button>
 				</div>
@@ -182,8 +182,8 @@ export function DiffToolbar({
 							)}
 							aria-label={
 								focusMode
-									? t("v1Changes.toolbar.showAllFiles")
-									: t("v1Changes.toolbar.focusModeOneFile")
+									? t("changes.toolbar.showAllFiles")
+									: t("changes.toolbar.focusModeOneFile")
 							}
 							aria-pressed={focusMode}
 						>
@@ -192,8 +192,8 @@ export function DiffToolbar({
 					</TooltipTrigger>
 					<TooltipContent side="bottom" showArrow={false}>
 						{focusMode
-							? t("v1Changes.toolbar.showAllFiles")
-							: t("v1Changes.toolbar.focusMode")}
+							? t("changes.toolbar.showAllFiles")
+							: t("changes.toolbar.focusMode")}
 					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
@@ -208,8 +208,8 @@ export function DiffToolbar({
 							className="rounded p-1 text-fg-faint transition-colors hover:text-fg-mute hover:bg-accent-tint"
 							aria-label={
 								diffViewMode === "side-by-side"
-									? t("v1Changes.toolbar.switchToInlineDiff")
-									: t("v1Changes.toolbar.switchToSideBySideDiff")
+									? t("changes.toolbar.switchToInlineDiff")
+									: t("changes.toolbar.switchToSideBySideDiff")
 							}
 						>
 							{diffViewMode === "side-by-side" ? (
@@ -221,8 +221,8 @@ export function DiffToolbar({
 					</TooltipTrigger>
 					<TooltipContent side="bottom" showArrow={false}>
 						{diffViewMode === "side-by-side"
-							? t("v1Changes.toolbar.switchToInlineDiff")
-							: t("v1Changes.toolbar.switchToSideBySideDiffTooltip")}
+							? t("changes.toolbar.switchToInlineDiff")
+							: t("changes.toolbar.switchToSideBySideDiffTooltip")}
 					</TooltipContent>
 				</Tooltip>
 				<Tooltip>
@@ -238,8 +238,8 @@ export function DiffToolbar({
 							)}
 							aria-label={
 								hideUnchangedRegions
-									? t("v1Changes.toolbar.showAllLines")
-									: t("v1Changes.toolbar.hideUnchangedRegions")
+									? t("changes.toolbar.showAllLines")
+									: t("changes.toolbar.hideUnchangedRegions")
 							}
 							aria-pressed={hideUnchangedRegions}
 						>
@@ -248,8 +248,8 @@ export function DiffToolbar({
 					</TooltipTrigger>
 					<TooltipContent side="bottom" showArrow={false}>
 						{hideUnchangedRegions
-							? t("v1Changes.toolbar.showAllLines")
-							: t("v1Changes.toolbar.hideUnchangedRegions")}
+							? t("changes.toolbar.showAllLines")
+							: t("changes.toolbar.hideUnchangedRegions")}
 					</TooltipContent>
 				</Tooltip>
 			</div>

@@ -1,3 +1,4 @@
+import type { AddFileViewerPaneOptions } from "renderer/stores/tabs/types";
 import type { PaneStatus } from "shared/tabs-types";
 
 export interface HostServiceTerminalPaneSnapshot {
@@ -37,5 +38,6 @@ export interface HostServiceTerminalPaneBridge {
 		script: NonNullable<HostServiceTerminalPaneSnapshot["lifecycleScript"]>,
 	): void;
 	clearInitialData(): void;
+	openFileViewer(options: AddFileViewerPaneOptions): void;
 	close(): void;
 }

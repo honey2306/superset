@@ -101,6 +101,7 @@ if [ "$DEBUG_HOOKS_ENABLED" = "1" ]; then
     --data-urlencode "paneId=$SUPERSET_PANE_ID" \
     --data-urlencode "tabId=$SUPERSET_TAB_ID" \
     --data-urlencode "workspaceId=$SUPERSET_WORKSPACE_ID" \
+    --data-urlencode "workspaceName=$SUPERSET_WORKSPACE_NAME" \
     --data-urlencode "terminalId=$SUPERSET_TERMINAL_ID" \
     --data-urlencode "sessionId=$SESSION_ID" \
     --data-urlencode "hookSessionId=$HOOK_SESSION_ID" \
@@ -118,6 +119,7 @@ else
     --data-urlencode "paneId=$SUPERSET_PANE_ID" \
     --data-urlencode "tabId=$SUPERSET_TAB_ID" \
     --data-urlencode "workspaceId=$SUPERSET_WORKSPACE_ID" \
+    --data-urlencode "workspaceName=$SUPERSET_WORKSPACE_NAME" \
     --data-urlencode "terminalId=$SUPERSET_TERMINAL_ID" \
     --data-urlencode "sessionId=$SESSION_ID" \
     --data-urlencode "hookSessionId=$HOOK_SESSION_ID" \

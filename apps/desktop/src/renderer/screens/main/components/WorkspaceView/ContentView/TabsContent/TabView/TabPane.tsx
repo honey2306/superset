@@ -1,6 +1,4 @@
-import { FEATURE_FLAGS } from "@superset/shared/constants";
-import { useFeatureFlagEnabled } from "posthog-js/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { MosaicBranch } from "react-mosaic-component";
 import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
 import { WorkspaceRunIndicator } from "renderer/screens/main/components/WorkspaceRunIndicator";
@@ -12,7 +10,7 @@ import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTerminalCallbacksStore } from "renderer/stores/tabs/terminal-callbacks";
 import type { SplitPaneOptions, Tab } from "renderer/stores/tabs/types";
 import { TabContentContextMenu } from "../TabContentContextMenu";
-import { Terminal } from "../Terminal";
+import { createLegacyTerminalPaneBridge } from "../Terminal/createLegacyTerminalPaneBridge";
 import { HostServiceTerminalPane } from "../Terminal/HostServiceTerminalPane";
 import { BasePaneWindow, PaneTitle, PaneToolbarActions } from "./components";
 
@@ -63,10 +61,9 @@ export function TabPane({
 	const paneName = useTabsStore((s) => s.panes[paneId]?.name);
 	const paneStatus = useTabsStore((s) => s.panes[paneId]?.status);
 	const workspaceRun = useTabsStore((s) => s.panes[paneId]?.workspaceRun);
+	const isFocused = useTabsStore((s) => s.focusedPaneIds[tabId] === paneId);
 	const setPaneName = useTabsStore((s) => s.setPaneName);
 	const setPaneStatus = useTabsStore((s) => s.setPaneStatus);
-	const hostServiceTerminalEnabled =
-		useFeatureFlagEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) ?? false;
 	const equalizePaneSplits = useTabsStore((s) => s.equalizePaneSplits);
 
 	const terminalContainerRef = useRef<HTMLDivElement>(null);
@@ -88,6 +85,16 @@ export function TabPane({
 			unregisterPaneRef(paneId);
 		};
 	}, [paneId]);
+
+	const paneBridge = useMemo(
+		() =>
+			createLegacyTerminalPaneBridge({
+				paneId,
+				workspaceId,
+				isFocused,
+			}),
+		[paneId, workspaceId, isFocused],
+	);
 
 	const handleClearTerminal = () => {
 		getClearCallback(paneId)?.();
@@ -148,15 +155,12 @@ export function TabPane({
 				closeLabel="Close Terminal"
 			>
 				<div ref={terminalContainerRef} className="w-full h-full">
-					{hostServiceTerminalEnabled ? (
-						<HostServiceTerminalPane
-							paneId={paneId}
-							tabId={tabId}
-							workspaceId={workspaceId}
-						/>
-					) : (
-						<Terminal paneId={paneId} tabId={tabId} workspaceId={workspaceId} />
-					)}
+					<HostServiceTerminalPane
+						paneId={paneId}
+						tabId={tabId}
+						workspaceId={workspaceId}
+						paneBridge={paneBridge}
+					/>
 				</div>
 			</TabContentContextMenu>
 		</BasePaneWindow>

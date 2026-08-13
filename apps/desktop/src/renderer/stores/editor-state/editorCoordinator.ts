@@ -1,8 +1,6 @@
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { invalidateFileSaveQueries } from "renderer/lib/invalidate-file-save-queries";
 import { confirmCloseTerminals } from "renderer/lib/terminal/confirm-close-terminals";
-import { electronTrpcClient } from "renderer/lib/trpc-client";
-import { getV1HostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/v1-host-terminal-backend";
+import { getHostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/host-terminal-backend";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import type { AddFileViewerPaneOptions } from "renderer/stores/tabs/types";
 import { resolveFileViewerMode } from "renderer/stores/tabs/utils";
@@ -429,7 +427,14 @@ export async function saveDocumentForPane(
 			? undefined
 			: { ifMatch: document.baselineRevision };
 
-	const result = await electronTrpcClient.filesystem.writeFile.mutate({
+	const backend = getHostTerminalBackend(document.workspaceId);
+	if (!backend) {
+		throw new Error(
+			`Host filesystem backend not available: ${document.workspaceId}`,
+		);
+	}
+	const filesystem = getHostServiceClientByUrl(backend.hostUrl).filesystem;
+	const result = await filesystem.writeFile.mutate({
 		workspaceId: document.workspaceId,
 		absolutePath: document.filePath,
 		content,
@@ -440,7 +445,7 @@ export async function saveDocumentForPane(
 	if (!result.ok) {
 		if (result.reason === "conflict") {
 			try {
-				const currentFile = await electronTrpcClient.filesystem.readFile.query({
+				const currentFile = await filesystem.readFile.query({
 					workspaceId: document.workspaceId,
 					absolutePath: document.filePath,
 					encoding: "utf-8",
@@ -503,11 +508,6 @@ export async function saveDocumentForPane(
 		});
 	}
 
-	invalidateFileSaveQueries({
-		workspaceId: document.workspaceId,
-		filePath: document.filePath,
-	});
-
 	return { status: "saved" };
 }
 
@@ -558,7 +558,7 @@ export function requestPaneClose(paneId: string): boolean {
 		const tab = useTabsStore
 			.getState()
 			.tabs.find((candidate) => candidate.id === pane.tabId);
-		const backend = tab ? getV1HostTerminalBackend(tab.workspaceId) : null;
+		const backend = tab ? getHostTerminalBackend(tab.workspaceId) : null;
 		if (backend) {
 			void confirmCloseTerminals(
 				[paneId],
@@ -654,7 +654,7 @@ export function requestTabClose(tabId: string): boolean {
 	const terminalIds = Object.values(useTabsStore.getState().panes)
 		.filter((pane) => pane.tabId === tabId && pane.type === "terminal")
 		.map((pane) => pane.id);
-	const backend = getV1HostTerminalBackend(tab.workspaceId);
+	const backend = getHostTerminalBackend(tab.workspaceId);
 	if (backend && terminalIds.length > 0) {
 		void confirmCloseTerminals(
 			terminalIds,

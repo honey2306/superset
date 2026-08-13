@@ -44,7 +44,7 @@ export function DiscardConfirmDialog({
 						className="h-7 px-3 text-xs"
 						onClick={() => onOpenChange(false)}
 					>
-						{t("v1Changes.dialog.cancel")}
+						{t("changes.dialog.cancel")}
 					</Button>
 					<AlertDialogAction
 						variant="destructive"
@@ -53,7 +53,7 @@ export function DiscardConfirmDialog({
 						disabled={confirmDisabled}
 						onClick={onConfirm}
 					>
-						{confirmLabel ?? t("v1Changes.dialog.discard")}
+						{confirmLabel ?? t("changes.dialog.discard")}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</EnterEnabledAlertDialogContent>

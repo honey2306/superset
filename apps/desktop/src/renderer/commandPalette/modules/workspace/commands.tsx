@@ -1,8 +1,7 @@
-import { FileIcon, LinkIcon, PlusIcon } from "lucide-react";
+import { FileIcon, PlusIcon } from "lucide-react";
 import { useQuickOpenStore } from "renderer/commandPalette/ui/QuickOpen/quickOpenStore";
 import { useNewWorkspaceModalStore } from "renderer/stores/new-workspace-modal";
 import type { Command, CommandProvider } from "../../core/types";
-import { LinkTaskFrame } from "../../ui/LinkTask/LinkTaskFrame";
 
 export const workspaceProvider: CommandProvider = {
 	id: "workspace",
@@ -31,14 +30,6 @@ export const workspaceProvider: CommandProvider = {
 					useQuickOpenStore.getState().openFor({
 						workspaceId: workspace.id,
 					}),
-			},
-			{
-				id: "workspace.linkTask",
-				title: "Link task",
-				section: "workspace",
-				icon: LinkIcon,
-				keywords: ["issue", "linear"],
-				renderFrame: () => <LinkTaskFrame workspaceId={workspace.id} />,
 			},
 		];
 

@@ -4,11 +4,6 @@
 		"external_directory": "allow"
 	},
 	"mcp": {
-		"superset": {
-			"type": "remote",
-			"url": "https://api.superset.sh/api/v2/agent/mcp",
-			"oauth": {}
-		},
 		"expo-mcp": {
 			"type": "remote",
 			"url": "https://mcp.expo.dev/mcp",
@@ -17,10 +12,6 @@
 		"maestro": {
 			"type": "local",
 			"command": ["maestro", "mcp"]
-		},
-		"neon": {
-			"type": "remote",
-			"url": "https://mcp.neon.tech/mcp"
 		},
 		"linear": {
 			"type": "remote",

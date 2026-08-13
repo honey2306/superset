@@ -1,4 +1,7 @@
-import type { GitHubStatus, PullRequestComment } from "@superset/local-db";
+import type {
+	GitHubStatus,
+	PullRequestComment,
+} from "@superset/shared/desktop-types";
 import { LuCheck, LuLoaderCircle, LuMinus, LuX } from "react-icons/lu";
 import type { MessageKey } from "renderer/providers/I18nProvider";
 
@@ -10,19 +13,18 @@ export const ALL_COMMENTS_COPY_ACTION_KEY = "comments:all";
 
 export const reviewDecisionConfig = {
 	approved: {
-		labelKey: "v1Changes.reviewState.approved" as const satisfies MessageKey,
+		labelKey: "changes.reviewState.approved" as const satisfies MessageKey,
 		className:
 			"border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
 	},
 	changes_requested: {
 		labelKey:
-			"v1Changes.reviewState.changesRequested" as const satisfies MessageKey,
+			"changes.reviewState.changesRequested" as const satisfies MessageKey,
 		className:
 			"border border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300",
 	},
 	pending: {
-		labelKey:
-			"v1Changes.reviewState.reviewPending" as const satisfies MessageKey,
+		labelKey: "changes.reviewState.reviewPending" as const satisfies MessageKey,
 		className:
 			"border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 	},
@@ -32,27 +34,27 @@ export const checkIconConfig = {
 	success: {
 		icon: LuCheck,
 		className: "text-emerald-600 dark:text-emerald-400",
-		labelKey: "v1Changes.checkState.passed" as const satisfies MessageKey,
+		labelKey: "changes.checkState.passed" as const satisfies MessageKey,
 	},
 	failure: {
 		icon: LuX,
 		className: "text-red-600 dark:text-red-400",
-		labelKey: "v1Changes.checkState.failed" as const satisfies MessageKey,
+		labelKey: "changes.checkState.failed" as const satisfies MessageKey,
 	},
 	pending: {
 		icon: LuLoaderCircle,
 		className: "text-amber-600 dark:text-amber-400",
-		labelKey: "v1Changes.checkState.pending" as const satisfies MessageKey,
+		labelKey: "changes.checkState.pending" as const satisfies MessageKey,
 	},
 	skipped: {
 		icon: LuMinus,
 		className: "text-muted-foreground",
-		labelKey: "v1Changes.checkState.skipped" as const satisfies MessageKey,
+		labelKey: "changes.checkState.skipped" as const satisfies MessageKey,
 	},
 	cancelled: {
 		icon: LuMinus,
 		className: "text-muted-foreground",
-		labelKey: "v1Changes.checkState.cancelled" as const satisfies MessageKey,
+		labelKey: "changes.checkState.cancelled" as const satisfies MessageKey,
 	},
 } as const;
 
@@ -63,15 +65,15 @@ export const checkSummaryIconConfig = {
 	none: {
 		icon: LuMinus,
 		className: "text-muted-foreground",
-		labelKey: "v1Changes.checkSummary.noChecks" as const satisfies MessageKey,
+		labelKey: "changes.checkSummary.noChecks" as const satisfies MessageKey,
 	},
 } as const;
 
 export const prStateLabelKey = {
-	open: "v1Changes.prState.open",
-	draft: "v1Changes.prState.draft",
-	merged: "v1Changes.prState.merged",
-	closed: "v1Changes.prState.closed",
+	open: "changes.prState.open",
+	draft: "changes.prState.draft",
+	merged: "changes.prState.merged",
+	closed: "changes.prState.closed",
 } as const satisfies Record<string, MessageKey>;
 
 export function resolveCheckDestinationUrl(
@@ -104,7 +106,7 @@ export function getCommentPreviewText(
 			.map((line) => line.trim())
 			.find(Boolean)
 			?.replace(/^[-*+>]\s*/, "")
-			?.replace(/\s+/g, " ") ?? t("v1Changes.commentPreview.noPreview")
+			?.replace(/\s+/g, " ") ?? t("changes.commentPreview.noPreview")
 	);
 }
 
@@ -149,8 +151,8 @@ function getCommentClipboardLocation(
 
 export function getCommentKindText(comment: PullRequestComment): MessageKey {
 	return comment.kind === "review"
-		? "v1Changes.commentKind.review"
-		: "v1Changes.commentKind.comment";
+		? "changes.commentKind.review"
+		: "changes.commentKind.comment";
 }
 
 export function buildCommentClipboardText(
@@ -158,7 +160,7 @@ export function buildCommentClipboardText(
 	t: (key: MessageKey) => string,
 	includeMetadata = false,
 ): string {
-	const body = comment.body.trim() || t("v1Changes.commentBody.empty");
+	const body = comment.body.trim() || t("changes.commentBody.empty");
 
 	if (!includeMetadata) {
 		return body;

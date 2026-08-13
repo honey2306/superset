@@ -1,12 +1,9 @@
 import { join } from "node:path";
-import { workspaces, worktrees } from "@superset/local-db";
-import { eq } from "drizzle-orm";
 import type { BrowserWindow } from "electron";
 import { app, Notification, nativeTheme } from "electron";
 import log from "electron-log/main";
 import { createWindow } from "lib/electron-app/factories/windows/create";
 import { createAppRouter } from "lib/trpc/routers";
-import { localDb } from "main/lib/local-db";
 import { NOTIFICATION_EVENTS, PLATFORM } from "shared/constants";
 import {
 	env,
@@ -27,39 +24,15 @@ import {
 import {
 	extractWorkspaceIdFromUrl,
 	getNotificationTitle,
-	getWorkspaceName,
 } from "../lib/notifications/utils";
 import {
 	getInitialWindowBounds,
 	loadWindowState,
 	saveWindowState,
 } from "../lib/window-state";
-import { getWorkspaceRuntimeRegistry } from "../lib/workspace-runtime";
 
 // Singleton IPC handler to prevent duplicate handlers on window reopen (macOS)
 let ipcHandler: ReturnType<typeof createIPCHandler> | null = null;
-
-function getWorkspaceNameFromDb(workspaceId: string | undefined): string {
-	if (!workspaceId) return "Workspace";
-	try {
-		const workspace = localDb
-			.select()
-			.from(workspaces)
-			.where(eq(workspaces.id, workspaceId))
-			.get();
-		const worktree = workspace?.worktreeId
-			? localDb
-					.select()
-					.from(worktrees)
-					.where(eq(worktrees.id, workspace.worktreeId))
-					.get()
-			: undefined;
-		return getWorkspaceName({ workspace, worktree });
-	} catch (error) {
-		console.error("[notifications] Failed to get workspace name:", error);
-		return "Workspace";
-	}
-}
 
 let currentWindow: BrowserWindow | null = null;
 
@@ -200,7 +173,7 @@ export async function MainWindow() {
 			window.focus();
 			if (ids.workspaceId && ids.terminalId) {
 				notificationsEmitter.emit(
-					NOTIFICATION_EVENTS.FOCUS_V2_NOTIFICATION_SOURCE,
+					NOTIFICATION_EVENTS.FOCUS_NOTIFICATION_SOURCE,
 					{
 						workspaceId: ids.workspaceId,
 						source: { type: "terminal", id: ids.terminalId },
@@ -217,7 +190,6 @@ export async function MainWindow() {
 			),
 			tabsState: appState.data?.tabsState,
 		}),
-		getWorkspaceName: getWorkspaceNameFromDb,
 		getNotificationTitle: (event) =>
 			getNotificationTitle({
 				tabId: event.tabId,
@@ -234,28 +206,6 @@ export async function MainWindow() {
 			notificationManager.handleAgentLifecycle(event);
 		},
 	);
-
-	// Forward low-volume terminal lifecycle events to the renderer via the existing
-	// notifications subscription. This is used only for correctness (e.g. clearing
-	// stuck agent lifecycle statuses when terminal panes aren't mounted).
-	getWorkspaceRuntimeRegistry()
-		.getDefault()
-		.terminal.on(
-			"terminalExit",
-			(event: {
-				paneId: string;
-				exitCode: number;
-				signal?: number;
-				reason?: "killed" | "exited" | "error";
-			}) => {
-				notificationsEmitter.emit(NOTIFICATION_EVENTS.TERMINAL_EXIT, {
-					paneId: event.paneId,
-					exitCode: event.exitCode,
-					signal: event.signal,
-					reason: event.reason,
-				});
-			},
-		);
 
 	// macOS Sequoia+: occluded/minimized windows can lose compositor layers
 	if (PLATFORM.IS_MAC) {
@@ -364,7 +314,6 @@ export async function MainWindow() {
 		server.close();
 		notificationManager.dispose();
 		notificationsEmitter.removeAllListeners();
-		getWorkspaceRuntimeRegistry().getDefault().terminal.detachAllListeners();
 		ipcHandler?.detachWindow(window);
 		currentWindow = null;
 	});

@@ -1,5 +1,5 @@
-import { PROMPT_TRANSPORTS } from "@superset/local-db";
 import type { AgentDefinition } from "@superset/shared/agent-catalog";
+import { PROMPT_TRANSPORTS } from "@superset/shared/agent-prompt-launch";
 import type {
 	AgentPresetPatch,
 	CustomAgentDefinitionPatch,

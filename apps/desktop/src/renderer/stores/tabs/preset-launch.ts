@@ -1,4 +1,4 @@
-import type { ExecutionMode } from "@superset/local-db/schema/zod";
+import type { ExecutionMode } from "@superset/shared/desktop-types";
 import { buildTerminalCommand } from "renderer/lib/terminal/launch-command";
 import { quote } from "shell-quote";
 

@@ -4,6 +4,7 @@ import type { HostDb } from "../../src/db";
 import { GitWatcher } from "../../src/events/git-watcher";
 import { WorkspaceFilesystemManager } from "../../src/runtime/filesystem";
 import { PullRequestRuntimeManager } from "../../src/runtime/pull-requests/pull-requests";
+import { WorkspaceCatalog } from "../../src/workspace-catalog";
 import { createTestHost, type TestHost } from "../helpers/createTestHost";
 import { createGitFixture, type GitFixture } from "../helpers/git-fixture";
 import { seedProject, seedWorkspace } from "../helpers/seed";
@@ -91,6 +92,10 @@ async function createEventDrivenScenario(
 
 	const manager = new PullRequestRuntimeManager({
 		db: host.db as HostDb,
+		catalog: new WorkspaceCatalog({
+			db: host.db as HostDb,
+			eventBus: null,
+		}),
 		git: async (worktreePath: string) =>
 			instrumentGit(simpleGit(worktreePath), gitOpLog, worktreePath),
 		github: async () => ({}) as never,

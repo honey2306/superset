@@ -15,9 +15,6 @@ import type { HostDb } from "../../src/db";
 import * as schema from "../../src/db/schema";
 import type { AppRouter as HostAppRouter } from "../../src/trpc/router";
 import {
-	createFakeApiClient,
-	FakeApiAuthProvider,
-	type FakeApiOverrides,
 	FakeHostAuthProvider,
 	FakeModelResolver,
 	MemoryGitCredentialProvider,
@@ -27,10 +24,8 @@ const MIGRATIONS_FOLDER = resolve(import.meta.dir, "../../drizzle");
 
 export interface TestHostOptions {
 	organizationId?: string;
-	cloudApiUrl?: string;
 	allowedOrigins?: string[];
 	psk?: string;
-	apiOverrides?: FakeApiOverrides;
 	githubToken?: string | null;
 	/**
 	 * Caller-owned SQLite path. Enables restart scenarios: create one
@@ -58,7 +53,6 @@ export interface TestHostOptions {
 
 export interface TestHost {
 	app: CreateAppResult["app"];
-	api: CreateAppResult["api"];
 	db: HostDb;
 	dispose: () => Promise<void>;
 	/**
@@ -70,10 +64,6 @@ export interface TestHost {
 	psk: string;
 	dbPath: string;
 	apiCalls: Array<{ path: string; input: unknown }>;
-	setApi: (
-		path: string,
-		impl: (input: unknown) => unknown | Promise<unknown>,
-	) => void;
 
 	/** tRPC client that talks to the real Hono app via in-process fetch. */
 	trpc: ReturnType<typeof createTRPCClient<HostAppRouter>>;
@@ -113,25 +103,20 @@ export async function createTestHost(
 	const db = drizzle(sqlite, { schema });
 	migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
 
-	const fakeApi = createFakeApiClient(options.apiOverrides);
-
 	const createOptions: CreateAppOptions = {
 		config: {
 			organizationId:
 				options.organizationId ?? "00000000-0000-0000-0000-000000000001",
 			dbPath,
-			cloudApiUrl: options.cloudApiUrl ?? "http://localhost:0/cloud",
 			migrationsFolder: MIGRATIONS_FOLDER,
 			allowedOrigins: options.allowedOrigins ?? ["http://localhost:5173"],
 		},
 		providers: {
-			auth: new FakeApiAuthProvider(),
 			hostAuth: new FakeHostAuthProvider(psk),
 			credentials: new MemoryGitCredentialProvider(options.githubToken ?? null),
 			modelResolver: new FakeModelResolver(),
 		},
 		db: db as unknown as HostDb,
-		api: fakeApi.client,
 		github: options.githubFactory
 			? (options.githubFactory as CreateAppOptions["github"])
 			: undefined,
@@ -207,14 +192,12 @@ export async function createTestHost(
 
 	return {
 		app: result.app,
-		api: fakeApi.client,
 		db: db as unknown as HostDb,
 		dispose,
 		stop,
 		psk,
 		dbPath,
-		apiCalls: fakeApi.calls,
-		setApi: fakeApi.set,
+		apiCalls: [],
 		trpc,
 		unauthenticatedTrpc,
 		fetch: fetchApp,

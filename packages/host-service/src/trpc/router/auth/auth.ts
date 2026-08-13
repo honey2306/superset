@@ -69,6 +69,9 @@ export const authRouter = router({
 	cancelOpenAIOAuth: protectedProcedure.mutation(({ ctx }) => {
 		return ctx.runtime.auth.cancelOpenAIOAuth();
 	}),
+	consumeOpenAIOAuthCallback: protectedProcedure.query(({ ctx }) => {
+		return ctx.runtime.auth.consumeOpenAIOAuthCallback();
+	}),
 	disconnectOpenAIOAuth: protectedProcedure.mutation(({ ctx }) => {
 		return ctx.runtime.auth.disconnectOpenAIOAuth();
 	}),

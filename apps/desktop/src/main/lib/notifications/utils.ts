@@ -85,25 +85,3 @@ export function getNotificationTitle({
 	const pane = paneId ? panes?.[paneId] : undefined;
 	return tab?.userTitle?.trim() || tab?.name || pane?.name || "Terminal";
 }
-
-interface Workspace {
-	name: string | null;
-	worktreeId: string | null;
-}
-
-interface Worktree {
-	branch: string | null;
-}
-
-/**
- * Derives a display name for a workspace, falling back through available names.
- */
-export function getWorkspaceName({
-	workspace,
-	worktree,
-}: {
-	workspace?: Workspace | null;
-	worktree?: Worktree | null;
-}): string {
-	return workspace?.name || worktree?.branch || "Workspace";
-}

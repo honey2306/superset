@@ -1,16 +1,8 @@
 {
 	"mcpServers": {
-		"superset": {
-			"command": "npx",
-			"args": ["-y", "mcp-remote", "https://api.superset.sh/api/v2/agent/mcp"]
-		},
 		"maestro": {
 			"command": "maestro",
 			"args": ["mcp"]
-		},
-		"neon": {
-			"command": "npx",
-			"args": ["-y", "mcp-remote", "https://mcp.neon.tech/mcp"]
 		},
 		"linear": {
 			"command": "npx",

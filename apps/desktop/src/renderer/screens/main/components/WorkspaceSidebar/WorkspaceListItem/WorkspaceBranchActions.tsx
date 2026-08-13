@@ -16,7 +16,6 @@ import {
 	LuGitPullRequest,
 	LuRefreshCw,
 } from "react-icons/lu";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { buildKDevCreateMergeRequestUrl } from "./kdev";
 
@@ -51,7 +50,6 @@ function BranchSwitcher({
 			});
 		},
 	});
-	const switchMutation = electronTrpc.useUtils();
 	const switchBranch = async (branch: string, remoteOnly: boolean) => {
 		if (!hostUrl || !hostWorkspaceId) return;
 		try {
@@ -68,10 +66,7 @@ function BranchSwitcher({
 				});
 			}
 			toast.success(`Switched to ${branch}`);
-			await Promise.all([
-				queryClient.invalidateQueries({ queryKey }),
-				switchMutation.changes.getStatus.invalidate(),
-			]);
+			await queryClient.invalidateQueries({ queryKey });
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : String(error));
 		}
@@ -120,7 +115,6 @@ export function WorkspaceBranchActions({
 	isMenuOpen,
 	openUrl,
 }: WorkspaceBranchActionsProps) {
-	const utils = electronTrpc.useUtils();
 	const queryClient = useQueryClient();
 	const hasHostTarget = Boolean(hostUrl && hostWorkspaceId);
 	const { data: remote } = useQuery({
@@ -164,7 +158,6 @@ export function WorkspaceBranchActions({
 				queryClient.invalidateQueries({
 					queryKey: ["git-branch-sync-status", hostUrl, hostWorkspaceId],
 				}),
-				utils.changes.getStatus.invalidate(),
 			]);
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : String(error));

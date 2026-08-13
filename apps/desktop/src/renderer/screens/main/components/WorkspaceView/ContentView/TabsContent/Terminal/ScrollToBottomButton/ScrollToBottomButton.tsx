@@ -65,7 +65,7 @@ export function ScrollToBottomButton({ terminal }: ScrollToBottomButtonProps) {
 					</button>
 				</TooltipTrigger>
 				<TooltipContent side="left">
-					{t("v2Workspace.paneRegistry.scrollToBottom")}
+					{t("workspace.paneRegistry.scrollToBottom")}
 					{showShortcut && ` (${shortcutText})`}
 				</TooltipContent>
 			</Tooltip>

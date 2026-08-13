@@ -1,4 +1,4 @@
-import type { TerminalPreset } from "@superset/local-db";
+import type { TerminalPreset } from "@superset/shared/desktop-types";
 import { Button } from "@superset/ui/button";
 import {
 	DropdownMenu,

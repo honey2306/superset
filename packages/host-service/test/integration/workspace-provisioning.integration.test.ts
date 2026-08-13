@@ -15,7 +15,6 @@ import {
 	canonicalizeProvisionRequest,
 	stableJson,
 } from "../../src/workspace-provisioning/canonical-request";
-import { cloudFlows } from "../helpers/cloud-fakes";
 import {
 	createBasicScenario,
 	createProjectScenario,
@@ -63,9 +62,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("begin: existing project + branch source materializes and returns operation", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const result = await scenario.host.trpc.workspaceProvisioning.begin.mutate({
@@ -109,11 +106,6 @@ describe("workspaceProvisioning integration (M2)", () => {
 		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
-		// The provisioning path must not fall back to the legacy mutation. This
-		// adapter is deliberately made unusable for the duration of the test.
-		scenario.host.setApi("v2Workspace.create.mutate", () => {
-			throw new Error("legacy workspace mutation was called");
-		});
 		const result = await scenario.host.trpc.workspaceProvisioning.begin.mutate({
 			idempotencyKey: `direct-git:${randomUUID()}`,
 			project: { kind: "existing", projectId: scenario.projectId },
@@ -148,17 +140,10 @@ describe("workspaceProvisioning integration (M2)", () => {
 		expect(
 			steps.find((step) => step.stepKey.endsWith(":worktree-add"))?.outputJson,
 		).toContain("feature/direct-git");
-		expect(
-			scenario.host.apiCalls.some((call) =>
-				call.path.includes("v2Workspace.create"),
-			),
-		).toBe(false);
 	});
 
 	test("idempotency: same key + same request returns the same operation", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const request = {
@@ -180,9 +165,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("resume reuses a completed materializer receipt before calling legacy Git", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const source = {
@@ -237,9 +220,6 @@ describe("workspaceProvisioning integration (M2)", () => {
 				unknown
 			>,
 		);
-		scenario.host.setApi("v2Workspace.create.mutate", () => {
-			throw new Error("legacy materializer should not be called");
-		});
 
 		const resumed =
 			await scenario.host.trpc.workspaceProvisioning.begin.mutate(request);
@@ -248,9 +228,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("idempotency: same key + different request throws IDEMPOTENCY_CONFLICT", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const key = `conflict:${randomUUID()}`;
@@ -278,9 +256,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("resume reuses a completed source receipt before advancing the operation", async () => {
-		const scenario = await createBasicScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createBasicScenario();
 		dispose = scenario.dispose;
 
 		const request = {
@@ -329,9 +305,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("get: returns the persisted operation", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const begin = await scenario.host.trpc.workspaceProvisioning.begin.mutate({
@@ -363,9 +337,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("failure surfaces as failed state with an error code, no crash", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		// Non-existent project id triggers PROJECT_NOT_SETUP inside
@@ -384,9 +356,7 @@ describe("workspaceProvisioning integration (M2)", () => {
 	});
 
 	test("cancel after a succeeded operation returns TOO_LATE_TO_CANCEL", async () => {
-		const scenario = await createProjectScenario({
-			hostOptions: { apiOverrides: cloudFlows.workspaceCreateOk() },
-		});
+		const scenario = await createProjectScenario();
 		dispose = scenario.dispose;
 
 		const begin = await scenario.host.trpc.workspaceProvisioning.begin.mutate({

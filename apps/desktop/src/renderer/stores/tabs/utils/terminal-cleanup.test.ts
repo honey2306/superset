@@ -1,39 +1,19 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
-
-const legacyKill = mock(async () => {});
-
-mock.module("../../../lib/trpc-client", () => ({
-	electronTrpcClient: {
-		terminal: {
-			kill: {
-				mutate: legacyKill,
-			},
-		},
-	},
-}));
-
-mock.module("../../../lib/terminal/session-readiness", () => ({
-	rejectTerminalSessionReady: mock(() => {}),
-}));
-
-const { killTerminalForPane, registerTerminalCleanup } = await import(
-	"./terminal-cleanup"
-);
+import { describe, expect, it, mock } from "bun:test";
+import {
+	killTerminalForPane,
+	killTerminalForPaneOrSession,
+	registerTerminalCleanup,
+} from "./terminal-cleanup";
 
 describe("terminal cleanup routing", () => {
-	beforeEach(() => {
-		legacyKill.mockClear();
-	});
-
-	it("uses a registered host-service cleanup instead of legacy terminal IPC", async () => {
+	it("runs the registered host-service cleanup", async () => {
 		const hostCleanup = mock(async () => {});
 		registerTerminalCleanup("host-pane", hostCleanup);
 
-		killTerminalForPane("host-pane");
+		expect(killTerminalForPane("host-pane")).toBe(true);
 		await Promise.resolve();
 
 		expect(hostCleanup).toHaveBeenCalledTimes(1);
-		expect(legacyKill).not.toHaveBeenCalled();
 	});
 
 	it("unregistering a hidden pane does not run its destructive cleanup", async () => {
@@ -46,10 +26,36 @@ describe("terminal cleanup routing", () => {
 		expect(hostCleanup).not.toHaveBeenCalled();
 	});
 
-	it("falls back to legacy terminal IPC when no host cleanup is registered", async () => {
-		killTerminalForPane("legacy-pane");
+	it("does not fall back to legacy Electron terminal IPC", async () => {
+		expect(killTerminalForPane("missing-pane")).toBe(false);
+		await Promise.resolve();
+	});
+
+	it("kills the host session directly when the pane never mounted", () => {
+		const killSession = mock<(terminalId: string) => void>();
+
+		killTerminalForPaneOrSession(
+			"never-mounted-pane",
+			"persisted-terminal",
+			killSession,
+		);
+
+		expect(killSession).toHaveBeenCalledWith("persisted-terminal");
+	});
+
+	it("prefers registered cleanup for mounted panes", async () => {
+		const hostCleanup = mock(async () => {});
+		const killSession = mock<(terminalId: string) => void>();
+		registerTerminalCleanup("mounted-pane", hostCleanup);
+
+		killTerminalForPaneOrSession(
+			"mounted-pane",
+			"persisted-terminal",
+			killSession,
+		);
 		await Promise.resolve();
 
-		expect(legacyKill).toHaveBeenCalledWith({ paneId: "legacy-pane" });
+		expect(hostCleanup).toHaveBeenCalledTimes(1);
+		expect(killSession).not.toHaveBeenCalled();
 	});
 });

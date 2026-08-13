@@ -24,7 +24,7 @@ afterEach(async () => {
 	repo.dispose();
 });
 
-test("workspace.delete forces removal through the v2 cleanup saga", async () => {
+test("workspace.delete forces removal through the local cleanup saga", async () => {
 	const workspaceId = randomUUID();
 	const worktreePath = join(repo.repoPath, ".worktrees", "feature-dirty");
 	await repo.git.raw(["worktree", "add", "-b", "feature/dirty", worktreePath]);
@@ -32,12 +32,7 @@ test("workspace.delete forces removal through the v2 cleanup saga", async () => 
 	const { writeFileSync } = await import("node:fs");
 	writeFileSync(join(worktreePath, "dirt.txt"), "uncommitted");
 
-	host = await createTestHost({
-		apiOverrides: {
-			"v2Workspace.getFromHost.query": () => ({ type: "feature" }),
-			"v2Workspace.delete.mutate": () => ({ success: true }),
-		},
-	});
+	host = await createTestHost();
 	host.db
 		.insert(projects)
 		.values({ id: projectId, repoPath: repo.repoPath })

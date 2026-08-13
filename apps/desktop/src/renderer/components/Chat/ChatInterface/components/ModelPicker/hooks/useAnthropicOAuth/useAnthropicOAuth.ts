@@ -1,6 +1,6 @@
-import { chatServiceTrpc } from "@superset/chat/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
+import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -76,15 +76,15 @@ export function useAnthropicOAuth({
 	);
 
 	const { data: anthropicStatus, refetch: refetchAnthropicStatus } =
-		chatServiceTrpc.auth.getAnthropicStatus.useQuery();
+		hostServiceTrpc.auth.getAnthropicStatus.useQuery();
 	const startAnthropicOAuthMutation =
-		chatServiceTrpc.auth.startAnthropicOAuth.useMutation();
+		hostServiceTrpc.auth.startAnthropicOAuth.useMutation();
 	const completeAnthropicOAuthMutation =
-		chatServiceTrpc.auth.completeAnthropicOAuth.useMutation();
+		hostServiceTrpc.auth.completeAnthropicOAuth.useMutation();
 	const cancelAnthropicOAuthMutation =
-		chatServiceTrpc.auth.cancelAnthropicOAuth.useMutation();
+		hostServiceTrpc.auth.cancelAnthropicOAuth.useMutation();
 	const disconnectAnthropicOAuthMutation =
-		chatServiceTrpc.auth.disconnectAnthropicOAuth.useMutation();
+		hostServiceTrpc.auth.disconnectAnthropicOAuth.useMutation();
 
 	useEffect(() => {
 		if (!isModelSelectorOpen) return;

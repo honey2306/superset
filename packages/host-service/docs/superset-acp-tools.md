@@ -6,7 +6,7 @@ filesystem or terminal access alone: understanding its Superset context,
 coordinating sibling ACP sessions, handing work to a fresh conversation, and
 requesting that Desktop present the new conversation.
 
-## V1 tool surface
+## Current tool surface
 
 | Tool | Purpose |
 | --- | --- |
@@ -69,13 +69,14 @@ Superset session lists.
 
 ## Security boundaries
 
-- The daemon socket is local and uses the existing per-organization path and
+- The daemon socket is local, application-scoped, and protected by owner-only
   filesystem permissions.
 - Source identity comes from the MCP declaration, not a model-supplied tool
   argument.
 - The daemon resolves the source session before every operation.
 - Read/message targets must belong to the source workspace.
-- No destructive session or workspace operations are exposed in V1.
+- No destructive session or workspace operations are exposed by the current
+  MCP tool surface.
 - Tool inputs are strict Zod schemas with bounded strings and list limits.
 
 ## Follow-up candidates

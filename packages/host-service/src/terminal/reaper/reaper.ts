@@ -3,6 +3,7 @@ import { terminalSessions } from "../../db/schema.ts";
 import { portManager } from "../../ports/port-manager.ts";
 import { getDaemonClient } from "../daemon-client-singleton.ts";
 import { disposeSessionAndWait, isLiveTerminalSession } from "../terminal.ts";
+import { transientTerminalManager } from "../transient-terminal.ts";
 
 interface ReapResult {
 	reaped: number;
@@ -44,6 +45,23 @@ export function shouldReapRow(row: TerminalRow): boolean {
 		!row.originWorkspaceId ||
 		row.disposeRequestedAt != null
 	);
+}
+
+/**
+ * Rowless daemon sessions normally require two consecutive reap observations
+ * before they are killed. A transient terminal intentionally has no database
+ * row, though, so its in-memory manager ownership must take precedence over
+ * that orphan heuristic. After a host restart the manager is empty and any
+ * leftover transient session returns to the normal two-pass cleanup policy.
+ */
+export function shouldReapRowlessSession({
+	wasMissingLastPass,
+	isManagedTransient,
+}: {
+	wasMissingLastPass: boolean;
+	isManagedTransient: boolean;
+}): boolean {
+	return wasMissingLastPass && !isManagedTransient;
 }
 
 export interface PortScanSyncPlan {
@@ -200,9 +218,17 @@ async function reapOrphanedSessions(
 	for (const session of liveSessions) {
 		const row = rowById.get(session.id);
 		if (!row) {
-			if (rowlessPendingSecondPass.has(session.id)) {
+			const isManagedTransient = transientTerminalManager.hasSession(
+				session.id,
+			);
+			if (
+				shouldReapRowlessSession({
+					wasMissingLastPass: rowlessPendingSecondPass.has(session.id),
+					isManagedTransient,
+				})
+			) {
 				orphans.push({ id: session.id, rowless: true });
-			} else {
+			} else if (!isManagedTransient) {
 				stillRowless.add(session.id);
 			}
 			continue;

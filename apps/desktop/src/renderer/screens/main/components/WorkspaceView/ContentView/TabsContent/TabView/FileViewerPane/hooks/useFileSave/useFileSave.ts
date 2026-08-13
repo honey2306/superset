@@ -1,8 +1,6 @@
+import { workspaceTrpc } from "@superset/workspace-client";
 import { useCallback } from "react";
-import { electronTrpc } from "renderer/lib/electron-trpc";
-import { invalidateFileSaveQueries } from "renderer/lib/invalidate-file-save-queries";
 import type { EditorSaveResult } from "renderer/stores/editor-state/types";
-import { useTabsStore } from "renderer/stores/tabs/store";
 import type { ChangeCategory } from "shared/changes-types";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
@@ -10,10 +8,10 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024;
 interface UseFileSaveParams {
 	workspaceId?: string;
 	filePath: string;
-	paneId: string;
 	diffCategory?: ChangeCategory;
 	getCurrentContent: () => string;
 	getRevision: () => string | null;
+	onDiffCategoryChange?: (category: ChangeCategory) => void;
 	onSaveSuccess: (input: {
 		savedContent: string;
 		currentContent: string;
@@ -24,15 +22,15 @@ interface UseFileSaveParams {
 export function useFileSave({
 	workspaceId,
 	filePath,
-	paneId,
 	diffCategory,
+	onDiffCategoryChange,
 	getCurrentContent,
 	getRevision,
 	onSaveSuccess,
 }: UseFileSaveParams) {
-	const utils = electronTrpc.useUtils();
+	const utils = workspaceTrpc.useUtils();
 
-	const writeFileMutation = electronTrpc.filesystem.writeFile.useMutation();
+	const writeFileMutation = workspaceTrpc.filesystem.writeFile.useMutation();
 
 	const handleSaveFile = useCallback(
 		async (options?: {
@@ -81,28 +79,13 @@ export function useFileSave({
 				revision: result.revision,
 			});
 
-			invalidateFileSaveQueries({
+			void utils.filesystem.readFile.invalidate({
 				workspaceId,
-				filePath,
+				absolutePath: filePath,
 			});
 
 			if (diffCategory === "staged") {
-				const panes = useTabsStore.getState().panes;
-				const currentPane = panes[paneId];
-				if (currentPane?.fileViewer) {
-					useTabsStore.setState({
-						panes: {
-							...panes,
-							[paneId]: {
-								...currentPane,
-								fileViewer: {
-									...currentPane.fileViewer,
-									diffCategory: "unstaged",
-								},
-							},
-						},
-					});
-				}
+				onDiffCategoryChange?.("unstaged");
 			}
 
 			return { status: "saved" as const };
@@ -112,8 +95,8 @@ export function useFileSave({
 			filePath,
 			getCurrentContent,
 			getRevision,
+			onDiffCategoryChange,
 			onSaveSuccess,
-			paneId,
 			utils,
 			workspaceId,
 			writeFileMutation,

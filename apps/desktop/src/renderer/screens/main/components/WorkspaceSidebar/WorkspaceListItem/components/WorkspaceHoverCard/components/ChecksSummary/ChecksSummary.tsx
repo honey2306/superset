@@ -1,4 +1,4 @@
-import type { CheckItem } from "@superset/local-db";
+import type { CheckItem } from "@superset/shared/desktop-types";
 import { LuCheck, LuLoaderCircle, LuX } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { STROKE_WIDTH } from "../../../../../constants";

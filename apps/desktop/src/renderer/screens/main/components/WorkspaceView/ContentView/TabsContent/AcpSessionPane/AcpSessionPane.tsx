@@ -12,7 +12,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeWorkspaceFilePath } from "renderer/components/Chat/ChatInterface/utils/file-paths";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
-import { useTabsStore } from "renderer/stores/tabs/store";
+import { openFileInPanes } from "../PanesWorkspace/panesStoreRegistry";
 import "./acp-pane.css";
 import { AcpComposer } from "./components/AcpComposer";
 import { AcpEmptyState } from "./components/AcpEmptyState";
@@ -141,7 +141,6 @@ export function AcpSessionPane({
 	});
 
 	const permissions = useAcpPermissions(session);
-	const addFileViewerPane = useTabsStore((store) => store.addFileViewerPane);
 	const openFileFromTool = useCallback(
 		(path: string) => {
 			const filePath = normalizeWorkspaceFilePath({
@@ -149,9 +148,9 @@ export function AcpSessionPane({
 				workspaceRoot: cwd,
 			});
 			if (!filePath) return;
-			addFileViewerPane(rendererWorkspaceId, { filePath });
+			openFileInPanes(rendererWorkspaceId, { filePath });
 		},
-		[addFileViewerPane, cwd, rendererWorkspaceId],
+		[cwd, rendererWorkspaceId],
 	);
 
 	const [mutationError, setMutationError] = useState<string | null>(null);

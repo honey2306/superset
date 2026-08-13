@@ -8,8 +8,7 @@ import {
 } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import type { CommandContext } from "./types";
 
 const Context = createContext<CommandContext | null>(null);
@@ -17,7 +16,6 @@ const Context = createContext<CommandContext | null>(null);
 export function CommandContextProvider({ children }: { children: ReactNode }) {
 	const location = useLocation();
 	const navigate = useNavigate();
-	const _collections = useCollections();
 	const {
 		activeHostUrl,
 		activeOrganizationId,

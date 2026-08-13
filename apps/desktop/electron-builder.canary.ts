@@ -22,6 +22,9 @@ const config: Configuration = {
 	...baseConfig,
 	appId: "com.superset.desktop.canary",
 	productName,
+	// app.getName() reads the packaged app metadata at runtime. Keep it aligned
+	// with productName so the main process can select Canary-only user data.
+	extraMetadata: { productName },
 
 	publish: {
 		provider: "github",

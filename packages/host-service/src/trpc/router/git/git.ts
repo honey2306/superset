@@ -1,16 +1,21 @@
 import { readFile, rm } from "node:fs/promises";
-import { isAbsolute, join, normalize, sep } from "node:path";
+import { join } from "node:path";
+import { parseGitHubRemote } from "@superset/shared/github-remote";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { pullRequests, workspaces } from "../../../db/schema";
-import { createGitEnvResolver } from "../../../runtime/git";
+import {
+	createGitEnvResolver,
+	resolveDefaultBranchName,
+} from "../../../runtime/git";
 import { createUserSimpleGit } from "../../../runtime/git/simple-git";
 import type { HostServiceContext } from "../../../types";
 import { getHostWorkerPool } from "../../../workers/host-worker-pool";
 import {
 	gitCommitFilesTask,
 	gitFetchBaseRefTask,
+	gitLogTask,
 	gitStatusSnapshotTask,
 } from "../../../workers/tasks/git";
 import { updateLocalWorkspace } from "../../../workspaces/local-workspace-store";
@@ -30,6 +35,12 @@ import type {
 } from "./types";
 import { scheduleBaseRefFetch } from "./utils/base-ref-freshness";
 import { gitConfigWrite } from "./utils/config-write";
+import {
+	assertSafeGitPath,
+	assertValidCommitRef,
+	parseGitStashList,
+	parseNameStatus,
+} from "./utils/git-changes";
 import {
 	getDefaultBranchName,
 	resolveBaseComparison,
@@ -118,28 +129,6 @@ function updateWorkspaceBranch(
 		workspaceId,
 		{ branch },
 	);
-}
-
-function assertSafeRelativePath(filePath: string): void {
-	if (isAbsolute(filePath)) {
-		throw new TRPCError({
-			code: "BAD_REQUEST",
-			message: "Absolute paths are not allowed",
-		});
-	}
-	const normalized = normalize(filePath);
-	if (normalized.split(sep).includes("..")) {
-		throw new TRPCError({
-			code: "BAD_REQUEST",
-			message: "Path traversal is not allowed",
-		});
-	}
-	if (normalized === "" || normalized === ".") {
-		throw new TRPCError({
-			code: "BAD_REQUEST",
-			message: "Cannot target worktree root",
-		});
-	}
 }
 
 export const gitRouter = router({
@@ -568,6 +557,339 @@ export const gitRouter = router({
 			return { name: input.newName };
 		}),
 
+	commit: protectedProcedure
+		.input(
+			z.object({
+				workspaceId: z.string(),
+				message: z.string().min(1),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			const result = await git.commit(input.message);
+			return { success: true, hash: result.commit };
+		}),
+
+	stageFiles: protectedProcedure
+		.input(
+			z.object({
+				workspaceId: z.string(),
+				filePaths: z.array(z.string()).min(1),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			for (const filePath of input.filePaths) assertSafeGitPath(filePath);
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.raw(["add", "--", ...input.filePaths]);
+			return { success: true };
+		}),
+
+	unstageFiles: protectedProcedure
+		.input(
+			z.object({
+				workspaceId: z.string(),
+				filePaths: z.array(z.string()).min(1),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			for (const filePath of input.filePaths) assertSafeGitPath(filePath);
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.raw(["reset", "HEAD", "--", ...input.filePaths]);
+			return { success: true };
+		}),
+
+	discardFiles: protectedProcedure
+		.input(
+			z.object({
+				workspaceId: z.string(),
+				filePaths: z.array(z.string()).min(1),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			for (const filePath of input.filePaths) assertSafeGitPath(filePath);
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			const git = await ctx.git(worktreePath);
+			const untracked = new Set((await git.status()).not_added);
+			const trackedPaths = input.filePaths.filter(
+				(path) => !untracked.has(path),
+			);
+			if (trackedPaths.length > 0) {
+				await git.raw(["checkout", "--", ...trackedPaths]);
+			}
+			await Promise.all(
+				input.filePaths
+					.filter((path) => untracked.has(path))
+					.map((path) =>
+						rm(join(worktreePath, path), { recursive: true, force: true }),
+					),
+			);
+			return { success: true };
+		}),
+
+	resetToCommit: protectedProcedure
+		.input(
+			z.object({
+				workspaceId: z.string(),
+				commit: z.string(),
+				mode: z.enum(["soft", "mixed", "hard"]),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertValidCommitRef(input.commit);
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.raw(["rev-parse", "--verify", `${input.commit}^{commit}`]);
+			await git.raw(["reset", `--${input.mode}`, input.commit]);
+			return { success: true };
+		}),
+
+	listLog: queryProcedure
+		.meta({ timeoutMs: 30_000 })
+		.input(
+			z.object({
+				workspaceId: z.string(),
+				limit: z.number().int().min(1).max(500).default(50),
+				skip: z.number().int().min(0).default(0),
+				grep: z.string().optional(),
+				author: z.string().optional(),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			return getHostWorkerPool().run(
+				gitLogTask,
+				{
+					worktreePath,
+					gitEnv: await resolveGitTaskEnv(ctx, worktreePath),
+					limit: input.limit,
+					skip: input.skip,
+					grep: input.grep,
+					author: input.author,
+				},
+				{ timeoutMs: 30_000 },
+			);
+		}),
+
+	getFileHistory: queryProcedure
+		.meta({ timeoutMs: 30_000 })
+		.input(
+			z.object({
+				workspaceId: z.string(),
+				filePath: z.string(),
+				limit: z.number().int().min(1).max(200).default(100),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			assertSafeGitPath(input.filePath);
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			return getHostWorkerPool().run(
+				gitLogTask,
+				{
+					worktreePath,
+					gitEnv: await resolveGitTaskEnv(ctx, worktreePath),
+					limit: input.limit,
+					filePath: input.filePath,
+				},
+				{ timeoutMs: 30_000 },
+			);
+		}),
+
+	stash: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.raw(["stash", "push"]);
+			return { success: true };
+		}),
+
+	stashIncludeUntracked: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.raw(["stash", "push", "--include-untracked"]);
+			return { success: true };
+		}),
+
+	stashPop: protectedProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.raw(["stash", "pop"]);
+			return { success: true };
+		}),
+
+	stashList: queryProcedure
+		.input(z.object({ workspaceId: z.string() }))
+		.query(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			return parseGitStashList(
+				await git.raw(["stash", "list", "--format=%gd%x1f%gs%x1f%at"]),
+			);
+		}),
+
+	stashApplyAt: protectedProcedure
+		.input(
+			z.object({ workspaceId: z.string(), index: z.number().int().min(0) }),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.raw(["stash", "apply", `stash@{${input.index}}`]);
+			return { success: true };
+		}),
+
+	stashPopAt: protectedProcedure
+		.input(
+			z.object({ workspaceId: z.string(), index: z.number().int().min(0) }),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.raw(["stash", "pop", `stash@{${input.index}}`]);
+			return { success: true };
+		}),
+
+	stashDropAt: protectedProcedure
+		.input(
+			z.object({ workspaceId: z.string(), index: z.number().int().min(0) }),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			await git.raw(["stash", "drop", `stash@{${input.index}}`]);
+			return { success: true };
+		}),
+
+	stashFiles: queryProcedure
+		.input(
+			z.object({ workspaceId: z.string(), index: z.number().int().min(0) }),
+		)
+		.query(async ({ ctx, input }) => {
+			const git = await ctx.git(resolveWorktreePath(ctx, input.workspaceId));
+			return parseNameStatus(
+				await git.raw([
+					"stash",
+					"show",
+					"--name-status",
+					"--no-color",
+					`stash@{${input.index}}`,
+				]),
+			);
+		}),
+
+	createPullRequest: protectedProcedure
+		.input(
+			z.object({
+				workspaceId: z.string(),
+				allowOutOfDate: z.boolean().optional().default(false),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const workspace = ctx.db.query.workspaces
+				.findFirst({ where: eq(workspaces.id, input.workspaceId) })
+				.sync();
+			if (!workspace) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Workspace not found",
+				});
+			}
+			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
+			const git = await ctx.git(worktreePath);
+			const branch = (await git.revparse(["--abbrev-ref", "HEAD"])).trim();
+			if (!branch || branch === "HEAD") {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Cannot create a pull request from detached HEAD",
+				});
+			}
+
+			const upstream = await git
+				.raw(["rev-parse", "--abbrev-ref", "@{upstream}"])
+				.then((value) => value.trim())
+				.catch(() => "");
+			if (upstream) {
+				const [pullCount, pushCount] = (
+					await git.raw([
+						"rev-list",
+						"--left-right",
+						"--count",
+						"@{upstream}...HEAD",
+					])
+				)
+					.trim()
+					.split(/\s+/)
+					.map((value) => Number.parseInt(value, 10));
+				if ((pullCount ?? 0) > 0 && !input.allowOutOfDate) {
+					throw new TRPCError({
+						code: "PRECONDITION_FAILED",
+						message: `Branch is behind upstream by ${pullCount} commit${pullCount === 1 ? "" : "s"}. Pull/rebase first, or continue anyway.`,
+					});
+				}
+				if ((pushCount ?? 0) > 0) await git.push();
+			} else {
+				await git.raw([
+					"push",
+					"--set-upstream",
+					"origin",
+					`HEAD:refs/heads/${branch}`,
+				]);
+			}
+
+			const upstreamRef = (
+				await git.raw(["rev-parse", "--abbrev-ref", "@{upstream}"])
+			).trim();
+			const separator = upstreamRef.indexOf("/");
+			const remoteName =
+				separator > 0 ? upstreamRef.slice(0, separator) : "origin";
+			const headBranch =
+				separator > 0 ? upstreamRef.slice(separator + 1) : branch;
+			const remoteUrl = (
+				await git.raw(["remote", "get-url", remoteName])
+			).trim();
+			const headRepo = parseGitHubRemote(remoteUrl);
+			if (!headRepo) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "GitHub is not available for this workspace",
+				});
+			}
+
+			const resolvedRepo = await resolveGithubRepo(ctx, workspace.projectId);
+			const octokit = await ctx.github();
+			const { data: repoData } = await octokit.repos.get({
+				owner: resolvedRepo.owner,
+				repo: resolvedRepo.name,
+			});
+			const baseOwner =
+				repoData.fork && repoData.parent
+					? repoData.parent.owner.login
+					: resolvedRepo.owner;
+			const baseRepo =
+				repoData.fork && repoData.parent
+					? repoData.parent.name
+					: resolvedRepo.name;
+			const baseBranch =
+				(
+					await git
+						.raw(["config", "--get", `branch.${branch}.gh-merge-base`])
+						.catch(() => "")
+				).trim() ||
+				repoData.parent?.default_branch ||
+				repoData.default_branch ||
+				(await resolveDefaultBranchName(git));
+			const { data: existing } = await octokit.pulls.list({
+				owner: baseOwner,
+				repo: baseRepo,
+				head: `${headRepo.owner}:${headBranch}`,
+				state: "open",
+				per_page: 1,
+			});
+			const url =
+				existing[0]?.html_url ??
+				`https://github.com/${baseOwner}/${baseRepo}/compare/${encodeURIComponent(baseBranch)}...${encodeURIComponent(headRepo.owner)}:${encodeURIComponent(headBranch)}?expand=1`;
+			await ctx.runtime.pullRequests
+				.refreshPullRequestsByWorkspaces([input.workspaceId])
+				.catch(() => {});
+			return { success: true, url };
+		}),
+
 	discardChanges: protectedProcedure
 		.input(
 			z.object({
@@ -576,7 +898,7 @@ export const gitRouter = router({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertSafeRelativePath(input.filePath);
+			assertSafeGitPath(input.filePath);
 			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
 			const git = await ctx.git(worktreePath);
 			const status = await git.status();
@@ -675,6 +997,7 @@ export const gitRouter = router({
 			z.object({
 				workspaceId: z.string(),
 				path: z.string(),
+				oldPath: z.string().optional(),
 				category: z.enum(["against-base", "staged", "unstaged", "commit"]),
 				baseBranch: z.string().optional(),
 				commitHash: z.string().optional(),
@@ -682,6 +1005,9 @@ export const gitRouter = router({
 			}),
 		)
 		.query(async ({ ctx, input }) => {
+			assertSafeGitPath(input.path);
+			if (input.oldPath) assertSafeGitPath(input.oldPath);
+			const originalPath = input.oldPath ?? input.path;
 			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
 			const git = await ctx.git(worktreePath);
 
@@ -699,14 +1025,14 @@ export const gitRouter = router({
 					.then((s) => s.trim())
 					.catch(() => baseRef);
 				try {
-					originalContent = await git.show([`${originRef}:${input.path}`]);
+					originalContent = await git.show([`${originRef}:${originalPath}`]);
 				} catch {}
 				try {
 					modifiedContent = await git.show([`HEAD:${input.path}`]);
 				} catch {}
 			} else if (input.category === "staged") {
 				try {
-					originalContent = await git.show([`HEAD:${input.path}`]);
+					originalContent = await git.show([`HEAD:${originalPath}`]);
 				} catch {}
 				try {
 					modifiedContent = await git.show([`:0:${input.path}`]);
@@ -720,7 +1046,7 @@ export const gitRouter = router({
 				}
 				const from = input.fromHash ?? `${input.commitHash}^`;
 				try {
-					originalContent = await git.show([`${from}:${input.path}`]);
+					originalContent = await git.show([`${from}:${originalPath}`]);
 				} catch {}
 				try {
 					modifiedContent = await git.show([
@@ -731,7 +1057,7 @@ export const gitRouter = router({
 				// Unstaged: compare index (staged version) against working tree
 				// If file isn't in index (untracked), originalContent stays empty = "new file"
 				try {
-					originalContent = await git.show([`:0:${input.path}`]);
+					originalContent = await git.show([`:0:${originalPath}`]);
 				} catch {}
 				try {
 					modifiedContent = await readFile(
@@ -741,10 +1067,11 @@ export const gitRouter = router({
 				} catch {}
 			}
 
-			const fileName = input.path.split("/").pop() ?? input.path;
+			const oldFileName = originalPath.split("/").pop() ?? originalPath;
+			const newFileName = input.path.split("/").pop() ?? input.path;
 			return {
-				oldFile: { name: fileName, contents: originalContent },
-				newFile: { name: fileName, contents: modifiedContent },
+				oldFile: { name: oldFileName, contents: originalContent },
+				newFile: { name: newFileName, contents: modifiedContent },
 			};
 		}),
 

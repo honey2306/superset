@@ -4,7 +4,6 @@ import { agentsRouter } from "./agents";
 import { attachmentsRouter } from "./attachments";
 import { authRouter } from "./auth";
 import { chatRouter } from "./chat";
-import { cloudRouter } from "./cloud";
 import { configRouter } from "./config";
 import { filesystemRouter } from "./filesystem";
 import { gitRouter } from "./git";
@@ -21,6 +20,7 @@ import { pullRequestsRouter } from "./pull-requests";
 import { settingsRouter } from "./settings";
 import { terminalRouter } from "./terminal";
 import { terminalAgentsRouter } from "./terminal-agents";
+import { usageRouter } from "./usage";
 import { workspaceRouter } from "./workspace";
 import { workspaceCatalogRouter } from "./workspace-catalog";
 import { workspaceCleanupRouter } from "./workspace-cleanup";
@@ -42,7 +42,6 @@ export const appRouter = router({
 	filesystem: filesystemRouter,
 	git: gitRouter,
 	github: githubRouter,
-	cloud: cloudRouter,
 	issues: issuesRouter,
 	notifications: notificationsRouter,
 	phone: phoneRouter,
@@ -52,6 +51,7 @@ export const appRouter = router({
 	settings: settingsRouter,
 	terminal: terminalRouter,
 	terminalAgents: terminalAgentsRouter,
+	usage: usageRouter,
 	todo: todosRouter,
 	todos: todosRouter,
 	workspace: workspaceRouter,

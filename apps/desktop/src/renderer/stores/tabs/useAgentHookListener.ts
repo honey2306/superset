@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
 import { NOTIFICATION_EVENTS } from "shared/constants";
 import { debugLog } from "shared/debug";
 import { useTabsStore } from "./store";
@@ -36,7 +36,7 @@ import { resolveNotificationTarget } from "./utils/resolve-notification-target";
  * Returns the current workspace ID from the live URL hash.
  * The app uses hash routing: file:///.../index.html#/workspace/<id>
  * We must read window.location.hash (not pathname) at event time since the
- * _authenticated layout does not re-render on workspace navigation.
+ * _local layout does not re-render on workspace navigation.
  */
 function getCurrentWorkspaceId(): string | null {
 	try {
@@ -53,7 +53,7 @@ export function useAgentHookListener() {
 	electronTrpc.notifications.subscribe.useSubscription(undefined, {
 		onData: (event) => {
 			if (!event.data) return;
-			if (event.type === NOTIFICATION_EVENTS.FOCUS_V2_NOTIFICATION_SOURCE) {
+			if (event.type === NOTIFICATION_EVENTS.FOCUS_NOTIFICATION_SOURCE) {
 				return;
 			}
 

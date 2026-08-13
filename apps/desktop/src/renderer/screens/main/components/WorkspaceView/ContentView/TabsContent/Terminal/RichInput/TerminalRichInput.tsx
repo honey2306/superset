@@ -10,11 +10,12 @@ import { cn } from "@superset/ui/utils";
 import { ArrowUpIcon } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { TiptapPromptEditor } from "renderer/components/Chat/ChatInterface/components/TiptapPromptEditor/TiptapPromptEditor";
+import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl/useWorkspaceHostUrl";
 import { useBinding, useHotkeyDisplay } from "renderer/hotkeys";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { prepareTerminalSubmission } from "./prepareTerminalSubmission";
 import { TerminalPaneIcon } from "./TerminalPaneIcon";
 
@@ -78,11 +79,14 @@ function TerminalRichInputInner({
 	// paths without another Electron Workspace identity query.
 	const { workspace } = useCatalogWorkspace(workspaceId);
 	const cwd = workspace?.worktreePath ?? "";
+	const hostUrl = useWorkspaceHostUrl(workspaceId);
 
-	const trpcUtils = electronTrpc.useUtils();
 	const searchFiles = useCallback(
 		async (query: string) => {
-			const { matches } = await trpcUtils.filesystem.searchFiles.fetch({
+			if (!hostUrl) return [];
+			const { matches } = await getHostServiceClientByUrl(
+				hostUrl,
+			).filesystem.searchFiles.query({
 				workspaceId,
 				query,
 				includeHidden: false,
@@ -94,7 +98,7 @@ function TerminalRichInputInner({
 				relativePath: m.relativePath,
 			}));
 		},
-		[trpcUtils, workspaceId],
+		[hostUrl, workspaceId],
 	);
 
 	const handleSubmit = useCallback(

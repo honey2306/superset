@@ -3,13 +3,13 @@ import { cn } from "@superset/ui/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { LuExternalLink, LuLoaderCircle, LuX } from "react-icons/lu";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
 import { STROKE_WIDTH } from "../../../constants";
 import { useKillPort } from "../../hooks/useKillPort";
-import type { V1WorkspacePort } from "../../hooks/usePortsData";
+import type { WorkspacePort } from "../../hooks/usePortsData";
 
 interface MergedPortBadgeProps {
-	port: V1WorkspacePort;
+	port: WorkspacePort;
 }
 
 export function MergedPortBadge({ port }: MergedPortBadgeProps) {

@@ -63,6 +63,7 @@ curl -sG "http://127.0.0.1:${SUPERSET_PORT:-{{DEFAULT_PORT}}}/hook/complete" \
   --data-urlencode "paneId=$SUPERSET_PANE_ID" \
   --data-urlencode "tabId=$SUPERSET_TAB_ID" \
   --data-urlencode "workspaceId=$SUPERSET_WORKSPACE_ID" \
+  --data-urlencode "workspaceName=$SUPERSET_WORKSPACE_NAME" \
   --data-urlencode "terminalId=$SUPERSET_TERMINAL_ID" \
   --data-urlencode "sessionId=$HOOK_SESSION_ID" \
   --data-urlencode "hookSessionId=$HOOK_SESSION_ID" \

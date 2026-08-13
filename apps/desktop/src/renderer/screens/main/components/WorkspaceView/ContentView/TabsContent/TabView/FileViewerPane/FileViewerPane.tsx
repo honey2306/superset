@@ -4,7 +4,8 @@ import { useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MosaicBranch } from "react-mosaic-component";
 import type { MarkdownEditorAdapter } from "renderer/components/MarkdownRenderer";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl/useWorkspaceHostUrl";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { FileSaveConflictDialog } from "renderer/screens/main/components/WorkspaceView/components/FileSaveConflictDialog";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import { useChangesStore } from "renderer/stores/changes";
@@ -39,7 +40,7 @@ import {
 	toAbsoluteWorkspacePath,
 } from "shared/absolute-paths";
 import { isHtmlFile, isImageFile, isMarkdownFile } from "shared/file-types";
-import type { FileViewerMode } from "shared/tabs-types";
+import type { FileViewerMode, FileViewerState } from "shared/tabs-types";
 import type { CodeEditorAdapter } from "../../../components";
 import { BasePaneWindow } from "../components";
 import { FileViewerContent } from "./components/FileViewerContent";
@@ -80,6 +81,10 @@ interface FileViewerPaneProps {
 	onMoveToNewTab: () => void;
 	embedded?: boolean;
 	onRequestClose?: (paneId: string) => void;
+	controlledFileViewer?: FileViewerState;
+	controlledIsFocused?: boolean;
+	onControlledFileViewerChange?: (fileViewer: FileViewerState) => void;
+	onControlledPin?: () => void;
 }
 
 function getUnsavedDialogCopy(intent: EditorPendingIntent | null) {
@@ -130,11 +135,19 @@ export function FileViewerPane({
 	onMoveToNewTab,
 	embedded,
 	onRequestClose,
+	controlledFileViewer,
+	controlledIsFocused,
+	onControlledFileViewerChange,
+	onControlledPin,
 }: FileViewerPaneProps) {
 	const { workspaceId } = useParams({ strict: false });
 	const normalizedWorkspaceId = workspaceId ?? worktreePath;
-	const fileViewer = useTabsStore((s) => s.panes[paneId]?.fileViewer);
-	const isFocused = useTabsStore((s) => s.focusedPaneIds[tabId] === paneId);
+	const legacyFileViewer = useTabsStore((s) => s.panes[paneId]?.fileViewer);
+	const legacyIsFocused = useTabsStore(
+		(s) => s.focusedPaneIds[tabId] === paneId,
+	);
+	const fileViewer = controlledFileViewer ?? legacyFileViewer;
+	const isFocused = controlledIsFocused ?? legacyIsFocused;
 	const equalizePaneSplits = useTabsStore((s) => s.equalizePaneSplits);
 	const pinPane = useTabsStore((s) => s.pinPane);
 	const {
@@ -266,11 +279,34 @@ export function FileViewerPane({
 		oldPath,
 	]);
 
+	const updateFileViewer = useCallback(
+		(update: (current: FileViewerState) => FileViewerState) => {
+			if (controlledFileViewer && onControlledFileViewerChange) {
+				onControlledFileViewerChange(update(controlledFileViewer));
+				return;
+			}
+			const panes = useTabsStore.getState().panes;
+			const currentPane = panes[paneId];
+			if (!currentPane?.fileViewer) return;
+			useTabsStore.setState({
+				panes: {
+					...panes,
+					[paneId]: {
+						...currentPane,
+						fileViewer: update(currentPane.fileViewer),
+					},
+				},
+			});
+		},
+		[controlledFileViewer, onControlledFileViewerChange, paneId],
+	);
+
 	const { handleSaveFile, isSaving } = useFileSave({
 		workspaceId,
 		filePath,
-		paneId,
 		diffCategory,
+		onDiffCategoryChange: (category) =>
+			updateFileViewer((current) => ({ ...current, diffCategory: category })),
 		getCurrentContent,
 		getRevision: () =>
 			useEditorDocumentsStore.getState().documents[documentKey]
@@ -339,52 +375,27 @@ export function FileViewerPane({
 		setDocumentExternalDiskChange(documentKey, nextHasExternalDiskChange);
 	}, [baselineContent, documentKey, isDirty, rawFileData, viewMode]);
 
-	const trpcUtils = electronTrpc.useUtils();
+	const hostUrl = useWorkspaceHostUrl(workspaceId ?? null);
 	const invalidateCurrentFile = useCallback(() => {
-		if (!filePath) {
+		if (!filePath || !workspaceId || !hostUrl) {
 			return;
 		}
 
-		const invalidations: Promise<unknown>[] = [];
-		if (viewMode === "diff") {
-			invalidations.push(
-				trpcUtils.changes.getGitFileContents.invalidate({
-					worktreePath,
-					absolutePath: absoluteFilePath,
-					oldAbsolutePath: oldPath,
-				}),
-				trpcUtils.changes.getGitOriginalContent.invalidate({
-					worktreePath,
-					absolutePath: absoluteFilePath,
-					oldAbsolutePath: oldPath,
-				}),
-			);
-		}
+		const hostClient = getHostServiceClientByUrl(hostUrl);
+		const refreshes: Promise<unknown>[] = [
+			hostClient.filesystem.readFile.query({
+				workspaceId,
+				absolutePath: absoluteFilePath,
+			}),
+		];
 
-		if (workspaceId) {
-			invalidations.push(
-				trpcUtils.filesystem.readFile.invalidate({
-					workspaceId,
-					absolutePath: absoluteFilePath,
-				}),
-			);
-		}
-
-		Promise.all(invalidations).catch((error) => {
-			console.error("[FileViewerPane] Failed to invalidate file queries:", {
+		Promise.all(refreshes).catch((error) => {
+			console.error("[FileViewerPane] Failed to refresh file queries:", {
 				absolutePath: absoluteFilePath,
 				error,
 			});
 		});
-	}, [
-		absoluteFilePath,
-		filePath,
-		oldPath,
-		trpcUtils,
-		viewMode,
-		workspaceId,
-		worktreePath,
-	]);
+	}, [absoluteFilePath, filePath, hostUrl, workspaceId]);
 
 	const handleContentChange = useCallback(
 		(value: string | undefined) => {
@@ -394,13 +405,14 @@ export function FileViewerPane({
 
 			const dirty = updateDocumentDraft(documentKey, value);
 			if (dirty && !isPinned) {
-				pinPane(paneId);
+				if (onControlledPin) onControlledPin();
+				else pinPane(paneId);
 				useEditorSessionsStore.getState().patchSession(paneId, {
 					autoPinnedBecauseDirty: true,
 				});
 			}
 		},
-		[documentKey, isPinned, paneId, pinPane],
+		[documentKey, isPinned, onControlledPin, paneId, pinPane],
 	);
 
 	useEffect(() => {
@@ -449,7 +461,8 @@ export function FileViewerPane({
 	);
 
 	const handlePin = () => {
-		pinPane(paneId);
+		if (onControlledPin) onControlledPin();
+		else pinPane(paneId);
 	};
 
 	const switchToMode = useCallback(
@@ -460,29 +473,14 @@ export function FileViewerPane({
 				column?: number;
 			},
 		) => {
-			const panes = useTabsStore.getState().panes;
-			const currentPane = panes[paneId];
-			if (!currentPane?.fileViewer) {
-				return;
-			}
-
-			useTabsStore.setState({
-				panes: {
-					...panes,
-					[paneId]: {
-						...currentPane,
-						fileViewer: {
-							...currentPane.fileViewer,
-							viewMode: newMode,
-							initialLine: location?.line ?? currentPane.fileViewer.initialLine,
-							initialColumn:
-								location?.column ?? currentPane.fileViewer.initialColumn,
-						},
-					},
-				},
-			});
+			updateFileViewer((current) => ({
+				...current,
+				viewMode: newMode,
+				initialLine: location?.line ?? current.initialLine,
+				initialColumn: location?.column ?? current.initialColumn,
+			}));
 		},
-		[paneId],
+		[updateFileViewer],
 	);
 
 	const handleSwitchToRawAtLocation = (line: number, column: number) => {
@@ -491,6 +489,10 @@ export function FileViewerPane({
 
 	const handleViewModeChange = (value: string) => {
 		if (!value) return;
+		if (controlledFileViewer) {
+			switchToMode(value as FileViewerMode);
+			return;
+		}
 		void requestViewModeChange(paneId, value as FileViewerMode);
 	};
 

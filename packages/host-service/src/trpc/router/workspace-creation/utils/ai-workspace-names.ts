@@ -341,9 +341,7 @@ interface ApplyAiRenameArgs {
 /**
  * Generates an AI title+branch for a freshly-created workspace and
  * applies whichever side the caller asked for. Git rename runs first
- * (cheap to roll back); the host-local row is the source of truth and
- * commits next; the cloud mirror is pushed best-effort afterwards (a
- * failure leaves the row cloud-dirty for the reconciler).
+ * (cheap to roll back), then the authoritative host-local row is updated.
  *
  * `renameTitle` / `renameBranch` let callers preserve user-typed
  * values: skip replacing whichever side the user supplied directly.

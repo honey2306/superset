@@ -525,6 +525,35 @@ function validateDuckdbPrepared(): void {
 	);
 }
 
+function validateAcpRuntimePrepared(): void {
+	const requiredPaths = [
+		join(projectRoot, "dist", "main", "acp-daemon.js"),
+		join(projectRoot, "dist", "main", "codex-app-server-acp.js"),
+		join(projectRoot, "dist", "main", "pi-acp.js"),
+		join(
+			projectRoot,
+			"node_modules",
+			"@agentclientprotocol",
+			"claude-agent-acp",
+			"package.json",
+		),
+	];
+	const missingPaths = requiredPaths.filter((path) => !existsSync(path));
+	if (missingPaths.length > 0) {
+		fail(
+			[
+				"Missing ACP runtime artifact(s).",
+				...missingPaths.map((path) => `Missing path: ${path}`),
+				"Run `bun run compile:app` and ensure ACP adapters remain desktop runtime dependencies.",
+			].join("\n"),
+		);
+	}
+
+	console.log(
+		"[validate:native-runtime] OK: ACP daemon and adapter artifacts are present",
+	);
+}
+
 function main(): void {
 	validateWorkspacePackagesBundled();
 	validateOnlyExpectedExternalRequires();
@@ -533,6 +562,7 @@ function main(): void {
 	validateNativeModulesPrepared();
 	validateParcelWatcherPrepared();
 	validateDuckdbPrepared();
+	validateAcpRuntimePrepared();
 	console.log("[validate:native-runtime] All checks passed");
 }
 

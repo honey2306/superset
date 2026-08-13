@@ -6,10 +6,8 @@ import { ChatService } from "@superset/chat/server/desktop";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { createApiClient } from "./api";
 import { createDb, type HostDb } from "./db";
 import { EventBus, GitWatcher, registerEventBusRoute } from "./events";
-import type { ApiAuthProvider } from "./providers/auth";
 import {
 	CompositeHostAuthProvider,
 	type HostAuthProvider,
@@ -29,10 +27,9 @@ import { createGitFactory } from "./runtime/git";
 import { LocalAutomationScheduler } from "./runtime/local-automations";
 import { runMainWorkspaceSweep } from "./runtime/main-workspace-sweep";
 import { PhoneAuthService } from "./runtime/phone";
-import { runProjectBackfill } from "./runtime/project-backfill";
 import { PullRequestRuntimeManager } from "./runtime/pull-requests";
-import { runWorkspaceBackfill } from "./runtime/workspace-backfill";
 import { registerWorkspaceTerminalRoute } from "./terminal/terminal";
+import { registerTransientTerminalRoute } from "./terminal/transient-terminal";
 import {
 	SqliteTerminalAgentBindingPersistence,
 	TerminalAgentStore,
@@ -42,7 +39,7 @@ import {
 	execGh as defaultExecGh,
 	type ExecGh,
 } from "./trpc/router/workspace-creation/utils/exec-gh";
-import type { ApiClient, HostServiceRuntime } from "./types";
+import type { HostServiceRuntime } from "./types";
 import {
 	runCatalogIdentityBackfill,
 	WorkspaceCatalog,
@@ -58,7 +55,6 @@ export interface CreateAppOptions {
 	config: {
 		organizationId: string;
 		dbPath: string;
-		cloudApiUrl: string;
 		migrationsFolder: string;
 		allowedOrigins: string[];
 		/**
@@ -71,7 +67,6 @@ export interface CreateAppOptions {
 		webAppDir?: string;
 	};
 	providers: {
-		auth: ApiAuthProvider;
 		hostAuth: HostAuthProvider;
 		credentials: GitCredentialProvider;
 		modelResolver: ModelProviderRuntimeResolver;
@@ -80,12 +75,11 @@ export interface CreateAppOptions {
 	 * Test-harness override hooks. Production never sets these — `createApp`
 	 * builds each subsystem itself when omitted. `db` is overridden so tests
 	 * can swap in `bun:sqlite` (better-sqlite3 isn't loadable under Bun;
-	 * prod uses it on bundled Node). `api`, `github`, `chatRuntime`, and
+	 * prod uses it on bundled Node). `github`, `chatRuntime`, and
 	 * `chatService` are overridden to keep tests off the network and out of
 	 * mastra storage.
 	 */
 	db?: HostDb;
-	api?: ApiClient;
 	github?: () => Promise<Octokit>;
 	execGh?: ExecGh;
 	chatRuntime?: ChatRuntimeManager;
@@ -96,7 +90,6 @@ export interface CreateAppOptions {
 export interface CreateAppResult {
 	app: Hono;
 	injectWebSocket: ReturnType<typeof createNodeWebSocket>["injectWebSocket"];
-	api: ApiClient;
 	db: HostDb;
 	dispose: () => Promise<void>;
 }
@@ -104,9 +97,6 @@ export interface CreateAppResult {
 export function createApp(options: CreateAppOptions): CreateAppResult {
 	const { config, providers } = options;
 
-	const api =
-		options.api ??
-		createApiClient(config.cloudApiUrl, providers.auth, config.organizationId);
 	const db = options.db ?? createDb(config.dbPath, config.migrationsFolder);
 	const git = createGitFactory(providers.credentials);
 	const github =
@@ -138,14 +128,6 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	// pull-requests runtime (event-driven branch sync) subscribe to it.
 	const gitWatcher = new GitWatcher(db, filesystem);
 	gitWatcher.start();
-	const pullRequestRuntime = new PullRequestRuntimeManager({
-		db,
-		execGh,
-		git,
-		github,
-		gitWatcher,
-	});
-	pullRequestRuntime.start();
 	const chatRuntime =
 		options.chatRuntime ??
 		new ChatRuntimeManager({
@@ -154,16 +136,15 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		});
 	// Provider auth (Anthropic / OpenAI OAuth + API keys) is per-machine, not
 	// per-workspace. ChatService is a long-lived singleton wrapping mastra's
-	// auth storage; the `host.auth.*` router proxies to it.
+	// auth storage; the authenticated `auth.*` and `usage.*` routers proxy to it.
 	const chatService = options.chatService ?? new ChatService();
-	// ACP session harness (docs/acp-sessions.md). Production talks to the
+	// ACP session runtime (docs/acp-sessions.md). Production talks to the
 	// detached per-org ACP daemon, which owns adapters and active turns across
 	// host-service/Desktop restarts. Tests may inject an in-process manager.
-	// Pre-release, so internal-channel only: the desktop coordinator spawns
-	// hosts with SUPERSET_ACP_SESSIONS=1 on canary/dev builds, never on
-	// stable. Without it the harness is inert — no WS route, every RPC except
-	// the `list` capability probe rejected. Tests that inject a manager opt
-	// in implicitly.
+	// Desktop builds enable it through SUPERSET_ACP_SESSIONS=1. Keeping the
+	// host-side capability switch lets standalone/test hosts explicitly disable
+	// the surface without making ACP availability depend on a release channel.
+	// Tests that inject a manager opt in implicitly.
 	const acpSessionsEnabled =
 		options.acpSessions !== undefined ||
 		process.env.SUPERSET_ACP_SESSIONS === "1";
@@ -201,7 +182,6 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 
 	const eventBus = new EventBus({ db, filesystem, gitWatcher });
 	eventBus.start();
-	pullRequestRuntime.subscribeToWorkspaceEvents(eventBus);
 
 	// Forward ACP session status transitions from the daemon (or an in-process
 	// manager in tests) to the shared event bus. Sidebar and other host-wide
@@ -234,6 +214,19 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	} catch (err) {
 		console.warn("[host-service] catalog identity backfill failed:", err);
 	}
+
+	// Pull-request branch and repository metadata updates are catalog writes,
+	// so the runtime starts only after the catalog and its event sink exist.
+	const pullRequestRuntime = new PullRequestRuntimeManager({
+		db,
+		execGh,
+		git,
+		github,
+		gitWatcher,
+		catalog,
+	});
+	pullRequestRuntime.subscribeToWorkspaceEvents(eventBus);
+	pullRequestRuntime.start();
 
 	const terminalAgentPersistence = new SqliteTerminalAgentBindingPersistence(
 		db,
@@ -268,7 +261,6 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 					credentials: providers.credentials,
 					github,
 					execGh,
-					api,
 					db,
 					catalog,
 					runtime,
@@ -288,7 +280,6 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 						credentials: providers.credentials,
 						github,
 						execGh,
-						api,
 						db,
 						catalog,
 						runtime,
@@ -342,40 +333,16 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		console.warn("[host-service] provisioning resume sweep failed:", err);
 	}
 
-	// Startup sweeps run in the background so they don't block server
-	// startup. Ordering matters: the backfills fill identity fields on
-	// pre-existing rows before the main-workspace sweep touches them.
-	void (async () => {
-		await runProjectBackfill({
-			api,
-			db,
-			eventBus,
-			catalog,
-			organizationId: config.organizationId,
-		}).catch((err) => {
-			console.warn("[host-service] project backfill failed:", err);
-		});
-		await runWorkspaceBackfill({
-			api,
-			db,
-			eventBus,
-			catalog,
-			organizationId: config.organizationId,
-		}).catch((err) => {
-			console.warn("[host-service] workspace backfill failed:", err);
-		});
-		// Backfill `kind='main'` workspaces for projects already set up before
-		// this column shipped. Idempotent — only does real work the first
-		// time after upgrade.
-		await runMainWorkspaceSweep({
-			db,
-			git,
-			eventBus,
-			catalog,
-		}).catch((err) => {
-			console.warn("[host-service] main-workspace sweep failed:", err);
-		});
-	})();
+	// Backfill `kind='main'` workspaces for projects already set up before this
+	// column shipped. Run in the background; idempotent after the first upgrade.
+	void runMainWorkspaceSweep({
+		db,
+		git,
+		eventBus,
+		catalog,
+	}).catch((err) => {
+		console.warn("[host-service] main-workspace sweep failed:", err);
+	});
 
 	const wsAuth =
 		(options: { allowPhone: boolean }): MiddlewareHandler =>
@@ -410,6 +377,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		eventBus,
 		upgradeWebSocket,
 	});
+	registerTransientTerminalRoute({ app, upgradeWebSocket });
 	if (acpSessionsEnabled) {
 		registerAcpSessionStreamRoute({
 			app,
@@ -429,7 +397,6 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 					credentials: providers.credentials,
 					github,
 					execGh,
-					api,
 					db,
 					catalog,
 					runtime,
@@ -485,26 +452,14 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		}
 	};
 
-	return { app, injectWebSocket, api, db, dispose };
+	return { app, injectWebSocket, db, dispose };
 }
 
 /**
- * Best-effort caller IP for per-request rate limiting. Prefers the first
- * entry of `x-forwarded-for` (that's what the relay forwards, and what any
- * reverse-proxy in front of us sets), then falls back to Hono's Node-side
- * `getConnInfo` for the raw TCP peer. Never throws — a failed lookup just
- * yields `undefined` and the caller collapses into the shared "unknown"
- * bucket.
+ * Best-effort direct peer IP for per-request rate limiting. The embedded host
+ * has no trusted reverse proxy, so forwarded headers are intentionally ignored.
  */
-function resolveRemoteAddress(c: {
-	req: { header: (name: string) => string | undefined };
-	env?: unknown;
-}): string | undefined {
-	const forwarded = c.req.header("x-forwarded-for");
-	if (forwarded) {
-		const first = forwarded.split(",")[0]?.trim();
-		if (first) return first;
-	}
+export function resolveRemoteAddress(c: { env?: unknown }): string | undefined {
 	try {
 		const info = getConnInfo(c as never);
 		return info.remote.address ?? undefined;

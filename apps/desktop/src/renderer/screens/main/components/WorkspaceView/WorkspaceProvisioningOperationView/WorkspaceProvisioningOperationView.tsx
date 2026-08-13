@@ -13,7 +13,7 @@ import { HiExclamationTriangle } from "react-icons/hi2";
 import { LuLoader } from "react-icons/lu";
 import { useDestroyWorkspace } from "renderer/hooks/host-service/useDestroyWorkspace/useDestroyWorkspace";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { deleteWithToast } from "renderer/routes/_authenticated/components/TeardownLogsDialog";
+import { deleteWithToast } from "renderer/routes/_local/components/TeardownLogsDialog";
 
 interface WorkspaceProvisioningOperationViewProps {
 	workspaceId: string;

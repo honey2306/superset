@@ -32,9 +32,9 @@ import {
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useUpdateProject } from "renderer/react-query/projects/useUpdateProject";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
-import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
-import { useHostWorkspaces } from "renderer/routes/_authenticated/providers/HostWorkspacesProvider";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
+import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
+import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
 import { useProjectRename } from "renderer/screens/main/hooks/useProjectRename";
 import { STROKE_WIDTH } from "../constants";
 import { RenameInput } from "../RenameInput";
@@ -74,7 +74,7 @@ export function ProjectHeader({
 }: ProjectHeaderProps) {
 	const { t } = useTranslation();
 	const electronUtils = electronTrpc.useUtils();
-	const { workspaces: hostWorkspaces } = useHostWorkspaces();
+	const { workspaces: hostWorkspaces } = useWorkspaceCatalog();
 	const { createSection, removeProjectFromSidebar } =
 		useDashboardSidebarState();
 	const navigate = useNavigate();

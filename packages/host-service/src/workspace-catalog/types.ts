@@ -38,7 +38,6 @@ export interface WorkspaceSnapshotShape {
 	upstreamBranch: string | null;
 	pullRequestId: string | null;
 	taskId: string | null;
-	createdByUserId: string | null;
 	createdAt: number;
 	updatedAt: number;
 }

@@ -122,13 +122,13 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 		},
 		onSuccess: (_data, variables) =>
 			finishBranchChange(
-				t("v1Changes.branchMenu.toastSwitched", {
+				t("changes.branchMenu.toastSwitched", {
 					branch: variables.branch,
 				}),
 			),
 		onError: (error) =>
 			toast.error(
-				t("v1Changes.branchMenu.toastSwitchFailed", {
+				t("changes.branchMenu.toastSwitchFailed", {
 					message: error.message,
 				}),
 			),
@@ -143,13 +143,13 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 		},
 		onSuccess: (_data, variables) =>
 			finishBranchChange(
-				t("v1Changes.branchMenu.toastRemoteCheckedOut", {
+				t("changes.branchMenu.toastRemoteCheckedOut", {
 					branch: variables.branch,
 				}),
 			),
 		onError: (error) =>
 			toast.error(
-				t("v1Changes.branchMenu.toastSwitchFailed", {
+				t("changes.branchMenu.toastSwitchFailed", {
 					message: error.message,
 				}),
 			),
@@ -165,7 +165,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 		},
 		onSuccess: (_data, variables) =>
 			finishBranchChange(
-				t("v1Changes.branchMenu.toastCreated", {
+				t("changes.branchMenu.toastCreated", {
 					branch: variables.branch,
 				}),
 			),
@@ -180,12 +180,12 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 			});
 		},
 		onSuccess: async () => {
-			toast.success(t("v1Changes.branchMenu.toastFetched"));
+			toast.success(t("changes.branchMenu.toastFetched"));
 			await refreshBranchState();
 		},
 		onError: (error) =>
 			toast.error(
-				t("v1Changes.branchMenu.toastFetchFailed", {
+				t("changes.branchMenu.toastFetchFailed", {
 					message: error.message,
 				}),
 			),
@@ -201,13 +201,13 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 		},
 		onSuccess: async (_data, variables) => {
 			toast.success(
-				t("v1Changes.branchMenu.toastPulled", { branch: variables.branch }),
+				t("changes.branchMenu.toastPulled", { branch: variables.branch }),
 			);
 			await refreshBranchState();
 		},
 		onError: (error, variables) =>
 			toast.error(
-				t("v1Changes.branchMenu.toastPullFailed", {
+				t("changes.branchMenu.toastPullFailed", {
 					branch: variables.branch,
 					message: error.message,
 				}),
@@ -224,7 +224,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 		},
 		onSuccess: async (_data, variables) => {
 			toast.success(
-				t("v1Changes.branchMenu.toastMerged", { branch: variables.branch }),
+				t("changes.branchMenu.toastMerged", { branch: variables.branch }),
 			);
 			setOpen(false);
 			await refreshBranchState();
@@ -236,7 +236,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 				return;
 			}
 			toast.error(
-				t("v1Changes.branchMenu.toastMergeFailed", {
+				t("changes.branchMenu.toastMergeFailed", {
 					message: error.message,
 				}),
 			);
@@ -260,13 +260,13 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 		},
 		onSuccess: (_data, variables) =>
 			finishBranchChange(
-				t("v1Changes.branchMenu.renameToastSuccess", {
+				t("changes.branchMenu.renameToastSuccess", {
 					branch: variables.newName,
 				}),
 			),
 		onError: (error) =>
 			toast.error(
-				t("v1Changes.branchMenu.renameToastFail", {
+				t("changes.branchMenu.renameToastFail", {
 					message: error.message,
 				}),
 			),
@@ -306,11 +306,11 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 	const handleCreateBranch = () => {
 		const branch = newBranchName.trim();
 		if (!BRANCH_NAME_PATTERN.test(branch)) {
-			setNewBranchError(t("v1Changes.branchMenu.newBranchInvalid"));
+			setNewBranchError(t("changes.branchMenu.newBranchInvalid"));
 			return;
 		}
 		if (localBranchNames.has(branch)) {
-			setNewBranchError(t("v1Changes.branchMenu.newBranchExists", { branch }));
+			setNewBranchError(t("changes.branchMenu.newBranchExists", { branch }));
 			return;
 		}
 		setNewBranchError(null);
@@ -347,7 +347,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 
 	const copyBranchName = (branch: string) => {
 		navigator.clipboard?.writeText(branch);
-		toast.success(t("v1Changes.branchMenu.copiedToast", { branch }));
+		toast.success(t("changes.branchMenu.copiedToast", { branch }));
 	};
 
 	const rowContextMenu = (row: RowMeta) => (
@@ -359,7 +359,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 			<ContextMenuSeparator />
 			<ContextMenuGroup>
 				<ContextMenuLabel className="text-[9.5px] uppercase tracking-wider text-fg-mute">
-					{t("v1Changes.branchMenu.actionsGroup")}
+					{t("changes.branchMenu.actionsGroup")}
 				</ContextMenuLabel>
 				<ContextMenuItem
 					disabled={row.isCurrent || isMutating}
@@ -372,7 +372,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 					}}
 				>
 					<VscArrowRight className="size-3.5" />
-					<span>{t("v1Changes.branchMenu.switchTo")}</span>
+					<span>{t("changes.branchMenu.switchTo")}</span>
 				</ContextMenuItem>
 				<ContextMenuItem
 					disabled={row.isCurrent || isMutating}
@@ -383,11 +383,11 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 					}
 				>
 					<VscGitMerge className="size-3.5" />
-					<span>{t("v1Changes.branchMenu.mergeIntoCurrent")}</span>
+					<span>{t("changes.branchMenu.mergeIntoCurrent")}</span>
 				</ContextMenuItem>
 				<ContextMenuItem onClick={() => openCreatePanel(row.name)}>
 					<VscAdd className="size-3.5" />
-					<span>{t("v1Changes.branchMenu.newFromHere")}</span>
+					<span>{t("changes.branchMenu.newFromHere")}</span>
 				</ContextMenuItem>
 			</ContextMenuGroup>
 			{row.isRemoteOnly ? null : (
@@ -395,14 +395,14 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 					<ContextMenuSeparator />
 					<ContextMenuGroup>
 						<ContextMenuLabel className="text-[9.5px] uppercase tracking-wider text-fg-mute">
-							{t("v1Changes.branchMenu.syncGroup")}
+							{t("changes.branchMenu.syncGroup")}
 						</ContextMenuLabel>
 						<ContextMenuItem
 							disabled={row.isCurrent || isMutating}
 							onClick={() => pullBranch.mutate({ branch: row.name })}
 						>
 							<VscCloudDownload className="size-3.5" />
-							<span>{t("v1Changes.branchMenu.pullBranch")}</span>
+							<span>{t("changes.branchMenu.pullBranch")}</span>
 						</ContextMenuItem>
 					</ContextMenuGroup>
 				</>
@@ -410,7 +410,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 			<ContextMenuSeparator />
 			<ContextMenuGroup>
 				<ContextMenuLabel className="text-[9.5px] uppercase tracking-wider text-fg-mute">
-					{t("v1Changes.branchMenu.manageGroup")}
+					{t("changes.branchMenu.manageGroup")}
 				</ContextMenuLabel>
 				{row.isRemoteOnly ? null : (
 					<ContextMenuItem
@@ -418,12 +418,12 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 						onClick={() => startRename(row.name)}
 					>
 						<VscEdit className="size-3.5" />
-						<span>{t("v1Changes.branchMenu.rename")}</span>
+						<span>{t("changes.branchMenu.rename")}</span>
 					</ContextMenuItem>
 				)}
 				<ContextMenuItem onClick={() => copyBranchName(row.name)}>
 					<VscCopy className="size-3.5" />
-					<span>{t("v1Changes.branchMenu.copyName")}</span>
+					<span>{t("changes.branchMenu.copyName")}</span>
 				</ContextMenuItem>
 			</ContextMenuGroup>
 		</ContextMenuContent>
@@ -445,7 +445,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 					>
 						<VscSourceControl className="size-3.5 shrink-0 text-fg-mute" />
 						<span className="truncate font-mono text-[11px] tracking-tight">
-							{currentBranch || t("v1Changes.branchMenu.title")}
+							{currentBranch || t("changes.branchMenu.title")}
 						</span>
 						<VscChevronDown
 							className={cn(
@@ -460,7 +460,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 						<Input
 							value={search}
 							onChange={(event) => setSearch(event.target.value)}
-							placeholder={t("v1Changes.header.searchBranches")}
+							placeholder={t("changes.header.searchBranches")}
 							className="h-7 flex-1 border-0 bg-transparent px-1 text-[13px] font-medium shadow-none focus-visible:ring-0"
 							autoFocus
 						/>
@@ -482,7 +482,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 								</Button>
 							</TooltipTrigger>
 							<TooltipContent showArrow={false}>
-								{t("v1Changes.branchMenu.fetchRemote")}
+								{t("changes.branchMenu.fetchRemote")}
 							</TooltipContent>
 						</Tooltip>
 					</div>
@@ -490,7 +490,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 					{/* Group header: Local branches + "+ New" action */}
 					<div className="flex items-center justify-between px-3 pb-1 pt-2">
 						<span className="text-[10px] font-medium uppercase tracking-[0.16em] text-fg-mute">
-							{t("v1Changes.branchMenu.localBranches")} · {localBranches.length}
+							{t("changes.branchMenu.localBranches")} · {localBranches.length}
 						</span>
 						<button
 							type="button"
@@ -506,7 +506,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 							}
 						>
 							<VscAdd className="size-2.5" />
-							{t("v1Changes.branchMenu.newBranch")}
+							{t("changes.branchMenu.newBranch")}
 						</button>
 					</div>
 
@@ -521,7 +521,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 									{creating.baseRef}
 									{creating.baseRef === currentBranch ? (
 										<span className="ml-1 rounded-full bg-accent-tint px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-accent-solid">
-											{t("v1Changes.branchMenu.currentBadge")}
+											{t("changes.branchMenu.currentBadge")}
 										</span>
 									) : null}
 								</span>
@@ -544,7 +544,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 											setCreating(null);
 										}
 									}}
-									placeholder={t("v1Changes.branchMenu.newBranchPlaceholder")}
+									placeholder={t("changes.branchMenu.newBranchPlaceholder")}
 									className="h-7 font-mono text-xs"
 								/>
 								<Button
@@ -553,7 +553,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 									disabled={!newBranchName.trim() || createBranch.isPending}
 									onClick={handleCreateBranch}
 								>
-									{t("v1Changes.branchMenu.newBranchCreate")}
+									{t("changes.branchMenu.newBranchCreate")}
 								</Button>
 							</div>
 							{newBranchError ? (
@@ -615,7 +615,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 													<span className="truncate font-mono">{branch}</span>
 													{isCurrent ? (
 														<span className="ml-auto text-[9.5px] font-semibold uppercase tracking-wider text-accent-solid">
-															{t("v1Changes.branchMenu.currentBadge")}
+															{t("changes.branchMenu.currentBadge")}
 														</span>
 													) : null}
 												</button>
@@ -634,7 +634,7 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 						{remoteOnlyBranches.length > 0 ? (
 							<div className="mt-1 flex items-center justify-between border-t border-line/60 px-3 pb-1 pt-2">
 								<span className="text-[10px] font-medium uppercase tracking-[0.16em] text-fg-mute">
-									{t("v1Changes.branchMenu.remoteBranches")} ·{" "}
+									{t("changes.branchMenu.remoteBranches")} ·{" "}
 									{remoteOnlyBranches.length}
 								</span>
 							</div>
@@ -668,13 +668,13 @@ export function BranchMenu({ workspaceId }: BranchMenuProps) {
 
 						{localBranches.length === 0 && remoteOnlyBranches.length === 0 ? (
 							<div className="px-3 py-8 text-center text-xs text-fg-mute">
-								{t("v1Changes.header.noBranchesFound")}
+								{t("changes.header.noBranchesFound")}
 							</div>
 						) : null}
 					</div>
 
 					<div className="border-t border-line/60 px-3 py-2 text-[10.5px] text-fg-mute">
-						{t("v1Changes.branchMenu.hintRightClick")}
+						{t("changes.branchMenu.hintRightClick")}
 					</div>
 				</PopoverContent>
 			</Popover>

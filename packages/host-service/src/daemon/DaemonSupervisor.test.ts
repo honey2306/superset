@@ -811,6 +811,67 @@ describe("DaemonSupervisor.restart", () => {
 	});
 });
 
+describe("DaemonSupervisor shutdown races", () => {
+	test("detach waits for a pending start and then releases the started instance", async () => {
+		const sup = new DaemonSupervisor({ scriptPath: "/nonexistent" });
+		let resolvePending: (value: AdoptedForTest) => void = () => {};
+		const pending = new Promise<AdoptedForTest>((resolve) => {
+			resolvePending = resolve;
+		});
+		(
+			sup as unknown as {
+				pendingStarts: Map<string, Promise<AdoptedForTest>>;
+				instances: Map<string, AdoptedForTest>;
+			}
+		).pendingStarts.set("org-detach", pending);
+
+		const detachPromise = sup.detach("org-detach");
+		let settled = false;
+		void detachPromise.then(() => {
+			settled = true;
+		});
+		await Promise.resolve();
+		expect(settled).toBe(false);
+
+		const instance = {
+			pid: 123,
+			socketPath: "/tmp/detach.sock",
+			runningVersion: "0.1.0",
+			updatePending: false,
+		};
+		(
+			sup as unknown as { instances: Map<string, AdoptedForTest> }
+		).instances.set("org-detach", instance);
+		resolvePending(instance);
+		await detachPromise;
+
+		expect(sup.getSocketPath("org-detach")).toBeNull();
+	});
+
+	test("stop waits for a rejected pending start before completing", async () => {
+		const sup = new DaemonSupervisor({ scriptPath: "/nonexistent" });
+		let rejectPending: (error: Error) => void = () => {};
+		const pending = new Promise<AdoptedForTest>((_resolve, reject) => {
+			rejectPending = reject;
+		});
+		pending.catch(() => {});
+		(
+			sup as unknown as { pendingStarts: Map<string, Promise<AdoptedForTest>> }
+		).pendingStarts.set("org-stop", pending);
+
+		const stopPromise = sup.stop("org-stop");
+		let settled = false;
+		void stopPromise.then(() => {
+			settled = true;
+		});
+		await Promise.resolve();
+		expect(settled).toBe(false);
+
+		rejectPending(new Error("spawn failed"));
+		await expect(stopPromise).resolves.toBeUndefined();
+	});
+});
+
 describe("DaemonSupervisor.update concurrency guard", () => {
 	let sup: DaemonSupervisor;
 

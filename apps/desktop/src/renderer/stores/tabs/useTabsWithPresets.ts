@@ -1,14 +1,13 @@
 import {
 	normalizeExecutionMode,
 	type TerminalPreset,
-} from "@superset/local-db/schema/zod";
+} from "@superset/shared/desktop-types";
 import { useCallback, useMemo } from "react";
 import type { MosaicBranch } from "react-mosaic-component";
-import { useCreateOrAttachWithTheme } from "renderer/hooks/useCreateOrAttachWithTheme";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useHostTerminalLauncher } from "renderer/lib/terminal/host-terminal-launcher";
 import {
 	buildTerminalCommand,
-	launchCommandInPane,
 	writeCommandsInPane,
 } from "renderer/lib/terminal/launch-command";
 import {
@@ -87,8 +86,7 @@ export function useTabsWithPresets(projectId?: string | null) {
 	const storeSplitPaneAuto = useTabsStore((s) => s.splitPaneAuto);
 	const setPaneName = useTabsStore((s) => s.setPaneName);
 	const renameTab = useTabsStore((s) => s.renameTab);
-	const createOrAttach = useCreateOrAttachWithTheme();
-	const writeToTerminal = electronTrpc.terminal.write.useMutation();
+	const terminalLauncher = useHostTerminalLauncher();
 
 	const firstPreset = newTabPresets[0] ?? null;
 	const firstPresetCommand = useMemo(
@@ -125,27 +123,28 @@ export function useTabsWithPresets(projectId?: string | null) {
 	const launchPresetCommand = useCallback(
 		(
 			{ paneId, tabId, workspaceId, command, cwd }: PresetPaneLaunch,
-			options?: { waitForMountedSession?: boolean },
+			_options?: { waitForMountedSession?: boolean },
 		) => {
-			void launchCommandInPane({
-				paneId,
-				tabId,
-				workspaceId,
-				command,
-				cwd,
-				waitForMountedSession: options?.waitForMountedSession,
-				createOrAttach: (input) => createOrAttach.mutateAsync(input),
-				write: (input) => writeToTerminal.mutateAsync(input),
-			}).catch((error) => {
-				console.error("[useTabsWithPresets] Failed to launch preset command:", {
-					paneId,
-					tabId,
+			void terminalLauncher
+				.launchCommand({
+					terminalId: paneId,
 					workspaceId,
-					error: error instanceof Error ? error.message : String(error),
+					command,
+					cwd,
+				})
+				.catch((error) => {
+					console.error(
+						"[useTabsWithPresets] Failed to launch preset command:",
+						{
+							paneId,
+							tabId,
+							workspaceId,
+							error: error instanceof Error ? error.message : String(error),
+						},
+					);
 				});
-			});
 		},
-		[createOrAttach, writeToTerminal],
+		[terminalLauncher],
 	);
 
 	const launchPresetCommands = useCallback(
@@ -341,7 +340,12 @@ export function useTabsWithPresets(projectId?: string | null) {
 					void writeCommandsInPane({
 						paneId: activeTerminalPaneId,
 						commands: [command],
-						write: (input) => writeToTerminal.mutateAsync(input),
+						write: (input) =>
+							terminalLauncher.write({
+								workspaceId,
+								terminalId: input.paneId,
+								data: input.data,
+							}),
 					}).catch((error) => {
 						console.error(
 							"[useTabsWithPresets] Failed to send sequential preset to current terminal:",
@@ -426,7 +430,7 @@ export function useTabsWithPresets(projectId?: string | null) {
 			executePresetInNewTab,
 			launchPresetCommands,
 			launchPresetCommand,
-			writeToTerminal,
+			terminalLauncher,
 			setPaneName,
 		],
 	);
@@ -451,7 +455,12 @@ export function useTabsWithPresets(projectId?: string | null) {
 				void writeCommandsInPane({
 					paneId,
 					commands: [command],
-					write: (input) => writeToTerminal.mutateAsync(input),
+					write: (input) =>
+						terminalLauncher.write({
+							workspaceId,
+							terminalId: input.paneId,
+							data: input.data,
+						}),
 				}).catch((error) => {
 					console.error(
 						"[useTabsWithPresets] Failed to send preset commands to current terminal:",
@@ -474,7 +483,7 @@ export function useTabsWithPresets(projectId?: string | null) {
 
 			return true;
 		},
-		[resolveActiveWorkspaceTabId, writeToTerminal, setPaneName],
+		[resolveActiveWorkspaceTabId, terminalLauncher, setPaneName],
 	);
 
 	const openPreset = useCallback(

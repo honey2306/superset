@@ -5,7 +5,7 @@
  * managed wrappers, environment overlays, and lifecycle binding all stay on
  * the host side.
  *
- * See: plans/20260724-v1-v2-terminal-fusion.md (Milestone 4)
+ * See: plans/done/20260724-v1-v2-terminal-fusion.md (Milestone 4)
  */
 import type { AppRouter } from "@superset/host-service";
 import type { TRPCClient } from "@trpc/client";

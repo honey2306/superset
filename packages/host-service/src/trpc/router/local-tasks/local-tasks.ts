@@ -44,9 +44,8 @@ const todoInput = z.object({
 	mode: z.enum(["manual", "auto"]),
 	dueAt: z.coerce.date(),
 	timezone,
-	v2ProjectId: id.nullish(),
-	v2WorkspaceId: id.nullish(),
-	targetHostId: z.string().min(1).nullish(),
+	projectId: id.nullish(),
+	workspaceId: id.nullish(),
 	agent: z.string().min(1).max(200).nullish(),
 	prompt: z.string().max(100_000).nullish(),
 });
@@ -54,9 +53,8 @@ const automationInput = z.object({
 	name: z.string().trim().min(1).max(200),
 	prompt: z.string().trim().min(1).max(100_000),
 	agent: z.string().min(1).max(200),
-	targetHostId: z.string().min(1).nullish(),
-	v2ProjectId: id.nullish(),
-	v2WorkspaceId: id.nullish(),
+	projectId: id.nullish(),
+	workspaceId: id.nullish(),
 	rrule: z.string().min(1).max(500),
 	dtstart: z.coerce.date().optional(),
 	timezone,
@@ -120,12 +118,12 @@ export const todosRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			const workspaceId = resolveLocalWorkspaceId(
 				ctx.db,
-				input.v2WorkspaceId ?? null,
-				input.v2ProjectId ?? null,
+				input.workspaceId ?? null,
+				input.projectId ?? null,
 			);
 			const storedWorkspaceId = isTemporaryProjectId(
 				ctx.db,
-				input.v2ProjectId ?? null,
+				input.projectId ?? null,
 			)
 				? null
 				: workspaceId;
@@ -149,9 +147,8 @@ export const todosRouter = router({
 				mode: input.mode,
 				dueAt: input.dueAt.getTime(),
 				timezone: input.timezone,
-				v2ProjectId: input.v2ProjectId ?? null,
-				v2WorkspaceId: storedWorkspaceId,
-				targetHostId: input.targetHostId ?? null,
+				projectId: input.projectId ?? null,
+				workspaceId: storedWorkspaceId,
 				agent: input.agent ?? null,
 				prompt: optimizedPrompt?.prompt ?? input.prompt?.trim() ?? null,
 				status: "pending",
@@ -169,13 +166,13 @@ export const todosRouter = router({
 		.mutation(({ ctx, input }) => {
 			const existing = todoOrThrow(ctx, input.id);
 			const requestedWorkspaceId =
-				input.v2WorkspaceId === undefined
-					? existing.v2WorkspaceId
-					: (input.v2WorkspaceId ?? null);
+				input.workspaceId === undefined
+					? existing.workspaceId
+					: (input.workspaceId ?? null);
 			const requestedProjectId =
-				input.v2ProjectId === undefined
-					? existing.v2ProjectId
-					: (input.v2ProjectId ?? null);
+				input.projectId === undefined
+					? existing.projectId
+					: (input.projectId ?? null);
 			const workspaceId = resolveLocalWorkspaceId(
 				ctx.db,
 				requestedWorkspaceId,
@@ -189,12 +186,8 @@ export const todosRouter = router({
 				...input,
 				dueAt: input.dueAt?.getTime() ?? existing.dueAt,
 				note: input.note === undefined ? existing.note : (input.note ?? null),
-				v2ProjectId: requestedProjectId,
-				v2WorkspaceId: storedWorkspaceId,
-				targetHostId:
-					input.targetHostId === undefined
-						? existing.targetHostId
-						: (input.targetHostId ?? null),
+				projectId: requestedProjectId,
+				workspaceId: storedWorkspaceId,
 				agent:
 					input.agent === undefined ? existing.agent : (input.agent ?? null),
 				prompt:
@@ -330,12 +323,12 @@ export const automationsRouter = router({
 			}).nextRunAt.getTime();
 			const workspaceId = resolveLocalWorkspaceId(
 				ctx.db,
-				input.v2WorkspaceId ?? null,
-				input.v2ProjectId ?? null,
+				input.workspaceId ?? null,
+				input.projectId ?? null,
 			);
 			const storedWorkspaceId = isTemporaryProjectId(
 				ctx.db,
-				input.v2ProjectId ?? null,
+				input.projectId ?? null,
 			)
 				? null
 				: workspaceId;
@@ -344,9 +337,8 @@ export const automationsRouter = router({
 				name: input.name,
 				prompt: optimizedPrompt.prompt,
 				agent: input.agent,
-				targetHostId: input.targetHostId ?? null,
-				v2ProjectId: input.v2ProjectId ?? null,
-				v2WorkspaceId: storedWorkspaceId,
+				projectId: input.projectId ?? null,
+				workspaceId: storedWorkspaceId,
 				rrule: input.rrule,
 				dtstart: dtstart.getTime(),
 				timezone: input.timezone,
@@ -368,18 +360,18 @@ export const automationsRouter = router({
 		.mutation(({ ctx, input }) => {
 			const existing = automationOrThrow(ctx, input.id);
 			const requestedProjectId =
-				input.v2ProjectId === undefined
-					? existing.v2ProjectId
-					: (input.v2ProjectId ?? null);
+				input.projectId === undefined
+					? existing.projectId
+					: (input.projectId ?? null);
 			// Changing the direct target must not retain a workspace pin belonging
 			// to the previous project. A null workspace intentionally means
 			// "resolve this target's main workspace" (including temporary).
 			const requestedWorkspaceId =
-				input.v2WorkspaceId === undefined
-					? input.v2ProjectId === undefined
-						? existing.v2WorkspaceId
+				input.workspaceId === undefined
+					? input.projectId === undefined
+						? existing.workspaceId
 						: null
-					: (input.v2WorkspaceId ?? null);
+					: (input.workspaceId ?? null);
 			const workspaceId = resolveLocalWorkspaceId(
 				ctx.db,
 				requestedWorkspaceId,
@@ -397,8 +389,8 @@ export const automationsRouter = router({
 				input.timezone !== undefined;
 			const patch = {
 				...input,
-				v2ProjectId: requestedProjectId,
-				v2WorkspaceId: storedWorkspaceId,
+				projectId: requestedProjectId,
+				workspaceId: storedWorkspaceId,
 				dtstart,
 				rrule,
 				timezone: zone,

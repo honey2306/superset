@@ -1,4 +1,4 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import { toast } from "@superset/ui/sonner";
 import { ArrowUpRightIcon } from "lucide-react";
 import {

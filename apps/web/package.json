@@ -23,13 +23,13 @@
 	},
 	"devDependencies": {
 		"@superset/typescript": "workspace:*",
-		"@tailwindcss/vite": "4.1.16",
+		"@tailwindcss/vite": "4.2.2",
 		"@types/node": "24.12.0",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
-		"@vitejs/plugin-react": "5.1.0",
-		"tailwindcss": "4.1.16",
+		"@vitejs/plugin-react": "5.2.0",
+		"tailwindcss": "4.2.2",
 		"typescript": "6.0.3",
-		"vite": "7.2.7"
+		"vite": "7.3.5"
 	}
 }

@@ -1,6 +1,6 @@
 import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { useGitChangesStatus } from "renderer/screens/main/hooks/useGitChangesStatus";
 import {
 	RightSidebarTab,
@@ -24,10 +24,10 @@ export function ChangesContent() {
 		refetchOnWindowFocus: !isChangesSidebarVisible,
 	});
 
-	if (!worktreePath) {
+	if (!workspaceId || !worktreePath) {
 		return (
 			<div className="h-full flex items-center justify-center text-fg-mute">
-				{t("v1Changes.noWorkspaceSelected")}
+				{t("changes.noWorkspaceSelected")}
 			</div>
 		);
 	}
@@ -35,7 +35,7 @@ export function ChangesContent() {
 	if (!status && isLoading) {
 		return (
 			<div className="h-full flex items-center justify-center text-fg-mute">
-				{t("v1Changes.loadingChanges")}
+				{t("changes.loadingChanges")}
 			</div>
 		);
 	}
@@ -43,7 +43,7 @@ export function ChangesContent() {
 	if (!status) {
 		return (
 			<div className="h-full flex select-text cursor-text items-center justify-center text-fg-mute">
-				{t("v1Changes.unableToLoad")}
+				{t("changes.unableToLoad")}
 			</div>
 		);
 	}
@@ -52,6 +52,7 @@ export function ChangesContent() {
 		<div className="h-full overflow-hidden">
 			<InfiniteScrollView
 				status={status}
+				workspaceId={workspaceId}
 				worktreePath={worktreePath}
 				baseBranch={effectiveBaseBranch}
 			/>

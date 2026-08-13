@@ -32,19 +32,8 @@ afterEach(() => {
 });
 
 function createCaller(db: HostDb) {
-	// The local task router reads only host.db for these operations. If a
-	// future change reaches the cloud client, this sentinel makes the test fail.
-	const noCloud = new Proxy(
-		{},
-		{
-			get: () => {
-				throw new Error("cloud access is forbidden");
-			},
-		},
-	);
 	return appRouter.createCaller({
 		db,
-		api: noCloud,
 		isAuthenticated: true,
 		authKind: "psk",
 		organizationId: "offline-test",
@@ -55,10 +44,38 @@ function openDatabase(path: string) {
 	const sqlite = new Database(path);
 	const db = drizzle(sqlite, { schema }) as unknown as HostDb;
 	migrate(db as never, { migrationsFolder });
-	return { db, close: () => sqlite.close() };
+	return { db, sqlite, close: () => sqlite.close() };
 }
 
 describe("local task routers", () => {
+	test("keeps historical SQLite target column names behind canonical TS fields", () => {
+		const directory = mkdtempSync(join(tmpdir(), "host-local-schema-"));
+		directories.push(directory);
+		const opened = openDatabase(join(directory, "host.db"));
+		const columnNames = (table: string) =>
+			(
+				opened.sqlite.query(`PRAGMA table_info(${table})`).all() as {
+					name: string;
+				}[]
+			)
+				.map((column) => column.name)
+				.filter(
+					(name) =>
+						name.endsWith("project_id") || name.endsWith("workspace_id"),
+				);
+
+		expect(columnNames("local_todos")).toEqual([
+			"v2_project_id",
+			"v2_workspace_id",
+		]);
+		expect(columnNames("local_automations")).toEqual([
+			"v2_project_id",
+			"v2_workspace_id",
+		]);
+		expect(columnNames("local_automation_runs")).toEqual(["v2_workspace_id"]);
+		opened.close();
+	});
+
 	test("persist todos and automation history across a SQLite restart without cloud access", async () => {
 		const directory = mkdtempSync(join(tmpdir(), "host-local-tasks-"));
 		directories.push(directory);
@@ -75,7 +92,7 @@ describe("local task routers", () => {
 			name: "Offline schedule",
 			prompt: "Review the local workspace",
 			agent: "not-configured",
-			v2ProjectId: crypto.randomUUID(),
+			projectId: crypto.randomUUID(),
 			rrule: "FREQ=DAILY",
 			timezone: "UTC",
 			mcpScope: [],
@@ -119,7 +136,7 @@ describe("local task routers", () => {
 			name: "Due offline schedule",
 			prompt: "No workspace is intentionally configured",
 			agent: "not-configured",
-			v2ProjectId: crypto.randomUUID(),
+			projectId: crypto.randomUUID(),
 			rrule: "FREQ=DAILY",
 			timezone: "UTC",
 			mcpScope: [],
@@ -181,7 +198,7 @@ describe("local task routers", () => {
 			mode: "auto",
 			dueAt,
 			timezone: "UTC",
-			v2WorkspaceId: crypto.randomUUID(),
+			workspaceId: crypto.randomUUID(),
 			agent: "not-configured",
 			prompt: "Run locally",
 		});
@@ -232,7 +249,7 @@ describe("local task routers", () => {
 			mode: "auto",
 			dueAt: new Date(Date.now() - 1),
 			timezone: "UTC",
-			v2WorkspaceId: workspaceId,
+			workspaceId: workspaceId,
 			agent: "not-configured",
 			prompt: "Run exactly once",
 		});
@@ -301,7 +318,7 @@ describe("local task routers", () => {
 			mode: "auto",
 			dueAt: new Date("2030-01-01T10:00:00Z"),
 			timezone: "UTC",
-			v2ProjectId: projectId,
+			projectId: projectId,
 			agent: "codex",
 			prompt: "Run locally",
 		});
@@ -309,14 +326,14 @@ describe("local task routers", () => {
 			name: "Project-only automation",
 			prompt: "Run locally",
 			agent: "codex",
-			v2ProjectId: projectId,
+			projectId: projectId,
 			rrule: "FREQ=DAILY",
 			timezone: "UTC",
 			mcpScope: [],
 		});
 
-		expect(todo.v2WorkspaceId).toBe(mainWorkspaceId);
-		expect(automation.v2WorkspaceId).toBe(mainWorkspaceId);
+		expect(todo.workspaceId).toBe(mainWorkspaceId);
+		expect(automation.workspaceId).toBe(mainWorkspaceId);
 		expect(resolveLocalWorkspaceId(opened.db, null, projectId)).toBe(
 			mainWorkspaceId,
 		);
@@ -326,12 +343,12 @@ describe("local task routers", () => {
 		// agent config; this proves dispatch stays local without requiring a PTY.
 		opened.db
 			.update(localAutomations)
-			.set({ v2WorkspaceId: null })
+			.set({ workspaceId: null })
 			.where(eq(localAutomations.id, automation.id))
 			.run();
 		opened.db
 			.update(schema.localTodos)
-			.set({ v2WorkspaceId: null })
+			.set({ workspaceId: null })
 			.where(eq(schema.localTodos.id, todo.id))
 			.run();
 		await expect(
@@ -356,17 +373,17 @@ describe("local task routers", () => {
 		).rejects.toThrow("Workspace worktree no longer exists");
 		expect(
 			opened.db
-				.select({ v2WorkspaceId: localAutomations.v2WorkspaceId })
+				.select({ workspaceId: localAutomations.workspaceId })
 				.from(localAutomations)
 				.where(eq(localAutomations.id, automation.id))
-				.get()?.v2WorkspaceId,
+				.get()?.workspaceId,
 		).toBe(mainWorkspaceId);
 		expect(
 			opened.db
-				.select({ v2WorkspaceId: schema.localTodos.v2WorkspaceId })
+				.select({ workspaceId: schema.localTodos.workspaceId })
 				.from(schema.localTodos)
 				.where(eq(schema.localTodos.id, todo.id))
-				.get()?.v2WorkspaceId,
+				.get()?.workspaceId,
 		).toBe(mainWorkspaceId);
 		opened.close();
 	});
@@ -422,20 +439,20 @@ describe("local task routers", () => {
 			name: "Switch target",
 			prompt: "Run locally",
 			agent: "codex",
-			v2ProjectId: repositoryProjectId,
-			v2WorkspaceId: repositoryWorkspaceId,
+			projectId: repositoryProjectId,
+			workspaceId: repositoryWorkspaceId,
 			rrule: "FREQ=DAILY",
 			timezone: "UTC",
 			mcpScope: [],
 		});
 		const updated = await caller.automation.update({
 			id: automation.id,
-			v2ProjectId: temporaryProjectId,
-			v2WorkspaceId: null,
+			projectId: temporaryProjectId,
+			workspaceId: null,
 		});
 
-		expect(updated.v2ProjectId).toBe(temporaryProjectId);
-		expect(updated.v2WorkspaceId).toBeNull();
+		expect(updated.projectId).toBe(temporaryProjectId);
+		expect(updated.workspaceId).toBeNull();
 		expect(resolveLocalWorkspaceId(opened.db, null, temporaryProjectId)).toBe(
 			temporaryWorkspaceId,
 		);
@@ -444,18 +461,18 @@ describe("local task routers", () => {
 			mode: "auto",
 			dueAt: new Date("2030-01-01T10:00:00Z"),
 			timezone: "UTC",
-			v2ProjectId: temporaryProjectId,
+			projectId: temporaryProjectId,
 			agent: "codex",
 			prompt: "Run in the temporary workspace",
 		});
-		expect(todo.v2WorkspaceId).toBeNull();
+		expect(todo.workspaceId).toBeNull();
 		const updatedTodo = await caller.todo.update({
 			id: todo.id,
 			title: "Updated temporary auto todo",
 		});
 		expect(updatedTodo).toMatchObject({
 			title: "Updated temporary auto todo",
-			v2WorkspaceId: null,
+			workspaceId: null,
 		});
 		opened.close();
 	});

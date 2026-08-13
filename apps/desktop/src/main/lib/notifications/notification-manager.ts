@@ -33,7 +33,6 @@ export interface NotificationManagerDeps {
 			  }
 			| undefined;
 	};
-	getWorkspaceName: (workspaceId: string | undefined) => string;
 	getNotificationTitle: (event: AgentLifecycleEvent) => string;
 }
 
@@ -60,7 +59,7 @@ export class NotificationManager {
 
 		if (this.shouldSuppressForVisiblePane(event)) return;
 
-		const workspaceName = this.deps.getWorkspaceName(event.workspaceId);
+		const workspaceName = event.workspaceName?.trim() || "Workspace";
 		const title = this.deps.getNotificationTitle(event);
 
 		const isPermissionRequest = event.eventType === "PermissionRequest";

@@ -1,7 +1,7 @@
 import { toast } from "@superset/ui/sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
-import { useFolderFirstImport } from "renderer/routes/_authenticated/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
+import { useFolderFirstImport } from "renderer/routes/_local/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport";
 import { useFolderImportIntent } from "renderer/stores/folder-import-intent";
 
 export function FolderImportMount() {

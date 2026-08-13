@@ -11,7 +11,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { workspaceOperations } from "../../src/db/schema";
-import { cloudFlows } from "../helpers/cloud-fakes";
 import { createTestHost } from "../helpers/createTestHost";
 import { createGitFixture } from "../helpers/git-fixture";
 import { seedProject, seedWorkspace } from "../helpers/seed";
@@ -160,9 +159,7 @@ describe("workspaceProvisioning recovery + leases (M2)", () => {
 		// mid-runner, so simulate the pre-condition directly: manually
 		// insert a lock row for the target identity and confirm the
 		// runner surfaces RESOURCE_BUSY as a failed(retryable) operation.
-		const host = await createTestHost({
-			apiOverrides: cloudFlows.workspaceCreateOk(),
-		});
+		const host = await createTestHost();
 		cleanup.push(async () => host.dispose());
 		const repo = await createGitFixture();
 		cleanup.push(async () => repo.dispose());
@@ -220,9 +217,7 @@ describe("workspaceProvisioning recovery + leases (M2)", () => {
 	});
 
 	test("successful operation releases its identity leases on completion", async () => {
-		const host = await createTestHost({
-			apiOverrides: cloudFlows.workspaceCreateOk(),
-		});
+		const host = await createTestHost();
 		cleanup.push(async () => host.dispose());
 		const repo = await createGitFixture();
 		cleanup.push(async () => repo.dispose());

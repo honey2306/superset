@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { getSupervisor, waitForDaemonReady } from "../../../daemon";
 import { terminalSessions, workspaces } from "../../../db/schema";
@@ -15,6 +15,7 @@ import {
 	writeInputToDaemonSession,
 	writeInputToSession,
 } from "../../../terminal/terminal";
+import { transientTerminalManager } from "../../../terminal/transient-terminal";
 import type { HostServiceContext } from "../../../types";
 import { protectedProcedure, router } from "../../index";
 
@@ -88,6 +89,62 @@ const daemonRouter = router({
 		return getSupervisor().listSessions(ctx.organizationId);
 	}),
 
+	listManagedSessions: protectedProcedure.query(async ({ ctx }) => {
+		await waitForDaemonReady(ctx.organizationId);
+		const rawSessions =
+			(await getSupervisor().listSessions(ctx.organizationId)) ?? [];
+		const managedRows = ctx.db.query.terminalSessions.findMany().sync();
+		const managedById = new Map(managedRows.map((row) => [row.id, row]));
+
+		return {
+			sessions: rawSessions.map((session) => {
+				const managed = managedById.get(session.id);
+				return {
+					sessionId: session.id,
+					workspaceId: managed?.originWorkspaceId ?? null,
+					managed: managed !== undefined,
+					status: managed?.status ?? null,
+					pid: session.pid,
+					cols: session.cols,
+					rows: session.rows,
+					isAlive: session.alive,
+					createdAt: managed?.createdAt ?? null,
+					lastAttachedAt: managed?.lastAttachedAt ?? null,
+				};
+			}),
+		};
+	}),
+
+	killSession: protectedProcedure
+		.input(z.object({ sessionId: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			await waitForDaemonReady(ctx.organizationId);
+			await getSupervisor().killSession(ctx.organizationId, input.sessionId);
+			markDaemonSessionsDisposed(ctx, [input.sessionId]);
+			return { sessionId: input.sessionId, status: "disposed" as const };
+		}),
+
+	killAllSessions: protectedProcedure.mutation(async ({ ctx }) =>
+		killAllDaemonSessions(ctx),
+	),
+
+	/** Destructive full-quit path: kill every PTY, then stop the daemon. */
+	stop: protectedProcedure.mutation(async ({ ctx }) => {
+		const result = await killAllDaemonSessions(ctx);
+		await getSupervisor().stop(ctx.organizationId);
+		return result;
+	}),
+
+	clearReplayBuffers: protectedProcedure.mutation(async ({ ctx }) => {
+		await waitForDaemonReady(ctx.organizationId);
+		const supervisor = getSupervisor();
+		const sessions = (await supervisor.listSessions(ctx.organizationId)) ?? [];
+		return supervisor.clearReplayBuffers(
+			ctx.organizationId,
+			sessions.map((session) => session.id),
+		);
+	}),
+
 	restart: protectedProcedure.mutation(async ({ ctx }) => {
 		await waitForDaemonReady(ctx.organizationId);
 		return getSupervisor().restart(ctx.organizationId);
@@ -107,7 +164,128 @@ const daemonRouter = router({
 	}),
 });
 
+async function killAllDaemonSessions(ctx: HostServiceContext): Promise<{
+	killedCount: number;
+	remainingCount: number;
+}> {
+	await waitForDaemonReady(ctx.organizationId);
+	const supervisor = getSupervisor();
+	const before = (await supervisor.listSessions(ctx.organizationId)) ?? [];
+	const results = await Promise.allSettled(
+		before.map((session) =>
+			supervisor.killSession(ctx.organizationId, session.id),
+		),
+	);
+	const killedIds = before
+		.filter((_, index) => results[index]?.status === "fulfilled")
+		.map((session) => session.id);
+	markDaemonSessionsDisposed(ctx, killedIds);
+	const remaining =
+		(await supervisor.listSessions(ctx.organizationId))?.filter(
+			(session) => session.alive,
+		) ?? [];
+	return {
+		killedCount: killedIds.length,
+		remainingCount: remaining.length,
+	};
+}
+
+function markDaemonSessionsDisposed(
+	ctx: HostServiceContext,
+	sessionIds: string[],
+): void {
+	if (sessionIds.length === 0) return;
+	const endedAt = Date.now();
+	ctx.db
+		.update(terminalSessions)
+		.set({ status: "disposed", endedAt, disposeRequestedAt: endedAt })
+		.where(inArray(terminalSessions.id, sessionIds))
+		.run();
+	for (const sessionId of sessionIds) {
+		ctx.terminalAgentStore.markTerminalExited(sessionId);
+	}
+}
+
+const transientCapabilitySchema = z.object({
+	terminalId: z.string().startsWith("transient-"),
+	attachmentToken: z.string().min(1),
+});
+
+const transientRouter = router({
+	create: protectedProcedure
+		.input(
+			z.object({
+				command: z.string().trim().min(1),
+				cwd: z.string().optional(),
+				cols: z.number().int().positive().optional(),
+				rows: z.number().int().positive().optional(),
+			}),
+		)
+		.mutation(async ({ input }) => transientTerminalManager.create(input)),
+
+	write: protectedProcedure
+		.input(transientCapabilitySchema.extend({ data: z.string() }))
+		.mutation(({ input }) => {
+			try {
+				transientTerminalManager.write(
+					input.terminalId,
+					input.attachmentToken,
+					input.data,
+				);
+			} catch (error) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: error instanceof Error ? error.message : "Access denied",
+				});
+			}
+			return { success: true as const };
+		}),
+
+	resize: protectedProcedure
+		.input(
+			transientCapabilitySchema.extend({
+				cols: z.number().int().positive(),
+				rows: z.number().int().positive(),
+			}),
+		)
+		.mutation(({ input }) => {
+			try {
+				transientTerminalManager.resize(
+					input.terminalId,
+					input.attachmentToken,
+					input.cols,
+					input.rows,
+				);
+			} catch (error) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: error instanceof Error ? error.message : "Access denied",
+				});
+			}
+			return { success: true as const };
+		}),
+
+	kill: protectedProcedure
+		.input(transientCapabilitySchema)
+		.mutation(async ({ input }) => {
+			try {
+				await transientTerminalManager.kill(
+					input.terminalId,
+					input.attachmentToken,
+				);
+			} catch (error) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: error instanceof Error ? error.message : "Access denied",
+				});
+			}
+			return { terminalId: input.terminalId, status: "disposed" as const };
+		}),
+});
+
 export const terminalRouter = router({
+	transient: transientRouter,
+
 	createSession: protectedProcedure
 		.input(createSessionInputSchema)
 		.mutation(createTerminalSessionFromInput),

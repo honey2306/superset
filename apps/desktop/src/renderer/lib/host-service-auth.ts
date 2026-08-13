@@ -1,5 +1,3 @@
-import { getJwt } from "./auth-client";
-
 const secrets = new Map<string, string>();
 
 let clientMachineId: string | null = null;
@@ -21,17 +19,10 @@ export function getHostServiceHeaders(hostUrl: string): Record<string, string> {
 		? { "x-superset-client-machine-id": clientMachineId }
 		: {};
 	const secret = secrets.get(hostUrl);
-	if (secret) {
-		headers.Authorization = `Bearer ${secret}`;
-		return headers;
-	}
-	// Relay: use JWT
-	const jwt = getJwt();
-	if (jwt) headers.Authorization = `Bearer ${jwt}`;
+	if (secret) headers.Authorization = `Bearer ${secret}`;
 	return headers;
 }
 
 export function getHostServiceWsToken(hostUrl: string): string | null {
-	// Local host-service: use PSK. Relay: fall back to user JWT.
-	return secrets.get(hostUrl) ?? getJwt();
+	return secrets.get(hostUrl) ?? null;
 }

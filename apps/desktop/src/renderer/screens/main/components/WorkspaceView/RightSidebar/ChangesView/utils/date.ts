@@ -10,10 +10,10 @@ export function formatRelativeDate(
 	const diffHours = Math.floor(diffMinutes / 60);
 	const diffDays = Math.floor(diffHours / 24);
 
-	if (diffMinutes < 1) return t("v1Changes.date.justNow");
+	if (diffMinutes < 1) return t("changes.date.justNow");
 	if (diffMinutes < 60)
-		return t("v1Changes.date.minutesAgo", { count: diffMinutes });
-	if (diffHours < 24) return t("v1Changes.date.hoursAgo", { count: diffHours });
-	if (diffDays < 7) return t("v1Changes.date.daysAgo", { count: diffDays });
+		return t("changes.date.minutesAgo", { count: diffMinutes });
+	if (diffHours < 24) return t("changes.date.hoursAgo", { count: diffHours });
+	if (diffDays < 7) return t("changes.date.daysAgo", { count: diffDays });
 	return date.toLocaleDateString();
 }

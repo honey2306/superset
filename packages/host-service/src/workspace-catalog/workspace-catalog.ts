@@ -70,7 +70,6 @@ export interface WorkspaceWriteInput {
 	name?: string;
 	type?: "main" | "worktree";
 	taskId?: string | null;
-	createdByUserId?: string | null;
 	headSha?: string | null;
 	upstreamOwner?: string | null;
 	upstreamRepo?: string | null;
@@ -238,7 +237,6 @@ export class WorkspaceCatalog {
 						name: input.name ?? input.branch,
 						type: input.type ?? "worktree",
 						taskId: input.taskId ?? null,
-						createdByUserId: input.createdByUserId ?? null,
 						headSha: input.headSha ?? null,
 						upstreamOwner: input.upstreamOwner ?? null,
 						upstreamRepo: input.upstreamRepo ?? null,
@@ -536,7 +534,6 @@ export function toWorkspaceSnapshot(row: WorkspaceRow): WorkspaceSnapshotShape {
 		upstreamBranch: row.upstreamBranch,
 		pullRequestId: row.pullRequestId,
 		taskId: row.taskId,
-		createdByUserId: row.createdByUserId,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt || row.createdAt,
 	};

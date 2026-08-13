@@ -3,8 +3,6 @@ import { z } from "zod";
 
 export const env = createEnv({
 	server: {
-		AUTH_TOKEN: z.string().min(1),
-		SUPERSET_API_URL: z.string().url(),
 		HOST_DB_PATH: z.string().min(1),
 		HOST_MIGRATIONS_FOLDER: z.string().min(1),
 		HOST_SERVICE_SECRET: z.string().min(1),
@@ -13,7 +11,6 @@ export const env = createEnv({
 		SUPERSET_WEB_APP_DIR: z.string().min(1).optional(),
 		ORGANIZATION_ID: z.string().min(1),
 		DESKTOP_VITE_PORT: z.coerce.number().int().positive(),
-		RELAY_URL: z.string().url().optional(),
 	},
 	runtimeEnv: process.env,
 	emptyStringAsUndefined: true,

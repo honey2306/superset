@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-28
 **Branch:** `keyboard-shortcut-analysi`
-**Covers:** Phases 0–2 of `apps/desktop/plans/20260427-keyboard-layout-plan.md` (commits `eaf066364` → `5749f28b3`).
+**Covers:** Phases 0–2 of `apps/desktop/plans/done/20260427-keyboard-layout-plan.md` (commits `eaf066364` → `5749f28b3`).
 
 This plan validates user-facing behavior. **Dev server is fine** — the renderer code paths exercised here behave identically to a packaged build. (We empirically verified `navigator.keyboard.getLayoutMap()` works in `file://` Electron 40, and `native-keymap` is loaded the same way in both modes once `bun run install:deps` has run.) A packaged build is only needed for final pre-release sign-off / bundle-size checks.
 

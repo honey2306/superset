@@ -1,4 +1,4 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -145,7 +145,7 @@ export function FolderRow({
 			? [
 					{
 						key: "discard-all",
-						label: t("v1Changes.folder.discardAll"),
+						label: t("changes.folder.discardAll"),
 						icon: <VscDiscard className="size-3" />,
 						onClick: openDiscardDialog,
 						isDestructive: true,
@@ -157,7 +157,7 @@ export function FolderRow({
 			? [
 					{
 						key: "stage-all",
-						label: t("v1Changes.folder.stageAll"),
+						label: t("changes.folder.stageAll"),
 						icon: <VscAdd className="size-3" />,
 						onClick: onStageAll,
 						disabled: isActioning,
@@ -168,7 +168,7 @@ export function FolderRow({
 			? [
 					{
 						key: "unstage-all",
-						label: t("v1Changes.folder.unstageAll"),
+						label: t("changes.folder.unstageAll"),
 						icon: <VscRemove className="size-3" />,
 						onClick: onUnstageAll,
 						disabled: isActioning,
@@ -199,22 +199,22 @@ export function FolderRow({
 		<ContextMenuContent className="w-48">
 			<ContextMenuItem onClick={copyPath}>
 				<VscClippy className="mr-2 size-4" />
-				{t("v1Changes.fileItem.copyPath")}
+				{t("changes.fileItem.copyPath")}
 			</ContextMenuItem>
 			{!isRoot && (
 				<ContextMenuItem onClick={copyRelativePath}>
 					<VscClippy className="mr-2 size-4" />
-					{t("v1Changes.fileItem.copyRelativePath")}
+					{t("changes.fileItem.copyRelativePath")}
 				</ContextMenuItem>
 			)}
 			<ContextMenuSeparator />
 			<ContextMenuItem onClick={revealInFinder}>
 				<VscFolderOpened className="mr-2 size-4" />
-				{t("v1Changes.fileItem.revealInFinder")}
+				{t("changes.fileItem.revealInFinder")}
 			</ContextMenuItem>
 			<ContextMenuItem onClick={openInEditor}>
 				<VscLinkExternal className="mr-2 size-4" />
-				{t("v1Changes.fileItem.openInEditor")}
+				{t("changes.fileItem.openInEditor")}
 			</ContextMenuItem>
 
 			{(onStageAll || onUnstageAll || onDiscardAll) && <ContextMenuSeparator />}
@@ -222,14 +222,14 @@ export function FolderRow({
 			{onStageAll && (
 				<ContextMenuItem onClick={onStageAll} disabled={isActioning}>
 					<VscAdd className="mr-2 size-4" />
-					{t("v1Changes.folder.stageAll")}
+					{t("changes.folder.stageAll")}
 				</ContextMenuItem>
 			)}
 
 			{onUnstageAll && (
 				<ContextMenuItem onClick={onUnstageAll} disabled={isActioning}>
 					<VscRemove className="mr-2 size-4" />
-					{t("v1Changes.folder.unstageAll")}
+					{t("changes.folder.unstageAll")}
 				</ContextMenuItem>
 			)}
 
@@ -240,7 +240,7 @@ export function FolderRow({
 					className="text-destructive focus:text-destructive"
 				>
 					<VscDiscard className="mr-2 size-4" />
-					{t("v1Changes.folder.discardAll")}
+					{t("changes.folder.discardAll")}
 				</ContextMenuItem>
 			)}
 		</ContextMenuContent>
@@ -280,8 +280,8 @@ export function FolderRow({
 			<DiscardConfirmDialog
 				open={showDiscardDialog}
 				onOpenChange={setShowDiscardDialog}
-				title={t("v1Changes.folder.discardAllTitle", { name })}
-				description={t("v1Changes.folder.discardAllDesc", {
+				title={t("changes.folder.discardAllTitle", { name })}
+				description={t("changes.folder.discardAllDesc", {
 					count: discardFileCount,
 				})}
 				onConfirm={() => onDiscardAll?.()}

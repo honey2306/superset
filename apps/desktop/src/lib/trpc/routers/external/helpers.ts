@@ -1,6 +1,9 @@
 import { spawn } from "node:child_process";
 import nodePath from "node:path";
-import type { ExternalApp } from "@superset/local-db";
+import type {
+	ExternalApp,
+	OpenInAppLocation,
+} from "@superset/shared/desktop-types";
 
 /** Map of app IDs to their macOS application names */
 const MACOS_APP_NAMES: Record<ExternalApp, string | null> = {
@@ -106,6 +109,32 @@ const JETBRAINS_APPS = new Set<ExternalApp>([
 	"android-studio",
 ]);
 
+const GOTO_FLAG_APPS = new Set<ExternalApp>([
+	"vscode",
+	"vscode-insiders",
+	"cursor",
+	"antigravity",
+]);
+
+const COLON_LOCATION_APPS = new Set<ExternalApp>([
+	"zed",
+	"sublime",
+	"fleet",
+	...JETBRAINS_APPS,
+]);
+
+function getPathArguments(
+	app: ExternalApp,
+	targetPath: string,
+	location?: OpenInAppLocation,
+): string[] {
+	if (location?.line === undefined) return [targetPath];
+	const target = `${targetPath}:${location.line}${location.column === undefined ? "" : `:${location.column}`}`;
+	if (GOTO_FLAG_APPS.has(app)) return ["--goto", target];
+	if (COLON_LOCATION_APPS.has(app)) return [target];
+	return [targetPath];
+}
+
 /**
  * Get candidate commands to open a path in the specified app.
  * Returns an array of commands to try in order — for multi-edition apps (IntelliJ, PyCharm),
@@ -120,7 +149,11 @@ export function getAppCommand(
 	app: ExternalApp,
 	targetPath: string,
 	platform: NodeJS.Platform = process.platform,
+	location?: OpenInAppLocation,
 ): { command: string; args: string[] }[] | null {
+	const pathArguments = getPathArguments(app, targetPath, location);
+	const hasLocationArguments =
+		pathArguments.length > 1 || pathArguments[0] !== targetPath;
 	if (platform === "darwin") {
 		const isJetBrains = JETBRAINS_APPS.has(app);
 
@@ -129,8 +162,10 @@ export function getAppCommand(
 			return bundleIds.map((id) => ({
 				command: "open",
 				args: isJetBrains
-					? ["-n", "-b", id, "--args", targetPath]
-					: ["-b", id, targetPath],
+					? ["-n", "-b", id, "--args", ...pathArguments]
+					: hasLocationArguments
+						? ["-b", id, "--args", ...pathArguments]
+						: ["-b", id, targetPath],
 			}));
 		}
 
@@ -140,8 +175,10 @@ export function getAppCommand(
 			{
 				command: "open",
 				args: isJetBrains
-					? ["-n", "-a", appName, "--args", targetPath]
-					: ["-a", appName, targetPath],
+					? ["-n", "-a", appName, "--args", ...pathArguments]
+					: hasLocationArguments
+						? ["-a", appName, "--args", ...pathArguments]
+						: ["-a", appName, targetPath],
 			},
 		];
 	}
@@ -151,13 +188,13 @@ export function getAppCommand(
 	if (linuxCandidates) {
 		return linuxCandidates.map((cmd) => ({
 			command: cmd,
-			args: [targetPath],
+			args: pathArguments,
 		}));
 	}
 
 	const cliCommand = LINUX_CLI_COMMANDS[app];
 	if (!cliCommand) return null;
-	return [{ command: cliCommand, args: [targetPath] }];
+	return [{ command: cliCommand, args: pathArguments }];
 }
 
 /**

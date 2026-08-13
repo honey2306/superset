@@ -8,11 +8,11 @@ import {
 	setSystemTime,
 	test,
 } from "bun:test";
-import * as relaySocketModule from "@superset/workspace-client/relay-socket";
+import * as directSocketModule from "@superset/workspace-client/direct-socket";
 import type { Terminal as XTerm } from "@xterm/xterm";
 
-// The transport builds on createRelaySocket (partysocket) — reconnection,
-// backoff, and the relay preflight live inside the shared socket. We inject a
+// The transport builds on createDirectSocket (partysocket) — reconnection,
+// backoff, and fresh token signing live inside the shared socket. We inject a
 // fake so tests drive the transport's own behavior (state, diagnosis,
 // coalescing, liveness) deterministically, without a real socket or fetch.
 type Listener = (event: {
@@ -21,8 +21,8 @@ type Listener = (event: {
 	reason?: unknown;
 }) => void;
 
-class FakeRelaySocket {
-	static instances: FakeRelaySocket[] = [];
+class FakeDirectSocket {
+	static instances: FakeDirectSocket[] = [];
 
 	readyState = 0; // WebSocket.CONNECTING
 	binaryType: BinaryType = "blob";
@@ -38,7 +38,7 @@ class FakeRelaySocket {
 
 	constructor(options: Record<string, unknown>) {
 		this.options = options;
-		FakeRelaySocket.instances.push(this);
+		FakeDirectSocket.instances.push(this);
 	}
 
 	addEventListener(type: string, listener: Listener) {
@@ -79,7 +79,7 @@ class FakeRelaySocket {
 	}
 
 	/** A real server close: the connection opened, then the host dropped it
-	 * (numeric code, e.g. relay 1006). */
+	 * (numeric code, for example 1006). */
 	drop(code: number | string = 1006, reason = "") {
 		this.retryCount += 1;
 		this.readyState = 3;
@@ -108,13 +108,13 @@ class FakeRelaySocket {
 // bun's mock.module is process-global and leaks to every later test file in the
 // whole desktop run, so a partial stub breaks unrelated tests that import the
 // module's other named exports. Preserve the real exports and override only
-// createRelaySocket. (auth-client / posthog are deliberately NOT mocked: with a
+// createDirectSocket. (auth-client / posthog are deliberately NOT mocked: with a
 // faked socket getToken/ensureFreshJwt never runs, and posthog.capture before
 // init is a harmless no-op — the real modules load fine, as the prior test did.)
-mock.module("@superset/workspace-client/relay-socket", () => ({
-	...relaySocketModule,
-	createRelaySocket: (options: Record<string, unknown>) =>
-		new FakeRelaySocket(options),
+mock.module("@superset/workspace-client/direct-socket", () => ({
+	...directSocketModule,
+	createDirectSocket: (options: Record<string, unknown>) =>
+		new FakeDirectSocket(options),
 }));
 
 const { connect, createTransport, disconnect, reconnect } = await import(
@@ -153,15 +153,15 @@ function connectAttached(url = "ws://host/terminal/t1") {
 	const transport = createTransport();
 	const terminal = createMockTerminal();
 	connect(transport, terminal, url);
-	const socket = FakeRelaySocket.instances.at(-1);
-	if (!socket) throw new Error("expected relay socket instance");
+	const socket = FakeDirectSocket.instances.at(-1);
+	if (!socket) throw new Error("expected direct socket instance");
 	socket.open();
 	socket.message(JSON.stringify({ type: "attached", terminalId: "t1" }));
 	return { transport, terminal, socket };
 }
 
 beforeEach(() => {
-	FakeRelaySocket.instances = [];
+	FakeDirectSocket.instances = [];
 	if (win && typeof win.addEventListener !== "function") {
 		win.addEventListener = () => {};
 	}
@@ -229,8 +229,8 @@ describe("PTY output write coalescing", () => {
 			events.push(`writeln:${line}`);
 		};
 		connect(transport, terminal, "ws://host/terminal/t1");
-		const socket = FakeRelaySocket.instances[0];
-		if (!socket) throw new Error("expected relay socket instance");
+		const socket = FakeDirectSocket.instances[0];
+		if (!socket) throw new Error("expected direct socket instance");
 		socket.open();
 		socket.message(JSON.stringify({ type: "attached", terminalId: "t1" }));
 		return { transport, socket, writes, events };
@@ -291,14 +291,14 @@ describe("PTY output write coalescing", () => {
 });
 
 describe("terminal-ws-transport", () => {
-	test("mock preserves the relay-socket module's other exports", async () => {
+	test("mock preserves the direct-socket module's other exports", async () => {
 		// Regression guard: bun's mock.module is process-global, so stubbing only
-		// createRelaySocket drops the module's other exports (e.g.
-		// setRelaySocketTelemetry, which renderer/lib/posthog imports) and crashes
+		// createDirectSocket drops the module's other exports (e.g.
+		// setDirectSocketTelemetry, which renderer/lib/posthog imports) and crashes
 		// unrelated desktop tests suite-wide with "export not found". The mock must
 		// spread the real module — assert that here so a partial stub fails fast.
-		const mod = await import("@superset/workspace-client/relay-socket");
-		expect(typeof mod.setRelaySocketTelemetry).toBe("function");
+		const mod = await import("@superset/workspace-client/direct-socket");
+		expect(typeof mod.setDirectSocketTelemetry).toBe("function");
 	});
 
 	test("server-sent error routes to logs, not xterm, and terminates", () => {
@@ -312,8 +312,8 @@ describe("terminal-ws-transport", () => {
 		};
 
 		connect(transport, terminal, "ws://host/terminal/t1");
-		const socket = FakeRelaySocket.instances[0];
-		if (!socket) throw new Error("expected relay socket instance");
+		const socket = FakeDirectSocket.instances[0];
+		if (!socket) throw new Error("expected direct socket instance");
 		socket.open();
 
 		socket.message(
@@ -337,8 +337,8 @@ describe("terminal-ws-transport", () => {
 		const terminal = createMockTerminal();
 
 		connect(transport, terminal, "ws://host/terminal/t1");
-		const socket = FakeRelaySocket.instances[0];
-		if (!socket) throw new Error("expected relay socket instance");
+		const socket = FakeDirectSocket.instances[0];
+		if (!socket) throw new Error("expected direct socket instance");
 		const sentMessages = () =>
 			socket.sent.map((payload) => JSON.parse(payload) as unknown);
 
@@ -368,7 +368,7 @@ describe("terminal-ws-transport", () => {
 		// would stop partysocket) and never re-create it.
 		for (let i = 0; i < 25; i++) socket.drop(1006, "offline");
 
-		expect(FakeRelaySocket.instances.length).toBe(1);
+		expect(FakeDirectSocket.instances.length).toBe(1);
 		expect(socket.closed).toBe(false);
 		expect(socket.reconnectCount).toBe(0);
 	});
@@ -438,8 +438,8 @@ describe("terminal-ws-transport", () => {
 		// Never opened: connect but don't open/attach — the host is unreachable.
 		const transport = createTransport();
 		connect(transport, createMockTerminal(), "ws://host/terminal/t1");
-		const socket = FakeRelaySocket.instances.at(-1);
-		if (!socket) throw new Error("expected relay socket instance");
+		const socket = FakeDirectSocket.instances.at(-1);
+		if (!socket) throw new Error("expected direct socket instance");
 
 		// Every attempt fails BEFORE the socket opens, arriving as an error + a
 		// string-code synthetic close (no numeric server close). retryCount still
@@ -470,8 +470,8 @@ describe("terminal-ws-transport", () => {
 		const transport = createTransport({ onSessionEnded: () => ended++ });
 		const terminal = createMockTerminal();
 		connect(transport, terminal, "ws://host/terminal/t1");
-		const socket = FakeRelaySocket.instances.at(-1);
-		if (!socket) throw new Error("expected relay socket instance");
+		const socket = FakeDirectSocket.instances.at(-1);
+		if (!socket) throw new Error("expected direct socket instance");
 		socket.open();
 		socket.message(
 			JSON.stringify({

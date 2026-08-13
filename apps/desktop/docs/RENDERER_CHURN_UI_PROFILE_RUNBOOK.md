@@ -80,7 +80,7 @@ The 2026-07-19 checkpoint montage is [renderer-churn-visible-lifecycle-checkpoin
 ## Cleanup
 
 1. Delete the synthetic local project through the matched host-service `project.remove` procedure and verify the project/workspace rows are absent from the active-organization host DB.
-2. Stop the dedicated desktop stack and restore any local host-service rows left by an interrupted cleanup saga. If the test started a supporting Electric container, return it to its prior stopped/running state.
+2. Stop the dedicated desktop stack and restore any local Host rows left by an interrupted cleanup saga.
 3. Remove all eight synthetic Git worktrees with explicit `git worktree remove --force` targets, then remove only the validated synthetic `/private/tmp` roots.
-4. Remove temporary auth, CDP, profiler, screenshot, and result files. Restore any supporting service (for example Electric) to its pre-test running/stopped state.
+4. Remove temporary auth, CDP, profiler, screenshot, and result files. Restore supporting development services to their pre-test running/stopped state.
 5. Confirm the worktree contains only the intended documentation/measurement changes and that the API, renderer, and dedicated CDP ports are no longer listening.

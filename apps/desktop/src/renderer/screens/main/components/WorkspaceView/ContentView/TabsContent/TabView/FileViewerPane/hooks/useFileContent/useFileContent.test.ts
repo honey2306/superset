@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createElement, type ReactNode } from "react";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 
 let renderHook: typeof import("@testing-library/react/pure").renderHook;
@@ -21,19 +23,51 @@ const readFileUseQuery = mock(
 			: { data: undefined, error: undefined, isLoading: false },
 );
 const emptyUseQuery = mock(() => ({ data: undefined, isLoading: false }));
+const listBranchesQuery = mock(async () => ({ branches: [] }));
+const getStatusQuery = mock(async () => ({
+	defaultBranch: { name: "main" },
+}));
 
-// electron-trpc is stubbed so the hook never hits the real tRPC client. `react`
-// is intentionally NOT mocked here: this hook only uses `useMemo`, so it runs
-// under the real React renderer via `renderHook`. Mocking `react` globally (as
-// this file used to) leaks a fake `react` into the rest of the test process and
-// breaks tests that need the real React context (e.g. react-dnd in
-// V1PanesPresetBarItem).
-mock.module("renderer/lib/electron-trpc", () => ({
-	electronTrpc: {
-		changes: {
-			getBranches: { useQuery: emptyUseQuery },
-			getGitFileContents: { useQuery: emptyUseQuery },
-			getGitOriginalContent: { useQuery: emptyUseQuery },
+// Host-backed dependencies are stubbed so the hook never reaches a real host.
+// Keep the catalog deliberately not-ready while retaining cached workspace rows:
+// useWorkspaceHostUrl must resolve those rows cache-first during a refresh.
+mock.module(
+	"renderer/routes/_local/providers/LocalHostServiceProvider",
+	() => ({
+		useLocalHostService: () => ({
+			machineId: "machine-1",
+			activeHostUrl: "http://host.test",
+		}),
+	}),
+);
+
+mock.module(
+	"renderer/routes/_local/providers/WorkspaceCatalogProvider",
+	() => ({
+		useWorkspaceCatalog: () => ({
+			projects: [],
+			workspaces: [{ id: "workspace-1" }, { id: "workspace-2" }],
+			isReady: false,
+		}),
+	}),
+);
+
+mock.module("renderer/lib/host-service-client", () => ({
+	getHostServiceClientByUrl: () => ({
+		git: {
+			listBranches: { query: listBranchesQuery },
+			getStatus: { query: getStatusQuery },
+		},
+	}),
+}));
+
+// workspace-client is stubbed so filesystem reads remain deterministic. `react`
+// is intentionally NOT mocked here: this hook runs under the real React renderer
+// via `renderHook`. Mocking it globally leaks fake context into unrelated tests.
+mock.module("@superset/workspace-client", () => ({
+	workspaceTrpc: {
+		git: {
+			getDiff: { useQuery: emptyUseQuery },
 		},
 		filesystem: {
 			readFile: { useQuery: readFileUseQuery },
@@ -54,6 +88,19 @@ beforeEach(async () => {
 	readFileUseQuery.mockClear();
 });
 
+const createWrapper = () => {
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+	});
+	return function QueryWrapper({ children }: { children: ReactNode }) {
+		return createElement(
+			QueryClientProvider,
+			{ client: queryClient },
+			children,
+		);
+	};
+};
+
 describe("useFileContent", () => {
 	test("keeps exact-workspace cached file content visible during a refresh", () => {
 		rawQueryResult = {
@@ -66,13 +113,15 @@ describe("useFileContent", () => {
 			isLoading: true,
 		};
 
-		const { result } = renderHook(() =>
-			useFileContent({
-				workspaceId: "workspace-1",
-				worktreePath: "/worktrees/one",
-				filePath: "/worktrees/one/README.md",
-				viewMode: "raw",
-			}),
+		const { result } = renderHook(
+			() =>
+				useFileContent({
+					workspaceId: "workspace-1",
+					worktreePath: "/worktrees/one",
+					filePath: "/worktrees/one/README.md",
+					viewMode: "raw",
+				}),
+			{ wrapper: createWrapper() },
 		);
 
 		expect(result.current.rawFileData).toEqual({
@@ -99,13 +148,15 @@ describe("useFileContent", () => {
 	});
 
 	test("shows initial loading only when no cached file data exists", () => {
-		const { result } = renderHook(() =>
-			useFileContent({
-				workspaceId: "workspace-2",
-				worktreePath: "/worktrees/two",
-				filePath: "/worktrees/two/README.md",
-				viewMode: "raw",
-			}),
+		const { result } = renderHook(
+			() =>
+				useFileContent({
+					workspaceId: "workspace-2",
+					worktreePath: "/worktrees/two",
+					filePath: "/worktrees/two/README.md",
+					viewMode: "raw",
+				}),
+			{ wrapper: createWrapper() },
 		);
 
 		expect(result.current.rawFileData).toBeUndefined();

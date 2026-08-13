@@ -9,12 +9,12 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { LuGitBranch } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
-import { useWorkspaceCatalog } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider";
+import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
+import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
 import { useFrameStackStore } from "../../core/frames";
 import { useCommandPaletteQuery } from "../CommandPalette/CommandPalette";
 
-interface V1WorkspaceItem {
+interface WorkspaceItem {
 	id: string;
 	name: string;
 	branch: string;
@@ -22,17 +22,17 @@ interface V1WorkspaceItem {
 	projectColor: string;
 }
 
-interface V1ProjectGroup {
+interface ProjectGroup {
 	projectId: string;
 	projectName: string;
-	workspaces: V1WorkspaceItem[];
+	workspaces: WorkspaceItem[];
 }
 
 const ROW_CLASS =
 	"gap-2.5 !py-2.5 text-sm [&_svg]:!size-4 [&_svg]:stroke-[1.5]";
 
 function matchesQuery(
-	workspace: Pick<V1WorkspaceItem, "name" | "branch" | "projectName">,
+	workspace: Pick<WorkspaceItem, "name" | "branch" | "projectName">,
 	query: string,
 ): boolean {
 	if (!query) return true;
@@ -48,21 +48,21 @@ export function WorkspaceListFrame() {
 	const rawQuery = useCommandPaletteQuery();
 	const query = rawQuery.trim();
 
-	return <V1WorkspaceList query={query} />;
+	return <WorkspaceList query={query} />;
 }
 
-function V1WorkspaceList({ query }: { query: string }) {
+function WorkspaceList({ query }: { query: string }) {
 	const { t } = useTranslation();
 	const { projects, workspaces } = useWorkspaceCatalog();
 	const currentPath = useLocation({ select: (loc) => loc.pathname });
 	const navigate = useNavigate();
 	const setOpen = useFrameStackStore((s) => s.setOpen);
 
-	const projectGroups = useMemo<V1ProjectGroup[]>(() => {
+	const projectGroups = useMemo<ProjectGroup[]>(() => {
 		const projectNames = new Map(
 			projects.map((project) => [project.id, project.name]),
 		);
-		const projectGroups = new Map<string, V1ProjectGroup>();
+		const projectGroups = new Map<string, ProjectGroup>();
 		for (const workspace of workspaces) {
 			const projectName =
 				projectNames.get(workspace.projectId) ?? workspace.projectId;

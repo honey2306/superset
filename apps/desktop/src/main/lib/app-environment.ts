@@ -1,12 +1,14 @@
 import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { SUPERSET_DIR_NAME } from "shared/constants";
+import { getSupersetDirNameForBuild } from "shared/constants";
+import { getBuildChannel } from "shared/env.shared";
 
 const SUPERSET_HOME_DIR_ENV = "SUPERSET_HOME_DIR";
 
 export const SUPERSET_HOME_DIR =
-	process.env[SUPERSET_HOME_DIR_ENV] || join(homedir(), SUPERSET_DIR_NAME);
+	process.env[SUPERSET_HOME_DIR_ENV] ||
+	join(homedir(), getSupersetDirNameForBuild(getBuildChannel()));
 process.env[SUPERSET_HOME_DIR_ENV] = SUPERSET_HOME_DIR;
 
 export const SUPERSET_HOME_DIR_MODE = 0o700;

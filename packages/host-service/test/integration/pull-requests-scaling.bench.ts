@@ -6,6 +6,7 @@ import { workspaces } from "../../src/db/schema";
 import { GitWatcher } from "../../src/events/git-watcher";
 import { WorkspaceFilesystemManager } from "../../src/runtime/filesystem";
 import { PullRequestRuntimeManager } from "../../src/runtime/pull-requests/pull-requests";
+import { WorkspaceCatalog } from "../../src/workspace-catalog";
 import { createTestHost, type TestHost } from "../helpers/createTestHost";
 import { createGitFixture, type GitFixture } from "../helpers/git-fixture";
 import { seedProject, seedWorkspace } from "../helpers/seed";
@@ -83,6 +84,10 @@ async function setup(workspaceCount: number): Promise<BenchScenario> {
 	const gitWatcher = new GitWatcher(host.db as HostDb, filesystem);
 	const manager = new PullRequestRuntimeManager({
 		db: host.db as HostDb,
+		catalog: new WorkspaceCatalog({
+			db: host.db as HostDb,
+			eventBus: null,
+		}),
 		git: async (worktreePath: string) =>
 			instrumentGit(simpleGit(worktreePath), counter),
 		github: async () => ({}) as never,

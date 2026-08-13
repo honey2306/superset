@@ -37,20 +37,13 @@ describe("bug-hunt-v2: workspaceCleanup.destroy phase ordering", () => {
 		repo.dispose();
 	});
 
-	test("destroy rejects a main workspace BEFORE running teardown or cloud-delete", async () => {
+	test("destroy rejects a main workspace before running teardown", async () => {
 		// We can't exercise the actual `teardown.sh` script in bun:test
-		// (the harness has no PTY). What we *can* verify here is the
-		// phase-0 main-workspace guard fires first, so a destructive cloud
-		// delete is never attempted on a main workspace even if teardown
-		// would otherwise be skipped. Real TEARDOWN_FAILED behavior would
-		// need a PTY-enabled harness to cover.
+		// (the harness has no PTY). Verify the phase-0 main-workspace guard
+		// fires before teardown. Real TEARDOWN_FAILED behavior needs a
+		// PTY-enabled harness to cover.
 		const workspaceId = randomUUID();
-		host = await createTestHost({
-			apiOverrides: {
-				"v2Workspace.getFromHost.query": () => ({ type: "feature" }),
-				"v2Workspace.delete.mutate": () => ({ success: true }),
-			},
-		});
+		host = await createTestHost();
 		host.db
 			.insert(projects)
 			.values({ id: projectId, repoPath: repo.repoPath })
@@ -68,10 +61,6 @@ describe("bug-hunt-v2: workspaceCleanup.destroy phase ordering", () => {
 		await expect(
 			host.trpc.workspaceCleanup.destroy.mutate({ workspaceId }),
 		).rejects.toThrow(/Main workspaces cannot be deleted/i);
-
-		expect(
-			host.apiCalls.some((c) => c.path === "v2Workspace.delete.mutate"),
-		).toBe(false);
 	});
 });
 
@@ -86,11 +75,6 @@ const stubChatRuntime = {
 beforeEach(async () => {
 	host = await createTestHost({
 		chatRuntime: stubChatRuntime,
-		apiOverrides: {
-			"chat.updateSession.mutate": () => {
-				throw new Error("cloud-down");
-			},
-		},
 	});
 });
 
@@ -98,13 +82,12 @@ afterEach(async () => {
 	await host.dispose();
 });
 
-test("chat.sendMessage swallows cloud chat.updateSession failures", async () => {
-	// The procedure does `void ctx.api.chat.updateSession.mutate(...).catch(() => {})`
-	// — the user-visible turn must not fail because of a cloud blip.
+test("chat.sendMessage does not depend on the cloud API", async () => {
 	const result = await host.trpc.chat.sendMessage.mutate({
 		sessionId,
 		workspaceId,
 		payload: { content: "hi" },
 	});
 	expect(result).toBeDefined();
+	expect(host.apiCalls).toEqual([]);
 });

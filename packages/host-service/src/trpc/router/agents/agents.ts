@@ -287,11 +287,9 @@ async function runChatAgent(
 	const files = await resolveAttachmentsAsFiles(input.attachmentIds ?? []);
 	const metadata = buildChatAgentMetadata(input);
 
-	await ctx.api.chat.createSession.mutate({
-		sessionId,
-		v2WorkspaceId: input.workspaceId,
-	});
-
+	// The local chat runtime owns session creation and persistence. Do not
+	// register the session with the cloud API: local-only hosts deliberately
+	// have no cloud credentials.
 	// Errors surface via `getSnapshot.displayState.errorMessage` when a
 	// chat pane attaches.
 	void ctx.runtime.chat

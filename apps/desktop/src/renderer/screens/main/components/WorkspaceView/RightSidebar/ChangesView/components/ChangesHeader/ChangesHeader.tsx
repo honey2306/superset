@@ -47,7 +47,7 @@ function RefreshButton({ onRefresh }: { onRefresh: () => void }) {
 				</Button>
 			</TooltipTrigger>
 			<TooltipContent side="top" showArrow={false}>
-				{t("v1Changes.header.refreshChanges")}
+				{t("changes.header.refreshChanges")}
 			</TooltipContent>
 		</Tooltip>
 	);

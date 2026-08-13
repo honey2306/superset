@@ -1,0 +1,140 @@
+import { toast } from "@superset/ui/sonner";
+import { useNavigate } from "@tanstack/react-router";
+import { useCallback } from "react";
+import { showWorkspaceAutoNameWarningToast } from "renderer/lib/workspaces/showWorkspaceAutoNameWarningToast";
+import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
+import type { NewWorkspacePromptContextApi } from "renderer/stores/new-workspace-prompt-context";
+import { useWorkspaceProvisioningSubmission } from "renderer/stores/workspace-launch";
+import { useDashboardNewWorkspaceDraft } from "../../../../../DashboardNewWorkspaceDraftContext";
+import type { WorkspaceCreateAgent } from "../../types";
+import type { UseUploadAttachmentsApi } from "../useUploadAttachments";
+import { resolveNames } from "./resolveNames";
+
+/**
+ * Submits a workspace Provisioning operation. Attachment uploads run
+ * optimistically through `useUploadAttachments` — submit only blocks on
+ * whatever uploads are still in flight, then dispatches the operation with the
+ * resulting `attachmentIds` on the agent launch sugar.
+ */
+export function useSubmitWorkspace(
+	projectId: string | null,
+	selectedAgent: WorkspaceCreateAgent,
+	selectedModel: string | null,
+	selectedEffort: string | null,
+	uploadAttachments: UseUploadAttachmentsApi,
+	promptContext: NewWorkspacePromptContextApi,
+) {
+	const navigate = useNavigate();
+	const { closeAndResetDraft, draft } = useDashboardNewWorkspaceDraft();
+	const { submit } = useWorkspaceProvisioningSubmission();
+	const { machineId } = useLocalHostService();
+
+	return useCallback(async () => {
+		if (!projectId) {
+			toast.error("Select a project first");
+			return;
+		}
+		const hostId = draft.hostId ?? machineId;
+		if (!hostId) {
+			toast.error("No active host");
+			return;
+		}
+
+		const { readyIds: attachmentIds, errors } =
+			await uploadAttachments.awaitUploads();
+		if (errors.length > 0) {
+			const first = errors[0];
+			toast.error(
+				first.filename
+					? `Attachment upload failed (${first.filename}): ${first.message}`
+					: `Attachment upload failed: ${first.message}`,
+			);
+			return;
+		}
+
+		const { branchName, workspaceName } = resolveNames(draft);
+
+		const isPrCheckout = draft.linkedPR !== null;
+
+		const hasAnyContext =
+			!!draft.prompt.trim() ||
+			draft.linkedPR !== null ||
+			draft.linkedIssues.length > 0 ||
+			attachmentIds.length > 0;
+		const wantAgent = selectedAgent !== "none" && hasAnyContext;
+
+		const finalPrompt = wantAgent
+			? await promptContext.build({
+					userPrompt: draft.prompt,
+					linkedPR: draft.linkedPR,
+					linkedIssues: draft.linkedIssues,
+					timeoutMs: 2000,
+				})
+			: null;
+
+		const agents = wantAgent
+			? [
+					{
+						agent: selectedAgent,
+						prompt: finalPrompt ?? "",
+						attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined,
+						model: selectedModel ?? undefined,
+						effort: selectedEffort ?? undefined,
+					},
+				]
+			: undefined;
+
+		// PR path supplies a name (PR title) so the in-flight UI has
+		// something to show immediately. Branch path leaves both `name`
+		// and `branch` undefined when the user didn't type — the server
+		// generates a friendly random and AI-renames whichever side(s)
+		// the user didn't supply.
+		const prName = isPrCheckout
+			? draft.linkedPR?.title || `PR #${draft.linkedPR?.prNumber}`
+			: undefined;
+
+		const trimmedPrompt = draft.prompt.trim();
+		const workspaceId = crypto.randomUUID();
+		const snapshot = {
+			id: workspaceId,
+			projectId,
+			name: isPrCheckout ? prName : (workspaceName ?? undefined),
+			branch: isPrCheckout ? undefined : (branchName ?? undefined),
+			pr: isPrCheckout ? draft.linkedPR?.prNumber : undefined,
+			baseBranch: draft.baseBranch ?? undefined,
+			agents,
+			namingPrompt:
+				!isPrCheckout && !wantAgent && trimmedPrompt
+					? trimmedPrompt
+					: undefined,
+		};
+
+		closeAndResetDraft();
+		const { completed } = submit({ hostId, snapshot });
+
+		void completed.then((outcome) => {
+			if (!outcome.ok) return;
+
+			if (outcome.autoNameWarning) {
+				showWorkspaceAutoNameWarningToast({
+					description: outcome.autoNameWarning,
+					onOpenModelAuthSettings: () => {
+						void navigate({ to: "/settings/models" });
+					},
+				});
+			}
+		});
+	}, [
+		closeAndResetDraft,
+		draft,
+		machineId,
+		navigate,
+		projectId,
+		promptContext,
+		selectedAgent,
+		selectedModel,
+		selectedEffort,
+		submit,
+		uploadAttachments,
+	]);
+}

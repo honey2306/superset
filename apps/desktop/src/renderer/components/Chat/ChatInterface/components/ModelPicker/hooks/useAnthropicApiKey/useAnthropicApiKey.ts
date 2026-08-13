@@ -1,5 +1,5 @@
-import { chatServiceTrpc } from "@superset/chat/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 
 function getErrorMessage(error: unknown, fallback: string): string {
 	if (error instanceof Error && error.message.trim()) {
@@ -41,11 +41,11 @@ export function useAnthropicApiKey({
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	const { data: anthropicStatus, refetch: refetchAnthropicStatus } =
-		chatServiceTrpc.auth.getAnthropicStatus.useQuery();
+		hostServiceTrpc.auth.getAnthropicStatus.useQuery();
 	const setAnthropicApiKeyMutation =
-		chatServiceTrpc.auth.setAnthropicApiKey.useMutation();
+		hostServiceTrpc.auth.setAnthropicApiKey.useMutation();
 	const clearAnthropicApiKeyMutation =
-		chatServiceTrpc.auth.clearAnthropicApiKey.useMutation();
+		hostServiceTrpc.auth.clearAnthropicApiKey.useMutation();
 	const isPending =
 		setAnthropicApiKeyMutation.isPending ||
 		clearAnthropicApiKeyMutation.isPending;

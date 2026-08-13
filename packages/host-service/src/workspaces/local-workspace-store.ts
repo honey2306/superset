@@ -21,13 +21,8 @@ export interface WorkspaceStoreContext {
 	catalog?: WorkspaceCatalog;
 }
 
-/**
- * Cloud-row-compatible view of a local workspace row. Matches the shape of
- * `v2Workspace.getFromHost` / `create` responses so existing consumers of
- * cloud rows keep working when the host answers from its own table
- * (dual-write era; the cloud shape becomes the only shape in R3).
- */
-export interface CloudShapedWorkspace {
+/** Public workspace view derived from the host-owned catalog row. */
+export interface WorkspaceView {
 	id: string;
 	organizationId: string;
 	projectId: string;
@@ -35,7 +30,6 @@ export interface CloudShapedWorkspace {
 	name: string;
 	branch: string;
 	type: "main" | "worktree";
-	createdByUserId: string | null;
 	taskId: string | null;
 	createdAt: Date;
 	updatedAt: Date;
@@ -50,16 +44,15 @@ export function toWorkspaceSnapshot(row: HostWorkspaceRow): WorkspaceSnapshot {
 		type: row.type,
 		worktreePath: row.worktreePath,
 		taskId: row.taskId,
-		createdByUserId: row.createdByUserId,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt || row.createdAt,
 	};
 }
 
-export function toCloudShape(
+export function toWorkspaceView(
 	row: HostWorkspaceRow,
 	organizationId: string,
-): CloudShapedWorkspace {
+): WorkspaceView {
 	return {
 		id: row.id,
 		organizationId,
@@ -70,7 +63,6 @@ export function toCloudShape(
 		name: row.name || row.branch,
 		branch: row.branch,
 		type: row.type,
-		createdByUserId: row.createdByUserId,
 		taskId: row.taskId,
 		createdAt: new Date(row.createdAt),
 		updatedAt: new Date(row.updatedAt || row.createdAt),
@@ -92,7 +84,6 @@ export interface InsertLocalWorkspaceValues {
 	name: string;
 	type?: "main" | "worktree";
 	taskId?: string | null;
-	createdByUserId?: string | null;
 }
 
 /**
@@ -118,7 +109,6 @@ export function insertLocalWorkspace(
 			name: values.name,
 			type: values.type ?? "worktree",
 			taskId: values.taskId ?? null,
-			createdByUserId: values.createdByUserId ?? null,
 		});
 	} else {
 		ctx.db
@@ -131,7 +121,6 @@ export function insertLocalWorkspace(
 				name: values.name,
 				type: values.type ?? "worktree",
 				taskId: values.taskId ?? null,
-				createdByUserId: values.createdByUserId ?? null,
 				createdAt: now,
 				updatedAt: now,
 			})

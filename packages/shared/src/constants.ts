@@ -71,53 +71,13 @@ export const TEARDOWN_TIMEOUT_MS = 60_000;
 // PostHog
 export const POSTHOG_COOKIE_NAME = "superset";
 
-// v2-only users have the v1↔v2 surface switch hidden and v2 cloud forced on.
-// Two windows of account-creation time qualify (stored as ISO strings so the
-// values are identical on server, desktop renderer, web, and admin):
-//   [V2_ONLY_USER_CUTOFF, V2_NEW_USER_V1_EXPERIMENT_START) — the original v2-only
-//     cohort.
-//   [V2_NEW_USER_V2_DEFAULT_START, ∞) — new users now default to v2.
-// The gap [V2_NEW_USER_V1_EXPERIMENT_START, V2_NEW_USER_V2_DEFAULT_START) is the
-// new-users-v1 experiment cohort; they started in v1 and stay there — flipping
-// the default must never pull existing v1 users into v2. Pre-cutoff users keep
-// the existing opt-in toggle.
-// 2026-05-15 14:00 UTC = Fri 07:00 PDT / 10:00 EDT.
-export const V2_ONLY_USER_CUTOFF = "2026-05-15T14:00:00.000Z";
-// 2026-06-08 06:59 UTC = Sun 23:59 PDT (11:59pm Pacific).
-export const V2_NEW_USER_V1_EXPERIMENT_START = "2026-06-08T06:59:00.000Z";
-// Rollout boundary: accounts created at/after this default to v2. Set to the
-// 2026-07-09 release cutover, 10:00 AM Pacific (PDT, UTC-7) = 17:00 UTC. Everyone
-// who signed up before the cutover stays on v1, so no existing v1 user flips.
-// Bump this if the release slips.
-export const V2_NEW_USER_V2_DEFAULT_START = "2026-07-09T17:00:00.000Z";
-
 export const FEATURE_FLAGS = {
-	/** Gates access to experimental Electric SQL tasks feature. */
-	ELECTRIC_TASKS_ACCESS: "electric-tasks-access",
 	/** Gates access to the experimental mobile-first agents UI on web. */
 	WEB_AGENTS_UI_ACCESS: "web-agents-ui-access",
 	/** Gates access to GitHub integration (currently buggy, internal only). */
 	GITHUB_INTEGRATION_ACCESS: "github-integration-access",
-	/** Gates access to Cloud features (environment variables, sandboxes). */
-	CLOUD_ACCESS: "cloud-access",
 	/** When enabled, blocks remote agent execution on the desktop (e.g., for enterprise orgs). */
 	DISABLE_REMOTE_AGENT: "disable-remote-agent",
-	/**
-	 * Routes the Slack agent to the v2 MCP server (`@superset/mcp-v2`)
-	 * instead of v1 (`@superset/mcp`). Evaluated against the linking
-	 * user's id (the Superset user behind the Slack mention) so it
-	 * piggybacks on the existing All Access cohort. Off → v1.
-	 */
-	SLACK_MCP_V2: "slack-mcp-v2",
-	/**
-	 * Per-user override for the relay base URL. Payload shape:
-	 * `{ "url": "https://..." }`. When set, both the host-service tunnel and
-	 * the desktop renderer's client-side WS opens route through this URL
-	 * instead of `env.RELAY_URL`. Lets us A/B-test alternative relay
-	 * implementations (e.g. Cloudflare Durable Objects) without changing
-	 * defaults for other users.
-	 */
-	RELAY_URL_OVERRIDE: "relay-url-override",
 	/**
 	 * Shows the "We're Hiring" card in the dashboard sidebar. Targets a static
 	 * PostHog cohort of users who have created 10+ workspaces all-time, which is
@@ -127,23 +87,6 @@ export const FEATURE_FLAGS = {
 	 * it to reach users who cross the threshold later.
 	 */
 	HIRING_BANNER: "hiring-banner",
-	/**
-	 * Routes v1 terminal panes through the v2-grade host-service/pty-daemon
-	 * byte-safe backend instead of the legacy Electron IPC terminal-host
-	 * path. When enabled, v1 Terminal panes create host-service sessions
-	 * and connect via WebSocket transport, fixing mojibake on split UTF-8
-	 * chunks. See plans/20260724-v1-v2-terminal-fusion.md.
-	 */
-	V1_HOST_SERVICE_TERMINAL: "v1-host-service-terminal",
-	/**
-	 * PoC: render a v1 workspace view's tabs through the v2-grade
-	 * `@superset/panes` engine instead of the v1 mosaic + global tabs store.
-	 * When enabled, the active workspace view mounts a `@superset/panes`
-	 * `<Workspace>` with a minimal terminal-only registry reusing the M0–M5
-	 * neutral terminal layer. Validates that the panes backend can run inside
-	 * the v1 UI shell before committing to a full fusion (option D).
-	 */
-	V2_PANES_IN_V1: "v2-panes-in-v1",
 } as const;
 
 // Terminal identity presented to shell programs via TERM_PROGRAM. kitty:

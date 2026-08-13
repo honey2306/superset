@@ -1,4 +1,4 @@
-import type { ExternalApp } from "@superset/local-db";
+import type { ExternalApp } from "@superset/shared/desktop-types";
 import { useParams } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 import type { IconType } from "react-icons";
@@ -8,7 +8,7 @@ import { getAppOption } from "renderer/components/OpenInExternalDropdown";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { DeleteWorkspaceDialog } from "renderer/screens/main/components/WorkspaceSidebar/WorkspaceListItem/components/DeleteWorkspaceDialog/DeleteWorkspaceDialog";
 import { useTabsWithPresets } from "renderer/stores/tabs/useTabsWithPresets";
 import { useTheme } from "renderer/stores/theme";
@@ -35,7 +35,7 @@ export function EmptyTabView({
 	onOpenQuickOpen,
 }: EmptyTabViewProps) {
 	const { workspaceId } = useParams({
-		from: "/_authenticated/_dashboard/workspace/$workspaceId/",
+		from: "/_local/_dashboard/workspace/$workspaceId/",
 	});
 	const activeTheme = useTheme();
 	const { t } = useTranslation();

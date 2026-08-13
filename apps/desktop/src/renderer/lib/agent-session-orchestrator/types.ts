@@ -1,9 +1,10 @@
-import type { TerminalPreset } from "@superset/local-db";
 import type {
 	AgentLaunchRequest,
 	AgentLaunchResult,
 	AgentLaunchSource,
 } from "@superset/shared/agent-launch";
+import type { TerminalPreset } from "@superset/shared/desktop-types";
+import type { HostTerminalLauncher } from "renderer/lib/terminal/host-terminal-launcher";
 
 export interface AgentLaunchPane {
 	id: string;
@@ -34,18 +35,7 @@ export interface AgentSessionLaunchContext {
 	 */
 	hostUrl?: string;
 	tabs?: AgentLaunchTabsAdapter;
-	createOrAttach: (input: {
-		paneId: string;
-		tabId: string;
-		workspaceId: string;
-		cwd?: string;
-		joinPending?: boolean;
-	}) => Promise<unknown>;
-	write: (input: {
-		paneId: string;
-		data: string;
-		throwOnError?: boolean;
-	}) => Promise<unknown>;
+	terminalLauncher: HostTerminalLauncher;
 	captureEvent?: (input: {
 		event: "agent_session_launch";
 		properties: Record<string, unknown>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { normalizeExecutionMode } from "@superset/local-db/schema/zod";
+import { normalizeExecutionMode } from "@superset/shared/desktop-types";
 import {
 	buildFocusedTerminalCommand,
 	getPresetLaunchPlan,

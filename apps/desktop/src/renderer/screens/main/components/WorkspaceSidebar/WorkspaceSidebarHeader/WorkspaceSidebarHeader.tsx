@@ -5,11 +5,11 @@ import { useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { LuClock3, LuListTodo, LuWorkflow } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
-import { useTodoAlerts } from "renderer/routes/_authenticated/_dashboard/hooks/useTodoAlerts";
+import { useTodoAlerts } from "renderer/routes/_local/_dashboard/hooks/useTodoAlerts";
 import {
 	useCatalogProjects,
 	useCatalogWorkspaces,
-} from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+} from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import {
 	useWorkspaceLaunch,
 	useWorkspaceProvisioningAdapter,

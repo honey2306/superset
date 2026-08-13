@@ -24,9 +24,9 @@ import {
 } from "renderer/assets/app-icons/preset-icons";
 import { HotkeyMenuShortcut } from "renderer/components/HotkeyMenuShortcut";
 import { usePresets } from "renderer/react-query/presets";
-import { WorkspaceRunButton } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/WorkspaceRunButton";
-import { PRESET_HOTKEY_IDS } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/usePresetHotkeys";
-import { useCatalogWorkspace } from "renderer/routes/_authenticated/providers/WorkspaceCatalogProvider/selectors";
+import { WorkspaceRunButton } from "renderer/routes/_local/_dashboard/components/TopBar/components/WorkspaceRunButton";
+import { PRESET_HOTKEY_IDS } from "renderer/routes/_local/_dashboard/workspace/$workspaceId/hooks/usePresetHotkeys";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { useTabsWithPresets } from "renderer/stores/tabs/useTabsWithPresets";
 import { resolveActiveTabIdForWorkspace } from "renderer/stores/tabs/utils";

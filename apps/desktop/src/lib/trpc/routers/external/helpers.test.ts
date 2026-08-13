@@ -30,6 +30,29 @@ describe("getAppCommand", () => {
 		]);
 	});
 
+	test("preserves line and column for cursor file launches", () => {
+		const result = getAppCommand("cursor", "/path/to/file.ts", "darwin", {
+			line: 42,
+			column: 7,
+		});
+		expect(result).toEqual([
+			{
+				command: "open",
+				args: ["-a", "Cursor", "--args", "--goto", "/path/to/file.ts:42:7"],
+			},
+		]);
+	});
+
+	test("preserves line and column for cursor file launches on Linux", () => {
+		const result = getAppCommand("cursor", "/path/to/file.ts", "linux", {
+			line: 42,
+			column: 7,
+		});
+		expect(result).toEqual([
+			{ command: "cursor", args: ["--goto", "/path/to/file.ts:42:7"] },
+		]);
+	});
+
 	test("returns single-element array for vscode", () => {
 		const result = getAppCommand("vscode", "/path/to/file");
 		expect(result).toEqual([

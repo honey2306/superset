@@ -32,6 +32,7 @@ function createMockNotification(): MockNotification {
 
 interface TestDeps extends NotificationManagerDeps {
 	notifications: MockNotification[];
+	notificationOptions: Array<{ title: string; body: string; silent: boolean }>;
 	clickedIds: NotificationIds[];
 }
 
@@ -39,13 +40,20 @@ function createDeps(
 	overrides: Partial<NotificationManagerDeps> = {},
 ): TestDeps {
 	const notifications: MockNotification[] = [];
+	const notificationOptions: Array<{
+		title: string;
+		body: string;
+		silent: boolean;
+	}> = [];
 	const clickedIds: NotificationIds[] = [];
 
 	return {
 		notifications,
+		notificationOptions,
 		clickedIds,
 		isSupported: () => true,
-		createNotification: () => {
+		createNotification: (options) => {
+			notificationOptions.push(options);
 			const n = createMockNotification();
 			notifications.push(n);
 			return n;
@@ -57,7 +65,6 @@ function createDeps(
 			currentWorkspaceId: null,
 			tabsState: undefined,
 		}),
-		getWorkspaceName: () => "Test Workspace",
 		getNotificationTitle: () => "Test Title",
 		...overrides,
 	};
@@ -95,9 +102,21 @@ describe("NotificationManager", () => {
 		});
 
 		it("shows notification for Stop events", () => {
-			manager.handleAgentLifecycle(makeEvent({ eventType: "Stop" }));
+			manager.handleAgentLifecycle(
+				makeEvent({ eventType: "Stop", workspaceName: "Catalog Workspace" }),
+			);
 			expect(manager.activeCount).toBe(1);
+			expect(deps.notificationOptions[0]?.title).toBe(
+				"Agent Complete — Catalog Workspace",
+			);
 			expect(lastNotification(deps).show).toHaveBeenCalled();
+		});
+
+		it("uses a generic workspace title when no supplied name is available", () => {
+			manager.handleAgentLifecycle(makeEvent({ eventType: "Stop" }));
+			expect(deps.notificationOptions[0]?.title).toBe(
+				"Agent Complete — Workspace",
+			);
 		});
 
 		it("shows notification for PermissionRequest events", () => {
@@ -299,7 +318,10 @@ describe("NotificationManager", () => {
 			const localManager = new NotificationManager(localDeps);
 
 			localManager.handleAgentLifecycle(
-				makeEvent({ eventType: "PermissionRequest" }),
+				makeEvent({
+					eventType: "PermissionRequest",
+					workspaceName: "Test Workspace",
+				}),
 			);
 
 			expect(createNotification).toHaveBeenCalledWith(
@@ -318,7 +340,9 @@ describe("NotificationManager", () => {
 			const localDeps = createDeps({ createNotification });
 			const localManager = new NotificationManager(localDeps);
 
-			localManager.handleAgentLifecycle(makeEvent({ eventType: "Stop" }));
+			localManager.handleAgentLifecycle(
+				makeEvent({ eventType: "Stop", workspaceName: "Test Workspace" }),
+			);
 
 			expect(createNotification).toHaveBeenCalledWith(
 				expect.objectContaining({

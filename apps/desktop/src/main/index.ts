@@ -11,14 +11,8 @@ import {
 	session,
 } from "electron";
 import { makeAppSetup } from "lib/electron-app/factories/app/setup";
-import {
-	authEvents,
-	handleAuthCallback,
-	loadToken,
-	parseAuthDeepLink,
-} from "lib/trpc/routers/auth/utils/auth-functions";
-import { applyShellEnvToProcess } from "lib/trpc/routers/workspaces/utils/shell-env";
-import { env as mainEnv } from "main/env.main";
+import { getHostServiceSpawnConfig } from "lib/trpc/routers/host-service-coordinator/utils/get-host-service-spawn-config";
+import { applyShellEnvToProcess } from "main/lib/shell-env";
 import {
 	DEFAULT_CONFIRM_ON_QUIT,
 	PLATFORM,
@@ -27,7 +21,7 @@ import {
 import { setupAgentHooks } from "./lib/agent-setup";
 import { initAppState } from "./lib/app-state";
 import { requestAppleEventsAccess } from "./lib/apple-events-permission";
-import { isUpdateReadyToInstall, setupAutoUpdater } from "./lib/auto-updater";
+import { setupAutoUpdater } from "./lib/auto-updater";
 import { installBundledCliShim } from "./lib/bundled-cli";
 import { resolveDevWorkspaceName } from "./lib/dev-workspace-name";
 import { setWorkspaceDockIcon } from "./lib/dock-icon";
@@ -39,20 +33,8 @@ import {
 	startMemoryTelemetry,
 	stopMemoryTelemetry,
 } from "./lib/memory-telemetry";
-import {
-	initTanstackDbPersistence,
-	shutdownTanstackDbPersistence,
-} from "./lib/persistence/persistence";
 import { ensureProjectIconsDir, getProjectIconPath } from "./lib/project-icons";
 import { initSentry } from "./lib/sentry";
-import {
-	prewarmTerminalRuntime,
-	reconcileDaemonSessions,
-} from "./lib/terminal";
-import {
-	disposeTerminalHostClient,
-	getTerminalHostClient,
-} from "./lib/terminal-host/client";
 import { disposeTray, initTray } from "./lib/tray";
 import { startNetworkLogger, stopNetworkLogger } from "./network-logger";
 import { MainWindow } from "./windows/main";
@@ -86,18 +68,7 @@ if (process.defaultApp) {
 async function processDeepLink(url: string): Promise<void> {
 	console.log("[main] Processing deep link:", url);
 
-	const authParams = parseAuthDeepLink(url);
-	if (authParams) {
-		const result = await handleAuthCallback(authParams);
-		if (result.success) {
-			focusMainWindow();
-		} else {
-			console.error("[main] Auth deep link failed:", result.error);
-		}
-		return;
-	}
-
-	// Non-auth deep links: extract path and navigate in renderer
+	// Extract the route path and navigate in the renderer.
 	// e.g. superset://tasks/my-slug -> /tasks/my-slug
 	const path = `/${url.split("://")[1]}`;
 	focusMainWindow();
@@ -231,15 +202,9 @@ app.on("before-quit", async (event) => {
 	try {
 		stopMemoryTelemetry();
 		if (forceFullCleanup) {
-			await getHostServiceCoordinator().shutdownAcpDaemons(true);
+			await getHostServiceCoordinator().shutdownPtyDaemon();
 		}
-		getHostServiceCoordinator().stopAll();
-		if (isDev || forceFullCleanup) {
-			await teardownTerminalHost();
-		} else if (isUpdateReadyToInstall()) {
-			disposeTerminalHostClient();
-		}
-		shutdownTanstackDbPersistence();
+		getHostServiceCoordinator().stop();
 		disposeTray();
 	} catch (error) {
 		console.error("[main] Cleanup during quit failed:", error);
@@ -248,20 +213,6 @@ app.on("before-quit", async (event) => {
 	}
 	app.exit(0);
 });
-
-/**
- * Fully stop the v1 terminal-host process. Do not call this for update
- * installs: terminal-host owns the PTY subprocesses, so shutdown is
- * destructive and prevents reattach on next launch.
- */
-async function teardownTerminalHost(): Promise<void> {
-	try {
-		await getTerminalHostClient().shutdownIfRunning({ killSessions: true });
-	} catch (err) {
-		console.warn("[main] terminal-host dev shutdown failed:", err);
-	}
-	disposeTerminalHostClient();
-}
 
 process.on("uncaughtException", (error) => {
 	if (isQuitting) return;
@@ -280,11 +231,8 @@ if (process.env.NODE_ENV === "development") {
 		if (signalHandled) return;
 		signalHandled = true;
 		console.log(`[main] Received ${signal}, quitting...`);
-		getHostServiceCoordinator().stopAll();
-		void Promise.allSettled([
-			teardownTerminalHost(),
-			stopNetworkLogger(),
-		]).finally(() => app.exit(0));
+		getHostServiceCoordinator().stop();
+		void stopNetworkLogger().finally(() => app.exit(0));
 	};
 
 	process.on("SIGTERM", () => handleTerminationSignal("SIGTERM"));
@@ -401,7 +349,6 @@ if (!gotTheLock) {
 		setWorkspaceDockIcon();
 		initSentry();
 		await initAppState();
-		initTanstackDbPersistence();
 
 		try {
 			await startNetworkLogger();
@@ -412,26 +359,14 @@ if (!gotTheLock) {
 		await loadWebviewBrowserExtension();
 
 		// Must happen before renderer restore runs
-		await reconcileDaemonSessions();
-		prewarmTerminalRuntime();
-
-		// Host services for previously-hosted orgs start from main, so
-		// background reachability and port detection never wait on a renderer
-		// or cloud sync. Non-blocking: boot must not wait on spawns.
-		const startKnownHostServices = async () => {
-			try {
-				const { token } = await loadToken();
-				if (!token) return;
-				await getHostServiceCoordinator().startAllKnown({
-					authToken: token,
-					cloudApiUrl: mainEnv.NEXT_PUBLIC_API_URL,
-				});
-			} catch (error) {
-				console.error("[main] host-service boot reconcile failed:", error);
-			}
-		};
-		void startKnownHostServices();
-		authEvents.on("token-saved", () => void startKnownHostServices());
+		// The embedded host is a single local runtime. Start it without waiting
+		// for a renderer, network session, or cloud credential.
+		const localHostConfig = getHostServiceSpawnConfig();
+		void getHostServiceCoordinator()
+			.start(localHostConfig)
+			.catch((error) => {
+				console.error("[main] local host-service boot failed:", error);
+			});
 
 		try {
 			setupAgentHooks();
@@ -444,13 +379,7 @@ if (!gotTheLock) {
 			console.error("[main] Failed to install bundled CLI shim:", error);
 		}
 
-		// Respawns can happen long after the original spawn, so read the token at
-		// attempt time instead of retaining one that may have rotated.
-		const hostServiceConfigProvider = async () => {
-			const { token } = await loadToken();
-			if (!token) return null;
-			return { authToken: token, cloudApiUrl: mainEnv.NEXT_PUBLIC_API_URL };
-		};
+		const hostServiceConfigProvider = async () => localHostConfig;
 		getHostServiceCoordinator().setConfigProvider(hostServiceConfigProvider);
 
 		if (IS_DEV) {

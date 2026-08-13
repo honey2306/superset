@@ -10,20 +10,20 @@ import type { Duplex } from "node:stream";
 import { serve } from "@hono/node-server";
 import {
 	createApp,
+	getSupervisor,
 	installProcessSafetyNet,
-	JwtApiAuthProvider,
 	LocalGitCredentialProvider,
 	LocalModelProvider,
 	PskHostAuthProvider,
+	startDaemonBootstrap,
 	startTerminalReaper,
 } from "@superset/host-service";
 import {
 	initTerminalBaseEnv,
 	resolveTerminalBaseEnv,
 } from "@superset/host-service/terminal-env";
-import { ensureHostAndConnectRelay } from "@superset/host-service/tunnel";
-import { loadToken } from "lib/trpc/routers/auth/utils/auth-functions";
 import { writeManifest } from "main/lib/host-service-manifest";
+import { shutdownHostDaemon } from "./daemon-shutdown";
 import { env } from "./env";
 
 const SHUTDOWN_GRACE_MS = 3_000;
@@ -41,11 +41,20 @@ async function main(): Promise<void> {
 		if (shuttingDown) return;
 		shuttingDown = true;
 		console.log(`[host-service] shutdown (${reason}), draining connections`);
+		const finalizeDaemon = () =>
+			shutdownHostDaemon({
+				supervisor: getSupervisor(),
+				organizationId: env.ORGANIZATION_ID,
+				isDevelopment: process.env.NODE_ENV === "development",
+			});
 		const server = serverRef.current;
 		if (!server) {
-			process.exit(0);
+			void finalizeDaemon().finally(() => process.exit(0));
+			return;
 		}
-		server.close();
+		server.close(() => {
+			void finalizeDaemon().finally(() => process.exit(0));
+		});
 		// SSE/WS streams (chat, watchers) ignore server.close() — give in-flight
 		// HTTP a brief window, then forcibly tear sockets down.
 		const forceExit = setTimeout(() => {
@@ -53,7 +62,7 @@ async function main(): Promise<void> {
 				closeAllConnections?: () => void;
 			};
 			httpServer.closeAllConnections?.();
-			process.exit(0);
+			void finalizeDaemon().finally(() => process.exit(0));
 		}, SHUTDOWN_GRACE_MS);
 		forceExit.unref();
 	};
@@ -77,24 +86,12 @@ async function main(): Promise<void> {
 
 	const terminalBaseEnv = await resolveTerminalBaseEnv();
 	initTerminalBaseEnv(terminalBaseEnv);
+	startDaemonBootstrap(env.ORGANIZATION_ID);
 
-	const authProvider = new JwtApiAuthProvider({
-		// Read fresh from disk every time we need to mint a new JWT, so that
-		// re-logins in the desktop renderer (which rewrites auth-token.enc)
-		// are picked up without restarting the host-service child. Falls back
-		// to the boot-time token if the file is missing for any reason.
-		getSessionToken: async () => {
-			const { token } = await loadToken();
-			return token ?? env.AUTH_TOKEN;
-		},
-		apiUrl: env.SUPERSET_API_URL,
-	});
-
-	const { app, injectWebSocket, api, db } = createApp({
+	const { app, injectWebSocket, db } = createApp({
 		config: {
 			organizationId: env.ORGANIZATION_ID,
 			dbPath: env.HOST_DB_PATH,
-			cloudApiUrl: env.SUPERSET_API_URL,
 			migrationsFolder: env.HOST_MIGRATIONS_FOLDER,
 			webAppDir: env.SUPERSET_WEB_APP_DIR,
 			allowedOrigins: [
@@ -103,7 +100,6 @@ async function main(): Promise<void> {
 			],
 		},
 		providers: {
-			auth: authProvider,
 			hostAuth: new PskHostAuthProvider(env.HOST_SERVICE_SECRET),
 			credentials: new LocalGitCredentialProvider(),
 			modelResolver: new LocalModelProvider(),
@@ -137,17 +133,6 @@ async function main(): Promise<void> {
 				} catch (error) {
 					console.error("[host-service] Failed to write manifest:", error);
 				}
-			}
-
-			if (env.ORGANIZATION_ID) {
-				void ensureHostAndConnectRelay({
-					api,
-					relayUrl: env.RELAY_URL,
-					localPort: info.port,
-					organizationId: env.ORGANIZATION_ID,
-					authProvider,
-					hostServiceSecret: env.HOST_SERVICE_SECRET,
-				});
 			}
 		},
 	);

@@ -1,0 +1,89 @@
+import {
+	createFileRoute,
+	Outlet,
+	useLocation,
+	useNavigate,
+} from "@tanstack/react-router";
+import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useTranslation } from "renderer/providers/I18nProvider";
+import { OnboardingNavigation } from "./components/OnboardingNavigation";
+
+export const Route = createFileRoute("/_local/onboarding")({
+	component: OnboardingFlowLayout,
+});
+
+const STEPS = [
+	{
+		path: "/onboarding",
+		match: (p: string) => p === "/onboarding",
+	},
+	{
+		path: "/onboarding/project",
+		match: (p: string) => p === "/onboarding/project",
+	},
+] as const;
+
+function OnboardingFlowLayout() {
+	const { t } = useTranslation();
+	const { data: platform } = electronTrpc.window.getPlatform.useQuery();
+	const isMac = platform === undefined || platform === "darwin";
+	const location = useLocation();
+	const navigate = useNavigate();
+
+	const currentStepIdx = STEPS.findIndex((s) => s.match(location.pathname));
+	const isOnMainStep = currentStepIdx >= 0;
+	const isFirstStep = currentStepIdx === 0;
+	const currentStep = isOnMainStep ? STEPS[currentStepIdx] : null;
+
+	const handleBack = () => {
+		if (currentStepIdx <= 0) return;
+		const target = STEPS[currentStepIdx - 1];
+		if (!target) return;
+		navigate({ to: target.path });
+	};
+
+	// Step 1 advances to the project step; the project step finishes onboarding
+	// itself the moment a project is added, so it has no footer Continue.
+	const handleContinue = isFirstStep
+		? () => navigate({ to: "/onboarding/project" })
+		: null;
+
+	return (
+		<div className="flex h-full w-full flex-col bg-background">
+			<div
+				className="drag h-12 w-full shrink-0"
+				style={{ paddingLeft: isMac ? "88px" : "16px" }}
+			/>
+			<div className="flex-1 overflow-auto">
+				{currentStep ? (
+					<div className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-8 pt-16 pb-6">
+						<div className="space-y-2">
+							<h1 className="text-2xl font-semibold text-fg">
+								{currentStepIdx === 0
+									? t("onboarding.setupTitle")
+									: t("onboarding.projectTitle")}
+							</h1>
+							<p className="text-sm text-fg-mute">
+								{currentStepIdx === 0
+									? t("onboarding.setupSubtitle")
+									: t("onboarding.projectSubtitle")}
+							</p>
+						</div>
+						<Outlet />
+					</div>
+				) : (
+					<Outlet />
+				)}
+			</div>
+			{isOnMainStep && (
+				<OnboardingNavigation
+					currentStep={currentStepIdx}
+					totalSteps={STEPS.length}
+					onBack={isFirstStep ? null : handleBack}
+					onContinue={handleContinue}
+					continueLabel={t("onboarding.continue")}
+				/>
+			)}
+		</div>
+	);
+}

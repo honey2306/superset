@@ -9,9 +9,9 @@ describe("getPushActionCopy", () => {
 				pushCount: 0,
 			}),
 		).toEqual({
-			labelKey: "v1Changes.push.publishBranch",
-			menuLabelKey: "v1Changes.push.publishBranch",
-			tooltipKey: "v1Changes.push.publishBranchTooltip",
+			labelKey: "changes.push.publishBranch",
+			menuLabelKey: "changes.push.publishBranch",
+			tooltipKey: "changes.push.publishBranchTooltip",
 		});
 	});
 
@@ -22,9 +22,9 @@ describe("getPushActionCopy", () => {
 				pushCount: 2,
 			}),
 		).toEqual({
-			labelKey: "v1Changes.push.push",
-			menuLabelKey: "v1Changes.push.push",
-			tooltipKey: "v1Changes.push.pushCommits",
+			labelKey: "changes.push.push",
+			menuLabelKey: "changes.push.push",
+			tooltipKey: "changes.push.pushCommits",
 			tooltipValues: { count: 2 },
 		});
 	});
@@ -40,9 +40,9 @@ describe("getPushActionCopy", () => {
 				},
 			}),
 		).toEqual({
-			labelKey: "v1Changes.push.toPR",
-			menuLabelKey: "v1Changes.push.toPR",
-			tooltipKey: "v1Changes.push.pushCommitsTooltip",
+			labelKey: "changes.push.toPR",
+			menuLabelKey: "changes.push.toPR",
+			tooltipKey: "changes.push.pushCommitsTooltip",
 			tooltipValues: {
 				count: 1,
 				target: "Kitenite:feature/pr-branch",

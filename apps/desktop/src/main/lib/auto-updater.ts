@@ -5,7 +5,7 @@ import { autoUpdater } from "electron-updater";
 import { env } from "main/env.main";
 import { setSkipQuitConfirmation } from "main/index";
 import { appState } from "main/lib/app-state";
-import { gte, prerelease } from "semver";
+import { gte } from "semver";
 import {
 	AUTO_UPDATE_STATUS,
 	type AutoUpdateProgress,
@@ -13,6 +13,7 @@ import {
 	type AutoUpdateStatusEvent,
 } from "shared/auto-update";
 import { PLATFORM } from "shared/constants";
+import { isCanaryBuild, shouldUseOfficialAutoUpdater } from "./build-channel";
 
 // electron-updater's internal cache only self-invalidates when the remote
 // sha512 differs from cached metadata, so a corrupt cached download (e.g.
@@ -36,25 +37,14 @@ async function clearCachedUpdate(reason: string): Promise<void> {
 
 const UPDATE_CHECK_INTERVAL_MS = 1000 * 60 * 60 * 4; // 4 hours
 
-/**
- * Detect if this is a prerelease build from app version using semver.
- * Versions like "0.0.53-canary" have prerelease component ["canary"].
- * Stable versions like "0.0.53" have no prerelease component.
- */
-function isPrereleaseBuild(): boolean {
-	const version = app.getVersion();
-	const prereleaseComponents = prerelease(version);
-	return prereleaseComponents !== null && prereleaseComponents.length > 0;
-}
-
-const IS_PRERELEASE = isPrereleaseBuild();
+const IS_CANARY = isCanaryBuild();
 const IS_AUTO_UPDATE_PLATFORM = PLATFORM.IS_MAC || PLATFORM.IS_LINUX;
 
 // Use explicit feed URLs to ensure we always fetch platform-specific manifests
 // (for example latest-mac.yml and latest-linux.yml) from the correct release.
 // - Stable: fetches from /releases/latest/download/ (latest non-prerelease)
 // - Canary: fetches from /releases/download/desktop-canary/ (rolling canary tag)
-const UPDATE_FEED_URL = IS_PRERELEASE
+const UPDATE_FEED_URL = IS_CANARY
 	? "https://github.com/superset-sh/superset/releases/download/desktop-canary"
 	: "https://github.com/superset-sh/superset/releases/latest/download";
 
@@ -165,7 +155,11 @@ export function dismissUpdate(): void {
 }
 
 export function checkForUpdates(): void {
-	if (env.NODE_ENV === "development" || !IS_AUTO_UPDATE_PLATFORM) {
+	if (
+		!shouldUseOfficialAutoUpdater() ||
+		env.NODE_ENV === "development" ||
+		!IS_AUTO_UPDATE_PLATFORM
+	) {
 		return;
 	}
 	isDismissed = false;
@@ -182,6 +176,14 @@ export function checkForUpdates(): void {
 }
 
 export function checkForUpdatesInteractive(): void {
+	if (!shouldUseOfficialAutoUpdater()) {
+		dialog.showMessageBox({
+			type: "info",
+			title: "Updates",
+			message: "Updates are disabled for Personal builds.",
+		});
+		return;
+	}
 	if (env.NODE_ENV === "development") {
 		dialog.showMessageBox({
 			type: "info",
@@ -293,7 +295,11 @@ export function simulateError(): void {
 }
 
 export function setupAutoUpdater(): void {
-	if (env.NODE_ENV === "development" || !IS_AUTO_UPDATE_PLATFORM) {
+	if (
+		!shouldUseOfficialAutoUpdater() ||
+		env.NODE_ENV === "development" ||
+		!IS_AUTO_UPDATE_PLATFORM
+	) {
 		return;
 	}
 
@@ -309,8 +315,8 @@ export function setupAutoUpdater(): void {
 	autoUpdater.autoInstallOnAppQuit = true;
 	autoUpdater.disableDifferentialDownload = true;
 
-	// Allow downgrade for prerelease builds so users can switch back to stable
-	autoUpdater.allowDowngrade = IS_PRERELEASE;
+	// Allow downgrade for Canary builds so users can switch back to stable.
+	autoUpdater.allowDowngrade = IS_CANARY;
 
 	// Use generic provider with explicit feed URL so electron-updater can request
 	// the correct manifest for the current platform from GitHub release assets.
@@ -320,7 +326,7 @@ export function setupAutoUpdater(): void {
 	});
 
 	log.info(
-		`[auto-updater] Initialized: version=${app.getVersion()}, channel=${IS_PRERELEASE ? "canary" : "stable"}, feedURL=${UPDATE_FEED_URL}`,
+		`[auto-updater] Initialized: version=${app.getVersion()}, channel=${IS_CANARY ? "canary" : "stable"}, feedURL=${UPDATE_FEED_URL}`,
 	);
 
 	autoUpdater.on("error", (error) => {

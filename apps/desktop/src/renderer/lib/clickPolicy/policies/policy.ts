@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { useV2UserPreferences } from "renderer/hooks/useV2UserPreferences";
+import { useUserPreferences } from "renderer/hooks/useUserPreferences";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { buildHint } from "../hint";
 import { tierFor } from "../tiers";
@@ -70,7 +70,7 @@ export function usePolicy(
 	mode: TierMode,
 ): ClickPolicy {
 	const { t } = useTranslation();
-	const { preferences } = useV2UserPreferences();
+	const { preferences } = useUserPreferences();
 	const map = preferences[key];
 	const resolve = useCallback(
 		(event: ModifierEvent): ResolvedClick => {

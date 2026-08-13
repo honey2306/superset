@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useV2NotificationStore } from "renderer/stores/v2-notifications";
+import { useNotificationStore } from "renderer/stores/notifications";
 import type { ActivePaneStatus, PaneStatus } from "shared/tabs-types";
 import {
 	useTerminalAgentBindings,
@@ -21,9 +21,7 @@ export function useTerminalAgentStatuses(
 	options?: { enabled?: boolean },
 ): Map<string, PaneStatus> {
 	const bindings = useTerminalAgentBindings(workspaceId, options);
-	const terminalSeenAt = useV2NotificationStore(
-		(state) => state.terminalSeenAt,
-	);
+	const terminalSeenAt = useNotificationStore((state) => state.terminalSeenAt);
 
 	return useMemo(
 		() => deriveTerminalAgentStatuses(bindings, terminalSeenAt),
@@ -36,9 +34,7 @@ export function useTerminalAgentStatusesAtHost(
 	hostWorkspaceId: string | null,
 ): Map<string, PaneStatus> {
 	const bindings = useTerminalAgentBindingsAtHost(hostUrl, hostWorkspaceId);
-	const terminalSeenAt = useV2NotificationStore(
-		(state) => state.terminalSeenAt,
-	);
+	const terminalSeenAt = useNotificationStore((state) => state.terminalSeenAt);
 	return useMemo(
 		() => deriveTerminalAgentStatuses(bindings, terminalSeenAt),
 		[bindings, terminalSeenAt],
@@ -50,9 +46,7 @@ export function useHighestTerminalAgentStatusAtHost(
 	hostWorkspaceId: string | null,
 ): ActivePaneStatus | null {
 	const bindings = useTerminalAgentBindingsAtHost(hostUrl, hostWorkspaceId);
-	const terminalSeenAt = useV2NotificationStore(
-		(state) => state.terminalSeenAt,
-	);
+	const terminalSeenAt = useNotificationStore((state) => state.terminalSeenAt);
 	return useMemo(
 		() => getHighestTerminalAgentStatus(bindings, terminalSeenAt),
 		[bindings, terminalSeenAt],

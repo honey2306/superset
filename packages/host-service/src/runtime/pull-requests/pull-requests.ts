@@ -7,6 +7,7 @@ import { projects, pullRequests, workspaces } from "../../db/schema";
 import type { EventBus } from "../../events/event-bus";
 import type { GitWatcher } from "../../events/git-watcher";
 import type { ExecGh } from "../../trpc/router/workspace-creation/utils/exec-gh";
+import type { WorkspaceCatalog } from "../../workspace-catalog";
 import { type GitFactory, resolveDefaultBranchName } from "../git";
 import {
 	fetchOpenPullRequests,
@@ -217,6 +218,7 @@ export interface PullRequestRuntimeManagerOptions {
 	git: GitFactory;
 	github: () => Promise<Octokit>;
 	gitWatcher: GitWatcher;
+	catalog: Pick<WorkspaceCatalog, "updateProject" | "updateWorkspace">;
 }
 
 interface NormalizedRepoIdentity {
@@ -278,12 +280,10 @@ export class PullRequestRuntimeManager {
 		if (!workspace?.pullRequestId) return;
 		this.db
 			.update(workspaces)
-			.set({
-				pullRequestId: null,
-				suppressedPullRequestId: workspace.pullRequestId,
-			})
+			.set({ suppressedPullRequestId: workspace.pullRequestId })
 			.where(eq(workspaces.id, workspaceId))
 			.run();
+		this.catalog.updateWorkspace(workspaceId, { pullRequestId: null });
 	}
 
 	async restoreWorkspacePullRequest(workspaceId: string): Promise<void> {
@@ -299,6 +299,10 @@ export class PullRequestRuntimeManager {
 	private readonly git: GitFactory;
 	private readonly github: () => Promise<Octokit>;
 	private readonly gitWatcher: GitWatcher;
+	private readonly catalog: Pick<
+		WorkspaceCatalog,
+		"updateProject" | "updateWorkspace"
+	>;
 	private safetyNetTimer: ReturnType<typeof setInterval> | null = null;
 	private projectRefreshTimer: ReturnType<typeof setInterval> | null = null;
 	private unsubscribeFromGitWatcher: (() => void) | null = null;
@@ -323,6 +327,7 @@ export class PullRequestRuntimeManager {
 		this.git = options.git;
 		this.github = options.github;
 		this.gitWatcher = options.gitWatcher;
+		this.catalog = options.catalog;
 	}
 
 	start() {
@@ -494,16 +499,16 @@ export class PullRequestRuntimeManager {
 		const upstream = deriveCheckoutPullRequestUpstream(repo, pullRequest);
 		this.db
 			.update(workspaces)
-			.set({
-				pullRequestId: rowId,
-				suppressedPullRequestId: null,
-				headSha: pullRequest.headRefOid,
-				upstreamOwner: upstream?.owner ?? null,
-				upstreamRepo: upstream?.name ?? null,
-				upstreamBranch: upstream?.branch ?? null,
-			})
+			.set({ suppressedPullRequestId: null })
 			.where(eq(workspaces.id, workspaceId))
 			.run();
+		this.catalog.updateWorkspace(workspaceId, {
+			pullRequestId: rowId,
+			headSha: pullRequest.headRefOid,
+			upstreamOwner: upstream?.owner ?? null,
+			upstreamRepo: upstream?.name ?? null,
+			upstreamBranch: upstream?.branch ?? null,
+		});
 
 		return rowId;
 	}
@@ -600,23 +605,14 @@ export class PullRequestRuntimeManager {
 				return null;
 			}
 
-			this.db
-				.update(workspaces)
-				.set({
-					branch,
-					headSha,
-					upstreamOwner,
-					upstreamRepo,
-					upstreamBranch,
-					pullRequestId,
-					// Branch is cloud-mirrored; flag the row so the reconciler
-					// pushes the rename (other fields here are machine-state).
-					...(branch !== workspace.branch
-						? { updatedAt: Date.now(), cloudSyncedAt: null }
-						: {}),
-				})
-				.where(eq(workspaces.id, workspace.id))
-				.run();
+			this.catalog.updateWorkspace(workspace.id, {
+				branch,
+				headSha,
+				upstreamOwner,
+				upstreamRepo,
+				upstreamBranch,
+				pullRequestId,
+			});
 
 			return workspace.projectId;
 		} catch (error) {
@@ -720,11 +716,9 @@ export class PullRequestRuntimeManager {
 					continue;
 				}
 				if (workspace.pullRequestId) {
-					this.db
-						.update(workspaces)
-						.set({ pullRequestId: null })
-						.where(eq(workspaces.id, workspace.id))
-						.run();
+					this.catalog.updateWorkspace(workspace.id, {
+						pullRequestId: null,
+					});
 				}
 				continue;
 			}
@@ -734,21 +728,19 @@ export class PullRequestRuntimeManager {
 					? undefined
 					: rawMatch;
 			if (match) {
-				this.db
-					.update(workspaces)
-					.set({ pullRequestId: match.id })
-					.where(eq(workspaces.id, workspace.id))
-					.run();
+				if (workspace.pullRequestId !== match.id) {
+					this.catalog.updateWorkspace(workspace.id, {
+						pullRequestId: match.id,
+					});
+				}
 				continue;
 			}
 
 			if (failedKeys.has(key)) continue;
 
-			this.db
-				.update(workspaces)
-				.set({ pullRequestId: null })
-				.where(eq(workspaces.id, workspace.id))
-				.run();
+			if (workspace.pullRequestId) {
+				this.catalog.updateWorkspace(workspace.id, { pullRequestId: null });
+			}
 		}
 	}
 
@@ -792,17 +784,13 @@ export class PullRequestRuntimeManager {
 			const parsedRemote = parseGitHubRemote(remoteUrl);
 			if (!parsedRemote) return null;
 
-			this.db
-				.update(projects)
-				.set({
-					repoProvider: parsedRemote.provider,
-					repoOwner: parsedRemote.owner,
-					repoName: parsedRemote.name,
-					repoUrl: parsedRemote.url,
-					remoteName,
-				})
-				.where(eq(projects.id, projectId))
-				.run();
+			this.catalog.updateProject(projectId, {
+				repoProvider: parsedRemote.provider,
+				repoOwner: parsedRemote.owner,
+				repoName: parsedRemote.name,
+				repoUrl: parsedRemote.url,
+				remoteName,
+			});
 
 			identity = { ...parsedRemote, remoteName };
 		}

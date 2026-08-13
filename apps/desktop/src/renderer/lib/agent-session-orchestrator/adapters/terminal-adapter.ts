@@ -1,10 +1,6 @@
 import type { AgentLaunchRequest } from "@superset/shared/agent-launch";
-import { FEATURE_FLAGS } from "@superset/shared/constants";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import { posthog } from "renderer/lib/posthog";
-import { launchCommandInPane } from "renderer/lib/terminal/launch-command";
 import { launchTerminalAgent } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/host-service-terminal-agent-launcher";
-import { waitForV1HostTerminalBackend } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/v1-host-terminal-backend";
 import type { AgentSessionLaunchContext, LaunchResultPayload } from "../types";
 
 type TerminalLaunchRequest = Extract<AgentLaunchRequest, { kind: "terminal" }>;
@@ -37,6 +33,7 @@ async function resolveWorkspaceWorktreePath(
 }
 
 async function writeTaskPromptFile(
+	hostUrl: string,
 	workspaceId: string,
 	worktreePath: string,
 	fileName: string,
@@ -47,15 +44,14 @@ async function writeTaskPromptFile(
 		throw new Error(`Invalid task file name: ${fileName}`);
 	}
 
-	const { electronTrpcClient } = await import("renderer/lib/trpc-client");
-
+	const filesystem = getHostServiceClientByUrl(hostUrl).filesystem;
 	const supersetDirectory = joinAbsolutePath(worktreePath, ".superset");
-	await electronTrpcClient.filesystem.createDirectory.mutate({
+	await filesystem.createDirectory.mutate({
 		workspaceId,
 		absolutePath: supersetDirectory,
 		recursive: true,
 	});
-	await electronTrpcClient.filesystem.writeFile.mutate({
+	await filesystem.writeFile.mutate({
 		workspaceId,
 		absolutePath: joinAbsolutePath(supersetDirectory, baseName),
 		content,
@@ -69,6 +65,7 @@ const MAX_TOTAL_BYTES = 200 * 1024 * 1024; // 200MB total decoded size
 const MAX_SINGLE_FILE_BYTES = 50 * 1024 * 1024; // 50MB per file
 
 async function writeAttachmentFiles(
+	hostUrl: string,
 	workspaceId: string,
 	worktreePath: string,
 	files: Array<{ data: string; mediaType: string; filename?: string }>,
@@ -120,7 +117,7 @@ async function writeAttachmentFiles(
 		);
 	}
 
-	const { electronTrpcClient } = await import("renderer/lib/trpc-client");
+	const filesystem = getHostServiceClientByUrl(hostUrl).filesystem;
 
 	// `.superset` doesn't exist in a fresh worktree, so this must be
 	// recursive — a plain mkdir ENOENTs and kills the whole agent launch.
@@ -128,7 +125,7 @@ async function writeAttachmentFiles(
 		worktreePath,
 		".superset/attachments",
 	);
-	await electronTrpcClient.filesystem.createDirectory.mutate({
+	await filesystem.createDirectory.mutate({
 		workspaceId,
 		absolutePath: attachmentsDirectory,
 		recursive: true,
@@ -184,7 +181,7 @@ async function writeAttachmentFiles(
 		usedFilenames.add(fileName);
 
 		const absolutePath = joinAbsolutePath(attachmentsDirectory, fileName);
-		await electronTrpcClient.filesystem.writeFile.mutate({
+		await filesystem.writeFile.mutate({
 			workspaceId,
 			absolutePath,
 			content: { kind: "base64", data: base64Data },
@@ -220,17 +217,11 @@ export async function launchTerminalAdapter(
 	const noExecute = request.terminal.autoExecute === false;
 	const launchInHost = async (paneId: string) => {
 		const hostAgent = request.terminal.hostAgent;
-		if (
-			noExecute ||
-			!hostAgent ||
-			posthog.isFeatureEnabled(FEATURE_FLAGS.V1_HOST_SERVICE_TERMINAL) !== true
-		) {
-			return false;
-		}
-		const backend = await waitForV1HostTerminalBackend(workspaceId);
+		if (noExecute || !hostAgent) return false;
+		const target = context.terminalLauncher.resolve(workspaceId);
 		const launched = await launchTerminalAgent({
-			client: getHostServiceClientByUrl(backend.hostUrl),
-			workspaceId: backend.hostWorkspaceId,
+			client: getHostServiceClientByUrl(target.hostUrl),
+			workspaceId: target.workspaceId,
 			paneId,
 			...hostAgent,
 		});
@@ -259,6 +250,7 @@ export async function launchTerminalAdapter(
 				request.terminal.taskPromptFileName
 			) {
 				await writeTaskPromptFile(
+					context.hostUrl as string,
 					workspaceId,
 					workspaceWorktreePath as string,
 					request.terminal.taskPromptFileName,
@@ -269,6 +261,7 @@ export async function launchTerminalAdapter(
 			// Write attachment files if present
 			if (request.terminal.initialFiles?.length) {
 				await writeAttachmentFiles(
+					context.hostUrl as string,
 					workspaceId,
 					workspaceWorktreePath as string,
 					request.terminal.initialFiles,
@@ -277,13 +270,10 @@ export async function launchTerminalAdapter(
 
 			const hostLaunch = await launchInHost(newPaneId);
 			if (!hostLaunch)
-				await launchCommandInPane({
-					paneId: newPaneId,
-					tabId: tab.id,
+				await context.terminalLauncher.launchCommand({
+					terminalId: newPaneId,
 					workspaceId,
 					command: request.terminal.command,
-					createOrAttach: context.createOrAttach,
-					write: context.write,
 					noExecute,
 				});
 		} catch (error) {
@@ -307,6 +297,7 @@ export async function launchTerminalAdapter(
 			request.terminal.taskPromptFileName
 		) {
 			await writeTaskPromptFile(
+				context.hostUrl as string,
 				workspaceId,
 				workspaceWorktreePath as string,
 				request.terminal.taskPromptFileName,
@@ -317,6 +308,7 @@ export async function launchTerminalAdapter(
 		// Write attachment files if present
 		if (request.terminal.initialFiles?.length) {
 			await writeAttachmentFiles(
+				context.hostUrl as string,
 				workspaceId,
 				workspaceWorktreePath as string,
 				request.terminal.initialFiles,
@@ -325,13 +317,10 @@ export async function launchTerminalAdapter(
 
 		const hostLaunch = await launchInHost(paneId);
 		if (!hostLaunch)
-			await launchCommandInPane({
-				paneId,
-				tabId,
+			await context.terminalLauncher.launchCommand({
+				terminalId: paneId,
 				workspaceId,
 				command: request.terminal.command,
-				createOrAttach: context.createOrAttach,
-				write: context.write,
 				noExecute,
 			});
 	} catch (error) {

@@ -8,6 +8,10 @@
 			"types": "./src/constants.ts",
 			"default": "./src/constants.ts"
 		},
+		"./desktop-types": {
+			"types": "./src/desktop-types.ts",
+			"default": "./src/desktop-types.ts"
+		},
 		"./terminal-wheel-handler": {
 			"types": "./src/terminal-wheel-handler/index.ts",
 			"default": "./src/terminal-wheel-handler/index.ts"
@@ -19,10 +23,6 @@
 		"./media-files": {
 			"types": "./src/media-files.ts",
 			"default": "./src/media-files.ts"
-		},
-		"./v2-only-user": {
-			"types": "./src/v2-only-user.ts",
-			"default": "./src/v2-only-user.ts"
 		},
 		"./names": {
 			"types": "./src/names/index.ts",
@@ -104,21 +104,9 @@
 			"types": "./src/claude-command.ts",
 			"default": "./src/claude-command.ts"
 		},
-		"./vercel-preview-origins": {
-			"types": "./src/vercel-preview-origins.ts",
-			"default": "./src/vercel-preview-origins.ts"
-		},
-		"./tunnel-protocol": {
-			"types": "./src/tunnel-protocol.ts",
-			"default": "./src/tunnel-protocol.ts"
-		},
 		"./host-info": {
 			"types": "./src/host-info.ts",
 			"default": "./src/host-info.ts"
-		},
-		"./host-routing": {
-			"types": "./src/host-routing.ts",
-			"default": "./src/host-routing.ts"
 		},
 		"./host-version": {
 			"types": "./src/host-version.ts",
