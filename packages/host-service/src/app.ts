@@ -95,6 +95,30 @@ export interface CreateAppResult {
 	dispose: () => Promise<void>;
 }
 
+const RESERVED_TERMINAL_IDS = new Set([
+	"sessions",
+	"resource-sessions",
+	"transient",
+]);
+
+/** Whether a request is a phone-eligible workspace-terminal WebSocket. */
+export function isPhoneWorkspaceTerminalWebSocketRequest(input: {
+	method: string;
+	path: string;
+	upgrade: string | undefined;
+	workspaceId: string | undefined;
+}): boolean {
+	const terminalId = /^\/terminal\/([^/]+)$/.exec(input.path)?.[1];
+	return (
+		input.method === "GET" &&
+		input.upgrade?.toLowerCase() === "websocket" &&
+		input.workspaceId !== undefined &&
+		input.workspaceId.length > 0 &&
+		terminalId !== undefined &&
+		!RESERVED_TERMINAL_IDS.has(terminalId)
+	);
+}
+
 export function createApp(options: CreateAppOptions): CreateAppResult {
 	const { config, providers } = options;
 
@@ -368,7 +392,17 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 			}
 			return c.json({ error: "Unauthorized" }, 401);
 		};
-	app.use("/terminal/*", wsAuth({ allowPhone: false }));
+	app.use("/terminal/*", async (c, next) => {
+		// Paired phones may attach only to an existing workspace terminal. All
+		// terminal REST endpoints and transient terminals remain desktop-only.
+		const allowPhone = isPhoneWorkspaceTerminalWebSocketRequest({
+			method: c.req.method,
+			path: c.req.path,
+			upgrade: c.req.header("upgrade"),
+			workspaceId: c.req.query("workspaceId"),
+		});
+		return wsAuth({ allowPhone })(c, next);
+	});
 	app.use("/events", wsAuth({ allowPhone: false }));
 	app.use("/acp-sessions/*", wsAuth({ allowPhone: true }));
 

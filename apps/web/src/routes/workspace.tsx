@@ -1,4 +1,8 @@
 import type { SessionScopedState } from "@superset/session-protocol";
+import {
+	BUILTIN_AGENT_IDS,
+	BUILTIN_AGENT_LABELS,
+} from "@superset/shared/agent-catalog";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getTrpc } from "~/lib/trpc-client";
@@ -11,6 +15,13 @@ function randomSessionId(): string {
 	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// `superset` is the built-in chat agent; every other built-in id launches a
+// terminal agent. Keep the phone picker derived from the catalog so new
+// terminal agents automatically become available here.
+const PHONE_TERMINAL_AGENT_IDS = BUILTIN_AGENT_IDS.filter(
+	(agentId) => agentId !== "superset",
+);
+
 export function WorkspaceRoute() {
 	const { workspaceId } = useParams<{ workspaceId: string }>();
 	const navigate = useNavigate();
@@ -19,6 +30,12 @@ export function WorkspaceRoute() {
 	const [error, setError] = useState<string | null>(null);
 	const [enabled, setEnabled] = useState(true);
 	const [creating, setCreating] = useState(false);
+	const [selectedAgentId, setSelectedAgentId] = useState(
+		PHONE_TERMINAL_AGENT_IDS[0],
+	);
+	const [terminalAgents, setTerminalAgents] = useState<
+		{ terminalId: string; agentId: string; lastEventAt: number }[]
+	>([]);
 
 	useEffect(() => {
 		if (!workspaceId) return;
@@ -32,6 +49,12 @@ export function WorkspaceRoute() {
 				if (cancelled) return;
 				setEnabled(page.enabled);
 				setSessions(page.items);
+				if (!page.enabled) {
+					const agents = await getTrpc().terminalAgents.listByWorkspace.query({
+						workspaceId,
+					});
+					if (!cancelled) setTerminalAgents(agents);
+				}
 			} catch (err) {
 				if (cancelled) return;
 				setError(err instanceof Error ? err.message : "Failed to load");
@@ -59,6 +82,23 @@ export function WorkspaceRoute() {
 		}
 	}
 
+	async function startTerminalAgent(): Promise<void> {
+		if (!workspaceId || creating) return;
+		setCreating(true);
+		try {
+			const result = await getTrpc().terminalAgents.getOrCreate.mutate({
+				workspaceId,
+				agentId: selectedAgentId,
+			});
+			navigate(
+				`/w/${encodeURIComponent(workspaceId)}/t/${encodeURIComponent(result.binding.terminalId)}`,
+			);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to start agent");
+			setCreating(false);
+		}
+	}
+
 	return (
 		<main
 			className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-4"
@@ -76,8 +116,7 @@ export function WorkspaceRoute() {
 
 			{!enabled ? (
 				<div className="rounded-md bg-yellow-500/10 p-3 text-sm text-yellow-200 ring-1 ring-yellow-500/20">
-					ACP sessions are disabled on this host. Ask the desktop owner to
-					launch Superset with SUPERSET_ACP_SESSIONS=1.
+					ACP sessions are disabled. Use a terminal agent instead.
 				</div>
 			) : null}
 
@@ -87,14 +126,42 @@ export function WorkspaceRoute() {
 				</div>
 			) : null}
 
-			<button
-				type="button"
-				disabled={!enabled || creating}
-				onClick={() => void startChat()}
-				className="mb-4 w-full rounded-lg bg-white px-4 py-3 font-medium text-black disabled:opacity-50"
-			>
-				{creating ? "Starting…" : "New chat"}
-			</button>
+			{enabled ? (
+				<button
+					type="button"
+					disabled={creating}
+					onClick={() => void startChat()}
+					className="mb-4 w-full rounded-lg bg-white px-4 py-3 font-medium text-black disabled:opacity-50"
+				>
+					{creating ? "Starting…" : "New chat"}
+				</button>
+			) : (
+				<div className="mb-4 flex gap-2">
+					<select
+						value={selectedAgentId}
+						onChange={(event) =>
+							setSelectedAgentId(event.target.value as typeof selectedAgentId)
+						}
+						className="min-w-0 flex-1 rounded-lg border border-white/20 bg-transparent px-3 py-3 text-sm"
+					>
+						{PHONE_TERMINAL_AGENT_IDS.map((agentId) => (
+							<option key={agentId} value={agentId} className="bg-neutral-900">
+								{BUILTIN_AGENT_LABELS[agentId]}
+							</option>
+						))}
+					</select>
+					<button
+						type="button"
+						disabled={creating}
+						onClick={() => void startTerminalAgent()}
+						className="rounded-lg border border-white/20 px-4 py-3 text-sm disabled:opacity-50"
+					>
+						{creating
+							? "Starting…"
+							: `Start ${BUILTIN_AGENT_LABELS[selectedAgentId]}`}
+					</button>
+				</div>
+			)}
 
 			<ul className="flex flex-col gap-1">
 				{loading && sessions.length === 0 ? (
@@ -116,6 +183,20 @@ export function WorkspaceRoute() {
 					</li>
 				))}
 			</ul>
+			{!enabled && terminalAgents.length > 0 ? (
+				<ul className="mt-4 flex flex-col gap-1">
+					{terminalAgents.map((agent) => (
+						<li key={agent.terminalId}>
+							<Link
+								to={`/w/${encodeURIComponent(workspaceId ?? "")}/t/${encodeURIComponent(agent.terminalId)}`}
+								className="block rounded-lg px-3 py-3 hover:bg-white/5"
+							>
+								{agent.agentId} terminal
+							</Link>
+						</li>
+					))}
+				</ul>
+			) : null}
 		</main>
 	);
 }

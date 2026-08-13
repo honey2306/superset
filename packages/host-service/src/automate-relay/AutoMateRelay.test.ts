@@ -31,13 +31,17 @@ describe("AutoMateRelay", () => {
 	test("rejects paths outside tRPC and ACP streams", () => {
 		expect(isAllowedPath("/trpc/phone.pairing.redeem")).toBe(true);
 		expect(isAllowedPath("/trpc/acpSessions.get?input=encoded")).toBe(true);
+		expect(isAllowedPath("/trpc/terminalAgents.listByWorkspace")).toBe(true);
+		expect(isAllowedPath("/trpc/terminalAgents.getOrCreate")).toBe(true);
+		expect(isAllowedPath("/trpc/terminalAgents.list")).toBe(false);
 		expect(isAllowedPath("/acp-sessions/a/stream?token=phone")).toBe(true);
 		expect(isAllowedPath("https://evil.example/trpc")).toBe(false);
 		expect(isAllowedPath("/trpc/notifications.hook")).toBe(false);
 		expect(isAllowedPath("/trpc/phone.me%2Cnotifications.hook?batch=1")).toBe(
 			false,
 		);
-		expect(isAllowedPath("/terminal/x")).toBe(false);
+		expect(isAllowedPath("/terminal/x")).toBe(true);
+		expect(isAllowedPath("/terminal/x/extra")).toBe(false);
 	});
 	test("forwards the phone Authorization header without replacing it", async () => {
 		let forwarded: RequestInit | undefined;
@@ -135,7 +139,7 @@ describe("AutoMateRelay", () => {
 								body: {
 									kind: "stream.frame",
 									channelId: "channel-1",
-									body: "phone input",
+									body: { type: "text", data: "phone input" },
 								},
 							},
 						};
@@ -161,6 +165,32 @@ describe("AutoMateRelay", () => {
 		expect(sent).toEqual(["phone input"]);
 	});
 
+	test("preserves binary phone stream frames for its host WebSocket", async () => {
+		const sent: Buffer[] = [];
+		const relay = new AutoMateRelay("box", {
+			client: { request: async () => ({ ok: true }) },
+			fetch: async () => new Response("unused"),
+			baseUrl: "http://127.0.0.1:4879",
+		});
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		relay["streams"].set("channel-1", {
+			send: (body: Buffer) => sent.push(body),
+			close: () => {},
+		} as unknown as WebSocket);
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		await relay["forwardStreamFrame"]({
+			kind: "stream.frame",
+			channelId: "channel-1",
+			body: {
+				type: "binary",
+				data: Buffer.from([0, 255, 1]).toString("base64"),
+			},
+		});
+		const firstFrame = sent.at(0);
+		if (!firstFrame) throw new Error("Expected a binary frame");
+		expect([...firstFrame]).toEqual([0, 255, 1]);
+	});
+
 	test("closes and acknowledges a frame for an unknown stream", async () => {
 		const requests: unknown[] = [];
 		let relay: AutoMateRelay;
@@ -180,7 +210,7 @@ describe("AutoMateRelay", () => {
 								body: {
 									kind: "stream.frame",
 									channelId: "missing",
-									body: "late input",
+									body: { type: "text", data: "late input" },
 								},
 							},
 						};

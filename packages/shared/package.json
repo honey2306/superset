@@ -52,6 +52,10 @@
 			"types": "./src/agent-catalog.ts",
 			"default": "./src/agent-catalog.ts"
 		},
+		"./builtin-terminal-agents": {
+			"types": "./src/builtin-terminal-agents.ts",
+			"default": "./src/builtin-terminal-agents.ts"
+		},
 		"./agent-identity": {
 			"types": "./src/agent-identity.ts",
 			"default": "./src/agent-identity.ts"

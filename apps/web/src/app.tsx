@@ -6,6 +6,7 @@ import {
 import { AuthGate } from "./components/AuthGate";
 import { PairRoute } from "./routes/pair";
 import { SessionRoute } from "./routes/session";
+import { TerminalRoute } from "./routes/terminal";
 import { WorkspaceRoute } from "./routes/workspace";
 import { WorkspacesRoute } from "./routes/workspaces";
 
@@ -26,6 +27,7 @@ const router = createBrowserRouter(
 				{ index: true, element: <WorkspacesRoute /> },
 				{ path: "w/:workspaceId", element: <WorkspaceRoute /> },
 				{ path: "w/:workspaceId/s/:sessionId", element: <SessionRoute /> },
+				{ path: "w/:workspaceId/t/:terminalId", element: <TerminalRoute /> },
 			],
 		},
 		{ path: "*", element: <Navigate to="/" replace /> },

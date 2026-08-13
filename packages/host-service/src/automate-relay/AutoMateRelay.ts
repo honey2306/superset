@@ -169,7 +169,7 @@ export class AutoMateRelay {
 			this.enqueueStreamPush({
 				kind: "stream.frame",
 				channelId: request.channelId,
-				body: String(event.data),
+				body: encodeRelayFrame(event.data),
 			});
 		};
 		socket.onclose = (event) => {
@@ -195,7 +195,11 @@ export class AutoMateRelay {
 	): Promise<void> {
 		const socket = this.streams.get(frame.channelId);
 		if (socket) {
-			socket.send(frame.body);
+			socket.send(
+				frame.body.type === "text"
+					? frame.body.data
+					: Buffer.from(frame.body.data, "base64"),
+			);
 			return;
 		}
 
@@ -447,11 +451,30 @@ export function isAllowedPath(path: string): boolean {
 		return (
 			url.origin === "http://relay.invalid" &&
 			(isAllowedTrpcPath(url.pathname) ||
-				/^\/acp-sessions\/[^/]+\/stream$/.test(url.pathname))
+				/^\/acp-sessions\/[^/]+\/stream$/.test(url.pathname) ||
+				/^\/terminal\/[^/]+$/.test(url.pathname))
 		);
 	} catch {
 		return false;
 	}
+}
+function encodeRelayFrame(
+	value: unknown,
+): { type: "text"; data: string } | { type: "binary"; data: string } {
+	if (typeof value === "string") return { type: "text", data: value };
+	if (value instanceof ArrayBuffer)
+		return { type: "binary", data: Buffer.from(value).toString("base64") };
+	if (ArrayBuffer.isView(value)) {
+		return {
+			type: "binary",
+			data: Buffer.from(
+				value.buffer,
+				value.byteOffset,
+				value.byteLength,
+			).toString("base64"),
+		};
+	}
+	return { type: "text", data: String(value) };
 }
 
 const PHONE_RELAY_TRPC_PATHS = new Set([
@@ -459,6 +482,8 @@ const PHONE_RELAY_TRPC_PATHS = new Set([
 	"host.info",
 	"phone.pairing.redeem",
 	"phone.me",
+	"terminalAgents.listByWorkspace",
+	"terminalAgents.getOrCreate",
 	"workspaceCatalog.snapshot",
 ]);
 

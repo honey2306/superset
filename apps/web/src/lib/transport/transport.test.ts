@@ -50,6 +50,39 @@ class FakeTaskScheduler {
 }
 
 describe("AutoMateRelayTransport", () => {
+	test("decodes binary server frames without UTF-8 coercion", async () => {
+		let pullCount = 0;
+		const transport = new AutoMateRelayTransport("mailbox", {
+			run: async (input) => {
+				const operation = input as { op: string; body?: RelayEnvelope };
+				if (operation.op === "pull" && pullCount++ === 0) {
+					return {
+						message: {
+							messageId: "binary-frame",
+							body: {
+								kind: "stream.frame",
+								channelId: "channel-1",
+								body: { type: "binary", data: btoa("\u0000ÿ") },
+							} satisfies RelayEnvelope,
+						},
+					};
+				}
+				return { ok: true };
+			},
+		});
+		const received: unknown[] = [];
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		transport["channels"].set("channel-1", {
+			receive: (data: unknown) => received.push(data),
+			receiveClose: () => {},
+		});
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		transport["startPump"]();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect([...new Uint8Array(received[0] as ArrayBuffer)]).toEqual([0, 255]);
+		transport.stop();
+	});
+
 	test("carries the phone bearer through push/pull/ack and acks the response", async () => {
 		let request: Extract<RelayEnvelope, { kind: "http.request" }> | undefined;
 		const acknowledged: string[] = [];

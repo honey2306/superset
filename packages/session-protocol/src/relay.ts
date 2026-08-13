@@ -21,7 +21,11 @@ export type RelayEnvelope =
 			path: string;
 			headers: Record<string, string>;
 	  }
-	| { kind: "stream.frame"; channelId: string; body: string }
+	| {
+			kind: "stream.frame";
+			channelId: string;
+			body: { type: "text"; data: string } | { type: "binary"; data: string };
+	  }
 	| { kind: "stream.close"; channelId: string; code?: number; reason?: string };
 
 export function mailboxId(organizationId: string, hostId: string): string {

@@ -4,15 +4,25 @@ import { getStoredRelayMailboxId } from "../auth-store";
 
 export interface PhoneTransport {
 	fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
-	createWebSocket(url: string): WebSocketLike;
+	createWebSocket(url: string): WebSocketLike & {
+		send(data: string): void;
+		readyState?: number;
+		binaryType?: BinaryType;
+	};
 }
 
 export class DirectTransport implements PhoneTransport {
 	fetch(input: RequestInfo | URL, init?: RequestInit) {
 		return fetch(input, init);
 	}
-	createWebSocket(url: string): WebSocketLike {
-		return new WebSocket(url) as unknown as WebSocketLike;
+	createWebSocket(url: string): WebSocketLike & {
+		send(data: string): void;
+		readyState?: number;
+		binaryType?: BinaryType;
+	} {
+		return new WebSocket(url) as unknown as WebSocketLike & {
+			send(data: string): void;
+		};
 	}
 }
 
@@ -386,7 +396,13 @@ export class AutoMateRelayTransport implements PhoneTransport {
 				}
 				if (body.kind === "stream.frame") {
 					const channel = this.channels.get(body.channelId);
-					if (channel) channel.receive(body.body);
+					if (channel) {
+						channel.receive(
+							body.body.type === "text"
+								? body.body.data
+								: base64ToBytes(body.body.data).buffer,
+						);
+					}
 					await this.ack(message.messageId);
 					continue;
 				}
@@ -435,7 +451,11 @@ export class AutoMateRelayTransport implements PhoneTransport {
 		}
 		return result;
 	}
-	createWebSocket(url: string): WebSocketLike {
+	createWebSocket(url: string): WebSocketLike & {
+		send(data: string): void;
+		readyState?: number;
+		binaryType?: BinaryType;
+	} {
 		const channel = new RelayPollingSocket(this, url);
 		this.channels.set(channel.channelId, channel);
 		this.startPump();
@@ -462,9 +482,17 @@ export class AutoMateRelayTransport implements PhoneTransport {
 		this.channels.delete(channelId);
 		await this.push({ kind: "stream.close", channelId, code, reason });
 	}
+	async sendChannel(channelId: string, data: string): Promise<void> {
+		await this.push({
+			kind: "stream.frame",
+			channelId,
+			body: { type: "text", data },
+		});
+	}
 }
 
 class RelayPollingSocket implements WebSocketLike {
+	readonly readyState = WebSocket.OPEN;
 	onopen: (() => void) | null = null;
 	onmessage: ((event: { data: unknown }) => void) | null = null;
 	onclose: ((event: { code?: number; reason?: string }) => void) | null = null;
@@ -484,7 +512,7 @@ class RelayPollingSocket implements WebSocketLike {
 			this.close();
 		}
 	}
-	receive(data: string): void {
+	receive(data: unknown): void {
 		if (!this.closed) this.onmessage?.({ data });
 	}
 	receiveClose(code?: number, reason?: string): void {
@@ -498,6 +526,9 @@ class RelayPollingSocket implements WebSocketLike {
 		this.closed = true;
 		void this.transport.closeChannel(this.channelId, code, reason);
 		this.onclose?.({ code, reason });
+	}
+	send(data: string): void {
+		if (!this.closed) void this.transport.sendChannel(this.channelId, data);
 	}
 }
 
