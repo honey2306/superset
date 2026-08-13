@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
 import { PairingQrCode } from "./components/PairingQrCode";
+import { buildAutoMatePairingUrl } from "./pairing-url";
 
 const PAIR_HOSTNAME_KEY = "superset.phone.pair-hostname.v1";
 
@@ -88,7 +89,7 @@ export function PhoneAccessSettings() {
 			: null;
 	const automateUrl =
 		mint.data && hostInfo.data?.relayMailboxId
-			? `https://automate.corp.kuaishou.com/webapp/16740?${new URLSearchParams({ code: mint.data.code, mailboxId: hostInfo.data.relayMailboxId, route: "/pair" })}`
+			? buildAutoMatePairingUrl(mint.data.code, hostInfo.data.relayMailboxId)
 			: null;
 	const [transportOverride, setTransportOverride] = useState<
 		"automate" | "direct" | null

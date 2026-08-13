@@ -33,7 +33,7 @@ async function verifyAutoMateTask() {
 		"utf8",
 	);
 
-	if (!task.startsWith('am.return({command:"html",data:{html:')) {
+	if (!task.includes('am.return({command:"html",data:{html}});')) {
 		throw new Error("AutoMate task does not return an HTML command");
 	}
 
@@ -47,12 +47,53 @@ async function verifyAutoMateTask() {
 		);
 	}
 
-	if (!task.includes("automate.corp.kuaishou.com")) {
+	if (!task.includes("wss:")) {
 		throw new Error("AutoMate task does not include the relay URL");
 	}
 
 	if (!task.includes("react.transitional.element")) {
 		throw new Error("AutoMate task does not include the React bundle");
+	}
+
+	const taskInputStart = task.indexOf("const wire=$0||{};");
+	const taskReturnStart = task.indexOf("am.return(");
+	if (taskInputStart < 0 || taskInputStart > taskReturnStart) {
+		throw new Error("AutoMate task must read task input before returning HTML");
+	}
+
+	if (!task.includes("history.replaceState")) {
+		throw new Error("AutoMate task does not restore its route");
+	}
+
+	if (
+		!task.includes('pairingPath="/webapp/16740#/pair"') ||
+		!task.includes("if(!location.hash)")
+	) {
+		throw new Error(
+			"AutoMate task does not preserve an existing resume fragment",
+		);
+	}
+
+	const reactModuleStart = '<script type=\\"module\\">';
+	const routeBootstrapStart = task.indexOf("history.replaceState");
+	if (
+		routeBootstrapStart < 0 ||
+		routeBootstrapStart > task.indexOf(reactModuleStart)
+	) {
+		throw new Error(
+			"AutoMate route bootstrap must run before the React module",
+		);
+	}
+
+	if (
+		task
+			.slice(
+				routeBootstrapStart,
+				task.indexOf("</script>", routeBootstrapStart),
+			)
+			.includes("$0")
+	) {
+		throw new Error("AutoMate browser bootstrap must not access task input");
 	}
 }
 

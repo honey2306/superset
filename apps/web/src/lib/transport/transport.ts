@@ -1,6 +1,11 @@
 import type { RelayEnvelope } from "@superset/session-protocol";
 import type { WebSocketLike } from "@superset/session-protocol/client";
 import { getStoredRelayMailboxId } from "../auth-store";
+import {
+	getAutoMatePairingHashParams,
+	getAutoMatePairingPathParams,
+	getPairingCredentials,
+} from "../automate-pairing";
 
 export interface PhoneTransport {
 	fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
@@ -52,10 +57,13 @@ const defaultTaskScheduler: TaskScheduler = {
 type TaskClientOptions = {
 	scheduler?: TaskScheduler;
 	helloTimeoutMs?: number;
+	maxConcurrentRequests?: number;
 };
 
 export const AUTOMATE_RELAY_ORIGIN = "https://automate.corp.kuaishou.com";
 export const AUTOMATE_RELAY_WEBAPP_PATH = "/webapp/16740";
+export const EMPTY_RELAY_PULL_DELAY_MS = 50;
+const DEFAULT_MAX_CONCURRENT_TASK_REQUESTS = 4;
 function unwrapRelayResult(payload: unknown): unknown {
 	if (typeof payload !== "object" || payload === null) return payload;
 	if (!("result" in payload)) return payload;
@@ -89,14 +97,15 @@ type QueuedTask = {
 };
 type ActiveTask = QueuedTask & { requestId: string };
 
-/** A single FIFO connection to AutoMate task 16739, gated by its hello frame. */
+/** A hello-gated connection to AutoMate task 16739 with bounded in-flight work. */
 export class AutoMateTaskClient {
 	private socket: TaskSocket | undefined;
 	private receivedHello = false;
-	private active: ActiveTask | undefined;
+	private readonly active = new Map<string, ActiveTask>();
 	private readonly queue: QueuedTask[] = [];
 	private readonly scheduler: TaskScheduler;
 	private readonly helloTimeoutMs: number;
+	private readonly maxConcurrentRequests: number;
 	private heartbeatTimer: unknown;
 	private helloTimer: unknown;
 	constructor(
@@ -107,6 +116,8 @@ export class AutoMateTaskClient {
 	) {
 		this.scheduler = options.scheduler ?? defaultTaskScheduler;
 		this.helloTimeoutMs = options.helloTimeoutMs ?? 20_000;
+		this.maxConcurrentRequests =
+			options.maxConcurrentRequests ?? DEFAULT_MAX_CONCURRENT_TASK_REQUESTS;
 	}
 	run(input: unknown): Promise<unknown> {
 		return new Promise((resolve, reject) => {
@@ -170,18 +181,20 @@ export class AutoMateTaskClient {
 			this.failAll(relayError(message.payload));
 			return;
 		}
-		if (!this.active) return;
-		if (
-			typeof message.request_id !== "string" ||
-			message.request_id !== this.active.requestId
-		) {
+		if (typeof message.request_id !== "string") {
 			this.failAll(
 				new Error("AutoMate relay returned an unexpected request ID"),
 			);
 			return;
 		}
-		const active = this.active;
-		this.active = undefined;
+		const active = this.active.get(message.request_id);
+		if (!active) {
+			this.failAll(
+				new Error("AutoMate relay returned an unexpected request ID"),
+			);
+			return;
+		}
+		this.active.delete(message.request_id);
 		if (message.type === "done") {
 			const result = unwrapRelayResult(message.payload);
 			try {
@@ -199,21 +212,27 @@ export class AutoMateTaskClient {
 		this.drain();
 	}
 	private drain(): void {
-		if (!this.socket || !this.receivedHello || this.active) return;
-		const queued = this.queue.shift();
-		if (!queued) return;
-		const requestId = crypto.randomUUID();
-		this.active = { ...queued, requestId };
-		try {
-			this.socket.send(
-				JSON.stringify({
-					type: "msg",
-					request_id: requestId,
-					payload: queued.input,
-				}),
-			);
-		} catch {
-			this.failAll(new Error("AutoMate relay WebSocket send failed"));
+		if (!this.socket || !this.receivedHello) return;
+		while (
+			this.active.size < this.maxConcurrentRequests &&
+			this.queue.length > 0
+		) {
+			const queued = this.queue.shift();
+			if (!queued) return;
+			const requestId = crypto.randomUUID();
+			this.active.set(requestId, { ...queued, requestId });
+			try {
+				this.socket.send(
+					JSON.stringify({
+						type: "msg",
+						request_id: requestId,
+						payload: queued.input,
+					}),
+				);
+			} catch {
+				this.failAll(new Error("AutoMate relay WebSocket send failed"));
+				return;
+			}
 		}
 	}
 	private failAll(error: Error): void {
@@ -221,9 +240,8 @@ export class AutoMateTaskClient {
 		this.socket = undefined;
 		this.receivedHello = false;
 		this.clearTimers();
-		const active = this.active;
-		this.active = undefined;
-		active?.reject(error);
+		for (const active of this.active.values()) active.reject(error);
+		this.active.clear();
 		for (const queued of this.queue.splice(0)) queued.reject(error);
 		socket?.close();
 	}
@@ -294,7 +312,22 @@ export function isAutoMateRelayLocation(
 			location.pathname.startsWith(`${AUTOMATE_RELAY_WEBAPP_PATH}/`))
 	);
 }
-type RelayMessage = { messageId: string; body: RelayEnvelope };
+
+export function getAutoMateRelayMailboxId(
+	location: Pick<Location, "origin" | "pathname" | "search" | "hash">,
+	storedMailboxId: string,
+): string {
+	if (!isAutoMateRelayLocation(location)) return "";
+	const hashParams = getAutoMatePairingHashParams(location.hash);
+	const { mailboxId } = getPairingCredentials(
+		new URLSearchParams(location.search),
+		hashParams.code
+			? hashParams
+			: getAutoMatePairingPathParams(location.pathname),
+	);
+	return mailboxId ?? storedMailboxId;
+}
+type RelayMessage = { seq: number; messageId: string; body: RelayEnvelope };
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 function bytesToBase64(data: ArrayBuffer): string {
 	const bytes = new Uint8Array(data);
@@ -317,6 +350,7 @@ export class AutoMateRelayTransport implements PhoneTransport {
 		{ resolve: (response: Response) => void; reject: (error: Error) => void }
 	>();
 	private readonly channels = new Map<string, RelayPollingSocket>();
+	private pushTail = Promise.resolve();
 	private pumping = false;
 	constructor(
 		readonly mailboxId: string,
@@ -343,20 +377,29 @@ export class AutoMateRelayTransport implements PhoneTransport {
 		return result;
 	}
 	private async push(body: RelayEnvelope): Promise<void> {
-		await this.task({
-			op: "push",
-			mailboxId: this.mailboxId,
-			direction: "c2s",
-			messageId: crypto.randomUUID(),
-			body,
-		});
+		return this.enqueuePush(() =>
+			this.task({
+				op: "push",
+				mailboxId: this.mailboxId,
+				direction: "c2s",
+				messageId: crypto.randomUUID(),
+				body,
+			}),
+		);
 	}
-	private async ack(messageId: string): Promise<void> {
+	private enqueuePush(operation: () => Promise<unknown>): Promise<void> {
+		const pushed = this.pushTail.then(async () => {
+			await operation();
+		});
+		this.pushTail = pushed.catch(() => {});
+		return pushed;
+	}
+	private async ack(seq: number): Promise<void> {
 		await this.task({
 			op: "ack",
 			mailboxId: this.mailboxId,
 			direction: "s2c",
-			messageId,
+			seq,
 		});
 	}
 	private startPump(): void {
@@ -375,7 +418,7 @@ export class AutoMateRelayTransport implements PhoneTransport {
 				})) as { message?: RelayMessage };
 				const message = result?.message;
 				if (!message) {
-					await wait(250);
+					await wait(EMPTY_RELAY_PULL_DELAY_MS);
 					continue;
 				}
 				const body = message.body;
@@ -391,7 +434,7 @@ export class AutoMateRelayTransport implements PhoneTransport {
 						);
 					}
 					// A response without a pending request is explicitly stale.
-					await this.ack(message.messageId);
+					await this.ack(message.seq);
 					continue;
 				}
 				if (body.kind === "stream.frame") {
@@ -403,7 +446,20 @@ export class AutoMateRelayTransport implements PhoneTransport {
 								: base64ToBytes(body.body.data).buffer,
 						);
 					}
-					await this.ack(message.messageId);
+					await this.ack(message.seq);
+					continue;
+				}
+				if (body.kind === "stream.frames") {
+					for (const frame of body.frames) {
+						const channel = this.channels.get(frame.channelId);
+						if (!channel) continue;
+						channel.receive(
+							frame.body.type === "text"
+								? frame.body.data
+								: base64ToBytes(frame.body.data).buffer,
+						);
+					}
+					await this.ack(message.seq);
 					continue;
 				}
 				if (body.kind === "stream.close") {
@@ -411,11 +467,11 @@ export class AutoMateRelayTransport implements PhoneTransport {
 						.get(body.channelId)
 						?.receiveClose(body.code, body.reason);
 					this.channels.delete(body.channelId);
-					await this.ack(message.messageId);
+					await this.ack(message.seq);
 					continue;
 				}
 				// Unknown/invalid correlation is a poison message: ack to avoid blocking the ordered mailbox.
-				await this.ack(message.messageId);
+				await this.ack(message.seq);
 			} catch (error) {
 				console.warn("[phone-relay] pull failed", error);
 				await wait(1_000);
@@ -535,10 +591,11 @@ class RelayPollingSocket implements WebSocketLike {
 let direct: DirectTransport | undefined;
 let relay: AutoMateRelayTransport | undefined;
 export function getPhoneTransport(): PhoneTransport {
-	const mailbox =
-		new URLSearchParams(location.search).get("mailboxId") ??
-		getStoredRelayMailboxId();
-	if (mailbox && isAutoMateRelayLocation(location)) {
+	const mailbox = getAutoMateRelayMailboxId(
+		location,
+		getStoredRelayMailboxId(),
+	);
+	if (mailbox) {
 		if (!relay || relay.mailboxId !== mailbox) {
 			relay?.stop();
 			relay = new AutoMateRelayTransport(mailbox);

@@ -3,6 +3,8 @@ import { readFile, writeFile } from "node:fs/promises";
 const appRoot = new URL("../", import.meta.url);
 const outputDirectory = new URL("dist-automate/", appRoot);
 const assetBase = "/webapp/16740/assets/";
+const pairingPathPlaceholder = "__AUTOMATE_PAIRING_PATH__";
+const routeBootstrap = `<script>if(!location.hash)history.replaceState(null,"",${JSON.stringify(pairingPathPlaceholder)});</script>`;
 
 function assetFileUrl(assetUrl) {
 	if (!assetUrl.startsWith(assetBase)) {
@@ -70,12 +72,19 @@ html = await replaceAsync(
 html = await replaceAsync(
 	html,
 	/<script\b(?=[^>]*\btype="module")[^>]*><\/script>/g,
-	inlineModuleScript,
+	async (tag) => `${routeBootstrap}${await inlineModuleScript(tag)}`,
 );
 
 if (html.includes(assetBase)) {
 	throw new Error("AutoMate task HTML still references Vite assets");
 }
 
-const taskSource = `am.return({command:"html",data:{html:${JSON.stringify(html)}}});\n`;
+const taskSource = `const wire=$0||{};
+const route=typeof wire.route==="string"?wire.route:"";
+const match=/^\\/pair\\/([^/?#]+)\\/([^/?#]+)$/.exec(route);
+let pairingPath="/webapp/16740#/pair";
+if(match){try{const code=decodeURIComponent(match[1]);const mailboxId=decodeURIComponent(match[2]);if(code&&mailboxId){pairingPath="/webapp/16740#/pair/"+encodeURIComponent(code)+"/"+encodeURIComponent(mailboxId)}}catch{}}
+const html=${JSON.stringify(html)}.replace(${JSON.stringify(pairingPathPlaceholder)},pairingPath);
+am.return({command:"html",data:{html}});
+`;
 await writeFile(new URL("task.js", outputDirectory), taskSource);

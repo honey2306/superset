@@ -1,3 +1,5 @@
+import { decodeAutoMateResumeSession } from "./automate-resume";
+
 const KEY = "superset.phone.session.v1";
 
 export interface StoredSession {
@@ -30,6 +32,11 @@ function safeParse(raw: string | null): StoredSession | null {
 }
 
 export function getStoredSession(): StoredSession | null {
+	const resumed =
+		typeof location === "undefined"
+			? null
+			: decodeAutoMateResumeSession(location.hash);
+	if (resumed) return resumed;
 	if (typeof localStorage === "undefined") return null;
 	const stored = safeParse(localStorage.getItem(KEY));
 	if (!stored) return null;

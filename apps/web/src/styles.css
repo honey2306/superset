@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-	color-scheme: dark light;
+	color-scheme: dark;
 	--safe-area-top: env(safe-area-inset-top, 0px);
 	--safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -23,13 +23,6 @@ body {
 	overscroll-behavior: none;
 }
 
-@media (prefers-color-scheme: light) {
-	body {
-		background: #f7f7f8;
-		color: #111;
-	}
-}
-
 button,
 input,
 textarea,
@@ -46,4 +39,529 @@ textarea {
 }
 .no-scrollbar {
 	scrollbar-width: none;
+}
+
+.mobile-projects-page {
+	min-height: 100dvh;
+	margin: 0 auto;
+	max-width: 430px;
+	background: #101114;
+}
+
+.mobile-projects-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 72px;
+	padding: max(16px, var(--safe-area-top)) 16px 12px;
+	border-bottom: 1px solid rgb(255 255 255 / 9%);
+}
+
+.mobile-projects-header-copy {
+	min-width: 0;
+	flex: 1;
+}
+
+.mobile-projects-header h1,
+.mobile-terminal-heading h1 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 650;
+	letter-spacing: -0.01em;
+}
+
+.mobile-projects-header p,
+.mobile-terminal-heading p {
+	margin: 4px 0 0;
+	color: rgb(255 255 255 / 45%);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 10px;
+	line-height: 1.2;
+}
+
+.mobile-host-dot {
+	display: inline-block;
+	width: 7px;
+	height: 7px;
+	margin: 0 6px 1px 1px;
+	border-radius: 50%;
+	background: #666a70;
+}
+
+.mobile-host-dot.is-connected {
+	background: #65c488;
+	box-shadow: 0 0 0 3px rgb(101 196 136 / 14%);
+}
+
+.mobile-unpair-button {
+	min-width: 44px;
+	min-height: 44px;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: rgb(255 255 255 / 52%);
+	font-size: 12px;
+}
+
+.mobile-unpair-button:active {
+	background: rgb(255 255 255 / 8%);
+	color: #fff;
+}
+
+.mobile-projects-tree {
+	padding: 16px 16px max(24px, var(--safe-area-bottom));
+}
+
+.mobile-projects-eyebrow {
+	margin: 4px 4px 8px;
+	color: rgb(255 255 255 / 35%);
+	font-size: 10px;
+	font-weight: 650;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+.mobile-page-error {
+	margin: 0 0 12px;
+	padding: 10px 12px;
+	border: 1px solid rgb(248 113 113 / 24%);
+	border-radius: 10px;
+	background: rgb(248 113 113 / 8%);
+	color: #fca5a5;
+	font-size: 12px;
+}
+
+.mobile-project-card {
+	overflow: hidden;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: 14px;
+	background: #17191d;
+}
+
+.mobile-project-card + .mobile-project-card {
+	margin-top: 10px;
+}
+
+.mobile-tree-control {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	min-height: 62px;
+	padding: 8px 10px;
+	border: 0;
+	background: transparent;
+	color: #eeedf0;
+	text-align: left;
+}
+
+.mobile-tree-control:active,
+.mobile-tree-leaf:active {
+	background: rgb(255 255 255 / 7%);
+}
+
+.mobile-project-control {
+	background: #14161a;
+}
+
+.mobile-tree-chevron {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 28px;
+	height: 40px;
+	color: rgb(255 255 255 / 36%);
+	transition: transform 140ms ease;
+}
+
+.mobile-tree-chevron svg,
+.mobile-tree-node-mark svg,
+.mobile-tree-leaf-mark svg {
+	width: 16px;
+	height: 16px;
+}
+
+.mobile-tree-chevron.is-collapsed {
+	transform: rotate(-90deg);
+}
+
+.mobile-tree-node-mark,
+.mobile-tree-leaf-mark {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	background: #202229;
+	color: rgb(255 255 255 / 56%);
+}
+
+.mobile-project-control .mobile-tree-node-mark {
+	background: rgb(244 114 182 / 12%);
+	color: #f6a8ce;
+}
+
+.mobile-tree-copy {
+	min-width: 0;
+	flex: 1;
+	margin-left: 10px;
+}
+
+.mobile-tree-title,
+.mobile-tree-subtitle,
+.mobile-tree-leaf-title {
+	display: block;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.mobile-tree-title {
+	font-size: 14px;
+	font-weight: 620;
+	line-height: 1.2;
+}
+
+.mobile-tree-subtitle {
+	margin-top: 3px;
+	color: rgb(255 255 255 / 34%);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 10px;
+	line-height: 1.2;
+}
+
+.mobile-project-contents {
+	padding: 6px 8px 8px;
+	border-top: 1px solid rgb(255 255 255 / 8%);
+}
+
+.mobile-tree-workspace-wrap {
+	position: relative;
+	padding-left: 14px;
+}
+
+.mobile-tree-workspace-wrap::before {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 6px;
+	width: 1px;
+	background: rgb(255 255 255 / 12%);
+	content: "";
+}
+
+.mobile-tree-workspace-wrap:last-child::before {
+	bottom: 28px;
+}
+
+.mobile-tree-workspace {
+	position: relative;
+}
+
+.mobile-tree-workspace::before,
+.mobile-tree-leaf-wrap::before {
+	position: absolute;
+	top: 31px;
+	left: -14px;
+	width: 14px;
+	height: 1px;
+	background: rgb(255 255 255 / 12%);
+	content: "";
+}
+
+.mobile-tree-workspace-control {
+	min-height: 56px;
+	border-radius: 9px;
+}
+
+.mobile-tree-workspace-control .mobile-tree-chevron {
+	width: 24px;
+}
+
+.mobile-tree-workspace-control .mobile-tree-node-mark {
+	width: 28px;
+	height: 28px;
+}
+
+.mobile-tree-workspace-contents {
+	padding: 0 0 4px 16px;
+}
+
+.mobile-tree-leaf-wrap {
+	position: relative;
+}
+
+.mobile-tree-leaf {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	min-height: 52px;
+	padding: 6px 8px;
+	border-radius: 9px;
+	color: #eeedf0;
+	text-decoration: none;
+}
+
+.mobile-tree-leaf-mark {
+	position: relative;
+	width: 28px;
+	height: 28px;
+	border-radius: 6px;
+}
+
+.mobile-tree-leaf.is-acp .mobile-tree-leaf-mark {
+	background: rgb(244 114 182 / 12%);
+	color: #f6a8ce;
+}
+
+.mobile-tree-leaf.is-running .mobile-tree-leaf-mark::after {
+	position: absolute;
+	right: -2px;
+	bottom: -2px;
+	width: 7px;
+	height: 7px;
+	border: 2px solid #17191d;
+	border-radius: 50%;
+	background: #65c488;
+	content: "";
+}
+
+.mobile-tree-leaf-title {
+	min-width: 0;
+	flex: 1;
+	font-size: 13px;
+	font-weight: 520;
+}
+
+.mobile-tree-kind {
+	display: grid;
+	flex: none;
+	place-items: center;
+	min-width: 38px;
+	height: 20px;
+	padding: 0 4px;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: 999px;
+	color: rgb(255 255 255 / 35%);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 9px;
+	letter-spacing: 0.06em;
+}
+
+.mobile-tree-kind.is-acp {
+	border-color: rgb(244 114 182 / 25%);
+	background: rgb(244 114 182 / 9%);
+	color: #f6a8ce;
+}
+
+.mobile-tree-helper {
+	margin: 12px 4px 4px;
+	color: rgb(255 255 255 / 35%);
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.mobile-new-tab-action {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	min-height: 44px;
+	margin-top: 4px;
+	padding: 6px 8px;
+	border: 1px dashed rgb(255 255 255 / 16%);
+	border-radius: 8px;
+	color: rgb(255 255 255 / 48%);
+	font-size: 12px;
+	text-decoration: none;
+}
+
+.mobile-new-tab-action span {
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: rgb(255 255 255 / 7%);
+	font-size: 16px;
+	line-height: 1;
+}
+
+.mobile-new-tab-action:active {
+	border-color: rgb(255 255 255 / 28%);
+	background: rgb(255 255 255 / 5%);
+	color: rgb(255 255 255 / 76%);
+}
+
+.mobile-terminal-page {
+	display: flex;
+	flex-direction: column;
+	min-height: 100dvh;
+	background: #191514;
+}
+
+.mobile-terminal-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 68px;
+	padding: max(8px, var(--safe-area-top)) 12px 8px;
+	border-bottom: 1px solid #393231;
+	background: #211c1a;
+}
+
+.mobile-terminal-back {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 999px;
+	color: #eee8e4;
+	font-size: 21px;
+	text-decoration: none;
+}
+
+.mobile-terminal-back:active {
+	background: #393231;
+}
+
+.mobile-terminal-heading {
+	min-width: 0;
+	flex: 1;
+}
+
+.mobile-terminal-heading h1 {
+	color: #eee8e4;
+	font-size: 16px;
+}
+
+.mobile-terminal-heading p {
+	color: #988e89;
+}
+
+.mobile-terminal-canvas {
+	flex: 1;
+	min-height: 0;
+	padding: 14px 16px max(14px, var(--safe-area-bottom));
+	overflow: hidden;
+	background: #191514;
+}
+
+.mobile-terminal-canvas .xterm {
+	height: 100%;
+}
+
+/* Phone WebApp is deliberately dark-only: persistent sessions should never
+ * reopen into a low-contrast system-light surface. */
+:root {
+	color-scheme: dark;
+	--phone-bg: #0b0c10;
+	--phone-surface: #12141a;
+	--phone-surface-raised: #181b23;
+	--phone-border: #303440;
+	--phone-text: #f8f8f2;
+	--phone-muted: #b7bac4;
+	--phone-caption: #9599a5;
+	--phone-focus: #ff79c6;
+}
+
+body {
+	background: var(--phone-bg);
+	color: var(--phone-text);
+}
+.mobile-pair-page,
+.mobile-workspace-page,
+.mobile-session-page,
+.mobile-projects-page,
+.mobile-terminal-page {
+	background: var(--phone-bg);
+	color: var(--phone-text);
+}
+.mobile-project-card,
+.mobile-terminal-header {
+	border-color: var(--phone-border);
+	background: var(--phone-surface);
+}
+.mobile-projects-header {
+	border-color: var(--phone-border);
+}
+.mobile-projects-header p,
+.mobile-terminal-heading p,
+.mobile-tree-subtitle,
+.mobile-tree-helper,
+.mobile-projects-eyebrow {
+	color: var(--phone-caption);
+}
+.mobile-tree-control,
+.mobile-tree-leaf,
+.mobile-terminal-heading h1,
+.mobile-terminal-back {
+	color: var(--phone-text);
+}
+.mobile-tree-node-mark,
+.mobile-tree-leaf-mark {
+	background: #222630;
+	color: var(--phone-muted);
+}
+.mobile-terminal-canvas {
+	background: var(--phone-bg);
+}
+.mobile-surface,
+.mobile-composer,
+.mobile-timeline-card,
+.mobile-permission-card {
+	border: 1px solid var(--phone-border);
+	background: var(--phone-surface);
+	color: var(--phone-text);
+}
+.mobile-primary-button {
+	min-height: 44px;
+	border: 1px solid #595f70;
+	border-radius: 10px;
+	background: #242936;
+	color: var(--phone-text);
+}
+.mobile-primary-button:focus-visible,
+.mobile-surface :focus-visible {
+	outline: 2px solid var(--phone-focus);
+	outline-offset: 2px;
+}
+.mobile-muted-text {
+	color: var(--phone-muted);
+}
+.mobile-caption-text {
+	color: var(--phone-caption);
+}
+.mobile-user-message {
+	background: #242936;
+	color: var(--phone-text);
+}
+.mobile-thought-message {
+	background: var(--phone-surface-raised);
+	color: var(--phone-muted);
+}
+.mobile-permission-card {
+	border-color: #6d6132;
+}
+.mobile-permission-card .mobile-primary-button {
+	background: #33301f;
+	border-color: #756b38;
+}
+
+@media (min-width: 620px) {
+	.mobile-projects-page,
+	.mobile-terminal-page {
+		min-height: 844px;
+		max-height: 844px;
+		border: 1px solid rgb(255 255 255 / 10%);
+		border-radius: 18px;
+		box-shadow: 0 24px 64px rgb(0 0 0 / 35%);
+		overflow: hidden;
+	}
+
+	body {
+		padding: 24px 0;
+	}
 }

@@ -1,11 +1,14 @@
 import type { SessionScopedState } from "@superset/session-protocol";
-import {
-	BUILTIN_AGENT_IDS,
-	BUILTIN_AGENT_LABELS,
-} from "@superset/shared/agent-catalog";
+import { BUILTIN_AGENT_LABELS } from "@superset/shared/agent-catalog";
+import type { BuiltinTerminalAgentType } from "@superset/shared/builtin-terminal-agents";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { getPhoneRoute } from "~/lib/phone-route";
 import { getTrpc } from "~/lib/trpc-client";
+import {
+	acpAgentLaunchOptions,
+	terminalAgentLaunchOptions,
+} from "./workspace/utils/agentLaunchOptions/agentLaunchOptions";
 
 function randomSessionId(): string {
 	// UUID v4 falls back to a short-random when crypto.randomUUID is missing.
@@ -15,13 +18,6 @@ function randomSessionId(): string {
 	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// `superset` is the built-in chat agent; every other built-in id launches a
-// terminal agent. Keep the phone picker derived from the catalog so new
-// terminal agents automatically become available here.
-const PHONE_TERMINAL_AGENT_IDS = BUILTIN_AGENT_IDS.filter(
-	(agentId) => agentId !== "superset",
-);
-
 export function WorkspaceRoute() {
 	const { workspaceId } = useParams<{ workspaceId: string }>();
 	const navigate = useNavigate();
@@ -30,8 +26,11 @@ export function WorkspaceRoute() {
 	const [error, setError] = useState<string | null>(null);
 	const [enabled, setEnabled] = useState(true);
 	const [creating, setCreating] = useState(false);
-	const [selectedAgentId, setSelectedAgentId] = useState(
-		PHONE_TERMINAL_AGENT_IDS[0],
+	const [selectedAcpAgentId, setSelectedAcpAgentId] = useState(
+		acpAgentLaunchOptions[0]?.agentId ?? "claude",
+	);
+	const [selectedTerminalAgentId, setSelectedTerminalAgentId] = useState(
+		terminalAgentLaunchOptions[0]?.agentId ?? "claude",
 	);
 	const [terminalAgents, setTerminalAgents] = useState<
 		{ terminalId: string; agentId: string; lastEventAt: number }[]
@@ -42,19 +41,14 @@ export function WorkspaceRoute() {
 		let cancelled = false;
 		void (async () => {
 			try {
-				const page = await getTrpc().acpSessions.list.query({
-					workspaceId,
-					limit: 50,
-				});
+				const [page, agents] = await Promise.all([
+					getTrpc().acpSessions.list.query({ workspaceId, limit: 50 }),
+					getTrpc().terminalAgents.listByWorkspace.query({ workspaceId }),
+				]);
 				if (cancelled) return;
 				setEnabled(page.enabled);
 				setSessions(page.items);
-				if (!page.enabled) {
-					const agents = await getTrpc().terminalAgents.listByWorkspace.query({
-						workspaceId,
-					});
-					if (!cancelled) setTerminalAgents(agents);
-				}
+				setTerminalAgents(agents);
 			} catch (err) {
 				if (cancelled) return;
 				setError(err instanceof Error ? err.message : "Failed to load");
@@ -67,14 +61,24 @@ export function WorkspaceRoute() {
 		};
 	}, [workspaceId]);
 
-	async function startChat(): Promise<void> {
+	async function startAcpSession(): Promise<void> {
 		if (!workspaceId || creating) return;
+		const selectedAgent = acpAgentLaunchOptions.find(
+			(option) => option.agentId === selectedAcpAgentId,
+		);
+		if (!selectedAgent) return;
 		setCreating(true);
 		try {
 			const sessionId = randomSessionId();
-			await getTrpc().acpSessions.create.mutate({ sessionId, workspaceId });
+			await getTrpc().acpSessions.create.mutate({
+				sessionId,
+				workspaceId,
+				harness: selectedAgent.harness,
+			});
 			navigate(
-				`/w/${encodeURIComponent(workspaceId)}/s/${encodeURIComponent(sessionId)}`,
+				getPhoneRoute(
+					`/w/${encodeURIComponent(workspaceId)}/s/${encodeURIComponent(sessionId)}`,
+				),
 			);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to create session");
@@ -88,10 +92,12 @@ export function WorkspaceRoute() {
 		try {
 			const result = await getTrpc().terminalAgents.getOrCreate.mutate({
 				workspaceId,
-				agentId: selectedAgentId,
+				agentId: selectedTerminalAgentId,
 			});
 			navigate(
-				`/w/${encodeURIComponent(workspaceId)}/t/${encodeURIComponent(result.binding.terminalId)}`,
+				getPhoneRoute(
+					`/w/${encodeURIComponent(workspaceId)}/t/${encodeURIComponent(result.binding.terminalId)}`,
+				),
 			);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to start agent");
@@ -101,14 +107,14 @@ export function WorkspaceRoute() {
 
 	return (
 		<main
-			className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-4"
+			className="mobile-workspace-page mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-4"
 			style={{
 				paddingTop: "max(var(--safe-area-top), 16px)",
 				paddingBottom: "max(var(--safe-area-bottom), 16px)",
 			}}
 		>
 			<header className="mb-4 flex items-center gap-2">
-				<Link to="/" className="text-white/60">
+				<Link to={getPhoneRoute("/")} className="text-white/60">
 					←
 				</Link>
 				<h1 className="text-lg font-semibold">Workspace</h1>
@@ -116,7 +122,8 @@ export function WorkspaceRoute() {
 
 			{!enabled ? (
 				<div className="rounded-md bg-yellow-500/10 p-3 text-sm text-yellow-200 ring-1 ring-yellow-500/20">
-					ACP sessions are disabled. Use a terminal agent instead.
+					ACP sessions are disabled on this Host. Terminal agents remain
+					available.
 				</div>
 			) : null}
 
@@ -127,26 +134,65 @@ export function WorkspaceRoute() {
 			) : null}
 
 			{enabled ? (
-				<button
-					type="button"
-					disabled={creating}
-					onClick={() => void startChat()}
-					className="mb-4 w-full rounded-lg bg-white px-4 py-3 font-medium text-black disabled:opacity-50"
-				>
-					{creating ? "Starting…" : "New chat"}
-				</button>
-			) : (
-				<div className="mb-4 flex gap-2">
+				<section className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+					<div className="mb-2">
+						<h2 className="text-sm font-medium">New ACP session</h2>
+						<p className="text-xs text-white/50">
+							Rich chat with streaming, permissions, and session history.
+						</p>
+					</div>
+					<div className="flex gap-2">
+						<select
+							value={selectedAcpAgentId}
+							onChange={(event) => setSelectedAcpAgentId(event.target.value)}
+							className="min-w-0 flex-1 rounded-lg border border-white/20 bg-neutral-900 px-3 py-3 text-sm"
+						>
+							{acpAgentLaunchOptions.map((option) => (
+								<option key={option.agentId} value={option.agentId}>
+									{
+										BUILTIN_AGENT_LABELS[
+											option.agentId as keyof typeof BUILTIN_AGENT_LABELS
+										]
+									}
+								</option>
+							))}
+						</select>
+						<button
+							type="button"
+							disabled={creating}
+							onClick={() => void startAcpSession()}
+							className="mobile-primary-button px-4 py-3 text-sm font-medium disabled:opacity-50"
+						>
+							{creating ? "Starting…" : "Start"}
+						</button>
+					</div>
+				</section>
+			) : null}
+
+			<section className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+				<div className="mb-2">
+					<h2 className="text-sm font-medium">New terminal agent</h2>
+					<p className="text-xs text-white/50">
+						Launch an interactive CLI in this workspace.
+					</p>
+				</div>
+				<div className="flex gap-2">
 					<select
-						value={selectedAgentId}
+						value={selectedTerminalAgentId}
 						onChange={(event) =>
-							setSelectedAgentId(event.target.value as typeof selectedAgentId)
+							setSelectedTerminalAgentId(
+								event.target.value as BuiltinTerminalAgentType,
+							)
 						}
-						className="min-w-0 flex-1 rounded-lg border border-white/20 bg-transparent px-3 py-3 text-sm"
+						className="min-w-0 flex-1 rounded-lg border border-white/20 bg-neutral-900 px-3 py-3 text-sm"
 					>
-						{PHONE_TERMINAL_AGENT_IDS.map((agentId) => (
+						{terminalAgentLaunchOptions.map(({ agentId }) => (
 							<option key={agentId} value={agentId} className="bg-neutral-900">
-								{BUILTIN_AGENT_LABELS[agentId]}
+								{
+									BUILTIN_AGENT_LABELS[
+										agentId as keyof typeof BUILTIN_AGENT_LABELS
+									]
+								}
 							</option>
 						))}
 					</select>
@@ -158,10 +204,10 @@ export function WorkspaceRoute() {
 					>
 						{creating
 							? "Starting…"
-							: `Start ${BUILTIN_AGENT_LABELS[selectedAgentId]}`}
+							: `Start ${BUILTIN_AGENT_LABELS[selectedTerminalAgentId as keyof typeof BUILTIN_AGENT_LABELS]}`}
 					</button>
 				</div>
-			)}
+			</section>
 
 			<ul className="flex flex-col gap-1">
 				{loading && sessions.length === 0 ? (
@@ -170,7 +216,9 @@ export function WorkspaceRoute() {
 				{sessions.map((s) => (
 					<li key={s.sessionId}>
 						<Link
-							to={`/w/${encodeURIComponent(workspaceId ?? "")}/s/${encodeURIComponent(s.sessionId)}`}
+							to={getPhoneRoute(
+								`/w/${encodeURIComponent(workspaceId ?? "")}/s/${encodeURIComponent(s.sessionId)}`,
+							)}
 							className="block rounded-lg px-3 py-3 hover:bg-white/5 active:bg-white/10"
 						>
 							<div className="truncate text-sm">
@@ -183,12 +231,17 @@ export function WorkspaceRoute() {
 					</li>
 				))}
 			</ul>
-			{!enabled && terminalAgents.length > 0 ? (
+			{terminalAgents.length > 0 ? (
 				<ul className="mt-4 flex flex-col gap-1">
+					<li className="px-3 text-xs font-medium uppercase tracking-wide text-white/45">
+						Terminal agents
+					</li>
 					{terminalAgents.map((agent) => (
 						<li key={agent.terminalId}>
 							<Link
-								to={`/w/${encodeURIComponent(workspaceId ?? "")}/t/${encodeURIComponent(agent.terminalId)}`}
+								to={getPhoneRoute(
+									`/w/${encodeURIComponent(workspaceId ?? "")}/t/${encodeURIComponent(agent.terminalId)}`,
+								)}
 								className="block rounded-lg px-3 py-3 hover:bg-white/5"
 							>
 								{agent.agentId} terminal

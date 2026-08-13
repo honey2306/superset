@@ -13,14 +13,23 @@ export interface RelayDependencies {
 	baseUrl: string;
 	sleep?: (ms: number) => Promise<void>;
 }
-type RelayMessage = { messageId: string; body: RelayEnvelope };
+type RelayMessage = { seq: number; messageId: string; body: RelayEnvelope };
+type OutboundEnvelope = {
+	body: RelayEnvelope;
+	retryUntilStopped: boolean;
+	resolve: () => void;
+	reject: (error: Error) => void;
+};
+export const EMPTY_RELAY_PULL_DELAY_MS = 50;
+const MAX_CONCURRENT_TASK_REQUESTS = 4;
 
 /** Host-side mailbox worker. The relay is only a carrier; phone credentials survive unchanged. */
 export class AutoMateRelay {
 	private stopped = false;
 	private readonly seen = new Set<string>();
 	private readonly streams = new Map<string, WebSocket>();
-	private streamPushTail = Promise.resolve();
+	private readonly outboundQueue: OutboundEnvelope[] = [];
+	private outboundPumping = false;
 	constructor(
 		readonly mailboxId: string,
 		private readonly deps: RelayDependencies,
@@ -30,6 +39,9 @@ export class AutoMateRelay {
 	}
 	stop(): void {
 		this.stopped = true;
+		const stopped = new Error("AutoMate relay stopped");
+		for (const pending of this.outboundQueue) pending.reject(stopped);
+		this.outboundQueue.length = 0;
 		for (const socket of this.streams.values()) socket.close();
 		this.streams.clear();
 		this.deps.client.close?.();
@@ -46,15 +58,78 @@ export class AutoMateRelay {
 		}
 		return result;
 	}
-	private async ack(messageId: string): Promise<void> {
+	private async ack(seq: number): Promise<void> {
 		await this.invoke({
 			op: "ack",
 			mailboxId: this.mailboxId,
 			direction: "c2s",
-			messageId,
+			seq,
 		});
 	}
 	private async push(body: RelayEnvelope): Promise<void> {
+		return this.enqueueOutbound(body, false);
+	}
+	private enqueueOutbound(
+		body: RelayEnvelope,
+		retryUntilStopped: boolean,
+	): Promise<void> {
+		return new Promise((resolve, reject) => {
+			if (body.kind === "stream.frame") {
+				const last = this.outboundQueue.at(-1);
+				if (last?.body.kind === "stream.frames" && last.retryUntilStopped) {
+					last.body.frames.push({
+						channelId: body.channelId,
+						body: body.body,
+					});
+					const previousResolve = last.resolve;
+					const previousReject = last.reject;
+					last.resolve = () => {
+						previousResolve();
+						resolve();
+					};
+					last.reject = (error) => {
+						previousReject(error);
+						reject(error);
+					};
+				} else {
+					this.outboundQueue.push({
+						body: {
+							kind: "stream.frames",
+							frames: [{ channelId: body.channelId, body: body.body }],
+						},
+						retryUntilStopped,
+						resolve,
+						reject,
+					});
+				}
+			} else {
+				this.outboundQueue.push({ body, retryUntilStopped, resolve, reject });
+			}
+			void this.drainOutbound();
+		});
+	}
+	private async drainOutbound(): Promise<void> {
+		if (this.outboundPumping) return;
+		this.outboundPumping = true;
+		try {
+			while (!this.stopped && this.outboundQueue.length > 0) {
+				const next = this.outboundQueue.shift();
+				if (!next) continue;
+				try {
+					if (next.retryUntilStopped) await this.pushStreamWithRetry(next.body);
+					else await this.pushEnvelope(next.body);
+					next.resolve();
+				} catch (error) {
+					next.reject(asError(error));
+				}
+			}
+		} finally {
+			this.outboundPumping = false;
+			if (!this.stopped && this.outboundQueue.length > 0)
+				void this.drainOutbound();
+		}
+	}
+	private async pushEnvelope(body: RelayEnvelope): Promise<void> {
 		await this.invoke({
 			op: "push",
 			mailboxId: this.mailboxId,
@@ -73,12 +148,12 @@ export class AutoMateRelay {
 				})) as { message?: RelayMessage };
 				const message = result?.message;
 				if (!message) {
-					await (this.deps.sleep?.(250) ??
-						new Promise((r) => setTimeout(r, 250)));
+					await (this.deps.sleep?.(EMPTY_RELAY_PULL_DELAY_MS) ??
+						new Promise((r) => setTimeout(r, EMPTY_RELAY_PULL_DELAY_MS)));
 					continue;
 				}
 				if (this.seen.has(message.messageId)) {
-					await this.ack(message.messageId);
+					await this.ack(message.seq);
 					this.seen.delete(message.messageId);
 					continue;
 				}
@@ -95,13 +170,13 @@ export class AutoMateRelay {
 				else if (message.body.kind === "stream.frame")
 					await this.forwardStreamFrame(message.body);
 				else {
-					await this.ack(message.messageId);
+					await this.ack(message.seq);
 					continue;
 				}
 				// Only dedupe after forwarding/pushing its response completed. If that
 				// work throws, leaving the message unacked permits a safe retry.
 				this.seen.add(message.messageId);
-				await this.ack(message.messageId);
+				await this.ack(message.seq);
 				this.seen.delete(message.messageId);
 			} catch (error) {
 				console.warn("[automate-relay] mailbox poll failed", error);
@@ -123,7 +198,7 @@ export class AutoMateRelay {
 			});
 			return;
 		}
-		if (request.method !== "POST") {
+		if (request.method !== "GET" && request.method !== "POST") {
 			await this.push({
 				kind: "http.response",
 				requestId: request.requestId,
@@ -214,23 +289,15 @@ export class AutoMateRelay {
 		});
 	}
 	private enqueueStreamPush(body: RelayEnvelope): void {
-		this.streamPushTail = this.streamPushTail
-			.then(() => this.pushStreamWithRetry(body))
-			.catch((error) =>
-				console.warn("[automate-relay] stream push failed", error),
-			);
+		void this.enqueueOutbound(body, true).catch((error) =>
+			console.warn("[automate-relay] stream push failed", error),
+		);
 	}
 	private async pushStreamWithRetry(body: RelayEnvelope): Promise<void> {
 		const messageId = crypto.randomUUID();
 		while (!this.stopped) {
 			try {
-				await this.invoke({
-					op: "push",
-					mailboxId: this.mailboxId,
-					direction: "s2c",
-					messageId,
-					body,
-				});
+				await this.pushEnvelopeWithMessageId(body, messageId);
 				return;
 			} catch (error) {
 				console.warn("[automate-relay] retrying stream push", error);
@@ -238,6 +305,18 @@ export class AutoMateRelay {
 					new Promise((resolve) => setTimeout(resolve, 1_000)));
 			}
 		}
+	}
+	private async pushEnvelopeWithMessageId(
+		body: RelayEnvelope,
+		messageId: string,
+	): Promise<void> {
+		await this.invoke({
+			op: "push",
+			mailboxId: this.mailboxId,
+			direction: "s2c",
+			messageId,
+			body,
+		});
 	}
 }
 
@@ -263,7 +342,7 @@ export class AutoMateRelayTaskClient implements RelayTaskClient {
 	private socket: RelaySocket | null = null;
 	private opening: Promise<RelaySocket> | null = null;
 	private queue: QueuedOperation[] = [];
-	private current: QueuedOperation | null = null;
+	private readonly active = new Map<string, QueuedOperation>();
 	private sending = false;
 	private closed = false;
 	private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -294,23 +373,27 @@ export class AutoMateRelayTaskClient implements RelayTaskClient {
 		this.opening = null;
 	}
 	private async flush(): Promise<void> {
-		if (this.current || this.sending || !this.queue.length || this.closed)
-			return;
-		const current = this.queue.shift();
-		if (!current) return;
+		if (this.sending || !this.queue.length || this.closed) return;
 		this.sending = true;
 		try {
 			const socket = await this.connect();
-			this.current = current;
-			socket.send(
-				JSON.stringify({
-					type: "msg",
-					request_id: current.requestId,
-					payload: current.input,
-				}),
-			);
+			while (
+				this.active.size < MAX_CONCURRENT_TASK_REQUESTS &&
+				this.queue.length > 0
+			) {
+				const current = this.queue.shift();
+				if (!current) break;
+				this.active.set(current.requestId, current);
+				socket.send(
+					JSON.stringify({
+						type: "msg",
+						request_id: current.requestId,
+						payload: current.input,
+					}),
+				);
+			}
 		} catch (error) {
-			current.reject(asError(error));
+			this.rejectAll(asError(error));
 		} finally {
 			this.sending = false;
 			void this.flush();
@@ -372,9 +455,9 @@ export class AutoMateRelayTaskClient implements RelayTaskClient {
 					return;
 				}
 				if (message.type === "done" && typeof message.request_id === "string") {
-					const current = this.current;
-					if (!current || current.requestId !== message.request_id) return;
-					this.current = null;
+					const current = this.active.get(message.request_id);
+					if (!current) return;
+					this.active.delete(message.request_id);
 					const payload = message.payload as { result?: unknown } | undefined;
 					current.resolve(payload?.result);
 					void this.flush();
@@ -385,16 +468,22 @@ export class AutoMateRelayTaskClient implements RelayTaskClient {
 					if (!settled) {
 						clearTimeout(timeout);
 						failOpening(error);
+						this.rejectAll(error);
 						socket.close();
 						return;
 					}
-					const current = this.current;
-					if (
-						current &&
-						(message.request_id === undefined ||
-							message.request_id === current.requestId)
-					) {
-						this.current = null;
+					if (message.type === "auth_error") {
+						this.rejectAll(error);
+						socket.close();
+						return;
+					}
+					if (typeof message.request_id !== "string") {
+						this.rejectAll(error);
+						return;
+					}
+					const current = this.active.get(message.request_id);
+					if (current && message.request_id === current.requestId) {
+						this.active.delete(current.requestId);
 						current.reject(error);
 						void this.flush();
 					}
@@ -428,8 +517,8 @@ export class AutoMateRelayTaskClient implements RelayTaskClient {
 		this.heartbeatTimer = null;
 	}
 	private rejectAll(error: Error): void {
-		this.current?.reject(error);
-		this.current = null;
+		for (const current of this.active.values()) current.reject(error);
+		this.active.clear();
 		for (const pending of this.queue) pending.reject(error);
 		this.queue = [];
 	}

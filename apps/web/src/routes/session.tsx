@@ -3,12 +3,16 @@ import {
 	useAcpPermissions,
 	useAcpSession,
 } from "@superset/session-protocol/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { Composer } from "~/components/Composer";
+import { useTimelineAutoFollow } from "~/components/Timeline/hooks/useTimelineAutoFollow";
 import { PermissionCard } from "~/components/Timeline/PermissionCard";
+import { PromptQueue } from "~/components/Timeline/PromptQueue";
 import { TimelineView } from "~/components/Timeline/TimelineView";
+import { WorkingIndicator } from "~/components/Timeline/WorkingIndicator";
 import { createPhoneAcpClient } from "~/lib/acp-client";
+import { getPhoneRoute } from "~/lib/phone-route";
 
 export function SessionRoute() {
 	const { workspaceId, sessionId } = useParams<{
@@ -28,15 +32,15 @@ export function SessionRoute() {
 	});
 	const permissions = useAcpPermissions(session);
 	const [busy, setBusy] = useState(false);
-	const scrollRef = useRef<HTMLDivElement>(null);
+	const timelineUpdateKey = `${session.timeline.lastSeq}:${session.timeline.items.length}:${session.state?.status}`;
+	const { containerRef, onScroll } = useTimelineAutoFollow(timelineUpdateKey);
 
-	useEffect(() => {
-		const el = scrollRef.current;
-		if (!el) return;
-		el.scrollTop = el.scrollHeight;
-	}, []);
+	if (!sessionId || !workspaceId)
+		return <Navigate to={getPhoneRoute("/")} replace />;
 
-	if (!sessionId || !workspaceId) return <Navigate to="/" replace />;
+	const running = session.state?.status === "running";
+	const awaitingPermission = session.state?.status === "awaiting_permission";
+	const canQueue = running || awaitingPermission;
 
 	async function submit(text: string): Promise<void> {
 		const trimmed = text.trim();
@@ -44,18 +48,18 @@ export function SessionRoute() {
 		setBusy(true);
 		try {
 			const blocks: ContentBlock[] = [{ type: "text", text: trimmed }];
-			await session.actions.prompt(blocks);
+			if (canQueue) await session.actions.enqueue(blocks);
+			else await session.actions.prompt(blocks);
 		} finally {
 			setBusy(false);
 		}
 	}
 
-	const running = session.state?.status === "running";
 	const disconnected = session.availability === "unavailable";
 
 	return (
 		<main
-			className="mx-auto flex h-[100dvh] w-full max-w-md flex-col px-3"
+			className="mobile-session-page mx-auto flex h-[100dvh] w-full max-w-md flex-col px-3"
 			style={{
 				paddingTop: "max(var(--safe-area-top), 8px)",
 				paddingBottom: "max(var(--safe-area-bottom), 8px)",
@@ -63,7 +67,7 @@ export function SessionRoute() {
 		>
 			<header className="mb-2 flex items-center gap-2 py-1">
 				<Link
-					to={`/w/${encodeURIComponent(workspaceId)}`}
+					to={getPhoneRoute(`/w/${encodeURIComponent(workspaceId)}`)}
 					className="text-white/60"
 				>
 					←
@@ -90,25 +94,36 @@ export function SessionRoute() {
 			) : null}
 
 			<div
-				ref={scrollRef}
+				ref={containerRef}
+				onScroll={onScroll}
 				className="no-scrollbar flex-1 overflow-y-auto"
 				style={{ scrollBehavior: "smooth" }}
 			>
 				<TimelineView timeline={session.timeline} />
+				{running || awaitingPermission ? (
+					<WorkingIndicator awaitingPermission={awaitingPermission} />
+				) : null}
 			</div>
+
+			<PromptQueue
+				prompts={session.state?.queuedPrompts ?? []}
+				onRemove={(queueId) => void session.actions.removeQueued(queueId)}
+			/>
 
 			{permissions.pending.map((p) => (
 				<PermissionCard
 					key={p.requestId}
 					pending={p}
-					onAllowOnce={() => void permissions.allowOnce(p.requestId)}
-					onRejectOnce={() => void permissions.rejectOnce(p.requestId)}
+					onRespond={(outcome) =>
+						void permissions.respond(p.requestId, outcome)
+					}
 				/>
 			))}
 
 			<Composer
 				disabled={disconnected}
-				busy={busy || running}
+				busy={busy || running || awaitingPermission}
+				queueing={canQueue}
 				onSubmit={submit}
 				onCancel={running ? () => void session.actions.cancel() : undefined}
 			/>

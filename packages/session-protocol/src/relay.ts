@@ -1,3 +1,8 @@
+/** A WebSocket frame transported by the AutoMate mailbox relay. */
+export type RelayStreamFrame =
+	| { type: "text"; data: string }
+	| { type: "binary"; data: string };
+
 /** Internal, end-to-end envelopes carried by the AutoMate mailbox relay. */
 export type RelayEnvelope =
 	| {
@@ -24,7 +29,12 @@ export type RelayEnvelope =
 	| {
 			kind: "stream.frame";
 			channelId: string;
-			body: { type: "text"; data: string } | { type: "binary"; data: string };
+			body: RelayStreamFrame;
+	  }
+	| {
+			/** Consecutive host-to-phone stream frames, delivered in array order. */
+			kind: "stream.frames";
+			frames: Array<{ channelId: string; body: RelayStreamFrame }>;
 	  }
 	| { kind: "stream.close"; channelId: string; code?: number; reason?: string };
 

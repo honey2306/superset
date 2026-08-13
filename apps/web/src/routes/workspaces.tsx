@@ -1,130 +1,277 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { BUILTIN_AGENT_LABELS } from "@superset/shared/agent-catalog";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { clearStoredSession, getStoredSession } from "~/lib/auth-store";
+import {
+	getAutoMateCleanPairPath,
+	isAutoMateWebAppPath,
+} from "~/lib/automate-resume";
 import { getTrpc, isUnauthorized, resetTrpc } from "~/lib/trpc-client";
+import { ProjectTree } from "./components/ProjectTree";
+import {
+	buildProjectTree,
+	type TerminalAgentRecord,
+	type WorkspaceContents,
+} from "./workspaces/utils/buildProjectTree/buildProjectTree";
+import {
+	createWorkspaceContentsLoader,
+	type WorkspaceContentsLoadState,
+} from "./workspaces/utils/workspaceContentsLoader/workspaceContentsLoader";
 
 type Snapshot = Awaited<
 	ReturnType<
 		ReturnType<typeof getTrpc>["workspaceCatalog"]["snapshot"]["query"]
 	>
 >;
-type Project = Snapshot["projects"][number];
-type Workspace = Snapshot["workspaces"][number];
+
+function snapshotProjects(snapshot: Snapshot): Snapshot["projects"] {
+	return Array.isArray(snapshot.projects) ? snapshot.projects : [];
+}
+
+function snapshotWorkspaces(snapshot: Snapshot): Snapshot["workspaces"] {
+	return Array.isArray(snapshot.workspaces) ? snapshot.workspaces : [];
+}
+
+function toggleId(current: ReadonlySet<string>, id: string): Set<string> {
+	const next = new Set(current);
+	if (next.has(id)) next.delete(id);
+	else next.add(id);
+	return next;
+}
+
+function agentLabel(agentId: string): string {
+	return (
+		BUILTIN_AGENT_LABELS[agentId as keyof typeof BUILTIN_AGENT_LABELS] ??
+		agentId
+	);
+}
+
+function toTerminalAgentRecord(agent: {
+	terminalId: string;
+	agentId: string;
+	lastEventAt: number;
+	lastEventType: string;
+}): TerminalAgentRecord {
+	return agent;
+}
 
 export function WorkspacesRoute() {
 	const navigate = useNavigate();
 	const session = getStoredSession();
 	const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+	const [workspaceTabs, setWorkspaceTabs] = useState<
+		ReadonlyMap<string, WorkspaceContents>
+	>(new Map());
+	const [workspaceLoadStates, setWorkspaceLoadStates] = useState<
+		ReadonlyMap<string, WorkspaceContentsLoadState>
+	>(new Map());
+	const [workspaceLoadErrors, setWorkspaceLoadErrors] = useState<
+		ReadonlyMap<string, string>
+	>(new Map());
 	const [error, setError] = useState<string | null>(null);
+	const [expandedProjectIds, setExpandedProjectIds] = useState<
+		ReadonlySet<string>
+	>(new Set());
+	const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<
+		ReadonlySet<string>
+	>(new Set());
+	const mountedRef = useRef(true);
+	const workspaceContentsLoader = useRef(
+		createWorkspaceContentsLoader(async (workspaceId) => {
+			const [acp, terminalAgents] = await Promise.all([
+				getTrpc().acpSessions.list.query({ workspaceId, limit: 50 }),
+				getTrpc().terminalAgents.listByWorkspace.query({ workspaceId }),
+			]);
+			return {
+				acpEnabled: acp.enabled,
+				sessions: acp.items,
+				terminalAgents: terminalAgents.map(toTerminalAgentRecord),
+			};
+		}),
+	).current;
+
+	useEffect(
+		() => () => {
+			mountedRef.current = false;
+		},
+		[],
+	);
+
+	const loadWorkspaceContents = useCallback(
+		(workspaceId: string): void => {
+			const existingState = workspaceContentsLoader.getState(workspaceId);
+			if (existingState === "loaded" || existingState === "loading") return;
+
+			setWorkspaceLoadStates((current) => {
+				const next = new Map(current);
+				next.set(workspaceId, "loading");
+				return next;
+			});
+			setWorkspaceLoadErrors((current) => {
+				if (!current.has(workspaceId)) return current;
+				const next = new Map(current);
+				next.delete(workspaceId);
+				return next;
+			});
+
+			void workspaceContentsLoader.load(workspaceId).then(
+				(contents) => {
+					if (!mountedRef.current) return;
+					setWorkspaceTabs((current) => {
+						const next = new Map(current);
+						next.set(workspaceId, contents);
+						return next;
+					});
+					setWorkspaceLoadStates((current) => {
+						const next = new Map(current);
+						next.set(workspaceId, "loaded");
+						return next;
+					});
+				},
+				(caught: unknown) => {
+					if (!mountedRef.current) return;
+					const message =
+						caught instanceof Error
+							? caught.message
+							: "Failed to load workspace tabs";
+					setWorkspaceLoadStates((current) => {
+						const next = new Map(current);
+						next.set(workspaceId, "error");
+						return next;
+					});
+					setWorkspaceLoadErrors((current) => {
+						const next = new Map(current);
+						next.set(workspaceId, message);
+						return next;
+					});
+				},
+			);
+		},
+		[workspaceContentsLoader],
+	);
 
 	useEffect(() => {
+		mountedRef.current = true;
 		let cancelled = false;
 		void (async () => {
 			try {
-				const snap = await getTrpc().workspaceCatalog.snapshot.query();
+				const nextSnapshot = await getTrpc().workspaceCatalog.snapshot.query();
 				if (cancelled) return;
-				setSnapshot(snap);
-			} catch (err) {
+				setSnapshot(nextSnapshot);
+				const nextProjects = snapshotProjects(nextSnapshot);
+				const nextWorkspaces = snapshotWorkspaces(nextSnapshot);
+				const firstWorkspace = nextWorkspaces[0];
+				const firstProject =
+					nextProjects.find(
+						(project) => project.id === firstWorkspace?.projectId,
+					) ?? nextProjects[0];
+				if (firstProject) setExpandedProjectIds(new Set([firstProject.id]));
+				if (firstWorkspace) {
+					setExpandedWorkspaceIds(new Set([firstWorkspace.id]));
+					loadWorkspaceContents(firstWorkspace.id);
+				}
+			} catch (caught) {
 				if (cancelled) return;
-				if (isUnauthorized(err)) {
+				if (isUnauthorized(caught)) {
 					clearStoredSession();
 					resetTrpc();
-					navigate("/pair", { replace: true });
+					if (isAutoMateWebAppPath(location.pathname)) {
+						window.location.replace(
+							getAutoMateCleanPairPath(location.pathname),
+						);
+					} else navigate("/pair", { replace: true });
 					return;
 				}
-				setError(err instanceof Error ? err.message : "Failed to load");
+				setError(caught instanceof Error ? caught.message : "Failed to load");
 			}
 		})();
 		return () => {
 			cancelled = true;
 		};
-	}, [navigate]);
+	}, [navigate, loadWorkspaceContents]);
 
-	const projectMap = new Map<string, Project>();
-	for (const p of snapshot?.projects ?? []) projectMap.set(p.id, p);
-	const grouped = new Map<
-		string,
-		{ project: Project; workspaces: Workspace[] }
-	>();
-	for (const w of snapshot?.workspaces ?? []) {
-		const project = projectMap.get(w.projectId);
-		if (!project) continue;
-		const existing = grouped.get(project.id);
-		if (existing) {
-			existing.workspaces.push(w);
-		} else {
-			grouped.set(project.id, { project, workspaces: [w] });
-		}
-	}
+	const projects = useMemo(
+		() =>
+			snapshot
+				? buildProjectTree({
+						projects: snapshotProjects(snapshot),
+						workspaces: snapshotWorkspaces(snapshot),
+						contentsByWorkspaceId: workspaceTabs,
+						agentLabel,
+					})
+				: [],
+		[snapshot, workspaceTabs],
+	);
 
 	return (
-		<main
-			className="mx-auto w-full max-w-md px-4"
-			style={{
-				paddingTop: "max(var(--safe-area-top), 16px)",
-				paddingBottom: "max(var(--safe-area-bottom), 16px)",
-			}}
-		>
-			<header className="mb-4 flex items-center justify-between">
-				<div>
-					<h1 className="text-lg font-semibold">Workspaces</h1>
-					<p className="text-xs text-white/50">{session?.hostName}</p>
+		<main className="mobile-projects-page">
+			<header className="mobile-projects-header">
+				<div className="mobile-projects-header-copy">
+					<h1>Projects</h1>
+					<p>
+						<span
+							className={`mobile-host-dot ${snapshot ? "is-connected" : ""}`}
+						/>
+						{session?.hostName ?? "Host"} ·{" "}
+						{snapshot ? "Connected" : "Connecting…"}
+					</p>
 				</div>
 				<button
 					type="button"
 					onClick={() => {
 						clearStoredSession();
 						resetTrpc();
-						navigate("/pair", { replace: true });
+						if (isAutoMateWebAppPath(location.pathname)) {
+							window.location.replace(
+								getAutoMateCleanPairPath(location.pathname),
+							);
+						} else navigate("/pair", { replace: true });
 					}}
-					className="text-xs text-white/60 underline"
+					className="mobile-unpair-button"
 				>
 					Unpair
 				</button>
 			</header>
 
-			{error ? (
-				<div className="rounded-md bg-red-500/10 p-3 text-sm text-red-300 ring-1 ring-red-500/20">
-					{error}
-				</div>
-			) : null}
-
-			{snapshot === null && !error ? (
-				<div className="text-sm text-white/60">Loading…</div>
-			) : null}
-
-			<div className="flex flex-col gap-4">
-				{Array.from(grouped.values()).map(({ project, workspaces }) => (
-					<section
+			<section className="mobile-projects-tree" aria-label="Projects and tabs">
+				<p className="mobile-projects-eyebrow">
+					{snapshot ? `${projects.length} projects` : "Loading projects"}
+				</p>
+				{error ? <div className="mobile-page-error">{error}</div> : null}
+				{snapshot === null && !error ? (
+					<p className="mobile-tree-helper">Loading your projects…</p>
+				) : null}
+				{projects.map((project) => (
+					<ProjectTree
 						key={project.id}
-						className="rounded-2xl bg-white/5 p-3 ring-1 ring-white/10"
-					>
-						<h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wider text-white/60">
-							{project.name || project.repoPath}
-						</h2>
-						<ul className="flex flex-col gap-1">
-							{workspaces.map((w) => (
-								<li key={w.id}>
-									<Link
-										to={`/w/${encodeURIComponent(w.id)}`}
-										className="flex items-center justify-between rounded-lg px-3 py-3 hover:bg-white/5 active:bg-white/10"
-									>
-										<div className="min-w-0">
-											<div className="truncate text-sm">
-												{w.name || w.branch}
-											</div>
-											<div className="truncate text-xs text-white/50">
-												{w.branch}
-											</div>
-										</div>
-										<span className="text-white/40">›</span>
-									</Link>
-								</li>
-							))}
-						</ul>
-					</section>
+						project={project}
+						expanded={expandedProjectIds.has(project.id)}
+						expandedWorkspaceIds={expandedWorkspaceIds}
+						workspaceLoadStates={workspaceLoadStates}
+						workspaceLoadErrors={workspaceLoadErrors}
+						onToggle={() =>
+							setExpandedProjectIds((current) => toggleId(current, project.id))
+						}
+						onWorkspaceToggle={(workspaceId) => {
+							if (workspaceLoadStates.get(workspaceId) === "error") {
+								loadWorkspaceContents(workspaceId);
+								setExpandedWorkspaceIds((current) => {
+									const next = new Set(current);
+									next.add(workspaceId);
+									return next;
+								});
+								return;
+							}
+							if (!expandedWorkspaceIds.has(workspaceId)) {
+								loadWorkspaceContents(workspaceId);
+							}
+							setExpandedWorkspaceIds((current) =>
+								toggleId(current, workspaceId),
+							);
+						}}
+					/>
 				))}
-			</div>
+			</section>
 		</main>
 	);
 }

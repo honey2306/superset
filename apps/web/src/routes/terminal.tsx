@@ -3,8 +3,8 @@ import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getStoredToken } from "~/lib/auth-store";
+import { getPhoneRoute } from "~/lib/phone-route";
 import { getPhoneTransport } from "~/lib/transport";
-import { MobileTerminalInput } from "./components/MobileTerminalInput";
 
 function terminalUrl(workspaceId: string, terminalId: string): string {
 	const url = new URL(
@@ -24,14 +24,13 @@ export function TerminalRoute() {
 	}>();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [status, setStatus] = useState("Connecting…");
-	const sendRef = useRef<(data: string) => void>(() => {});
 
 	useEffect(() => {
 		if (!workspaceId || !terminalId || !containerRef.current) return;
 		const terminal = new Terminal({
 			cursorBlink: true,
 			fontSize: 13,
-			theme: { background: "#151110", foreground: "#eae8e6" },
+			theme: { background: "#0b0c10", foreground: "#f8f8f2" },
 		});
 		terminal.open(containerRef.current);
 		const socket = getPhoneTransport().createWebSocket(
@@ -45,8 +44,6 @@ export function TerminalRoute() {
 				} catch {}
 			}
 		};
-		sendRef.current = (data) =>
-			safeSend(JSON.stringify({ type: "input", data }));
 		const resize = () => {
 			const width = containerRef.current?.clientWidth ?? 0;
 			const height = containerRef.current?.clientHeight ?? 0;
@@ -85,22 +82,27 @@ export function TerminalRoute() {
 		return () => {
 			observer.disconnect();
 			input.dispose();
-			sendRef.current = () => {};
 			socket.close();
 			terminal.dispose();
 		};
 	}, [terminalId, workspaceId]);
 
 	return (
-		<main className="flex min-h-[100dvh] flex-col bg-[#151110] px-3 py-3">
-			<header className="mb-2 flex items-center justify-between text-sm text-white/70">
-				<Link to={`/w/${encodeURIComponent(workspaceId ?? "")}`}>
-					← Workspace
+		<main className="mobile-terminal-page">
+			<header className="mobile-terminal-header">
+				<Link
+					to={getPhoneRoute("/")}
+					className="mobile-terminal-back"
+					aria-label="Back to projects"
+				>
+					←
 				</Link>
-				<span>{status}</span>
+				<div className="mobile-terminal-heading">
+					<h1>Terminal</h1>
+					<p>{status}</p>
+				</div>
 			</header>
-			<div ref={containerRef} className="min-h-0 flex-1" />
-			<MobileTerminalInput onSend={(data) => sendRef.current(data)} />
+			<div ref={containerRef} className="mobile-terminal-canvas" />
 		</main>
 	);
 }

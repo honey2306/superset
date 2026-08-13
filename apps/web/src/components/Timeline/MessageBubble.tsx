@@ -1,4 +1,5 @@
 import type { MessageItem } from "@superset/session-protocol";
+import { MessageMarkdown } from "./MessageMarkdown";
 
 interface Props {
 	item: MessageItem;
@@ -15,13 +16,19 @@ export function MessageBubble({ item }: Props) {
 			<div
 				className={
 					isUser
-						? "max-w-[85%] rounded-2xl bg-white px-3 py-2 text-sm text-black"
+						? "mobile-user-message max-w-[85%] rounded-2xl px-3 py-2 text-sm"
 						: isThought
-							? "max-w-full whitespace-pre-wrap rounded-2xl bg-white/5 px-3 py-2 text-xs text-white/60 ring-1 ring-white/10"
-							: "max-w-full whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm text-white/90"
+							? "mobile-thought-message max-w-full whitespace-pre-wrap rounded-2xl px-3 py-2 text-xs"
+							: "max-w-full whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm text-[var(--phone-text)]"
 				}
 			>
-				{text || (isUser ? "" : "…")}
+				{isUser || isThought ? (
+					text || (isUser ? "" : "…")
+				) : text ? (
+					<MessageMarkdown>{text}</MessageMarkdown>
+				) : (
+					"…"
+				)}
 				{item.failed ? (
 					<span className="ml-2 text-xs text-red-400">(failed)</span>
 				) : null}

@@ -24,6 +24,20 @@ export type BuiltinAgentId = (typeof BUILTIN_AGENT_IDS)[number];
 export type AgentDefinitionId = BuiltinAgentId | `custom:${string}`;
 
 /**
+ * The built-in agents that have a first-class ACP adapter. Keep the launch
+ * identity beside the agent catalog rather than teaching every client its own
+ * mapping; desktop and phone can then present the same supported choices.
+ */
+export const ACP_AGENT_HARNESS_BY_AGENT_ID = {
+	claude: "claude-agent-acp",
+	codex: "codex-app-server",
+	pi: "pi-acp",
+	myflicker: "myflicker-acp",
+} as const satisfies Partial<Record<BuiltinAgentId, string>>;
+
+export type AcpSupportedAgentId = keyof typeof ACP_AGENT_HARNESS_BY_AGENT_ID;
+
+/**
  * Agents Superset can identify via lifecycle hooks but cannot launch —
  * they run in an external app whose hooks land on a Superset terminal.
  */
