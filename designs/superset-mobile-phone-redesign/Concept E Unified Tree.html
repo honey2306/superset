@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Concept E · Unified Tree</title>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/colors.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/typography.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/spacing.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/radius.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/shadow.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/motion.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/z-index.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/opacity.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/border-width.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/focus.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/tokens/reset.css" />
+    <link rel="stylesheet" href="_ds/superset-design-system/styles.css" />
+    <script src="_ds/superset-design-system/_ds_bundle.js"></script>
+    <style>
+      html, body, #root { min-height: 100%; }
+      body { margin: 0; background: var(--page-bg); color: var(--fg); font-family: var(--font-ui); }
+      button, textarea { font: inherit; }
+      button { cursor: pointer; }
+      .app-shell { width: min(100%, 430px); min-height: 100dvh; margin: 0 auto; background: var(--page-bg); display: flex; flex-direction: column; overflow: hidden; }
+      .header { min-height: 58px; padding: max(var(--s-8), env(safe-area-inset-top)) var(--s-12) var(--s-6); border-bottom: var(--bw-hairline) solid var(--line); display: flex; align-items: center; gap: var(--s-6); background: var(--page-bg); position: sticky; top: 0; z-index: var(--z-rail); }
+      .header-copy { min-width: 0; flex: 1; }
+      .header-title { margin: 0; font-size: var(--fs-16); line-height: var(--lh-tight); font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .header-path { margin: var(--s-1) 0 0; color: var(--fg-mute); font: var(--fs-10)/var(--lh-tight) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .icon-button { width: 44px; height: 44px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--fg); display: grid; place-items: center; flex: none; }
+      .icon-button:hover { background: var(--hover); }
+      .back-button { font-size: var(--fs-22); }
+      .tree-screen { flex: 1; padding: var(--s-16) var(--s-12) max(var(--s-20), env(safe-area-inset-bottom)); overflow: auto; }
+      .section-label { margin: 0 var(--s-4) var(--s-8); color: var(--fg-faint); font-size: var(--fs-10); font-weight: var(--fw-semibold); letter-spacing: var(--ls-eyebrow); text-transform: uppercase; }
+      .tree-group { position: relative; }
+      .tree-children { position: relative; margin-left: var(--s-16); padding-left: var(--s-12); }
+      .tree-children::before { content: ""; position: absolute; top: 0; bottom: var(--s-8); left: 0; width: var(--bw-hairline); background: var(--line); }
+      .tree-row { width: 100%; min-height: 50px; padding: var(--s-4); border: 0; border-radius: var(--r-3); background: transparent; color: var(--fg); display: flex; align-items: center; gap: var(--s-8); text-align: left; }
+      .tree-row:hover { background: var(--hover); }
+      .tree-row.project { min-height: 58px; margin-bottom: var(--s-2); }
+      .tree-row.workspace { min-height: 52px; }
+      .tree-row.leaf { min-height: 48px; }
+      .tree-row.new-leaf { color: var(--fg-mute); }
+      .disclosure { width: 28px; height: 36px; border: 0; border-radius: var(--r-2); background: transparent; color: var(--fg-faint); display: grid; place-items: center; flex: none; transform: rotate(-90deg); transition: transform var(--dur-quick) var(--ease-out); }
+      .disclosure.expanded { transform: rotate(0); }
+      .node-icon { width: 34px; height: 34px; border: var(--bw-hairline) solid var(--line); border-radius: var(--r-3); background: var(--surface); color: var(--fg-mute); display: grid; place-items: center; flex: none; }
+      .workspace .node-icon { width: 30px; height: 30px; border: 0; background: var(--surface-sunk); }
+      .leaf .node-icon { width: 28px; height: 28px; border: 0; background: transparent; }
+      .leaf.acp .node-icon { color: var(--accent); background: var(--accent-tint); }
+      .node-copy { min-width: 0; flex: 1; }
+      .node-title { display: flex; align-items: center; gap: var(--s-2); font-size: var(--fs-13); line-height: var(--lh-snug); font-weight: var(--fw-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .project .node-title { font-size: var(--fs-14); font-weight: var(--fw-semibold); }
+      .node-meta { display: block; margin-top: var(--s-2); color: var(--fg-faint); font: var(--fs-9)/var(--lh-tight) var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .count { min-width: 24px; color: var(--fg-faint); font: var(--fs-10)/1 var(--font-mono); text-align: right; }
+      .row-chevron { width: 24px; color: var(--fg-faint); display: grid; place-items: center; flex: none; }
+      .status-dot { width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--success); flex: none; }
+      .status-dot.idle { background: var(--fg-faint); }
+      .kind { min-height: 20px; padding: 0 var(--s-2); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-pill); color: var(--fg-mute); font: var(--fs-9)/18px var(--font-mono); text-transform: uppercase; }
+      .kind.acp { border-color: var(--accent-line); background: var(--accent-tint); color: var(--accent); }
+      .tree-branch { position: relative; }
+      .tree-branch::before { content: ""; position: absolute; top: 25px; left: calc(var(--s-12) * -1); width: var(--s-10); height: var(--bw-hairline); background: var(--line); }
+      .tree-footer { margin: var(--s-16) var(--s-4) 0; padding-top: var(--s-12); border-top: var(--bw-hairline) solid var(--line); color: var(--fg-faint); font-size: var(--fs-10); line-height: var(--lh-body); }
+      .terminal-shell { background: var(--dracula-bg-deep); }
+      .terminal-shell .header { background: var(--dracula-bg); }
+      .terminal-output { flex: 1; min-height: 0; padding: var(--s-12) var(--s-14); overflow: auto; color: var(--dracula-fg); font: var(--fs-12)/1.62 var(--font-mono); }
+      .terminal-output p { margin: 0; white-space: pre-wrap; }
+      .term-muted { color: var(--dracula-comment); }
+      .term-pink { color: var(--dracula-pink); }
+      .term-cyan { color: var(--dracula-cyan); }
+      .term-green { color: var(--dracula-green); }
+      .compose-shell { min-height: 46px; padding: var(--s-2); border: var(--bw-hairline) solid var(--line-strong); border-radius: var(--r-4); background: var(--surface); display: flex; align-items: flex-end; }
+      .compose-input { flex: 1; min-height: 38px; max-height: 100px; padding: var(--s-8); border: 0; outline: 0; resize: none; background: transparent; color: var(--fg); line-height: var(--lh-body); }
+      .compose-input::placeholder { color: var(--fg-faint); }
+      .send-button { width: 38px; height: 38px; border: 0; border-radius: var(--r-pill); background: var(--fg); color: var(--page-bg); display: grid; place-items: center; flex: none; }
+      .chat-thread { flex: 1; padding: var(--s-16); overflow: auto; }
+      .chat-message { max-width: 90%; margin-bottom: var(--s-16); color: var(--fg); font-size: var(--fs-13); line-height: var(--lh-loose); }
+      .chat-message.user { margin-left: auto; padding: var(--s-10) var(--s-12); border: var(--bw-hairline) solid var(--line); border-radius: var(--r-4) var(--r-4) var(--r-1) var(--r-4); background: var(--surface-elev); }
+      .chat-author { margin: 0 0 var(--s-4); color: var(--fg-faint); font-size: var(--fs-10); font-weight: var(--fw-semibold); letter-spacing: var(--ls-caps); text-transform: uppercase; }
+      .chat-compose { padding: var(--s-10) var(--s-12) max(var(--s-12), env(safe-area-inset-bottom)); border-top: var(--bw-hairline) solid var(--line); }
+      @media (min-width: 620px) { body { padding: var(--s-24) 0; } .app-shell { min-height: 844px; max-height: 844px; border: var(--bw-hairline) solid var(--line); border-radius: var(--r-8); box-shadow: var(--shadow-4); } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+    <script type="text/babel">
+      const { Icon } = window.SupersetDesignSystem_91a6da;
+
+      const treeProjects = [
+        { id: 'superset', name: 'superset', meta: 'Preview Mac', workspaces: [
+          { id: 'main', name: 'main', tabs: [
+            { id: 'relay', name: 'AutoMate relay 接入', type: 'acp', active: true },
+            { id: 'codex', name: 'Codex', type: 'terminal', active: true },
+            { id: 'claude', name: 'Claude Code', type: 'terminal', active: false },
+          ] },
+          { id: 'mobile', name: 'codex/mobile-relay', tabs: [
+            { id: 'review', name: 'Relay review', type: 'acp', active: false },
+            { id: 'gemini', name: 'Gemini CLI', type: 'terminal', active: true },
+          ] },
+          { id: 'cli', name: 'fix/retired-cli-ci', tabs: [
+            { id: 'cli-codex', name: 'Codex', type: 'terminal', active: false },
+          ] },
+        ] },
+        { id: 'infra', name: 'infra-tools', meta: 'Build Mac', workspaces: [
+          { id: 'infra-main', name: 'main', tabs: [{ id: 'infra-agent', name: 'Claude Code', type: 'terminal', active: true }] },
+        ] },
+        { id: 'scripts', name: 'personal-scripts', meta: 'Preview Mac', workspaces: [] },
+      ];
+
+      function HeaderBar({ titleText, pathText, onBack }) {
+        return <header className="header">{onBack && <button className="icon-button back-button" onClick={onBack} aria-label="返回树形导航">‹</button>}<div className="header-copy"><h1 className="header-title">{titleText}</h1>{pathText && <p className="header-path">{pathText}</p>}</div>{!onBack && <><button className="icon-button" aria-label="搜索"><Icon name="search" size={18} /></button><button className="icon-button" aria-label="新建"><Icon name="plus" size={19} /></button></>}</header>;
+      }
+
+      function LeafRow({ tabItem, onOpen }) {
+        return <div className="tree-branch"><button className={`tree-row leaf ${tabItem.type === 'acp' ? 'acp' : ''}`} onClick={() => onOpen(tabItem)}><span className="node-icon"><Icon name={tabItem.type === 'acp' ? 'spark' : 'terminal'} size={15} /></span><span className="node-copy"><span className="node-title">{tabItem.name}<i className={`status-dot ${tabItem.active ? '' : 'idle'}`}></i></span></span><span className={`kind ${tabItem.type === 'acp' ? 'acp' : ''}`}>{tabItem.type === 'acp' ? 'ACP' : 'Term'}</span><span className="row-chevron"><Icon name="arrowRight" size={14} /></span></button></div>;
+      }
+
+      function WorkspaceNode({ projectItem, workspaceItem, expanded, onToggle, onOpen }) {
+        return <div className="tree-branch"><button className="tree-row workspace" onClick={onToggle}><span className={`disclosure ${expanded ? 'expanded' : ''}`}><Icon name="chevron" size={14} /></span><span className="node-icon"><Icon name="branch" size={15} /></span><span className="node-copy"><span className="node-title">{workspaceItem.name}</span><span className="node-meta">{workspaceItem.tabs.length} tabs</span></span><span className="count">{workspaceItem.tabs.filter((tabItem) => tabItem.active).length}</span></button>{expanded && <div className="tree-children">{workspaceItem.tabs.map((tabItem) => <LeafRow key={tabItem.id} tabItem={tabItem} onOpen={(openedTab) => onOpen(projectItem, workspaceItem, openedTab)} />)}<div className="tree-branch"><button className="tree-row leaf new-leaf"><span className="node-icon"><Icon name="plus" size={15} /></span><span className="node-copy"><span className="node-title">New tab</span></span></button></div></div>}</div>;
+      }
+
+      function ProjectNode({ projectItem, expanded, expandedWorkspaces, onToggleProject, onToggleWorkspace, onOpen }) {
+        const activeTabs = projectItem.workspaces.reduce((totalCount, workspaceItem) => totalCount + workspaceItem.tabs.filter((tabItem) => tabItem.active).length, 0);
+        return <div className="tree-group"><button className="tree-row project" onClick={onToggleProject}><span className={`disclosure ${expanded ? 'expanded' : ''}`}><Icon name="chevron" size={14} /></span><span className="node-icon"><Icon name="branch" size={17} /></span><span className="node-copy"><span className="node-title">{projectItem.name}{activeTabs > 0 && <i className="status-dot"></i>}</span><span className="node-meta">{projectItem.workspaces.length} workspaces · {projectItem.meta}</span></span><span className="count">{activeTabs}</span></button>{expanded && <div className="tree-children">{projectItem.workspaces.map((workspaceItem) => <WorkspaceNode key={workspaceItem.id} projectItem={projectItem} workspaceItem={workspaceItem} expanded={expandedWorkspaces.has(`${projectItem.id}:${workspaceItem.id}`)} onToggle={() => onToggleWorkspace(projectItem.id, workspaceItem.id)} onOpen={onOpen} />)}<div className="tree-branch"><button className="tree-row workspace new-leaf"><span className="disclosure"></span><span className="node-icon"><Icon name="plus" size={15} /></span><span className="node-copy"><span className="node-title">New workspace</span></span></button></div></div>}</div>;
+      }
+
+      function TreeScreen({ onOpenTab }) {
+        const [expandedProjects, setExpandedProjects] = React.useState(new Set(['superset']));
+        const [expandedWorkspaces, setExpandedWorkspaces] = React.useState(new Set(['superset:main']));
+        const toggleInSet = (currentSet, itemId, setter) => { const nextSet = new Set(currentSet); nextSet.has(itemId) ? nextSet.delete(itemId) : nextSet.add(itemId); setter(nextSet); };
+        return <main className="app-shell" data-screen-label="Unified project tree"><HeaderBar titleText="Superset" /><section className="tree-screen"><p className="section-label">Projects</p>{treeProjects.map((projectItem) => <ProjectNode key={projectItem.id} projectItem={projectItem} expanded={expandedProjects.has(projectItem.id)} expandedWorkspaces={expandedWorkspaces} onToggleProject={() => toggleInSet(expandedProjects, projectItem.id, setExpandedProjects)} onToggleWorkspace={(projectId, workspaceId) => toggleInSet(expandedWorkspaces, `${projectId}:${workspaceId}`, setExpandedWorkspaces)} onOpen={onOpenTab} />)}<p className="tree-footer">数字表示正在运行的 tabs。项目和 Workspace 可折叠，点击 ACP 或 Terminal 叶子进入内容。</p></section></main>;
+      }
+
+      function TerminalScreen({ selection, onBack }) {
+        return <main className="app-shell terminal-shell" data-screen-label="Terminal tab"><HeaderBar titleText={selection.tab.name} pathText={`${selection.project.name} / ${selection.workspace.name}`} onBack={onBack} /><section className="terminal-output" aria-label="交互式终端"><p className="term-muted">Superset workspace ready</p><p><span className="term-pink">➜</span> <span className="term-cyan">superset</span> bun run typecheck</p><p className="term-green">✓ @superset/web typecheck</p><p className="term-muted">Completed in 2.4s</p><p> </p><p><span className="term-pink">➜</span> <span className="term-cyan">superset</span> git status --short</p><p> M apps/web/src/routes/workspace.tsx</p><p> M apps/web/src/routes/terminal.tsx</p><p> </p><p><span className="term-pink">➜</span> <span className="term-cyan">superset</span> <span className="term-muted">▌</span></p></section></main>;
+      }
+
+      function AcpScreen({ selection, onBack }) {
+        const [draftText, setDraftText] = React.useState('');
+        return <main className="app-shell" data-screen-label="ACP tab"><HeaderBar titleText={selection.tab.name} pathText={`${selection.project.name} / ${selection.workspace.name}`} onBack={onBack} /><section className="chat-thread"><div className="chat-message user">继续实现 Superset 手机 Web 的 AutoMate relay 接入。</div><div className="chat-message"><p className="chat-author">Agent</p>Relay 和 Terminal fallback 已接通。项目、Workspace 和 Tab 现在统一放在一个树形导航中。</div><div className="chat-message"><p className="chat-author">Agent</p>点击任意 ACP 或 Terminal 叶子节点，就会进入对应内容。</div></section><section className="chat-compose"><div className="compose-shell"><textarea className="compose-input" rows="1" value={draftText} onChange={(eventObject) => setDraftText(eventObject.target.value)} placeholder="给 Agent 发消息…"></textarea><button className="send-button" onClick={() => setDraftText('')} aria-label="发送"><Icon name="arrowRight" size={17} /></button></div></section></main>;
+      }
+
+      function UnifiedTreePrototype() {
+        const [activeSelection, setActiveSelection] = React.useState(null);
+        if (!activeSelection) return <TreeScreen onOpenTab={(projectItem, workspaceItem, tabItem) => setActiveSelection({ project: projectItem, workspace: workspaceItem, tab: tabItem })} />;
+        if (activeSelection.tab.type === 'terminal') return <TerminalScreen selection={activeSelection} onBack={() => setActiveSelection(null)} />;
+        return <AcpScreen selection={activeSelection} onBack={() => setActiveSelection(null)} />;
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<UnifiedTreePrototype />);
+    </script>
+  </body>
+</html>

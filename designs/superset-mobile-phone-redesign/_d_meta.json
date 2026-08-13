@@ -1,0 +1,108 @@
+{
+  "type": "design",
+  "designSystems": [
+    {
+      "name": "Superset Design System",
+      "slug": "superset-design-system",
+      "namespace": "SupersetDesignSystem_91a6da",
+      "dsFolder": "_ds/superset-design-system",
+      "sourcePath": "designs/superset-design-system"
+    }
+  ],
+  "primaryDesignSystem": "superset-design-system",
+  "title": "Superset Mobile Phone Redesign",
+  "prompt": "A simple mobile-first workspace and terminal flow for Superset phone access, optimized for one-handed use at 390 by 844 pixels.",
+  "createdAt": "2026-08-13T03:32:50.514Z",
+  "updatedAt": "2026-08-13T04:06:12.004Z",
+  "assets": {
+    "Superset Mobile Phone Redesign": {
+      "versions": [
+        {
+          "path": "Mobile Phone Redesign.html",
+          "createdAt": "2026-08-13T03:35:26.937Z",
+          "status": "needs-review",
+          "subtitle": "Simple ACP-off workspace and terminal flow",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          }
+        }
+      ]
+    },
+    "Concept B Minimal": {
+      "versions": [
+        {
+          "path": "Concept B Minimal.html",
+          "createdAt": "2026-08-13T03:37:11.252Z",
+          "status": "changes-requested",
+          "subtitle": "Minimal list-first mobile flow",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          }
+        }
+      ]
+    },
+    "Concept C Terminal First": {
+      "versions": [
+        {
+          "path": "Concept C Terminal First.html",
+          "createdAt": "2026-08-13T03:37:11.284Z",
+          "status": "changes-requested",
+          "subtitle": "Terminal-first mobile flow",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          }
+        }
+      ]
+    },
+    "Concept D Project Hierarchy": {
+      "versions": [
+        {
+          "path": "Concept D Project Hierarchy.html",
+          "createdAt": "2026-08-13T03:43:34.586Z",
+          "status": "changes-requested",
+          "subtitle": "Projects to workspaces to tabs to ACP or terminal content",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          }
+        }
+      ]
+    },
+    "Mobile Phone Redesign": {
+      "versions": [
+        {
+          "path": "Mobile Phone Redesign.html",
+          "createdAt": "2026-08-13T03:44:18.364Z",
+          "status": "changes-requested"
+        }
+      ]
+    },
+    "Concept E Unified Tree": {
+      "versions": [
+        {
+          "path": "Concept E Unified Tree.html",
+          "createdAt": "2026-08-13T03:50:05.068Z",
+          "status": "changes-requested",
+          "subtitle": "Projects, workspaces and tabs in one collapsible mobile tree",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          }
+        },
+        {
+          "path": "Concept F Refined Tree.html",
+          "createdAt": "2026-08-13T03:58:08.026Z",
+          "status": "approved",
+          "subtitle": "Refined project tree with mobile-first hierarchy and full-screen terminal",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          }
+        }
+      ]
+    }
+  }
+}
