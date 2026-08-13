@@ -3,7 +3,10 @@ import { dirname, join } from "node:path";
 import type { Duplex } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
+import { mailboxId } from "@superset/session-protocol";
+import { getHostId } from "@superset/shared/host-info";
 import { createApp } from "./app";
+import { AutoMateRelay, AutoMateRelayTaskClient } from "./automate-relay";
 import { getSupervisor, startDaemonBootstrap } from "./daemon";
 import { env } from "./env";
 import { LocalGitCredentialProvider } from "./providers/git";
@@ -42,6 +45,9 @@ async function main(): Promise<void> {
 	// daemon takes time to come up or fails entirely.
 	startDaemonBootstrap(env.ORGANIZATION_ID);
 
+	const relayMailboxId = env.AUTOMATE_RELAY_URL
+		? mailboxId(env.ORGANIZATION_ID, getHostId())
+		: undefined;
 	const { app, injectWebSocket, db } = createApp({
 		config: {
 			organizationId: env.ORGANIZATION_ID,
@@ -49,6 +55,7 @@ async function main(): Promise<void> {
 			migrationsFolder: env.HOST_MIGRATIONS_FOLDER,
 			allowedOrigins: env.CORS_ORIGINS ?? [],
 			webAppDir: env.SUPERSET_WEB_APP_DIR ?? resolveDefaultWebAppDir(),
+			relayMailboxId,
 		},
 		providers: {
 			hostAuth: new PskHostAuthProvider(env.HOST_SERVICE_SECRET),
@@ -93,11 +100,32 @@ async function main(): Promise<void> {
 
 		startTerminalReaper(db);
 	});
+	const relay =
+		env.AUTOMATE_RELAY_URL && relayMailboxId
+			? new AutoMateRelay(relayMailboxId, {
+					client: new AutoMateRelayTaskClient(env.AUTOMATE_RELAY_URL),
+					fetch,
+					baseUrl: `http://127.0.0.1:${env.PORT}`,
+				})
+			: undefined;
+	relay?.start();
+	if (relay && !isDev) {
+		let shuttingDown = false;
+		const shutdown = () => {
+			if (shuttingDown) return;
+			shuttingDown = true;
+			relay.stop();
+			server.close(() => process.exit(0));
+			setTimeout(() => process.exit(0), 3_000).unref();
+		};
+		process.on("SIGINT", shutdown);
+		process.on("SIGTERM", shutdown);
+	}
 	// Node detaches its own socket error handler before emitting `upgrade`, while
 	// @hono/node-ws awaits app.request() before it adopts the socket. Keep a
 	// listener through that gap so a peer ECONNRESET cannot terminate the process.
 	server.on("upgrade", (request: IncomingMessage, socket: Duplex) => {
-		// Query strings can contain the host-service secret for proxied requests.
+		// ACP query strings can contain a phone-session bearer. Log only the path.
 		const requestPath = request.url?.split("?")[0] ?? "<unknown>";
 		socket.on("error", (error: NodeJS.ErrnoException) => {
 			console.warn(

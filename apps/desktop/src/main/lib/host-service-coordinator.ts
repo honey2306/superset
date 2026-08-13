@@ -584,6 +584,9 @@ export class HostServiceCoordinator extends EventEmitter {
 			HOST_CLIENT_ID: getHostId(),
 			HOST_NAME: getHostName(),
 			HOST_SERVICE_SECRET: secret,
+			AUTOMATE_RELAY_URL: isInternalBuild()
+				? (process.env.AUTOMATE_RELAY_URL ?? "")
+				: "",
 			HOST_SERVICE_PORT: String(port),
 			// Internal builds expose the authenticated phone surface on the LAN.
 			// Stable builds retain the loopback-only boundary.

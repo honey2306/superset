@@ -5,6 +5,7 @@ import type {
 	SessionsPage,
 } from "@superset/session-protocol";
 import { getStoredToken } from "./auth-store";
+import { getPhoneTransport } from "./transport";
 import { getTrpc } from "./trpc-client";
 
 export interface PhoneAcpClient {
@@ -20,6 +21,9 @@ export interface PhoneAcpClient {
 		limit?: number;
 	}): Promise<SessionsPage>;
 	streamUrl(sessionId: string): () => string;
+	createWebSocket(
+		url: string,
+	): import("@superset/session-protocol/client").WebSocketLike;
 }
 
 /**
@@ -59,5 +63,6 @@ export function createPhoneAcpClient(): PhoneAcpClient {
 				: "";
 			return `${proto}//${host}/acp-sessions/${encoded}/stream${suffix}`;
 		},
+		createWebSocket: (url) => getPhoneTransport().createWebSocket(url),
 	};
 }

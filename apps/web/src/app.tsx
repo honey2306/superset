@@ -9,8 +9,16 @@ import { SessionRoute } from "./routes/session";
 import { WorkspaceRoute } from "./routes/workspace";
 import { WorkspacesRoute } from "./routes/workspaces";
 
+const automateBasePath = "/webapp/16740";
+const isAutoMateWebApp =
+	location.pathname === automateBasePath ||
+	location.pathname.startsWith(`${automateBasePath}/`);
+const isAutoMateRoot =
+	isAutoMateWebApp && new URLSearchParams(location.search).has("code");
+
 const router = createBrowserRouter(
 	[
+		...(isAutoMateRoot ? [{ path: "/", element: <PairRoute /> }] : []),
 		{ path: "/pair", element: <PairRoute /> },
 		{
 			element: <AuthGate />,
@@ -22,7 +30,13 @@ const router = createBrowserRouter(
 		},
 		{ path: "*", element: <Navigate to="/" replace /> },
 	],
-	{ basename: "/app" },
+	{
+		basename: location.pathname.startsWith("/app")
+			? "/app"
+			: isAutoMateWebApp
+				? automateBasePath
+				: "/",
+	},
 );
 
 export function App() {

@@ -65,6 +65,7 @@ export interface CreateAppOptions {
 		 * is served by a separate Vite dev server).
 		 */
 		webAppDir?: string;
+		relayMailboxId?: string;
 	};
 	providers: {
 		hostAuth: HostAuthProvider;
@@ -304,6 +305,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		phoneAuth,
 		pullRequests: pullRequestRuntime,
 		workspaceProvisioning,
+		relayMailboxId: config.relayMailboxId,
 	};
 
 	// Local-first automations are evaluated by this host process. The scheduler

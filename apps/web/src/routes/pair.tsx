@@ -13,6 +13,7 @@ export function PairRoute() {
 	const [params] = useSearchParams();
 	const navigate = useNavigate();
 	const initialCode = params.get("code") ?? "";
+	const relayMailboxId = params.get("mailboxId") ?? undefined;
 	const [code, setCode] = useState(initialCode);
 	const [state, setState] = useState<PairState>({ kind: "idle" });
 
@@ -35,6 +36,7 @@ export function PairRoute() {
 					hostName: result.hostName,
 					hostId: result.hostId,
 					expiresAt: result.expiresAt,
+					relayMailboxId,
 				});
 				setState({ kind: "paired" });
 				setTimeout(() => navigate("/", { replace: true }), 400);
@@ -44,7 +46,7 @@ export function PairRoute() {
 				setState({ kind: "error", message });
 			}
 		},
-		[navigate],
+		[navigate, relayMailboxId],
 	);
 
 	useEffect(() => {

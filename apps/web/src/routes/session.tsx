@@ -24,6 +24,7 @@ export function SessionRoute() {
 		sessionId: sessionId ?? "",
 		api: client.api,
 		streamUrl,
+		createWebSocket: client.createWebSocket,
 	});
 	const permissions = useAcpPermissions(session);
 	const [busy, setBusy] = useState(false);

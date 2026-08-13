@@ -10,13 +10,14 @@ import { protectedProcedure, router } from "../../index";
 const HOST_SERVICE_VERSION: string = hostServicePackageJson.version;
 
 export const hostRouter = router({
-	info: protectedProcedure.query(() => {
+	info: protectedProcedure.query(({ ctx }) => {
 		return {
 			hostId: getHostId(),
 			hostName: getHostName(),
 			version: HOST_SERVICE_VERSION,
 			platform: os.platform(),
 			uptime: process.uptime(),
+			relayMailboxId: ctx.runtime.relayMailboxId,
 		};
 	}),
 });

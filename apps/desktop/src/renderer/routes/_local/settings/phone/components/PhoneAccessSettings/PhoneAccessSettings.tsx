@@ -86,6 +86,16 @@ export function PhoneAccessSettings() {
 		mint.data && pairingOrigin
 			? `${pairingOrigin}/app/pair?code=${encodeURIComponent(mint.data.code)}`
 			: null;
+	const automateUrl =
+		mint.data && hostInfo.data?.relayMailboxId
+			? `https://automate.corp.kuaishou.com/webapp/16740?${new URLSearchParams({ code: mint.data.code, mailboxId: hostInfo.data.relayMailboxId, route: "/pair" })}`
+			: null;
+	const [transportOverride, setTransportOverride] = useState<
+		"automate" | "direct" | null
+	>(null);
+	const transport = transportOverride ?? (automateUrl ? "automate" : "direct");
+	const selectedUrl =
+		transport === "automate" && automateUrl ? automateUrl : url;
 
 	return (
 		<div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-8">
@@ -107,6 +117,24 @@ export function PhoneAccessSettings() {
 						onChange={() => setChoice({ kind: "auto" })}
 					/>
 					<span>Auto ({hostInfo.data?.hostName ?? "…"}.local)</span>
+				</label>
+				{automateUrl ? (
+					<label className="flex items-center gap-2 text-sm">
+						<input
+							type="radio"
+							checked={transport === "automate"}
+							onChange={() => setTransportOverride("automate")}
+						/>
+						<span>AutoMate relay</span>
+					</label>
+				) : null}
+				<label className="flex items-center gap-2 text-sm">
+					<input
+						type="radio"
+						checked={transport === "direct"}
+						onChange={() => setTransportOverride("direct")}
+					/>
+					<span>Direct LAN / Tailscale</span>
 				</label>
 				<label className="flex items-center gap-2 text-sm">
 					<input
@@ -148,10 +176,10 @@ export function PhoneAccessSettings() {
 					</div>
 				) : null}
 
-				{mint.data && url ? (
+				{mint.data && selectedUrl ? (
 					<div className="mt-2 flex flex-col gap-3 rounded border bg-hover/40 p-3 sm:flex-row sm:items-start">
 						<div className="shrink-0 self-center sm:self-start">
-							<PairingQrCode url={url} size={192} />
+							<PairingQrCode url={selectedUrl} size={192} />
 						</div>
 						<div className="flex min-w-0 flex-1 flex-col gap-2">
 							<div className="text-xs uppercase tracking-wider text-fg-mute">
@@ -162,8 +190,16 @@ export function PhoneAccessSettings() {
 							</div>
 							<div className="text-xs text-fg-mute">Or open on phone:</div>
 							<div className="select-text cursor-text break-all rounded bg-background p-2 font-mono text-xs">
-								{url}
+								{selectedUrl}
 							</div>
+							{automateUrl ? (
+								<>
+									<div className="text-xs text-fg-mute">AutoMate WebApp:</div>
+									<div className="select-text cursor-text break-all rounded bg-background p-2 font-mono text-xs">
+										{automateUrl}
+									</div>
+								</>
+							) : null}
 						</div>
 					</div>
 				) : null}

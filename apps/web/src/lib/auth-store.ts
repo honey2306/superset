@@ -6,6 +6,8 @@ export interface StoredSession {
 	hostName: string;
 	hostId: string;
 	expiresAt: number;
+	/** Present only for sessions paired through the AutoMate WebApp. */
+	relayMailboxId?: string;
 }
 
 function safeParse(raw: string | null): StoredSession | null {
@@ -43,6 +45,10 @@ export function getStoredSession(): StoredSession | null {
 
 export function getStoredToken(): string {
 	return getStoredSession()?.token ?? "";
+}
+
+export function getStoredRelayMailboxId(): string {
+	return getStoredSession()?.relayMailboxId ?? "";
 }
 
 export function setStoredSession(session: StoredSession): void {

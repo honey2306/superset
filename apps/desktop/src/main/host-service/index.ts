@@ -9,6 +9,8 @@ import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import { serve } from "@hono/node-server";
 import {
+	AutoMateRelay,
+	AutoMateRelayTaskClient,
 	createApp,
 	getSupervisor,
 	installProcessSafetyNet,
@@ -22,6 +24,8 @@ import {
 	initTerminalBaseEnv,
 	resolveTerminalBaseEnv,
 } from "@superset/host-service/terminal-env";
+import { mailboxId } from "@superset/session-protocol";
+import { getHostId } from "@superset/shared/host-info";
 import { writeManifest } from "main/lib/host-service-manifest";
 import { shutdownHostDaemon } from "./daemon-shutdown";
 import { env } from "./env";
@@ -30,16 +34,19 @@ const SHUTDOWN_GRACE_MS = 3_000;
 const WATCHDOG_INTERVAL_MS = 2_000;
 
 type Server = ReturnType<typeof serve>;
+type Relay = AutoMateRelay;
 
 async function main(): Promise<void> {
 	// Install the parent watchdog before any awaits so a crash during
 	// startup can still reap this child. `serverRef` is filled in once
 	// serve() returns; shutdown handles both pre- and post-bind states.
 	const serverRef: { current: Server | null } = { current: null };
+	const relayRef: { current: Relay | null } = { current: null };
 	let shuttingDown = false;
 	const shutdown = (reason: string) => {
 		if (shuttingDown) return;
 		shuttingDown = true;
+		relayRef.current?.stop();
 		console.log(`[host-service] shutdown (${reason}), draining connections`);
 		const finalizeDaemon = () =>
 			shutdownHostDaemon({
@@ -88,6 +95,9 @@ async function main(): Promise<void> {
 	initTerminalBaseEnv(terminalBaseEnv);
 	startDaemonBootstrap(env.ORGANIZATION_ID);
 
+	const relayMailboxId = env.AUTOMATE_RELAY_URL
+		? mailboxId(env.ORGANIZATION_ID, getHostId())
+		: undefined;
 	const { app, injectWebSocket, db } = createApp({
 		config: {
 			organizationId: env.ORGANIZATION_ID,
@@ -98,6 +108,7 @@ async function main(): Promise<void> {
 				`http://localhost:${env.DESKTOP_VITE_PORT}`,
 				`http://127.0.0.1:${env.DESKTOP_VITE_PORT}`,
 			],
+			relayMailboxId,
 		},
 		providers: {
 			hostAuth: new PskHostAuthProvider(env.HOST_SERVICE_SECRET),
@@ -137,6 +148,16 @@ async function main(): Promise<void> {
 		},
 	);
 	serverRef.current = server;
+	const relay =
+		env.AUTOMATE_RELAY_URL && relayMailboxId
+			? new AutoMateRelay(relayMailboxId, {
+					client: new AutoMateRelayTaskClient(env.AUTOMATE_RELAY_URL),
+					fetch,
+					baseUrl: `http://127.0.0.1:${env.HOST_SERVICE_PORT}`,
+				})
+			: undefined;
+	relayRef.current = relay ?? null;
+	relay?.start();
 	// Keep an error listener during the gap between Node emitting `upgrade` and
 	// @hono/node-ws adopting the socket. A peer reset in that window must not
 	// take down the bundled host-service process.

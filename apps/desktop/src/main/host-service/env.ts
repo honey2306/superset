@@ -11,6 +11,7 @@ export const env = createEnv({
 		SUPERSET_WEB_APP_DIR: z.string().min(1).optional(),
 		ORGANIZATION_ID: z.string().min(1),
 		DESKTOP_VITE_PORT: z.coerce.number().int().positive(),
+		AUTOMATE_RELAY_URL: z.string().url().optional(),
 	},
 	runtimeEnv: process.env,
 	emptyStringAsUndefined: true,

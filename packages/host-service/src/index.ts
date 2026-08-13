@@ -1,4 +1,6 @@
 export { type CreateAppOptions, type CreateAppResult, createApp } from "./app";
+export type { RelayDependencies, RelayTaskClient } from "./automate-relay";
+export { AutoMateRelay, AutoMateRelayTaskClient } from "./automate-relay";
 export {
 	type DaemonSupervisor,
 	getSupervisor,

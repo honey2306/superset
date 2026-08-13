@@ -29,6 +29,7 @@ export interface HostServiceRuntime {
 	phoneAuth: PhoneAuthService;
 	pullRequests: PullRequestRuntimeManager;
 	workspaceProvisioning: WorkspaceProvisioning;
+	relayMailboxId?: string;
 }
 
 export interface HostServiceContext {

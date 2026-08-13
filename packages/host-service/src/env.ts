@@ -21,6 +21,7 @@ export const env = createEnv({
 		// route (dev + tests). Auto-derived to `../public/web` in
 		// `serve.ts` when unset.
 		SUPERSET_WEB_APP_DIR: z.string().min(1).optional(),
+		AUTOMATE_RELAY_URL: z.string().url().optional(),
 	},
 	runtimeEnv: process.env,
 	emptyStringAsUndefined: true,
