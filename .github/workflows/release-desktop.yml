@@ -30,18 +30,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download DMG
+      - name: Download macOS release artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: release-artifacts
-          pattern: desktop-mac-arm64-dmg
+          pattern: desktop-mac-arm64
           merge-multiple: true
 
-      - name: Create stable DMG name
+      - name: Verify updater assets
         run: |
           DMG=$(find release-artifacts -maxdepth 1 -name '*.dmg' -type f -print -quit)
+          ZIP=$(find release-artifacts -maxdepth 1 -name '*.zip' -type f -print -quit)
           test -n "$DMG"
-          cp "$DMG" release-artifacts/Superset-arm64.dmg
+          test -n "$ZIP"
+          test -f release-artifacts/latest-mac.yml
           ls -lh release-artifacts
 
       - name: Generate release notes
@@ -52,12 +54,12 @@ jobs:
             -f tag_name="${{ github.ref_name }}" \
             --jq '.body' > release-notes.md
 
-      - name: Create draft release
+      - name: Create draft release with updater assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ github.ref_name }}" \
-            release-artifacts/Superset-arm64.dmg \
+            release-artifacts/* \
             --title "Superset Desktop ${{ github.ref_name }}" \
             --notes-file release-notes.md \
             --draft

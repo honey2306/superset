@@ -12,6 +12,7 @@ import {
 	packagedAsarUnpackGlobs,
 	packagedNodeModuleCopies,
 } from "./runtime-dependencies";
+import { resolveUpdateRepository } from "./src/main/lib/update-repository";
 
 const currentYear = new Date().getFullYear();
 const author = pkg.author?.name ?? pkg.author;
@@ -27,6 +28,9 @@ const shouldNotarize = shouldNotarizeMacBuild();
 const targetPlatform = process.env.TARGET_PLATFORM ?? process.platform;
 const targetArch = process.env.TARGET_ARCH ?? process.arch;
 const targetSuffix = `${targetPlatform}-${targetArch}`;
+const updateRepository = resolveUpdateRepository(
+	process.env.SUPERSET_UPDATE_REPOSITORY,
+);
 function excludeNonTargetPlatformModules(
 	moduleName: string,
 	platformSuffixes: string[],
@@ -147,8 +151,8 @@ const config: Configuration = {
 	// Generate latest-mac.yml for auto-update (workflow handles actual upload)
 	publish: {
 		provider: "github",
-		owner: "superset-sh",
-		repo: "superset",
+		owner: updateRepository.owner,
+		repo: updateRepository.repo,
 	},
 
 	// Directories
@@ -230,7 +234,9 @@ const config: Configuration = {
 	mac: {
 		...(existsSync(macIconPath) ? { icon: macIconPath } : {}),
 		category: "public.app-category.utilities",
-		target: "default",
+		// ZIP is the installer used by electron-updater on macOS; keep the DMG
+		// for manual installation. The workflow publishes both with latest-mac.yml.
+		target: ["dmg", "zip"],
 		hardenedRuntime: true,
 		gatekeeperAssess: false,
 		// Credential-free CI builds intentionally produce an unsigned DMG.

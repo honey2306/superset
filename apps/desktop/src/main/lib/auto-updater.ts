@@ -1,4 +1,6 @@
 import { EventEmitter } from "node:events";
+import { rm } from "node:fs/promises";
+import { dirname } from "node:path";
 import { app, dialog } from "electron";
 import log from "electron-log/main";
 import { autoUpdater } from "electron-updater";
@@ -14,6 +16,15 @@ import {
 } from "shared/auto-update";
 import { PLATFORM } from "shared/constants";
 import { isCanaryBuild, shouldUseOfficialAutoUpdater } from "./build-channel";
+import {
+	cleanupUpdateDirectory,
+	downloadVerifiedMacUpdate,
+	ensureWritableInstallLocation,
+	launchMacInstaller,
+	parseMacUpdateManifest,
+	unpackAndValidateMacUpdate,
+} from "./macos-updater";
+import { getUpdateFeedUrl, resolveUpdateRepository } from "./update-repository";
 
 // electron-updater's internal cache only self-invalidates when the remote
 // sha512 differs from cached metadata, so a corrupt cached download (e.g.
@@ -44,9 +55,10 @@ const IS_AUTO_UPDATE_PLATFORM = PLATFORM.IS_MAC || PLATFORM.IS_LINUX;
 // (for example latest-mac.yml and latest-linux.yml) from the correct release.
 // - Stable: fetches from /releases/latest/download/ (latest non-prerelease)
 // - Canary: fetches from /releases/download/desktop-canary/ (rolling canary tag)
-const UPDATE_FEED_URL = IS_CANARY
-	? "https://github.com/superset-sh/superset/releases/download/desktop-canary"
-	: "https://github.com/superset-sh/superset/releases/latest/download";
+const UPDATE_REPOSITORY = resolveUpdateRepository(
+	process.env.SUPERSET_UPDATE_REPOSITORY,
+);
+const UPDATE_FEED_URL = getUpdateFeedUrl(UPDATE_REPOSITORY, IS_CANARY);
 
 export type { AutoUpdateStatusEvent } from "shared/auto-update";
 
@@ -78,6 +90,50 @@ let currentError: string | undefined;
 let currentProgress: AutoUpdateProgress | undefined;
 let isDismissed = false;
 let isInstalling = false;
+let downloadedMacUpdate: { appPath: string; version: string } | undefined;
+
+function macAppBundlePath(): string {
+	// /Applications/Superset.app/Contents/MacOS/Superset -> Superset.app
+	return dirname(dirname(dirname(app.getPath("exe"))));
+}
+
+async function checkForMacUpdates(): Promise<void> {
+	const manifestResponse = await fetch(`${UPDATE_FEED_URL}/latest-mac.yml`);
+	if (!manifestResponse.ok)
+		throw new Error(
+			`Update manifest request failed (${manifestResponse.status})`,
+		);
+	const asset = parseMacUpdateManifest(await manifestResponse.text());
+	if (gte(app.getVersion(), asset.version)) {
+		emitStatus(AUTO_UPDATE_STATUS.IDLE);
+		return;
+	}
+	emitStatus(AUTO_UPDATE_STATUS.DOWNLOADING, asset.version);
+	let archivePath: string | undefined;
+	try {
+		archivePath = await downloadVerifiedMacUpdate(
+			new URL(asset.url, `${UPDATE_FEED_URL}/`).toString(),
+			asset,
+			(transferred) =>
+				emitStatus(AUTO_UPDATE_STATUS.DOWNLOADING, asset.version, undefined, {
+					percent: asset.size ? (transferred / asset.size) * 100 : 0,
+					transferredBytes: transferred,
+					totalBytes: asset.size ?? transferred,
+				}),
+		);
+		const appPath = await unpackAndValidateMacUpdate(
+			archivePath,
+			asset.version,
+		);
+		await rm(archivePath, { force: true });
+		await ensureWritableInstallLocation(macAppBundlePath());
+		downloadedMacUpdate = { appPath, version: asset.version };
+		emitStatus(AUTO_UPDATE_STATUS.READY, asset.version);
+	} catch (error) {
+		if (archivePath) await cleanupUpdateDirectory(dirname(archivePath));
+		throw error;
+	}
+}
 
 function emitStatus(
 	status: AutoUpdateStatus,
@@ -146,6 +202,28 @@ export function installUpdate(): void {
 	}
 	isInstalling = true;
 	setSkipQuitConfirmation();
+	if (PLATFORM.IS_MAC) {
+		if (
+			!downloadedMacUpdate ||
+			downloadedMacUpdate.version !== currentVersion
+		) {
+			isInstalling = false;
+			emitStatus(
+				AUTO_UPDATE_STATUS.ERROR,
+				undefined,
+				"The update is no longer available. Please check again.",
+			);
+			return;
+		}
+		launchMacInstaller(downloadedMacUpdate.appPath, macAppBundlePath())
+			.then(() => app.quit())
+			.catch((error) => {
+				isInstalling = false;
+				log.error("[auto-updater] Failed to start macOS installer:", error);
+				emitStatus(AUTO_UPDATE_STATUS.ERROR, undefined, error.message);
+			});
+		return;
+	}
 	autoUpdater.quitAndInstall(false, true);
 }
 
@@ -164,6 +242,17 @@ export function checkForUpdates(): void {
 	}
 	isDismissed = false;
 	emitStatus(AUTO_UPDATE_STATUS.CHECKING);
+	if (PLATFORM.IS_MAC) {
+		checkForMacUpdates().catch((error) => {
+			if (isNetworkError(error)) {
+				emitStatus(AUTO_UPDATE_STATUS.IDLE);
+				return;
+			}
+			log.error("[auto-updater] Failed to check macOS update:", error);
+			emitStatus(AUTO_UPDATE_STATUS.ERROR, undefined, error.message);
+		});
+		return;
+	}
 	autoUpdater.checkForUpdates().catch((error) => {
 		if (isNetworkError(error)) {
 			log.info("[auto-updater] Network unavailable, will retry later");
@@ -203,6 +292,29 @@ export function checkForUpdatesInteractive(): void {
 
 	isDismissed = false;
 	emitStatus(AUTO_UPDATE_STATUS.CHECKING);
+	if (PLATFORM.IS_MAC) {
+		checkForMacUpdates()
+			.then(() => {
+				if (currentStatus === AUTO_UPDATE_STATUS.IDLE) {
+					dialog.showMessageBox({
+						type: "info",
+						title: "No Updates",
+						message: "You're up to date!",
+						detail: `Version ${app.getVersion()} is the latest version.`,
+					});
+				}
+			})
+			.catch((error) => {
+				log.error("[auto-updater] Failed to check macOS update:", error);
+				emitStatus(AUTO_UPDATE_STATUS.ERROR, undefined, error.message);
+				dialog.showMessageBox({
+					type: "error",
+					title: "Update Error",
+					message: "Failed to check for updates. Please try again later.",
+				});
+			});
+		return;
+	}
 
 	autoUpdater
 		.checkForUpdates()
@@ -303,6 +415,11 @@ export function setupAutoUpdater(): void {
 		return;
 	}
 
+	if (PLATFORM.IS_MAC) {
+		initializeUpdateLifecycle();
+		return;
+	}
+
 	// Squirrel.Mac install failures happen in ShipIt out-of-process and never
 	// reach the lib's `error` event, so route both the lib's internal logger
 	// and our own handler narration through electron-log. Both halves of the
@@ -390,6 +507,10 @@ export function setupAutoUpdater(): void {
 		emitStatus(AUTO_UPDATE_STATUS.READY, info.version);
 	});
 
+	initializeUpdateLifecycle();
+}
+
+function initializeUpdateLifecycle(): void {
 	// If the version changed since the last launch, an update was just
 	// installed — surface a transient confirmation before the first check.
 	const lastRunVersion = appState.data.lastRunVersion;
