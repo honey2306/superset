@@ -12,7 +12,6 @@
  * top and manages projections/watchers.
  */
 import type {
-	InitialLaunchResult,
 	ProvisionWorkspaceRequest,
 	WorkspaceOperation,
 	WorkspaceOperationState,
@@ -223,12 +222,4 @@ export function createInMemoryProvisioningAdapter(): InMemoryAdapter {
 			put(op);
 		},
 	};
-}
-
-// A hint to help the Launch Coordinator label failed operations that came
-// from `attachable` results the terminal runtime didn't actually launch.
-export function extractAttachableLaunches(
-	launches: InitialLaunchResult[],
-): InitialLaunchResult[] {
-	return launches.filter((l) => l.kind === "terminal" && l.attachable);
 }

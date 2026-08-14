@@ -1,18 +1,20 @@
-import { afterEach, describe, expect, it, mock } from "bun:test";
-
-mock.module("electron", () => ({
-	app: {
-		getName: () => process.env.SUPERSET_TEST_APP_NAME || "Superset",
-		getVersion: () => "1.18.1",
-		isPackaged: true,
-	},
-}));
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 
 const { isCanaryBuild, isPersonalBuild, shouldUseOfficialAutoUpdater } =
 	await import("./build-channel");
 
+beforeAll(() => {
+	process.env.SUPERSET_TEST_APP_VERSION = "1.18.1";
+	process.env.SUPERSET_TEST_APP_PACKAGED = "1";
+});
+
 afterEach(() => {
 	delete process.env.SUPERSET_TEST_APP_NAME;
+});
+
+afterAll(() => {
+	delete process.env.SUPERSET_TEST_APP_VERSION;
+	delete process.env.SUPERSET_TEST_APP_PACKAGED;
 });
 
 describe("isCanaryBuild", () => {

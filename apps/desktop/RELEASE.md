@@ -19,7 +19,8 @@ The flow will:
 2. Set desktop, `host-service`, and `cli` all to the new version (unified) and refresh `bun.lock`
 3. Create and push a `desktop-v<version>` tag
 4. Monitor the GitHub Actions build
-5. Create a **draft release** for review
+5. Create a **draft release** for review. Publish it after review: only a
+   published (non-draft) GitHub Release is visible to the auto-updater.
 
 > Desktop, `host-service`, and `cli` share one version, enforced by CI
 > (`bun run check:versions`). `pty-daemon` stays on its own `0.x` track. See
@@ -83,16 +84,33 @@ This creates a draft release. Publish it manually at GitHub Releases.
 
 ## Auto-update
 
-The app checks for updates at launch and every x hours using:
+The app checks for updates at launch and every x hours. GitHub Actions embeds
+the current `github.repository` in the packaged app, so a build from
+`honey2306/superset` checks releases from `honey2306/superset` (there is no
+runtime repository selector). A published release must include:
 
-- **macOS manifest**: `https://github.com/superset-sh/superset/releases/latest/download/latest-mac.yml`
-- **Linux manifest**: `https://github.com/superset-sh/superset/releases/latest/download/latest-linux.yml`
-- **macOS installer**: `https://github.com/superset-sh/superset/releases/latest/download/Superset-arm64.dmg`
-- **Linux installer**: `https://github.com/superset-sh/superset/releases/latest/download/Superset-x64.AppImage`
+- **macOS manifest**: `latest-mac.yml`
+- **macOS updater installer**: the generated `*.zip` and its `*.blockmap` when generated
+- **macOS manual installer**: the generated `*.dmg`
 
-The workflow creates stable-named copies (without version) so these URLs always point to the latest build.
+The workflow uploads these generated files unchanged, so the filenames in
+`latest-mac.yml` continue to resolve correctly.
+
+Builds released before this repository binding was added still point at the
+source repository. Install the first fixed release manually from its DMG once;
+subsequent releases can then update automatically from `honey2306/superset`.
 
 ## Code Signing
+
+macOS builds use the app's local updater. It verifies the ZIP's SHA-512 from
+`latest-mac.yml`, validates the extracted
+bundle identity/version, then uses a detached local installer with backup and
+rollback. It removes the quarantine attribute only from the newly installed
+app bundle so macOS can relaunch that downloaded update; it does not change the
+system quarantine policy. The app must be installed in a writable location.
+If it is not, the update fails safely and the DMG can be installed manually.
+
+Configure these secrets only when distributing signed/notarized builds:
 
 macOS code signing uses these repository secrets:
 

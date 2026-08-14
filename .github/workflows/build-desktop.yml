@@ -61,10 +61,11 @@ jobs:
           NEXT_PUBLIC_WEB_URL: ${{ secrets.NEXT_PUBLIC_WEB_URL }}
           NEXT_PUBLIC_DOCS_URL: ${{ secrets.NEXT_PUBLIC_DOCS_URL }}
           SUPERSET_WORKSPACE_NAME: superset
+          SUPERSET_UPDATE_REPOSITORY: ${{ github.repository }}
           TARGET_ARCH: arm64
         run: bun run compile:app
 
-      - name: Build arm64 DMG
+      - name: Build arm64 macOS artifacts
         working-directory: apps/desktop
         env:
           MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
@@ -72,6 +73,7 @@ jobs:
           MAC_APPLE_ID: ${{ secrets.APPLE_ID }}
           MAC_APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           MAC_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SUPERSET_UPDATE_REPOSITORY: ${{ github.repository }}
           TARGET_ARCH: arm64
         run: |
           if [[ -n "$MAC_CERTIFICATE" && -n "$MAC_CERTIFICATE_PASSWORD" ]]; then
@@ -90,16 +92,23 @@ jobs:
             echo "Skipping notarization: Apple notarization credentials are unavailable."
           fi
 
-          bun run package -- --publish never --config ${{ inputs.electron_builder_config }} --mac dmg --arm64
+          bun run package -- --publish never --config ${{ inputs.electron_builder_config }} --mac dmg zip --arm64
 
-      - name: Verify DMG
+      - name: Verify macOS updater artifacts
         working-directory: apps/desktop
-        run: test -n "$(find release -maxdepth 1 -name '*.dmg' -type f -print -quit)"
+        run: |
+          test -n "$(find release -maxdepth 1 -name '*.dmg' -type f -print -quit)"
+          test -n "$(find release -maxdepth 1 -name '*.zip' -type f -print -quit)"
+          test -f release/latest-mac.yml
 
-      - name: Upload DMG
+      - name: Upload macOS release and updater artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ${{ inputs.artifact_prefix }}-mac-arm64-dmg
-          path: apps/desktop/release/*.dmg
+          name: ${{ inputs.artifact_prefix }}-mac-arm64
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest-mac.yml
           retention-days: ${{ inputs.artifact_retention_days }}
           if-no-files-found: error

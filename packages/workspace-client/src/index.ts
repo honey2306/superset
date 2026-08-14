@@ -25,7 +25,6 @@ export {
 export {
 	createInMemoryProvisioningAdapter,
 	createTrpcProvisioningAdapter,
-	extractAttachableLaunches,
 	type InitialLaunchResult,
 	type InitialSessionIntent,
 	type ProvisioningAdapter,

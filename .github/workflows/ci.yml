@@ -7,8 +7,23 @@ on:
     types: [opened, synchronize]
 
 jobs:
+  lockfile-registry:
+    name: Lockfile Registry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Reject private registry URLs
+        run: |
+          if grep -q "npm.corp.kuaishou.com" bun.lock; then
+            echo "::error file=bun.lock::bun.lock must use the public npm registry"
+            exit 1
+          fi
+
   sherif:
     name: Sherif
+    needs: lockfile-registry
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -34,6 +49,7 @@ jobs:
 
   version-sync:
     name: Version Sync
+    needs: lockfile-registry
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -65,6 +81,7 @@ jobs:
 
   lint:
     name: Lint
+    needs: lockfile-registry
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -90,6 +107,7 @@ jobs:
 
   test:
     name: Test
+    needs: lockfile-registry
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -122,6 +140,7 @@ jobs:
 
   typecheck:
     name: Typecheck
+    needs: lockfile-registry
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -147,6 +166,7 @@ jobs:
 
   build:
     name: Build
+    needs: lockfile-registry
     runs-on: ubuntu-latest
     steps:
       - name: Check out code

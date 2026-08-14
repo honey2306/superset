@@ -153,10 +153,12 @@ Object.defineProperty(globalThis.window, "localStorage", {
 mock.module("electron", () => ({
 	app: {
 		getPath: mock(() => testTmpDir),
-		getName: mock(() => "test-app"),
-		getVersion: mock(() => "1.0.0"),
+		getName: mock(() => process.env.SUPERSET_TEST_APP_NAME ?? "test-app"),
+		getVersion: mock(() => process.env.SUPERSET_TEST_APP_VERSION ?? "1.0.0"),
 		getAppPath: mock(() => testTmpDir),
-		isPackaged: false,
+		get isPackaged() {
+			return process.env.SUPERSET_TEST_APP_PACKAGED === "1";
+		},
 	},
 	dialog: {
 		showOpenDialog: mock(() =>
@@ -183,6 +185,11 @@ mock.module("electron", () => ({
 	clipboard: {
 		writeText: mock(),
 		readText: mock(() => ""),
+	},
+	systemPreferences: {
+		askForMediaAccess: mock(async () => false),
+		getMediaAccessStatus: mock(() => "not-determined"),
+		isTrustedAccessibilityClient: mock(() => false),
 	},
 	screen: {
 		getPrimaryDisplay: mock(() => ({

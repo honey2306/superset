@@ -96,6 +96,12 @@ export default defineConfig({
 				process.env.SUPERSET_BUILD_CHANNEL,
 				"stable",
 			),
+			// GitHub Actions sets this to github.repository. It is embedded into the
+			// main bundle so releases from forks update from that same repository.
+			"process.env.SUPERSET_UPDATE_REPOSITORY": defineEnv(
+				process.env.SUPERSET_UPDATE_REPOSITORY,
+				"superset-sh/superset",
+			),
 		},
 
 		build: {

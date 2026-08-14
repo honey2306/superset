@@ -25,6 +25,15 @@ describe("electron-builder config", () => {
 		expect(config.electronLanguages).not.toContain("zh_TW");
 	});
 
+	it("publishes updater metadata to the configured repository with a mac ZIP", () => {
+		expect(config.publish).toMatchObject({
+			provider: "github",
+			owner: "superset-sh",
+			repo: "superset",
+		});
+		expect(config.mac?.target).toEqual(["dmg", "zip"]);
+	});
+
 	it("uses explicit runtime FileSets instead of automatic dependency collection", () => {
 		expect(typeof config.beforeBuild).toBe("function");
 		if (typeof config.beforeBuild === "function") {
@@ -40,11 +49,15 @@ describe("electron-builder config", () => {
 			to: "resources",
 			filter: ["**/*", "!build/**/*", "build/icons/*.png", "!sounds/**/*"],
 		});
+		const nonTargetPlatform =
+			process.platform === "linux" && process.arch === "x64"
+				? { platform: "darwin", arch: "arm64" }
+				: { platform: "linux", arch: "x64" };
 		expect(config.files).toContain(
-			"!**/node_modules/@duckdb/node-bindings-linux-x64/**/*",
+			`!**/node_modules/@duckdb/node-bindings-${nonTargetPlatform.platform}-${nonTargetPlatform.arch}/**/*`,
 		);
 		expect(config.files).toContain(
-			"!**/node_modules/onnxruntime-node/bin/napi-v3/linux/x64/**/*",
+			`!**/node_modules/onnxruntime-node/bin/napi-v3/${nonTargetPlatform.platform}/${nonTargetPlatform.arch}/**/*`,
 		);
 	});
 });

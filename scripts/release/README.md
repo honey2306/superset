@@ -63,8 +63,9 @@ Or publish and merge the bump PR automatically:
 bun run release desktop 1.17.1 <commit-sha> --publish --merge
 ```
 
-A published release becomes `/releases/latest`, which the desktop auto-updater
-uses.
+A published, non-draft release becomes `/releases/latest`, which the desktop
+auto-updater uses. Do not leave a release as a draft: installed apps cannot see
+its update manifest or ZIP asset.
 
 ## Daemon guard
 

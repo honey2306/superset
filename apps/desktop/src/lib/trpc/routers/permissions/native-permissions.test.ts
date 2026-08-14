@@ -1,15 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
-
-mock.module("electron", () => ({
-	shell: {
-		openExternal: mock(async () => {}),
-	},
-	systemPreferences: {
-		askForMediaAccess: mock(async () => false),
-		getMediaAccessStatus: mock(() => "not-determined"),
-		isTrustedAccessibilityClient: mock(() => false),
-	},
-}));
+import { describe, expect, it } from "bun:test";
 
 const {
 	checkAccessibility,

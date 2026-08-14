@@ -9,9 +9,11 @@ describe("packaged runtime dependencies", () => {
 		const astGrep = packagedNodeModuleCopies.find(
 			(copy) => copy.from === "node_modules/@ast-grep",
 		);
-		expect(duckdb?.filter).toContain("node-bindings-darwin-arm64/**/*");
-		expect(duckdb?.filter).not.toContain("node-bindings-linux-x64/**/*");
-		expect(astGrep?.filter).toContain("napi-darwin-arm64/**/*");
+		const targetSuffix = `${process.platform}-${process.arch}`;
+		const targetGnuSuffix =
+			process.platform === "linux" ? `linux-${process.arch}-gnu` : targetSuffix;
+		expect(duckdb?.filter).toContain(`node-bindings-${targetSuffix}/**/*`);
+		expect(astGrep?.filter).toContain(`napi-${targetGnuSuffix}/**/*`);
 	});
 
 	it("does not stage bundled JavaScript runtimes as node modules", () => {

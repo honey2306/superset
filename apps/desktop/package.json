@@ -43,7 +43,7 @@
 		"generate:routes": "tsr generate",
 		"pretypecheck": "bun run generate:icons && bun run generate:routes",
 		"typecheck": "tsc --noEmit",
-		"test": "bun test"
+		"test": "bun run generate:icons && bun test"
 	},
 	"dependencies": {
 		"@agentclientprotocol/claude-agent-acp": "0.56.0",
