@@ -10,10 +10,10 @@ import {
 import * as fs from "node:fs";
 import * as os from "node:os";
 import path from "node:path";
+import { dialog } from "electron";
 
-const APP_VERSION = "1.2.3";
-let appIsPackaged = false;
-let appName = "Superset";
+process.env.SUPERSET_TEST_APP_NAME = "Superset";
+process.env.SUPERSET_TEST_APP_VERSION = "1.2.3";
 const originalResourcesPath = (
 	process as typeof process & { resourcesPath?: string }
 ).resourcesPath;
@@ -61,6 +61,7 @@ const showAlertMock = mock(async () => ({
 	response: 0,
 	checkboxChecked: false,
 }));
+dialog.showMessageBox = showAlertMock;
 
 const realHostServiceUtils = await import("./host-service-utils");
 mock.module("./host-service-utils", () => ({
@@ -70,20 +71,6 @@ mock.module("./host-service-utils", () => ({
 	findFreePort: mock(() => Promise.resolve(40000)),
 	openRotatingLogFd: mock(() => -1),
 	pollHealthCheck: pollHealthCheckMock,
-}));
-
-mock.module("electron", () => ({
-	app: {
-		getVersion: () => APP_VERSION,
-		getName: () => appName,
-		get isPackaged() {
-			return appIsPackaged;
-		},
-		getAppPath: () => "/tmp/app",
-	},
-	dialog: {
-		showMessageBox: showAlertMock,
-	},
 }));
 
 mock.module("electron-log/main", () => ({
@@ -143,8 +130,7 @@ interface HostServiceCoordinatorInternals {
 }
 
 function resetMocks(): void {
-	appIsPackaged = false;
-	appName = "Superset";
+	delete process.env.SUPERSET_TEST_APP_PACKAGED;
 	manifestStore.current = null;
 	readManifestMock.mockClear();
 	removeManifestMock.mockClear();
@@ -221,7 +207,7 @@ describe("HostServiceCoordinator ACP environment", () => {
 	});
 
 	test("enables ACP sessions for packaged stable builds", async () => {
-		appIsPackaged = true;
+		process.env.SUPERSET_TEST_APP_PACKAGED = "1";
 		const internals = coordinator as unknown as HostServiceCoordinatorInternals;
 
 		const env = await internals.buildEnv(40000, "secret", spawnConfig);
@@ -782,5 +768,8 @@ describe("HostServiceCoordinator crash respawn", () => {
 });
 
 afterAll(() => {
+	delete process.env.SUPERSET_TEST_APP_NAME;
+	delete process.env.SUPERSET_TEST_APP_VERSION;
+	delete process.env.SUPERSET_TEST_APP_PACKAGED;
 	mock.restore();
 });
