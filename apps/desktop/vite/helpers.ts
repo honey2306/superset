@@ -23,7 +23,7 @@ export function defineEnv(
 	return JSON.stringify(value || fallback);
 }
 
-const RESOURCES_TO_COPY = [
+export const RESOURCES_TO_COPY = [
 	{
 		src: resolve(__dirname, "..", resources, "sounds"),
 		dest: resolve(__dirname, "..", devPath, "resources/sounds"),
@@ -31,10 +31,6 @@ const RESOURCES_TO_COPY = [
 	{
 		src: resolve(__dirname, "..", resources, "tray"),
 		dest: resolve(__dirname, "..", devPath, "resources/tray"),
-	},
-	{
-		src: resolve(__dirname, "..", resources, "browser-extension"),
-		dest: resolve(__dirname, "..", devPath, "resources/browser-extension"),
 	},
 	{
 		src: resolve(__dirname, "../../../packages/local-db/drizzle"),

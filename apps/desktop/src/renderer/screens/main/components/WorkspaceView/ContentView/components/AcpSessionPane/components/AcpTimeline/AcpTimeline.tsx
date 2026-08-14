@@ -1,5 +1,6 @@
 import type {
 	FoldedTimeline,
+	PlanItem,
 	RequestPermissionOutcome,
 	SessionStatus,
 	TimelineItem,
@@ -17,6 +18,7 @@ import {
 } from "react";
 import { AcpEmptyState } from "../AcpEmptyState";
 import { AcpMessageItem } from "./components/AcpMessageItem";
+import { AcpPlanDock } from "./components/AcpPlanDock";
 import { AcpPlanItem } from "./components/AcpPlanItem";
 import { AcpSubagentItem } from "./components/AcpSubagentItem";
 import { AcpToolCallItem } from "./components/AcpToolCallItem";
@@ -239,6 +241,12 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 			timeline.items,
 			status,
 		);
+		const activePlan = timeline.items.findLast(
+			(item): item is PlanItem => item.kind === "plan" && !item.removed,
+		);
+		const visibleItems = activePlan
+			? timeline.items.filter((item) => item.id !== activePlan.id)
+			: timeline.items;
 		const workingIndicator = showWorkingIndicator && (
 			<output className="acp-timeline__working">
 				<span className="acp-blink" aria-hidden>
@@ -265,19 +273,23 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 		}
 
 		return (
-			<div className="acp-pane__timeline">
+			<div
+				className="acp-pane__timeline"
+				data-has-plan={activePlan ? "true" : undefined}
+			>
 				<div
 					className={cn("acp-pane__scroll", className)}
 					ref={scrollRef}
 					onScroll={handleScroll}
 				>
 					<div className="acp-pane__body-inner">
-						{timeline.items.map((item) =>
+						{visibleItems.map((item) =>
 							renderItem(item, onRespond, agentLabel, onOpenFile),
 						)}
 						{workingIndicator}
 					</div>
 				</div>
+				{activePlan && <AcpPlanDock key={activePlan.id} item={activePlan} />}
 				{showJumpButton && (
 					<button
 						type="button"

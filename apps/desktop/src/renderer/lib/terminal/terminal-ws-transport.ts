@@ -3,7 +3,6 @@ import {
 	type DirectSocket,
 } from "@superset/workspace-client/direct-socket";
 import type { Terminal as XTerm } from "@xterm/xterm";
-import { posthog } from "renderer/lib/posthog";
 import {
 	classifyTerminalFailure,
 	type TerminalFailureClassification,
@@ -82,7 +81,7 @@ export interface TerminalTransport {
 	_writeCoalescer: WriteCoalescer | null;
 	/**
 	 * Whether the give-up diagnosis has already been logged for the current
-	 * outage, so the one-shot log + telemetry don't repeat every retry cycle.
+	 * outage, so the one-shot log doesn't repeat every retry cycle.
 	 * Reset on attach and on a forced reconnect. The failure *count* itself is
 	 * read live from the socket's `retryCount` (see maybeSurfaceDiagnosis).
 	 */
@@ -133,10 +132,7 @@ function isWindowHidden(): boolean {
 // close-counting gate would leave a genuinely-offline terminal retrying
 // silently with no header explanation. The socket keeps retrying forever
 // regardless; this only decides when (and whether) the header explains it.
-function maybeSurfaceDiagnosis(
-	transport: TerminalTransport,
-	closeEvent: { code?: unknown; reason?: unknown } | null,
-) {
+function maybeSurfaceDiagnosis(transport: TerminalTransport) {
 	if (transport._terminated) return;
 	// A hidden/minimized window shouldn't accrue an "offline" state nobody is
 	// looking at — its failures may be a suspend artifact. The socket keeps
@@ -144,7 +140,7 @@ function maybeSurfaceDiagnosis(
 	if (isWindowHidden()) return;
 	if ((transport._socket?.retryCount ?? 0) < DIAGNOSE_AFTER_ATTEMPTS) return;
 
-	// Keep the header diagnosis fresh every cycle; log + emit telemetry once.
+	// Keep the header diagnosis fresh every cycle; log once.
 	const diagnosis = classifyTerminalFailure();
 	transport.lastDiagnosis = diagnosis;
 	if (transport._diagnosisLogged) return;
@@ -154,19 +150,6 @@ function maybeSurfaceDiagnosis(
 		"warn",
 		`Terminal disconnected from ${formatWsEndpoint(transport.currentUrl)}. ${diagnosis.message} Still retrying.`,
 	);
-	posthog.capture("terminal_connect_failed", {
-		endpoint: formatWsEndpoint(transport.currentUrl),
-		close_code:
-			closeEvent && typeof closeEvent.code === "number"
-				? closeEvent.code
-				: null,
-		close_reason:
-			closeEvent && typeof closeEvent.reason === "string"
-				? closeEvent.reason || undefined
-				: undefined,
-		reconnect_attempts: transport._socket?.retryCount ?? 0,
-		category: diagnosis.category,
-	});
 }
 
 function setConnectionState(
@@ -594,7 +577,7 @@ function attachSocketListeners(
 				`WebSocket closed while connected to ${formatWsEndpoint(transport.currentUrl)} (${formatCloseDetails(closeEvent)}). Reconnecting (attempt ${transport._socket?.retryCount ?? 0}/${DIAGNOSE_AFTER_ATTEMPTS})...`,
 			);
 		}
-		maybeSurfaceDiagnosis(transport, closeEvent);
+		maybeSurfaceDiagnosis(transport);
 	});
 
 	socket.addEventListener("error", () => {
@@ -615,7 +598,7 @@ function attachSocketListeners(
 		}
 		// Dial failures (host unreachable, upgrade rejected) surface ONLY as error
 		// + a synthetic close, so drive the diagnosis from here too.
-		maybeSurfaceDiagnosis(transport, null);
+		maybeSurfaceDiagnosis(transport);
 	});
 
 	transport._onDataDisposable?.dispose();

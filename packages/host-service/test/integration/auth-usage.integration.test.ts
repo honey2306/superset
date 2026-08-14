@@ -5,7 +5,7 @@ import { createTestHost, type TestHost } from "../helpers/createTestHost";
 describe("provider auth and usage host contracts", () => {
 	let host: TestHost;
 	const calls: string[] = [];
-	const chatService = {
+	const providerAuthService = {
 		getAnthropicAuthStatus: async () => {
 			calls.push("getAnthropicAuthStatus");
 			return {
@@ -27,7 +27,7 @@ describe("provider auth and usage host contracts", () => {
 
 	beforeEach(async () => {
 		calls.length = 0;
-		host = await createTestHost({ chatService });
+		host = await createTestHost({ providerAuthService });
 	});
 
 	afterEach(async () => {

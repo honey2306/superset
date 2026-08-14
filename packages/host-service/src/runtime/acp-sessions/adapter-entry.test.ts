@@ -1,9 +1,19 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { resolveAdapterProcess, resolveBundledAcpEntry } from "./acp-sessions";
+import {
+	assertExternalClaudeCliAvailable,
+	resolveAdapterProcess,
+	resolveBundledAcpEntry,
+} from "./acp-sessions";
 
 const tempDirectories: string[] = [];
 
@@ -43,6 +53,20 @@ describe("resolveBundledAcpEntry", () => {
 			),
 		).toBe(bridge);
 	});
+
+	test("resolves the bundled Claude bridge beside the daemon entry", () => {
+		const root = mkdtempSync(path.join(os.tmpdir(), "acp-entry-"));
+		tempDirectories.push(root);
+		const bridge = path.join(root, "claude-agent-acp.js");
+		writeFileSync(bridge, "");
+
+		expect(
+			resolveBundledAcpEntry(
+				["claude-agent-acp.js"],
+				pathToFileURL(path.join(root, "acp-daemon.js")).href,
+			),
+		).toBe(bridge);
+	});
 });
 
 test("starts mfcli ACP in its documented full-access approval mode", () => {
@@ -55,4 +79,26 @@ test("starts mfcli ACP in its documented full-access approval mode", () => {
 		args: ["--approval-mode", "yolo", "acp"],
 		usesElectronNode: false,
 	});
+});
+
+test("explains how to install Claude when the external CLI is unavailable", () => {
+	expect(() =>
+		assertExternalClaudeCliAvailable({
+			CLAUDE_CODE_EXECUTABLE: "/missing/superset-claude",
+		}),
+	).toThrow("Claude Code CLI is unavailable");
+});
+
+test("pins a PATH-resolved Claude command for the external-only bridge", () => {
+	const root = mkdtempSync(path.join(os.tmpdir(), "external-claude-"));
+	tempDirectories.push(root);
+	const executable = path.join(root, "claude");
+	writeFileSync(executable, "#!/bin/sh\nexit 0\n");
+	chmodSync(executable, 0o755);
+	const env: NodeJS.ProcessEnv = { ...process.env, PATH: root };
+	delete env.CLAUDE_CODE_EXECUTABLE;
+	assertExternalClaudeCliAvailable(env);
+	expect(
+		(env as Record<string, string | undefined>).CLAUDE_CODE_EXECUTABLE,
+	).toBe("claude");
 });

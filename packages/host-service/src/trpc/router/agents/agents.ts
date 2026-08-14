@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 import {
 	AGENT_IDENTITY_IDS,
 	type AgentIdentityId,
@@ -217,23 +216,9 @@ export interface AgentRunInput {
 	respectPresetLaunchMode?: true;
 }
 
-export function buildChatAgentMetadata(
-	input: Pick<AgentRunInput, "model" | "permissionMode">,
-): { model?: string; yolo?: true } | undefined {
-	if (!input.model && input.permissionMode !== "full_access") return undefined;
-	return {
-		...(input.model ? { model: input.model } : {}),
-		...(input.permissionMode === "full_access" ? { yolo: true } : {}),
-	};
-}
-
 export type AgentRunResult =
 	| { kind: "terminal"; sessionId: string; label: string }
-	| { kind: "acp"; sessionId: string; label: string }
-	| { kind: "chat"; sessionId: string; label: string };
-
-const SUPERSET_AGENT_ID = "superset";
-const SUPERSET_AGENT_LABEL = "Superset";
+	| { kind: "acp"; sessionId: string; label: string };
 
 const ACP_HARNESS_BY_PRESET_ID = {
 	claude: "claude-agent-acp",
@@ -254,63 +239,6 @@ export function shouldRunAgentWithAcp(
 	presetId: string,
 ): boolean {
 	return enabled && getAcpHarnessForPreset(presetId) !== undefined;
-}
-
-async function resolveAttachmentsAsFiles(
-	attachmentIds: string[],
-): Promise<Array<{ data: string; mediaType: string; filename?: string }>> {
-	return attachmentIds.map((attachmentId) => {
-		const resolved = resolveAttachmentPath(attachmentId);
-		if (!resolved) {
-			throw new TRPCError({
-				code: "NOT_FOUND",
-				message: `Attachment not found: ${attachmentId}`,
-			});
-		}
-		const bytes = readFileSync(resolved.path);
-		const data = `data:${resolved.metadata.mediaType};base64,${bytes.toString("base64")}`;
-		return {
-			data,
-			mediaType: resolved.metadata.mediaType,
-			...(resolved.metadata.originalFilename
-				? { filename: resolved.metadata.originalFilename }
-				: {}),
-		};
-	});
-}
-
-async function runChatAgent(
-	ctx: HostServiceContext,
-	input: AgentRunInput,
-	label: string,
-): Promise<AgentRunResult> {
-	const sessionId = crypto.randomUUID();
-	const files = await resolveAttachmentsAsFiles(input.attachmentIds ?? []);
-	const metadata = buildChatAgentMetadata(input);
-
-	// The local chat runtime owns session creation and persistence. Do not
-	// register the session with the cloud API: local-only hosts deliberately
-	// have no cloud credentials.
-	// Errors surface via `getSnapshot.displayState.errorMessage` when a
-	// chat pane attaches.
-	void ctx.runtime.chat
-		.sendMessage({
-			sessionId,
-			workspaceId: input.workspaceId,
-			payload: {
-				content: input.prompt,
-				...(files.length > 0 ? { files } : {}),
-			},
-			...(metadata ? { metadata } : {}),
-		})
-		.catch((error) => {
-			console.error(
-				`[runChatAgent] sendMessage failed for ${sessionId}:`,
-				error,
-			);
-		});
-
-	return { kind: "chat", sessionId, label };
 }
 
 async function runTerminalAgent(
@@ -435,9 +363,6 @@ export async function runAgentInWorkspace(
 			code: "NOT_FOUND",
 			message: `Workspace ${input.workspaceId} not found on this host — it may have been deleted.`,
 		});
-	}
-	if (input.agent === SUPERSET_AGENT_ID) {
-		return runChatAgent(ctx, input, SUPERSET_AGENT_LABEL);
 	}
 	const config = resolveHostAgentConfig(ctx.db, input.agent);
 	if (!config) return runTerminalAgent(ctx, input);

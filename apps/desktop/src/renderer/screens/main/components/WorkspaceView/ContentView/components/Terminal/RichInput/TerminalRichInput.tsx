@@ -9,13 +9,13 @@ import {
 import { cn } from "@superset/ui/utils";
 import { ArrowUpIcon } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
-import { TiptapPromptEditor } from "renderer/components/Chat/ChatInterface/components/TiptapPromptEditor/TiptapPromptEditor";
 import { useWorkspaceHostUrl } from "renderer/hooks/host-service/useWorkspaceHostUrl/useWorkspaceHostUrl";
 import { useBinding, useHotkeyDisplay } from "renderer/hotkeys";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
+import { TiptapPromptEditor } from "renderer/screens/main/components/WorkspaceView/ContentView/components/TiptapPromptEditor/TiptapPromptEditor";
 import { prepareTerminalSubmission } from "./prepareTerminalSubmission";
 import { TerminalPaneIcon } from "./TerminalPaneIcon";
 

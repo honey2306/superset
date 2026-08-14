@@ -106,11 +106,8 @@ class FakeDirectSocket {
 }
 
 // bun's mock.module is process-global and leaks to every later test file in the
-// whole desktop run, so a partial stub breaks unrelated tests that import the
-// module's other named exports. Preserve the real exports and override only
-// createDirectSocket. (auth-client / posthog are deliberately NOT mocked: with a
-// faked socket getToken/ensureFreshJwt never runs, and posthog.capture before
-// init is a harmless no-op — the real modules load fine, as the prior test did.)
+// whole desktop run, so preserve the real exports and override only
+// createDirectSocket.
 mock.module("@superset/workspace-client/direct-socket", () => ({
 	...directSocketModule,
 	createDirectSocket: (options: Record<string, unknown>) =>
@@ -291,16 +288,6 @@ describe("PTY output write coalescing", () => {
 });
 
 describe("terminal-ws-transport", () => {
-	test("mock preserves the direct-socket module's other exports", async () => {
-		// Regression guard: bun's mock.module is process-global, so stubbing only
-		// createDirectSocket drops the module's other exports (e.g.
-		// setDirectSocketTelemetry, which renderer/lib/posthog imports) and crashes
-		// unrelated desktop tests suite-wide with "export not found". The mock must
-		// spread the real module — assert that here so a partial stub fails fast.
-		const mod = await import("@superset/workspace-client/direct-socket");
-		expect(typeof mod.setDirectSocketTelemetry).toBe("function");
-	});
-
 	test("server-sent error routes to logs, not xterm, and terminates", () => {
 		const transport = createTransport();
 		const writelnCalls: string[] = [];

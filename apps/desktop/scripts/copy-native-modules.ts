@@ -514,6 +514,33 @@ function copyDuckdbPlatformPackages(nodeModulesDir: string): void {
 	);
 }
 
+function copyTokenizersPlatformPackage(nodeModulesDir: string): void {
+	const tokenizersPath = join(nodeModulesDir, "@anush008", "tokenizers");
+	const packageJsonPath = join(tokenizersPath, "package.json");
+	if (!existsSync(packageJsonPath)) return;
+	type TokenizersPackageJson = {
+		optionalDependencies?: Record<string, string>;
+	};
+	const packageJson = JSON.parse(
+		readFileSync(packageJsonPath, "utf8"),
+	) as TokenizersPackageJson;
+	const target =
+		TARGET_PLATFORM === "darwin"
+			? "@anush008/tokenizers-darwin-universal"
+			: `@anush008/tokenizers-${TARGET_PLATFORM}-${TARGET_ARCH}-gnu`;
+	const version = packageJson.optionalDependencies?.[target];
+	if (!version) {
+		console.error(`  [ERROR] No tokenizers package matched ${target}`);
+		process.exit(1);
+	}
+	const destPath = join(nodeModulesDir, target);
+	if (existsSync(destPath)) {
+		copyModuleIfSymlink(nodeModulesDir, target, true);
+		return;
+	}
+	copyExactModuleVersion(nodeModulesDir, target, version, destPath, true);
+}
+
 function prepareNativeModules() {
 	console.log("Preparing external runtime modules for electron-builder...");
 	console.log(
@@ -533,6 +560,7 @@ function prepareNativeModules() {
 	copyParcelWatcherPlatformPackages(nodeModulesDir);
 	copyLibsqlDependencies(nodeModulesDir);
 	copyDuckdbPlatformPackages(nodeModulesDir);
+	copyTokenizersPlatformPackage(nodeModulesDir);
 
 	console.log("\nDone!");
 }

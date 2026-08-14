@@ -1,7 +1,6 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -77,11 +76,7 @@ const MESSAGE_FRAME_KINDS = new Set<SessionUpdateFrame["kind"]>([
 ]);
 
 function resolveAdapterEntry(): string {
-	const moduleRequire = createRequire(import.meta.url);
-	const adapterPkgJson = moduleRequire.resolve(
-		"@agentclientprotocol/claude-agent-acp/package.json",
-	);
-	return path.join(path.dirname(adapterPkgJson), "dist/index.js");
+	return resolveBundledAcpEntry(["claude-agent-acp.js"]);
 }
 
 export function resolveBundledAcpEntry(
@@ -255,6 +250,29 @@ export function resolveAdapterProcess(
 				usesElectronNode: true,
 			};
 	}
+}
+
+/**
+ * Claude ACP intentionally relies on the user's installed Claude Code CLI.
+ * The packaged bridge includes the SDK JavaScript API, but never Anthropic's
+ * SDK-provided fallback binary.
+ */
+export function assertExternalClaudeCliAvailable(env: NodeJS.ProcessEnv): void {
+	const command = env.CLAUDE_CODE_EXECUTABLE ?? "claude";
+	const probe = spawnSync(command, ["--version"], {
+		env,
+		stdio: "ignore",
+		timeout: 5_000,
+	});
+	const probeError = probe.error as NodeJS.ErrnoException | undefined;
+	if (probeError?.code === "ENOENT") {
+		throw new Error(
+			"Claude Code CLI is unavailable. Install Claude Code and ensure `claude` is on PATH, or set CLAUDE_CODE_EXECUTABLE to its executable path.",
+		);
+	}
+	// Always pin the command after a successful PATH probe. The bundled ACP
+	// bridge must never ask the SDK to resolve its removed fallback binary.
+	env.CLAUDE_CODE_EXECUTABLE = command;
 }
 
 /** The slice of the SDK's request handler context parkPermission needs. */
@@ -1264,6 +1282,9 @@ export class AcpSessionManager {
 			...process.env,
 			...this.adapterEnv,
 		};
+		if (harness === "claude-agent-acp" && !this.adapterEntry) {
+			assertExternalClaudeCliAvailable(env);
+		}
 		if (adapterProcess.usesElectronNode) env.ELECTRON_RUN_AS_NODE = "1";
 		else delete env.ELECTRON_RUN_AS_NODE;
 		delete env.ANTHROPIC_API_KEY;

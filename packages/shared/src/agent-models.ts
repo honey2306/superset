@@ -3,12 +3,10 @@
  * pickers.
  *
  * Entries are keyed by terminal-agent presetId (see
- * `builtin-terminal-agents.ts`) plus the virtual `"superset"` chat agent.
+ * `builtin-terminal-agents.ts`).
  * Agents absent from this list don't support model selection and render no
  * picker. Model ids are the exact values the CLI accepts after `modelFlag`
  * (opencode requires `provider/model`, so the provider is baked into the id);
- * for `"superset"` the id is passed as chat-session metadata instead and
- * `modelFlag` is null.
  *
  * The lists are hand-maintained and expected to drift with CLI releases —
  * update them here when a tool adds or retires models.
@@ -29,44 +27,6 @@ export interface AgentModelSupport {
 	modelEnv?: string;
 	models: AgentModelOption[];
 }
-
-export interface SupersetChatModel extends AgentModelOption {
-	provider: string;
-}
-
-/**
- * Canonical model catalog for the Superset chat agent. This is the single
- * source of truth — `tRPC chat.getModels` re-shapes it for its API and the
- * `"superset"` entry in `AGENT_MODEL_SUPPORT` reuses it for the picker. Keep
- * model edits here so the two never drift.
- */
-export const SUPERSET_CHAT_MODELS: readonly SupersetChatModel[] = [
-	{ id: "anthropic/claude-opus-5", label: "Opus 5", provider: "Anthropic" },
-	{ id: "anthropic/claude-opus-4-8", label: "Opus 4.8", provider: "Anthropic" },
-	{ id: "anthropic/claude-opus-4-7", label: "Opus 4.7", provider: "Anthropic" },
-	{ id: "anthropic/claude-fable-5", label: "Fable 5", provider: "Anthropic" },
-	{
-		id: "anthropic/claude-sonnet-4-6",
-		label: "Sonnet 4.6",
-		provider: "Anthropic",
-	},
-	{
-		id: "anthropic/claude-haiku-4-5",
-		label: "Haiku 4.5",
-		provider: "Anthropic",
-	},
-	{ id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol", provider: "OpenAI" },
-	{
-		id: "openai/gpt-5.6-terra",
-		label: "GPT-5.6 Terra",
-		provider: "OpenAI",
-	},
-	{ id: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna", provider: "OpenAI" },
-	{ id: "openai/gpt-5.5", label: "GPT-5.5", provider: "OpenAI" },
-	// Retiring from Codex on 2026-08-31; prefer the GPT-5.6 models above.
-	{ id: "openai/gpt-5.4", label: "GPT-5.4", provider: "OpenAI" },
-	{ id: "openai/gpt-5.3-codex", label: "GPT-5.3 Codex", provider: "OpenAI" },
-];
 
 export const AGENT_MODEL_SUPPORT: readonly AgentModelSupport[] = [
 	{
@@ -159,11 +119,6 @@ export const AGENT_MODEL_SUPPORT: readonly AgentModelSupport[] = [
 			{ id: "devstral-small", label: "Devstral Small" },
 		],
 	},
-	{
-		presetId: "superset",
-		modelFlag: null,
-		models: SUPERSET_CHAT_MODELS.map(({ id, label }) => ({ id, label })),
-	},
 ];
 
 export interface AgentEffortSupport {
@@ -182,7 +137,7 @@ export interface AgentEffortSupport {
  * Curated per-agent reasoning-effort catalogs, mirroring
  * `AGENT_MODEL_SUPPORT`. Flags and accepted values were verified against each
  * CLI's `--help` (or its own validator) — agents absent from this list
- * (gemini, opencode, cursor-agent, droid, superset chat) expose no effort
+ * (gemini, opencode, cursor-agent, droid) expose no effort
  * control on their interactive launch command.
  */
 export const AGENT_EFFORT_SUPPORT: readonly AgentEffortSupport[] = [

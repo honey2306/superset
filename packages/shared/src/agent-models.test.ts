@@ -7,48 +7,14 @@ import {
 	buildAgentModelEnv,
 	getAgentEffortSupport,
 	getAgentModelSupport,
-	SUPERSET_CHAT_MODELS,
 } from "./agent-models";
 import { BUILTIN_TERMINAL_AGENT_TYPES } from "./builtin-terminal-agents";
 
 describe("AGENT_MODEL_SUPPORT", () => {
-	it("only references builtin presets (or the superset chat agent)", () => {
-		const validIds = new Set<string>([
-			...BUILTIN_TERMINAL_AGENT_TYPES,
-			"superset",
-		]);
-		for (const entry of AGENT_MODEL_SUPPORT) {
-			expect(validIds.has(entry.presetId)).toBe(true);
-		}
-	});
-
-	it("has a model flag, a model env, or (superset) neither", () => {
-		for (const entry of AGENT_MODEL_SUPPORT) {
-			if (entry.presetId === "superset") {
-				expect(entry.modelFlag).toBeNull();
-			} else if (entry.modelEnv) {
-				// env-based presets (Vibe) carry the model via an env var, no flag
-				expect(entry.modelFlag).toBeNull();
-			} else {
-				expect(entry.modelFlag).toBe("--model");
-			}
-		}
-	});
-
 	it("lists at least one model per entry", () => {
 		for (const entry of AGENT_MODEL_SUPPORT) {
 			expect(entry.models.length).toBeGreaterThan(0);
 		}
-	});
-});
-
-describe("SUPERSET_CHAT_MODELS", () => {
-	it("includes opus 5 and the GPT-5.6 Codex models", () => {
-		const ids = SUPERSET_CHAT_MODELS.map((model) => model.id);
-		expect(ids).toContain("anthropic/claude-opus-5");
-		expect(ids).toContain("openai/gpt-5.6-sol");
-		expect(ids).toContain("openai/gpt-5.6-terra");
-		expect(ids).toContain("openai/gpt-5.6-luna");
 	});
 });
 
@@ -83,12 +49,6 @@ describe("buildAgentModelArgs", () => {
 	it("returns [] for model ids outside the preset's curated list", () => {
 		expect(buildAgentModelArgs("claude", "bad-model")).toEqual([]);
 		expect(buildAgentModelArgs("codex", "sonnet")).toEqual([]);
-	});
-
-	it("returns [] for superset (model travels via chat metadata)", () => {
-		expect(
-			buildAgentModelArgs("superset", "anthropic/claude-opus-4-8"),
-		).toEqual([]);
 	});
 
 	it("includes fable in claude's curated list", () => {

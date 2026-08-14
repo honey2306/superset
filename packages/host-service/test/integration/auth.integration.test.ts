@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { TRPCClientError } from "@trpc/client";
 import { createTestHost, type TestHost } from "../helpers/createTestHost";
 
-describe("auth (provider OAuth/API key) router with stub ChatService", () => {
+describe("auth (provider OAuth/API key) router with stub ProviderAuthService", () => {
 	let host: TestHost;
 	const calls: Array<{ method: string; args: unknown }> = [];
 
-	const stubChatService = {
+	const stubProviderAuthService = {
 		getAnthropicAuthStatus: () => {
 			calls.push({ method: "getAnthropicAuthStatus", args: undefined });
 			return { kind: "none" as const };
@@ -79,7 +79,9 @@ describe("auth (provider OAuth/API key) router with stub ChatService", () => {
 
 	beforeEach(async () => {
 		calls.length = 0;
-		host = await createTestHost({ chatService: stubChatService });
+		host = await createTestHost({
+			providerAuthService: stubProviderAuthService,
+		});
 	});
 
 	afterEach(async () => {
@@ -129,7 +131,7 @@ describe("auth (provider OAuth/API key) router with stub ChatService", () => {
 		]);
 	});
 
-	test("disconnect endpoints delegate to the right ChatService method", async () => {
+	test("disconnect endpoints delegate to the right ProviderAuthService method", async () => {
 		await host.trpc.auth.disconnectAnthropicOAuth.mutate();
 		await host.trpc.auth.disconnectOpenAIOAuth.mutate();
 		expect(calls.map((c) => c.method)).toEqual([

@@ -142,7 +142,7 @@ export function PromptGroup({
 		});
 
 	// ── Model picker (per agent preset) ──────────────────────────────
-	// `iconId` carries the presetId for v2 agents ("superset" for chat).
+	// `iconId` carries the presetId for configured terminal agents.
 	const selectedPresetId = useMemo(
 		() => agents.find((agent) => agent.id === selectedAgent)?.iconId ?? null,
 		[agents, selectedAgent],

@@ -11,6 +11,16 @@ type ExternalizedRuntimeModule = {
 	specifier: string;
 };
 
+const targetPlatform = process.env.TARGET_PLATFORM ?? process.platform;
+const targetArch = process.env.TARGET_ARCH ?? process.arch;
+const targetSuffix = `${targetPlatform}-${targetArch}`;
+const targetGnuSuffix =
+	targetPlatform === "linux" ? `linux-${targetArch}-gnu` : targetSuffix;
+const targetGlibcSuffix =
+	targetPlatform === "linux" ? `linux-${targetArch}-glibc` : targetSuffix;
+const targetMsvcSuffix =
+	targetPlatform === "win32" ? `win32-${targetArch}-msvc` : targetSuffix;
+
 function copyWholeModule(moduleName: string): PackagedNodeModuleCopy {
 	return {
 		from: `node_modules/${moduleName}`,
@@ -34,13 +44,28 @@ const externalizedRuntimeModules: ExternalizedRuntimeModule[] = [
 	{
 		specifier: "better-sqlite3",
 		materialize: ["better-sqlite3"],
-		packagedCopies: [copyWholeModule("better-sqlite3")],
+		packagedCopies: [
+			copyModuleSubtree("better-sqlite3", [
+				"lib/**/*",
+				"build/Release/better_sqlite3.node",
+				"package.json",
+				"LICENSE",
+			]),
+		],
 		asarUnpackGlobs: ["**/node_modules/better-sqlite3/**/*"],
 	},
 	{
 		specifier: "node-pty",
 		materialize: ["node-pty"],
-		packagedCopies: [copyWholeModule("node-pty")],
+		packagedCopies: [
+			copyModuleSubtree("node-pty", [
+				"lib/**/*",
+				"build/Release/pty.node",
+				"build/Release/spawn-helper",
+				"package.json",
+				"LICENSE",
+			]),
+		],
 		asarUnpackGlobs: ["**/node_modules/node-pty/**/*"],
 	},
 	{
@@ -58,14 +83,26 @@ const externalizedRuntimeModules: ExternalizedRuntimeModule[] = [
 	{
 		specifier: "@ast-grep/napi",
 		materialize: ["@ast-grep/napi"],
-		packagedCopies: [copyWholeModule("@ast-grep")],
+		packagedCopies: [
+			copyModuleSubtree("@ast-grep", [
+				"napi/**/*",
+				`napi-${targetGnuSuffix}/**/*`,
+				`napi-${targetMsvcSuffix}/**/*`,
+			]),
+		],
 		asarUnpackGlobs: ["**/node_modules/@ast-grep/napi*/**/*"],
 	},
 	{
 		specifier: "@parcel/watcher",
 		materialize: ["@parcel/watcher"],
 		packagedCopies: [
-			copyModuleSubtree("@parcel", ["watcher/**/*", "watcher-*/**/*"]),
+			copyModuleSubtree("@parcel", [
+				"watcher/index.js",
+				"watcher/wrapper.js",
+				"watcher/package.json",
+				"watcher/LICENSE",
+				`watcher-${targetGlibcSuffix}/**/*`,
+			]),
 		],
 		asarUnpackGlobs: ["**/node_modules/@parcel/watcher*/**/*"],
 	},
@@ -74,23 +111,47 @@ const externalizedRuntimeModules: ExternalizedRuntimeModule[] = [
 		materialize: ["libsql"],
 		packagedCopies: [
 			copyWholeModule("libsql"),
-			copyWholeModule("@libsql"),
+			copyModuleSubtree("@libsql", [`${targetGnuSuffix}/**/*`]),
 			copyWholeModule("@neon-rs"),
 		],
 		asarUnpackGlobs: ["**/node_modules/@libsql/**/*"],
 	},
 	{
-		specifier: "@mastra/duckdb",
-		materialize: [
-			"@mastra/duckdb",
-			"@duckdb/node-api",
-			"@duckdb/node-bindings",
-		],
+		specifier: "@duckdb/node-api",
+		materialize: ["@duckdb/node-api", "@duckdb/node-bindings"],
 		packagedCopies: [
-			copyWholeModule("@mastra/duckdb"),
-			copyWholeModule("@duckdb"),
+			copyModuleSubtree("@duckdb", [
+				"node-api/**/*",
+				"node-bindings/**/*",
+				`node-bindings-${targetSuffix}/**/*`,
+			]),
 		],
 		asarUnpackGlobs: ["**/node_modules/@duckdb/**/*"],
+	},
+	{
+		specifier: "@anush008/tokenizers",
+		materialize: ["@anush008/tokenizers"],
+		packagedCopies: [
+			copyModuleSubtree("@anush008", [
+				"tokenizers/**/*",
+				"tokenizers-darwin-universal/**/*",
+			]),
+		],
+		asarUnpackGlobs: ["**/node_modules/@anush008/tokenizers*/**/*"],
+	},
+	{
+		specifier: "onnxruntime-node",
+		materialize: ["onnxruntime-node", "onnxruntime-common"],
+		packagedCopies: [
+			copyModuleSubtree("onnxruntime-node", [
+				"dist/**/*",
+				"package.json",
+				"LICENSE",
+				`bin/napi-v3/darwin/${targetArch}/**/*`,
+			]),
+			copyWholeModule("onnxruntime-common"),
+		],
+		asarUnpackGlobs: ["**/node_modules/onnxruntime-node/bin/**/*"],
 	},
 ];
 
@@ -102,16 +163,14 @@ const packagedSupportModules = [
 	copyWholeModule("is-extglob"),
 	copyWholeModule("picomatch"),
 	copyWholeModule("node-addon-api"),
+	copyWholeModule("@xterm/headless"),
 ];
 
 export const mainExternalizedDependencies = [
 	...externalizedRuntimeModules.map((module) => module.specifier),
 	"pg-native",
-	// mastracode transitively loads @mastra/fastembed → onnxruntime-node, whose
-	// native binding is loaded via a dynamic `require` that @rollup/plugin-commonjs
-	// can't resolve at bundle time. Externalizing lets Node handle the require at
-	// runtime from node_modules. Also keeps the bundle size sane (~20 MB chunk).
-	"mastracode",
+	// mastracode is bundled into the host-service entry. Its transitive native
+	// packages remain externalized individually through their runtime imports.
 ];
 
 export const packagedNodeModuleCopies = [
@@ -134,4 +193,5 @@ export const requiredMaterializedNodeModules = [
 	"is-extglob",
 	"picomatch",
 	"node-addon-api",
+	"@xterm/headless",
 ];

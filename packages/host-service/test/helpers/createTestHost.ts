@@ -40,13 +40,11 @@ export interface TestHostOptions {
 	removeDbOnDispose?: boolean;
 	/**
 	 * Fake-runtime overrides typed as `unknown` so tests only need to
-	 * implement the methods they exercise — the real surfaces (Octokit,
-	 * ChatRuntimeManager, ChatService) are far too large to stub fully.
+	 * implement the methods they exercise — the real surfaces (Octokit and ProviderAuthService) are far too large to stub fully.
 	 */
 	githubFactory?: () => Promise<unknown>;
 	execGh?: (args: string[], options?: unknown) => Promise<unknown>;
-	chatRuntime?: unknown;
-	chatService?: unknown;
+	providerAuthService?: unknown;
 	/** Injecting a manager also opens the acpSessions feature gate (app.ts). */
 	acpSessions?: unknown;
 }
@@ -128,8 +126,8 @@ export async function createTestHost(
 				async () => {
 					throw new Error("execGh not configured in test");
 				},
-		chatRuntime: options.chatRuntime as CreateAppOptions["chatRuntime"],
-		chatService: options.chatService as CreateAppOptions["chatService"],
+		providerAuthService:
+			options.providerAuthService as CreateAppOptions["providerAuthService"],
 		acpSessions: options.acpSessions as CreateAppOptions["acpSessions"],
 	};
 

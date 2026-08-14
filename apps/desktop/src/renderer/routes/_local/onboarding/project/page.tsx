@@ -5,7 +5,6 @@ import { toast } from "@superset/ui/sonner";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { LuFolderOpen, LuGitBranch, LuLayoutTemplate } from "react-icons/lu";
-import { track } from "renderer/lib/analytics";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { showHostServiceUnavailableToast } from "renderer/lib/host-service-unavailable";
 import { useTranslation } from "renderer/providers/I18nProvider";
@@ -58,7 +57,6 @@ function OnboardingProjectPage() {
 	const finish = async (
 		result: Pick<ProjectSetupResult, "projectId" | "mainWorkspaceId">,
 	) => {
-		track("onboarding_finished", { outcome: "completed" });
 		try {
 			if (result.mainWorkspaceId) {
 				await navigateToWorkspace(result.mainWorkspaceId, navigate);

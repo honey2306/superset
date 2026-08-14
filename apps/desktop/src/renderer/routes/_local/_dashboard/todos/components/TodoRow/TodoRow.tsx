@@ -125,7 +125,7 @@ export function TodoRow({ todo, now, onDeleteRequest }: TodoRowProps) {
 				sessionKind: result.sessionKind,
 				terminalSessionId:
 					result.sessionKind === "terminal" ? result.sessionId : null,
-				chatSessionId: result.sessionKind === "acp" ? result.sessionId : null,
+				acpSessionId: result.sessionKind === "acp" ? result.sessionId : null,
 			});
 			if ("reason" in destination) {
 				toast.success(t("todos.statusDispatched"));

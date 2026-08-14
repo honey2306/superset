@@ -1,11 +1,10 @@
 import type { Octokit } from "@octokit/rest";
-import type { ChatService } from "@superset/chat/server/desktop";
+import type { ProviderAuthService } from "@superset/chat/server/desktop";
 import type { HostDb } from "./db";
 import type { EventBus } from "./events";
 import type { NotificationHookSecurity } from "./notifications/notification-hook-security";
 import type { AuthKind } from "./providers/host-auth";
 import type { AcpSessionRuntime } from "./runtime/acp-sessions";
-import type { ChatRuntimeManager } from "./runtime/chat";
 import type { WorkspaceFilesystemManager } from "./runtime/filesystem";
 import type { GitCredentialProvider, GitFactory } from "./runtime/git";
 import type { PhoneAuthService } from "./runtime/phone";
@@ -24,8 +23,7 @@ export interface HostServiceRuntime {
 	 * stream route is not registered.
 	 */
 	acpSessionsEnabled: boolean;
-	auth: ChatService;
-	chat: ChatRuntimeManager;
+	auth: ProviderAuthService;
 	filesystem: WorkspaceFilesystemManager;
 	notificationHooks: NotificationHookSecurity;
 	phoneAuth: PhoneAuthService;

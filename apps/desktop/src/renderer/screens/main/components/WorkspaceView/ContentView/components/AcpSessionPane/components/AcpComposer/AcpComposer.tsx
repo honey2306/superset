@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	TiptapPromptEditor,
 	type TiptapPromptEditorHandle,
-} from "renderer/components/Chat/ChatInterface/components/TiptapPromptEditor";
+} from "renderer/screens/main/components/WorkspaceView/ContentView/components/TiptapPromptEditor";
 import { AcpComposerQueue } from "./AcpComposerQueue";
 import {
 	acpCommandsToComposerCommands,

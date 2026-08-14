@@ -196,12 +196,6 @@ describe("env", () => {
 				expect(result.NEON_API_KEY).toBeUndefined();
 			});
 
-			it("should exclude SENTRY_AUTH_TOKEN", () => {
-				const env = { SENTRY_AUTH_TOKEN: "sentry-token", PATH: "/usr/bin" };
-				const result = buildSafeEnv(env);
-				expect(result.SENTRY_AUTH_TOKEN).toBeUndefined();
-			});
-
 			it("should exclude GH_CLIENT_SECRET", () => {
 				const env = { GH_CLIENT_SECRET: "gh-secret", PATH: "/usr/bin" };
 				const result = buildSafeEnv(env);
@@ -225,12 +219,10 @@ describe("env", () => {
 			it("should exclude NEXT_PUBLIC_* vars", () => {
 				const env = {
 					NEXT_PUBLIC_API_URL: "https://api.example.com",
-					NEXT_PUBLIC_POSTHOG_KEY: "phkey",
 					PATH: "/usr/bin",
 				};
 				const result = buildSafeEnv(env);
 				expect(result.NEXT_PUBLIC_API_URL).toBeUndefined();
-				expect(result.NEXT_PUBLIC_POSTHOG_KEY).toBeUndefined();
 			});
 
 			it("should exclude TURBO_* vars", () => {

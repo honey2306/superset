@@ -24,12 +24,121 @@ const dmgBackgroundPath = join(
 	"build/installer/background.tiff",
 );
 const shouldNotarize = shouldNotarizeMacBuild();
+const targetPlatform = process.env.TARGET_PLATFORM ?? process.platform;
+const targetArch = process.env.TARGET_ARCH ?? process.arch;
+const targetSuffix = `${targetPlatform}-${targetArch}`;
+function excludeNonTargetPlatformModules(
+	moduleName: string,
+	platformSuffixes: string[],
+	targetModuleSuffix = targetSuffix,
+): string[] {
+	return platformSuffixes
+		.filter((suffix) => suffix !== targetModuleSuffix)
+		.map((suffix) => `!**/node_modules/${moduleName}-${suffix}/**/*`);
+}
+
+const anthropicPlatformSuffixes = [
+	"darwin-x64",
+	"darwin-arm64",
+	"linux-x64",
+	"linux-arm64",
+	"linux-x64-musl",
+	"linux-arm64-musl",
+	"win32-x64",
+	"win32-arm64",
+];
+const platformSpecificModuleExcludes = [
+	// The Claude ACP bridge keeps the SDK's JavaScript API only. The optional
+	// platform packages contain Anthropic's fallback Claude CLI, which is not a
+	// Superset runtime dependency.
+	...anthropicPlatformSuffixes.map(
+		(suffix) =>
+			`!**/node_modules/@anthropic-ai/claude-agent-sdk-${suffix}/**/*`,
+	),
+	...excludeNonTargetPlatformModules("@duckdb/node-bindings", [
+		"darwin-x64",
+		"darwin-arm64",
+		"linux-x64",
+		"linux-arm64",
+		"win32-x64",
+		"win32-arm64",
+	]),
+	...excludeNonTargetPlatformModules(
+		"@ast-grep/napi",
+		[
+			"darwin-x64",
+			"darwin-arm64",
+			"linux-x64-gnu",
+			"linux-x64-musl",
+			"linux-arm64-gnu",
+			"linux-arm64-musl",
+			"win32-x64-msvc",
+			"win32-arm64-msvc",
+			"win32-ia32-msvc",
+		],
+		targetPlatform === "linux"
+			? `linux-${targetArch}-gnu`
+			: targetPlatform === "win32"
+				? `win32-${targetArch}-msvc`
+				: targetSuffix,
+	),
+	...excludeNonTargetPlatformModules(
+		"@parcel/watcher",
+		[
+			"darwin-x64",
+			"darwin-arm64",
+			"linux-x64-glibc",
+			"linux-x64-musl",
+			"linux-arm64-glibc",
+			"linux-arm64-musl",
+			"win32-x64",
+			"win32-arm64",
+			"win32-ia32",
+		],
+		targetPlatform === "linux" ? `linux-${targetArch}-glibc` : targetSuffix,
+	),
+	...excludeNonTargetPlatformModules(
+		"@libsql",
+		[
+			"darwin-x64",
+			"darwin-arm64",
+			"linux-arm-gnueabihf",
+			"linux-arm-musleabihf",
+			"linux-arm64-gnu",
+			"linux-arm64-musl",
+			"linux-x64-gnu",
+			"linux-x64-musl",
+			"win32-x64-msvc",
+		],
+		targetPlatform === "linux"
+			? `linux-${targetArch}-gnu`
+			: targetPlatform === "win32"
+				? `win32-${targetArch}-msvc`
+				: targetSuffix,
+	),
+	...(["darwin", "linux", "win32"] as const).flatMap((platform) =>
+		(["x64", "arm64"] as const)
+			.filter((arch) => `${platform}-${arch}` !== targetSuffix)
+			.map(
+				(arch) =>
+					`!**/node_modules/onnxruntime-node/bin/napi-v3/${platform}/${arch}/**/*`,
+			),
+	),
+];
 
 const config: Configuration = {
 	appId: "com.superset.desktop",
 	productName,
 	copyright: `Copyright © ${currentYear} — ${author}`,
 	electronVersion: pkg.devDependencies.electron.replace(/^\^/, ""),
+	// electron-builder removes unwanted Electron framework locale bundles before
+	// signing. Keep English plus Simplified Chinese only.
+	electronLanguages: ["en", "zh_CN"],
+	// Runtime modules are copied through the explicit `files` FileSets below.
+	// Returning false during packaging prevents electron-builder from additionally
+	// traversing and copying every production dependency after those filters run.
+	// `rebuild:native` opts into the same hook for its dedicated rebuild pass.
+	beforeBuild: () => process.env.SUPERSET_REBUILD_NATIVE === "1",
 
 	// Generate update manifests for all channels (latest.yml, canary.yml, etc.)
 	// This enables proper channel-based auto-updates following electron-builder conventions
@@ -52,8 +161,6 @@ const config: Configuration = {
 	asar: true,
 	asarUnpack: [
 		...packagedAsarUnpackGlobs,
-		// Sound files must be unpacked so external audio players (afplay, paplay, etc.) can access them
-		"**/resources/sounds/**/*",
 		// Tray icon must be unpacked so Electron Tray can load it
 		"**/resources/tray/**/*",
 	],
@@ -72,34 +179,42 @@ const config: Configuration = {
 			filter: ["**/*"],
 		},
 		{
-			from: "dist/resources/bin",
-			to: "resources/bin",
+			from: "dist/resources/web",
+			to: "resources/web",
 			filter: ["**/*"],
 		},
 		{
-			from: "dist/resources/web",
-			to: "resources/web",
+			from: "dist/resources/sounds",
+			to: "resources/sounds",
 			filter: ["**/*"],
 		},
 	],
 
 	files: [
 		"dist/**/*",
+		"!dist/**/*.map",
+		"!**/node_modules/**/*.map",
+		"!dist/resources/sounds/**/*",
 		"package.json",
 		{
 			from: pkg.resources,
 			to: "resources",
-			filter: ["**/*"],
+			filter: ["**/*", "!build/**/*", "build/icons/*.png", "!sounds/**/*"],
 		},
 		// Runtime modules that stay external to the main bundle.
 		// bun creates symlinks for direct deps in workspace node_modules.
 		// The copy:native-modules script replaces symlinks with real files
 		// before building (required for Bun 1.3+ isolated installs).
 		...packagedNodeModuleCopies,
+		// electron-builder applies these exclusions to its separately collected
+		// production dependency set too. Keep only the binary matching the target.
+		...platformSpecificModuleExcludes,
 		"!**/.DS_Store",
 	],
 
-	// Rebuild native modules for Electron's Node.js version
+	// Native modules are rebuilt by `rebuild:native` before their FileSets are
+	// copied. Packaging itself deliberately disables builder's dependency
+	// collector/rebuilder via `beforeBuild`.
 	npmRebuild: true,
 
 	// macOS DMG installer

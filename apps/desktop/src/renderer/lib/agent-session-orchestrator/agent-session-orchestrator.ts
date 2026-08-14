@@ -9,7 +9,6 @@ import {
 	findPanesStoreByPaneId,
 	findPanesStoreByTabId,
 } from "renderer/lib/panes";
-import { posthog } from "renderer/lib/posthog";
 import { useAgentSessionLaunchStore } from "renderer/stores/agent-session-launch";
 import { launchTerminalAdapter } from "./adapters/terminal-adapter";
 import type {
@@ -84,52 +83,9 @@ function toErrorMessage(error: unknown): string {
 		: "Failed to launch agent session";
 }
 
-function captureLaunchEvent({
-	context,
-	request,
-	status,
-	latencyMs,
-	error,
-}: {
-	context: AgentSessionLaunchContext;
-	request: AgentLaunchRequest;
-	status: AgentLaunchResult["status"];
-	latencyMs: number;
-	error?: string;
-}) {
-	const capture =
-		context.captureEvent ??
-		(({
-			event,
-			properties,
-		}: {
-			event: "agent_session_launch";
-			properties: Record<string, unknown>;
-		}) => {
-			posthog.capture(event, properties);
-		});
-
-	capture({
-		event: "agent_session_launch",
-		properties: {
-			launch_source: request.source ?? context.source ?? "unknown",
-			request_kind: request.kind,
-			agent_type: request.agentType ?? null,
-			result: status,
-			latency_ms: latencyMs,
-			failure_reason: error ?? null,
-		},
-	});
-}
-
 export function selectAgentLaunchAdapter(
-	request: AgentLaunchRequest,
+	_request: AgentLaunchRequest,
 ): AgentSessionLaunchAdapterKind {
-	if (request.kind === "chat") {
-		throw new Error(
-			"Chat agent sessions are no longer available. Use a terminal agent instead.",
-		);
-	}
 	return "terminal";
 }
 
@@ -157,7 +113,6 @@ export async function launchAgentSession(
 		}
 	}
 
-	const startedAt = Date.now();
 	let phase: AgentLaunchResult["status"] = "queued";
 
 	const run = (async () => {
@@ -168,11 +123,6 @@ export async function launchAgentSession(
 				tabs,
 			};
 			phase = "launching";
-			if (request.kind === "chat") {
-				throw new Error(
-					"Chat agent sessions are no longer available. Use a terminal agent instead.",
-				);
-			}
 			const payload = await launchTerminalAdapter(request, executionContext);
 			phase = "running";
 			const result: AgentLaunchResult = {
@@ -183,17 +133,8 @@ export async function launchAgentSession(
 				status: phase,
 				error: null,
 			};
-			captureLaunchEvent({
-				context: executionContext,
-				request,
-				status: result.status,
-				latencyMs: Date.now() - startedAt,
-			});
 			return result;
 		} catch (error) {
-			const executionContext: AgentSessionLaunchContext = {
-				...context,
-			};
 			phase = "failed";
 			const errorMessage = toErrorMessage(error);
 			const result: AgentLaunchResult = {
@@ -204,13 +145,6 @@ export async function launchAgentSession(
 				status: phase,
 				error: errorMessage,
 			};
-			captureLaunchEvent({
-				context: executionContext,
-				request,
-				status: result.status,
-				latencyMs: Date.now() - startedAt,
-				error: errorMessage,
-			});
 			return result;
 		}
 	})();

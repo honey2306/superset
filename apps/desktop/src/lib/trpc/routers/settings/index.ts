@@ -367,10 +367,7 @@ export const createSettingsRouter = () => {
 					});
 				}
 
-				const normalizedPatch = normalizeAgentPresetPatch({
-					definition,
-					patch: input.patch,
-				});
+				const normalizedPatch = normalizeAgentPresetPatch(input.patch);
 				const nextOverrides = createOverrideEnvelopeWithPatch({
 					definition,
 					currentOverrides: readRawAgentPresetOverrides(),
@@ -959,17 +956,6 @@ export const createSettingsRouter = () => {
 			.mutation(({ input }) => {
 				const ran = setupSingleAgent(input.agentId);
 				return { ran };
-			}),
-
-		// TODO: remove telemetry procedures once telemetry_enabled column is dropped
-		getTelemetryEnabled: publicProcedure.query(() => {
-			return true;
-		}),
-
-		setTelemetryEnabled: publicProcedure
-			.input(z.object({ enabled: z.boolean() }))
-			.mutation(() => {
-				return { success: true };
 			}),
 	});
 };

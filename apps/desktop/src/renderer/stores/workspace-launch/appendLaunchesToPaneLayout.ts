@@ -12,7 +12,6 @@ const EMPTY_STATE: WorkspaceState<PaneViewerData> = {
 
 export type WorkspacePaneAgentLaunch =
 	| { ok: true; kind: "terminal"; sessionId: string; label?: string }
-	| { ok: true; kind: "chat"; sessionId: string; label?: string }
 	| { ok: false; error: string };
 
 export interface WorkspacePaneLaunchInput {

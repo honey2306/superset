@@ -2,7 +2,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { trpcServer } from "@hono/trpc-server";
 import { Octokit } from "@octokit/rest";
-import { ChatService } from "@superset/chat/server/desktop";
+import { ProviderAuthService } from "@superset/chat/server/desktop";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -24,7 +24,6 @@ import {
 	type AcpSessionManager,
 	registerAcpSessionStreamRoute,
 } from "./runtime/acp-sessions";
-import { ChatRuntimeManager } from "./runtime/chat";
 import { WorkspaceFilesystemManager } from "./runtime/filesystem";
 import type { GitCredentialProvider } from "./runtime/git";
 import { createGitFactory } from "./runtime/git";
@@ -80,15 +79,13 @@ export interface CreateAppOptions {
 	 * Test-harness override hooks. Production never sets these — `createApp`
 	 * builds each subsystem itself when omitted. `db` is overridden so tests
 	 * can swap in `bun:sqlite` (better-sqlite3 isn't loadable under Bun;
-	 * prod uses it on bundled Node). `github`, `chatRuntime`, and
-	 * `chatService` are overridden to keep tests off the network and out of
-	 * mastra storage.
+	 * prod uses it on bundled Node). `github` and `providerAuthService` are overridden
+	 * to keep tests off the network and out of provider-auth storage.
 	 */
 	db?: HostDb;
 	github?: () => Promise<Octokit>;
 	execGh?: ExecGh;
-	chatRuntime?: ChatRuntimeManager;
-	chatService?: ChatService;
+	providerAuthService?: ProviderAuthService;
 	acpSessions?: AcpSessionManager;
 }
 
@@ -160,16 +157,11 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	// pull-requests runtime (event-driven branch sync) subscribe to it.
 	const gitWatcher = new GitWatcher(db, filesystem);
 	gitWatcher.start();
-	const chatRuntime =
-		options.chatRuntime ??
-		new ChatRuntimeManager({
-			db,
-			runtimeResolver: providers.modelResolver,
-		});
 	// Provider auth (Anthropic / OpenAI OAuth + API keys) is per-machine, not
-	// per-workspace. ChatService is a long-lived singleton wrapping mastra's
+	// per-workspace. ProviderAuthService is a long-lived singleton wrapping mastra's
 	// auth storage; the authenticated `auth.*` and `usage.*` routers proxy to it.
-	const chatService = options.chatService ?? new ChatService();
+	const providerAuthService =
+		options.providerAuthService ?? new ProviderAuthService();
 	// ACP session runtime (docs/acp-sessions.md). Production talks to the
 	// detached per-org ACP daemon, which owns adapters and active turns across
 	// host-service/Desktop restarts. Tests may inject an in-process manager.
@@ -330,8 +322,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 	runtime = {
 		acpSessions,
 		acpSessionsEnabled,
-		auth: chatService,
-		chat: chatRuntime,
+		auth: providerAuthService,
 		filesystem,
 		notificationHooks,
 		phoneAuth,

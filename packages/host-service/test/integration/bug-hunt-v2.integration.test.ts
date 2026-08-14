@@ -63,31 +63,3 @@ describe("bug-hunt-v2: workspaceCleanup.destroy phase ordering", () => {
 		).rejects.toThrow(/Main workspaces cannot be deleted/i);
 	});
 });
-
-let host: TestHost;
-const sessionId = randomUUID();
-const workspaceId = randomUUID();
-
-const stubChatRuntime = {
-	sendMessage: async () => ({ ok: true, messageId: "m1" }),
-};
-
-beforeEach(async () => {
-	host = await createTestHost({
-		chatRuntime: stubChatRuntime,
-	});
-});
-
-afterEach(async () => {
-	await host.dispose();
-});
-
-test("chat.sendMessage does not depend on the cloud API", async () => {
-	const result = await host.trpc.chat.sendMessage.mutate({
-		sessionId,
-		workspaceId,
-		payload: { content: "hi" },
-	});
-	expect(result).toBeDefined();
-	expect(host.apiCalls).toEqual([]);
-});

@@ -207,19 +207,6 @@ mock.module("electron", () => ({
 }));
 
 // =============================================================================
-// Analytics Mock (has Electron/API dependencies)
-// =============================================================================
-
-mock.module("main/lib/analytics", () => ({
-	track: mock(() => {}),
-	clearUserCache: mock(() => {}),
-	shutdown: mock(() => Promise.resolve()),
-	getPosthogClient: mock(() => null),
-	getUserId: mock(() => null),
-	setUserId: mock(() => {}),
-}));
-
-// =============================================================================
 // @superset/local-db Schema Mock (drizzle-orm/sqlite-core not available in Bun tests)
 // =============================================================================
 

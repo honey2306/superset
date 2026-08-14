@@ -70,14 +70,6 @@ export function createProductionTerminalRuntime(
 					...(intent.model ? { model: intent.model } : {}),
 					...(intent.effort ? { effort: intent.effort } : {}),
 				});
-				if (result.kind === "chat") {
-					return {
-						key: intent.key,
-						kind: "chat",
-						sessionId: result.sessionId,
-						label: result.label,
-					};
-				}
 				return {
 					key: intent.key,
 					kind: "terminal",

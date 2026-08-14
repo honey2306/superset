@@ -240,7 +240,7 @@ describe("sanitizePaneLayout", () => {
 					},
 					panes: {
 						"pane-1": { id: "pane-1", kind: "terminal", data: {} },
-						"pane-2": { id: "pane-2", kind: "chat", data: {} },
+						"pane-2": { id: "pane-2", kind: "terminal", data: {} },
 					},
 				},
 			],

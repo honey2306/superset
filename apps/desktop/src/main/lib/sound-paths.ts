@@ -7,7 +7,7 @@ import { env } from "main/env.main";
  * Gets the path to a ringtone sound file.
  *
  * Path resolution strategy:
- * - Production (packaged .app): app.asar.unpacked/resources/sounds/
+ * - Production (packaged .app): Contents/Resources/resources/sounds/
  * - Development (NODE_ENV=development): src/resources/sounds/
  * - Preview (electron-vite preview): dist/resources/sounds/ (relative to __dirname)
  *
@@ -26,8 +26,8 @@ export function getSoundPath(filename: string): string {
  */
 export function getSoundsDirectory(): string {
 	if (app.isPackaged) {
-		// Production: unpacked from asar for external audio players
-		return join(process.resourcesPath, "app.asar.unpacked/resources/sounds");
+		// Extra resources stay outside app.asar so external audio players can read them.
+		return join(process.resourcesPath, "resources/sounds");
 	}
 
 	const isDev = env.NODE_ENV === "development";

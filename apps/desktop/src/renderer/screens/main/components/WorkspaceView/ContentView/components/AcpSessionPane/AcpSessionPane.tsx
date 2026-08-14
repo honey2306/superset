@@ -10,9 +10,9 @@ import {
 	useAcpSession,
 } from "@superset/session-protocol/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { normalizeWorkspaceFilePath } from "renderer/components/Chat/ChatInterface/utils/file-paths";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
 import { openFileInPanes } from "renderer/lib/panes";
+import { normalizeWorkspaceFilePath } from "renderer/screens/main/components/WorkspaceView/ContentView/components/AcpSessionPane/utils/file-paths";
 import "./acp-pane.css";
 import { AcpComposer } from "./components/AcpComposer";
 import { AcpEmptyState } from "./components/AcpEmptyState";

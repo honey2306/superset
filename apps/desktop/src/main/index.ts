@@ -22,19 +22,12 @@ import { setupAgentHooks } from "./lib/agent-setup";
 import { initAppState } from "./lib/app-state";
 import { requestAppleEventsAccess } from "./lib/apple-events-permission";
 import { setupAutoUpdater } from "./lib/auto-updater";
-import { installBundledCliShim } from "./lib/bundled-cli";
 import { resolveDevWorkspaceName } from "./lib/dev-workspace-name";
 import { setWorkspaceDockIcon } from "./lib/dock-icon";
-import { loadWebviewBrowserExtension } from "./lib/extensions";
 import { getHostServiceCoordinator } from "./lib/host-service-coordinator";
 import { localDb } from "./lib/local-db";
 import { requestLocalNetworkAccess } from "./lib/local-network-permission";
-import {
-	startMemoryTelemetry,
-	stopMemoryTelemetry,
-} from "./lib/memory-telemetry";
 import { ensureProjectIconsDir, getProjectIconPath } from "./lib/project-icons";
-import { initSentry } from "./lib/sentry";
 import { disposeTray, initTray } from "./lib/tray";
 import { startNetworkLogger, stopNetworkLogger } from "./network-logger";
 import { MainWindow } from "./windows/main";
@@ -200,7 +193,6 @@ app.on("before-quit", async (event) => {
 
 	isQuitting = true;
 	try {
-		stopMemoryTelemetry();
 		if (forceFullCleanup) {
 			await getHostServiceCoordinator().shutdownPtyDaemon();
 		}
@@ -349,7 +341,6 @@ if (!gotTheLock) {
 
 		ensureProjectIconsDir();
 		setWorkspaceDockIcon();
-		initSentry();
 		await initAppState();
 
 		try {
@@ -357,8 +348,6 @@ if (!gotTheLock) {
 		} catch (error) {
 			console.error("[main] Failed to start network logger:", error);
 		}
-
-		await loadWebviewBrowserExtension();
 
 		// Must happen before renderer restore runs
 		// The embedded host is a single local runtime. Start it without waiting
@@ -375,12 +364,6 @@ if (!gotTheLock) {
 		} catch (error) {
 			console.error("[main] Failed to set up agent hooks:", error);
 		}
-		try {
-			installBundledCliShim();
-		} catch (error) {
-			console.error("[main] Failed to install bundled CLI shim:", error);
-		}
-
 		const hostServiceConfigProvider = async () => localHostConfig;
 		getHostServiceCoordinator().setConfigProvider(hostServiceConfigProvider);
 
@@ -390,7 +373,6 @@ if (!gotTheLock) {
 
 		await makeAppSetup(() => MainWindow());
 		setupAutoUpdater();
-		startMemoryTelemetry();
 		initTray();
 
 		const coldStartUrl = findDeepLinkInArgv(process.argv);
