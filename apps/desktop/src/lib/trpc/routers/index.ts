@@ -1,6 +1,5 @@
 import type { BrowserWindow } from "electron";
 import { router } from "..";
-import { createAnalyticsRouter } from "./analytics";
 import { createAutoUpdateRouter } from "./auto-update";
 import { createDeviceRouter } from "./device";
 import { createExternalRouter } from "./external";
@@ -18,7 +17,6 @@ import { createWindowRouter } from "./window";
 
 export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
 	return router({
-		analytics: createAnalyticsRouter(),
 		autoUpdate: createAutoUpdateRouter(),
 		window: createWindowRouter(getWindow),
 		notifications: createNotificationsRouter(getWindow),

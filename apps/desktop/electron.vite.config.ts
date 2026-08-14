@@ -1,6 +1,5 @@
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
-import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import reactPlugin from "@vitejs/plugin-react";
@@ -20,6 +19,15 @@ config({ path: resolve(__dirname, "../../.env"), override: true, quiet: true });
 const DEV_SERVER_PORT = Number(process.env.DESKTOP_VITE_PORT);
 const moduleRequire = createRequire(import.meta.url);
 const piAcpEntry = moduleRequire.resolve("pi-acp");
+const claudeAcpRequire = createRequire(
+	moduleRequire.resolve("@agentclientprotocol/claude-agent-acp/package.json"),
+);
+const claudeAcpAgentEntry = claudeAcpRequire.resolve(
+	"@agentclientprotocol/claude-agent-acp/dist/acp-agent.js",
+);
+const claudeAgentSdkEntry = claudeAcpRequire.resolve(
+	"@anthropic-ai/claude-agent-sdk",
+);
 
 function piAcpBridgePlugin() {
 	return {
@@ -55,16 +63,6 @@ const workspaceDependencies = Object.keys(dependencies).filter((dependency) =>
 	dependency.startsWith("@superset/"),
 );
 
-// Sentry plugin for uploading sourcemaps (only in CI with auth token)
-const sentryPlugin = process.env.SENTRY_AUTH_TOKEN
-	? sentryVitePlugin({
-			org: "superset-sh",
-			project: "desktop",
-			authToken: process.env.SENTRY_AUTH_TOKEN,
-			release: { name: version },
-		})
-	: null;
-
 export default defineConfig({
 	main: {
 		plugins: [tsconfigPaths, copyResourcesPlugin(), piAcpBridgePlugin()],
@@ -86,16 +84,6 @@ export default defineConfig({
 			"process.env.NEXT_PUBLIC_DOCS_URL": defineEnv(
 				process.env.NEXT_PUBLIC_DOCS_URL,
 				"https://docs.superset.sh",
-			),
-			"process.env.SENTRY_DSN_DESKTOP": defineEnv(
-				process.env.SENTRY_DSN_DESKTOP,
-			),
-			// Must match renderer for analytics in main process
-			"process.env.NEXT_PUBLIC_POSTHOG_KEY": defineEnv(
-				process.env.NEXT_PUBLIC_POSTHOG_KEY,
-			),
-			"process.env.NEXT_PUBLIC_POSTHOG_HOST": defineEnv(
-				process.env.NEXT_PUBLIC_POSTHOG_HOST,
 			),
 			"process.env.DESKTOP_VITE_PORT": defineEnv(process.env.DESKTOP_VITE_PORT),
 			"process.env.DESKTOP_NOTIFICATIONS_PORT": defineEnv(
@@ -134,16 +122,27 @@ export default defineConfig({
 						"../../packages/host-service/src/runtime/acp-sessions/codex-app-server-acp.ts",
 					),
 					"pi-acp": piAcpEntry,
+					// Bundle the ACP bridge and Claude SDK JavaScript as a standalone
+					// subprocess entry. Superset supplies only an external `claude` CLI;
+					// the SDK's optional native fallback binaries stay out of the app.
+					"claude-agent-acp": resolve("src/main/claude-agent-acp-entry.ts"),
 				},
 				output: {
 					dir: resolve(devPath, "main"),
 				},
-				external: ["electron", ...mainExternalizedDependencies],
-				plugins: [sentryPlugin].filter(Boolean),
+				// @mastra/agent-browser reaches Playwright's optional MongoDB
+				// authentication module through a dynamic import. It is not used by
+				// desktop's agent-browser lane, and preserving it as external retains
+				// Playwright's optional-runtime behavior instead of bundling a missing
+				// dependency.
+				external: ["electron", "kerberos", ...mainExternalizedDependencies],
 			},
 		},
 		resolve: {
 			alias: {
+				"@agentclientprotocol/claude-agent-acp/dist/acp-agent.js":
+					claudeAcpAgentEntry,
+				"@anthropic-ai/claude-agent-sdk": claudeAgentSdkEntry,
 				// @xterm/headless 6.0.0 has a packaging bug: `module` field points to
 				// non-existent `lib/xterm.mjs`. Force Vite to use the CJS entry instead.
 				"@xterm/headless": "@xterm/headless/lib-headless/xterm-headless.js",
@@ -155,11 +154,7 @@ export default defineConfig({
 		plugins: [
 			tsconfigPaths,
 			externalizeDepsPlugin({
-				exclude: [
-					"trpc-electron",
-					"@sentry/electron",
-					...workspaceDependencies,
-				],
+				exclude: ["trpc-electron", ...workspaceDependencies],
 			}),
 		],
 
@@ -203,15 +198,6 @@ export default defineConfig({
 				"https://docs.superset.sh",
 			),
 			"import.meta.env.DEV_SERVER_PORT": defineEnv(String(DEV_SERVER_PORT)),
-			"import.meta.env.NEXT_PUBLIC_POSTHOG_KEY": defineEnv(
-				process.env.NEXT_PUBLIC_POSTHOG_KEY,
-			),
-			"import.meta.env.NEXT_PUBLIC_POSTHOG_HOST": defineEnv(
-				process.env.NEXT_PUBLIC_POSTHOG_HOST,
-			),
-			"import.meta.env.SENTRY_DSN_DESKTOP": defineEnv(
-				process.env.SENTRY_DSN_DESKTOP,
-			),
 			"process.env.DESKTOP_VITE_PORT": defineEnv(process.env.DESKTOP_VITE_PORT),
 			"process.env.DESKTOP_NOTIFICATIONS_PORT": defineEnv(
 				process.env.DESKTOP_NOTIFICATIONS_PORT,
@@ -268,8 +254,7 @@ export default defineConfig({
 						NODE_ENV: "production",
 						platform: process.platform,
 					}),
-					sentryPlugin,
-				].filter(Boolean),
+				],
 
 				input: {
 					index: resolve("src/renderer/index.html"),

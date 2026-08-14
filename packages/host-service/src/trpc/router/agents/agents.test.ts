@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
 	buildAgentCommandString,
-	buildChatAgentMetadata,
 	getAcpHarnessForPreset,
 	resolveBundledHostAgentConfig,
 	shouldRunAgentWithAcp,
@@ -181,17 +180,5 @@ describe("buildAgentCommandString", () => {
 		expect(
 			buildAgentCommandString(myFlickerConfig, "do the thing", [], RANDOM_ID),
 		).toBe("'mfcli' 'do the thing'");
-	});
-});
-
-describe("buildChatAgentMetadata", () => {
-	it("explicitly enables yolo for full-access scheduled chat", () => {
-		expect(buildChatAgentMetadata({ permissionMode: "full_access" })).toEqual({
-			yolo: true,
-		});
-	});
-
-	it("does not change permission state for ordinary chat launches", () => {
-		expect(buildChatAgentMetadata({})).toBeUndefined();
 	});
 });

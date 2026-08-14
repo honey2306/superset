@@ -22,15 +22,7 @@ function appendAgentLaunch(
 	launchRequest: AgentLaunchRequest | undefined,
 ): WorkspaceCreateSnapshot {
 	if (!launchRequest) return input;
-	const agent =
-		launchRequest.kind === "terminal"
-			? launchRequest.terminal.hostAgent
-			: launchRequest.chat.initialPrompt !== undefined
-				? {
-						agent: launchRequest.agentType ?? "agent",
-						prompt: launchRequest.chat.initialPrompt,
-					}
-				: null;
+	const agent = launchRequest.terminal.hostAgent;
 	return agent ? { ...input, agents: [...(input.agents ?? []), agent] } : input;
 }
 

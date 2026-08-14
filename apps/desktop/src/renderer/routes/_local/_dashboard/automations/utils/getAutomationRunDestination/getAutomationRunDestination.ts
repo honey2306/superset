@@ -2,7 +2,7 @@ type AutomationRunSession = {
 	workspaceId: string | null;
 	sessionKind: string | null;
 	terminalSessionId: string | null;
-	chatSessionId?: string | null;
+	acpSessionId?: string | null;
 };
 
 /**
@@ -25,13 +25,8 @@ export function getAutomationRunDestination(
 			terminalId: run.terminalSessionId,
 		};
 	}
-	if (run.sessionKind === "acp" && run.chatSessionId) {
-		return { workspaceId: run.workspaceId, acpSessionId: run.chatSessionId };
-	}
-	if (run.sessionKind === "chat") {
-		return {
-			reason: "This automation chat session cannot be opened here yet.",
-		};
+	if (run.sessionKind === "acp" && run.acpSessionId) {
+		return { workspaceId: run.workspaceId, acpSessionId: run.acpSessionId };
 	}
 	return { reason: "This run did not create an openable session." };
 }

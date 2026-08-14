@@ -17,9 +17,6 @@ const envSchema = z.object({
 		.default("development"),
 	NEXT_PUBLIC_WEB_URL: z.url().default("https://app.superset.sh"),
 	NEXT_PUBLIC_MARKETING_URL: z.url().default("https://superset.sh"),
-	NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
-	NEXT_PUBLIC_POSTHOG_HOST: z.string().default("https://us.i.posthog.com"),
-	SENTRY_DSN_DESKTOP: z.string().optional(),
 });
 
 /**
@@ -33,13 +30,6 @@ const rawEnv = {
 	NODE_ENV: process.env.NODE_ENV,
 	NEXT_PUBLIC_WEB_URL: process.env.NEXT_PUBLIC_WEB_URL,
 	NEXT_PUBLIC_MARKETING_URL: process.env.NEXT_PUBLIC_MARKETING_URL,
-	NEXT_PUBLIC_POSTHOG_KEY: import.meta.env.NEXT_PUBLIC_POSTHOG_KEY as
-		| string
-		| undefined,
-	NEXT_PUBLIC_POSTHOG_HOST: import.meta.env.NEXT_PUBLIC_POSTHOG_HOST as
-		| string
-		| undefined,
-	SENTRY_DSN_DESKTOP: import.meta.env.SENTRY_DSN_DESKTOP as string | undefined,
 };
 
 // Only allow skipping validation in development (never in production)

@@ -85,7 +85,7 @@ function AutomationsPage() {
 				sessionKind: result.sessionKind,
 				terminalSessionId:
 					result.sessionKind === "terminal" ? result.sessionId : null,
-				chatSessionId: result.sessionKind === "acp" ? result.sessionId : null,
+				acpSessionId: result.sessionKind === "acp" ? result.sessionId : null,
 			});
 			if ("reason" in destination) {
 				toast.success(t("automations.runningNow", { name }));

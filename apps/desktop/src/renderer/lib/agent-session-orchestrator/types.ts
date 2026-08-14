@@ -36,10 +36,6 @@ export interface AgentSessionLaunchContext {
 	hostUrl?: string;
 	tabs?: AgentLaunchTabsAdapter;
 	terminalLauncher: HostTerminalLauncher;
-	captureEvent?: (input: {
-		event: "agent_session_launch";
-		properties: Record<string, unknown>;
-	}) => void;
 }
 
 export interface QueueAgentSessionLaunchInput {

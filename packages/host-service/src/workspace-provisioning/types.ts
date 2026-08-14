@@ -92,16 +92,14 @@ export type WorkspaceOperationStage =
 	| "starting-runtime"
 	| "compensating";
 
-export type InitialLaunchResult =
-	| {
-			key: string;
-			kind: "terminal";
-			sessionId: string;
-			role: "setup" | "shell" | "command" | "agent";
-			label?: string;
-			attachable: true;
-	  }
-	| { key: string; kind: "chat"; sessionId: string; label?: string };
+export type InitialLaunchResult = {
+	key: string;
+	kind: "terminal";
+	sessionId: string;
+	role: "setup" | "shell" | "command" | "agent";
+	label?: string;
+	attachable: true;
+};
 
 export type WorkspaceOperationFailureCode =
 	| "IDEMPOTENCY_CONFLICT"

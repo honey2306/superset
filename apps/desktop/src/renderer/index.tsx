@@ -1,7 +1,5 @@
-import { initSentry } from "./lib/sentry";
 import { pruneExpiredTerminalState } from "./lib/terminal/terminal-buffer-gc";
 
-initSentry();
 pruneExpiredTerminalState();
 
 import { createRouter, RouterProvider } from "@tanstack/react-router";
@@ -15,7 +13,6 @@ import {
 	reportBootError,
 } from "./lib/boot-errors";
 import { persistentHistory } from "./lib/persistent-hash-history";
-import { posthog } from "./lib/posthog";
 import { electronQueryClient } from "./providers/ElectronTRPCProvider";
 import { I18nProvider } from "./providers/I18nProvider";
 import { NotFound } from "./routes/not-found";
@@ -37,13 +34,6 @@ const router = createRouter({
 	},
 });
 
-const unsubscribe = router.subscribe("onResolved", (event) => {
-	posthog.capture("$pageview", {
-		$current_url: event.toLocation.pathname,
-		$pathname: event.toLocation.pathname,
-	});
-});
-
 const handleDeepLink = (path: string) => {
 	console.log("[deep-link] Navigating to:", path);
 	router.navigate({ to: path });
@@ -61,7 +51,6 @@ if (!desktopEvents) {
 
 if (import.meta.hot) {
 	import.meta.hot.dispose(() => {
-		unsubscribe();
 		unsubscribeFromDeepLinks?.();
 		cleanupBootErrorHandling();
 	});

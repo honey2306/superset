@@ -10,11 +10,10 @@ import { Input } from "@superset/ui/input";
 import { toast } from "@superset/ui/sonner";
 import { type FormEvent, useState } from "react";
 import { LuKeyRound } from "react-icons/lu";
-import { AnthropicOAuthDialog } from "renderer/components/Chat/ChatInterface/components/ModelPicker/components/AnthropicOAuthDialog";
-import { OpenAIOAuthDialog } from "renderer/components/Chat/ChatInterface/components/ModelPicker/components/OpenAIOAuthDialog";
-import { useAnthropicOAuth } from "renderer/components/Chat/ChatInterface/components/ModelPicker/hooks/useAnthropicOAuth";
-import { useOpenAIOAuth } from "renderer/components/Chat/ChatInterface/components/ModelPicker/hooks/useOpenAIOAuth";
-import { track } from "renderer/lib/analytics";
+import { AnthropicOAuthDialog } from "renderer/components/ProviderAuth/components/AnthropicOAuthDialog";
+import { OpenAIOAuthDialog } from "renderer/components/ProviderAuth/components/OpenAIOAuthDialog";
+import { useAnthropicOAuth } from "renderer/components/ProviderAuth/hooks/useAnthropicOAuth";
+import { useOpenAIOAuth } from "renderer/components/ProviderAuth/hooks/useOpenAIOAuth";
 import { hostServiceTrpc } from "renderer/lib/host-service-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 
@@ -53,10 +52,6 @@ function AnthropicConnectDialog({
 			onAuthStateChange: async () => {
 				const result = await refetch();
 				if (result.data?.authenticated && !result.data.issue) {
-					track("onboarding_provider_connected", {
-						provider: "anthropic",
-						method: "oauth",
-					});
 					onOpenChange(false);
 				}
 			},
@@ -64,10 +59,6 @@ function AnthropicConnectDialog({
 
 	const handleApiKeySubmit = async (rawKey: string) => {
 		await setApiKey.mutateAsync({ apiKey: rawKey });
-		track("onboarding_provider_connected", {
-			provider: "anthropic",
-			method: "api-key",
-		});
 		await refetch();
 		onOpenChange(false);
 	};
@@ -114,10 +105,6 @@ function OpenAIConnectDialog({
 		onAuthStateChange: async () => {
 			const result = await refetch();
 			if (result.data?.authenticated && !result.data.issue) {
-				track("onboarding_provider_connected", {
-					provider: "openai",
-					method: "oauth",
-				});
 				onOpenChange(false);
 			}
 		},
@@ -125,10 +112,6 @@ function OpenAIConnectDialog({
 
 	const handleApiKeySubmit = async (rawKey: string) => {
 		await setApiKey.mutateAsync({ apiKey: rawKey });
-		track("onboarding_provider_connected", {
-			provider: "openai",
-			method: "api-key",
-		});
 		await refetch();
 		onOpenChange(false);
 	};

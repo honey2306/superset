@@ -20,6 +20,20 @@ const projectRoot = join(import.meta.dirname, "..");
 const allowedBareRequirePackages = new Set([
 	"electron",
 	...mainExternalizedDependencies,
+	"@anush008/tokenizers-darwin-arm64",
+	"@anush008/tokenizers-darwin-x64",
+	"@anush008/tokenizers-darwin-universal",
+	"@anush008/tokenizers-android-arm-eabi",
+	"@anush008/tokenizers-android-arm64",
+	"@anush008/tokenizers-freebsd-x64",
+	"@anush008/tokenizers-linux-arm-gnueabihf",
+	"@anush008/tokenizers-linux-arm64-gnu",
+	"@anush008/tokenizers-linux-arm64-musl",
+	"@anush008/tokenizers-linux-x64-gnu",
+	"@anush008/tokenizers-linux-x64-musl",
+	"@anush008/tokenizers-win32-arm64-msvc",
+	"@anush008/tokenizers-win32-ia32-msvc",
+	"@anush008/tokenizers-win32-x64-msvc",
 ]);
 const builtinModuleSpecifiers = new Set([
 	...builtinModules,
@@ -525,18 +539,60 @@ function validateDuckdbPrepared(): void {
 	);
 }
 
-function validateAcpRuntimePrepared(): void {
+function validateEmbeddingNativePrepared(): void {
+	const nodeModulesDir = join(projectRoot, "node_modules");
+	const targetArch = process.env.TARGET_ARCH || process.arch;
+	const targetPlatform = process.env.TARGET_PLATFORM || process.platform;
+	if (targetPlatform !== "darwin") {
+		return;
+	}
+
 	const requiredPaths = [
+		"@anush008/tokenizers-darwin-universal/tokenizers.darwin-universal.node",
+		`onnxruntime-node/bin/napi-v3/darwin/${targetArch}/onnxruntime_binding.node`,
+	];
+	for (const modulePath of requiredPaths) {
+		assertExists(
+			join(nodeModulesDir, modulePath),
+			"Required macOS embedding runtime is missing.",
+		);
+	}
+	const onnxBinDir = join(
+		nodeModulesDir,
+		"onnxruntime-node",
+		"bin",
+		"napi-v3",
+		"darwin",
+		targetArch,
+	);
+	if (
+		!readdirSync(onnxBinDir).some(
+			(entry) =>
+				entry.startsWith("libonnxruntime.") && entry.endsWith(".dylib"),
+		)
+	) {
+		fail(`Required ONNX runtime dylib is missing from ${onnxBinDir}`);
+	}
+
+	console.log(
+		"[validate:native-runtime] OK: macOS tokenizers and ONNX runtime binaries are present",
+	);
+}
+
+function validateAcpRuntimePrepared(): void {
+	const hostServicePath = join(projectRoot, "dist", "main", "host-service.js");
+	const claudeBridgePath = join(
+		projectRoot,
+		"dist",
+		"main",
+		"claude-agent-acp.js",
+	);
+	const requiredPaths = [
+		hostServicePath,
 		join(projectRoot, "dist", "main", "acp-daemon.js"),
 		join(projectRoot, "dist", "main", "codex-app-server-acp.js"),
 		join(projectRoot, "dist", "main", "pi-acp.js"),
-		join(
-			projectRoot,
-			"node_modules",
-			"@agentclientprotocol",
-			"claude-agent-acp",
-			"package.json",
-		),
+		claudeBridgePath,
 	];
 	const missingPaths = requiredPaths.filter((path) => !existsSync(path));
 	if (missingPaths.length > 0) {
@@ -548,9 +604,24 @@ function validateAcpRuntimePrepared(): void {
 			].join("\n"),
 		);
 	}
+	for (const [artifact, forbiddenRequire] of [
+		[hostServicePath, "mastracode"],
+		[claudeBridgePath, "@agentclientprotocol/claude-agent-acp"],
+		[claudeBridgePath, "@anthropic-ai/claude-agent-sdk"],
+	] as const) {
+		const contents = readFileSync(artifact, "utf8");
+		if (
+			contents.includes(`require("${forbiddenRequire}")`) ||
+			contents.includes(`require('${forbiddenRequire}')`)
+		) {
+			fail(
+				`${artifact} still requires ${forbiddenRequire}; bundle the JavaScript runtime or add its complete explicit dependency closure.`,
+			);
+		}
+	}
 
 	console.log(
-		"[validate:native-runtime] OK: ACP daemon and adapter artifacts are present",
+		"[validate:native-runtime] OK: ACP bridges are bundled beside the daemon and external runtime modules resolve from explicit FileSets",
 	);
 }
 
@@ -562,6 +633,7 @@ function main(): void {
 	validateNativeModulesPrepared();
 	validateParcelWatcherPrepared();
 	validateDuckdbPrepared();
+	validateEmbeddingNativePrepared();
 	validateAcpRuntimePrepared();
 	console.log("[validate:native-runtime] All checks passed");
 }

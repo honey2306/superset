@@ -1,4 +1,3 @@
-import type { AgentDefinition } from "@superset/shared/agent-catalog";
 import { PROMPT_TRANSPORTS } from "@superset/shared/agent-prompt-launch";
 import type {
 	AgentPresetPatch,
@@ -19,7 +18,6 @@ export const updateAgentPresetInputSchema = z.object({
 			promptCommand: z.string().optional(),
 			promptCommandSuffix: z.string().nullable().optional(),
 			taskPromptTemplate: z.string().optional(),
-			model: z.string().nullable().optional(),
 		})
 		.refine((patch) => Object.keys(patch).length > 0, {
 			message: "Patch must include at least one field",
@@ -66,13 +64,9 @@ function toTrimmedRequiredValue(field: string, value: string): string {
 	return trimmed;
 }
 
-export function normalizeAgentPresetPatch({
-	definition,
-	patch,
-}: {
-	definition: AgentDefinition;
-	patch: z.infer<typeof updateAgentPresetInputSchema>["patch"];
-}): AgentPresetPatch {
+export function normalizeAgentPresetPatch(
+	patch: z.infer<typeof updateAgentPresetInputSchema>["patch"],
+): AgentPresetPatch {
 	const normalized: AgentPresetPatch = {};
 
 	if (patch.enabled !== undefined) {
@@ -100,23 +94,18 @@ export function normalizeAgentPresetPatch({
 		normalized.taskPromptTemplate = taskPromptTemplate;
 	}
 
-	if (definition.kind === "terminal") {
-		if (patch.command !== undefined) {
-			normalized.command = toTrimmedRequiredValue("Command", patch.command);
-		}
-		if (patch.promptCommand !== undefined) {
-			normalized.promptCommand = toTrimmedRequiredValue(
-				"Prompt command",
-				patch.promptCommand,
-			);
-		}
-		if (patch.promptCommandSuffix !== undefined) {
-			const promptCommandSuffix = patch.promptCommandSuffix?.trim() ?? "";
-			normalized.promptCommandSuffix = promptCommandSuffix || null;
-		}
-	} else if (patch.model !== undefined) {
-		const model = patch.model?.trim() ?? "";
-		normalized.model = model || null;
+	if (patch.command !== undefined) {
+		normalized.command = toTrimmedRequiredValue("Command", patch.command);
+	}
+	if (patch.promptCommand !== undefined) {
+		normalized.promptCommand = toTrimmedRequiredValue(
+			"Prompt command",
+			patch.promptCommand,
+		);
+	}
+	if (patch.promptCommandSuffix !== undefined) {
+		const promptCommandSuffix = patch.promptCommandSuffix?.trim() ?? "";
+		normalized.promptCommandSuffix = promptCommandSuffix || null;
 	}
 
 	if (Object.keys(normalized).length === 0) {

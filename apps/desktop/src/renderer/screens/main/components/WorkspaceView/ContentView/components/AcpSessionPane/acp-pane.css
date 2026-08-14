@@ -1547,6 +1547,85 @@
 	background: var(--acp-orange-dim);
 }
 
+/* The active plan stays docked above the composer. Its compact trigger is the
+   default view; expanding reveals the existing Plan card without changing the
+   card's visual language or consuming timeline scroll position. */
+.acp-plan-dock {
+	position: relative;
+	z-index: 5;
+	flex: 0 0 auto;
+	display: flex;
+	justify-content: center;
+	padding: 0 16px 8px;
+	pointer-events: none;
+}
+.acp-plan-dock__trigger {
+	pointer-events: auto;
+	min-width: 0;
+	max-width: min(100%, 520px);
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	border: 1px solid var(--acp-line-hi);
+	border-radius: 6px;
+	background: var(--acp-panel);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.32);
+	color: var(--acp-fg);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.acp-plan-dock__trigger:hover {
+	background: var(--acp-panel-2);
+	border-color: var(--acp-dim);
+}
+.acp-plan-dock__icon {
+	width: 15px;
+	height: 15px;
+	flex: 0 0 auto;
+	color: var(--acp-cyan);
+}
+.acp-plan-dock__progress {
+	flex: 0 0 auto;
+	color: var(--acp-muted);
+	font-variant-numeric: tabular-nums;
+}
+.acp-plan-dock__summary {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.acp-plan-dock__chevron {
+	width: 14px;
+	height: 14px;
+	flex: 0 0 auto;
+	color: var(--acp-muted);
+	transition: transform 120ms ease;
+}
+.acp-plan-dock__trigger[aria-expanded="true"] .acp-plan-dock__chevron {
+	transform: rotate(180deg);
+}
+.acp-plan-dock__popover {
+	pointer-events: auto;
+	position: absolute;
+	left: 50%;
+	bottom: calc(100% + 4px);
+	width: min(calc(100% - 32px), 680px);
+	max-height: min(50vh, 420px);
+	overflow-y: auto;
+	transform: translateX(-50%);
+	padding: 8px;
+	border: 1px solid var(--acp-line-hi);
+	border-radius: 8px;
+	background: var(--acp-bg);
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.48);
+}
+.acp-pane__timeline[data-has-plan="true"] .acp-pane__jump {
+	bottom: 56px;
+}
+
 /* ---------- Permission ---------- */
 .acp-perm {
 	border: 1px solid rgba(255, 121, 198, 0.55);

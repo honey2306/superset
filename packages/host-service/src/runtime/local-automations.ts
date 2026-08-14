@@ -70,7 +70,7 @@ export function runDto(row: typeof localAutomationRuns.$inferSelect) {
 
 export function localRunDestination(
 	workspaceId: string,
-	result: { kind: "terminal" | "acp" | "chat"; sessionId: string },
+	result: { kind: "terminal" | "acp"; sessionId: string },
 ) {
 	return {
 		workspaceId,
@@ -173,7 +173,7 @@ export async function dispatchLocalAutomation(
 	runId: string;
 	workspaceId: string;
 	sessionId: string;
-	sessionKind: "terminal" | "acp" | "chat";
+	sessionKind: "terminal" | "acp";
 }> {
 	const runId = crypto.randomUUID();
 	const workspaceId = resolveLocalWorkspaceId(
@@ -227,12 +227,7 @@ export async function dispatchLocalAutomation(
 			.set({
 				status: "dispatched",
 				sessionKind: result.kind,
-				// ACP sessions share the durable session-id slot formerly used by
-				// chat. `sessionKind` disambiguates it for renderer deep links.
-				chatSessionId:
-					result.kind === "chat" || result.kind === "acp"
-						? result.sessionId
-						: null,
+				acpSessionId: result.kind === "acp" ? result.sessionId : null,
 				terminalSessionId: result.kind === "terminal" ? result.sessionId : null,
 				dispatchedAt: Date.now(),
 			})
@@ -257,7 +252,7 @@ export async function dispatchLocalTodo(
 ): Promise<{
 	workspaceId: string;
 	sessionId: string;
-	sessionKind: "terminal" | "acp" | "chat";
+	sessionKind: "terminal" | "acp";
 }> {
 	const workspaceId = resolveLocalWorkspaceId(
 		ctx.db,
@@ -302,10 +297,7 @@ export async function dispatchLocalTodo(
 			.set({
 				status: "dispatched",
 				sessionKind: result.kind,
-				chatSessionId:
-					result.kind === "chat" || result.kind === "acp"
-						? result.sessionId
-						: null,
+				acpSessionId: result.kind === "acp" ? result.sessionId : null,
 				terminalSessionId: result.kind === "terminal" ? result.sessionId : null,
 				dispatchedAt: Date.now(),
 				error: null,

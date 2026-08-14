@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import type {
 	FoldedTimeline,
 	MessageItem,
+	PlanItem,
 	TimelineItem,
 	ToolCallItem,
 } from "@superset/session-protocol";
@@ -59,6 +60,33 @@ function timeline(count: number): FoldedTimeline {
 	};
 }
 
+function plan(sequence: number): PlanItem {
+	return {
+		kind: "plan",
+		id: `plan:${sequence}`,
+		entries: [
+			{
+				content: "Inspect ACP timeline",
+				status: "completed",
+				priority: "medium",
+			},
+			{
+				content: "Keep plan docked",
+				status: "in_progress",
+				priority: "medium",
+			},
+			{
+				content: "Verify behavior",
+				status: "pending",
+				priority: "medium",
+			},
+		],
+		removed: false,
+		startSeq: sequence,
+		endSeq: sequence,
+	};
+}
+
 function tool(
 	sequence: number,
 	status: "completed" | "in_progress" | "pending",
@@ -101,6 +129,44 @@ function setScrollMetrics(
 		scrollHeight: { configurable: true, value: scrollHeight },
 	});
 }
+
+describe("plan dock", () => {
+	test("keeps the active plan collapsed below the scrolling timeline", () => {
+		const result = renderTimeline({
+			...timeline(0),
+			items: [message(1), plan(2), message(3)],
+		});
+
+		const scroll = result.container.querySelector(".acp-pane__scroll");
+		const dock = result.container.querySelector(".acp-plan-dock");
+		expect(scroll?.nextElementSibling).toBe(dock);
+		expect(scroll?.querySelector(".acp-plan")).toBeNull();
+		expect(dock?.querySelector(".acp-plan")).toBeNull();
+		expect(screen.getByText("1/3")).toBeTruthy();
+		expect(screen.getByText("Keep plan docked")).toBeTruthy();
+		expect(
+			screen
+				.getByRole("button", { name: "Expand plan" })
+				.getAttribute("aria-expanded"),
+		).toBe("false");
+	});
+
+	test("reveals the existing plan card when clicked", () => {
+		const result = renderTimeline({
+			...timeline(0),
+			items: [message(1), plan(2), message(3)],
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Expand plan" }));
+
+		expect(
+			result.container.querySelector(".acp-plan-dock .acp-plan"),
+		).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Collapse plan" })).toBeTruthy();
+		expect(screen.getByText("Inspect ACP timeline")).toBeTruthy();
+		expect(screen.getByText("Verify behavior")).toBeTruthy();
+	});
+});
 
 describe("AcpTimeline scrolling", () => {
 	test("preserves a manual reading position when new timeline items arrive", async () => {

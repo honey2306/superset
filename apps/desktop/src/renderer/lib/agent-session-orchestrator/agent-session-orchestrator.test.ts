@@ -2,13 +2,6 @@ import { describe, expect, it, mock } from "bun:test";
 import type { AgentLaunchRequest } from "@superset/shared/agent-launch";
 import type { AgentLaunchTabsAdapter } from "./types";
 
-mock.module("renderer/lib/posthog", () => ({
-	posthog: {
-		capture: mock(() => {}),
-	},
-	initPostHog: mock(() => {}),
-}));
-
 const { launchAgentSession, selectAgentLaunchAdapter } = await import(
 	"./agent-session-orchestrator"
 );
@@ -41,7 +34,6 @@ function createContext({
 			write: mock(async () => {}),
 			kill: mock(async () => {}),
 		},
-		captureEvent: mock(() => {}),
 	};
 }
 
@@ -54,16 +46,6 @@ describe("selectAgentLaunchAdapter", () => {
 		};
 
 		expect(selectAgentLaunchAdapter(request)).toBe("terminal");
-	});
-
-	it("throws for chat requests (chat removed)", () => {
-		const request: AgentLaunchRequest = {
-			kind: "chat",
-			workspaceId: "ws-1",
-			chat: {},
-		} as AgentLaunchRequest;
-
-		expect(() => selectAgentLaunchAdapter(request)).toThrow();
 	});
 });
 

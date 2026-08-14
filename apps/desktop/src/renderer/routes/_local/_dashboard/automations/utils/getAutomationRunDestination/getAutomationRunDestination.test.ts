@@ -18,7 +18,7 @@ describe("getAutomationRunDestination", () => {
 				workspaceId: "workspace-1",
 				sessionKind: "acp",
 				terminalSessionId: null,
-				chatSessionId: "acp-1",
+				acpSessionId: "acp-1",
 			}),
 		).toEqual({ workspaceId: "workspace-1", acpSessionId: "acp-1" });
 	});
@@ -27,11 +27,11 @@ describe("getAutomationRunDestination", () => {
 		expect(
 			getAutomationRunDestination({
 				workspaceId: "workspace-1",
-				sessionKind: "chat",
+				sessionKind: "unknown",
 				terminalSessionId: null,
 			}),
 		).toEqual({
-			reason: "This automation chat session cannot be opened here yet.",
+			reason: "This run did not create an openable session.",
 		});
 	});
 });

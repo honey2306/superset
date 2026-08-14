@@ -40,9 +40,9 @@ describe("host-service-terminal-agent-launcher (Milestone 4)", () => {
 
 	it("rejects a non-terminal launch result", async () => {
 		const run = mock(async () => ({
-			kind: "chat" as const,
-			sessionId: "chat-1",
-			label: "Superset",
+			kind: "acp" as const,
+			sessionId: "acp-1",
+			label: "Claude",
 		}));
 
 		expect(
@@ -50,7 +50,7 @@ describe("host-service-terminal-agent-launcher (Milestone 4)", () => {
 				client: { agents: { run: { mutate: run } } } as never,
 				workspaceId: "ws-1",
 				paneId: "pane-agent-2",
-				agent: "superset",
+				agent: "claude",
 				prompt: "",
 			}),
 		).rejects.toThrow("did not launch in a terminal");

@@ -4,7 +4,7 @@ import type {
 	SessionConfigOption,
 	SessionStatus,
 } from "@superset/session-protocol";
-import type { ComposerSlashCommand } from "renderer/components/Chat/ChatInterface/hooks/useSlashCommands";
+import type { ComposerSlashCommand } from "renderer/screens/main/components/WorkspaceView/ContentView/components/TiptapPromptEditor/useSlashCommands";
 
 export interface ResolveComposerDisabledInput {
 	status: SessionStatus | undefined;

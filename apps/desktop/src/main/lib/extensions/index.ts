@@ -2,7 +2,7 @@ import type { Dirent } from "node:fs";
 import { existsSync, readdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { app, session } from "electron";
+import { session } from "electron";
 import { env } from "main/env.main";
 
 const APP_PARTITION = "persist:superset";
@@ -150,23 +150,6 @@ function resolveReactDevToolsPath(): string | null {
 	return null;
 }
 
-function resolveWebviewExtensionPath(): string | null {
-	const candidates = app.isPackaged
-		? [path.join(process.resourcesPath, "browser-extension")]
-		: [
-				path.join(process.cwd(), "src/resources/browser-extension"),
-				path.join(process.cwd(), "dist/resources/browser-extension"),
-				path.resolve(__dirname, "../../../../src/resources/browser-extension"),
-				path.resolve(__dirname, "../../../resources/browser-extension"),
-			];
-
-	for (const candidate of candidates) {
-		if (existsSync(path.join(candidate, "manifest.json"))) return candidate;
-	}
-
-	return null;
-}
-
 export async function loadReactDevToolsExtension(): Promise<void> {
 	if (env.NODE_ENV !== "development") return;
 
@@ -201,26 +184,5 @@ export async function loadReactDevToolsExtension(): Promise<void> {
 				error,
 			);
 		}
-	}
-}
-
-export async function loadWebviewBrowserExtension(): Promise<void> {
-	const extensionPath = resolveWebviewExtensionPath();
-	if (!extensionPath) {
-		console.warn(
-			"[main] Browser extension not found; skipping webview extension load",
-		);
-		return;
-	}
-
-	try {
-		await session
-			.fromPartition(APP_PARTITION)
-			.extensions.loadExtension(extensionPath);
-		console.log("[main] Browser extension loaded");
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		if (message.includes("already loaded")) return;
-		console.error("[main] Failed to load browser extension:", error);
 	}
 }
