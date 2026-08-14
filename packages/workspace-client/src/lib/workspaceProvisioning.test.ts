@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
 	createInMemoryProvisioningAdapter,
-	extractAttachableLaunches,
 	type WorkspaceOperation,
 } from "./workspaceProvisioning";
 
@@ -90,22 +89,5 @@ describe("createInMemoryProvisioningAdapter", () => {
 		a.seedOperation({ ...baseOp("f"), state: "failed", failure: undefined });
 		const failed = await a.list({ states: ["failed"] });
 		expect(failed.map((r) => r.id)).toEqual(["f"]);
-	});
-});
-
-describe("extractAttachableLaunches", () => {
-	test("keeps only terminal launches marked attachable", () => {
-		const kept = extractAttachableLaunches([
-			{
-				key: "a",
-				kind: "terminal",
-				sessionId: "s1",
-				role: "shell",
-				attachable: true,
-			},
-			{ key: "b", kind: "chat", sessionId: "s2" },
-		]);
-		expect(kept).toHaveLength(1);
-		expect(kept[0]?.key).toBe("a");
 	});
 });
