@@ -1,7 +1,6 @@
 import { Database as BunDatabase } from "bun:sqlite";
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -19,10 +18,6 @@ import {
 	AcpDaemonClient,
 } from "../../src/runtime/acp-sessions/daemon";
 
-const desktopRequire = createRequire(
-	path.resolve(import.meta.dir, "../../../../apps/desktop/package.json"),
-);
-const ELECTRON_NODE = desktopRequire("electron") as string;
 const MIGRATIONS_FOLDER = path.resolve(import.meta.dir, "../../drizzle");
 const DAEMON_ENTRY = path.resolve(
 	import.meta.dir,
@@ -32,6 +27,7 @@ const FAKE_ADAPTER = path.resolve(
 	import.meta.dir,
 	"../fixtures/fake-acp-adapter.ts",
 );
+const BUN_DB_SHIM = path.resolve(import.meta.dir, "../fixtures/bun-host-db.ts");
 
 async function waitFor(
 	predicate: () => boolean | Promise<boolean>,
@@ -82,11 +78,10 @@ function agentText(timeline: Timeline): string {
 		.join("\n");
 }
 
-async function buildEntry(
+async function buildDaemonEntry(
 	entrypoint: string,
 	outdir: string,
 	name: string,
-	external: string[] = [],
 ): Promise<string> {
 	const result = await Bun.build({
 		entrypoints: [entrypoint],
@@ -94,7 +89,16 @@ async function buildEntry(
 		outdir,
 		naming: `${name}.js`,
 		format: "esm",
-		external,
+		plugins: [
+			{
+				name: "bun-host-db",
+				setup(build) {
+					build.onResolve({ filter: /^\.\.\/\.\.\/db$/ }, () => ({
+						path: BUN_DB_SHIM,
+					}));
+				},
+			},
+		],
 	});
 	if (!result.success) {
 		throw new Error(result.logs.map((log) => log.message).join("\n"));
@@ -126,11 +130,10 @@ describe("ACP daemon process boundary", () => {
 	test("permission and AskUser remain actionable after the host client reconnects", async () => {
 		mkdirSync(buildDir, { recursive: true });
 		mkdirSync(workspaceDir, { recursive: true });
-		const daemonScript = await buildEntry(
+		const daemonScript = await buildDaemonEntry(
 			DAEMON_ENTRY,
 			buildDir,
 			"acp-daemon",
-			["better-sqlite3"],
 		);
 		const sqlite = new BunDatabase(dbPath, { create: true, readwrite: true });
 		sqlite.exec("PRAGMA foreign_keys = ON");
@@ -162,7 +165,7 @@ describe("ACP daemon process boundary", () => {
 			organizationId: "org-daemon-e2e",
 			scriptPath: daemonScript,
 			socketPath,
-			execPath: ELECTRON_NODE,
+			execPath: process.execPath,
 			expectedBuildVersion: ACP_DAEMON_BUILD_VERSION,
 			spawnEnv: {
 				ORGANIZATION_ID: "org-daemon-e2e",
