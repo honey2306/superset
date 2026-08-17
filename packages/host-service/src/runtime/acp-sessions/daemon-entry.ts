@@ -1,5 +1,6 @@
 import { existsSync, unlinkSync } from "node:fs";
 import net from "node:net";
+import path from "node:path";
 import { eq } from "drizzle-orm";
 import { createDb } from "../../db";
 import { projects, workspaces } from "../../db/schema";
@@ -16,6 +17,7 @@ import {
 } from "./acp-cli-auto-updater";
 import { AcpSessionManager } from "./acp-sessions";
 import { generateAcpSessionTitle } from "./acp-title-generation";
+import { AcpArtifactStore } from "./artifact-store";
 import {
 	ACP_DAEMON_BUILD_VERSION,
 	ACP_DAEMON_PROTOCOL_VERSION,
@@ -37,12 +39,18 @@ import { SupersetToolController } from "./superset-tools";
 
 const MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 
+class AcpDaemonFrameTooLargeError extends Error {
+	constructor(bytes: number) {
+		super(
+			`ACP daemon frame exceeds the ${MAX_BUFFER_BYTES} byte transport limit (${bytes} bytes)`,
+		);
+	}
+}
+
 async function main(): Promise<void> {
 	const organizationId = requiredEnv("ORGANIZATION_ID");
-	const db = createDb(
-		requiredEnv("HOST_DB_PATH"),
-		requiredEnv("HOST_MIGRATIONS_FOLDER"),
-	);
+	const dbPath = requiredEnv("HOST_DB_PATH");
+	const db = createDb(dbPath, requiredEnv("HOST_MIGRATIONS_FOLDER"));
 	const claudeCommand = process.env.CLAUDE_CODE_EXECUTABLE ?? "claude";
 	const mfcliCommand =
 		process.env.SUPERSET_MFCLI_ACP_COMMAND ??
@@ -65,6 +73,9 @@ async function main(): Promise<void> {
 			return workspace.worktreePath;
 		},
 		persistence,
+		artifactStore: new AcpArtifactStore(
+			path.join(path.dirname(dbPath), "acp-artifacts"),
+		),
 		adapterEntry: process.env.SUPERSET_ACP_ADAPTER_ENTRY,
 		codexAdapterEntry: process.env.SUPERSET_CODEX_ACP_ADAPTER_ENTRY,
 		piAdapterEntry: process.env.SUPERSET_PI_ACP_ADAPTER_ENTRY,
@@ -150,12 +161,13 @@ async function main(): Promise<void> {
 				| AcpDaemonEvent
 				| AcpDaemonSessionChangedEvent
 				| AcpDaemonSessionOpenRequestedEvent,
-		) => {
-			if (socket.destroyed || socket.writableLength > MAX_BUFFER_BYTES) {
-				socket.destroy();
-				return;
-			}
-			socket.write(`${JSON.stringify(message)}\n`);
+		): boolean => {
+			if (socket.destroyed) return false;
+			const line = `${JSON.stringify(message)}\n`;
+			const bytes = Buffer.byteLength(line);
+			if (bytes > MAX_BUFFER_BYTES)
+				throw new AcpDaemonFrameTooLargeError(bytes);
+			return socket.write(line);
 		};
 		clientWriters.add(write);
 		// Host-wide session-change broadcast. Every daemon client hears every
@@ -196,6 +208,7 @@ async function main(): Promise<void> {
 					toolController,
 					request,
 					subscriptions,
+					socket,
 					write,
 					shutdown,
 					controller.signal,
@@ -234,12 +247,100 @@ async function main(): Promise<void> {
 	process.on("SIGINT", () => void shutdown());
 }
 
+/**
+ * Node accepts writes after its high-water mark, so a synchronous journal
+ * replay could otherwise enqueue every retained envelope and eventually make
+ * us tear down the control socket. Pause at the first backpressure signal,
+ * detach the listener, and replay the durable tail from the last accepted
+ * sequence on drain. The journal remains the only queue, keeping memory
+ * bounded without losing ordered envelopes.
+ */
+function subscribeWithBackpressure(input: {
+	manager: AcpSessionManager;
+	socket: net.Socket;
+	write: (message: AcpDaemonResponse | AcpDaemonEvent) => boolean;
+	input: {
+		subscriptionId: string;
+		sessionId: string;
+		since?: number;
+		epoch?: string;
+	};
+}): () => void {
+	let stopped = false;
+	let paused = false;
+	let unsubscribe: (() => void) | undefined;
+	let lastDelivered = input.input.since;
+	const detachForPause = () => {
+		unsubscribe?.();
+		unsubscribe = undefined;
+	};
+
+	const stop = () => {
+		if (stopped) return;
+		stopped = true;
+		unsubscribe?.();
+		unsubscribe = undefined;
+	};
+	const resume = () => {
+		if (stopped || input.socket.destroyed) return;
+		detachForPause();
+		paused = false;
+		const attached = input.manager.subscribe({
+			sessionId: input.input.sessionId,
+			since: lastDelivered,
+			epoch: input.input.epoch,
+			onEnvelope: (envelope) => {
+				if (stopped || paused) return;
+				try {
+					const drained = input.write({
+						type: "event",
+						subscriptionId: input.input.subscriptionId,
+						envelope,
+					});
+					// `false` still means Node accepted this envelope into its
+					// write queue, so the resume cursor advances past it.
+					lastDelivered = envelope.seq;
+					if (!drained) {
+						paused = true;
+						detachForPause();
+						input.socket.once("drain", resume);
+					}
+				} catch (error) {
+					if (!(error instanceof AcpDaemonFrameTooLargeError)) throw error;
+					paused = true;
+					detachForPause();
+					// A single envelope can never fit this protocol. Report that
+					// honestly; do not turn it into a daemon disconnect.
+					input.write({
+						type: "event",
+						subscriptionId: input.input.subscriptionId,
+						envelope: {
+							seq: envelope.seq,
+							epoch: envelope.epoch,
+							sessionId: envelope.sessionId,
+							ts: Date.now(),
+							frame: { kind: "reset", reason: "frame_exceeds_transport_limit" },
+						},
+					});
+				}
+			},
+		});
+		unsubscribe = attached;
+		// Backlog delivery is synchronous. Once it returned, it is safe to
+		// detach if it hit backpressure or an oversized envelope.
+		if (paused) detachForPause();
+	};
+	resume();
+	return stop;
+}
+
 async function dispatch(
 	manager: AcpSessionManager,
 	toolController: SupersetToolController,
 	request: AcpDaemonRequest,
 	subscriptions: Map<string, () => void>,
-	write: (message: AcpDaemonResponse | AcpDaemonEvent) => void,
+	socket: net.Socket,
+	write: (message: AcpDaemonResponse | AcpDaemonEvent) => boolean,
 	shutdown: () => Promise<void>,
 	signal: AbortSignal,
 ): Promise<void> {
@@ -359,16 +460,11 @@ async function dispatch(
 					epoch?: string;
 				};
 				subscriptions.get(input.subscriptionId)?.();
-				const unsubscribe = manager.subscribe({
-					sessionId: input.sessionId,
-					since: input.since,
-					epoch: input.epoch,
-					onEnvelope: (envelope) =>
-						write({
-							type: "event",
-							subscriptionId: input.subscriptionId,
-							envelope,
-						}),
+				const unsubscribe = subscribeWithBackpressure({
+					manager,
+					socket,
+					write,
+					input,
 				});
 				subscriptions.set(input.subscriptionId, unsubscribe);
 				break;

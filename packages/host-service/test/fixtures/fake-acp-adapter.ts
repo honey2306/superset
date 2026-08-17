@@ -9,6 +9,8 @@
  *
  *   say <text>            one agent_message_chunk, end_turn
  *   tool <name>           tool_call pending → in_progress → completed + chunk
+ *   large <count> <bytes> deterministic tool updates with large rawOutput
+ *   large-image <bytes>  deterministic tool update with an inline base64 image
  *   diff <path>           completed edit tool_call containing a deterministic
  *                         ACP Diff content block (no filesystem mutation)
  *   permission <name>     tool_call + session/request_permission
@@ -397,6 +399,64 @@ const app = agent({ name: "fake-acp-adapter" })
 					status: "completed",
 				});
 				await say(`tool ${rest} done`);
+				return { stopReason: "end_turn" as const };
+			}
+
+			case "large": {
+				const [countText, bytesText] = rest.split(" ");
+				const count = Number(countText);
+				const bytes = Number(bytesText);
+				if (!Number.isInteger(count) || !Number.isInteger(bytes)) {
+					throw new Error("large requires integer count and bytes");
+				}
+				const rawOutput = { details: { mcpResult: "x".repeat(bytes) } };
+				for (let index = 0; index < count; index += 1) {
+					toolCallCounter += 1;
+					await notifyUpdate({
+						sessionUpdate: "tool_call",
+						toolCallId: `large-${toolCallCounter}`,
+						title: `large-${index}`,
+						kind: "execute",
+						status: "completed",
+						rawOutput,
+					});
+				}
+				return { stopReason: "end_turn" as const };
+			}
+
+			case "large-image": {
+				const bytes = Number(rest);
+				if (!Number.isInteger(bytes)) {
+					throw new Error("large-image requires an integer byte count");
+				}
+				toolCallCounter += 1;
+				await notifyUpdate({
+					sessionUpdate: "tool_call",
+					toolCallId: `large-image-${toolCallCounter}`,
+					title: "large-image",
+					kind: "execute",
+					status: "completed",
+					rawOutput: {
+						content: [
+							{
+								type: "image",
+								data: "a".repeat(bytes),
+								mimeType: "image/png",
+							},
+						],
+						details: {
+							mcpResult: {
+								content: [
+									{
+										type: "image",
+										data: "a".repeat(bytes),
+										mimeType: "image/png",
+									},
+								],
+							},
+						},
+					},
+				});
 				return { stopReason: "end_turn" as const };
 			}
 

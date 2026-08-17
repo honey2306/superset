@@ -46,6 +46,7 @@ import {
 	encodeMessagesCursor,
 	selectedOptionIds,
 } from "@superset/session-protocol";
+import type { AcpArtifactStore } from "./artifact-store";
 import { SessionJournal } from "./journal";
 import type { AcpSessionPersistence, AcpSessionRecord } from "./persistence";
 import {
@@ -95,6 +96,8 @@ const MESSAGE_FRAME_KINDS = new Set<SessionUpdateFrame["kind"]>([
 	"permission_resolved",
 	"prompt_rejected",
 ]);
+/** Keep daemon responses comfortably below its 16 MiB NDJSON frame limit. */
+const MAX_MESSAGES_PAGE_BYTES = 8 * 1024 * 1024;
 
 function isMissingUpstreamResourceError(error: unknown): boolean {
 	return (
@@ -481,6 +484,8 @@ export interface AcpSessionManagerOptions {
 	 * Without it the manager is memory-only (sessions die with the host).
 	 */
 	persistence?: AcpSessionPersistence;
+	/** Stores oversized raw tool-result images outside durable journal frames. */
+	artifactStore?: AcpArtifactStore;
 	/**
 	 * Optional Claude-Code-style tab title generator. When provided, the
 	 * manager kicks it off in the background on the first user prompt of a
@@ -527,6 +532,7 @@ export class AcpSessionManager {
 	private readonly mcpServers: McpServer[];
 	private readonly mcpServerFactory: AcpSessionManagerOptions["mcpServerFactory"];
 	private readonly persistence: AcpSessionPersistence | undefined;
+	private readonly artifactStore: AcpArtifactStore | undefined;
 	private readonly generateTitle:
 		| AcpSessionManagerOptions["generateTitle"]
 		| undefined;
@@ -565,6 +571,7 @@ export class AcpSessionManager {
 		this.mcpServers = options.mcpServers ?? [];
 		this.mcpServerFactory = options.mcpServerFactory;
 		this.persistence = options.persistence;
+		this.artifactStore = options.artifactStore;
 		this.generateTitle = options.generateTitle;
 		if (this.persistence) {
 			try {
@@ -714,6 +721,8 @@ export class AcpSessionManager {
 			beforeSeq: input.beforeSeq,
 			limit: input.limit ?? 50,
 			matches: (envelope) => MESSAGE_FRAME_KINDS.has(envelope.frame.kind),
+			maxBytes: MAX_MESSAGES_PAGE_BYTES,
+			measure: (envelope) => Buffer.byteLength(JSON.stringify(envelope)),
 		});
 		return {
 			items: page.items,
@@ -1095,6 +1104,7 @@ export class AcpSessionManager {
 		}
 
 		this.offline.delete(sessionId);
+		this.artifactStore?.removeSession(sessionId);
 		if (workspaceId) {
 			this.notifySessionChange({
 				sessionId,
@@ -2247,6 +2257,23 @@ export class AcpSessionManager {
 		runtime: AcpSessionRuntime,
 		frame: SessionUpdateFrame,
 	): SessionUpdateEnvelope {
+		if (frame.kind === "update" && "rawOutput" in frame.update) {
+			const update = frame.update;
+			if (update.rawOutput !== undefined) {
+				frame = {
+					...frame,
+					update: {
+						...update,
+						rawOutput: this.artifactStore
+							? this.artifactStore.boundRawOutput(
+									runtime.state.sessionId,
+									update.rawOutput,
+								)
+							: update.rawOutput,
+					},
+				};
+			}
+		}
 		const envelope = runtime.journal.append(runtime.state.sessionId, frame);
 		try {
 			this.persistence?.appendEnvelope(envelope);

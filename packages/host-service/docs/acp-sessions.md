@@ -152,6 +152,15 @@ Projection with required `kind`, `status`, `title`, and `locations` fields.
 Renderers consume those fields directly instead of interpreting adapter-specific
 `rawInput` or `_meta`. The ring is bounded, so memory does not grow for the full
 lifetime of an arbitrarily long session.
+
+Oversized inline images in adapter `rawOutput` are content-addressed under the
+organization's host data directory before an envelope enters the journal. The
+journal keeps a session-scoped artifact reference (SHA-256, MIME type, byte
+size, and file locator) instead of duplicating base64 data; closing the session
+removes its artifact directory. History responses are additionally capped by
+serialized byte size, and daemon subscription replay pauses on socket
+backpressure and resumes from the last accepted sequence.
+
 However, the current design still gives the ring two jobs:
 
 1. recent WebSocket catch-up with `?since=<seq>`;
