@@ -1,5 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
-import { buildPanesLifecycleRegistry } from "./buildPanesLifecycleRegistry";
+import {
+	buildPanesAcpLifecycleRegistry,
+	buildPanesLifecycleRegistry,
+} from "./buildPanesLifecycleRegistry";
 
 const terminalRuntimeStub = {
 	onTitleChange: () => () => {},
@@ -19,6 +22,66 @@ function makePane(id: string, terminalId: string) {
 		data: { terminalId },
 	} as never;
 }
+
+describe("buildPanesAcpLifecycleRegistry", () => {
+	test("uses the stable first title for the tab instead of the latest status title", () => {
+		const lifecycle = buildPanesAcpLifecycleRegistry({
+			closeSession: mock(async () => {}),
+		});
+		const title = lifecycle.getTitle?.({
+			id: "acp-pane",
+			kind: "acp",
+			data: {
+				acp: {
+					sessionId: "session-1",
+					agentDefinitionId: "codex",
+					title: "Initial task",
+					statusTitle: "Running tests",
+				},
+			},
+		} as never);
+
+		expect(title).toBe("Initial task");
+	});
+
+	test("closes the host session before allowing the pane to close", async () => {
+		const closeSession = mock<(sessionId: string) => Promise<void>>(
+			async () => {},
+		);
+		const lifecycle = buildPanesAcpLifecycleRegistry({ closeSession });
+		const pane = {
+			id: "acp-pane",
+			kind: "acp",
+			data: {
+				acp: { sessionId: "session-1", agentDefinitionId: "claude" },
+			},
+		} as never;
+
+		expect(await lifecycle.onBeforeClose?.(pane)).toBe(true);
+		expect(closeSession).toHaveBeenCalledWith("session-1");
+	});
+
+	test("keeps the pane open when closing the host session fails", async () => {
+		const error = new Error("host unavailable");
+		const onCloseError = mock<(error: unknown) => void>();
+		const lifecycle = buildPanesAcpLifecycleRegistry({
+			closeSession: mock(async () => {
+				throw error;
+			}),
+			onCloseError,
+		});
+		const pane = {
+			id: "acp-pane",
+			kind: "acp",
+			data: {
+				acp: { sessionId: "session-1", agentDefinitionId: "claude" },
+			},
+		} as never;
+
+		expect(await lifecycle.onBeforeClose?.(pane)).toBe(false);
+		expect(onCloseError).toHaveBeenCalledWith(error);
+	});
+});
 
 describe("buildPanesLifecycleRegistry onBeforeClose", () => {
 	test("onBeforeClose routes through confirmCloseTerminals with the pane's terminalId", async () => {

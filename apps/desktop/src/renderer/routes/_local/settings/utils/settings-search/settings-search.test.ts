@@ -42,6 +42,7 @@ const RETAINED_SEARCH_ITEMS = [
 	SETTING_ITEM_ID.APPEARANCE_THEME,
 	SETTING_ITEM_ID.RINGTONES_NOTIFICATION,
 	SETTING_ITEM_ID.BEHAVIOR_CONFIRM_QUIT,
+	SETTING_ITEM_ID.BEHAVIOR_DELEGATED_EXECUTION,
 	SETTING_ITEM_ID.KEYBOARD_SHORTCUTS,
 	SETTING_ITEM_ID.GIT_BRANCH_PREFIX,
 	SETTING_ITEM_ID.TERMINAL_PRESETS,
@@ -210,6 +211,15 @@ describe("settings search exposure", () => {
 });
 
 describe("settings search - localization", () => {
+	it("finds delegated execution by English and Chinese terms", () => {
+		expect(getIds(searchSettings("subagent"))).toContain(
+			SETTING_ITEM_ID.BEHAVIOR_DELEGATED_EXECUTION,
+		);
+		expect(getIds(searchSettings("委派", "zh-CN"))).toContain(
+			SETTING_ITEM_ID.BEHAVIOR_DELEGATED_EXECUTION,
+		);
+	});
+
 	it("uses localized titles and finds Chinese keywords", () => {
 		const results = searchSettings("字体", "zh-CN");
 		const ids = getIds(results);

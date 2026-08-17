@@ -104,7 +104,14 @@ export function buildPanesLifecycleRegistry(
 	};
 }
 
-export function buildPanesAcpLifecycleRegistry(): Pick<
+export interface PanesAcpLifecycleDeps {
+	closeSession: (sessionId: string) => Promise<void>;
+	onCloseError?: (error: unknown) => void;
+}
+
+export function buildPanesAcpLifecycleRegistry(
+	deps: PanesAcpLifecycleDeps,
+): Pick<
 	PaneDefinition<PanesPaneData>,
 	"getTitle" | "onBeforeClose" | "onAfterClose"
 > {
@@ -117,10 +124,20 @@ export function buildPanesAcpLifecycleRegistry(): Pick<
 			);
 		},
 
-		// Pane close only detaches the presentation. ACP sessions remain owned by
-		// the host and may be reopened explicitly; close/cancel/delete are separate
-		// user actions and must never be inferred from UI teardown.
-		onBeforeClose: () => true,
+		// ACP panes own their host session. Close the durable session first so a
+		// failed host request leaves the pane available for retry instead of
+		// creating a headless session that keeps the sidebar status active.
+		onBeforeClose: async (pane) => {
+			const sessionId = pane.data.acp?.sessionId;
+			if (!sessionId) return true;
+			try {
+				await deps.closeSession(sessionId);
+				return true;
+			} catch (error) {
+				deps.onCloseError?.(error);
+				return false;
+			}
+		},
 		onAfterClose: () => {},
 	};
 }

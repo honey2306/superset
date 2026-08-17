@@ -1,0 +1,326 @@
+/* ==== Variant E — Editorial · 长文阅读 ====
+ *
+ * Agent 换衬线字体，读起来像 Notion 页面 / Medium 文章。
+ * 工具从对话主流剥离，用左侧 gutter 的"章节脚注"呈现——你的目光走在
+ * Agent 文本这一条主线上，工具在旁边作为"发生了什么"的时间线，不打断阅读。
+ * 用户消息用衬线 italic 标注，像手写引用。
+ */
+.acp-pane[data-variant="e"] {
+	--pane-content-width: 780px;
+	--pane-serif: "Newsreader", "Iowan Old Style", Georgia, "Songti SC", "Noto Serif SC", serif;
+
+	background: var(--background);
+	color: var(--fg);
+	font-family: var(--font-sans, -apple-system, "SF Pro Text", "PingFang SC", sans-serif);
+	font-size: 13px;
+	line-height: 1.55;
+	display: flex; flex-direction: column;
+	width: 100%; height: 100%;
+	overflow: hidden;
+}
+
+/* Toolbar */
+.acp-pane[data-variant="e"] .acp-pane__toolbar {
+	display: flex; align-items: center; gap: 12px;
+	padding: 8px 14px;
+	background: var(--background);
+	border-bottom: 1px solid var(--line);
+	color: var(--fg);
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+.acp-pane[data-variant="e"] .acp-pane__chip {
+	display: inline-flex; align-items: center; gap: 6px;
+	padding: 3px 9px;
+	background: transparent;
+	border: 1px solid var(--line-strong);
+	border-radius: 5px;
+	color: var(--fg);
+	font-size: 11px; font-weight: 500;
+}
+.acp-pane[data-variant="e"] .acp-pane__chip-dot {
+	width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+}
+.acp-pane[data-variant="e"] .acp-pane__toolbar-title {
+	color: var(--fg-mute); font-size: 11.5px;
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.acp-pane[data-variant="e"] .acp-pane__toolbar-spacer { flex: 1; }
+.acp-pane[data-variant="e"] .acp-pane__header-pill {
+	padding: 2px 8px;
+	border: 1px solid var(--line-strong);
+	border-radius: 10px;
+	background: transparent;
+	color: var(--warning);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+}
+.acp-pane[data-variant="e"] .acp-pane__toolbar-actions button {
+	background: transparent; border: 0; color: var(--fg-mute);
+	padding: 4px 6px; border-radius: 4px; cursor: pointer;
+}
+
+/* Timeline: 左 gutter 摆工具，右 main 摆 Agent 文本 */
+.acp-pane[data-variant="e"] .acp-pane__timeline { flex: 1 1 auto; min-height: 0; display: flex; }
+.acp-pane[data-variant="e"] .acp-pane__scroll { flex: 1; overflow-y: auto; }
+.acp-pane[data-variant="e"] .acp-pane__body-inner {
+	padding: 32px 40px 40px 32px;
+	display: grid;
+	grid-template-columns: 130px 1fr;
+	gap: 22px 28px;
+	max-width: 940px;
+	margin: 0 auto;
+	align-items: baseline;
+}
+
+/* Message 占右列全宽 */
+.acp-pane[data-variant="e"] .acp-msg {
+	grid-column: 2;
+	display: flex; flex-direction: column; gap: 8px;
+}
+.acp-pane[data-variant="e"] .acp-msg[data-role="user"] { align-items: flex-start; }
+.acp-pane[data-variant="e"] .acp-msg__author {
+	font-size: 10.5px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--fg-mute);
+	font-family: var(--font-mono);
+}
+.acp-pane[data-variant="e"] .acp-msg[data-role="user"] .acp-msg__author { color: var(--fg-mute); }
+.acp-pane[data-variant="e"] .acp-msg[data-role="agent"] .acp-msg__author { color: var(--accent-solid); }
+.acp-pane[data-variant="e"] .acp-msg[data-role="user"] .acp-msg__bubble {
+	max-width: 100%;
+	padding: 0 0 0 16px;
+	border-left: 3px solid var(--accent-line);
+	background: transparent;
+	color: var(--fg);
+	font-family: var(--pane-serif);
+	font-style: italic;
+	font-size: 17px;
+	line-height: 1.55;
+}
+.acp-pane[data-variant="e"] .acp-msg[data-role="agent"] .acp-msg__bubble {
+	max-width: 100%;
+	color: var(--fg);
+	font-family: var(--pane-serif);
+}
+.acp-pane[data-variant="e"] .acp-md {
+	font-size: 17px;
+	line-height: 1.75;
+	color: var(--fg);
+	font-family: var(--pane-serif);
+}
+.acp-pane[data-variant="e"] .acp-md p { margin: 12px 0; }
+.acp-pane[data-variant="e"] .acp-md p:first-child { margin-top: 0; }
+.acp-pane[data-variant="e"] .acp-md p:last-child { margin-bottom: 0; }
+.acp-pane[data-variant="e"] .acp-md h2 {
+	font-size: 20px;
+	font-weight: 600;
+	color: var(--fg);
+	margin: 24px 0 8px;
+	line-height: 1.3;
+	letter-spacing: -0.01em;
+	font-family: var(--pane-serif);
+}
+.acp-pane[data-variant="e"] .acp-md ol,
+.acp-pane[data-variant="e"] .acp-md ul {
+	margin: 14px 0; padding-left: 24px;
+	display: flex; flex-direction: column; gap: 10px;
+}
+.acp-pane[data-variant="e"] .acp-md li::marker { color: var(--fg-faint); }
+.acp-pane[data-variant="e"] .acp-md strong { color: var(--fg); font-weight: 700; }
+.acp-pane[data-variant="e"] .acp-md code:not(pre code) {
+	background: transparent;
+	color: var(--fg);
+	padding: 0;
+	border: 0;
+	border-bottom: 1px dotted var(--fg-mute);
+	border-radius: 0;
+	font-family: var(--font-mono);
+	font-size: 14.5px;
+}
+.acp-pane[data-variant="e"] .acp-md blockquote {
+	margin: 16px 0;
+	padding: 4px 0 4px 16px;
+	border-left: 3px solid var(--line-strong);
+	color: var(--fg-mute);
+	font-style: italic;
+}
+
+/* Tool 占左列 gutter，作为章节脚注 */
+.acp-pane[data-variant="e"] .acp-tool {
+	grid-column: 1;
+	border: 0; background: transparent;
+	overflow: visible;
+	margin-top: 6px;
+	text-align: right;
+	position: relative;
+}
+.acp-pane[data-variant="e"] .acp-tool::after {
+	content: "";
+	position: absolute;
+	right: -14px;
+	top: 8px;
+	width: 6px; height: 6px;
+	border-radius: 50%;
+	background: var(--line-strong);
+}
+.acp-pane[data-variant="e"] .acp-tool[data-kind="edit"]::after { background: var(--warning); }
+.acp-pane[data-variant="e"] .acp-tool[data-kind="execute"]::after { background: var(--success); }
+.acp-pane[data-variant="e"] .acp-tool[data-kind="read"]::after { background: var(--info); }
+.acp-pane[data-variant="e"] .acp-tool[data-kind="search"]::after { background: var(--accent-solid); }
+.acp-pane[data-variant="e"] .acp-tool__head {
+	display: flex; flex-direction: column;
+	align-items: flex-end; gap: 3px;
+	padding: 0;
+	background: transparent; border: 0;
+	color: var(--fg-mute);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	text-align: right;
+	cursor: pointer;
+	width: 100%;
+	line-height: 1.4;
+}
+.acp-pane[data-variant="e"] .acp-tool__head:hover .acp-tool__title { color: var(--fg); }
+.acp-pane[data-variant="e"] .acp-tool__caret { display: none; }
+.acp-pane[data-variant="e"] .acp-tool__icon { display: none; }
+.acp-pane[data-variant="e"] .acp-tool__kind {
+	font-family: var(--font-mono);
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--fg-mute);
+	padding: 0; border: 0; background: transparent;
+	min-width: 0;
+}
+.acp-pane[data-variant="e"] .acp-tool[data-kind="read"] .acp-tool__kind { color: var(--info); }
+.acp-pane[data-variant="e"] .acp-tool[data-kind="edit"] .acp-tool__kind { color: var(--warning); }
+.acp-pane[data-variant="e"] .acp-tool[data-kind="search"] .acp-tool__kind { color: var(--accent-solid); }
+.acp-pane[data-variant="e"] .acp-tool[data-kind="execute"] .acp-tool__kind { color: var(--success); }
+.acp-pane[data-variant="e"] .acp-tool__title {
+	color: var(--fg-mute);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+	flex: none;
+}
+.acp-pane[data-variant="e"] .acp-tool__meta {
+	color: var(--fg-faint);
+	font-size: 9.5px;
+	font-family: var(--font-mono);
+}
+.acp-pane[data-variant="e"] .acp-tool__meta[data-status="in_progress"] { color: var(--warning); }
+.acp-pane[data-variant="e"] .acp-tool__body {
+	grid-column: 2; /* diff 展开时跨到右列 */
+	padding: 6px 0 0;
+	border: 0;
+	text-align: left;
+	margin-top: 8px;
+}
+/* 展开时 body 需要出现在右列（不能被 tool 的 grid-column: 1 圈住），
+ * 因此让 body 提升出 tool 容器：改用 display: contents 让 tool 内两个
+ * 子级各自参与父 grid */
+.acp-pane[data-variant="e"] .acp-tool[data-kind="edit"] { display: contents; }
+.acp-pane[data-variant="e"] .acp-tool[data-kind="edit"] .acp-tool__head {
+	grid-column: 1;
+	position: relative;
+}
+.acp-pane[data-variant="e"] .acp-tool[data-kind="edit"] .acp-tool__body {
+	grid-column: 2;
+}
+
+/* Diff */
+.acp-pane[data-variant="e"] .acp-diff {
+	border: 1px solid var(--line); border-radius: 4px;
+	background: var(--ds-surface); overflow: hidden;
+	font-family: var(--font-mono); font-size: 11.5px;
+}
+.acp-pane[data-variant="e"] .acp-diff__head {
+	padding: 4px 10px; border-bottom: 1px solid var(--line);
+	display: flex; gap: 8px; color: var(--fg-mute); font-size: 10.5px;
+}
+.acp-pane[data-variant="e"] .acp-diff__head-path { color: var(--fg); flex: 1; }
+.acp-pane[data-variant="e"] .acp-diff__head-stat .plus { color: var(--success); }
+.acp-pane[data-variant="e"] .acp-diff__head-stat .minus { color: var(--danger); }
+.acp-pane[data-variant="e"] .acp-diff__body { padding: 4px 0; }
+.acp-pane[data-variant="e"] .acp-diff__line {
+	display: grid; grid-template-columns: 32px 12px 1fr; gap: 4px;
+	padding: 0 10px; line-height: 1.55;
+}
+.acp-pane[data-variant="e"] .acp-diff__line-num { color: var(--fg-faint); text-align: right; font-size: 10.5px; }
+.acp-pane[data-variant="e"] .acp-diff__line-mark { color: var(--fg-mute); }
+.acp-pane[data-variant="e"] .acp-diff__line[data-kind="add"] { background: var(--success-tint); }
+.acp-pane[data-variant="e"] .acp-diff__line[data-kind="add"] .acp-diff__line-mark,
+.acp-pane[data-variant="e"] .acp-diff__line[data-kind="add"] .acp-diff__line-text { color: var(--success); }
+.acp-pane[data-variant="e"] .acp-diff__line[data-kind="del"] { background: var(--danger-tint); }
+.acp-pane[data-variant="e"] .acp-diff__line[data-kind="del"] .acp-diff__line-mark,
+.acp-pane[data-variant="e"] .acp-diff__line[data-kind="del"] .acp-diff__line-text { color: var(--danger); }
+.acp-pane[data-variant="e"] .acp-diff__line[data-kind="ctx"] .acp-diff__line-text { color: var(--fg-mute); }
+
+/* Composer */
+.acp-pane[data-variant="e"] .acp-pane__composer {
+	flex-shrink: 0; border-top: 1px solid var(--line);
+	padding: 12px 32px 14px; background: var(--background);
+}
+.acp-pane[data-variant="e"] .acp-pane__composer-box {
+	max-width: 720px; margin: 0 auto;
+	border: 1px solid var(--line-strong); border-radius: 6px;
+	padding: 10px 14px; background: var(--ds-surface);
+	display: flex; flex-direction: column; gap: 8px;
+}
+.acp-pane[data-variant="e"] .acp-pane__composer-box:focus-within { border-color: var(--accent-line); }
+.acp-pane[data-variant="e"] .acp-pane__composer-row { display: flex; align-items: center; gap: 8px; }
+.acp-pane[data-variant="e"] .acp-pane__composer-glyph { color: var(--fg-faint); font-family: var(--font-mono); }
+.acp-pane[data-variant="e"] .acp-pane__composer-editor {
+	flex: 1; color: var(--fg-mute);
+	font-family: var(--pane-serif); font-style: italic;
+	font-size: 15px; outline: none;
+}
+.acp-pane[data-variant="e"] .acp-pane__composer-toolbar {
+	display: flex; align-items: center; gap: 12px;
+	color: var(--fg-mute); font-family: var(--font-mono); font-size: 10.5px;
+}
+.acp-pane[data-variant="e"] .slash { color: var(--accent-solid); opacity: 0.75; }
+.acp-pane[data-variant="e"] .at { color: var(--info); opacity: 0.75; }
+.acp-pane[data-variant="e"] .acp-pane__composer-toolbar-spacer { flex: 1; }
+.acp-pane[data-variant="e"] .acp-pane__composer-send {
+	background: transparent;
+	color: var(--fg);
+	border: 1px solid var(--fg);
+	padding: 5px 14px; border-radius: 4px;
+	cursor: pointer; font-family: var(--font-sans);
+	font-size: 11.5px; letter-spacing: 0.04em;
+	text-transform: uppercase;
+	display: inline-flex; align-items: center; gap: 6px;
+}
+.acp-pane[data-variant="e"] .acp-pane__composer-send:hover { background: var(--fg); color: var(--background); }
+.acp-pane[data-variant="e"] .acp-pane__composer-send-kbd { display: none; }
+
+/* Status bar */
+.acp-pane[data-variant="e"] .acp-status-bar {
+	flex-shrink: 0; border-top: 1px solid var(--line);
+	background: var(--background); padding: 6px 16px;
+	display: flex; align-items: center; gap: 14px;
+	color: var(--fg-mute); font-family: var(--font-mono);
+	font-size: 10.5px; height: 28px;
+}
+.acp-pane[data-variant="e"] .acp-status-bar__group {
+	display: inline-flex; align-items: center; gap: 10px;
+	padding-right: 12px; border-right: 1px solid var(--line);
+}
+.acp-pane[data-variant="e"] .acp-status-bar__group:last-child { border-right: 0; }
+.acp-pane[data-variant="e"] .acp-status-bar__mode {
+	color: var(--fg-mute); padding: 0; border: 0; background: transparent;
+}
+.acp-pane[data-variant="e"] .acp-status-bar__seg-value { color: var(--fg); }
+.acp-pane[data-variant="e"] .acp-status-bar__spacer { flex: 1; }
+.acp-pane[data-variant="e"] .acp-status-bar__conn {
+	display: inline-flex; align-items: center; gap: 5px; color: var(--warning);
+}
+.acp-pane[data-variant="e"] .acp-status-bar__conn-dot {
+	width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+}

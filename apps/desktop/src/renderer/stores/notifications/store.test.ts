@@ -27,9 +27,13 @@ const tab = {
 	},
 };
 
-describe("v2 notification store", () => {
+describe("notification store", () => {
 	beforeEach(() => {
-		useNotificationStore.setState({ manualUnread: {}, terminalSeenAt: {} });
+		useNotificationStore.setState({
+			manualUnread: {},
+			terminalSeenAt: {},
+			acpSessionSeenAt: {},
+		});
 	});
 
 	it("marks terminal seen monotonically and prunes entries", () => {
@@ -46,6 +50,23 @@ describe("v2 notification store", () => {
 		store.pruneTerminalSeen("terminal-1");
 		expect(
 			useNotificationStore.getState().terminalSeenAt["terminal-1"],
+		).toBeUndefined();
+	});
+
+	it("marks ACP sessions seen monotonically and prunes entries", () => {
+		const store = useNotificationStore.getState();
+		store.markAcpSessionSeen("session-1", 200);
+		store.markAcpSessionSeen("session-1", 100);
+		expect(useNotificationStore.getState().acpSessionSeenAt["session-1"]).toBe(
+			200,
+		);
+		store.markAcpSessionSeen("session-1", 300);
+		expect(useNotificationStore.getState().acpSessionSeenAt["session-1"]).toBe(
+			300,
+		);
+		store.pruneAcpSessionSeen("session-1");
+		expect(
+			useNotificationStore.getState().acpSessionSeenAt["session-1"],
 		).toBeUndefined();
 	});
 
@@ -79,9 +100,10 @@ describe("v2 notification store", () => {
 		);
 		expect(migrated.manualUnread).toEqual({ "workspace-2": true });
 		expect(migrated.terminalSeenAt).toEqual({});
+		expect(migrated.acpSessionSeenAt).toEqual({});
 	});
 
-	it("keeps version-2 persisted state intact", () => {
+	it("keeps version-2 persisted state and initializes ACP seen state", () => {
 		const migrated = migrateNotificationState(
 			{
 				manualUnread: { "workspace-1": true },
@@ -91,6 +113,19 @@ describe("v2 notification store", () => {
 		);
 		expect(migrated.manualUnread).toEqual({ "workspace-1": true });
 		expect(migrated.terminalSeenAt).toEqual({ "terminal-1": 100 });
+		expect(migrated.acpSessionSeenAt).toEqual({});
+	});
+
+	it("keeps version-3 persisted state intact", () => {
+		const migrated = migrateNotificationState(
+			{
+				manualUnread: { "workspace-1": true },
+				terminalSeenAt: { "terminal-1": 100 },
+				acpSessionSeenAt: { "session-1": 200 },
+			},
+			3,
+		);
+		expect(migrated.acpSessionSeenAt).toEqual({ "session-1": 200 });
 	});
 
 	it("maps panes and tabs to typed notification sources", () => {

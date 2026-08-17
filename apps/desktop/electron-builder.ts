@@ -192,6 +192,12 @@ const config: Configuration = {
 			to: "resources/sounds",
 			filter: ["**/*"],
 		},
+		// Pi runs as an external Node process and cannot load extensions from
+		// app.asar, so materialize the bundled ACP MCP bridge beside resources.
+		{
+			from: "dist/main/pi-acp-mcp-extension.js",
+			to: "pi-extensions/pi-acp-mcp-extension.js",
+		},
 	],
 
 	files: [

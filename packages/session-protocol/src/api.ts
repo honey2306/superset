@@ -74,6 +74,13 @@ export const createSessionInput = z.object({
 	harness: z
 		.enum(["claude-agent-acp", "codex-app-server", "pi-acp", "myflicker-acp"])
 		.optional(),
+	/**
+	 * Client-preferred model id. Applied after `session/new` via
+	 * `session/set_config_option` when the adapter exposes a `model` select
+	 * config option; silently ignored when the harness has no such option or
+	 * the id is not in its catalog (adapter-side validation wins).
+	 */
+	model: z.string().min(1).optional(),
 });
 
 export const getSessionInput = z.object({

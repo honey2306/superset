@@ -9,13 +9,15 @@ import {
 	ndJsonStream,
 	PROTOCOL_VERSION,
 } from "@agentclientprotocol/sdk";
-import type {
-	PermissionOption,
-	RequestPermissionRequest,
-	RequestPermissionResponse,
-	SessionUpdate,
-	StopReason,
-	ToolKind,
+import {
+	type PermissionOption,
+	type RequestPermissionRequest,
+	type RequestPermissionResponse,
+	type SessionConfigOption,
+	type SessionUpdate,
+	type StopReason,
+	TOOL_SEMANTIC_META_KEY,
+	type ToolKind,
 } from "@superset/session-protocol";
 
 const MIN_VERSION = [0, 143, 0];
@@ -26,11 +28,9 @@ const APPROVAL_METHODS = new Set([
 const QUIET_NOTIFICATIONS = new Set([
 	"thread/started",
 	"thread/status/changed",
-	"thread/tokenUsage/updated",
 	"turn/started",
 	"turn/diff/updated",
 	"turn/plan/updated",
-	"thread/compacted",
 	"remoteControl/status/changed",
 	"mcpServer/startupStatus/updated",
 	"account/rateLimits/updated",
@@ -51,6 +51,54 @@ type CodexToolCallUpdate = Extract<
 	SessionUpdate,
 	{ sessionUpdate: "tool_call" }
 >;
+type CodexReasoningEffort = {
+	reasoningEffort: string;
+	description: string;
+};
+type CodexModel = {
+	id: string;
+	model: string;
+	displayName: string;
+	description: string;
+	hidden: boolean;
+	isDefault: boolean;
+	defaultReasoningEffort: string;
+	supportedReasoningEfforts: CodexReasoningEffort[];
+};
+
+type CodexUsageUpdate = Extract<
+	SessionUpdate,
+	{ sessionUpdate: "usage_update" }
+>;
+
+/** Map Codex's active context size, not cumulative thread spend, to ACP usage. */
+export function codexUsageUpdate(
+	params: Record<string, unknown>,
+): CodexUsageUpdate | null {
+	const tokenUsage = params.tokenUsage;
+	if (!tokenUsage || typeof tokenUsage !== "object") return null;
+	const { last, modelContextWindow } = tokenUsage as {
+		last?: unknown;
+		modelContextWindow?: unknown;
+	};
+	if (!last || typeof last !== "object") return null;
+	const used = (last as { totalTokens?: unknown }).totalTokens;
+	if (
+		typeof used !== "number" ||
+		!Number.isFinite(used) ||
+		used < 0 ||
+		typeof modelContextWindow !== "number" ||
+		!Number.isFinite(modelContextWindow) ||
+		modelContextWindow <= 0
+	) {
+		return null;
+	}
+	return {
+		sessionUpdate: "usage_update",
+		used,
+		size: modelContextWindow,
+	};
+}
 
 /**
  * Codex app-server accepts per-thread config overrides, rather than ACP's
@@ -153,7 +201,29 @@ function toolKind(item: Record<string, unknown>): ToolKind {
 			? "fetch"
 			: "execute";
 }
-function toolUpdate(item: Record<string, unknown>): CodexToolCallUpdate {
+function codexToolSemantic(
+	item: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+	if (item.type !== "collabAgentToolCall" && item.type !== "collab_tool_call") {
+		return undefined;
+	}
+	const tool = String(item.tool ?? "")
+		.replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+		.toLowerCase();
+	if (tool !== "spawn_agent") return undefined;
+	return {
+		kind: "subagent",
+		task:
+			typeof item.prompt === "string"
+				? item.prompt
+				: String(item.agentPath ?? item.agent_path ?? item.tool ?? "Subagent"),
+		agentType: typeof item.model === "string" ? item.model : null,
+	};
+}
+
+export function codexToolUpdate(
+	item: Record<string, unknown>,
+): CodexToolCallUpdate {
 	const status =
 		item.status === "failed" || item.status === "declined"
 			? "failed"
@@ -162,6 +232,7 @@ function toolUpdate(item: Record<string, unknown>): CodexToolCallUpdate {
 				: "in_progress";
 	const command = typeof item.command === "string" ? item.command : "";
 	const changes = Array.isArray(item.changes) ? item.changes : [];
+	const semantic = codexToolSemantic(item);
 	return {
 		sessionUpdate: "tool_call",
 		toolCallId: String(item.id),
@@ -171,8 +242,20 @@ function toolUpdate(item: Record<string, unknown>): CodexToolCallUpdate {
 				: command || String(item.tool ?? item.type ?? "Codex tool"),
 		kind: toolKind(item),
 		status,
-		rawInput: item.type === "fileChange" ? { changes } : { command },
-		rawOutput: item.aggregatedOutput ?? item.result,
+		rawInput:
+			item.type === "fileChange"
+				? { changes }
+				: semantic
+					? {
+							prompt: item.prompt,
+							model: item.model,
+							receiverThreadIds:
+								item.receiverThreadIds ?? item.receiver_thread_ids,
+							agentPath: item.agentPath ?? item.agent_path,
+						}
+					: { command },
+		rawOutput: item.aggregatedOutput ?? item.result ?? item.agentsStates,
+		...(semantic ? { _meta: { [TOOL_SEMANTIC_META_KEY]: semantic } } : {}),
 	};
 }
 
@@ -182,6 +265,7 @@ export class CodexBridge {
 	private toolCalls = new Map<string, CodexToolCallUpdate>();
 	private nextId = 1;
 	private threadId: string | null = null;
+	private contextCompactionItemTurnId: string | null = null;
 	private turn: {
 		id: string | null;
 		resolve(value: { stopReason: StopReason }): void;
@@ -190,6 +274,9 @@ export class CodexBridge {
 	private pendingCancel = false;
 	private disposed = false;
 	private write: ((frame: object) => void) | null = null;
+	private models: CodexModel[] = [];
+	private model: string | null = null;
+	private reasoningEffort: string | null = null;
 
 	constructor(
 		private client: {
@@ -316,6 +403,22 @@ export class CodexBridge {
 				sessionId: this.threadId ?? String(params.threadId ?? "codex-pending"),
 				update,
 			});
+		if (frame.method === "thread/tokenUsage/updated") {
+			const update = codexUsageUpdate(params);
+			if (update) void notify(update);
+			return;
+		}
+		if (frame.method === "thread/settings/updated") {
+			const settings = params.threadSettings;
+			if (settings && typeof settings === "object") {
+				this.updateThreadSettings(settings as Record<string, unknown>);
+				void notify({
+					sessionUpdate: "config_option_update",
+					configOptions: this.configOptions(),
+				});
+			}
+			return;
+		}
 		if (
 			["item/agentMessage/delta", "item/plan/delta"].includes(frame.method) &&
 			typeof params.delta === "string"
@@ -330,7 +433,23 @@ export class CodexBridge {
 			const item = params.item;
 			if (!item || typeof item !== "object") return;
 			const record = item as Record<string, unknown>;
-			if (record.type === "agentMessage" || record.type === "plan") {
+			if (
+				record.type === "contextCompaction" ||
+				record.type === "context_compaction"
+			) {
+				this.contextCompactionItemTurnId =
+					typeof params.turnId === "string" ? params.turnId : null;
+				void notify({
+					sessionUpdate: "agent_message_chunk",
+					content: {
+						type: "text",
+						text:
+							frame.method === "item/started"
+								? "Compacting context..."
+								: "Context compacted.",
+					},
+				});
+			} else if (record.type === "agentMessage" || record.type === "plan") {
 				const text = typeof record.text === "string" ? record.text : "";
 				if (text)
 					void notify({
@@ -338,7 +457,7 @@ export class CodexBridge {
 						content: { type: "text", text },
 					});
 			} else if (record.type !== "reasoning" && record.type !== "userMessage") {
-				const update = toolUpdate(record);
+				const update = codexToolUpdate(record);
 				this.toolCalls.set(update.toolCallId, update);
 				void notify(update);
 			}
@@ -358,6 +477,19 @@ export class CodexBridge {
 			turn.resolve({
 				stopReason:
 					completed?.status === "interrupted" ? "cancelled" : "end_turn",
+			});
+			return;
+		}
+		if (frame.method === "thread/compacted") {
+			if (
+				typeof params.turnId === "string" &&
+				params.turnId === this.contextCompactionItemTurnId
+			) {
+				return;
+			}
+			void notify({
+				sessionUpdate: "agent_message_chunk",
+				content: { type: "text", text: "Context compacted." },
 			});
 			return;
 		}
@@ -414,26 +546,189 @@ export class CodexBridge {
 				this.write?.({ jsonrpc: "2.0", id, result: { decision: "cancel" } }),
 			);
 	}
+	private async loadModels(): Promise<void> {
+		const models: CodexModel[] = [];
+		let cursor: string | null = null;
+		const seenCursors = new Set<string>();
+		try {
+			do {
+				const response = (await this.request("model/list", {
+					limit: 100,
+					...(cursor ? { cursor } : {}),
+				})) as { data?: unknown; nextCursor?: unknown };
+				if (Array.isArray(response.data)) {
+					models.push(
+						...response.data.filter(
+							(model): model is CodexModel =>
+								model != null &&
+								typeof model === "object" &&
+								typeof (model as Partial<CodexModel>).model === "string" &&
+								typeof (model as Partial<CodexModel>).displayName ===
+									"string" &&
+								Array.isArray(
+									(model as Partial<CodexModel>).supportedReasoningEfforts,
+								),
+						),
+					);
+				}
+				const nextCursor =
+					typeof response.nextCursor === "string" ? response.nextCursor : null;
+				if (!nextCursor || seenCursors.has(nextCursor)) break;
+				seenCursors.add(nextCursor);
+				cursor = nextCursor;
+			} while (cursor);
+			this.models = models;
+		} catch {
+			// Model metadata is optional UI enrichment. Thread creation can still
+			// report the selected model when an older app-server lacks model/list.
+			this.models = [];
+		}
+	}
+
+	private selectedModel(): CodexModel | null {
+		return (
+			this.models.find((candidate) => candidate.model === this.model) ?? null
+		);
+	}
+
+	private updateThreadSettings(settings: Record<string, unknown>): void {
+		if (typeof settings.model === "string") this.model = settings.model;
+		if (typeof settings.effort === "string") {
+			this.reasoningEffort = settings.effort;
+		} else if (settings.effort === null) {
+			this.reasoningEffort =
+				this.selectedModel()?.defaultReasoningEffort ?? null;
+		}
+	}
+
 	async newSession(
 		cwd: string,
 		mcpServers: readonly McpServer[] = [],
+		requestedModel?: string,
+		strictModel = false,
 	): Promise<string> {
 		try {
 			await this.boot();
+			await this.loadModels();
 			const response = (await this.request("thread/start", {
 				cwd,
 				approvalPolicy: "on-request",
 				sandbox: "workspace-write",
+				...(requestedModel ? { model: requestedModel } : {}),
 				config: codexMcpConfig(mcpServers),
-			})) as { thread?: { id?: string } };
+			})) as {
+				thread?: { id?: string };
+				model?: unknown;
+				reasoningEffort?: unknown;
+			};
 			const id = response.thread?.id;
 			if (!id) throw new Error("Codex did not return a thread id");
+			this.model = typeof response.model === "string" ? response.model : null;
+			this.reasoningEffort =
+				typeof response.reasoningEffort === "string"
+					? response.reasoningEffort
+					: (this.selectedModel()?.defaultReasoningEffort ?? null);
+			if (strictModel && this.model !== requestedModel) {
+				throw new Error(
+					`Codex did not confirm required model "${requestedModel}"`,
+				);
+			}
 			this.threadId = id;
 			return id;
 		} catch (error) {
 			this.fail(error instanceof Error ? error : new Error(String(error)));
 			throw error;
 		}
+	}
+	configOptions(): SessionConfigOption[] {
+		if (!this.model) return [];
+		const catalogModels = this.models.filter((candidate) => !candidate.hidden);
+		const modelOptions = catalogModels.map((candidate) => ({
+			value: candidate.model,
+			name: candidate.displayName,
+		}));
+		if (!catalogModels.some((candidate) => candidate.model === this.model)) {
+			modelOptions.unshift({ value: this.model, name: this.model });
+		}
+		const options: SessionConfigOption[] = [
+			{
+				id: "model",
+				name: "Model",
+				description: "AI model used for subsequent Codex turns",
+				category: "model",
+				type: "select",
+				currentValue: this.model,
+				options: modelOptions,
+			},
+		];
+		const selectedModel = this.selectedModel();
+		if (selectedModel && this.reasoningEffort) {
+			options.push({
+				id: "reasoning_effort",
+				name: "Reasoning effort",
+				description: "Reasoning depth used for subsequent Codex turns",
+				category: "thought_level",
+				type: "select",
+				currentValue: this.reasoningEffort,
+				options: selectedModel.supportedReasoningEfforts.map((effort) => ({
+					value: effort.reasoningEffort,
+					name:
+						effort.reasoningEffort.charAt(0).toUpperCase() +
+						effort.reasoningEffort.slice(1),
+				})),
+			});
+		}
+		return options;
+	}
+
+	async setConfigOption(configId: string, value: unknown) {
+		if (!this.threadId) throw new Error("Codex session is not initialized");
+		if (typeof value !== "string") {
+			throw new Error(`Codex config option "${configId}" must be a string`);
+		}
+		if (configId === "model") {
+			const selectedModel = this.models.find(
+				(candidate) => candidate.model === value && !candidate.hidden,
+			);
+			if (
+				(!selectedModel && this.models.length > 0) ||
+				(selectedModel?.hidden && value !== this.model)
+			) {
+				throw new Error(`Codex does not expose model "${value}"`);
+			}
+			const supportedEfforts = selectedModel?.supportedReasoningEfforts ?? [];
+			const effort = supportedEfforts.some(
+				(option) => option.reasoningEffort === this.reasoningEffort,
+			)
+				? this.reasoningEffort
+				: (selectedModel?.defaultReasoningEffort ?? this.reasoningEffort);
+			await this.request("thread/settings/update", {
+				threadId: this.threadId,
+				model: value,
+				...(effort ? { effort } : {}),
+			});
+			this.model = value;
+			this.reasoningEffort = effort;
+			return { configOptions: this.configOptions() };
+		}
+		if (configId === "reasoning_effort") {
+			const supported =
+				this.selectedModel()?.supportedReasoningEfforts.some(
+					(option) => option.reasoningEffort === value,
+				) ?? false;
+			if (!supported) {
+				throw new Error(
+					`Codex model "${this.model}" does not support reasoning effort "${value}"`,
+				);
+			}
+			await this.request("thread/settings/update", {
+				threadId: this.threadId,
+				effort: value,
+			});
+			this.reasoningEffort = value;
+			return { configOptions: this.configOptions() };
+		}
+		throw new Error(`Codex does not support ACP config option "${configId}"`);
 	}
 	async loadSession(
 		sessionId: string,
@@ -442,12 +737,22 @@ export class CodexBridge {
 	): Promise<void> {
 		try {
 			await this.boot();
+			await this.loadModels();
 			const response = (await this.request("thread/resume", {
 				threadId: sessionId,
 				cwd,
 				config: codexMcpConfig(mcpServers),
-			})) as { thread?: { id?: string } };
+			})) as {
+				thread?: { id?: string };
+				model?: unknown;
+				reasoningEffort?: unknown;
+			};
 			this.threadId = response.thread?.id ?? sessionId;
+			this.model = typeof response.model === "string" ? response.model : null;
+			this.reasoningEffort =
+				typeof response.reasoningEffort === "string"
+					? response.reasoningEffort
+					: (this.selectedModel()?.defaultReasoningEffort ?? null);
 		} catch (error) {
 			this.fail(error instanceof Error ? error : new Error(String(error)));
 			throw error;
@@ -531,11 +836,15 @@ if (isCodexBridgeMain(import.meta.url, process.argv[1], import.meta.main)) {
 		.onRequest("initialize", () => ({ protocolVersion: PROTOCOL_VERSION }))
 		.onRequest("session/new", async (context) => {
 			bridge = new CodexBridge(context.client);
+			const requestedModel = process.env.SUPERSET_CODEX_MODEL;
 			return {
 				sessionId: await bridge.newSession(
 					context.params.cwd,
 					context.params.mcpServers,
+					requestedModel,
+					process.env.SUPERSET_CODEX_STRICT_MODEL === "1",
 				),
+				configOptions: bridge.configOptions(),
 			};
 		})
 		.onRequest("session/load", async (context) => {
@@ -545,11 +854,18 @@ if (isCodexBridgeMain(import.meta.url, process.argv[1], import.meta.main)) {
 				context.params.cwd,
 				context.params.mcpServers,
 			);
-			return {};
+			return { configOptions: bridge.configOptions() };
 		})
 		.onRequest("session/prompt", (context) => {
 			if (!bridge) throw new Error("Codex session is not initialized");
 			return bridge.prompt(context.params.prompt);
+		})
+		.onRequest("session/set_config_option", (context) => {
+			if (!bridge) throw new Error("Codex session is not initialized");
+			return bridge.setConfigOption(
+				context.params.configId,
+				context.params.value,
+			);
 		})
 		.onNotification("session/cancel", () => bridge?.cancel());
 	const stream = ndJsonStream(

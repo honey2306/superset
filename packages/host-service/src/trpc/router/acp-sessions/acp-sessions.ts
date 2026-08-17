@@ -107,7 +107,6 @@ export const acpSessionsRouter = router({
 				beforeSeq = decoded;
 			}
 			try {
-				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
 				return await ctx.runtime.acpSessions.getMessages({
 					sessionId: input.sessionId,
 					beforeSeq,

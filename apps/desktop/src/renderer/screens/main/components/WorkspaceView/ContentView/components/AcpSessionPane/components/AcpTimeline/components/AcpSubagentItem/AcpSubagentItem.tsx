@@ -1,5 +1,6 @@
 import type { TimelineItem, ToolCallItem } from "@superset/session-protocol";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AcpContentBlock } from "../AcpContentBlock";
 
 interface AcpSubagentItemProps {
 	item: ToolCallItem;
@@ -64,30 +65,10 @@ export function getSubagentActivitySummary(
 	};
 }
 
-function stringField(
-	value: unknown,
-	keys: readonly string[],
-): string | undefined {
-	if (typeof value !== "object" || value === null) return undefined;
-	const record = value as Record<string, unknown>;
-	for (const key of keys) {
-		const candidate = record[key];
-		if (typeof candidate === "string" && candidate.trim().length > 0) {
-			return candidate.trim();
-		}
-	}
-	return undefined;
-}
-
 export function subagentType(item: ToolCallItem): string {
-	return (
-		stringField(item.call.rawInput, [
-			"subagent_type",
-			"subagentType",
-			"agent_type",
-			"agentType",
-		]) ?? "Task"
-	);
+	return item.semantics.kind === "subagent"
+		? (item.semantics.agentType ?? "Task")
+		: "Task";
 }
 
 const STATUS_LABELS: Record<SubagentPresentationStatus, string> = {
@@ -100,6 +81,10 @@ const STATUS_LABELS: Record<SubagentPresentationStatus, string> = {
 export function AcpSubagentItem({ item, renderChild }: AcpSubagentItemProps) {
 	const status = getSubagentPresentationStatus(item);
 	const summary = useMemo(() => getSubagentActivitySummary(item), [item]);
+	const semantics =
+		item.semantics.kind === "subagent" ? item.semantics : undefined;
+	const hasBody =
+		item.children.length > 0 || (semantics?.result.length ?? 0) > 0;
 	const manuallyToggled = useRef(false);
 	const previousEndSeq = useRef(item.endSeq);
 	const [expanded, setExpanded] = useState(status !== "completed");
@@ -154,22 +139,24 @@ export function AcpSubagentItem({ item, renderChild }: AcpSubagentItemProps) {
 						SUBAGENT <b>{subagentType(item)}</b>
 					</span>
 					<span className="acp-subagent__task select-text cursor-text">
-						{item.call.title}
+						{semantics?.task ?? item.call.title}
 					</span>
 				</span>
-				<span className="acp-subagent__summary">
-					<span>
-						{summary.total} {summary.total === 1 ? "tool" : "tools"}
+				{summary.total > 0 && (
+					<span className="acp-subagent__summary">
+						<span>
+							{summary.total} {summary.total === 1 ? "tool" : "tools"}
+						</span>
+						<span aria-hidden>·</span>
+						<span>{summary.completed} done</span>
+						{summary.active > 0 && (
+							<>
+								<span aria-hidden>·</span>
+								<span>{summary.active} active</span>
+							</>
+						)}
 					</span>
-					<span aria-hidden>·</span>
-					<span>{summary.completed} done</span>
-					{summary.active > 0 && (
-						<>
-							<span aria-hidden>·</span>
-							<span>{summary.active} active</span>
-						</>
-					)}
-				</span>
+				)}
 				{unreadCount > 0 && !expanded && (
 					<span className="acp-subagent__unread">+{unreadCount}</span>
 				)}
@@ -179,17 +166,41 @@ export function AcpSubagentItem({ item, renderChild }: AcpSubagentItemProps) {
 				</span>
 			</button>
 
-			{expanded && (
+			{expanded && hasBody && (
 				<div className="acp-subagent__body">
-					<div className="acp-subagent__activity-head">
-						<span>ACTIVITY</span>
-						<span className="acp-subagent__activity-line" />
-					</div>
-					<div className="acp-subagent__children">
-						{item.children.map((child) => (
-							<div key={child.id}>{renderChild(child)}</div>
-						))}
-					</div>
+					{semantics?.result.map((section, sectionIndex) => (
+						<div
+							// biome-ignore lint/suspicious/noArrayIndexKey: canonical result sections have no stable id
+							key={sectionIndex}
+							className="acp-subagent-result__section"
+						>
+							{section.label && semantics.result.length > 1 && (
+								<div className="acp-subagent-result__label">
+									{section.label}
+								</div>
+							)}
+							{section.content.map((block, blockIndex) => (
+								<AcpContentBlock
+									// biome-ignore lint/suspicious/noArrayIndexKey: ACP content blocks have no stable id
+									key={blockIndex}
+									block={block}
+								/>
+							))}
+						</div>
+					))}
+					{item.children.length > 0 && (
+						<>
+							<div className="acp-subagent__activity-head">
+								<span>ACTIVITY</span>
+								<span className="acp-subagent__activity-line" />
+							</div>
+							<div className="acp-subagent__children">
+								{item.children.map((child) => (
+									<div key={child.id}>{renderChild(child)}</div>
+								))}
+							</div>
+						</>
+					)}
 				</div>
 			)}
 		</section>

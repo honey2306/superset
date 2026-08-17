@@ -449,6 +449,24 @@ describe("permission folding", () => {
 		});
 	});
 
+	test("permission_requested preserves AskUser custom-response capabilities", () => {
+		seqCounter = 0;
+		const timeline = foldEnvelope(
+			emptyTimeline(),
+			envelope({
+				kind: "permission_requested",
+				pending: pendingPermission({
+					isElicitation: true,
+					allowsCustomResponse: true,
+				}),
+			}),
+		);
+		const item = timeline.items[0];
+		if (item?.kind !== "tool_call") throw new Error("expected tool_call");
+		expect(item.permissions[0]?.isElicitation).toBe(true);
+		expect(item.permissions[0]?.allowsCustomResponse).toBe(true);
+	});
+
 	test("permission_requested without a matching tool call synthesizes a standalone item", () => {
 		seqCounter = 0;
 		const timeline = foldEnvelope(
@@ -653,6 +671,27 @@ describe("purity", () => {
 		expect(after.items[0]).not.toBe(before.items[0]);
 	});
 
+	test("preserves tool references when an envelope does not change semantics", () => {
+		seqCounter = 0;
+		const before = foldEnvelope(
+			emptyTimeline(),
+			update({
+				sessionUpdate: "tool_call",
+				toolCallId: "tool-1",
+				title: "Read",
+			}),
+		);
+		const after = foldEnvelope(
+			before,
+			envelope({
+				kind: "permission_resolved",
+				requestId: "missing",
+				outcome: { outcome: "cancelled" },
+			}),
+		);
+		expect(after.items[0]).toBe(before.items[0]);
+	});
+
 	test("lastSeq always tracks the folded envelope, even for no-op frames", () => {
 		seqCounter = 0;
 		const timeline = foldEnvelope(
@@ -707,6 +746,83 @@ describe("subagent nesting", () => {
 			throw new Error("expected nested tool_call");
 		expect(child.id).toBe("sub-1");
 		expect(task.endSeq).toBe(2);
+		expect(task.semantics).toMatchObject({
+			kind: "subagent",
+			task: "Run echo via subagent",
+		});
+	});
+
+	test.each([
+		["pi-acp", "subagent", { task: "Inspect repository", agent: "scout" }],
+		["codex-app-server", "spawn_agent", { prompt: "Inspect repository" }],
+		["myflicker-acp", "Task", { description: "Inspect repository" }],
+	])("folds a flat %s delegation to canonical subagent semantics", (_harness, title, rawInput) => {
+		seqCounter = 0;
+		const timeline = foldEnvelopes(emptyTimeline(), [
+			update({
+				sessionUpdate: "tool_call",
+				toolCallId: "delegate-1",
+				title,
+				status: "completed",
+				rawInput,
+			}),
+		]);
+		const item = timeline.items[0];
+		if (item?.kind !== "tool_call") throw new Error("expected tool_call");
+		expect(item.children).toEqual([]);
+		expect(item.semantics).toMatchObject({
+			kind: "subagent",
+			task: "Inspect repository",
+		});
+	});
+
+	test("honors the provider-neutral parent relationship contract", () => {
+		seqCounter = 0;
+		const timeline = foldEnvelopes(emptyTimeline(), [
+			update({
+				sessionUpdate: "tool_call",
+				toolCallId: "task-1",
+				title: "subagent",
+			}),
+			update({
+				sessionUpdate: "tool_call",
+				toolCallId: "child-1",
+				title: "Read",
+				_meta: {
+					"sh.superset/toolSemantic": {
+						parentToolCallId: "task-1",
+					},
+				},
+			}),
+		]);
+		const task = timeline.items[0];
+		if (task?.kind !== "tool_call") throw new Error("expected tool_call");
+		expect(task.children.map((child) => child.id)).toEqual(["child-1"]);
+	});
+
+	test("re-homes a tagged child that arrives before its parent", () => {
+		seqCounter = 0;
+		const timeline = foldEnvelopes(emptyTimeline(), [
+			update({
+				sessionUpdate: "tool_call",
+				toolCallId: "child-1",
+				title: "Read",
+				_meta: {
+					"sh.superset/toolSemantic": {
+						parentToolCallId: "task-late",
+					},
+				},
+			}),
+			update({
+				sessionUpdate: "tool_call",
+				toolCallId: "task-late",
+				title: "subagent",
+			}),
+		]);
+		expect(timeline.items).toHaveLength(1);
+		const task = timeline.items[0];
+		if (task?.kind !== "tool_call") throw new Error("expected tool_call");
+		expect(task.children.map((child) => child.id)).toEqual(["child-1"]);
 	});
 
 	test("an UNTAGGED tool_call_update still routes into the nested child by id", () => {

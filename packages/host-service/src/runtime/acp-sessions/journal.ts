@@ -145,17 +145,31 @@ export class SessionJournal {
 		beforeSeq?: number;
 		limit: number;
 		matches: (envelope: SessionUpdateEnvelope) => boolean;
+		/**
+		 * Upper bound for a page payload. The newest matching item is always
+		 * returned so callers can report a single oversized frame explicitly.
+		 */
+		maxBytes?: number;
+		measure?: (envelope: SessionUpdateEnvelope) => number;
 	}): JournalPage {
-		const { beforeSeq, limit, matches } = options;
+		const { beforeSeq, limit, matches, maxBytes, measure } = options;
 		const items: SessionUpdateEnvelope[] = [];
+		let bytes = 0;
 		let nextBeforeSeq: number | null = null;
 		for (let index = this.size - 1; index >= 0; index -= 1) {
 			const envelope = this.entryAt(index);
 			if (!envelope) continue;
 			if (beforeSeq !== undefined && envelope.seq >= beforeSeq) continue;
 			if (!matches(envelope)) continue;
-			if (items.length < limit) {
+			const itemBytes = measure?.(envelope) ?? 0;
+			if (
+				items.length < limit &&
+				(maxBytes === undefined ||
+					items.length === 0 ||
+					bytes + itemBytes <= maxBytes)
+			) {
 				items.push(envelope);
+				bytes += itemBytes;
 			} else {
 				const oldestCollected = items[items.length - 1];
 				nextBeforeSeq = oldestCollected ? oldestCollected.seq : null;

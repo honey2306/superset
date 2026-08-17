@@ -71,7 +71,7 @@ function WorkspaceList({ query }: { query: string }) {
 				name: workspace.name,
 				branch: workspace.branch,
 				projectName,
-				projectColor: "hsl(var(--primary))",
+				projectColor: "var(--primary)",
 			};
 			if (!matchesQuery(item, query)) continue;
 			const group = projectGroups.get(workspace.projectId) ?? {

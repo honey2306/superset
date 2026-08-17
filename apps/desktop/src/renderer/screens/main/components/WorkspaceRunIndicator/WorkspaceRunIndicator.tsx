@@ -24,10 +24,10 @@ export function WorkspaceRunIndicator({
 
 	const colorClasses =
 		state === "running"
-			? "bg-success-tint"
+			? "bg-success-tint text-success"
 			: state === "stopped-by-user"
-				? "bg-fg-mute/40"
-				: "bg-destructive";
+				? "bg-fg-mute/40 text-fg"
+				: "bg-destructive text-destructive-foreground";
 
 	const inlineColorClasses =
 		state === "running"
@@ -47,7 +47,7 @@ export function WorkspaceRunIndicator({
 		return (
 			<span
 				className={cn(
-					"flex size-3 items-center justify-center rounded-full text-white ring-1 ring-background shadow-sm",
+					"flex size-3 items-center justify-center rounded-full ring-1 ring-background shadow-sm",
 					colorClasses,
 					className,
 				)}

@@ -13,9 +13,10 @@ export interface DesktopAcpSessionClient {
 		sessionId: string;
 		workspaceId: string;
 		harness: HarnessKind;
+		model?: string;
 	}): Promise<SessionScopedState>;
 	list(input: {
-		workspaceId: string;
+		workspaceId?: string;
 		cursor?: string;
 		limit?: number;
 	}): Promise<SessionsPage>;

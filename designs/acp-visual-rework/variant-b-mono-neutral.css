@@ -1,0 +1,511 @@
+/* ==== Variant B — Log Stream · 工具行像 CLI 日志 ====
+ *
+ * 消费主题变量。风格来自 Linear/Claude.ai：文字为主、工具为辅。
+ * 工具行降到"活动流"，左边一竖线，无卡片、无边框。
+ * 主色 accent-solid 只在用户气泡、composer send、focus 出现。
+ * 一份 CSS 在 Dracula / Ember / Monokai / Zed / Light 下都成立。
+ */
+.acp-pane[data-variant="b"] {
+	--pane-content-width: 760px;
+
+	background: var(--background);
+	color: var(--fg);
+	font-family: var(--font-sans, -apple-system, "SF Pro Text", "PingFang SC", sans-serif);
+	font-size: 13px;
+	line-height: 1.55;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+/* ---- Toolbar ---- */
+.acp-pane[data-variant="b"] .acp-pane__toolbar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 16px;
+	background: var(--background);
+	border-bottom: 1px solid var(--line);
+	color: var(--fg);
+	font-size: 12px;
+}
+.acp-pane[data-variant="b"] .acp-pane__chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 9px;
+	background: transparent;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	color: var(--fg);
+	font-size: 11.5px;
+	font-weight: 500;
+}
+.acp-pane[data-variant="b"] .acp-pane__chip-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--success);
+}
+.acp-pane[data-variant="b"] .acp-pane__toolbar-title {
+	color: var(--fg-mute);
+	font-size: 11.5px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.acp-pane[data-variant="b"] .acp-pane__toolbar-spacer { flex: 1; }
+.acp-pane[data-variant="b"] .acp-pane__header-pill {
+	padding: 2px 10px;
+	border: 0;
+	background: transparent;
+	color: var(--fg-mute);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.acp-pane[data-variant="b"] .acp-pane__header-pill::before {
+	content: "";
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--accent-solid);
+}
+.acp-pane[data-variant="b"] .acp-pane__toolbar-actions button {
+	background: transparent;
+	border: 0;
+	color: var(--fg-mute);
+	padding: 4px 6px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+.acp-pane[data-variant="b"] .acp-pane__toolbar-actions button:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+
+/* ---- Timeline ---- */
+.acp-pane[data-variant="b"] .acp-pane__timeline { flex: 1 1 auto; min-height: 0; display: flex; }
+.acp-pane[data-variant="b"] .acp-pane__scroll { flex: 1; overflow-y: auto; }
+.acp-pane[data-variant="b"] .acp-pane__body-inner {
+	padding: 24px 32px 32px;
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	max-width: var(--pane-content-width);
+	margin: 0 auto;
+}
+/* 段落节奏：消息大间距、工具行小间距、工具跟随前后段落时保持段落感 */
+.acp-pane[data-variant="b"] .acp-pane__body-inner > * + * { margin-top: 22px; }
+.acp-pane[data-variant="b"] .acp-pane__body-inner > .acp-tool + .acp-tool { margin-top: 2px; }
+.acp-pane[data-variant="b"] .acp-pane__body-inner > .acp-msg + .acp-tool { margin-top: 6px; }
+.acp-pane[data-variant="b"] .acp-pane__body-inner > .acp-tool + .acp-msg { margin-top: 14px; }
+
+/* ---- Message ---- */
+.acp-pane[data-variant="b"] .acp-msg { display: flex; flex-direction: column; gap: 6px; }
+.acp-pane[data-variant="b"] .acp-msg[data-role="user"] { align-items: flex-end; }
+.acp-pane[data-variant="b"] .acp-msg__author {
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--fg-mute);
+}
+.acp-pane[data-variant="b"] .acp-msg[data-role="agent"] .acp-msg__author {
+	color: var(--fg);
+	font-weight: 600;
+}
+.acp-pane[data-variant="b"] .acp-msg[data-role="user"] .acp-msg__bubble {
+	max-width: 78%;
+	padding: 10px 14px;
+	background: var(--accent-tint);
+	border: 1px solid var(--accent-line);
+	border-radius: 12px 12px 3px 12px;
+	color: var(--fg);
+	font-size: 13.5px;
+	line-height: 1.6;
+}
+.acp-pane[data-variant="b"] .acp-msg[data-role="agent"] .acp-msg__bubble { max-width: 100%; color: var(--fg); }
+.acp-pane[data-variant="b"] .acp-md {
+	font-size: 16px;
+	line-height: 1.8;
+	color: var(--fg);
+}
+.acp-pane[data-variant="b"] .acp-md p { margin: 12px 0; }
+.acp-pane[data-variant="b"] .acp-md p:first-child { margin-top: 0; }
+.acp-pane[data-variant="b"] .acp-md p:last-child { margin-bottom: 0; }
+.acp-pane[data-variant="b"] .acp-md h2 {
+	font-size: 17px;
+	font-weight: 600;
+	color: var(--fg);
+	margin: 26px 0 10px;
+	line-height: 1.35;
+	letter-spacing: -0.005em;
+}
+.acp-pane[data-variant="b"] .acp-md ol,
+.acp-pane[data-variant="b"] .acp-md ul {
+	margin: 14px 0;
+	padding-left: 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.acp-pane[data-variant="b"] .acp-md li::marker { color: var(--fg-faint); }
+.acp-pane[data-variant="b"] .acp-md strong { color: var(--fg); font-weight: 600; }
+.acp-pane[data-variant="b"] .acp-md code:not(pre code) {
+	background: var(--ds-surface);
+	color: var(--fg);
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-family: var(--font-mono);
+	font-size: 13px;
+	border: 1px solid var(--line);
+}
+.acp-pane[data-variant="b"] .acp-md blockquote {
+	margin: 14px 0;
+	padding: 4px 0 4px 16px;
+	border-left: 2px solid var(--line-strong);
+	color: var(--fg-mute);
+}
+
+/* ---- Tool: 散文旁白 ----
+ *
+ * 工具行的目标是"过程说明"，不是"表格记录"。所以：
+ *   - 没有左竖线、没有背景、没有边框 —— 一切"widget"信号
+ *   - kind 变成前缀动词的一部分，跟 title 同色、同权重
+ *   - kind 用完整的现在分词（"Reading" / "Editing" / "Searching" / "Running"）
+ *     而不是终端命令名，更接近散文
+ *   - 全 fg-mute，只有 status 图标是唯一色相
+ *   - 参考 Claude.ai "Analyzing..."、"Reading file..." 的低调气质
+ */
+.acp-pane[data-variant="b"] .acp-tool {
+	position: relative;
+	border: 0;
+	background: transparent;
+	overflow: hidden;
+}
+.acp-pane[data-variant="b"] .acp-tool__head {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 2px 0;
+	background: transparent;
+	border: 0;
+	color: var(--fg-mute);
+	font-family: var(--font-sans);
+	font-size: 13px;
+	line-height: 1.6;
+	text-align: left;
+	cursor: pointer;
+	width: 100%;
+}
+.acp-pane[data-variant="b"] .acp-tool__head:hover .acp-tool__title { color: var(--fg); }
+.acp-pane[data-variant="b"] .acp-tool__head:hover .acp-tool__kind { color: var(--fg-mute); }
+
+/* caret: 唯一的前缀符号，全灰，展开时旋转 90° */
+.acp-pane[data-variant="b"] .acp-tool__caret {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+	color: var(--fg-faint);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1;
+	flex-shrink: 0;
+	transition: color 0.12s, transform 0.12s;
+}
+.acp-pane[data-variant="b"] .acp-tool__head:hover .acp-tool__caret { color: var(--fg-mute); }
+.acp-pane[data-variant="b"] .acp-tool__head[data-expanded="true"] .acp-tool__caret {
+	transform: rotate(90deg);
+}
+/* icon 已被 caret 取代 */
+.acp-pane[data-variant="b"] .acp-tool__icon { display: none; }
+
+/* kind: 正常 sans，无 small-caps 无 italic */
+.acp-pane[data-variant="b"] .acp-tool__kind {
+	font-family: var(--font-sans);
+	font-size: 13px;
+	font-weight: 500;
+	text-transform: none;
+	letter-spacing: 0;
+	color: var(--fg-mute);
+	padding: 0;
+	border: 0;
+	background: transparent;
+	min-width: 0;
+}
+
+/* icon: 统一固定符号，统一灰色，无 kind 区分 */
+.acp-pane[data-variant="b"] .acp-tool__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	color: var(--fg-faint);
+	background: transparent;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+.acp-pane[data-variant="b"] .acp-tool__title {
+	color: var(--fg-mute);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-family: var(--font-mono);
+	font-size: 12.5px;
+	font-weight: 400;
+}
+.acp-pane[data-variant="b"] .acp-tool__title:hover { color: var(--fg); }
+
+.acp-pane[data-variant="b"] .acp-tool__meta {
+	color: var(--fg-faint);
+	font-size: 11.5px;
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	display: inline-flex;
+	align-items: baseline;
+	gap: 5px;
+	white-space: nowrap;
+	margin-left: auto;
+}
+.acp-pane[data-variant="b"] .acp-tool__meta[data-status="completed"]::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--success);
+	display: inline-block;
+	transform: translateY(-1px);
+}
+.acp-pane[data-variant="b"] .acp-tool__meta[data-status="in_progress"] { color: var(--warning); font-style: italic; }
+.acp-pane[data-variant="b"] .acp-tool__meta[data-status="in_progress"]::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border: 1.5px solid var(--warning);
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: acp-b-spin 0.9s linear infinite;
+	display: inline-block;
+	transform: translateY(0);
+}
+.acp-pane[data-variant="b"] .acp-tool__meta[data-status="failed"] { color: var(--danger); }
+.acp-pane[data-variant="b"] .acp-tool__meta[data-status="failed"]::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--danger);
+	display: inline-block;
+	transform: translateY(-1px);
+}
+@keyframes acp-b-spin { to { transform: rotate(360deg); } }
+
+/* body: 缩进到"动词文字"起点（caret 12px + gap 8px = 20px），
+ * 让 diff 视觉上从这一行的文字长出来 */
+.acp-pane[data-variant="b"] .acp-tool__body {
+	position: relative;
+	margin: 6px 0 8px 20px;
+	padding: 0;
+	border: 0;
+}
+
+/* ---- 折叠摘要 · Agent 给出最终回复后，把这一轮的工具收成一行 ----
+ * 视觉气质对齐工具行本身（灰、单一 caret、无背景），但 hover 时轻微
+ * 提亮以暗示可点开。展开态由 aria-expanded=true 驱动，caret 旋转 90°。
+ */
+.acp-pane[data-variant="b"] .acp-turn-summary {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 4px 0;
+	background: transparent;
+	border: 0;
+	color: var(--fg-mute);
+	font-family: var(--font-sans);
+	font-size: 13px;
+	line-height: 1.55;
+	text-align: left;
+	cursor: pointer;
+	transition: color 0.12s;
+	align-self: flex-start;
+}
+.acp-pane[data-variant="b"] .acp-turn-summary:hover { color: var(--fg); }
+.acp-pane[data-variant="b"] .acp-turn-summary__caret {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+	color: var(--fg-faint);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1;
+	flex-shrink: 0;
+	transition: color 0.12s, transform 0.12s;
+}
+.acp-pane[data-variant="b"] .acp-turn-summary:hover .acp-turn-summary__caret {
+	color: var(--fg-mute);
+}
+.acp-pane[data-variant="b"] .acp-turn-summary[aria-expanded="true"] .acp-turn-summary__caret {
+	transform: rotate(90deg);
+}
+.acp-pane[data-variant="b"] .acp-turn-summary__text {
+	font-family: var(--font-sans);
+	font-size: 13px;
+	color: var(--fg-mute);
+}
+
+/* ---- Diff ---- */
+.acp-pane[data-variant="b"] .acp-diff {
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--ds-surface);
+	overflow: hidden;
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+.acp-pane[data-variant="b"] .acp-diff__head {
+	padding: 5px 12px;
+	border-bottom: 1px solid var(--line);
+	display: flex;
+	gap: 8px;
+	color: var(--fg-mute);
+	font-size: 11px;
+}
+.acp-pane[data-variant="b"] .acp-diff__head-path { color: var(--fg); flex: 1; }
+.acp-pane[data-variant="b"] .acp-diff__head-stat .plus { color: var(--success); }
+.acp-pane[data-variant="b"] .acp-diff__head-stat .minus { color: var(--danger); }
+.acp-pane[data-variant="b"] .acp-diff__body { padding: 4px 0; }
+.acp-pane[data-variant="b"] .acp-diff__line {
+	display: grid;
+	grid-template-columns: 32px 12px 1fr;
+	gap: 4px;
+	padding: 0 12px;
+	line-height: 1.6;
+}
+.acp-pane[data-variant="b"] .acp-diff__line-num { color: var(--fg-faint); text-align: right; font-size: 10.5px; }
+.acp-pane[data-variant="b"] .acp-diff__line-mark { color: var(--fg-mute); }
+.acp-pane[data-variant="b"] .acp-diff__line[data-kind="add"] { background: var(--success-tint); }
+.acp-pane[data-variant="b"] .acp-diff__line[data-kind="add"] .acp-diff__line-mark,
+.acp-pane[data-variant="b"] .acp-diff__line[data-kind="add"] .acp-diff__line-text { color: var(--success); }
+.acp-pane[data-variant="b"] .acp-diff__line[data-kind="del"] { background: var(--danger-tint); }
+.acp-pane[data-variant="b"] .acp-diff__line[data-kind="del"] .acp-diff__line-mark,
+.acp-pane[data-variant="b"] .acp-diff__line[data-kind="del"] .acp-diff__line-text { color: var(--danger); }
+.acp-pane[data-variant="b"] .acp-diff__line[data-kind="ctx"] .acp-diff__line-text { color: var(--fg-mute); }
+
+/* ---- Composer ---- */
+.acp-pane[data-variant="b"] .acp-pane__composer {
+	flex-shrink: 0;
+	border-top: 1px solid var(--line);
+	padding: 12px 16px 14px;
+	background: var(--background);
+}
+.acp-pane[data-variant="b"] .acp-pane__composer-box {
+	border: 1px solid var(--line-strong);
+	border-radius: 8px;
+	padding: 10px 14px;
+	background: var(--ds-surface);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.acp-pane[data-variant="b"] .acp-pane__composer-box:focus-within {
+	border-color: var(--accent-line);
+	box-shadow: 0 0 0 3px var(--accent-tint);
+}
+.acp-pane[data-variant="b"] .acp-pane__composer-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.acp-pane[data-variant="b"] .acp-pane__composer-glyph { color: var(--fg-faint); font-family: var(--font-mono); }
+.acp-pane[data-variant="b"] .acp-pane__composer-editor {
+	flex: 1;
+	color: var(--fg-mute);
+	font-family: var(--font-sans);
+	font-size: 13.5px;
+	outline: none;
+}
+.acp-pane[data-variant="b"] .acp-pane__composer-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	color: var(--fg-faint);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+}
+.acp-pane[data-variant="b"] .slash,
+.acp-pane[data-variant="b"] .at { color: var(--fg); font-weight: 600; }
+.acp-pane[data-variant="b"] .acp-pane__composer-toolbar-spacer { flex: 1; }
+.acp-pane[data-variant="b"] .acp-pane__composer-send {
+	background: var(--primary);
+	color: var(--primary-foreground, var(--background));
+	border: 0;
+	padding: 5px 10px 5px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	font-family: var(--font-sans);
+	font-size: 12px;
+	font-weight: 500;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.acp-pane[data-variant="b"] .acp-pane__composer-send-kbd {
+	padding: 0 4px;
+	border-radius: 3px;
+	background: color-mix(in oklch, currentColor 12%, transparent);
+	font-size: 10px;
+}
+
+/* ---- Status bar ---- */
+.acp-pane[data-variant="b"] .acp-status-bar {
+	flex-shrink: 0;
+	border-top: 1px solid var(--line);
+	background: var(--background);
+	padding: 6px 16px;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	color: var(--fg-faint);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	height: 28px;
+}
+.acp-pane[data-variant="b"] .acp-status-bar__group {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	padding-right: 14px;
+	border-right: 1px solid var(--line);
+}
+.acp-pane[data-variant="b"] .acp-status-bar__group:last-child { border-right: 0; }
+.acp-pane[data-variant="b"] .acp-status-bar__mode {
+	color: var(--fg-mute);
+	padding: 0;
+	border: 0;
+	background: transparent;
+}
+.acp-pane[data-variant="b"] .acp-status-bar__mode-glyph { color: var(--fg-faint); margin-right: 3px; }
+.acp-pane[data-variant="b"] .acp-status-bar__seg-value { color: var(--fg-mute); }
+.acp-pane[data-variant="b"] .acp-status-bar__spacer { flex: 1; }
+.acp-pane[data-variant="b"] .acp-status-bar__conn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	color: var(--accent-solid);
+}
+.acp-pane[data-variant="b"] .acp-status-bar__conn-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: currentColor;
+}

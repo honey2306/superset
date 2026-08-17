@@ -131,7 +131,7 @@ function IssueDetailPage() {
 						<StateIcon
 							className={
 								isClosed
-									? "size-5 shrink-0 mt-1 text-violet-500"
+									? "size-5 shrink-0 mt-1 text-accent-2"
 									: "size-5 shrink-0 mt-1 text-success"
 							}
 						/>
@@ -191,7 +191,7 @@ function Header({
 				<HiArrowLeft className="w-4 h-4" />
 			</Button>
 			<StateIcon
-				className={isClosed ? "size-4 text-violet-500" : "size-4 text-success"}
+				className={isClosed ? "size-4 text-accent-2" : "size-4 text-success"}
 			/>
 			<span className="text-sm text-fg-mute font-mono tabular-nums">
 				#{issueNumber}

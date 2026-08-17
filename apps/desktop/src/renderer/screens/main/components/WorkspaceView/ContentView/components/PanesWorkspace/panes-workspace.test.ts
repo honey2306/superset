@@ -346,6 +346,8 @@ describe("PanesWorkspace ACP pane storage", () => {
 });
 
 describe("PanesWorkspace ACP pane lifecycle", () => {
+	const buildAcpLifecycle = () =>
+		buildPanesAcpLifecycleRegistry({ closeSession: mock(async () => {}) });
 	const pane = {
 		id: "pane-1",
 		kind: "acp",
@@ -358,15 +360,19 @@ describe("PanesWorkspace ACP pane lifecycle", () => {
 		},
 	} as never;
 
-	test("pane close only detaches the ACP presentation", async () => {
-		const acpLifecycle = buildPanesAcpLifecycleRegistry();
+	test("pane close disposes the ACP session", async () => {
+		const closeSession = mock<(sessionId: string) => Promise<void>>(
+			async () => {},
+		);
+		const acpLifecycle = buildPanesAcpLifecycleRegistry({ closeSession });
 
 		expect(await acpLifecycle.onBeforeClose?.(pane)).toBe(true);
+		expect(closeSession).toHaveBeenCalledWith("s-1");
 		expect(() => acpLifecycle.onAfterClose?.(pane)).not.toThrow();
 	});
 
 	test("getTitle returns acp title when present", () => {
-		const acpLifecycle = buildPanesAcpLifecycleRegistry();
+		const acpLifecycle = buildAcpLifecycle();
 		const titledPane = {
 			id: "pane-1",
 			kind: "acp",
@@ -382,7 +388,7 @@ describe("PanesWorkspace ACP pane lifecycle", () => {
 	});
 
 	test("getTitle uses each built-in agent label when title is absent", () => {
-		const acpLifecycle = buildPanesAcpLifecycleRegistry();
+		const acpLifecycle = buildAcpLifecycle();
 		for (const [agentDefinitionId, label] of [
 			["claude", "Claude"],
 			["codex", "Codex"],
@@ -399,7 +405,7 @@ describe("PanesWorkspace ACP pane lifecycle", () => {
 	});
 
 	test("getTitle falls back to 'Claude' when acp data is absent", () => {
-		const acpLifecycle = buildPanesAcpLifecycleRegistry();
+		const acpLifecycle = buildAcpLifecycle();
 		expect(
 			acpLifecycle.getTitle?.({ id: "p", kind: "acp", data: {} } as never),
 		).toBe("Claude");
