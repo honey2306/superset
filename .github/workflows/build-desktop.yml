@@ -64,12 +64,7 @@ jobs:
           SUPERSET_WORKSPACE_NAME: superset
           SUPERSET_UPDATE_REPOSITORY: ${{ github.repository }}
           TARGET_ARCH: arm64
-        run: |
-          if [[ -z "$AUTOMATE_RELAY_URL" ]]; then
-            echo "AUTOMATE_RELAY_URL must be configured for Desktop phone access." >&2
-            exit 1
-          fi
-          bun run compile:app
+        run: bun run compile:app
 
       - name: Build arm64 macOS artifacts
         working-directory: apps/desktop
