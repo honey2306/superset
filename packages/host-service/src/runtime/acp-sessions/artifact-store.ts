@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-const MAX_INLINE_IMAGE_BYTES = 128 * 1024;
+export const MAX_INLINE_IMAGE_BYTES = 128 * 1024;
 
 export interface AcpArtifactReference {
 	type: "acp-artifact";
@@ -46,6 +46,33 @@ export class AcpArtifactStore {
 		);
 	}
 
+	/** Returns the same references as boundRawOutput without writing files. */
+	previewBoundRawOutput(sessionId: string, value: unknown): unknown {
+		if (typeof value === "string") return this.previewDataUrl(sessionId, value);
+		if (Array.isArray(value))
+			return value.map((item) => this.previewBoundRawOutput(sessionId, item));
+		if (!value || typeof value !== "object") return value;
+		const record = value as Record<string, unknown>;
+		if (
+			record.type === "image" &&
+			typeof record.data === "string" &&
+			typeof record.mimeType === "string" &&
+			record.data.length > MAX_INLINE_IMAGE_BYTES
+		) {
+			return this.referenceForBase64(sessionId, record.data, record.mimeType);
+		}
+		return Object.fromEntries(
+			Object.entries(record).map(([key, item]) => [
+				key,
+				this.previewBoundRawOutput(sessionId, item),
+			]),
+		);
+	}
+
+	get rootPath(): string {
+		return this.rootDirectory;
+	}
+
 	removeSession(sessionId: string): void {
 		rmSync(this.sessionDirectory(sessionId), { recursive: true, force: true });
 	}
@@ -62,16 +89,31 @@ export class AcpArtifactStore {
 		return this.storeBase64(sessionId, data ?? "", mimeType ?? "image/*");
 	}
 
+	private previewDataUrl(
+		sessionId: string,
+		value: string,
+	): string | AcpArtifactReference {
+		const match = /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=]+)$/i.exec(
+			value,
+		);
+		if (!match || value.length <= MAX_INLINE_IMAGE_BYTES) return value;
+		const [, mimeType, data] = match;
+		return this.referenceForBase64(
+			sessionId,
+			data ?? "",
+			mimeType ?? "image/*",
+		);
+	}
+
 	private storeBase64(
 		sessionId: string,
 		data: string,
 		mimeType: string,
 	): AcpArtifactReference {
+		const reference = this.referenceForBase64(sessionId, data, mimeType);
 		const bytes = Buffer.from(data, "base64");
-		const sha256 = createHash("sha256").update(bytes).digest("hex");
-		const extension = mimeType === "image/png" ? "png" : "img";
 		const directory = this.sessionDirectory(sessionId);
-		const artifactPath = path.join(directory, `${sha256}.${extension}`);
+		const artifactPath = reference.locator.path;
 		if (!existsSync(artifactPath)) {
 			mkdirSync(directory, { recursive: true, mode: 0o700 });
 			const temporaryPath = path.join(directory, `.${randomUUID()}.tmp`);
@@ -84,6 +126,21 @@ export class AcpArtifactStore {
 				if (!existsSync(artifactPath)) throw error;
 			}
 		}
+		return reference;
+	}
+
+	private referenceForBase64(
+		sessionId: string,
+		data: string,
+		mimeType: string,
+	): AcpArtifactReference {
+		const bytes = Buffer.from(data, "base64");
+		const sha256 = createHash("sha256").update(bytes).digest("hex");
+		const extension = mimeType === "image/png" ? "png" : "img";
+		const artifactPath = path.join(
+			this.sessionDirectory(sessionId),
+			`${sha256}.${extension}`,
+		);
 		return {
 			type: "acp-artifact",
 			artifactId: sha256,

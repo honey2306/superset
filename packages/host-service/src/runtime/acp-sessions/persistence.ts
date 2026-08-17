@@ -13,6 +13,12 @@ import {
 	type DelegationRunStatus,
 	delegationRuns,
 } from "../../db/schema";
+import type { AcpArtifactStore } from "./artifact-store";
+import {
+	type AcpHistoricalJournalCompactionStats,
+	AcpHistoricalJournalCompactor,
+	type CompactHistoricalJournalOptions,
+} from "./historical-journal-compactor";
 
 /**
  * One persisted session-registry row — the minimum needed to list a session
@@ -210,6 +216,15 @@ export class SqliteAcpSessionPersistence
 				.run();
 			tx.delete(acpSessions).where(eq(acpSessions.sessionId, sessionId)).run();
 		});
+	}
+
+	compactHistoricalJournal(
+		artifactStore: AcpArtifactStore,
+		options: CompactHistoricalJournalOptions = {},
+	): AcpHistoricalJournalCompactionStats {
+		return new AcpHistoricalJournalCompactor(this.db, artifactStore).compact(
+			options,
+		);
 	}
 
 	createDelegationRun(record: DelegationRunRecord): void {

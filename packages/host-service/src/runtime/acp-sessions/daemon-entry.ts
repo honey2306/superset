@@ -64,6 +64,15 @@ async function main(): Promise<void> {
 	});
 	const socketPath = acpDaemonSocketPath(organizationId);
 	const persistence = new SqliteAcpSessionPersistence(db);
+	const artifactStore = new AcpArtifactStore(
+		path.join(path.dirname(dbPath), "acp-artifacts"),
+	);
+	const compaction = persistence.compactHistoricalJournal(artifactStore);
+	if (!compaction.skipped) {
+		console.error(
+			`[acp-daemon] historical journal compaction: ${compaction.rowsUpdated}/${compaction.rowsScanned} rows, ${compaction.bytesBefore} -> ${compaction.bytesAfter} bytes, ${compaction.uniqueArtifacts} unique artifacts`,
+		);
+	}
 	const manager = new AcpSessionManager({
 		resolveWorkspaceCwd: (workspaceId) => {
 			const workspace = db.query.workspaces
@@ -73,9 +82,7 @@ async function main(): Promise<void> {
 			return workspace.worktreePath;
 		},
 		persistence,
-		artifactStore: new AcpArtifactStore(
-			path.join(path.dirname(dbPath), "acp-artifacts"),
-		),
+		artifactStore,
 		adapterEntry: process.env.SUPERSET_ACP_ADAPTER_ENTRY,
 		codexAdapterEntry: process.env.SUPERSET_CODEX_ACP_ADAPTER_ENTRY,
 		piAdapterEntry: process.env.SUPERSET_PI_ACP_ADAPTER_ENTRY,

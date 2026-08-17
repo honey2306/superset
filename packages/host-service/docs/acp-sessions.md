@@ -161,6 +161,15 @@ removes its artifact directory. History responses are additionally capped by
 serialized byte size, and daemon subscription replay pauses on socket
 backpressure and resumes from the last accepted sequence.
 
+On the first daemon start after this storage format is introduced, legacy
+`acp_session_journal` image payloads are compacted before the daemon accepts
+connections. Each session is updated atomically; malformed frames are left as
+they are. A successful full pass records an owner-only completion marker at
+`acp-artifacts/historical-journal-compaction-v1.json`, so normal daemon starts
+do not rescan the complete journal. Restoring an older host database into the
+same data directory requires deleting that marker before starting the daemon,
+which safely reruns the idempotent pass.
+
 However, the current design still gives the ring two jobs:
 
 1. recent WebSocket catch-up with `?since=<seq>`;
