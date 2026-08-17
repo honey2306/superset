@@ -16,6 +16,10 @@ import {
 	type CanonicalToolCall,
 	canonicalizeToolCall,
 } from "./canonical-tool-call";
+import {
+	canonicalizeToolCallSemantics,
+	type ToolCallSemantics,
+} from "./tool-call-semantics";
 
 // ---------------------------------------------------------------------------
 // Timeline model: SessionUpdateEnvelope[] folded into renderable items.
@@ -35,6 +39,10 @@ export interface MessageItem {
 	failed: boolean;
 	startSeq: number;
 	endSeq: number;
+	/** Wall-clock time of the first envelope that produced this message. */
+	startedAt?: number;
+	/** Wall-clock time of the most recent envelope that updated this message. */
+	updatedAt?: number;
 }
 
 export interface PermissionView {
@@ -45,6 +53,8 @@ export interface PermissionView {
 	multiSelect?: boolean;
 	/** True for an ACP form elicitation rather than request_permission. */
 	isElicitation?: boolean;
+	/** The elicitation accepts a free-text answer instead of a listed option. */
+	allowsCustomResponse?: boolean;
 	/** null while a client answer is still pending. */
 	resolution: RequestPermissionOutcome | null;
 }
@@ -54,6 +64,9 @@ export interface ToolCallItem {
 	/** The ACP toolCallId. */
 	id: string;
 	call: CanonicalToolCall;
+	/** Adapter-agnostic meaning projected during fold. Renderers must branch on
+	 * this discriminator instead of adapter metadata, titles, or child count. */
+	semantics: ToolCallSemantics;
 	/**
 	 * Normalized terminal stream emitted by adapters such as Pi. ACP represents
 	 * its info, output deltas, and exit status as separate `_meta` frames; keep
@@ -73,6 +86,10 @@ export interface ToolCallItem {
 	children: TimelineItem[];
 	startSeq: number;
 	endSeq: number;
+	/** Wall-clock time of the first envelope that produced this tool call. */
+	startedAt?: number;
+	/** Wall-clock time of the most recent envelope that updated this tool call. */
+	updatedAt?: number;
 }
 
 export interface TerminalStream {
@@ -183,6 +200,8 @@ export function foldEnvelope(
 				options: pending.options,
 				requestedAt: pending.requestedAt,
 				multiSelect: pending.multiSelect,
+				isElicitation: pending.isElicitation,
+				allowsCustomResponse: pending.allowsCustomResponse,
 				resolution: null,
 			};
 			const attached = patchToolCall(
@@ -199,21 +218,23 @@ export function foldEnvelope(
 			if (!attached) {
 				// Permission for a tool call we never saw (e.g. history page cut
 				// mid-turn): synthesize an item so the request stays answerable.
+				const call = mergeToolCall(
+					{ toolCallId: pending.toolCall.toolCallId, title: "" },
+					pending.toolCall,
+				);
 				insertToolCall(
 					next.items,
 					{
 						kind: "tool_call",
 						id: pending.toolCall.toolCallId,
-						call: mergeToolCall(
-							{ toolCallId: pending.toolCall.toolCallId, title: "" },
-							pending.toolCall,
-						),
+						call,
+						semantics: canonicalizeToolCallSemantics(call, []),
 						permissions: [view],
 						children: [],
 						startSeq: envelope.seq,
 						endSeq: envelope.seq,
 					},
-					claudeParentToolUseId(pending.toolCall),
+					parentToolCallId(pending.toolCall),
 					envelope.seq,
 				);
 			}
@@ -244,7 +265,24 @@ export function foldEnvelope(
 			next.resetReason = frame.reason;
 			break;
 	}
+	next.items = projectToolSemantics(next.items);
 	return next;
+}
+
+function projectToolSemantics(items: TimelineItem[]): TimelineItem[] {
+	let changed = false;
+	const projected = items.map((item) => {
+		if (item.kind !== "tool_call") return item;
+		const children = projectToolSemantics(item.children);
+		const semantics = canonicalizeToolCallSemantics(item.call, children);
+		const childrenChanged = children !== item.children;
+		const semanticsChanged =
+			JSON.stringify(semantics) !== JSON.stringify(item.semantics);
+		if (!childrenChanged && !semanticsChanged) return item;
+		changed = true;
+		return { ...item, children, semantics };
+	});
+	return changed ? projected : items;
 }
 
 function foldUpdate(
@@ -585,18 +623,18 @@ function mergeTerminalStreams(
 }
 
 /**
- * The claude-agent adapter tags subagent activity with the spawning Task
- * tool's id via `_meta.claudeCode.parentToolUseId`. Not every frame carries
- * the tag (tool_progress and hook-driven updates arrive bare), so it decides
- * only where an item is FIRST placed; later frames route by toolCallId.
+ * Resolve canonical parent linkage first, then legacy Claude metadata. The
+ * reserved contract lets every adapter produce identical topology without
+ * teaching renderers—or this fold—new provider-specific keys.
  */
-function claudeParentToolUseId(source: { _meta?: unknown }): string | null {
-	const meta = source._meta;
-	if (typeof meta !== "object" || meta === null) return null;
-	const claudeCode = (meta as { claudeCode?: unknown }).claudeCode;
-	if (typeof claudeCode !== "object" || claudeCode === null) return null;
-	const parent = (claudeCode as { parentToolUseId?: unknown }).parentToolUseId;
-	return typeof parent === "string" && parent.length > 0 ? parent : null;
+function parentToolCallId(source: { _meta?: unknown }): string | null {
+	const meta = asRecord(source._meta);
+	if (!meta) return null;
+	const semantic = asRecord(meta["sh.superset/toolSemantic"]);
+	const canonicalParent = nonEmptyString(semantic?.parentToolCallId);
+	if (canonicalParent) return canonicalParent;
+	const claudeCode = asRecord(meta.claudeCode);
+	return nonEmptyString(claudeCode?.parentToolUseId);
 }
 
 /**
@@ -614,7 +652,7 @@ function upsertToolCall(
 	const terminalPatches = terminalStreamPatches(patch);
 	const mergeTerminals = (base: Record<string, TerminalStream> | undefined) =>
 		terminalPatches.reduce(mergeTerminalStreams, base);
-	const parentId = claudeParentToolUseId(patch);
+	const parentId = parentToolCallId(patch);
 	if (parentId && hasToolCall(timeline.items, parentId)) {
 		const strayIndex = timeline.items.findIndex(
 			(entry) => entry.kind === "tool_call" && entry.id === patch.toolCallId,
@@ -648,12 +686,14 @@ function upsertToolCall(
 		}),
 	);
 	if (patched) return;
+	const call = createCall();
 	insertToolCall(
 		timeline.items,
 		{
 			kind: "tool_call",
 			id: patch.toolCallId,
-			call: createCall(),
+			call,
+			semantics: canonicalizeToolCallSemantics(call, []),
 			...(terminalPatches.length > 0
 				? { terminals: mergeTerminals(undefined) }
 				: {}),
@@ -665,6 +705,28 @@ function upsertToolCall(
 		parentId,
 		seq,
 	);
+	if (!parentId) rehomeWaitingChildren(timeline.items, patch.toolCallId, seq);
+}
+
+/** Attach tagged children that arrived before their parent tool call. */
+function rehomeWaitingChildren(
+	items: TimelineItem[],
+	parentId: string,
+	seq: number,
+): void {
+	for (let index = 0; index < items.length; ) {
+		const candidate = items[index];
+		if (
+			candidate?.kind !== "tool_call" ||
+			candidate.id === parentId ||
+			parentToolCallId(candidate.call) !== parentId
+		) {
+			index += 1;
+			continue;
+		}
+		items.splice(index, 1);
+		insertToolCall(items, candidate, parentId, seq);
+	}
 }
 
 /**

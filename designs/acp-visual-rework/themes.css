@@ -1,0 +1,262 @@
+/* ==== Mocked theme tokens ====
+ * 六套内置主题的 shadcn slots + DS 扩展变量。真实实现在 apps/desktop/
+ * src/renderer/globals.css + apps/desktop/src/shared/themes/built-in/*.ts。
+ * 这里只复刻 ACP 面板会消费到的槽。切换靠 [data-theme=...]，配 apply-theme.js。
+ *
+ * DS 契约（每套主题都遵守）：
+ *   - accent-tint = 主色 mix 14%（作为柔和 highlight）
+ *   - accent-solid = 完整主色，只用于 dot / ring / focus / brand-bar
+ *   - fg-mute / fg-faint 用 color-mix，与 background 无关，只依赖 foreground
+ *   - success / warning / danger / info 语义色（信号色，不作为区块底色使用）
+ *   - font-mono 全局统一
+ */
+
+/* ---------- Dracula (默认) ---------- */
+:root,
+[data-theme="dracula"] {
+	--background: #1e1f29;
+	--foreground: #f8f8f2;
+	--card: #282a36;
+	--popover: #21222c;
+	--primary: #f8f8f2;
+	--primary-foreground: #282a36;
+	--muted: #44475a;
+	--muted-foreground: #d0d3e0;
+	--accent: rgba(255, 121, 198, 0.14);
+	--accent-foreground: #ff79c6;
+	--tertiary: #21222c;
+	--tertiary-active: #343746;
+	--destructive: #ff5555;
+	--border: #44475a;
+	--input: #44475a;
+	--ring: #ff79c6;
+	--highlight: #ff79c6;
+
+	--ds-page-bg: #1e1f29;
+	--ds-surface: #282a36;
+	--ds-surface-sunk: #21222c;
+
+	--fg: #f8f8f2;
+	--fg-mute: color-mix(in oklch, #f8f8f2 55%, transparent);
+	--fg-faint: color-mix(in oklch, #f8f8f2 38%, transparent);
+	--line: color-mix(in oklch, #f8f8f2 10%, transparent);
+	--line-strong: color-mix(in oklch, #f8f8f2 18%, transparent);
+	--hover: color-mix(in oklch, #f8f8f2 6%, transparent);
+
+	--accent-solid: #ff79c6;
+	--accent-tint: color-mix(in oklch, #ff79c6 14%, transparent);
+	--accent-line: color-mix(in oklch, #ff79c6 55%, transparent);
+
+	--success: #50fa7b;
+	--warning: #ffb86c;
+	--danger: #ff5555;
+	--info: #8be9fd;
+	--success-tint: color-mix(in oklch, #50fa7b 12%, transparent);
+	--warning-tint: color-mix(in oklch, #ffb86c 12%, transparent);
+	--danger-tint: color-mix(in oklch, #ff5555 14%, transparent);
+	--info-tint: color-mix(in oklch, #8be9fd 14%, transparent);
+
+	--font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+	--font-sans:
+		-apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+}
+
+/* ---------- Dracula Colorful ---------- */
+[data-theme="dracula-colorful"] {
+	--background: #2f3244;
+	--foreground: #f2f4ff;
+	--card: #363a54;
+	--popover: #2a2d40;
+	--primary: #ff8fd1;
+	--muted: #3f4560;
+	--muted-foreground: #d0d3e0;
+	--accent: #4c5075;
+	--accent-foreground: #ff8fd1;
+	--border: #525777;
+	--ring: #ff8fd1;
+	--highlight: #ff8fd1;
+
+	--ds-page-bg: #2f3244;
+	--ds-surface: #363a54;
+	--ds-surface-sunk: #2a2d40;
+
+	--fg: #f2f4ff;
+	--fg-mute: color-mix(in oklch, #f2f4ff 62%, transparent);
+	--fg-faint: color-mix(in oklch, #f2f4ff 42%, transparent);
+	--line: color-mix(in oklch, #f2f4ff 12%, transparent);
+	--line-strong: color-mix(in oklch, #f2f4ff 22%, transparent);
+	--hover: color-mix(in oklch, #f2f4ff 8%, transparent);
+
+	--accent-solid: #ff8fd1;
+	--accent-tint: color-mix(in oklch, #ff8fd1 16%, transparent);
+	--accent-line: color-mix(in oklch, #ff8fd1 55%, transparent);
+
+	--success: #7cf5a1;
+	--warning: #ffcc88;
+	--danger: #ff7a7a;
+	--info: #9ff0ff;
+	--success-tint: color-mix(in oklch, #7cf5a1 14%, transparent);
+	--warning-tint: color-mix(in oklch, #ffcc88 14%, transparent);
+	--danger-tint: color-mix(in oklch, #ff7a7a 14%, transparent);
+	--info-tint: color-mix(in oklch, #9ff0ff 14%, transparent);
+}
+
+/* ---------- Ember ---------- */
+[data-theme="ember"] {
+	--background: #151110;
+	--foreground: #eae8e6;
+	--card: #1c1817;
+	--popover: #100d0c;
+	--primary: #eae8e6;
+	--muted: #2a2827;
+	--muted-foreground: #bdb9b5;
+	--accent: rgba(224, 120, 80, 0.14);
+	--accent-foreground: #e07850;
+	--border: #2a2827;
+	--ring: #e07850;
+	--highlight: #e07850;
+
+	--ds-page-bg: #151110;
+	--ds-surface: #1c1817;
+	--ds-surface-sunk: #100d0c;
+
+	--fg: #eae8e6;
+	--fg-mute: color-mix(in oklch, #eae8e6 55%, transparent);
+	--fg-faint: color-mix(in oklch, #eae8e6 36%, transparent);
+	--line: color-mix(in oklch, #eae8e6 10%, transparent);
+	--line-strong: color-mix(in oklch, #eae8e6 18%, transparent);
+	--hover: color-mix(in oklch, #eae8e6 6%, transparent);
+
+	--accent-solid: #e07850;
+	--accent-tint: color-mix(in oklch, #e07850 14%, transparent);
+	--accent-line: color-mix(in oklch, #e07850 55%, transparent);
+
+	--success: #8fbf7f;
+	--warning: #e2b070;
+	--danger: #d97a6a;
+	--info: #7db3c9;
+	--success-tint: color-mix(in oklch, #8fbf7f 12%, transparent);
+	--warning-tint: color-mix(in oklch, #e2b070 12%, transparent);
+	--danger-tint: color-mix(in oklch, #d97a6a 14%, transparent);
+	--info-tint: color-mix(in oklch, #7db3c9 14%, transparent);
+}
+
+/* ---------- Monokai ---------- */
+[data-theme="monokai"] {
+	--background: #272822;
+	--foreground: #f8f8f2;
+	--card: #2f302a;
+	--popover: #1e1f1a;
+	--primary: #a6e22e;
+	--muted: #3e3d32;
+	--muted-foreground: #cfceb5;
+	--accent: rgba(166, 226, 46, 0.14);
+	--accent-foreground: #a6e22e;
+	--border: #49483e;
+	--ring: #a6e22e;
+	--highlight: #a6e22e;
+
+	--ds-page-bg: #272822;
+	--ds-surface: #2f302a;
+	--ds-surface-sunk: #1e1f1a;
+
+	--fg: #f8f8f2;
+	--fg-mute: color-mix(in oklch, #f8f8f2 55%, transparent);
+	--fg-faint: color-mix(in oklch, #f8f8f2 38%, transparent);
+	--line: color-mix(in oklch, #f8f8f2 10%, transparent);
+	--line-strong: color-mix(in oklch, #f8f8f2 18%, transparent);
+	--hover: color-mix(in oklch, #f8f8f2 6%, transparent);
+
+	--accent-solid: #a6e22e;
+	--accent-tint: color-mix(in oklch, #a6e22e 14%, transparent);
+	--accent-line: color-mix(in oklch, #a6e22e 55%, transparent);
+
+	--success: #a6e22e;
+	--warning: #fd971f;
+	--danger: #f92672;
+	--info: #66d9ef;
+	--success-tint: color-mix(in oklch, #a6e22e 12%, transparent);
+	--warning-tint: color-mix(in oklch, #fd971f 12%, transparent);
+	--danger-tint: color-mix(in oklch, #f92672 14%, transparent);
+	--info-tint: color-mix(in oklch, #66d9ef 14%, transparent);
+}
+
+/* ---------- Zed One Dark ---------- */
+[data-theme="zed-one-dark"] {
+	--background: #282c33;
+	--foreground: #dce0e5;
+	--card: #2e343e;
+	--popover: #21252c;
+	--primary: #74ade8;
+	--muted: #2e343e;
+	--muted-foreground: #b0b6bf;
+	--accent: rgba(116, 173, 232, 0.14);
+	--accent-foreground: #74ade8;
+	--border: #464b57;
+	--ring: #74ade8;
+	--highlight: #74ade8;
+
+	--ds-page-bg: #282c33;
+	--ds-surface: #2e343e;
+	--ds-surface-sunk: #21252c;
+
+	--fg: #dce0e5;
+	--fg-mute: color-mix(in oklch, #dce0e5 60%, transparent);
+	--fg-faint: color-mix(in oklch, #dce0e5 40%, transparent);
+	--line: color-mix(in oklch, #dce0e5 10%, transparent);
+	--line-strong: color-mix(in oklch, #dce0e5 20%, transparent);
+	--hover: color-mix(in oklch, #dce0e5 6%, transparent);
+
+	--accent-solid: #74ade8;
+	--accent-tint: color-mix(in oklch, #74ade8 14%, transparent);
+	--accent-line: color-mix(in oklch, #74ade8 55%, transparent);
+
+	--success: #8bcd8b;
+	--warning: #e5c07b;
+	--danger: #e06c75;
+	--info: #56b6c2;
+	--success-tint: color-mix(in oklch, #8bcd8b 12%, transparent);
+	--warning-tint: color-mix(in oklch, #e5c07b 14%, transparent);
+	--danger-tint: color-mix(in oklch, #e06c75 14%, transparent);
+	--info-tint: color-mix(in oklch, #56b6c2 14%, transparent);
+}
+
+/* ---------- Light ---------- */
+[data-theme="light"] {
+	--background: #ffffff;
+	--foreground: #1a1a1a;
+	--card: #ffffff;
+	--popover: #ffffff;
+	--primary: #1a1a1a;
+	--muted: #f4f4f5;
+	--muted-foreground: #5a5a5f;
+	--accent: color-mix(in oklch, #ff79c6 12%, transparent);
+	--accent-foreground: #d13a91;
+	--border: #e5e5e7;
+	--ring: #ff79c6;
+	--highlight: #ff79c6;
+
+	--ds-page-bg: #ffffff;
+	--ds-surface: #f8f8fa;
+	--ds-surface-sunk: #f2f2f5;
+
+	--fg: #1a1a1a;
+	--fg-mute: color-mix(in oklch, #1a1a1a 62%, transparent);
+	--fg-faint: color-mix(in oklch, #1a1a1a 40%, transparent);
+	--line: color-mix(in oklch, #1a1a1a 10%, transparent);
+	--line-strong: color-mix(in oklch, #1a1a1a 18%, transparent);
+	--hover: color-mix(in oklch, #1a1a1a 5%, transparent);
+
+	--accent-solid: #d13a91;
+	--accent-tint: color-mix(in oklch, #ff79c6 14%, transparent);
+	--accent-line: color-mix(in oklch, #ff79c6 55%, transparent);
+
+	--success: #2f8a45;
+	--warning: #b46b1c;
+	--danger: #c72a3e;
+	--info: #1e6ea3;
+	--success-tint: color-mix(in oklch, #2f8a45 10%, transparent);
+	--warning-tint: color-mix(in oklch, #b46b1c 10%, transparent);
+	--danger-tint: color-mix(in oklch, #c72a3e 10%, transparent);
+	--info-tint: color-mix(in oklch, #1e6ea3 10%, transparent);
+}

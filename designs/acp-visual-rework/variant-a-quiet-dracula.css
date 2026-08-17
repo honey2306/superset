@@ -1,0 +1,504 @@
+/* ==== Variant A — Quiet · 保留骨架，砍掉噪声 ====
+ *
+ * 消费主题变量。没有任何写死颜色。骨架继承你现有的 Dracula 感（品牌 accent
+ * 依然是主题的 --accent-solid），只是把当前 acp-pane.css 的过度信号色系
+ * 收敛：一个 accent、无 glow、kind 标签去徽章化、agent 文字升级。
+ */
+.acp-pane[data-variant="a"] {
+	--pane-radius-card: 6px;
+	--pane-radius-pill: 999px;
+	--pane-content-width: 780px;
+
+	background: var(--background);
+	color: var(--fg);
+	font-family: var(--font-sans, -apple-system, "SF Pro Text", "PingFang SC", sans-serif);
+	font-size: 13px;
+	line-height: 1.55;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+/* ---- Toolbar ---- */
+.acp-pane[data-variant="a"] .acp-pane__toolbar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 14px;
+	background: var(--ds-surface-sunk);
+	border-bottom: 1px solid var(--line);
+	color: var(--fg);
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+.acp-pane[data-variant="a"] .acp-pane__chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 9px;
+	background: transparent;
+	border: 1px solid var(--line-strong);
+	border-radius: 5px;
+	color: var(--fg);
+	font-size: 11px;
+	font-weight: 500;
+	/* NO glow, NO text-shadow, NO inset */
+}
+.acp-pane[data-variant="a"] .acp-pane__chip-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--success);
+}
+.acp-pane[data-variant="a"] .acp-pane__toolbar-title {
+	color: var(--fg-mute);
+	font-size: 11.5px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.acp-pane[data-variant="a"] .acp-pane__toolbar-spacer { flex: 1; }
+.acp-pane[data-variant="a"] .acp-pane__header-pill {
+	padding: 2px 8px;
+	border: 1px solid var(--line-strong);
+	border-radius: 10px;
+	background: transparent;
+	color: var(--warning);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+}
+.acp-pane[data-variant="a"] .acp-pane__toolbar-actions button {
+	background: transparent;
+	border: 0;
+	color: var(--fg-mute);
+	padding: 4px 6px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+.acp-pane[data-variant="a"] .acp-pane__toolbar-actions button:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+
+/* ---- Timeline ---- */
+.acp-pane[data-variant="a"] .acp-pane__timeline {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+}
+.acp-pane[data-variant="a"] .acp-pane__scroll {
+	flex: 1;
+	overflow-y: auto;
+	scrollbar-width: thin;
+}
+.acp-pane[data-variant="a"] .acp-pane__body-inner {
+	padding: 20px 24px 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	max-width: var(--pane-content-width);
+	margin: 0 auto;
+}
+
+/* ---- Message ---- */
+.acp-pane[data-variant="a"] .acp-msg {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.acp-pane[data-variant="a"] .acp-msg[data-role="user"] { align-items: flex-end; }
+.acp-pane[data-variant="a"] .acp-msg__author {
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--fg-mute);
+}
+.acp-pane[data-variant="a"] .acp-msg[data-role="user"] .acp-msg__author {
+	color: var(--info);
+}
+.acp-pane[data-variant="a"] .acp-msg[data-role="agent"] .acp-msg__author {
+	color: var(--accent-solid);
+}
+.acp-pane[data-variant="a"] .acp-msg[data-role="user"] .acp-msg__bubble {
+	max-width: 78%;
+	padding: 10px 14px;
+	background: var(--info-tint);
+	border: 1px solid color-mix(in oklch, var(--info) 22%, transparent);
+	border-radius: 10px 10px 2px 10px;
+	font-size: 13.5px;
+	line-height: 1.6;
+	color: var(--fg);
+}
+.acp-pane[data-variant="a"] .acp-msg[data-role="agent"] .acp-msg__bubble {
+	max-width: 100%;
+	color: var(--fg);
+}
+.acp-pane[data-variant="a"] .acp-md {
+	font-size: 15px;
+	line-height: 1.75;
+	color: var(--fg);
+}
+.acp-pane[data-variant="a"] .acp-md p { margin: 10px 0; }
+.acp-pane[data-variant="a"] .acp-md p:first-child { margin-top: 0; }
+.acp-pane[data-variant="a"] .acp-md p:last-child { margin-bottom: 0; }
+.acp-pane[data-variant="a"] .acp-md h2 {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--fg);
+	margin: 22px 0 10px;
+	line-height: 1.35;
+	letter-spacing: -0.005em;
+}
+.acp-pane[data-variant="a"] .acp-md ol,
+.acp-pane[data-variant="a"] .acp-md ul {
+	margin: 12px 0;
+	padding-left: 22px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.acp-pane[data-variant="a"] .acp-md li::marker { color: var(--fg-faint); }
+.acp-pane[data-variant="a"] .acp-md strong { color: var(--fg); font-weight: 600; }
+.acp-pane[data-variant="a"] .acp-md code:not(pre code) {
+	background: var(--hover);
+	color: var(--fg);
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-family: var(--font-mono);
+	font-size: 12.5px;
+	border: 1px solid var(--line);
+}
+.acp-pane[data-variant="a"] .acp-md blockquote {
+	margin: 14px 0;
+	padding: 2px 0 2px 14px;
+	border-left: 2px solid var(--line-strong);
+	color: var(--fg-mute);
+}
+
+/* ---- Tool: 保留卡片骨架，全灰 ----
+ *
+ * A 版本的差异化：保留卡片边框（让 Dracula 骨架仍在），但工具本身
+ * 完全去色 —— 单一 caret 符号、动词正常字体、无 kind 色相区分。
+ * accent 只出现在 status（running）和用户/agent 名称。
+ */
+.acp-pane[data-variant="a"] .acp-tool {
+	border: 1px solid var(--line);
+	border-radius: var(--pane-radius-card);
+	background: transparent;
+	overflow: hidden;
+}
+.acp-pane[data-variant="a"] .acp-tool__head {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 7px 12px;
+	background: transparent;
+	border: 0;
+	color: var(--fg-mute);
+	font-family: var(--font-sans);
+	font-size: 13px;
+	line-height: 1.55;
+	text-align: left;
+	cursor: pointer;
+	width: 100%;
+}
+.acp-pane[data-variant="a"] .acp-tool__head:hover { background: var(--hover); }
+.acp-pane[data-variant="a"] .acp-tool__head:hover .acp-tool__title { color: var(--fg); }
+
+/* caret: 唯一符号，全灰，展开时旋转 90° */
+.acp-pane[data-variant="a"] .acp-tool__caret {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+	color: var(--fg-faint);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1;
+	flex-shrink: 0;
+	transition: color 0.12s, transform 0.12s;
+}
+.acp-pane[data-variant="a"] .acp-tool__head:hover .acp-tool__caret { color: var(--fg-mute); }
+.acp-pane[data-variant="a"] .acp-tool__head[data-expanded="true"] .acp-tool__caret {
+	transform: rotate(90deg);
+}
+.acp-pane[data-variant="a"] .acp-tool__icon { display: none; }
+
+/* kind: 正常字体，全灰，无 kind 色差 */
+.acp-pane[data-variant="a"] .acp-tool__kind {
+	font-family: var(--font-sans);
+	font-size: 13px;
+	font-weight: 500;
+	text-transform: none;
+	letter-spacing: 0;
+	color: var(--fg-mute);
+	padding: 0;
+	border: 0;
+	background: transparent;
+	min-width: 0;
+}
+
+/* title: 文件路径/命令用 mono */
+.acp-pane[data-variant="a"] .acp-tool__title {
+	color: var(--fg-mute);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-family: var(--font-mono);
+	font-size: 12.5px;
+	font-weight: 400;
+}
+
+/* meta: 右对齐，✓/◐/✗ 图标 + tabular-nums 数字 */
+.acp-pane[data-variant="a"] .acp-tool__meta {
+	color: var(--fg-faint);
+	font-size: 11.5px;
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	display: inline-flex;
+	align-items: baseline;
+	gap: 5px;
+	white-space: nowrap;
+	margin-left: auto;
+}
+.acp-pane[data-variant="a"] .acp-tool__meta[data-status="completed"]::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--success);
+	display: inline-block;
+	transform: translateY(-1px);
+}
+.acp-pane[data-variant="a"] .acp-tool__meta[data-status="in_progress"] { color: var(--warning); font-style: italic; }
+.acp-pane[data-variant="a"] .acp-tool__meta[data-status="in_progress"]::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border: 1.5px solid var(--warning);
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: acp-a-spin 0.9s linear infinite;
+	display: inline-block;
+	transform: translateY(0);
+}
+.acp-pane[data-variant="a"] .acp-tool__meta[data-status="failed"] { color: var(--danger); }
+.acp-pane[data-variant="a"] .acp-tool__meta[data-status="failed"]::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--danger);
+	display: inline-block;
+	transform: translateY(-1px);
+}
+@keyframes acp-a-spin { to { transform: rotate(360deg); } }
+
+/* body: 缩进对齐文字起点（caret 12px + gap 8px = 20px + head 左 padding 12px = 32px） */
+.acp-pane[data-variant="a"] .acp-tool__body {
+	padding: 4px 12px 12px 32px;
+	border-top: 1px solid var(--line);
+}
+
+/* 折叠摘要 · agent 出最终回复后前面工具塌成一行 */
+.acp-pane[data-variant="a"] .acp-turn-summary {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 8px;
+	padding: 4px 0;
+	background: transparent;
+	border: 0;
+	color: var(--fg-mute);
+	font-family: var(--font-sans);
+	font-size: 13px;
+	line-height: 1.55;
+	text-align: left;
+	cursor: pointer;
+	transition: color 0.12s;
+	align-self: flex-start;
+}
+.acp-pane[data-variant="a"] .acp-turn-summary:hover { color: var(--fg); }
+.acp-pane[data-variant="a"] .acp-turn-summary__caret {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+	color: var(--fg-faint);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1;
+	flex-shrink: 0;
+	transition: color 0.12s, transform 0.12s;
+}
+.acp-pane[data-variant="a"] .acp-turn-summary:hover .acp-turn-summary__caret {
+	color: var(--fg-mute);
+}
+.acp-pane[data-variant="a"] .acp-turn-summary[aria-expanded="true"] .acp-turn-summary__caret {
+	transform: rotate(90deg);
+}
+.acp-pane[data-variant="a"] .acp-turn-summary__text {
+	color: var(--fg-mute);
+}
+
+/* ---- Diff ---- */
+.acp-pane[data-variant="a"] .acp-diff {
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	background: var(--ds-surface-sunk);
+	overflow: hidden;
+	font-family: var(--font-mono);
+	font-size: 11.5px;
+}
+.acp-pane[data-variant="a"] .acp-diff__head {
+	padding: 4px 10px;
+	border-bottom: 1px solid var(--line);
+	display: flex;
+	gap: 8px;
+	color: var(--fg-mute);
+	font-size: 10.5px;
+}
+.acp-pane[data-variant="a"] .acp-diff__head-path { color: var(--fg); flex: 1; }
+.acp-pane[data-variant="a"] .acp-diff__head-stat .plus { color: var(--success); }
+.acp-pane[data-variant="a"] .acp-diff__head-stat .minus { color: var(--danger); }
+.acp-pane[data-variant="a"] .acp-diff__body { padding: 4px 0; }
+.acp-pane[data-variant="a"] .acp-diff__line {
+	display: grid;
+	grid-template-columns: 32px 12px 1fr;
+	gap: 4px;
+	padding: 0 10px;
+	line-height: 1.55;
+}
+.acp-pane[data-variant="a"] .acp-diff__line-num {
+	color: var(--fg-faint);
+	text-align: right;
+	font-size: 10.5px;
+}
+.acp-pane[data-variant="a"] .acp-diff__line-mark { color: var(--fg-mute); }
+.acp-pane[data-variant="a"] .acp-diff__line[data-kind="add"] { background: var(--success-tint); }
+.acp-pane[data-variant="a"] .acp-diff__line[data-kind="add"] .acp-diff__line-text,
+.acp-pane[data-variant="a"] .acp-diff__line[data-kind="add"] .acp-diff__line-mark { color: var(--success); }
+.acp-pane[data-variant="a"] .acp-diff__line[data-kind="del"] { background: var(--danger-tint); }
+.acp-pane[data-variant="a"] .acp-diff__line[data-kind="del"] .acp-diff__line-text,
+.acp-pane[data-variant="a"] .acp-diff__line[data-kind="del"] .acp-diff__line-mark { color: var(--danger); }
+.acp-pane[data-variant="a"] .acp-diff__line[data-kind="ctx"] .acp-diff__line-text { color: var(--fg-mute); }
+
+/* ---- Composer ---- */
+.acp-pane[data-variant="a"] .acp-pane__composer {
+	flex-shrink: 0;
+	border-top: 1px solid var(--line);
+	padding: 10px 16px 12px;
+	background: var(--ds-surface-sunk);
+}
+.acp-pane[data-variant="a"] .acp-pane__composer-box {
+	border: 1px solid var(--line-strong);
+	border-radius: 6px;
+	padding: 8px 12px;
+	background: var(--ds-surface);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.acp-pane[data-variant="a"] .acp-pane__composer-box:focus-within {
+	border-color: var(--accent-line);
+}
+.acp-pane[data-variant="a"] .acp-pane__composer-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.acp-pane[data-variant="a"] .acp-pane__composer-glyph {
+	color: var(--accent-solid);
+	font-family: var(--font-mono);
+}
+.acp-pane[data-variant="a"] .acp-pane__composer-editor {
+	flex: 1;
+	color: var(--fg-mute);
+	font-family: var(--font-mono);
+	font-size: 13px;
+	outline: none;
+}
+.acp-pane[data-variant="a"] .acp-pane__composer-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: var(--fg-mute);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+}
+.acp-pane[data-variant="a"] .slash { color: var(--accent-solid); opacity: 0.75; }
+.acp-pane[data-variant="a"] .at { color: var(--info); opacity: 0.75; }
+.acp-pane[data-variant="a"] .acp-pane__composer-toolbar-spacer { flex: 1; }
+.acp-pane[data-variant="a"] .acp-pane__composer-send {
+	background: var(--accent-tint);
+	color: var(--accent-solid);
+	border: 1px solid var(--accent-line);
+	padding: 4px 10px 4px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.acp-pane[data-variant="a"] .acp-pane__composer-send-kbd {
+	padding: 0 4px;
+	border: 1px solid var(--accent-line);
+	border-radius: 3px;
+	background: var(--accent-tint);
+	color: var(--accent-solid);
+	font-size: 10px;
+}
+
+/* ---- Status bar ---- */
+.acp-pane[data-variant="a"] .acp-status-bar {
+	flex-shrink: 0;
+	border-top: 1px solid var(--line);
+	background: var(--ds-surface-sunk);
+	padding: 6px 14px;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	color: var(--fg-mute);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	height: 28px;
+}
+.acp-pane[data-variant="a"] .acp-status-bar__group {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	padding-right: 12px;
+	border-right: 1px solid var(--line);
+}
+.acp-pane[data-variant="a"] .acp-status-bar__group:last-child { border-right: 0; padding-right: 0; }
+.acp-pane[data-variant="a"] .acp-status-bar__mode {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0 6px;
+	border: 1px solid var(--line-strong);
+	border-radius: 3px;
+	color: var(--fg-mute);
+	background: transparent;
+}
+.acp-pane[data-variant="a"] .acp-status-bar__seg-value { color: var(--fg); }
+.acp-pane[data-variant="a"] .acp-status-bar__spacer { flex: 1; }
+.acp-pane[data-variant="a"] .acp-status-bar__conn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 1px 8px;
+	border: 1px solid var(--line-strong);
+	border-radius: 3px;
+	color: var(--warning);
+}
+.acp-pane[data-variant="a"] .acp-status-bar__conn-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: currentColor;
+}

@@ -168,6 +168,29 @@ if (!piBridgeResult.success) {
 	process.exit(1);
 }
 
+// Pi runs outside the Host process and loads this explicit extension to bridge
+// the stdio MCP declarations that pi-acp 0.0.33 otherwise drops.
+const piMcpExtensionResult = await Bun.build({
+	entrypoints: [
+		path.join(
+			import.meta.dir,
+			"src/runtime/acp-sessions/pi-acp-mcp-extension.ts",
+		),
+	],
+	target: "node",
+	outdir,
+	naming: "pi-acp-mcp-extension.js",
+	format: "esm",
+});
+
+if (!piMcpExtensionResult.success) {
+	console.error("[host-service] Pi ACP MCP extension build failed:");
+	for (const log of piMcpExtensionResult.logs) {
+		console.error(log);
+	}
+	process.exit(1);
+}
+
 console.log(
-	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/superset-mcp.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js`,
+	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/superset-mcp.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js + ${outdir}/pi-acp-mcp-extension.js`,
 );

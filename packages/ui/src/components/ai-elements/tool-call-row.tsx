@@ -79,13 +79,13 @@ export function ToolCallRow({
 	const hasDetails = children != null && children !== false;
 
 	const defaultStatus = isError ? (
-		<XCircleIcon className="h-3 w-3 text-red-500" />
+		<XCircleIcon className="h-3 w-3 text-danger" />
 	) : null;
 
 	const resolvedDescription =
 		description ??
 		(isError ? (
-			<span className="ml-2 flex items-center gap-1 font-medium uppercase tracking-wide text-red-500">
+			<span className="ml-2 flex items-center gap-1 font-medium uppercase tracking-wide text-danger">
 				<XCircleIcon className="h-3 w-3 shrink-0" />
 				Error
 			</span>
@@ -146,7 +146,7 @@ export function ToolCallRow({
 											<Tooltip>
 												<TooltipTrigger asChild>
 													<span className="flex shrink-0 items-center">
-														<TriangleAlertIcon className="h-3 w-3 text-amber-500" />
+														<TriangleAlertIcon className="h-3 w-3 text-warning" />
 													</span>
 												</TooltipTrigger>
 												<TooltipContent>Not configured</TooltipContent>

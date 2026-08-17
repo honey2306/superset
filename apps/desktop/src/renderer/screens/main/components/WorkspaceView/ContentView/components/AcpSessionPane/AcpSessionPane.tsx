@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
 import { openFileInPanes } from "renderer/lib/panes";
 import { normalizeWorkspaceFilePath } from "renderer/screens/main/components/WorkspaceView/ContentView/components/AcpSessionPane/utils/file-paths";
+import { useNotificationStore } from "renderer/stores/notifications";
 import "./acp-pane.css";
 import { AcpComposer } from "./components/AcpComposer";
 import { AcpEmptyState } from "./components/AcpEmptyState";
@@ -23,6 +24,8 @@ import {
 	AcpPermissionCard,
 	isAskUserPermission,
 } from "./components/AcpTimeline/components/AcpToolCallItem/components/AcpPermissionCard";
+import { registerJumpHandler } from "./paneJumpRegistry";
+import { isContextCompacting } from "./utils/contextCompaction";
 
 function modelLabel(
 	options: readonly SessionConfigOption[],
@@ -96,13 +99,15 @@ export interface AcpSessionPaneProps {
 	agentLabel?: string;
 	/** Suppress transient 404s while the launcher creates this known session. */
 	isLaunching?: boolean;
+	/** Whether this pane is currently visible and selected. */
+	isFocused?: boolean;
 	/** Creation failure kept with the pane instead of dropping the new tab. */
 	creationError?: string;
 	onRetryLaunch?: () => void;
 	onSessionMetadataChange(input: {
-		/** Stable session subject for the tab title. */
-		title: string | null;
-		/** Latest user prompt for the toolbar/status bar. */
+		/** Latest agent-provided session title for the pane status bar. */
+		latestAgentTitle: string | null;
+		/** Latest user prompt used while no agent status title is available. */
 		latestUserMessage: string | null;
 		status: SessionStatus;
 	}): void;
@@ -116,6 +121,7 @@ export function AcpSessionPane({
 	cwd,
 	agentLabel,
 	isLaunching = false,
+	isFocused = false,
 	creationError,
 	onRetryLaunch,
 	onSessionMetadataChange,
@@ -135,12 +141,45 @@ export function AcpSessionPane({
 
 	const session = useAcpSession({
 		sessionId,
+		connectionKey: hostUrl,
 		api: client.api,
 		streamUrl,
 		initiallyLaunching: isLaunching,
 	});
 
 	const permissions = useAcpPermissions(session);
+	const markAcpSessionSeen = useNotificationStore(
+		(state) => state.markAcpSessionSeen,
+	);
+	useEffect(() => {
+		if (
+			!isFocused ||
+			typeof document === "undefined" ||
+			typeof window === "undefined"
+		)
+			return;
+		const markSeenIfVisible = () => {
+			const state = session.state;
+			if (
+				document.hidden ||
+				!document.hasFocus() ||
+				!state ||
+				(state.status !== "idle" && state.status !== "offline") ||
+				state.lastStopReason === null ||
+				typeof state.lastCompletedAt !== "number"
+			)
+				return;
+			markAcpSessionSeen(sessionId, state.lastCompletedAt);
+		};
+		markSeenIfVisible();
+		document.addEventListener("visibilitychange", markSeenIfVisible);
+		window.addEventListener("focus", markSeenIfVisible);
+		return () => {
+			document.removeEventListener("visibilitychange", markSeenIfVisible);
+			window.removeEventListener("focus", markSeenIfVisible);
+		};
+	}, [isFocused, markAcpSessionSeen, session.state, sessionId]);
+
 	const openFileFromTool = useCallback(
 		(path: string) => {
 			const filePath = normalizeWorkspaceFilePath({
@@ -214,28 +253,32 @@ export function AcpSessionPane({
 	const handleJumpToLastUserMessage = useCallback(() => {
 		timelineRef.current?.scrollToLastUserMessage();
 	}, []);
+	// Publish the jump handler so the pane toolbar (rendered in a sibling
+	// header slot by the pane system, without access to the timeline ref)
+	// can trigger the same behaviour on click.
+	useEffect(() => {
+		return registerJumpHandler(sessionId, handleJumpToLastUserMessage);
+	}, [sessionId, handleJumpToLastUserMessage]);
 
 	const lastMetaRef = useRef<{
-		title: string | null;
+		latestAgentTitle: string | null;
 		latestUserMessage: string | null;
 		status: SessionStatus;
 	} | null>(null);
 	useEffect(() => {
 		const state = session.state;
 		if (!state) return;
-		// The tab title is fed exclusively by session_info_update — host-side
-		// title generation (Claude Code / Codex style) writes into state.title
-		// after the first prompt. Falling back to the raw first user message
-		// would let sensitive prompt text land in the tab strip before the
-		// summary arrives; the panes registry falls back to the agent label.
+		// session_info_update is mutable agent activity metadata. The pane store
+		// keeps its first meaningful value as the stable tab label and routes
+		// subsequent values to the status bar.
 		const next = {
-			title: state.title,
+			latestAgentTitle: state.title,
 			latestUserMessage: getLatestUserMessageTitle(session.timeline.items),
 			status: state.status,
 		};
 		const last = lastMetaRef.current;
 		if (
-			last?.title === next.title &&
+			last?.latestAgentTitle === next.latestAgentTitle &&
 			last?.latestUserMessage === next.latestUserMessage &&
 			last?.status === next.status
 		)
@@ -299,6 +342,10 @@ export function AcpSessionPane({
 		: session.error
 			? "dead"
 			: state?.status;
+	const isCompacting = isContextCompacting(
+		session.timeline.items,
+		state?.status,
+	);
 
 	if (isResumeFailure) {
 		return (
@@ -314,6 +361,19 @@ export function AcpSessionPane({
 
 	return (
 		<div className="acp-pane">
+			{isCompacting && (
+				<output
+					className="acp-pane__banner"
+					data-activity="context-compaction"
+					aria-live="polite"
+				>
+					<span className="acp-blink" aria-hidden>
+						●
+					</span>
+					<span className="select-text cursor-text">Compacting context…</span>
+				</output>
+			)}
+
 			{session.streamStatus === "reconnecting" && (
 				<div className="acp-pane__banner" data-tone="warn">
 					<span className="acp-blink" aria-hidden>

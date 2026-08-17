@@ -25,6 +25,12 @@ export interface LaunchAcpSessionInput {
 	workspaceId: string;
 	agentDefinitionId: AcpAgentDefinitionId;
 	client: DesktopAcpSessionClient;
+	/**
+	 * Optional model id the user picked for this agent preset. Forwarded to
+	 * the host so the adapter can apply it after `session/new` — has no
+	 * effect when the harness exposes no `model` config option.
+	 */
+	model?: string;
 	openPane(input: {
 		sessionId: string;
 		agentDefinitionId: AcpAgentDefinitionId;
@@ -84,6 +90,7 @@ export async function launchAcpSession(
 			sessionId,
 			workspaceId,
 			harness: selectedHarness,
+			...(input.model ? { model: input.model } : {}),
 		});
 
 		const confirmedId = state.sessionId;

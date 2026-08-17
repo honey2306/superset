@@ -7,11 +7,13 @@ import { HiCheckCircle } from "react-icons/hi2";
 import { hostWorkspaceRunDefinitionQueryKey } from "renderer/hooks/host-service/useHostProjectConfig";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
+import { DetectRunCommandButton } from "./components/DetectRunCommandButton";
 import { ScriptField } from "./components/ScriptField";
 
 interface ScriptsEditorProps {
 	hostUrl: string;
 	projectId: string;
+	workspaceId: string | null;
 	className?: string;
 }
 
@@ -94,6 +96,7 @@ type SaveStatus = "idle" | "saving" | "saved";
 export function ScriptsEditor({
 	hostUrl,
 	projectId,
+	workspaceId,
 	className,
 }: ScriptsEditorProps) {
 	const { t } = useTranslation();
@@ -353,7 +356,14 @@ export function ScriptsEditor({
 						onBlur={() => handleBlur()}
 					/>
 				</TabsContent>
-				<TabsContent value="run">
+				<TabsContent value="run" className="space-y-2">
+					<div className="flex justify-end">
+						<DetectRunCommandButton
+							hostUrl={hostUrl}
+							workspaceId={workspaceId}
+							hasRunCommand={toCommandsArray(runValue).length > 0}
+						/>
+					</div>
 					<ScriptField
 						placeholder="bun dev"
 						value={runValue}

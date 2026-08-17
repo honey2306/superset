@@ -18,6 +18,8 @@ describe("patchPiAcpBundle", () => {
 		expect(patched).not.toContain('spawnSync("npm"');
 		expect(patched).toContain("SUPERSET_PI_ACP_QUIET_STARTUP");
 		expect(patched).toContain("SUPERSET_PI_ACP_DISABLE_EXTENSIONS");
+		expect(patched).toContain("SUPERSET_PI_ACP_MCP_EXTENSION");
+		expect(patched).toContain('["--extension", process.env.');
 	});
 
 	test("fails closed when pi-acp changes its patch points", () => {

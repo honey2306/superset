@@ -51,6 +51,13 @@ export interface AcpSessionRuntime {
 		sessionId: string;
 		workspaceId: string;
 		harness?: SessionScopedState["harness"];
+		/**
+		 * Client-preferred model id, applied via `session/set_config_option`
+		 * after `session/new` when the adapter exposes a `model` select option.
+		 */
+		model?: string;
+		/** Fail fresh creation unless the adapter confirms the requested model. */
+		strictModel?: boolean;
 	}): MaybePromise<SessionScopedState>;
 	get(sessionId: string): MaybePromise<SessionScopedState>;
 	list(input: {

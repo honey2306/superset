@@ -22,6 +22,12 @@ import type { SessionScopedState } from "../../state";
 
 export interface UseAcpSessionOptions {
 	sessionId: string;
+	/**
+	 * Stable identity of the host transport (for example its base URL). A host
+	 * restart can replace the API/socket while keeping the same session id; in
+	 * that case an exhausted retry budget belongs to the old transport only.
+	 */
+	connectionKey?: string;
 	/** Transport for commands + catch-up reads (a tRPC client fits). */
 	api: AcpSessionsApi;
 	/**
@@ -169,7 +175,7 @@ export async function fetchCompleteMessageHistory(
 export function useAcpSession(
 	options: UseAcpSessionOptions,
 ): UseAcpSessionResult {
-	const { sessionId, pageSize } = options;
+	const { sessionId, pageSize, connectionKey } = options;
 	const initiallyLaunchingRef = useRef(options.initiallyLaunching ?? false);
 	initiallyLaunchingRef.current = options.initiallyLaunching ?? false;
 
@@ -343,10 +349,12 @@ export function useAcpSession(
 	// clear before resyncing. Same-session resyncs (refresh, reset) keep the
 	// existing data rendered during the round trip.
 	const renderedSessionIdRef = useRef(sessionId);
+	const renderedConnectionKeyRef = useRef(connectionKey);
 
 	useEffect(() => {
 		if (renderedSessionIdRef.current !== sessionId) {
 			renderedSessionIdRef.current = sessionId;
+			renderedConnectionKeyRef.current = connectionKey;
 			envelopesRef.current = [];
 			timelineRef.current = emptyTimeline();
 			authoritativeStateRef.current = null;
@@ -358,6 +366,16 @@ export function useAcpSession(
 			launchStartedAtRef.current = initiallyLaunchingRef.current
 				? Date.now()
 				: null;
+		} else if (renderedConnectionKeyRef.current !== connectionKey) {
+			// Keep the durable timeline on screen, but give the replacement host a
+			// fresh retry budget and a fresh subscription. The api/socket functions
+			// are deliberately not dependencies: callers may recreate them on every
+			// render, while a transport change is an explicit lifecycle event.
+			renderedConnectionKeyRef.current = connectionKey;
+			clearRetryTimer();
+			setStreamStatus("connecting");
+			setAvailability("live");
+			setError(null);
 		}
 		void resync();
 		return () => {
@@ -366,7 +384,7 @@ export function useAcpSession(
 			subscriptionRef.current?.close();
 			subscriptionRef.current = null;
 		};
-	}, [sessionId, resync, clearRetryTimer]);
+	}, [sessionId, resync, clearRetryTimer, connectionKey]);
 
 	const actions = useMemo<AcpSessionActions>(
 		() => ({

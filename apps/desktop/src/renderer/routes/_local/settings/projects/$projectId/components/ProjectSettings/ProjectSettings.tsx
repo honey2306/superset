@@ -20,6 +20,20 @@ interface ProjectSettingsProps {
 	hostId: string | null;
 }
 
+export function selectProjectWorkspaceId(
+	workspaces: ReadonlyArray<{ id: string; projectId: string; type: string }>,
+	projectId: string,
+): string | null {
+	const projectWorkspaces = workspaces.filter(
+		(workspace) => workspace.projectId === projectId,
+	);
+	return (
+		projectWorkspaces.find((workspace) => workspace.type === "main")?.id ??
+		projectWorkspaces[0]?.id ??
+		null
+	);
+}
+
 export function ProjectSettings({
 	projectId,
 	hostId: _hostId,
@@ -29,10 +43,19 @@ export function ProjectSettings({
 		useLocalHostService();
 
 	// Projects are fully local — identity comes from the host fan-out.
-	const { projects: hostProjects, isReady } = useWorkspaceCatalog();
+	const {
+		projects: hostProjects,
+		workspaces: hostWorkspaces,
+		isReady,
+	} = useWorkspaceCatalog();
 	const project = useMemo(
 		() => hostProjects.find((item) => item.id === projectId) ?? null,
 		[hostProjects, projectId],
+	);
+
+	const launchWorkspaceId = useMemo(
+		() => selectProjectWorkspaceId(hostWorkspaces, projectId),
+		[hostWorkspaces, projectId],
 	);
 
 	const targetHostName = t("project.thisDeviceLower");
@@ -158,7 +181,11 @@ export function ProjectSettings({
 									{t("project.scriptsHint")}
 								</p>
 							</div>
-							<ScriptsEditor hostUrl={targetHostUrl} projectId={projectId} />
+							<ScriptsEditor
+								hostUrl={targetHostUrl}
+								projectId={projectId}
+								workspaceId={launchWorkspaceId}
+							/>
 						</div>
 					)}
 				</section>

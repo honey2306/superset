@@ -120,6 +120,10 @@ const AVAILABLE_MODES = [
 let currentModeId = "bypassPermissions";
 let toolCallCounter = 0;
 let cancelActiveTurn: (() => void) | null = null;
+// Models Claude's per-session native CLI input: a failed session/load can
+// leave ACP itself alive while making every subsequent prompt on this adapter
+// process fail. Only a fresh process is a valid recovery boundary.
+let nativeInputDestroyed = false;
 
 const AVAILABLE_COMMANDS: schema.AvailableCommand[] = [
 	{
@@ -195,6 +199,12 @@ let configOptions: schema.SessionConfigOption[] = [
 	},
 ];
 
+function exposedConfigOptions(): schema.SessionConfigOption[] {
+	return process.env.FAKE_ACP_NO_MODEL_OPTION === "1"
+		? configOptions.filter((option) => option.id !== "model")
+		: configOptions;
+}
+
 interface AskQuestion {
 	question: string;
 	labels: string[];
@@ -267,12 +277,15 @@ const app = agent({ name: "fake-acp-adapter" })
 				currentModeId,
 				availableModes: AVAILABLE_MODES,
 			},
-			configOptions,
+			configOptions: exposedConfigOptions(),
 		};
 	})
 	.onRequest("session/load", async (context) => {
 		recordMcpServers("load", context.params.mcpServers);
 		sessionId = context.params.sessionId;
+		if (process.env.FAKE_ACP_LOAD_ERROR === "1") {
+			throw new RequestError(-32003, "Forced session/load failure");
+		}
 		// Like the real adapter: the stored transcript is replayed as ordinary
 		// session/update notifications BEFORE the response resolves; an unknown
 		// session id errors the request.
@@ -280,6 +293,9 @@ const app = agent({ name: "fake-acp-adapter" })
 		try {
 			stored = readFileSync(storePath(sessionId), "utf8");
 		} catch {
+			if (process.env.FAKE_ACP_DESTROY_INPUT_ON_MISSING_LOAD === "1") {
+				nativeInputDestroyed = true;
+			}
 			// A plain throw would surface as an opaque "Internal error" on the
 			// client; RequestError carries the message across JSON-RPC.
 			throw new RequestError(
@@ -300,7 +316,7 @@ const app = agent({ name: "fake-acp-adapter" })
 				currentModeId,
 				availableModes: AVAILABLE_MODES,
 			},
-			configOptions,
+			configOptions: exposedConfigOptions(),
 		};
 	})
 	.onRequest("session/set_mode", (context) => {
@@ -309,6 +325,9 @@ const app = agent({ name: "fake-acp-adapter" })
 	})
 	.onRequest("session/set_config_option", (context) => {
 		const { configId, value } = context.params;
+		if (configId === "model" && process.env.FAKE_ACP_REJECT_MODEL_SET === "1") {
+			throw new RequestError(-32004, "Forced model selection rejection");
+		}
 		configOptions = configOptions.map((option) =>
 			option.id === configId
 				? ({ ...option, currentValue: value } as schema.SessionConfigOption)
@@ -316,12 +335,15 @@ const app = agent({ name: "fake-acp-adapter" })
 		);
 		// Like the real adapter: the refreshed catalog rides the response, no
 		// config_option_update notification for client-initiated changes.
-		return { configOptions };
+		return { configOptions: exposedConfigOptions() };
 	})
 	.onNotification("session/cancel", () => {
 		cancelActiveTurn?.();
 	})
 	.onRequest("session/prompt", async (context) => {
+		if (nativeInputDestroyed) {
+			throw new Error("Cannot call write after a stream was destroyed");
+		}
 		const notifyUpdate = (update: schema.SessionUpdate) => {
 			recordUpdate(update);
 			return context.client.notify("session/update", {
@@ -573,7 +595,8 @@ const app = agent({ name: "fake-acp-adapter" })
 				if (response.action !== "accept") {
 					return { stopReason: "cancelled" as const };
 				}
-				const answer = response.content?.question_0;
+				const answer =
+					response.content?.question_0_custom ?? response.content?.question_0;
 				await say(
 					`picked:${Array.isArray(answer) ? answer.join("+") : String(answer ?? "nothing")}`,
 				);

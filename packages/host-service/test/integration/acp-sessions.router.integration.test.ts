@@ -141,6 +141,7 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 			state = await host.trpc.acpSessions.get.query({ sessionId });
 		}
 		expect(state.lastError).toBeNull();
+		expect(typeof state.lastCompletedAt).toBe("number");
 
 		const page = await host.trpc.acpSessions.getMessages.query({
 			sessionId,
@@ -148,6 +149,22 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 		});
 		const timeline = foldEnvelopes(emptyTimeline(), page.items);
 		expect(agentText(timeline)).toContain("hello over trpc");
+
+		const completedAt = state.lastCompletedAt;
+		await host.trpc.acpSessions.prompt.mutate({
+			sessionId,
+			prompt: [{ type: "text", text: "reject not admitted" }],
+		});
+		while (!state.lastError) {
+			if (Date.now() > deadline) {
+				throw new Error("timed out waiting for rejected turn state");
+			}
+			await sleep(25);
+			state = await host.trpc.acpSessions.get.query({ sessionId });
+		}
+		expect(state.status).toBe("idle");
+		expect(state.lastStopReason).toBeNull();
+		expect(state.lastCompletedAt).toBe(completedAt);
 	}, 30_000);
 
 	test("domain errors map to TRPC codes", async () => {

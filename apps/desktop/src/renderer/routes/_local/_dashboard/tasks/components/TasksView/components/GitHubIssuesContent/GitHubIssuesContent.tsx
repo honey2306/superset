@@ -324,7 +324,7 @@ export function GitHubIssuesContent({
 									<StateIcon
 										className={
 											isClosed
-												? "size-4 shrink-0 text-violet-500"
+												? "size-4 shrink-0 text-accent-2"
 												: "size-4 shrink-0 text-success"
 										}
 									/>

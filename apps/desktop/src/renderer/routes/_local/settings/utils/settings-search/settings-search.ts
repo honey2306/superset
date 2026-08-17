@@ -17,6 +17,7 @@ export const SETTING_ITEM_ID = {
 
 	KEYBOARD_SHORTCUTS: "keyboard-shortcuts",
 	BEHAVIOR_CONFIRM_QUIT: "behavior-confirm-quit",
+	BEHAVIOR_DELEGATED_EXECUTION: "behavior-delegated-execution",
 	BEHAVIOR_FILE_OPEN_MODE: "behavior-file-open-mode",
 	BEHAVIOR_RESOURCE_MONITOR: "behavior-resource-monitor",
 
@@ -224,6 +225,24 @@ const SETTINGS_ITEM_DEFINITIONS: SettingsItemDefinition[] = [
 			"warning",
 			"prompt",
 			"unsaved",
+		],
+	},
+	{
+		id: SETTING_ITEM_ID.BEHAVIOR_DELEGATED_EXECUTION,
+		titleKey: "settingsSearch.behavior_delegated_execution.title",
+		descriptionKey: "settingsSearch.behavior_delegated_execution.description",
+		section: "behavior",
+		localizedKeywords: {
+			"zh-CN": ["委派", "执行", "子智能体", "智能体", "模型"],
+		},
+		keywords: [
+			"delegated execution",
+			"delegate",
+			"executor",
+			"subagent",
+			"agent",
+			"model",
+			"orchestrator",
 		],
 	},
 	{

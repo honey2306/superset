@@ -1,0 +1,1135 @@
+/* ============================================================
+   Floating Status Bar — token layer
+   Dracula-based background so the scene matches the screenshot.
+   ============================================================ */
+:root {
+  /* app chrome / background */
+  --bg-app: #282a36;
+  --bg-titlebar: #21222c;
+  --bg-tab-active: #2d2f3b;
+  --bg-panel: #1e1f29;
+  --bg-code-hover: rgba(255, 255, 255, 0.03);
+
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-hard: rgba(255, 255, 255, 0.09);
+
+  --text-strong: rgba(248, 248, 242, 0.95);
+  --text-mid: rgba(248, 248, 242, 0.72);
+  --text-dim: rgba(248, 248, 242, 0.45);
+  --text-faint: rgba(248, 248, 242, 0.28);
+
+  /* dracula accents */
+  --dr-pink: #ff79c6;
+  --dr-purple: #bd93f9;
+  --dr-cyan: #8be9fd;
+  --dr-green: #50fa7b;
+  --dr-yellow: #f1fa8c;
+  --dr-orange: #ffb86c;
+  --dr-red: #ff5555;
+
+  /* agent brand — Pi (this session) */
+  --pi-500: #ff9d55;
+  --pi-400: #ffb579;
+  --pi-glow: rgba(255, 157, 85, 0.35);
+
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --radius-sm: 6px;
+
+  --shadow-float:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 12px 30px -12px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-float-tight:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 8px 22px -10px rgba(0, 0, 0, 0.55), 0 1px 4px rgba(0, 0, 0, 0.3);
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+    "Noto Sans SC", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
+    monospace;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #16171f;
+  color: var(--text-strong);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* ============================================================
+   Page shell
+   ============================================================ */
+.page {
+  min-height: 100vh;
+  padding: 40px clamp(24px, 4vw, 64px) 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.page-head p {
+  margin: 6px 0 0;
+  color: var(--text-mid);
+  font-size: 13px;
+  max-width: 62ch;
+  line-height: 1.65;
+}
+
+/* theme toggle (克制精致 vs 彩色强调) */
+.theme-toggle {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: #1e1f29;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.theme-toggle button {
+  border: 0;
+  background: transparent;
+  color: var(--text-mid);
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  letter-spacing: 0.01em;
+}
+.theme-toggle button:hover {
+  color: var(--text-strong);
+}
+.theme-toggle button.is-active {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-strong);
+}
+
+/* ============================================================
+   Primary variant — single large scene showcasing variant 01
+   ============================================================ */
+.primary-variant {
+  margin-bottom: 24px;
+}
+
+/* Others section (collapsed by default) */
+.others {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 32px;
+}
+.others > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 0;
+}
+.others > summary::-webkit-details-marker { display: none; }
+.others > summary::before {
+  content: "▸";
+  color: var(--text-faint);
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+.others[open] > summary::before { transform: rotate(90deg); }
+.others .others-sub {
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 12px;
+}
+.others-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  padding-top: 24px;
+}
+
+/* ============================================================
+   Variant card — each variant is a full scene
+   ============================================================ */
+.variant {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.variant-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.variant-index {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+}
+.variant-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-strong);
+  letter-spacing: -0.005em;
+}
+.variant-tag {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 2px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+}
+.variant-note {
+  font-size: 12.5px;
+  color: var(--text-mid);
+  line-height: 1.6;
+  max-width: 70ch;
+}
+
+/* the fake app scene */
+.scene {
+  position: relative;
+  height: 460px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-app);
+  border: 1px solid var(--border-hard);
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.7);
+}
+
+.scene-titlebar {
+  height: 36px;
+  background: linear-gradient(180deg, #22232d 0%, #1c1d26 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 12px;
+  position: relative;
+  z-index: 4;
+  overflow: hidden;
+}
+.traffic {
+  display: flex;
+  gap: 8px;
+}
+.traffic span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3a3b45;
+}
+.traffic span:nth-child(1) {
+  background: #ff5f57;
+}
+.traffic span:nth-child(2) {
+  background: #febc2e;
+}
+.traffic span:nth-child(3) {
+  background: #28c840;
+}
+.tb-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  margin-left: 16px;
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+}
+.tb-tab {
+  min-width: 0;
+  flex-shrink: 1;
+}
+.tb-tab span:not(.dot) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tb-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px 7px 9px;
+  border-radius: 8px 8px 0 0;
+  color: var(--text-mid);
+  font-size: 12.5px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  align-self: flex-end;
+  height: 30px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.tb-tab .dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e1f29;
+}
+.tb-tab:hover {
+  color: var(--text-strong);
+}
+.tb-tab.is-active {
+  background: var(--bg-app);
+  color: var(--text-strong);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.tb-tab.is-active::after {
+  content: "";
+  position: absolute;
+  height: 1px;
+  background: var(--bg-app);
+  bottom: -1px;
+  left: 0;
+  right: 0;
+}
+.tb-plus,
+.tb-gear {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.tb-plus:hover,
+.tb-gear:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-strong);
+}
+.tb-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tb-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 10px;
+  background: rgba(80, 250, 123, 0.14);
+  color: #7ff59a;
+  border: 1px solid rgba(80, 250, 123, 0.25);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tb-caret {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.tb-sidebar-toggle {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 0;
+  color: var(--text-dim);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* the tab-content region = feed of tool calls + fake composer at bottom */
+.scene-body {
+  padding: 20px 24px 0;
+  height: calc(100% - 36px);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.scene-feed {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  padding-bottom: 24px;
+}
+.feed-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  color: var(--text-mid);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.03);
+}
+.feed-row .caret {
+  color: var(--text-faint);
+  font-family: var(--font-ui);
+}
+.feed-row .path {
+  color: var(--text-mid);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feed-row .path b {
+  color: var(--text-strong);
+  font-weight: 500;
+}
+.feed-row .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 12px;
+}
+.feed-row .status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dr-green);
+  box-shadow: 0 0 8px rgba(80, 250, 123, 0.5);
+}
+.feed-row.pending .status::before {
+  background: var(--dr-orange);
+  box-shadow: 0 0 8px rgba(255, 184, 108, 0.5);
+}
+.feed-row.pending .status {
+  color: var(--dr-orange);
+}
+.feed-row.dim {
+  opacity: 0.4;
+}
+.feed-row.dim .path {
+  color: var(--text-dim);
+}
+
+/* fade the feed so it looks like it continues off-screen */
+.scene-feed::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 60px;
+  background: linear-gradient(180deg, rgba(40, 42, 54, 0) 0%, var(--bg-app) 80%);
+  pointer-events: none;
+}
+
+/* Agent preset composer at the bottom — the "下面的 Agent 预设" the user
+   wants the status bar visually detached from. */
+.scene-composer {
+  border-top: 1px solid var(--border-hard);
+  background: var(--bg-panel);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.scene-composer .preset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-hard);
+  color: var(--text-mid);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.scene-composer .preset.active {
+  color: var(--text-strong);
+  border-color: rgba(255, 157, 85, 0.3);
+  background: rgba(255, 157, 85, 0.08);
+}
+.scene-composer .preset .swatch {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pi-500);
+}
+.scene-composer .field {
+  flex: 1;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  font-size: 12.5px;
+}
+.scene-composer .send {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* ============================================================
+   Shared bar primitives
+   ============================================================ */
+/* ---------- Pi mark: SVG-based, 3 style variants ---------- */
+.pi-mark {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pi-500);
+  position: relative;
+}
+.pi-mark svg { width: 100%; height: 100%; display: block; }
+.pi-mark.sm { width: 18px; height: 18px; }
+.pi-mark.lg { width: 26px; height: 26px; }
+
+/* Style A — 单色描边 π（clean line-art，最克制、最"设计感"） */
+.pi-mark.style-a { color: var(--pi-400); }
+.pi-mark.style-a::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,157,85,.22), transparent 65%);
+  filter: blur(4px);
+  z-index: -1;
+}
+
+/* Style B — 圆环 + π 字，有品牌 badge 感 */
+.pi-mark.style-b {
+  border-radius: 50%;
+  background: radial-gradient(120% 120% at 30% 25%, #ffc593 0%, #ff8f42 55%, #d96a1e 100%);
+  color: #2a1500;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.55),
+    inset 0 -1px 0 rgba(0,0,0,.25),
+    0 1px 2px rgba(0,0,0,.35),
+    0 0 0 1px rgba(255,255,255,.05);
+}
+.pi-mark.style-b .pi-glyph {
+  font-family: "Times New Roman", "Songti SC", serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  margin-top: -1px;
+  letter-spacing: -0.02em;
+}
+.pi-mark.lg.style-b .pi-glyph { font-size: 16px; }
+.pi-mark.sm.style-b .pi-glyph { font-size: 11px; }
+
+/* Style C — soft square 圆角矩形 + π 字，"应用图标"感 */
+.pi-mark.style-c {
+  border-radius: 5px;
+  background: linear-gradient(160deg, #ffb579 0%, #ff8434 55%, #e56a1a 100%);
+  color: #2b1400;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.55),
+    inset 0 -1px 0 rgba(0,0,0,.2);
+}
+.pi-mark.style-c .pi-glyph {
+  font-family: "Times New Roman", "Songti SC", serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.pi-mark.lg.style-c .pi-glyph { font-size: 16px; }
+.pi-mark.sm.style-c .pi-glyph { font-size: 11px; }
+
+/* Fallback: retain old .pi-icon selector so scene tab-avatars still render */
+.pi-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: linear-gradient(160deg, #ffb579 0%, #ff8434 55%, #e56a1a 100%);
+  color: #2b1400;
+  font-family: "Times New Roman", "Songti SC", serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1px 0 rgba(0,0,0,.2);
+}
+.pi-icon.sm { width: 16px; height: 16px; font-size: 10px; border-radius: 4px; }
+.pi-icon.lg { width: 24px; height: 24px; font-size: 14px; border-radius: 6px; }
+
+.pill-btn {
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--border-hard);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.pill-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.pill-btn.primary {
+  background: linear-gradient(180deg, #ffb579 0%, #ff8434 100%);
+  color: #2a1500;
+  border-color: rgba(255, 132, 52, 0.55);
+  font-weight: 600;
+}
+.pill-btn.primary:hover {
+  filter: brightness(1.06);
+}
+.pill-btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-mid);
+}
+.pill-btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-strong);
+}
+.pill-btn.danger {
+  color: #ffb6b6;
+  border-color: rgba(255, 85, 85, 0.28);
+  background: rgba(255, 85, 85, 0.08);
+}
+.pill-btn.danger:hover {
+  background: rgba(255, 85, 85, 0.15);
+}
+
+.icon-btn {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-strong);
+}
+
+.hair-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-hard);
+  flex-shrink: 0;
+}
+
+/* status label reused inside bars */
+.bar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-strong);
+  font-size: 13.5px;
+  min-width: 0;
+  flex: 1;
+}
+.bar-status .txt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(248, 248, 242, 0.92);
+  font-weight: 450;
+  letter-spacing: -0.01em;
+}
+.bar-status .agent-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  flex-shrink: 0;
+  /* Refined pink-purple: softer, more sophisticated */
+  color: #ddb3d8;
+  background:
+    linear-gradient(135deg, rgba(221, 179, 216, 0.08) 0%, rgba(221, 179, 216, 0.04) 100%);
+  border: 0.5px solid rgba(221, 179, 216, 0.3);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px -0.5px rgba(0, 0, 0, 0.12),
+    0 2px 4px -1px rgba(221, 179, 216, 0.15);
+  transition: all 0.25s cubic-bezier(0.16, 0.84, 0.44, 1);
+}
+.bar-status .agent-badge:hover {
+  background:
+    linear-gradient(135deg, rgba(221, 179, 216, 0.12) 0%, rgba(221, 179, 216, 0.06) 100%);
+  border-color: rgba(221, 179, 216, 0.4);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px -0.5px rgba(0, 0, 0, 0.15),
+    0 2px 6px -1px rgba(221, 179, 216, 0.25);
+}
+[data-viz="vivid"] .bar-status .agent-badge {
+  color: #e8c5e3;
+  background:
+    linear-gradient(135deg, rgba(232, 197, 227, 0.14) 0%, rgba(232, 197, 227, 0.08) 100%);
+  border-color: rgba(232, 197, 227, 0.4);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.12),
+    0 1px 2px -0.5px rgba(0, 0, 0, 0.15),
+    0 2px 6px -1px rgba(232, 197, 227, 0.25),
+    0 0 16px -4px rgba(232, 197, 227, 0.2);
+}
+.bar-status .live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pi-500);
+  box-shadow: 0 0 0 3px rgba(255, 157, 85, 0.18),
+    0 0 12px rgba(255, 157, 85, 0.55);
+  animation: pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* Elapsed time display — refined pure text */
+.elapsed-time {
+  color: rgba(248, 248, 242, 0.45);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+  font-weight: 450;
+  transition: color 0.2s ease;
+}
+.v-top:hover .elapsed-time {
+  color: rgba(248, 248, 242, 0.55);
+}
+[data-viz="vivid"] .elapsed-time {
+  color: rgba(248, 248, 242, 0.5);
+}
+
+/* Icon buttons — refined, subtle */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(248, 248, 242, 0.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 0.84, 0.44, 1);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px -0.5px rgba(0, 0, 0, 0.1);
+}
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(248, 248, 242, 0.85);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    0 1px 3px -0.5px rgba(0, 0, 0, 0.15);
+}
+.icon-btn:active {
+  transform: translateY(0.5px);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.04),
+    0 0.5px 1px rgba(0, 0, 0, 0.15);
+}
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+}
+
+/* ============================================================
+   Shared: all variants position inside the tab content region.
+   The tab bar is at y=0..36 (titlebar), so bars sit below y=36 and
+   above the composer at the bottom of .scene-body.
+   ============================================================ */
+.v {
+  position: absolute;
+  z-index: 3;
+  left: 20px;
+  right: 20px;
+  top: 48px; /* below the tab bar, with breathing room */
+}
+
+/* ============================================================
+   Variant 1 — 全宽悬浮条 (Full-width floating bar)
+   Baoyu Design: refined materials, restrained hierarchy, precise details.
+   ============================================================ */
+.v-top {
+  padding: 8px 16px;
+  /* Frosted glass with subtle gradient — not too dark, not too bright */
+  background:
+    linear-gradient(135deg, rgba(40, 42, 54, 0.65) 0%, rgba(32, 33, 44, 0.75) 100%);
+  backdrop-filter: blur(40px) saturate(1.6);
+  -webkit-backdrop-filter: blur(40px) saturate(1.6);
+  /* Refined borders: top lighter (catch light), bottom darker (cast shadow) */
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.18);
+  border-bottom-color: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  /* Layered shadow: tight contact + soft ambient + distant drop */
+  box-shadow:
+    /* Inner glow for frosted glass feel */
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.2),
+    /* Outer shadows — crisp to soft */
+    0 0.5px 0 rgba(255, 255, 255, 0.03),
+    0 2px 4px -1px rgba(0, 0, 0, 0.15),
+    0 4px 8px -2px rgba(0, 0, 0, 0.12),
+    0 8px 16px -4px rgba(0, 0, 0, 0.1),
+    0 16px 32px -8px rgba(0, 0, 0, 0.08),
+    0 32px 64px -16px rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transform: translateZ(0);
+  transition: transform 0.32s cubic-bezier(0.16, 0.84, 0.44, 1),
+    box-shadow 0.32s cubic-bezier(0.16, 0.84, 0.44, 1),
+    border-color 0.32s ease;
+}
+.v-top:hover {
+  transform: translateY(-1px);
+  border-top-color: rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.2),
+    0 0.5px 0 rgba(255, 255, 255, 0.04),
+    0 3px 6px -1px rgba(0, 0, 0, 0.18),
+    0 6px 12px -2px rgba(0, 0, 0, 0.14),
+    0 12px 24px -4px rgba(0, 0, 0, 0.12),
+    0 24px 48px -8px rgba(0, 0, 0, 0.1),
+    0 48px 80px -16px rgba(0, 0, 0, 0.08);
+}
+/* Soft cast shadow underneath — sells elevation without being heavy */
+.v-top {
+  isolation: isolate;
+}
+.v-top::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -12px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.25), transparent 70%);
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.8;
+}
+[data-viz="vivid"] .v-top::before {
+  background:
+    radial-gradient(ellipse at center, rgba(216, 163, 209, 0.15), transparent 60%),
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0.25), transparent 70%);
+}
+[data-viz="vivid"] .v-top {
+  background:
+    linear-gradient(135deg, rgba(48, 42, 54, 0.7) 0%, rgba(36, 33, 44, 0.8) 100%);
+  border-color: rgba(216, 163, 209, 0.18);
+  border-top-color: rgba(216, 163, 209, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.2),
+    0 0.5px 0 rgba(216, 163, 209, 0.08),
+    0 2px 4px -1px rgba(0, 0, 0, 0.15),
+    0 4px 8px -2px rgba(0, 0, 0, 0.12),
+    0 8px 16px -4px rgba(0, 0, 0, 0.1),
+    0 16px 32px -8px rgba(0, 0, 0, 0.08),
+    0 32px 64px -16px rgba(0, 0, 0, 0.06),
+    0 0 32px -8px rgba(216, 163, 209, 0.12);
+}
+.v-top .bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+
+/* ============================================================
+   Variant 2 — 内凹条 (Inset chip) — 用一层浅缩进跟上下拉开距离
+   ============================================================ */
+.v-inset {
+  padding: 6px 8px 6px 12px;
+  background: rgba(24, 25, 33, 0.85);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  box-shadow: 0 6px 22px -10px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* narrower + centered — reads as a chip that belongs to the tab */
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  min-width: 420px;
+  max-width: min(640px, calc(100% - 40px));
+}
+[data-viz="vivid"] .v-inset {
+  border-color: rgba(255, 157, 85, 0.28);
+  box-shadow: 0 6px 22px -10px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 157, 85, 0.14),
+    0 0 30px -12px var(--pi-glow);
+}
+.v-inset .bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* ============================================================
+   Variant 3 — 卡片带进度 (Rounded card + progress rail)
+   ============================================================ */
+.v-card {
+  padding: 10px 10px 10px 14px;
+  background: rgba(24, 25, 33, 0.85);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+[data-viz="vivid"] .v-card {
+  border-color: rgba(255, 157, 85, 0.24);
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.7),
+    0 0 46px -14px var(--pi-glow),
+    inset 0 1px 0 rgba(255, 157, 85, 0.12);
+}
+.v-card .progress-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.v-card .progress-fill {
+  position: absolute;
+  inset: 0;
+  width: 62%;
+  background: rgba(248, 248, 242, 0.65);
+  border-radius: inherit;
+}
+[data-viz="vivid"] .v-card .progress-fill {
+  background: linear-gradient(90deg, var(--pi-500), var(--dr-pink));
+  box-shadow: 0 0 8px var(--pi-glow);
+}
+.v-card .count {
+  color: var(--text-mid);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.v-card .count b {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+.v-card .bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ============================================================
+   Variant 4 — 极简短条 (Minimal short pill) — 只占内容左侧
+   ============================================================ */
+.v-inline {
+  padding: 5px 6px 5px 10px;
+  background: rgba(30, 31, 41, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  box-shadow: var(--shadow-float-tight);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  right: auto;
+  width: auto;
+  max-width: calc(100% - 40px);
+}
+[data-viz="vivid"] .v-inline {
+  border-color: rgba(255, 157, 85, 0.28);
+  background: linear-gradient(
+    100deg,
+    rgba(255, 157, 85, 0.14) 0%,
+    rgba(30, 31, 41, 0.85) 70%
+  );
+}
+.v-inline .bar-status .txt {
+  max-width: 32ch;
+}
+.v-inline .divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-soft);
+}
+.v-inline .actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+/* ============================================================
+   Variant 5 — 悬空隔板 (Detached separator) — 用一根发光轨迹和
+   tab bar 撇清，同时下方内容天然被推开
+   ============================================================ */
+.v-sep {
+  padding: 8px 10px 8px 14px;
+  background: rgba(30, 31, 41, 0.55);
+  backdrop-filter: blur(28px) saturate(1.4);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 8px 22px -12px rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.v-sep::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(248, 248, 242, 0.35) 20%,
+    rgba(248, 248, 242, 0.35) 80%,
+    transparent
+  );
+  opacity: 0.4;
+}
+[data-viz="vivid"] .v-sep::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--pi-500) 30%,
+    var(--pi-500) 70%,
+    transparent
+  );
+  opacity: 0.8;
+  filter: blur(0.5px);
+}
+[data-viz="vivid"] .v-sep {
+  border-color: rgba(255, 157, 85, 0.28);
+  box-shadow: 0 8px 22px -12px rgba(0, 0, 0, 0.55),
+    0 0 30px -12px var(--pi-glow);
+}
+.v-sep .step {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  flex-shrink: 0;
+}
+.v-sep .step b {
+  color: var(--text-strong);
+  font-weight: 500;
+}
+.v-sep .bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}

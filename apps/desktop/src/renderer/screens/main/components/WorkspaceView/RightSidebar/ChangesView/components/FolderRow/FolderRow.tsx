@@ -15,7 +15,6 @@ import { cn } from "@superset/ui/utils";
 import { type ReactNode, useState } from "react";
 import {
 	VscAdd,
-	VscChevronRight,
 	VscClippy,
 	VscDiscard,
 	VscFolderOpened,
@@ -28,6 +27,7 @@ import { usePathActions } from "../../hooks";
 import { DiscardConfirmDialog } from "../DiscardConfirmDialog";
 import type { RowHoverAction } from "../RowHoverActions";
 import { RowHoverActions } from "../RowHoverActions";
+import { FolderRowHeader } from "./components/FolderRowHeader";
 
 interface FolderRowProps {
 	name: string;
@@ -45,63 +45,6 @@ interface FolderRowProps {
 	isActioning?: boolean;
 	projectId?: string;
 	defaultApp?: ExternalApp | null;
-}
-
-function LevelIndicators({ level }: { level: number }) {
-	if (level === 0) return null;
-
-	return (
-		<div className="flex self-stretch shrink-0">
-			{Array.from({ length: level }).map((_, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: static visual dividers that never reorder
-				<div key={i} className="w-3 self-stretch border-r border-line/50" />
-			))}
-		</div>
-	);
-}
-
-function FolderRowHeader({
-	name,
-	level,
-	fileCount,
-	isGrouped,
-	isExpanded,
-}: {
-	name: string;
-	level: number;
-	fileCount?: number;
-	isGrouped: boolean;
-	isExpanded: boolean;
-}) {
-	return (
-		<>
-			{!isGrouped && (
-				<VscChevronRight
-					className={cn(
-						"size-2.5 text-fg-mute shrink-0 transition-transform duration-150",
-						isExpanded && "rotate-90",
-					)}
-				/>
-			)}
-			{!isGrouped && <LevelIndicators level={level} />}
-			<div className="flex items-center gap-1 flex-1 min-w-0">
-				<span
-					className={cn(
-						"truncate",
-						isGrouped ? "w-0 grow text-left" : "flex-1 min-w-0 text-xs text-fg",
-					)}
-					dir={isGrouped ? "rtl" : undefined}
-				>
-					{name}
-				</span>
-				{fileCount !== undefined && (
-					<span className="text-[10px] text-fg-mute shrink-0 tabular-nums">
-						{fileCount}
-					</span>
-				)}
-			</div>
-		</>
-	);
 }
 
 export function FolderRow({
@@ -181,7 +124,7 @@ export function FolderRow({
 		<CollapsibleTrigger
 			className={cn(
 				"flex-1 min-w-0 flex gap-1.5 text-left overflow-hidden",
-				"text-xs items-stretch py-0.5",
+				"text-xs items-stretch",
 				isGrouped && "text-fg-mute",
 			)}
 		>
@@ -257,7 +200,7 @@ export function FolderRow({
 					<ContextMenuTrigger asChild>
 						<div
 							className={cn(
-								"group flex items-center min-w-0 rounded-sm px-1.5",
+								"group relative flex items-center min-w-0 rounded-sm px-1.5",
 								"hover:bg-hover cursor-pointer transition-colors",
 							)}
 						>

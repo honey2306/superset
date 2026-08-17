@@ -23,6 +23,7 @@ import { PANE_MIN_SIZE_CLASS_NAME } from "./constants";
 interface TabProps<TData> {
 	store: StoreApi<WorkspaceStore<TData>>;
 	tab: TabType<TData>;
+	isActive: boolean;
 	registry: PaneRegistry<TData>;
 	paneActions?:
 		| PaneActionConfig<TData>[]
@@ -42,11 +43,13 @@ function SplitView<TData>({
 	paneActions,
 	contextMenuActions,
 	onSplitResizeDragging,
+	isActive,
 }: {
 	store: StoreApi<WorkspaceStore<TData>>;
 	tab: TabType<TData>;
 	node: Extract<LayoutNode, { type: "split" }>;
 	path: SplitPath;
+	isActive: boolean;
 	registry: PaneRegistry<TData>;
 	paneActions?: TabProps<TData>["paneActions"];
 	contextMenuActions?: TabProps<TData>["contextMenuActions"];
@@ -92,6 +95,7 @@ function SplitView<TData>({
 					contextMenuActions={contextMenuActions}
 					onSplitResizeDragging={onSplitResizeDragging}
 					parentDirection={node.direction}
+					isActive={isActive}
 				/>
 			</ResizablePanel>
 			<ResizableHandle
@@ -117,6 +121,7 @@ function SplitView<TData>({
 					contextMenuActions={contextMenuActions}
 					onSplitResizeDragging={onSplitResizeDragging}
 					parentDirection={node.direction}
+					isActive={isActive}
 				/>
 			</ResizablePanel>
 		</ResizablePanelGroup>
@@ -133,11 +138,13 @@ function LayoutNodeView<TData>({
 	contextMenuActions,
 	onSplitResizeDragging,
 	parentDirection = null,
+	isActive,
 }: {
 	store: StoreApi<WorkspaceStore<TData>>;
 	tab: TabType<TData>;
 	node: LayoutNode;
 	path: SplitPath;
+	isActive: boolean;
 	registry: PaneRegistry<TData>;
 	paneActions?: TabProps<TData>["paneActions"];
 	contextMenuActions?: TabProps<TData>["contextMenuActions"];
@@ -161,7 +168,7 @@ function LayoutNodeView<TData>({
 				store={store}
 				tab={tab}
 				pane={pane}
-				isActive={tab.activePaneId === pane.id}
+				isActive={isActive && tab.activePaneId === pane.id}
 				registry={registry}
 				paneActions={paneActions}
 				contextMenuActions={contextMenuActions}
@@ -180,6 +187,7 @@ function LayoutNodeView<TData>({
 			paneActions={paneActions}
 			contextMenuActions={contextMenuActions}
 			onSplitResizeDragging={onSplitResizeDragging}
+			isActive={isActive}
 		/>
 	);
 }
@@ -187,6 +195,7 @@ function LayoutNodeView<TData>({
 export function Tab<TData>({
 	store,
 	tab,
+	isActive,
 	registry,
 	paneActions,
 	contextMenuActions,
@@ -211,6 +220,7 @@ export function Tab<TData>({
 				paneActions={paneActions}
 				contextMenuActions={contextMenuActions}
 				onSplitResizeDragging={onSplitResizeDragging}
+				isActive={isActive}
 			/>
 		</div>
 	);

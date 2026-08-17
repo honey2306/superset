@@ -87,17 +87,67 @@ describe("Superset MCP process", () => {
 				id: 1,
 				result: { capabilities: { tools: {} } },
 			});
+			const tools = (responses[1]?.result as { tools: Array<{ name: string }> })
+				.tools;
 			expect(
-				(responses[1]?.result as { tools: Array<{ name: string }> }).tools.some(
-					(tool) => tool.name === "continue_in_new_session",
-				),
+				tools.some((tool) => tool.name === "continue_in_new_session"),
 			).toBe(true);
+			expect(tools.some((tool) => tool.name === "ask_user")).toBe(true);
+			expect(tools.some((tool) => tool.name === "get_session_messages")).toBe(
+				true,
+			);
 			expect(responses[2]).toMatchObject({
 				id: 3,
 				result: {
 					content: [{ type: "text", text: '{"workspaceId":"workspace-1"}' }],
 				},
 			});
+		} finally {
+			server.close();
+		}
+	});
+
+	test("forwards MCP cancellation and closes a pending ask_user daemon call", async () => {
+		const socketPath = path.join(tempDir, "cancelled.sock");
+		let daemonCallClosed = false;
+		const server = net.createServer((socket) => {
+			socket.once("close", () => {
+				daemonCallClosed = true;
+			});
+		});
+		await listen(server, socketPath);
+		try {
+			const responses = await runMcp(socketPath, [
+				{
+					jsonrpc: "2.0",
+					id: 1,
+					method: "tools/call",
+					params: {
+						name: "ask_user",
+						arguments: {
+							questions: [
+								{
+									question: "Continue?",
+									header: "Confirm",
+									options: [{ label: "Yes" }, { label: "No" }],
+								},
+							],
+						},
+					},
+				},
+				{
+					jsonrpc: "2.0",
+					method: "notifications/cancelled",
+					params: { requestId: 1, reason: "turn cancelled" },
+				},
+			]);
+
+			expect(responses[0]).toMatchObject({
+				id: 1,
+				result: { isError: true },
+			});
+			await Bun.sleep(10);
+			expect(daemonCallClosed).toBe(true);
 		} finally {
 			server.close();
 		}

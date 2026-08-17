@@ -3,7 +3,7 @@ import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HiEllipsisHorizontal } from "react-icons/hi2";
 import { useHighestAcpSessionStatusAtHost } from "renderer/hooks/host-service/useAcpSessionStatuses";
 import {
@@ -24,6 +24,7 @@ import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
 import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
 import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
+import { StatusIndicator } from "renderer/screens/main/components/StatusIndicator";
 import { WorkspaceRunIndicator } from "renderer/screens/main/components/WorkspaceRunIndicator";
 import { useBranchSyncInvalidation } from "renderer/screens/main/hooks/useBranchSyncInvalidation";
 import { useGitChangesStatus } from "renderer/screens/main/hooks/useGitChangesStatus";
@@ -105,7 +106,25 @@ export function WorkspaceListItem({
 		hostUrl,
 		hostWorkspaceId,
 	);
-	const acpStatus = useHighestAcpSessionStatusAtHost(hostUrl, hostWorkspaceId);
+	const panesWorkspace = usePanesWorkspaceState(id);
+	const openAcpSessionIds = useMemo(
+		() =>
+			new Set(
+				panesWorkspace.tabs.flatMap((tab) =>
+					Object.values(tab.panes).flatMap((pane) =>
+						pane.kind === "acp" && pane.data.acp?.sessionId
+							? [pane.data.acp.sessionId]
+							: [],
+					),
+				),
+			),
+		[panesWorkspace.tabs],
+	);
+	const acpStatus = useHighestAcpSessionStatusAtHost(
+		hostUrl,
+		hostWorkspaceId,
+		openAcpSessionIds,
+	);
 	const combinedWorkspaceStatus = getHighestPriorityStatus([
 		workspaceStatus ?? undefined,
 		acpStatus ?? undefined,
@@ -116,7 +135,6 @@ export function WorkspaceListItem({
 	);
 	const clearWorkspaceTerminalStatuses =
 		useClearWorkspaceTerminalStatusesAtHost(hostUrl, hostWorkspaceId);
-	const panesWorkspace = usePanesWorkspaceState(id);
 	const workspaceRunState = panesWorkspace.tabs
 		.flatMap((tab) => Object.values(tab.panes))
 		.find(
@@ -377,6 +395,11 @@ export function WorkspaceListItem({
 		>
 			{isActive && (
 				<div className="absolute left-0 top-1.5 bottom-1.5 w-[2px] bg-accent-solid rounded-r-sm" />
+			)}
+			{combinedWorkspaceStatus && (
+				<span className="absolute left-4 top-1/2 -translate-y-1/2">
+					<StatusIndicator status={combinedWorkspaceStatus} />
+				</span>
 			)}
 
 			<div className="flex-1 min-w-0">

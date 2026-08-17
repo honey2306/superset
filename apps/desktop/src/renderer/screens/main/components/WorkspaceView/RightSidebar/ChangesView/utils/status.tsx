@@ -20,7 +20,7 @@ export function getStatusColor(status: FileStatus): string {
 		case "renamed":
 			return "text-info";
 		case "copied":
-			return "text-purple-600 dark:text-purple-400";
+			return "text-accent-2";
 		default:
 			return "text-fg-mute";
 	}

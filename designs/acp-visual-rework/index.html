@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dracula">
+	<head>
+		<meta charset="utf-8" />
+		<title>ACP 面板视觉重构 · A/B/C · 六主题</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="stylesheet" href="themes.css" />
+		<link rel="stylesheet" href="shell.css" />
+		<link rel="stylesheet" href="variant-a-quiet-dracula.css" />
+		<link rel="stylesheet" href="variant-b-mono-neutral.css" />
+		<link rel="stylesheet" href="variant-c-inline-stream.css" />
+		<link rel="stylesheet" href="variant-d-bubble.css" />
+		<link rel="stylesheet" href="variant-e-editorial.css" />
+		<link rel="stylesheet" href="variant-f-terminal.css" />
+	</head>
+	<body>
+		<header class="shell-topbar">
+			<div class="shell-topbar__title">
+				ACP 面板视觉重构
+				<span class="shell-topbar__sub"
+					>消费主题 tokens · 一份 CSS 在 6 套主题下都成立</span
+				>
+			</div>
+			<nav class="shell-tabs" role="tablist">
+				<button class="shell-tab" data-variant="a" data-active="true" role="tab">
+					<span class="shell-tab__key">A</span>
+					<span class="shell-tab__name">Quiet</span>
+					<span class="shell-tab__hint">保留骨架、砍噪声</span>
+				</button>
+				<button class="shell-tab" data-variant="b" role="tab">
+					<span class="shell-tab__key">B</span>
+					<span class="shell-tab__name">Log Stream</span>
+					<span class="shell-tab__hint">工具行像日志</span>
+				</button>
+				<button class="shell-tab" data-variant="c" role="tab">
+					<span class="shell-tab__key">C</span>
+					<span class="shell-tab__name">Inline</span>
+					<span class="shell-tab__hint">工具融入段落</span>
+				</button>
+				<button class="shell-tab" data-variant="d" role="tab">
+					<span class="shell-tab__key">D</span>
+					<span class="shell-tab__name">Bubble</span>
+					<span class="shell-tab__hint">双向气泡</span>
+				</button>
+				<button class="shell-tab" data-variant="e" role="tab">
+					<span class="shell-tab__key">E</span>
+					<span class="shell-tab__name">Editorial</span>
+					<span class="shell-tab__hint">长文阅读</span>
+				</button>
+				<button class="shell-tab" data-variant="f" role="tab">
+					<span class="shell-tab__key">F</span>
+					<span class="shell-tab__name">Terminal</span>
+					<span class="shell-tab__hint">全 mono TUI</span>
+				</button>
+			</nav>
+			<div class="shell-topbar__side">
+				<label class="shell-theme">
+					<span>主题</span>
+					<select id="theme-select">
+						<option value="dracula">Dracula</option>
+						<option value="dracula-colorful">Dracula Colorful</option>
+						<option value="ember">Ember</option>
+						<option value="monokai">Monokai</option>
+						<option value="zed-one-dark">Zed One Dark</option>
+						<option value="light">Light</option>
+					</select>
+				</label>
+			</div>
+		</header>
+		<div class="shell-stage" id="stage"></div>
+		<template id="tpl-pane">
+			<div class="acp-pane">
+				<div class="acp-pane__toolbar">
+					<div class="acp-pane__chip">
+						<span class="acp-pane__chip-dot"></span>
+						Claude Code
+					</div>
+					<div class="acp-pane__toolbar-title">
+						apps/desktop · acp-visual-rework
+					</div>
+					<div class="acp-pane__toolbar-spacer"></div>
+					<div class="acp-pane__header-pill" data-status="running">
+						running · 12s
+					</div>
+					<div class="acp-pane__toolbar-actions">
+						<button aria-label="settings">⋯</button>
+					</div>
+				</div>
+				<div class="acp-pane__timeline">
+					<div class="acp-pane__scroll">
+						<div class="acp-pane__body-inner">
+							<div class="acp-msg" data-role="user">
+								<div class="acp-msg__author">
+									<span class="acp-msg__author-name">You</span>
+								</div>
+								<div class="acp-msg__bubble">
+									帮我看下 AcpSessionPane
+									里工具卡片和文字层级，感觉工具太抢眼，Agent
+									回复反而不显眼。
+								</div>
+							</div>
+
+							<div class="acp-msg" data-role="agent">
+								<div class="acp-msg__author">
+									<span class="acp-msg__author-name">Claude</span>
+								</div>
+								<div class="acp-msg__bubble">
+									<div class="acp-md">
+										<p>
+											先把当前样式跑一遍，我看到的核心问题有三个：
+										</p>
+										<ol>
+											<li>
+												<strong>信号色被过度使用。</strong>
+												Dracula 的粉/青/绿/橙/紫本来是给
+												syntax
+												高亮的重音，但现在几乎每个模块都占一个重音，视觉上没有主角。
+											</li>
+											<li>
+												<strong>工具卡片视觉权重高于文本。</strong>
+												彩色 icon 底 + 大写 kind 标签 +
+												面板底色，让工具行看起来比 Agent
+												段落更"重"，实际重要性相反。
+											</li>
+											<li>
+												<strong>颜色全部写死在 CSS 里。</strong>
+												ACP 面板没消费主题 tokens，切主题
+												它不跟着变。这才是最根本的问题。
+											</li>
+										</ol>
+										<p>
+											把工具行做成
+											<code>ls</code>
+											级别的可读密度，再看效果。
+										</p>
+									</div>
+								</div>
+							</div>
+
+							<div class="acp-tool" data-kind="read">
+								<button class="acp-tool__head">
+									<span class="acp-tool__caret">›</span>
+									<span class="acp-tool__kind">Read</span>
+									<span class="acp-tool__title"
+										>apps/desktop/src/renderer/…/acp-pane.css</span
+									>
+									<span class="acp-tool__meta" data-status="completed"
+										>2917 lines</span
+									>
+								</button>
+							</div>
+							<div class="acp-tool" data-kind="search">
+								<button class="acp-tool__head">
+									<span class="acp-tool__caret">›</span>
+									<span class="acp-tool__kind">Search</span>
+									<span class="acp-tool__title"
+										>"box-shadow" in acp-pane.css</span
+									>
+									<span class="acp-tool__meta" data-status="completed"
+										>14 matches</span
+									>
+								</button>
+							</div>
+							<div class="acp-tool" data-kind="edit">
+								<button class="acp-tool__head" data-expanded="true">
+									<span class="acp-tool__caret">›</span>
+									<span class="acp-tool__kind">Edit</span>
+									<span class="acp-tool__title"
+										>acp-pane.css · .acp-pane__chip</span
+									>
+									<span class="acp-tool__meta" data-status="completed"
+										>+2 −4</span
+									>
+								</button>
+								<div class="acp-tool__body">
+									<div class="acp-diff">
+										<div class="acp-diff__head">
+											<span class="acp-diff__head-path">acp-pane.css</span>
+											<span class="acp-diff__head-stat"
+												><span class="plus">+2</span>
+												<span class="minus">−4</span></span
+											>
+										</div>
+										<div class="acp-diff__body">
+											<div class="acp-diff__line" data-kind="ctx">
+												<span class="acp-diff__line-num">208</span>
+												<span class="acp-diff__line-mark"></span>
+												<span class="acp-diff__line-text"
+													>	color: var(--acp-pink);</span
+												>
+											</div>
+											<div class="acp-diff__line" data-kind="del">
+												<span class="acp-diff__line-num">209</span>
+												<span class="acp-diff__line-mark">−</span>
+												<span class="acp-diff__line-text"
+													>	text-shadow: 0 0 6px rgba(255,121,198,.4);</span
+												>
+											</div>
+											<div class="acp-diff__line" data-kind="del">
+												<span class="acp-diff__line-num">210</span>
+												<span class="acp-diff__line-mark">−</span>
+												<span class="acp-diff__line-text"
+													>	box-shadow: inset 0 0 8px …, 0 0 20px …;</span
+												>
+											</div>
+											<div class="acp-diff__line" data-kind="add">
+												<span class="acp-diff__line-num">211</span>
+												<span class="acp-diff__line-mark">+</span>
+												<span class="acp-diff__line-text"
+													>	color: var(--accent-foreground);</span
+												>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div class="acp-msg" data-role="agent">
+								<div class="acp-msg__author">
+									<span class="acp-msg__author-name">Claude</span>
+								</div>
+								<div class="acp-msg__bubble">
+									<div class="acp-md">
+										<h2>为什么消费主题变量最重要</h2>
+										<p>
+											你切
+											<code>data-theme</code>
+											到
+											<strong>Ember</strong>、<strong>Monokai</strong>、<strong
+												>Zed One Dark</strong
+											>、<strong>Light</strong>，其他面板都会跟着变，只有
+											ACP 面板还锁在
+											<code>#282a36</code>
+											+
+											<code>#ff79c6</code>。这是 bug。
+										</p>
+										<blockquote>
+											右上角切主题看看——三种 variant
+											都会跟着重新上色，因为 CSS
+											全部消费的是
+											<code>--fg</code>、<code>--line</code>、<code
+												>--accent-solid</code
+											>、<code>--success</code>
+											这些 tokens。
+										</blockquote>
+									</div>
+								</div>
+							</div>
+
+							<div class="acp-tool" data-kind="execute">
+								<button class="acp-tool__head">
+									<span class="acp-tool__caret">›</span>
+									<span class="acp-tool__kind">Run</span>
+									<span class="acp-tool__title"
+										>bun run typecheck</span
+									>
+									<span class="acp-tool__meta" data-status="in_progress"
+										>running…</span
+									>
+								</button>
+							</div>
+
+							<div class="acp-msg" data-role="user">
+								<div class="acp-msg__author">
+									<span class="acp-msg__author-name">You</span>
+								</div>
+								<div class="acp-msg__bubble">
+									工具调用其实我不怎么关心，帮我看下能不能让它更低调，同时跟主题走。
+								</div>
+							</div>
+
+							<!-- 折叠摘要：agent 已经给出最终回复，前面这一轮的工具全部收起 -->
+							<button
+								class="acp-turn-summary"
+								type="button"
+								aria-expanded="false"
+								aria-label="展开这一轮的执行过程"
+							>
+								<span class="acp-turn-summary__caret">›</span>
+								<span class="acp-turn-summary__text"
+									>执行过程：41 次工具调用，17 条消息</span
+								>
+							</button>
+
+							<div class="acp-msg" data-role="agent">
+								<div class="acp-msg__author">
+									<span class="acp-msg__author-name">Claude</span>
+								</div>
+								<div class="acp-msg__bubble">
+									<div class="acp-md">
+										<p>
+											好，选定 B 之后我把 <code>acp-pane.css</code>
+											里 <code>--acp-*</code> 全部换成主题
+											tokens，工具行改成这版散文态，砍掉
+											glow / 大写 kind
+											徽章。展开当前折叠条就能看到刚才这一轮的所有工具。
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="acp-pane__composer">
+					<div class="acp-pane__composer-box">
+						<div class="acp-pane__composer-row">
+							<span class="acp-pane__composer-glyph">›</span>
+							<div class="acp-pane__composer-editor" contenteditable="true"
+								>输入消息，Enter 发送</div
+							>
+						</div>
+						<div class="acp-pane__composer-toolbar">
+							<span class="acp-pane__composer-toolbar-hint"
+								><span class="slash">/</span> 命令</span
+							>
+							<span class="acp-pane__composer-toolbar-hint"
+								><span class="at">@</span> 文件</span
+							>
+							<span class="acp-pane__composer-toolbar-spacer"></span>
+							<button class="acp-pane__composer-send">
+								Send
+								<span class="acp-pane__composer-send-kbd">⏎</span>
+							</button>
+						</div>
+					</div>
+				</div>
+				<div class="acp-status-bar">
+					<div class="acp-status-bar__group acp-status-bar__group--identity">
+						<span class="acp-status-bar__mode" data-mode="default"
+							><span class="acp-status-bar__mode-glyph">◆</span> default</span
+						>
+						<span class="acp-status-bar__seg acp-status-bar__seg--model"
+							><span class="acp-status-bar__seg-value">sonnet-5</span></span
+						>
+					</div>
+					<div class="acp-status-bar__group acp-status-bar__group--branch">
+						<span class="acp-status-bar__seg acp-status-bar__seg--branch"
+							><span class="acp-status-bar__seg-value">main · dirty</span></span
+						>
+					</div>
+					<div class="acp-status-bar__spacer"></div>
+					<div class="acp-status-bar__group acp-status-bar__group--usage">
+						<span class="acp-status-bar__seg acp-status-bar__seg--cost">$0.42</span>
+						<span
+							class="acp-status-bar__seg acp-status-bar__seg--ctx"
+							data-level="mid"
+							>62%</span
+						>
+					</div>
+					<div class="acp-status-bar__group">
+						<span class="acp-status-bar__conn" data-tone="running"
+							><span class="acp-status-bar__conn-dot"></span> running</span
+						>
+					</div>
+				</div>
+			</div>
+		</template>
+		<script src="app.js" defer></script>
+	</body>
+</html>
