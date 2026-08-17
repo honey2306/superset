@@ -50,6 +50,8 @@ export interface PendingPermission {
 	 * Claude Code's AskUserQuestion tool), rather than request_permission.
 	 */
 	isElicitation?: boolean;
+	/** The elicitation accepts a free-text answer instead of a listed option. */
+	allowsCustomResponse?: boolean;
 }
 
 /**
@@ -59,6 +61,8 @@ export interface PendingPermission {
  * stays the first pick, keeping single-select consumers correct.
  */
 const SELECTED_OPTION_IDS_META = "sh.superset/selectedOptionIds";
+const CUSTOM_RESPONSE_META = "sh.superset/customResponse";
+const CUSTOM_RESPONSE_OPTION_ID = "custom-response";
 
 export function makeSelectedOutcome(
 	optionIds: readonly string[],
@@ -84,6 +88,35 @@ export function selectedOptionIds(outcome: RequestPermissionOutcome): string[] {
 		if (ids.length > 0) return ids;
 	}
 	return [outcome.optionId];
+}
+
+/** Encode a free-text elicitation answer through ACP's reserved metadata. */
+export function makeCustomResponseOutcome(
+	response: string,
+): RequestPermissionOutcome {
+	const trimmed = response.trim();
+	if (!trimmed) throw new Error("Custom response must not be empty");
+	return {
+		outcome: "selected",
+		optionId: CUSTOM_RESPONSE_OPTION_ID,
+		_meta: { [CUSTOM_RESPONSE_META]: trimmed },
+	};
+}
+
+/** Read a free-text elicitation answer from an ACP permission outcome. */
+export function customResponse(
+	outcome: RequestPermissionOutcome,
+): string | null {
+	if (
+		outcome.outcome !== "selected" ||
+		outcome.optionId !== CUSTOM_RESPONSE_OPTION_ID
+	) {
+		return null;
+	}
+	const response = outcome._meta?.[CUSTOM_RESPONSE_META];
+	return typeof response === "string" && response.trim()
+		? response.trim()
+		: null;
 }
 
 /**
@@ -126,6 +159,8 @@ export interface SessionScopedState {
 	/** Seq of the latest journaled envelope; subscribe cursor. */
 	lastSeq: number;
 	lastStopReason: StopReason | null;
+	/** Host timestamp of the latest completed turn; unaffected by metadata updates. */
+	lastCompletedAt?: number | null;
 	lastError: string | null;
 	createdAt: number;
 	updatedAt: number;

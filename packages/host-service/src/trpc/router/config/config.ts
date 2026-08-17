@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -9,8 +8,8 @@ import {
 	hasConfiguredScripts,
 	loadSetupConfig,
 	resolveScript,
-	type SetupConfig,
 	shellSingleQuote,
+	updateProjectConfig,
 } from "../../../runtime/setup/config";
 import { createTerminalSessionInternal } from "../../../terminal/terminal";
 import type { HostServiceContext } from "../../../types";
@@ -161,30 +160,8 @@ export const configRouter = router({
 		)
 		.mutation(({ ctx, input }) => {
 			const project = requireProject(ctx, input.projectId);
-			const configPath = getProjectConfigPath(project.repoPath);
-			mkdirSync(dirname(configPath), { recursive: true });
-
-			let existing: Record<string, unknown> = {};
-			if (existsSync(configPath)) {
-				try {
-					const parsed = JSON.parse(readFileSync(configPath, "utf-8"));
-					if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-						existing = parsed as Record<string, unknown>;
-					}
-				} catch {
-					existing = {};
-				}
-			}
-
-			const merged: SetupConfig & Record<string, unknown> = {
-				...existing,
-				...(input.setup !== undefined && { setup: input.setup }),
-				...(input.teardown !== undefined && { teardown: input.teardown }),
-				...(input.run !== undefined && { run: input.run }),
-			};
-
 			try {
-				writeFileSync(configPath, JSON.stringify(merged, null, 2), "utf-8");
+				updateProjectConfig(project.repoPath, input);
 			} catch (error) {
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",

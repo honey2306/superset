@@ -136,8 +136,8 @@ function syncThemeToLocalStorage(theme: Theme): void {
 function applyTheme(theme: Theme): {
 	terminalTheme: ITheme;
 } {
-	// Apply UI colors to CSS variables
-	applyUIColors(theme.ui);
+	// Apply UI colors + DS extended palette to CSS variables
+	applyUIColors(theme.ui, theme);
 
 	// Update dark/light class
 	updateThemeClass(theme.type);

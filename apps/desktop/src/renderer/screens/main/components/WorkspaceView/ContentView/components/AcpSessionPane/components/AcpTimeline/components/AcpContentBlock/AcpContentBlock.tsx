@@ -28,8 +28,8 @@ export function AcpContentBlock({ block }: AcpContentBlockProps) {
 				src={src}
 				alt=""
 				style={{
-					maxHeight: 256,
-					maxWidth: "100%",
+					maxHeight: 160,
+					maxWidth: "min(100%, 240px)",
 					borderRadius: 4,
 					border: "1px solid var(--acp-line)",
 					objectFit: "contain",

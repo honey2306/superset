@@ -131,6 +131,7 @@ interface HostServiceCoordinatorInternals {
 
 function resetMocks(): void {
 	delete process.env.SUPERSET_TEST_APP_PACKAGED;
+	delete process.env.AUTOMATE_RELAY_URL;
 	manifestStore.current = null;
 	readManifestMock.mockClear();
 	removeManifestMock.mockClear();
@@ -208,12 +209,14 @@ describe("HostServiceCoordinator ACP environment", () => {
 
 	test("enables ACP sessions for packaged stable builds", async () => {
 		process.env.SUPERSET_TEST_APP_PACKAGED = "1";
+		process.env.AUTOMATE_RELAY_URL = "wss://relay.example.test/task";
 		const internals = coordinator as unknown as HostServiceCoordinatorInternals;
 
 		const env = await internals.buildEnv(40000, "secret", spawnConfig);
 
 		expect(env.SUPERSET_ACP_SESSIONS).toBe("1");
 		expect(env.HOST_SERVICE_HOSTNAME).toBe("127.0.0.1");
+		expect(env.AUTOMATE_RELAY_URL).toBe("wss://relay.example.test/task");
 	});
 });
 

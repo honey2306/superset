@@ -18,7 +18,7 @@ build step). The entry point is **`bun run release`**. Design/rationale lives in
 | Command | When |
 | --- | --- |
 | `bun run release` | Interactive desktop release menu (TTY only). |
-| `bun run release desktop [version]` | New desktop release. Moves desktop + host-service together. Draft by default. |
+| `bun run release desktop [version]` | New desktop release. Moves desktop + host-service together and publishes latest after a successful build. |
 | `… --daemon` | Also patch-bump and ship pty-daemon. |
 | `bun run release check` | Verify desktop and host-service versions match. |
 
@@ -49,23 +49,14 @@ Either path creates `desktop-v<version>`, triggering `release-desktop.yml`, and
 opens `chore(desktop): bump version to <version>` into `main`. Merge the bump PR
 so `main` records the released version.
 
-## Draft → publish
+## Published releases
 
-Desktop releases are drafts by default. Review artifacts before publishing:
-
-```bash
-gh release edit desktop-v1.17.1 --draft=false
-```
-
-Or publish and merge the bump PR automatically:
+Desktop releases publish automatically after the build succeeds, becoming
+`/releases/latest` for the desktop auto-updater. To also merge the bump PR:
 
 ```bash
-bun run release desktop 1.17.1 <commit-sha> --publish --merge
+bun run release desktop 1.17.1 <commit-sha> --merge
 ```
-
-A published, non-draft release becomes `/releases/latest`, which the desktop
-auto-updater uses. Do not leave a release as a draft: installed apps cannot see
-its update manifest or ZIP asset.
 
 ## Daemon guard
 

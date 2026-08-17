@@ -200,10 +200,10 @@ export const FileDiffTool = ({
 		stats.additions > 0 || stats.removals > 0 ? (
 			<span className="flex items-center gap-1.5 text-xs">
 				{stats.additions > 0 && (
-					<span className="text-green-500">+{stats.additions}</span>
+					<span className="text-success">+{stats.additions}</span>
 				)}
 				{stats.removals > 0 && (
-					<span className="text-red-500">-{stats.removals}</span>
+					<span className="text-danger">-{stats.removals}</span>
 				)}
 			</span>
 		) : null;
@@ -267,9 +267,9 @@ export const FileDiffTool = ({
 									className={cn(
 										"flex border-l-2 px-2.5 py-0.5",
 										line.type === "added" &&
-											"border-l-green-500 bg-green-500/10 text-green-700 dark:text-green-400",
+											"border-l-success bg-success-tint text-success",
 										line.type === "removed" &&
-											"border-l-red-500 bg-red-500/10 text-red-700 dark:text-red-400",
+											"border-l-danger bg-danger-tint text-danger",
 										line.type === "context" &&
 											"border-l-transparent text-muted-foreground",
 									)}

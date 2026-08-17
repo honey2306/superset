@@ -1,4 +1,4 @@
-import { MessageResponse } from "@superset/ui/ai-elements/message";
+import { MessageResponseV2 } from "@superset/ui/ai-elements/message-v2";
 
 interface AcpMarkdownProps {
 	children: string;
@@ -14,12 +14,12 @@ interface AcpMarkdownProps {
  */
 export function AcpMarkdown({ children }: AcpMarkdownProps) {
 	return (
-		<MessageResponse
+		<MessageResponseV2
 			animated={false}
 			isAnimating={false}
 			className="acp-md select-text cursor-text"
 		>
 			{children}
-		</MessageResponse>
+		</MessageResponseV2>
 	);
 }

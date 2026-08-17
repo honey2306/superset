@@ -68,6 +68,20 @@ export function formatRawToolCallContent(content: unknown): string | undefined {
 	return JSON.stringify(content, null, 2);
 }
 
+/** Human-readable verb shown next to the tool title.
+ *
+ * The ACP protocol emits kinds like `read`, `edit`, `execute` — technically
+ * accurate but read as terminal command names. The prose-style tool row wants
+ * verbs that scan as English ("Read acp-pane.css", "Run bun run typecheck"),
+ * so we title-case and remap `execute` → `Run` for readability. `switch_mode`
+ * becomes `Switch mode`; anything unknown falls back to Title case. */
+export function kindVerb(kind: string): string {
+	if (kind === "execute") return "Run";
+	if (kind === "switch_mode") return "Switch mode";
+	if (!kind) return "";
+	return kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
 export function AcpToolCallItem({
 	item,
 	presentation = "default",
@@ -100,17 +114,14 @@ export function AcpToolCallItem({
 				aria-expanded={expanded}
 			>
 				<span className="acp-tool__caret" aria-hidden>
-					{expanded ? "▾" : "›"}
+					›
 				</span>
-				<span className="acp-tool__kind">{kind}</span>
+				<span className="acp-tool__kind">{kindVerb(kind)}</span>
 				<span className="acp-tool__title select-text cursor-text">{title}</span>
 				<span
 					className="acp-tool__meta"
 					data-status={hasUnresolvedPermission ? "awaiting_approval" : status}
 				>
-					{status === "in_progress" && !hasUnresolvedPermission && (
-						<span className="acp-blink">●</span>
-					)}
 					<span>{toolCallStatusText(call, hasUnresolvedPermission)}</span>
 				</span>
 			</button>
@@ -174,8 +185,11 @@ export function AcpToolCallItem({
 									);
 								}
 								return (
-									// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
-									<ContentView key={`c-${i}`} content={entry.content} />
+									<ContentView
+										// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
+										key={`c-${i}`}
+										content={entry.content}
+									/>
 								);
 							})}
 						</div>

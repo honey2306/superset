@@ -30,11 +30,13 @@ export function AcpPlanItem({ item }: AcpPlanItemProps) {
 						data-status={entry.status}
 					>
 						<span className="acp-plan__box" aria-hidden>
-							{entry.status === "completed"
-								? "✓"
-								: entry.status === "in_progress"
-									? "▸"
-									: ""}
+							{entry.status === "completed" ? (
+								"✓"
+							) : entry.status === "in_progress" ? (
+								<span className="acp-plan__spinner" />
+							) : (
+								""
+							)}
 						</span>
 						<span className="acp-plan__text">{entry.content}</span>
 						{entry.priority && (

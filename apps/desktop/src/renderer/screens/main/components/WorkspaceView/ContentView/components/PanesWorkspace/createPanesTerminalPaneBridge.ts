@@ -10,6 +10,7 @@ import type {
 	HostServiceTerminalPaneBridge,
 	HostServiceTerminalPaneSnapshot,
 } from "../Terminal/host-service-terminal-pane-bridge";
+import { mergeAcpPaneTitles } from "./acpPaneTitles";
 import { openFileViewerInPanesStore } from "./openFileViewerInPanesStore";
 import type { PanesPaneData } from "./types";
 
@@ -31,15 +32,16 @@ export function syncPanesTerminalStatuses(
 }
 
 /**
- * Reconcile ACP pane status against the workspace-level ACP session snapshot.
- * The tab-strip status accessory reads `pane.data.acp.status`, so writes
- * from `AcpSessionPane.onSessionMetadataChange` alone would stall until the
- * user opens that tab — this sync runs at the workspace level and keeps the
- * tab badge in step with the sidebar's aggregate red dot.
+ * Reconcile ACP pane status and title against the workspace-level session
+ * snapshot. Writes from `AcpSessionPane.onSessionMetadataChange` alone stall
+ * until the user opens that tab, so this keeps inactive tab titles and status
+ * indicators current without mounting their pane content.
  */
 export function syncPanesAcpStatuses(
 	store: StoreApi<WorkspaceStore<PanesPaneData>>,
 	statuses: ReadonlyMap<string, SessionStatus>,
+	notificationStatuses?: ReadonlyMap<string, PaneStatus>,
+	titles?: ReadonlyMap<string, string | null>,
 ): void {
 	for (const tab of store.getState().tabs) {
 		for (const pane of Object.values(tab.panes)) {
@@ -48,10 +50,31 @@ export function syncPanesAcpStatuses(
 			if (!acp) continue;
 			const nextStatus = statuses.get(acp.sessionId);
 			if (nextStatus === undefined) continue;
-			if (acp.status === nextStatus) continue;
+			const nextNotificationStatus = notificationStatuses
+				? notificationStatuses.get(acp.sessionId)
+				: acp.notificationStatus;
+			const hasTitleUpdate = titles?.has(acp.sessionId) ?? false;
+			const nextTitles = hasTitleUpdate
+				? mergeAcpPaneTitles(acp, titles?.get(acp.sessionId) ?? null)
+				: { title: acp.title, statusTitle: acp.statusTitle };
+			if (
+				acp.status === nextStatus &&
+				acp.notificationStatus === nextNotificationStatus &&
+				acp.title === nextTitles.title &&
+				acp.statusTitle === nextTitles.statusTitle
+			)
+				continue;
 			store.getState().setPaneData({
 				paneId: pane.id,
-				data: { ...pane.data, acp: { ...acp, status: nextStatus } },
+				data: {
+					...pane.data,
+					acp: {
+						...acp,
+						status: nextStatus,
+						notificationStatus: nextNotificationStatus,
+						...nextTitles,
+					},
+				},
 			});
 		}
 	}
@@ -65,7 +88,8 @@ export function getPanesTabStatus(
 			pane.kind === "terminal"
 				? pane.data.status
 				: pane.kind === "acp"
-					? acpSessionStatusToPaneStatus(pane.data.acp?.status)
+					? (pane.data.acp?.notificationStatus ??
+						acpSessionStatusToPaneStatus(pane.data.acp?.status))
 					: undefined,
 		),
 	);

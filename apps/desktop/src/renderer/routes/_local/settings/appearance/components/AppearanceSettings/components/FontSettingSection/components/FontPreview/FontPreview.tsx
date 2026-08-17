@@ -5,6 +5,7 @@ import {
 	oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useTheme } from "renderer/stores";
+import { getTerminalColors } from "shared/themes";
 import { FontNotFoundBanner } from "./components/FontNotFoundBanner";
 
 const CODE_PREVIEW = `import { createTool } from "@mastra/core/tools";
@@ -56,12 +57,21 @@ export function FontPreview({
 	const isDark = theme?.type !== "light";
 	const isTerminal = variant === "terminal";
 	const fontFamilyStyle = fontFamily || undefined;
+	const terminalColors = theme ? getTerminalColors(theme) : null;
 
 	return (
 		<div
 			className={`rounded-ds-3 border overflow-hidden ${
-				isTerminal ? "bg-[#1e1e1e] text-[#cccccc] border-[#333]" : "bg-hover/50"
+				isTerminal ? "border-line" : "bg-hover/50"
 			}`}
+			style={
+				isTerminal && terminalColors
+					? {
+							background: terminalColors.background,
+							color: terminalColors.foreground,
+						}
+					: undefined
+			}
 		>
 			{isTerminal ? (
 				<div

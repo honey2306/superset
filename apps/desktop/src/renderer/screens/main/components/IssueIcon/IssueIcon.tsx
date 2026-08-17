@@ -10,7 +10,7 @@ interface IssueIconProps {
 
 const stateStyles: Record<IssueState, string> = {
 	open: "text-success",
-	closed: "text-violet-500",
+	closed: "text-accent-2",
 };
 
 /**

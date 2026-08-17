@@ -341,6 +341,7 @@ async function runAcpAgent(
 		sessionId,
 		workspaceId: input.workspaceId,
 		harness,
+		model: input.model,
 	});
 	await ctx.runtime.acpSessions.prompt({
 		sessionId,

@@ -128,7 +128,7 @@ Run locally stored agent sessions on a schedule: triage GitHub issues overnight,
 
 ### Phone Access
 
-Pair your phone directly with the desktop host over a trusted local network or Tailscale. Phone access uses a host-scoped session and does not route through a cloud relay.
+Pair your phone through the AutoMate relay while the desktop Host remains bound to your Mac. Phone access uses a host-scoped, revocable session and never exposes the Host directly on your local network.
 
 </td>
 <td width="50%">
@@ -203,9 +203,9 @@ merge those domains from a cloud Tasks service, Electric, or legacy
 `local.db` state.
 
 GitHub remains connected for Issues, pull requests, reviews, checks, and
-publishing Git operations. Phone access connects directly to the current
-Desktop Host over a trusted LAN or Tailscale address using a revocable paired
-session; it does not use a cloud relay or a remote-host directory.
+publishing Git operations. Phone access uses the AutoMate relay with a
+revocable paired session while the current Desktop Host remains loopback-only;
+it does not use a direct LAN/Tailscale listener or a remote-host directory.
 
 See [Current Desktop Architecture](docs/CURRENT_ARCHITECTURE.md).
 

@@ -29,7 +29,11 @@ function error(id: JsonRpcId, code: number, message: string): void {
 	write({ jsonrpc: "2.0", id, error: { code, message } });
 }
 
-async function callDaemon(name: string, args: unknown): Promise<unknown> {
+async function callDaemon(
+	name: string,
+	args: unknown,
+	signal?: AbortSignal,
+): Promise<unknown> {
 	return new Promise((resolve, reject) => {
 		const socket = net.createConnection(socketPath);
 		let buffer = "";
@@ -45,18 +49,28 @@ async function callDaemon(name: string, args: unknown): Promise<unknown> {
 				arguments: args,
 			},
 		};
-		const timeout = setTimeout(() => {
-			finish(new Error("Superset daemon tool call timed out"));
-		}, DAEMON_CALL_TIMEOUT_MS);
+		const timeout =
+			name === "ask_user"
+				? undefined
+				: setTimeout(() => {
+						finish(new Error("Superset daemon tool call timed out"));
+					}, DAEMON_CALL_TIMEOUT_MS);
 		const finish = (cause?: Error, value?: unknown) => {
 			if (settled) return;
 			settled = true;
-			clearTimeout(timeout);
+			if (timeout) clearTimeout(timeout);
+			signal?.removeEventListener("abort", cancel);
 			socket.removeAllListeners();
 			socket.destroy();
 			if (cause) reject(cause);
 			else resolve(value);
 		};
+		const cancel = () => finish(new Error("Superset tool call cancelled"));
+		if (signal?.aborted) {
+			cancel();
+			return;
+		}
+		signal?.addEventListener("abort", cancel, { once: true });
 		socket.setEncoding("utf8");
 		socket.once("connect", () => {
 			socket.write(`${JSON.stringify(request)}\n`);
@@ -94,7 +108,15 @@ async function callDaemon(name: string, args: unknown): Promise<unknown> {
 	});
 }
 
+const activeToolCalls = new Map<JsonRpcId, AbortController>();
+
 async function handle(request: JsonRpcRequest): Promise<void> {
+	if (request.method === "notifications/cancelled") {
+		const requestId = (request.params as { requestId?: JsonRpcId } | undefined)
+			?.requestId;
+		if (requestId !== undefined) activeToolCalls.get(requestId)?.abort();
+		return;
+	}
 	if (request.id === undefined) return;
 	try {
 		switch (request.method) {
@@ -119,8 +141,14 @@ async function handle(request: JsonRpcRequest): Promise<void> {
 					error(request.id, -32602, "tools/call requires a tool name");
 					return;
 				}
+				const controller = new AbortController();
+				activeToolCalls.set(request.id, controller);
 				try {
-					const value = await callDaemon(params.name, params.arguments ?? {});
+					const value = await callDaemon(
+						params.name,
+						params.arguments ?? {},
+						controller.signal,
+					);
 					result(request.id, {
 						content: [{ type: "text", text: JSON.stringify(value) }],
 					});
@@ -137,6 +165,8 @@ async function handle(request: JsonRpcRequest): Promise<void> {
 						],
 						isError: true,
 					});
+				} finally {
+					activeToolCalls.delete(request.id);
 				}
 				return;
 			}

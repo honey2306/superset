@@ -1,0 +1,27 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "ACP 视觉重构 · A/B/C 对比": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-08-14T13:14:58.609Z",
+          "status": "needs-review"
+        }
+      ]
+    },
+    "index": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-08-14T13:48:55.367Z",
+          "status": "needs-review"
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-08-14T13:14:58.610Z",
+  "updatedAt": "2026-08-14T14:35:55.007Z"
+}

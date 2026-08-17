@@ -1,10 +1,17 @@
 import { Database as BunDatabase } from "bun:sqlite";
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+} from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import {
+	decodeMessagesCursor,
 	emptyTimeline,
 	foldEnvelopes,
 	type Timeline,
@@ -22,6 +29,10 @@ const MIGRATIONS_FOLDER = path.resolve(import.meta.dir, "../../drizzle");
 const DAEMON_ENTRY = path.resolve(
 	import.meta.dir,
 	"../../src/runtime/acp-sessions/daemon-entry.ts",
+);
+const PI_ACP_MCP_EXTENSION = path.resolve(
+	import.meta.dir,
+	"../../src/runtime/acp-sessions/pi-acp-mcp-extension.ts",
 );
 const FAKE_ADAPTER = path.resolve(
 	import.meta.dir,
@@ -103,7 +114,34 @@ async function buildDaemonEntry(
 	if (!result.success) {
 		throw new Error(result.logs.map((log) => log.message).join("\n"));
 	}
+	const extension = await Bun.build({
+		entrypoints: [PI_ACP_MCP_EXTENSION],
+		target: "node",
+		outdir,
+		naming: "pi-acp-mcp-extension.js",
+		format: "esm",
+	});
+	if (!extension.success) {
+		throw new Error(extension.logs.map((log) => log.message).join("\n"));
+	}
 	return path.join(outdir, `${name}.js`);
+}
+
+async function createDaemonSession(
+	client: AcpDaemonClient,
+	input: { sessionId: string; workspaceId: string },
+	logPath: string,
+): Promise<void> {
+	try {
+		await client.create(input);
+	} catch (error) {
+		const log = existsSync(logPath)
+			? readFileSync(logPath, "utf8").slice(-12_000)
+			: "<daemon log was not created>";
+		throw new Error(
+			`${error instanceof Error ? error.message : String(error)}\nDaemon log (${logPath}):\n${log}`,
+		);
+	}
 }
 
 describe("ACP daemon process boundary", () => {
@@ -115,6 +153,7 @@ describe("ACP daemon process boundary", () => {
 	const workspaceDir = path.join(tempRoot, "workspace");
 	const dbPath = path.join(tempRoot, "host.db");
 	const socketPath = path.join(tempRoot, "acp.sock");
+	const daemonLogPath = path.join(tempRoot, "acp-daemon.log");
 	let daemonPid: number | null = null;
 
 	afterAll(() => {
@@ -172,6 +211,7 @@ describe("ACP daemon process boundary", () => {
 				HOST_DB_PATH: dbPath,
 				HOST_MIGRATIONS_FOLDER: MIGRATIONS_FOLDER,
 				SUPERSET_HOME_DIR: tempRoot,
+				SUPERSET_ACP_DAEMON_LOG_PATH: daemonLogPath,
 				SUPERSET_ACP_ADAPTER_ENTRY: FAKE_ADAPTER,
 				NODE_OPTIONS:
 					`${process.env.NODE_OPTIONS ?? ""} --experimental-strip-types`.trim(),
@@ -179,10 +219,11 @@ describe("ACP daemon process boundary", () => {
 		} as const;
 
 		const first = new AcpDaemonClient(clientOptions);
-		await first.create({
-			sessionId: "session-1",
-			workspaceId: "workspace-1",
-		});
+		await createDaemonSession(
+			first,
+			{ sessionId: "session-1", workspaceId: "workspace-1" },
+			daemonLogPath,
+		);
 		const hello = await first.hello();
 		daemonPid = hello.pid;
 		expect(hello.protocolVersion).toBe(ACP_DAEMON_PROTOCOL_VERSION);
@@ -254,6 +295,7 @@ describe("ACP daemon process boundary", () => {
 				(await third.get("session-1")).pendingPermissions.length === 0,
 			"AskUser completion",
 		);
+		let imageArtifactPath: string | undefined;
 		await waitFor(async () => {
 			const page = await third.getMessages({
 				sessionId: "session-1",
@@ -263,6 +305,88 @@ describe("ACP daemon process boundary", () => {
 				"picked:Beta",
 			);
 		}, "AskUser turn completion");
+
+		// Five 4 MiB frames reproduce a >16 MiB history response. The daemon
+		// must page it below the NDJSON limit, then replay every sequence over a
+		// socket which applies backpressure after the first large write.
+		await createDaemonSession(
+			third,
+			{ sessionId: "session-large", workspaceId: "workspace-1" },
+			daemonLogPath,
+		);
+		await third.prompt({
+			sessionId: "session-large",
+			prompt: [{ type: "text", text: "large 5 4194304" }],
+		});
+		await waitFor(async () => {
+			const page = await third.getMessages({
+				sessionId: "session-large",
+				limit: 200,
+			});
+			return (
+				page.items.filter((item) => item.frame.kind === "update").length === 1
+			);
+		}, "large journal frames");
+		const pagedSeqs: number[] = [];
+		let cursor: string | null | undefined;
+		do {
+			const page = await third.getMessages({
+				sessionId: "session-large",
+				limit: 200,
+				...(cursor
+					? { beforeSeq: decodeMessagesCursor(cursor) ?? undefined }
+					: {}),
+			});
+			pagedSeqs.unshift(...page.items.map((item) => item.seq));
+			cursor = page.nextCursor;
+		} while (cursor);
+		expect(pagedSeqs).toEqual(
+			[...pagedSeqs].sort((left, right) => left - right),
+		);
+		expect(pagedSeqs).toHaveLength(7); // startup + user prompt + five tools
+
+		const replayedSeqs: number[] = [];
+		const stopLargeReplay = await third.subscribe({
+			sessionId: "session-large",
+			since: 0,
+			onEnvelope: (envelope) => replayedSeqs.push(envelope.seq),
+		});
+		const latestLargeSeq = (await third.get("session-large")).lastSeq;
+		await waitFor(
+			() => replayedSeqs.at(-1) === latestLargeSeq,
+			"backpressured large replay",
+		);
+		expect(replayedSeqs).toEqual(
+			Array.from({ length: latestLargeSeq }, (_, index) => index + 1),
+		);
+		stopLargeReplay();
+		expect((await third.hello()).pid).toBe(daemonPid);
+
+		await third.prompt({
+			sessionId: "session-large",
+			prompt: [{ type: "text", text: "large-image 4194304" }],
+		});
+		await waitFor(async () => {
+			const page = await third.getMessages({
+				sessionId: "session-large",
+				limit: 200,
+			});
+			return page.items.some((item) => {
+				if (item.frame.kind !== "update" || !("rawOutput" in item.frame.update))
+					return false;
+				const rawOutput = item.frame.update.rawOutput as {
+					content?: Array<{ locator?: { path?: string } }>;
+				};
+				imageArtifactPath = rawOutput.content?.[0]?.locator?.path;
+				return imageArtifactPath !== undefined;
+			});
+		}, "bounded inline image output");
+		if (!imageArtifactPath)
+			throw new Error("inline image artifact was missing");
+		expect(existsSync(imageArtifactPath)).toBe(true);
+		await third.close({ sessionId: "session-large" });
+		expect(existsSync(imageArtifactPath)).toBe(false);
+		expect((await third.hello()).pid).toBe(daemonPid);
 
 		const openRequests: Array<{ sessionId: string; sourceSessionId: string }> =
 			[];

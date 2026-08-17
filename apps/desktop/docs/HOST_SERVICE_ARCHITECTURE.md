@@ -26,7 +26,7 @@ Embedded Host (`packages/host-service`)
   - GitHub Issue, pull-request, review, and checks integration
         |
         +-- renderer: UI and rebuildable catalog/runtime projections
-        `-- paired phone: direct trusted LAN/Tailscale connection
+        `-- paired phone: AutoMate relay to loopback Host
 ```
 
 ## Authority rules
@@ -42,10 +42,11 @@ Embedded Host (`packages/host-service`)
 
 ## Phone boundary
 
-A phone reaches this embedded Host directly over a trusted LAN or Tailscale
-address. Desktop creates a short-lived pairing code; redemption yields a
-revocable, host-scoped session. There is no Relay hop, remote-host discovery,
-or remote workspace-host control plane.
+A phone reaches this embedded Host only through the configured AutoMate relay.
+The Host stays bound to loopback; Desktop creates a short-lived pairing code
+that opens the AutoMate WebApp, and redemption yields a revocable, host-scoped
+session. There is no direct LAN/Tailscale listener, remote-host discovery, or
+remote workspace-host control plane.
 
 ## Cloud boundary
 

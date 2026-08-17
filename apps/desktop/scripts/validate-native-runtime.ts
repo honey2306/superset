@@ -587,11 +587,18 @@ function validateAcpRuntimePrepared(): void {
 		"main",
 		"claude-agent-acp.js",
 	);
+	const piMcpExtensionPath = join(
+		projectRoot,
+		"dist",
+		"main",
+		"pi-acp-mcp-extension.js",
+	);
 	const requiredPaths = [
 		hostServicePath,
 		join(projectRoot, "dist", "main", "acp-daemon.js"),
 		join(projectRoot, "dist", "main", "codex-app-server-acp.js"),
 		join(projectRoot, "dist", "main", "pi-acp.js"),
+		piMcpExtensionPath,
 		claudeBridgePath,
 	];
 	const missingPaths = requiredPaths.filter((path) => !existsSync(path));

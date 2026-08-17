@@ -22,7 +22,7 @@ export function RowHoverActions({ actions }: RowHoverActionsProps) {
 	}
 
 	return (
-		<div className="flex items-center shrink-0 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity">
+		<div className="absolute inset-y-0 right-1.5 z-10 flex items-center bg-surface-elev opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
 			{actions.map((action) => (
 				<Tooltip key={action.key}>
 					<TooltipTrigger asChild>
