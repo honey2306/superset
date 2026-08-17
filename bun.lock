@@ -19,7 +19,7 @@
     },
     "apps/desktop": {
       "name": "@superset/desktop",
-      "version": "2.0.0",
+      "version": "2.0.3",
       "dependencies": {
         "@agentclientprotocol/claude-agent-acp": "0.56.0",
         "@ai-sdk/anthropic": "3.0.64",
@@ -302,7 +302,7 @@
     },
     "packages/host-service": {
       "name": "@superset/host-service",
-      "version": "2.0.0",
+      "version": "2.0.3",
       "dependencies": {
         "@agentclientprotocol/claude-agent-acp": "0.56.0",
         "@agentclientprotocol/sdk": "1.2.0",
