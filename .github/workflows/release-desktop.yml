@@ -54,7 +54,7 @@ jobs:
             -f tag_name="${{ github.ref_name }}" \
             --jq '.body' > release-notes.md
 
-      - name: Create draft release with updater assets
+      - name: Create published release with updater assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -62,4 +62,4 @@ jobs:
             release-artifacts/* \
             --title "Superset Desktop ${{ github.ref_name }}" \
             --notes-file release-notes.md \
-            --draft
+            --latest

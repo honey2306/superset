@@ -19,8 +19,8 @@ The flow will:
 2. Set desktop, `host-service`, and `cli` all to the new version (unified) and refresh `bun.lock`
 3. Create and push a `desktop-v<version>` tag
 4. Monitor the GitHub Actions build
-5. Create a **draft release** for review. Publish it after review: only a
-   published (non-draft) GitHub Release is visible to the auto-updater.
+5. Create a published GitHub Release, which becomes the latest auto-update
+   source when its build succeeds.
 
 > Desktop, `host-service`, and `cli` share one version, enforced by CI
 > (`bun run check:versions`). `pty-daemon` stays on its own `0.x` track. See
@@ -35,19 +35,12 @@ bun run release desktop
 # Explicit version
 bun run release desktop 0.0.50
 
-# Auto-publish (skip draft)
-bun run release desktop --publish
-bun run release desktop 0.0.50 --publish
+# Also squash-merge the version bump PR after release
+bun run release desktop 0.0.50 --merge
 
 # Non-interactive (e.g. an agent): pass a version; use --republish to
 # recreate an existing tag instead of being prompted.
 bun run release desktop 0.0.50 --republish
-```
-
-To publish a draft:
-
-```bash
-gh release edit desktop-v0.0.50 --draft=false
 ```
 
 ### Requirements
@@ -80,7 +73,7 @@ git tag desktop-v1.0.0
 git push origin desktop-v1.0.0
 ```
 
-This creates a draft release. Publish it manually at GitHub Releases.
+This creates a published release after the GitHub Actions build succeeds.
 
 ## Auto-update
 

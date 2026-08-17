@@ -13,7 +13,7 @@ function usage(): void {
 	console.log(`Usage: bun run release <command> [flags]
 
 Commands:
-  desktop [version] [commit] [--publish] [--merge] [--daemon] [--republish]
+  desktop [version] [commit] [--merge] [--daemon] [--republish]
       New version; desktop + host-service move together.
   check
       Verify versions are unified (exit 1 on drift).
