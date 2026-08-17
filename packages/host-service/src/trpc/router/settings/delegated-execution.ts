@@ -1,120 +1,24 @@
 import { getAgentModelSupport } from "@superset/shared/agent-models";
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { HostDb } from "../../../db";
-import { hostAgentConfigs, hostSettings } from "../../../db/schema";
+import { hostSettings } from "../../../db/schema";
 import { protectedProcedure, router } from "../../index";
-import {
-	getAcpHarnessForPreset,
-	resolveBundledHostAgentConfig,
-} from "../agents/agents";
+import { getAcpHarnessForPreset } from "../agents/agents";
 import {
 	type DelegatedExecutionModel,
 	getCachedDynamicDelegatedExecutionModels,
 } from "./delegated-execution-models";
+import {
+	readDelegatedExecutionSettings,
+	resolveDelegatedExecutionConfig,
+} from "./delegated-execution-target";
 
-export type DelegatedExecutionSettings = {
-	enabled: boolean;
-	executorAgentConfigId: string | null;
-	executorModelId: string | null;
-};
-
-export function readDelegatedExecutionSettings(
-	db: HostDb,
-): DelegatedExecutionSettings {
-	const row = db.select().from(hostSettings).get();
-	return {
-		enabled: row?.delegatedExecutionEnabled ?? false,
-		executorAgentConfigId: row?.delegatedExecutionAgentConfigId ?? null,
-		executorModelId: row?.delegatedExecutionModelId ?? null,
-	};
-}
-
-interface DelegatedExecutionConfig {
-	presetId: string;
-	label: string;
-}
-
-/**
- * Pinned built-in agents do not necessarily have a host_agent_configs row.
- * Their preset id is a stable target id, so accept it after the database lookup
- * and still apply the ACP allow-list below.
- */
-function resolveDelegatedExecutionConfig(
-	db: HostDb,
-	id: string,
-): DelegatedExecutionConfig | null {
-	const config = db
-		.select()
-		.from(hostAgentConfigs)
-		.where(eq(hostAgentConfigs.id, id))
-		.get();
-	if (config) return { presetId: config.presetId, label: config.label };
-	const bundled = resolveBundledHostAgentConfig(id);
-	return bundled ? { presetId: bundled.presetId, label: bundled.label } : null;
-}
-
-export function resolveDelegatedExecutionTarget(db: HostDb):
-	| { enabled: false }
-	| {
-			enabled: true;
-			valid: true;
-			agent: "claude" | "codex" | "pi" | "myflicker";
-			model: string | null;
-	  }
-	| {
-			enabled: true;
-			valid: false;
-			error: string;
-	  } {
-	const settings = readDelegatedExecutionSettings(db);
-	if (!settings.enabled || !settings.executorAgentConfigId) {
-		return { enabled: false };
-	}
-	const config = resolveDelegatedExecutionConfig(
-		db,
-		settings.executorAgentConfigId,
-	);
-	if (!config) {
-		return {
-			enabled: true,
-			valid: false,
-			error: "The selected executor no longer exists.",
-		};
-	}
-	if (!getAcpHarnessForPreset(config.presetId)) {
-		return {
-			enabled: true,
-			valid: false,
-			error: "The selected executor does not support ACP.",
-		};
-	}
-	const modelSupport = getAgentModelSupport(config.presetId);
-	if (!settings.executorModelId) {
-		return {
-			enabled: true,
-			valid: false,
-			error: "The selected executor requires a model.",
-		};
-	}
-	if (
-		modelSupport &&
-		!modelSupport.models.some((model) => model.id === settings.executorModelId)
-	) {
-		return {
-			enabled: true,
-			valid: false,
-			error: "The selected model is no longer available for this executor.",
-		};
-	}
-	return {
-		enabled: true,
-		valid: true,
-		agent: config.presetId as "claude" | "codex" | "pi" | "myflicker",
-		model: settings.executorModelId,
-	};
-}
+export type { DelegatedExecutionSettings } from "./delegated-execution-target";
+export {
+	readDelegatedExecutionSettings,
+	resolveDelegatedExecutionTarget,
+} from "./delegated-execution-target";
 
 const settingsInputSchema = z.object({
 	enabled: z.boolean(),
