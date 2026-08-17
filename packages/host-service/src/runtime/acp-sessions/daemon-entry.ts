@@ -3,7 +3,7 @@ import net from "node:net";
 import { eq } from "drizzle-orm";
 import { createDb } from "../../db";
 import { projects, workspaces } from "../../db/schema";
-import { resolveDelegatedExecutionTarget } from "../../trpc/router/settings/delegated-execution";
+import { resolveDelegatedExecutionTarget } from "../../trpc/router/settings/delegated-execution-target";
 import {
 	assertProjectConfigIsEditable,
 	resolveScript,

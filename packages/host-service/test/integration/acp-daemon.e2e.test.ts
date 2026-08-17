@@ -1,6 +1,12 @@
 import { Database as BunDatabase } from "bun:sqlite";
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+} from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -22,6 +28,10 @@ const MIGRATIONS_FOLDER = path.resolve(import.meta.dir, "../../drizzle");
 const DAEMON_ENTRY = path.resolve(
 	import.meta.dir,
 	"../../src/runtime/acp-sessions/daemon-entry.ts",
+);
+const PI_ACP_MCP_EXTENSION = path.resolve(
+	import.meta.dir,
+	"../../src/runtime/acp-sessions/pi-acp-mcp-extension.ts",
 );
 const FAKE_ADAPTER = path.resolve(
 	import.meta.dir,
@@ -103,7 +113,34 @@ async function buildDaemonEntry(
 	if (!result.success) {
 		throw new Error(result.logs.map((log) => log.message).join("\n"));
 	}
+	const extension = await Bun.build({
+		entrypoints: [PI_ACP_MCP_EXTENSION],
+		target: "node",
+		outdir,
+		naming: "pi-acp-mcp-extension.js",
+		format: "esm",
+	});
+	if (!extension.success) {
+		throw new Error(extension.logs.map((log) => log.message).join("\n"));
+	}
 	return path.join(outdir, `${name}.js`);
+}
+
+async function createDaemonSession(
+	client: AcpDaemonClient,
+	input: { sessionId: string; workspaceId: string },
+	logPath: string,
+): Promise<void> {
+	try {
+		await client.create(input);
+	} catch (error) {
+		const log = existsSync(logPath)
+			? readFileSync(logPath, "utf8").slice(-12_000)
+			: "<daemon log was not created>";
+		throw new Error(
+			`${error instanceof Error ? error.message : String(error)}\nDaemon log (${logPath}):\n${log}`,
+		);
+	}
 }
 
 describe("ACP daemon process boundary", () => {
@@ -115,6 +152,7 @@ describe("ACP daemon process boundary", () => {
 	const workspaceDir = path.join(tempRoot, "workspace");
 	const dbPath = path.join(tempRoot, "host.db");
 	const socketPath = path.join(tempRoot, "acp.sock");
+	const daemonLogPath = path.join(tempRoot, "acp-daemon.log");
 	let daemonPid: number | null = null;
 
 	afterAll(() => {
@@ -172,6 +210,7 @@ describe("ACP daemon process boundary", () => {
 				HOST_DB_PATH: dbPath,
 				HOST_MIGRATIONS_FOLDER: MIGRATIONS_FOLDER,
 				SUPERSET_HOME_DIR: tempRoot,
+				SUPERSET_ACP_DAEMON_LOG_PATH: daemonLogPath,
 				SUPERSET_ACP_ADAPTER_ENTRY: FAKE_ADAPTER,
 				NODE_OPTIONS:
 					`${process.env.NODE_OPTIONS ?? ""} --experimental-strip-types`.trim(),
@@ -179,10 +218,11 @@ describe("ACP daemon process boundary", () => {
 		} as const;
 
 		const first = new AcpDaemonClient(clientOptions);
-		await first.create({
-			sessionId: "session-1",
-			workspaceId: "workspace-1",
-		});
+		await createDaemonSession(
+			first,
+			{ sessionId: "session-1", workspaceId: "workspace-1" },
+			daemonLogPath,
+		);
 		const hello = await first.hello();
 		daemonPid = hello.pid;
 		expect(hello.protocolVersion).toBe(ACP_DAEMON_PROTOCOL_VERSION);
