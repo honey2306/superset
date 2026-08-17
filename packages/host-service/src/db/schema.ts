@@ -120,6 +120,13 @@ export const hostSettings = sqliteTable("host_settings", {
 	worktreeBaseDir: text("worktree_base_dir"),
 	branchPrefixMode: text("branch_prefix_mode").$type<BranchPrefixMode>(),
 	branchPrefixCustom: text("branch_prefix_custom"),
+	delegatedExecutionEnabled: integer("delegated_execution_enabled", {
+		mode: "boolean",
+	})
+		.notNull()
+		.default(false),
+	delegatedExecutionAgentConfigId: text("delegated_execution_agent_config_id"),
+	delegatedExecutionModelId: text("delegated_execution_model_id"),
 });
 
 /**
@@ -560,6 +567,48 @@ export const acpSessions = sqliteTable(
 		updatedAt: integer("updated_at").notNull(),
 	},
 	(table) => [index("acp_sessions_workspace_id_idx").on(table.workspaceId)],
+);
+
+/**
+ * Durable handoffs created by the `delegate` Superset tool. Unlike the ACP
+ * journal, these rows are a queryable parent/child relationship and retain the
+ * exact work brief even when either session is restored after a host restart.
+ */
+export type DelegationRunStatus =
+	| "creating"
+	| "running"
+	| "completed"
+	| "failed";
+
+export const delegationRuns = sqliteTable(
+	"delegation_runs",
+	{
+		id: text().primaryKey(),
+		parentSessionId: text("parent_session_id").notNull(),
+		parentWorkspaceId: text("parent_workspace_id").notNull(),
+		childSessionId: text("child_session_id").notNull(),
+		childWorkspaceId: text("child_workspace_id").notNull(),
+		handoff: text().notNull(),
+		actualAgent: text("actual_agent"),
+		actualModel: text("actual_model"),
+		harness: text().notNull().$type<HarnessKind>(),
+		status: text().notNull().$type<DelegationRunStatus>(),
+		failureMessage: text("failure_message"),
+		createdAt: integer("created_at").notNull(),
+		startedAt: integer("started_at"),
+		completedAt: integer("completed_at"),
+		failedAt: integer("failed_at"),
+		updatedAt: integer("updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("delegation_runs_child_session_id_unique").on(
+			table.childSessionId,
+		),
+		index("delegation_runs_parent_session_history_idx").on(
+			table.parentSessionId,
+			table.createdAt,
+		),
+	],
 );
 
 export const acpSessionJournal = sqliteTable(

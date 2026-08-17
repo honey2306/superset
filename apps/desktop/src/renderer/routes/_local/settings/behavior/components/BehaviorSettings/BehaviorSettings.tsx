@@ -15,6 +15,7 @@ import {
 	SETTING_ITEM_ID,
 	type SettingItemId,
 } from "../../../utils/settings-search";
+import { DelegatedExecutionSetting } from "./components/DelegatedExecutionSetting";
 
 interface BehaviorSettingsProps {
 	visibleItems?: SettingItemId[] | null;
@@ -32,6 +33,10 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 	);
 	const showResourceMonitor = isItemVisible(
 		SETTING_ITEM_ID.BEHAVIOR_RESOURCE_MONITOR,
+		visibleItems,
+	);
+	const showDelegatedExecution = isItemVisible(
+		SETTING_ITEM_ID.BEHAVIOR_DELEGATED_EXECUTION,
 		visibleItems,
 	);
 
@@ -156,6 +161,12 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 								<SelectItem value="new-tab">{t("behavior.newTab")}</SelectItem>
 							</SelectContent>
 						</Select>
+					</div>
+				)}
+
+				{showDelegatedExecution && (
+					<div className="pt-6 border-t">
+						<DelegatedExecutionSetting />
 					</div>
 				)}
 

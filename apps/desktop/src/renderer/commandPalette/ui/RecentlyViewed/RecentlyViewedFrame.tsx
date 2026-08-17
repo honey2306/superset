@@ -28,7 +28,7 @@ export function RecentlyViewedFrame() {
 	const workspaceData = workspaces.map((workspace) => ({
 		id: workspace.id,
 		projectName: projectNames.get(workspace.projectId) ?? workspace.projectId,
-		projectColor: "hsl(var(--primary))",
+		projectColor: "var(--primary)",
 		branch: workspace.branch || workspace.name,
 	}));
 

@@ -49,6 +49,7 @@ provide Electric/cloud-Task fallback for Host-owned domains.
 
 ## Phone
 
-Phone access terminates directly at the embedded Host over trusted LAN or
-Tailscale networking. Pairing creates a revocable Host session. There is no
-Relay transport, remote-host registry, or remote workspace execution path.
+Phone access reaches the embedded Host through the configured AutoMate relay.
+The embedded Host remains loopback-only; pairing creates a revocable Host
+session. There is no direct LAN/Tailscale transport, remote-host registry, or
+remote workspace execution path.

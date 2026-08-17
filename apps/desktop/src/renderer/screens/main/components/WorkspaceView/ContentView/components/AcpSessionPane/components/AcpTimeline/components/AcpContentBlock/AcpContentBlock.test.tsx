@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 describe("AcpContentBlock", () => {
-	test("renders an agent image from its embedded ACP payload when it also has a URI", () => {
+	test("renders an embedded message image as a compact preview", () => {
 		const block: ContentBlock = {
 			type: "image",
 			data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ",
@@ -32,5 +32,7 @@ describe("AcpContentBlock", () => {
 		expect(image?.getAttribute("src")).toBe(
 			"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ",
 		);
+		expect(image?.style.maxHeight).toBe("160px");
+		expect(image?.style.maxWidth).toBe("min(100%, 240px)");
 	});
 });

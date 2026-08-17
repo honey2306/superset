@@ -64,7 +64,7 @@ export const BashTool = ({
 					{/* Command */}
 					{command && (
 						<div className="font-mono text-xs">
-							<span className="text-amber-600 dark:text-amber-400">$ </span>
+							<span className="text-warning">$ </span>
 							<span className="whitespace-pre-wrap break-all text-foreground">
 								{command}
 							</span>
@@ -84,8 +84,8 @@ export const BashTool = ({
 							className={cn(
 								"mt-1.5 whitespace-pre-wrap break-all font-mono text-xs",
 								exitCode === 0 || exitCode === undefined
-									? "text-amber-600 dark:text-amber-400"
-									: "text-rose-500 dark:text-rose-400",
+									? "text-warning"
+									: "text-danger",
 							)}
 						>
 							{stderr}

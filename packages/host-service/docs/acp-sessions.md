@@ -107,16 +107,22 @@ application-scoped named pipe.
 ### ACP Daemon Restart
 
 If the ACP daemon itself exits, a new daemon reads all `acp_sessions` rows into
-an `offline` map. `list` and `get` expose them without spawning a process; a
-command, `getMessages`, or stream attach calls `ensureLive`, which starts the
-correct adapter and invokes `session/load` with the persisted native id and cwd.
+an `offline` map. `list`, `get`, and `getMessages` are passive durable reads:
+they never spawn an adapter. A command or stream attach calls `ensureLive`,
+which starts the correct adapter and invokes `session/load` with the persisted
+native id and cwd.
 Completed transcript content is recovered, but a turn or permission callback
 that was live when the daemon died cannot be reconstructed. Open replayed tool
 calls are terminalized.
 
-`session/load` failure leaves the registry row offline and retryable. The stream
-route emits `reset { reason: "session_load_failed" }`; tRPC calls surface the
-load error. Clients must not silently create a replacement session.
+If `session/load` reports the protocol-defined resource-not-found error, the
+manager discards the entire failed adapter process and ACP connection before
+spawning a fresh adapter and issuing `session/new`. It then rebinds the registry
+row to that fresh native id while retaining Superset's durable transcript. It
+must not issue `session/new` on the failed connection: adapters may have already
+destroyed their underlying native input stream. Other load failures leave the
+registry row offline and retryable; the stream route emits
+`reset { reason: "session_load_failed" }` and tRPC calls surface the error.
 
 ### Adapter Exit
 
@@ -234,8 +240,12 @@ supported agent preset is opened.
 The ACP daemon discovers the local Browser Use CLI once at startup and passes
 the same stdio MCP declaration to both `session/new` and `session/load`. This
 keeps the browser tool surface consistent across fresh and resumed sessions.
-Claude and Pi consume the ACP declaration directly; the bundled Codex bridge
-translates it to app-server's per-thread `config.mcp_servers` shape.
+Claude and MyFlicker consume the ACP declaration directly, and the bundled
+Codex bridge translates it to app-server's per-thread `config.mcp_servers`
+shape. The pinned Pi ACP bridge does not natively forward MCP declarations, so
+Superset materializes an owner-only per-session config and loads a bundled Pi
+extension that exposes the same stdio MCP tools directly. The temporary config
+is removed after extension startup and never mutates user or project MCP files.
 
 By default, Browser Use is enabled only when an executable `browser-use` is
 already present on `PATH`; startup never downloads it implicitly. Set
@@ -327,6 +337,25 @@ It also pins shutdown draining and rejection of unsupported protocol operations.
 a direct local WebSocket route, and a fake adapter to prove offline listing,
 `session/load` resurrection, idempotent create after restart, and explicit
 load-failure behavior without any hosted transport.
+
+### Delegation handoffs
+
+The host stores each `delegate` tool invocation in `delegation_runs`, separate
+from the ACP transcript. A row retains the self-contained handoff, parent and
+child session/workspace ids, selected runtime identity, and its
+`creating` → `running` → `completed`/`failed` lifecycle. On daemon startup,
+active rows are reconciled against the restored child session; subsequent child
+state changes finish the row after a restart. Delegation is gated by the Host
+setting, but its child always inherits the initiating ACP tab's harness and
+concrete selected model; saved global executor agent/model columns are legacy
+data and are not read at runtime. This table is defined in the Host Drizzle
+schema. Generate its migration with:
+
+```bash
+bun run --cwd packages/host-service generate
+```
+
+Do not hand-author files under `packages/host-service/drizzle/`.
 
 Still required before treating the boundary as production-hardened:
 

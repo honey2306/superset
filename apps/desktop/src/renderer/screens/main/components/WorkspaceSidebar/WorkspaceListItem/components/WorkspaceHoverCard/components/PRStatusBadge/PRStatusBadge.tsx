@@ -9,8 +9,8 @@ export function PRStatusBadge({ state }: PRStatusBadgeProps) {
 	const styles = {
 		open: "bg-success-tint text-success",
 		draft: "bg-hover text-fg-mute",
-		merged: "bg-violet-500/15 text-violet-500",
-		closed: "bg-destructive/15 text-destructive-foreground",
+		merged: "bg-accent-tint text-accent-2",
+		closed: "bg-danger-tint text-danger",
 	};
 
 	const labels = {

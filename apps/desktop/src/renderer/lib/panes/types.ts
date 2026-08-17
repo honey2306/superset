@@ -47,9 +47,14 @@ export interface PanesPaneData {
 	acp?: {
 		sessionId: string;
 		agentDefinitionId: AcpAgentDefinitionId;
+		/** First generated session title, kept stable for the tab label. */
 		title?: string;
+		/** Latest agent-provided title, shown in the pane status bar. */
+		statusTitle?: string;
 		latestUserMessage?: string;
 		status?: SessionStatus;
+		/** Seen-aware status used by tab and workspace notification indicators. */
+		notificationStatus?: PaneStatus;
 		isLaunching?: boolean;
 		creationError?: string;
 	};

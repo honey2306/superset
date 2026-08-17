@@ -2,7 +2,14 @@ import { existsSync, unlinkSync } from "node:fs";
 import net from "node:net";
 import { eq } from "drizzle-orm";
 import { createDb } from "../../db";
-import { workspaces } from "../../db/schema";
+import { projects, workspaces } from "../../db/schema";
+import { resolveDelegatedExecutionTarget } from "../../trpc/router/settings/delegated-execution";
+import {
+	assertProjectConfigIsEditable,
+	resolveScript,
+	shellSingleQuote,
+	updateProjectConfig,
+} from "../setup/config";
 import {
 	AcpCliAutoUpdater,
 	acpCliUpdateCommands,
@@ -21,6 +28,10 @@ import {
 } from "./daemon";
 import { browserUseMcpServerFromEnvironment } from "./local-mcp";
 import { SqliteAcpSessionPersistence } from "./persistence";
+import {
+	PI_ACP_MCP_EXTENSION_ENV,
+	resolvePiAcpMcpExtensionPath,
+} from "./pi-acp-mcp-config";
 import { supersetMcpServer } from "./superset-local-mcp";
 import { SupersetToolController } from "./superset-tools";
 
@@ -44,6 +55,7 @@ async function main(): Promise<void> {
 		}),
 	});
 	const socketPath = acpDaemonSocketPath(organizationId);
+	const persistence = new SqliteAcpSessionPersistence(db);
 	const manager = new AcpSessionManager({
 		resolveWorkspaceCwd: (workspaceId) => {
 			const workspace = db.query.workspaces
@@ -52,11 +64,14 @@ async function main(): Promise<void> {
 			if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`);
 			return workspace.worktreePath;
 		},
-		persistence: new SqliteAcpSessionPersistence(db),
+		persistence,
 		adapterEntry: process.env.SUPERSET_ACP_ADAPTER_ENTRY,
 		codexAdapterEntry: process.env.SUPERSET_CODEX_ACP_ADAPTER_ENTRY,
 		piAdapterEntry: process.env.SUPERSET_PI_ACP_ADAPTER_ENTRY,
 		myflickerAdapterCommand: mfcliCommand,
+		adapterEnv: {
+			[PI_ACP_MCP_EXTENSION_ENV]: resolvePiAcpMcpExtensionPath(),
+		},
 		mcpServers: [browserUseMcpServerFromEnvironment()].filter(
 			(server): server is NonNullable<typeof server> => server !== null,
 		),
@@ -72,6 +87,35 @@ async function main(): Promise<void> {
 	>();
 	const toolController = new SupersetToolController({
 		manager,
+		delegationRuns: persistence,
+		resolveDelegatedExecution: () => resolveDelegatedExecutionTarget(db),
+		setProjectRunCommand: ({ workspaceId, commands }) => {
+			const project = db
+				.select({ id: projects.id, repoPath: projects.repoPath })
+				.from(workspaces)
+				.innerJoin(projects, eq(projects.id, workspaces.projectId))
+				.where(eq(workspaces.id, workspaceId))
+				.get();
+			if (!project) {
+				throw new Error(`Workspace not found: ${workspaceId}`);
+			}
+			const existing = resolveScript("run", {
+				repoPath: project.repoPath,
+				projectId: project.id,
+			});
+			if (existing) {
+				return {
+					status: "already_configured" as const,
+					commands:
+						existing.kind === "commands"
+							? existing.commands
+							: [`bash ${shellSingleQuote(existing.scriptPath)}`],
+				};
+			}
+			assertProjectConfigIsEditable(project.repoPath);
+			updateProjectConfig(project.repoPath, { run: commands });
+			return { status: "configured" as const, commands };
+		},
 		onOpenRequested: (event) => {
 			for (const write of clientWriters) {
 				write({ type: "session-open-requested", ...event });
@@ -99,6 +143,7 @@ async function main(): Promise<void> {
 		socket.setEncoding("utf8");
 		let buffer = "";
 		const subscriptions = new Map<string, () => void>();
+		const requestControllers = new Set<AbortController>();
 		const write = (
 			message:
 				| AcpDaemonResponse
@@ -144,6 +189,8 @@ async function main(): Promise<void> {
 					socket.destroy(new Error("Invalid ACP daemon JSON"));
 					return;
 				}
+				const controller = new AbortController();
+				requestControllers.add(controller);
 				void dispatch(
 					manager,
 					toolController,
@@ -151,10 +198,13 @@ async function main(): Promise<void> {
 					subscriptions,
 					write,
 					shutdown,
-				);
+					controller.signal,
+				).finally(() => requestControllers.delete(controller));
 			}
 		});
 		const detach = () => {
+			for (const controller of requestControllers) controller.abort();
+			requestControllers.clear();
 			clientWriters.delete(write);
 			for (const unsubscribe of subscriptions.values()) unsubscribe();
 			subscriptions.clear();
@@ -191,6 +241,7 @@ async function dispatch(
 	subscriptions: Map<string, () => void>,
 	write: (message: AcpDaemonResponse | AcpDaemonEvent) => void,
 	shutdown: () => Promise<void>,
+	signal: AbortSignal,
 ): Promise<void> {
 	try {
 		let result: unknown;
@@ -298,7 +349,7 @@ async function dispatch(
 				);
 				break;
 			case "supersetTool":
-				result = await toolController.execute(request.params);
+				result = await toolController.execute(request.params, signal);
 				break;
 			case "subscribe": {
 				const input = request.params as {

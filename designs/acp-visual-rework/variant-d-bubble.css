@@ -1,0 +1,278 @@
+/* ==== Variant D — Bubble · 双向气泡 ====
+ *
+ * Agent 也是气泡（左对齐，中性 tint），User 气泡（右对齐，accent tint）。
+ * 工具作为 Agent 气泡内嵌的"小卡片链条"，视觉上属于那条 agent 回复的一部分，
+ * 不再是独立于对话之外的东西。像 iMessage / ChatGPT 网页版的节奏。
+ */
+.acp-pane[data-variant="d"] {
+	--pane-content-width: 780px;
+
+	background: var(--background);
+	color: var(--fg);
+	font-family: var(--font-sans, -apple-system, "SF Pro Text", "PingFang SC", sans-serif);
+	font-size: 13px;
+	line-height: 1.55;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+/* Toolbar — 与 A 一致 */
+.acp-pane[data-variant="d"] .acp-pane__toolbar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 14px;
+	background: var(--ds-surface-sunk);
+	border-bottom: 1px solid var(--line);
+	color: var(--fg);
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+.acp-pane[data-variant="d"] .acp-pane__chip {
+	display: inline-flex; align-items: center; gap: 6px;
+	padding: 3px 9px;
+	background: transparent;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	color: var(--fg);
+	font-size: 11px;
+	font-weight: 500;
+}
+.acp-pane[data-variant="d"] .acp-pane__chip-dot {
+	width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+}
+.acp-pane[data-variant="d"] .acp-pane__toolbar-title {
+	color: var(--fg-mute); font-size: 11.5px;
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.acp-pane[data-variant="d"] .acp-pane__toolbar-spacer { flex: 1; }
+.acp-pane[data-variant="d"] .acp-pane__header-pill {
+	padding: 2px 8px;
+	border: 1px solid var(--line-strong);
+	border-radius: 10px;
+	background: transparent;
+	color: var(--warning);
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+}
+.acp-pane[data-variant="d"] .acp-pane__toolbar-actions button {
+	background: transparent; border: 0; color: var(--fg-mute);
+	padding: 4px 6px; border-radius: 4px; cursor: pointer;
+}
+
+/* Timeline */
+.acp-pane[data-variant="d"] .acp-pane__timeline { flex: 1 1 auto; min-height: 0; display: flex; }
+.acp-pane[data-variant="d"] .acp-pane__scroll { flex: 1; overflow-y: auto; }
+.acp-pane[data-variant="d"] .acp-pane__body-inner {
+	padding: 22px 24px 28px;
+	display: flex; flex-direction: column; gap: 14px;
+	max-width: var(--pane-content-width);
+	margin: 0 auto;
+}
+
+/* Message — 双向气泡 */
+.acp-pane[data-variant="d"] .acp-msg { display: flex; flex-direction: column; gap: 4px; }
+.acp-pane[data-variant="d"] .acp-msg[data-role="user"] { align-items: flex-end; }
+.acp-pane[data-variant="d"] .acp-msg[data-role="agent"] { align-items: flex-start; }
+.acp-pane[data-variant="d"] .acp-msg__author {
+	font-size: 10.5px; font-weight: 500; color: var(--fg-mute);
+	letter-spacing: 0; text-transform: none;
+	padding: 0 4px;
+}
+.acp-pane[data-variant="d"] .acp-msg[data-role="user"] .acp-msg__author { color: var(--fg-mute); }
+.acp-pane[data-variant="d"] .acp-msg[data-role="agent"] .acp-msg__author { color: var(--accent-solid); font-weight: 600; }
+
+.acp-pane[data-variant="d"] .acp-msg[data-role="user"] .acp-msg__bubble {
+	max-width: 76%;
+	padding: 10px 14px;
+	background: var(--accent-tint);
+	border: 1px solid var(--accent-line);
+	border-radius: 14px 14px 4px 14px;
+	color: var(--fg);
+	font-size: 13.5px;
+	line-height: 1.6;
+}
+.acp-pane[data-variant="d"] .acp-msg[data-role="agent"] .acp-msg__bubble {
+	max-width: 84%;
+	padding: 12px 16px;
+	background: var(--ds-surface);
+	border: 1px solid var(--line);
+	border-radius: 14px 14px 14px 4px;
+	color: var(--fg);
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.acp-pane[data-variant="d"] .acp-md { font-size: 15px; line-height: 1.75; color: var(--fg); }
+.acp-pane[data-variant="d"] .acp-md p { margin: 8px 0; }
+.acp-pane[data-variant="d"] .acp-md p:first-child { margin-top: 0; }
+.acp-pane[data-variant="d"] .acp-md p:last-child { margin-bottom: 0; }
+.acp-pane[data-variant="d"] .acp-md h2 {
+	font-size: 15.5px; font-weight: 600; color: var(--fg);
+	margin: 14px 0 6px; line-height: 1.35;
+}
+.acp-pane[data-variant="d"] .acp-md ol,
+.acp-pane[data-variant="d"] .acp-md ul {
+	margin: 8px 0; padding-left: 22px;
+	display: flex; flex-direction: column; gap: 8px;
+}
+.acp-pane[data-variant="d"] .acp-md li::marker { color: var(--fg-faint); }
+.acp-pane[data-variant="d"] .acp-md strong { color: var(--fg); font-weight: 600; }
+.acp-pane[data-variant="d"] .acp-md code:not(pre code) {
+	background: var(--hover); color: var(--fg);
+	padding: 1px 6px; border-radius: 3px;
+	font-family: var(--font-mono); font-size: 12.5px;
+	border: 1px solid var(--line);
+}
+.acp-pane[data-variant="d"] .acp-md blockquote {
+	margin: 10px 0; padding: 2px 0 2px 12px;
+	border-left: 2px solid var(--line-strong);
+	color: var(--fg-mute);
+}
+
+/* Tool: 气泡内嵌的连锁小卡片 — 使用相邻兄弟自动收紧 */
+.acp-pane[data-variant="d"] .acp-tool + .acp-tool { margin-top: -6px; }
+
+.acp-pane[data-variant="d"] .acp-msg + .acp-tool,
+.acp-pane[data-variant="d"] .acp-tool { margin-left: 32px; }
+
+.acp-pane[data-variant="d"] .acp-tool {
+	max-width: calc(var(--pane-content-width) * 0.65);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--ds-surface);
+	overflow: hidden;
+}
+.acp-pane[data-variant="d"] .acp-tool__head {
+	display: flex; align-items: center; gap: 10px;
+	padding: 7px 12px;
+	background: transparent;
+	border: 0;
+	color: var(--fg-mute);
+	font-family: var(--font-mono);
+	font-size: 11.5px;
+	text-align: left;
+	cursor: pointer;
+	width: 100%;
+}
+.acp-pane[data-variant="d"] .acp-tool__head:hover { background: var(--hover); }
+.acp-pane[data-variant="d"] .acp-tool__caret { color: var(--fg-faint); font-size: 10px; width: 10px; }
+.acp-pane[data-variant="d"] .acp-tool__icon { display: none; }
+.acp-pane[data-variant="d"] .acp-tool__kind {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	text-transform: lowercase;
+	color: var(--fg-mute);
+	min-width: 44px;
+	padding: 0; border: 0; background: transparent;
+}
+.acp-pane[data-variant="d"] .acp-tool[data-kind="read"] .acp-tool__kind { color: var(--info); }
+.acp-pane[data-variant="d"] .acp-tool[data-kind="edit"] .acp-tool__kind { color: var(--warning); }
+.acp-pane[data-variant="d"] .acp-tool[data-kind="search"] .acp-tool__kind { color: var(--accent-solid); }
+.acp-pane[data-variant="d"] .acp-tool[data-kind="execute"] .acp-tool__kind { color: var(--success); }
+.acp-pane[data-variant="d"] .acp-tool__title {
+	color: var(--fg); flex: 1;
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	font-family: var(--font-mono);
+}
+.acp-pane[data-variant="d"] .acp-tool__meta { color: var(--fg-mute); font-size: 10.5px; }
+.acp-pane[data-variant="d"] .acp-tool__meta[data-status="in_progress"] { color: var(--warning); }
+.acp-pane[data-variant="d"] .acp-tool__body {
+	padding: 6px 12px 10px; border-top: 1px solid var(--line);
+}
+
+/* Diff */
+.acp-pane[data-variant="d"] .acp-diff {
+	border: 1px solid var(--line); border-radius: 6px;
+	background: var(--ds-surface-sunk); overflow: hidden;
+	font-family: var(--font-mono); font-size: 11.5px;
+}
+.acp-pane[data-variant="d"] .acp-diff__head {
+	padding: 4px 10px; border-bottom: 1px solid var(--line);
+	display: flex; gap: 8px; color: var(--fg-mute); font-size: 10.5px;
+}
+.acp-pane[data-variant="d"] .acp-diff__head-path { color: var(--fg); flex: 1; }
+.acp-pane[data-variant="d"] .acp-diff__head-stat .plus { color: var(--success); }
+.acp-pane[data-variant="d"] .acp-diff__head-stat .minus { color: var(--danger); }
+.acp-pane[data-variant="d"] .acp-diff__body { padding: 4px 0; }
+.acp-pane[data-variant="d"] .acp-diff__line {
+	display: grid; grid-template-columns: 32px 12px 1fr; gap: 4px;
+	padding: 0 10px; line-height: 1.55;
+}
+.acp-pane[data-variant="d"] .acp-diff__line-num { color: var(--fg-faint); text-align: right; font-size: 10.5px; }
+.acp-pane[data-variant="d"] .acp-diff__line-mark { color: var(--fg-mute); }
+.acp-pane[data-variant="d"] .acp-diff__line[data-kind="add"] { background: var(--success-tint); }
+.acp-pane[data-variant="d"] .acp-diff__line[data-kind="add"] .acp-diff__line-mark,
+.acp-pane[data-variant="d"] .acp-diff__line[data-kind="add"] .acp-diff__line-text { color: var(--success); }
+.acp-pane[data-variant="d"] .acp-diff__line[data-kind="del"] { background: var(--danger-tint); }
+.acp-pane[data-variant="d"] .acp-diff__line[data-kind="del"] .acp-diff__line-mark,
+.acp-pane[data-variant="d"] .acp-diff__line[data-kind="del"] .acp-diff__line-text { color: var(--danger); }
+.acp-pane[data-variant="d"] .acp-diff__line[data-kind="ctx"] .acp-diff__line-text { color: var(--fg-mute); }
+
+/* Composer */
+.acp-pane[data-variant="d"] .acp-pane__composer {
+	flex-shrink: 0; border-top: 1px solid var(--line);
+	padding: 12px 16px 14px; background: var(--ds-surface-sunk);
+}
+.acp-pane[data-variant="d"] .acp-pane__composer-box {
+	border: 1px solid var(--line-strong); border-radius: 14px;
+	padding: 10px 14px; background: var(--ds-surface);
+	display: flex; flex-direction: column; gap: 8px;
+}
+.acp-pane[data-variant="d"] .acp-pane__composer-box:focus-within { border-color: var(--accent-line); }
+.acp-pane[data-variant="d"] .acp-pane__composer-row { display: flex; align-items: center; gap: 8px; }
+.acp-pane[data-variant="d"] .acp-pane__composer-glyph { display: none; }
+.acp-pane[data-variant="d"] .acp-pane__composer-editor {
+	flex: 1; color: var(--fg-mute); font-family: var(--font-sans);
+	font-size: 13.5px; outline: none;
+}
+.acp-pane[data-variant="d"] .acp-pane__composer-toolbar {
+	display: flex; align-items: center; gap: 12px;
+	color: var(--fg-mute); font-family: var(--font-mono); font-size: 10.5px;
+}
+.acp-pane[data-variant="d"] .slash { color: var(--accent-solid); opacity: 0.75; }
+.acp-pane[data-variant="d"] .at { color: var(--info); opacity: 0.75; }
+.acp-pane[data-variant="d"] .acp-pane__composer-toolbar-spacer { flex: 1; }
+.acp-pane[data-variant="d"] .acp-pane__composer-send {
+	background: var(--accent-solid);
+	color: var(--background);
+	border: 0;
+	padding: 5px 12px; border-radius: 999px;
+	cursor: pointer; font-family: var(--font-sans);
+	font-size: 12px; font-weight: 500;
+	display: inline-flex; align-items: center; gap: 6px;
+}
+.acp-pane[data-variant="d"] .acp-pane__composer-send-kbd {
+	padding: 0 4px; border-radius: 3px;
+	background: color-mix(in oklch, currentColor 15%, transparent);
+	font-size: 10px;
+}
+
+/* Status bar */
+.acp-pane[data-variant="d"] .acp-status-bar {
+	flex-shrink: 0; border-top: 1px solid var(--line);
+	background: var(--ds-surface-sunk); padding: 6px 14px;
+	display: flex; align-items: center; gap: 14px;
+	color: var(--fg-mute); font-family: var(--font-mono);
+	font-size: 10.5px; height: 28px;
+}
+.acp-pane[data-variant="d"] .acp-status-bar__group {
+	display: inline-flex; align-items: center; gap: 10px;
+	padding-right: 12px; border-right: 1px solid var(--line);
+}
+.acp-pane[data-variant="d"] .acp-status-bar__group:last-child { border-right: 0; }
+.acp-pane[data-variant="d"] .acp-status-bar__mode {
+	color: var(--fg-mute); padding: 0; border: 0; background: transparent;
+}
+.acp-pane[data-variant="d"] .acp-status-bar__seg-value { color: var(--fg); }
+.acp-pane[data-variant="d"] .acp-status-bar__spacer { flex: 1; }
+.acp-pane[data-variant="d"] .acp-status-bar__conn {
+	display: inline-flex; align-items: center; gap: 5px;
+	color: var(--warning);
+}
+.acp-pane[data-variant="d"] .acp-status-bar__conn-dot {
+	width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+}

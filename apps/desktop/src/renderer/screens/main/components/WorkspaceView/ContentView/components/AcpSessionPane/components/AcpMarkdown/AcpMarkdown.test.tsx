@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const messageResponseCalls: Array<Record<string, unknown>> = [];
 
-mock.module("@superset/ui/ai-elements/message", () => ({
-	MessageResponse: (props: Record<string, unknown>) => {
+mock.module("@superset/ui/ai-elements/message-v2", () => ({
+	MessageResponseV2: (props: Record<string, unknown>) => {
 		messageResponseCalls.push(props);
 		return <div>{props.children as ReactNode}</div>;
 	},

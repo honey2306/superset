@@ -18,6 +18,7 @@ import { I18nProvider } from "./providers/I18nProvider";
 import { NotFound } from "./routes/not-found";
 import { routeTree } from "./routeTree.gen";
 
+import "@xterm/xterm/css/xterm.css";
 import "./globals.css";
 import "./styles/bundled-fonts.css";
 

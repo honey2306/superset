@@ -4,12 +4,14 @@ import type {
 	SessionUpdateFrame,
 	StopReason,
 } from "@superset/session-protocol";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { HostDb } from "../../db";
 import {
 	acpSessionCommands,
 	acpSessionJournal,
 	acpSessions,
+	type DelegationRunStatus,
+	delegationRuns,
 } from "../../db/schema";
 
 /**
@@ -28,8 +30,51 @@ export interface AcpSessionRecord {
 	cwd: string;
 	title: string | null;
 	lastStopReason: StopReason | null;
+	/** Lazily reconstructed from the durable journal; not a database column. */
+	lastCompletedAt?: number | null;
 	createdAt: number;
 	updatedAt: number;
+}
+
+/** A durable, queryable record of a parent session's delegated handoff. */
+export interface DelegationRunRecord {
+	id: string;
+	parentSessionId: string;
+	parentWorkspaceId: string;
+	childSessionId: string;
+	childWorkspaceId: string;
+	handoff: string;
+	actualAgent: string | null;
+	actualModel: string | null;
+	harness: HarnessKind;
+	status: DelegationRunStatus;
+	failureMessage: string | null;
+	createdAt: number;
+	startedAt: number | null;
+	completedAt: number | null;
+	failedAt: number | null;
+	updatedAt: number;
+}
+
+export interface DelegationRunPersistence {
+	createDelegationRun(record: DelegationRunRecord): void;
+	updateDelegationRun(
+		id: string,
+		update: {
+			status: DelegationRunStatus;
+			updatedAt: number;
+			startedAt?: number | null;
+			completedAt?: number | null;
+			failedAt?: number | null;
+			failureMessage?: string | null;
+		},
+	): void;
+	getDelegationRun(id: string): DelegationRunRecord | null;
+	listDelegationRunsByParent(
+		parentSessionId: string,
+		limit: number,
+	): DelegationRunRecord[];
+	listActiveDelegationRuns(): DelegationRunRecord[];
 }
 
 /**
@@ -49,7 +94,9 @@ export interface AcpSessionPersistence {
 	deleteSession(sessionId: string): void;
 }
 
-export class SqliteAcpSessionPersistence implements AcpSessionPersistence {
+export class SqliteAcpSessionPersistence
+	implements AcpSessionPersistence, DelegationRunPersistence
+{
 	constructor(private readonly db: HostDb) {}
 
 	loadAll(): AcpSessionRecord[] {
@@ -163,5 +210,59 @@ export class SqliteAcpSessionPersistence implements AcpSessionPersistence {
 				.run();
 			tx.delete(acpSessions).where(eq(acpSessions.sessionId, sessionId)).run();
 		});
+	}
+
+	createDelegationRun(record: DelegationRunRecord): void {
+		this.db.insert(delegationRuns).values(record).run();
+	}
+
+	updateDelegationRun(
+		id: string,
+		update: {
+			status: DelegationRunStatus;
+			updatedAt: number;
+			startedAt?: number | null;
+			completedAt?: number | null;
+			failedAt?: number | null;
+			failureMessage?: string | null;
+		},
+	): void {
+		this.db
+			.update(delegationRuns)
+			.set(update)
+			.where(eq(delegationRuns.id, id))
+			.run();
+	}
+
+	getDelegationRun(id: string): DelegationRunRecord | null {
+		return (
+			this.db
+				.select()
+				.from(delegationRuns)
+				.where(eq(delegationRuns.id, id))
+				.get() ?? null
+		);
+	}
+
+	listDelegationRunsByParent(
+		parentSessionId: string,
+		limit: number,
+	): DelegationRunRecord[] {
+		return this.db
+			.select()
+			.from(delegationRuns)
+			.where(eq(delegationRuns.parentSessionId, parentSessionId))
+			.orderBy(desc(delegationRuns.createdAt))
+			.limit(limit)
+			.all();
+	}
+
+	listActiveDelegationRuns(): DelegationRunRecord[] {
+		return this.db
+			.select()
+			.from(delegationRuns)
+			.where(inArray(delegationRuns.status, ["creating", "running"]))
+			.orderBy(asc(delegationRuns.createdAt))
+			.all();
 	}
 }

@@ -31,6 +31,7 @@ import { DiscardConfirmDialog } from "../DiscardConfirmDialog";
 import { FileHistoryDialog } from "../FileHistoryDialog";
 import type { RowHoverAction } from "../RowHoverActions";
 import { RowHoverActions } from "../RowHoverActions";
+import { TreeLevelGuides } from "../TreeLevelGuides";
 
 interface FileItemProps {
 	file: ChangedFile;
@@ -49,19 +50,6 @@ interface FileItemProps {
 	isExpandedView?: boolean;
 	projectId?: string;
 	defaultApp?: ExternalApp | null;
-}
-
-function LevelIndicators({ level }: { level: number }) {
-	if (level === 0) return null;
-
-	return (
-		<div className="flex self-stretch shrink-0">
-			{Array.from({ length: level }).map((_, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: static visual dividers that never reorder
-				<div key={i} className="w-3 self-stretch border-r border-line" />
-			))}
-		</div>
-	);
 }
 
 function getFileName(path: string): string {
@@ -229,12 +217,12 @@ export function FileItem({
 		<div
 			{...fileDragProps}
 			className={cn(
-				"group w-full flex items-stretch gap-1 px-1.5 text-left rounded-sm",
+				"group relative w-full flex items-stretch gap-1 px-1.5 text-left rounded-sm",
 				"hover:bg-hover cursor-pointer transition-colors",
 				isHighlighted && "bg-accent-tint",
 			)}
 		>
-			{hasIndent && <LevelIndicators level={level} />}
+			{hasIndent && <TreeLevelGuides level={level} />}
 			<button
 				type="button"
 				onClick={handleClick}

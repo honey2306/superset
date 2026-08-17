@@ -11,16 +11,25 @@
  * Theme CSS Variables — this file is the runtime mirror of the design
  * system at designs/superset-design-system/. Every value below is derived
  * from that DS's tokens (colors / spacing / radius / shadow / typography /
- * motion). The theme store overrides the shadcn slots via applyUIColors
- * after boot; keep pre-hydration values here in sync with the built-in
- * themes so the app never flashes.
+ * motion). The theme store overrides both the shadcn slots and the DS
+ * extended palette via applyUIColors after boot; the literal values here
+ * are Dracula-frozen pre-hydration fallbacks so the app never flashes
+ * before the theme store hydrates.
  *
- * Design contract (Dracula-derived, applies to every theme):
- *   - Pink is a tint / dot / ring / focus / current-item bg — never a full
- *     fill except for the `.highlight` bar and pill primary button labels.
+ * DS extended tokens (`--accent-solid`, `--accent-2`, `--accent-tint`,
+ * `--fg`, `--line`, `--success/-warning/-danger/-info` etc.) are derived
+ * at runtime from the active `Theme.ui` + `Theme.terminal` in
+ * stores/theme/utils/css-variables.ts — do NOT rely on the pre-hydration
+ * values for any non-Dracula theme; they exist only for boot.
+ *
+ * Design contract (applies to every theme, values below are Dracula's):
+ *   - The theme's brand color is a tint / dot / ring / focus / current-item
+ *     bg — never a full fill except for the `.highlight` bar and pill
+ *     primary button labels.
  *   - Numbers, code, branches, kbd, timestamps render in `--font-mono`.
- *   - `--accent` = pink-tint 14% (not the full pink); `--sidebar-primary` /
- *     `--highlight` = full pink for the exceptions above.
+ *   - `--accent` = brand-tint 14% (not the full brand color);
+ *     `--sidebar-primary` / `--highlight` = full brand for the exceptions
+ *     above.
  */
 :root {
 	/* ============================================================
@@ -83,6 +92,7 @@
 	);
 	--ds-surface-sunk: #21222c;
 	--ds-overlay-scrim: rgba(0, 0, 0, 0.42);
+	--overlay-scrim: var(--ds-overlay-scrim);
 
 	--fg: #f8f8f2;
 	--fg-mute: color-mix(in oklch, #f8f8f2 55%, transparent);
@@ -255,6 +265,7 @@
 	--ds-surface-elev: #ffffff;
 	--ds-surface-sunk: oklch(0.97 0 0);
 	--ds-overlay-scrim: rgba(0, 0, 0, 0.32);
+	--overlay-scrim: var(--ds-overlay-scrim);
 
 	--fg: oklch(0.145 0 0);
 	--fg-mute: color-mix(in oklch, oklch(0.145 0 0) 62%, transparent);
@@ -265,6 +276,25 @@
 	--line-strong: color-mix(in oklch, oklch(0.145 0 0) 18%, transparent);
 	--hover: color-mix(in oklch, oklch(0.145 0 0) 5%, transparent);
 	--selected: color-mix(in oklch, oklch(0.145 0 0) 8%, transparent);
+
+	/* DS extended palette — light-canvas remap for accent + status tokens.
+	 * Keeps semantic utilities (text-success, bg-danger-tint, text-accent-2,
+	 * ...) resolving to legible on-light values instead of the Dracula
+	 * dark-canvas defaults from :root. */
+	--accent-solid: #ff79c6;
+	--accent-2: #7c3aed;
+	--accent-tint: color-mix(in oklch, #ff79c6 12%, transparent);
+	--accent-line: color-mix(in oklch, #ff79c6 45%, transparent);
+	--accent-glow: color-mix(in oklch, #ff79c6 45%, transparent);
+
+	--success: #16a34a;
+	--warning: #d97706;
+	--danger: #dc2626;
+	--info: #0891b2;
+	--success-tint: color-mix(in oklch, #16a34a 12%, transparent);
+	--warning-tint: color-mix(in oklch, #d97706 12%, transparent);
+	--danger-tint: color-mix(in oklch, #dc2626 12%, transparent);
+	--info-tint: color-mix(in oklch, #0891b2 12%, transparent);
 
 	--ring-halo: color-mix(in oklch, #ff79c6 22%, transparent);
 }
@@ -453,11 +483,11 @@
 	}
 
 	.xterm .xterm-rows a.xterm-underline-5 {
-		text-decoration-color: #3b8eea;
+		text-decoration-color: var(--info);
 	}
 
 	.xterm .xterm-rows a:hover.xterm-underline-5 {
-		text-decoration-color: #5ca8ff;
+		text-decoration-color: color-mix(in oklch, var(--info) 80%, var(--fg));
 	}
 
 	/* Hide scrollbar for workspace carousel and tabs */

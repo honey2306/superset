@@ -13,7 +13,6 @@ import { LOCAL_HOST_SCOPE_ID } from "shared/constants";
 import { env as sharedEnv } from "shared/env.shared";
 import superjson from "superjson";
 import { SUPERSET_HOME_DIR } from "./app-environment";
-import { isInternalBuild } from "./build-channel";
 import { acquireSpawnLock } from "./host-service-lock";
 import {
 	isProcessAlive,
@@ -744,13 +743,13 @@ export class HostServiceCoordinator extends EventEmitter {
 			HOST_CLIENT_ID: getHostId(),
 			HOST_NAME: getHostName(),
 			HOST_SERVICE_SECRET: secret,
-			AUTOMATE_RELAY_URL: isInternalBuild()
-				? (process.env.AUTOMATE_RELAY_URL ?? "")
-				: "",
+			// Embedded at build time by electron.vite.config.ts so a packaged app
+			// does not depend on Finder inheriting the repository's .env file.
+			AUTOMATE_RELAY_URL: process.env.AUTOMATE_RELAY_URL ?? "",
 			HOST_SERVICE_PORT: String(port),
-			// Internal builds expose the authenticated phone surface on the LAN.
-			// Stable builds retain the loopback-only boundary.
-			HOST_SERVICE_HOSTNAME: isInternalBuild() ? "0.0.0.0" : "127.0.0.1",
+			// Phone access is served through the AutoMate relay; never expose the
+			// authenticated embedded host directly on the LAN.
+			HOST_SERVICE_HOSTNAME: "127.0.0.1",
 			SUPERSET_WEB_APP_DIR: app.isPackaged
 				? path.join(process.resourcesPath, "resources/web")
 				: path.join(app.getAppPath(), "dist/resources/web"),

@@ -11,8 +11,13 @@ import {
 	DropdownMenuTrigger,
 } from "@superset/ui/dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
-import { GitBranch } from "lucide-react";
+import { Brain, ChevronDown, GitBranch } from "lucide-react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import {
+	cleanModelLabel,
+	cleanThinkingLabel,
+	normalizeAcpIdentity,
+} from "./acpIdentity";
 import { CtxDonut } from "./CtxDonut";
 
 interface AcpStatusBarProps {
@@ -29,71 +34,21 @@ interface AcpStatusBarProps {
 	onSetConfigOption?(optionId: string, value: string | boolean): Promise<void>;
 }
 
-function findModelOption(
-	options: readonly SessionConfigOption[],
-): Extract<SessionConfigOption, { type: "select" }> | null {
-	for (const opt of options) {
-		if (opt.type !== "select") continue;
-		if (opt.category === "model") return opt;
-	}
-	for (const opt of options) {
-		if (opt.type !== "select") continue;
-		const name = opt.name?.toLowerCase() ?? "";
-		const id = opt.id?.toLowerCase() ?? "";
-		if (name === "model" || id === "model" || id.endsWith(".model")) return opt;
-	}
-	return null;
-}
+type GitStatusSummarySource = {
+	currentBranch?: { name?: string | null } | null;
+	staged?: readonly unknown[];
+	unstaged?: readonly unknown[];
+};
 
-function findThinkingEffortOption(
-	options: readonly SessionConfigOption[],
-): Extract<SessionConfigOption, { type: "select" }> | null {
-	return (
-		options.find(
-			(option): option is Extract<SessionConfigOption, { type: "select" }> =>
-				option.type === "select" &&
-				/(?:thinking|reasoning|effort)/.test(
-					`${option.id} ${option.name ?? ""}`.toLowerCase(),
-				),
-		) ?? null
-	);
+export function getAcpGitStatusSummary(
+	gitStatus: GitStatusSummarySource | null | undefined,
+) {
+	return {
+		branch: gitStatus?.currentBranch?.name ?? null,
+		dirtyCount:
+			(gitStatus?.staged?.length ?? 0) + (gitStatus?.unstaged?.length ?? 0),
+	};
 }
-
-function cleanModelLabel(raw: string): string {
-	return raw.replace(/\s*\([^)]*\)\s*$/, "").trim();
-}
-
-function selectLabel(
-	opt: Extract<SessionConfigOption, { type: "select" }>,
-): string | null {
-	const flat = opt.options.flatMap((entry) =>
-		"options" in entry ? entry.options : [entry],
-	);
-	const match = flat.find((o) => o.value === opt.currentValue);
-	if (match) return cleanModelLabel(match.name);
-	if (opt.currentValue == null || opt.currentValue === "") return null;
-	return cleanModelLabel(String(opt.currentValue));
-}
-
-function formatTokens(n: number): string {
-	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`;
-	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-	return String(n);
-}
-
-/** Map session status → mode data-mode attribute (for pill color) */
-function resolveMode(
-	modeId: string | undefined,
-): "manual" | "default" | "accept-edits" | "plan" {
-	if (!modeId) return "default";
-	const id = modeId.toLowerCase();
-	if (id === "manual") return "manual";
-	if (id.includes("accept") || id.includes("edit")) return "accept-edits";
-	if (id === "plan") return "plan";
-	return "default";
-}
-
-const COST_DISPLAY_THRESHOLD = 0.005;
 
 export function AcpStatusBar({
 	state,
@@ -109,24 +64,18 @@ export function AcpStatusBar({
 	// fallback before the stream reports its first mode/config update.
 	const resolvedMode = currentMode ?? state.currentMode;
 	const resolvedConfigOptions = configOptions ?? state.configOptions;
-	const modeId = resolvedMode?.currentModeId;
-	const modeLabel =
-		resolvedMode?.availableModes.find((m) => m.id === modeId)?.name ?? modeId;
+	const identity = normalizeAcpIdentity(resolvedMode, resolvedConfigOptions);
+	const modelOption = identity.model?.control ?? null;
+	const modelLabel = identity.model?.label ?? null;
+	const thinkingEffortLabel = identity.thinking?.label ?? null;
+	const thinkingEffortOption =
+		identity.thinking?.source === "config" ? identity.thinking.control : null;
+	const thinkingMode =
+		identity.thinking?.source === "mode" ? identity.thinking.control : null;
 
-	const modelOption = findModelOption(resolvedConfigOptions);
-	const modelLabel = modelOption ? selectLabel(modelOption) : null;
-	const thinkingEffortOption = findThinkingEffortOption(resolvedConfigOptions);
-	const thinkingEffortLabel = thinkingEffortOption
-		? selectLabel(thinkingEffortOption)
-		: null;
-
-	const used = usage?.used ?? null;
+	const used = usage?.used ?? 0;
 	const size = usage?.size ?? null;
-	const cost = usage?.cost;
-	const showCost =
-		cost?.amount != null && cost.amount >= COST_DISPLAY_THRESHOLD;
-	const ratio =
-		used != null && size != null && size > 0 ? Math.min(1, used / size) : null;
+	const ratio = size != null && size > 0 ? Math.min(1, used / size) : 0;
 
 	const git = useQuery({
 		queryKey: ["acp-git-status", hostUrl, state.workspaceId],
@@ -139,73 +88,20 @@ export function AcpStatusBar({
 		staleTime: 5_000,
 		refetchOnWindowFocus: true,
 	});
-	const branch = git.data?.currentBranch.name ?? null;
-	const dirtyCount = git.data
-		? git.data.staged.length + git.data.unstaged.length
-		: 0;
+	const { branch, dirtyCount } = getAcpGitStatusSummary(git.data);
 
 	const shortBranch =
 		branch && branch.length > 28
 			? `…${branch.split("/").slice(-1).join("/")}`
 			: branch;
 
-	const modeVariant = resolveMode(modeId);
-
-	const hasIdentity =
-		modeLabel != null || modelLabel != null || thinkingEffortLabel != null;
+	const hasIdentity = modelLabel != null || thinkingEffortLabel != null;
 
 	return (
 		<output className="acp-status-bar" aria-label="Agent session details">
-			{/* Group 1: mode pill + model */}
+			{/* Group 1: model + thinking */}
 			{hasIdentity && (
 				<span className="acp-status-bar__group acp-status-bar__group--identity">
-					{modeLabel &&
-						(resolvedMode &&
-						resolvedMode.availableModes.length > 0 &&
-						onSetMode ? (
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<button
-										type="button"
-										disabled={isSubmitting}
-										className="acp-status-bar__mode"
-										data-mode={modeVariant}
-										aria-label={`Change mode, current ${modeLabel}`}
-									>
-										<span className="acp-status-bar__mode-glyph" aria-hidden>
-											◐
-										</span>
-										<span className="acp-status-bar__mode-label">
-											{modeLabel}
-										</span>
-									</button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="start">
-									{resolvedMode.availableModes.map((mode) => (
-										<DropdownMenuItem
-											key={mode.id}
-											disabled={isSubmitting || mode.id === modeId}
-											onSelect={() => {
-												void onSetMode(mode.id);
-											}}
-										>
-											{mode.name}
-										</DropdownMenuItem>
-									))}
-								</DropdownMenuContent>
-							</DropdownMenu>
-						) : (
-							<span
-								className="acp-status-bar__mode"
-								data-mode={modeVariant}
-								title={`Mode: ${modeLabel}`}
-							>
-								<span className="acp-status-bar__mode-glyph" aria-hidden>
-									◐
-								</span>
-								<span className="acp-status-bar__mode-label">{modeLabel}</span>
-							</span>
-						))}
 					{modelLabel &&
 						(modelOption && onSetConfigOption ? (
 							<DropdownMenu>
@@ -216,9 +112,16 @@ export function AcpStatusBar({
 										className="acp-status-bar__seg acp-status-bar__seg--model"
 										aria-label={`Change model, current ${modelLabel}`}
 									>
+										<span className="acp-status-bar__seg-glyph" aria-hidden>
+											◆
+										</span>
 										<span className="acp-status-bar__seg-value">
 											{modelLabel}
 										</span>
+										<ChevronDown
+											className="acp-status-bar__seg-chev"
+											aria-hidden
+										/>
 									</button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="start">
@@ -237,7 +140,7 @@ export function AcpStatusBar({
 													void onSetConfigOption(modelOption.id, option.value);
 												}}
 											>
-												{option.name}
+												{cleanModelLabel(option.name)}
 											</DropdownMenuItem>
 										))}
 								</DropdownMenuContent>
@@ -247,6 +150,9 @@ export function AcpStatusBar({
 								className="acp-status-bar__seg acp-status-bar__seg--model"
 								title={`Model: ${modelLabel}`}
 							>
+								<span className="acp-status-bar__seg-glyph" aria-hidden>
+									◆
+								</span>
 								<span className="acp-status-bar__seg-value">{modelLabel}</span>
 							</span>
 						))}
@@ -260,10 +166,14 @@ export function AcpStatusBar({
 										className="acp-status-bar__seg acp-status-bar__seg--thinking"
 										aria-label={`Change thinking effort, current ${thinkingEffortLabel}`}
 									>
-										<span className="acp-status-bar__seg-label">Thinking</span>
+										<Brain className="acp-status-bar__seg-icon" aria-hidden />
 										<span className="acp-status-bar__seg-value">
 											{thinkingEffortLabel}
 										</span>
+										<ChevronDown
+											className="acp-status-bar__seg-chev"
+											aria-hidden
+										/>
 									</button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="start">
@@ -285,9 +195,44 @@ export function AcpStatusBar({
 													)
 												}
 											>
-												{option.name}
+												{cleanThinkingLabel(option.name)}
 											</DropdownMenuItem>
 										))}
+								</DropdownMenuContent>
+							</DropdownMenu>
+						) : thinkingMode && onSetMode ? (
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<button
+										type="button"
+										disabled={isSubmitting}
+										className="acp-status-bar__seg acp-status-bar__seg--thinking"
+										aria-label={`Change thinking effort, current ${thinkingEffortLabel}`}
+									>
+										<Brain className="acp-status-bar__seg-icon" aria-hidden />
+										<span className="acp-status-bar__seg-value">
+											{thinkingEffortLabel}
+										</span>
+										<ChevronDown
+											className="acp-status-bar__seg-chev"
+											aria-hidden
+										/>
+									</button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="start">
+									{thinkingMode.availableModes.map((mode) => (
+										<DropdownMenuItem
+											key={mode.id}
+											disabled={
+												isSubmitting || mode.id === thinkingMode.currentModeId
+											}
+											onSelect={() => {
+												void onSetMode(mode.id);
+											}}
+										>
+											{cleanThinkingLabel(mode.name)}
+										</DropdownMenuItem>
+									))}
 								</DropdownMenuContent>
 							</DropdownMenu>
 						) : (
@@ -295,7 +240,7 @@ export function AcpStatusBar({
 								className="acp-status-bar__seg acp-status-bar__seg--thinking"
 								title={`Thinking: ${thinkingEffortLabel}`}
 							>
-								<span className="acp-status-bar__seg-label">Thinking</span>
+								<Brain className="acp-status-bar__seg-icon" aria-hidden />
 								<span className="acp-status-bar__seg-value">
 									{thinkingEffortLabel}
 								</span>
@@ -304,41 +249,27 @@ export function AcpStatusBar({
 				</span>
 			)}
 
-			{/* Group 2: context donut */}
-			{used != null && (
-				<span className="acp-status-bar__group acp-status-bar__group--usage">
-					<span
-						className="acp-status-bar__seg acp-status-bar__seg--ctx"
-						data-level={
-							ratio != null
-								? ratio >= 0.9
-									? "crit"
-									: ratio >= 0.8
-										? "high"
-										: ratio >= 0.5
-											? "mid"
-											: "low"
-								: "low"
-						}
-						title={`Context: ${used.toLocaleString()} / ${size?.toLocaleString() ?? "?"} tokens`}
-					>
-						{ratio != null && <CtxDonut pct={ratio * 100} />}
-						<span className="acp-status-bar__pct">
-							{ratio != null
-								? `${(ratio * 100).toFixed(0)}%`
-								: formatTokens(used)}
-						</span>
+			{/* Group 2: context donut — 始终显示，初始为 0% */}
+			<span className="acp-status-bar__group acp-status-bar__group--usage">
+				<span
+					className="acp-status-bar__seg acp-status-bar__seg--ctx"
+					data-level={
+						ratio >= 0.9
+							? "crit"
+							: ratio >= 0.8
+								? "high"
+								: ratio >= 0.5
+									? "mid"
+									: "low"
+					}
+					title={`Context: ${used.toLocaleString()} / ${size?.toLocaleString() ?? "?"} tokens`}
+				>
+					<CtxDonut pct={ratio * 100} />
+					<span className="acp-status-bar__pct">
+						{`${(ratio * 100).toFixed(0)}%`}
 					</span>
-					{showCost && (
-						<span
-							className="acp-status-bar__seg acp-status-bar__seg--cost"
-							title={`Session cost · ${cost.currency ?? "USD"}`}
-						>
-							${cost.amount.toFixed(2)}
-						</span>
-					)}
 				</span>
-			)}
+			</span>
 
 			<span className="acp-status-bar__spacer" />
 

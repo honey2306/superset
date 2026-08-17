@@ -7,7 +7,13 @@
 export function patchPiAcpBundle(source: string): string {
 	const withRpcFlags = source.replace(
 		'const args = ["--mode", "rpc", "--no-themes"];',
-		'const args = ["--mode", "rpc", "--no-themes", ...(process.env.SUPERSET_PI_ACP_DISABLE_EXTENSIONS === "1" ? ["--no-extensions"] : [])];',
+		`const args = [
+  "--mode",
+  "rpc",
+  "--no-themes",
+  ...(process.env.SUPERSET_PI_ACP_DISABLE_EXTENSIONS === "1" ? ["--no-extensions"] : []),
+  ...(process.env.SUPERSET_PI_ACP_MCP_EXTENSION ? ["--extension", process.env.SUPERSET_PI_ACP_MCP_EXTENSION] : []),
+];`,
 	);
 	if (withRpcFlags === source) {
 		throw new Error("Unsupported pi-acp bundle: RPC launch flags changed");

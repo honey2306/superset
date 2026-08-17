@@ -27,10 +27,16 @@ export function TerminalRoute() {
 
 	useEffect(() => {
 		if (!workspaceId || !terminalId || !containerRef.current) return;
+		const rootStyle =
+			typeof window !== "undefined"
+				? getComputedStyle(document.documentElement)
+				: null;
+		const bg = rootStyle?.getPropertyValue("--phone-bg").trim() || "#0b0c10";
+		const fg = rootStyle?.getPropertyValue("--phone-text").trim() || "#f8f8f2";
 		const terminal = new Terminal({
 			cursorBlink: true,
 			fontSize: 13,
-			theme: { background: "#0b0c10", foreground: "#f8f8f2" },
+			theme: { background: bg, foreground: fg },
 		});
 		terminal.open(containerRef.current);
 		const socket = getPhoneTransport().createWebSocket(

@@ -84,10 +84,9 @@ function openUrlInWorkspace(
  * v1-shell workspace route accepts (see `validateSearch` in `page.tsx`).
  * Each param drives a panes-engine side effect:
  *
- * - `terminalId` (+ optional `focusRequestId`): focus or add the terminal
- *   pane for an already-running session (automation-run links, notification
- *   focus requests). Ownership is verified against the fused host-service
- *   backend before focusing, so a cross-workspace link is rejected.
+ * - `terminalId` or `acpSessionId` (+ optional `focusRequestId`): focus or add
+ *   the pane for an existing session. Ownership is verified against the fused
+ *   host-service backend before focusing, so a cross-workspace link is rejected.
  * - `openUrl` (+ optional `openUrlTarget` / `openUrlRequestId`): open the
  *   URL as a webview pane in the current or a new tab.
  *
@@ -139,13 +138,14 @@ export function usePanesDeepLinkConsumer({
 	}, [store, terminalId, focusRequestId, hostUrl, hostWorkspaceId]);
 
 	useEffect(() => {
-		if (!acpSessionId || !hostUrl || consumedAcpRef.current.has(acpSessionId))
-			return;
+		if (!acpSessionId || !hostUrl) return;
+		const key = acpSessionConsumeKey(acpSessionId, focusRequestId);
+		if (consumedAcpRef.current.has(key)) return;
 		void createDesktopAcpSessionClient(hostUrl)
 			.api.get({ sessionId: acpSessionId })
 			.then((session) => {
 				if (session.workspaceId !== hostWorkspaceId) return;
-				consumedAcpRef.current.add(acpSessionId);
+				consumedAcpRef.current.add(key);
 				const agentDefinitionId = ACP_AGENT_BY_HARNESS[session.harness];
 				openAcpSessionInPanesStore(store, {
 					sessionId: acpSessionId,
@@ -157,7 +157,7 @@ export function usePanesDeepLinkConsumer({
 			.catch((error) =>
 				console.warn("[deep-link] ACP session open failed", error),
 			);
-	}, [acpSessionId, hostUrl, hostWorkspaceId, store]);
+	}, [acpSessionId, focusRequestId, hostUrl, hostWorkspaceId, store]);
 
 	useEffect(() => {
 		if (!openUrl) return;
@@ -167,6 +167,15 @@ export function usePanesDeepLinkConsumer({
 		consumedUrlRef.current.add(key);
 		openUrlInWorkspace(store, target, openUrl);
 	}, [store, openUrl, openUrlTarget, openUrlRequestId]);
+}
+
+function acpSessionConsumeKey(
+	sessionId: string,
+	focusRequestId: string | undefined,
+): string {
+	return focusRequestId
+		? `acp:${sessionId}:focus:${focusRequestId}`
+		: `acp:${sessionId}`;
 }
 
 function terminalFocusConsumeKey(

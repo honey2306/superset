@@ -47,7 +47,7 @@ function ContextMenuItems<TData>({
 								{action.icon}
 								{action.label}
 							</ContextMenuSubTrigger>
-							<ContextMenuSubContent>
+							<ContextMenuSubContent className="z-[100]">
 								<ContextMenuItems actions={childActions} context={context} />
 							</ContextMenuSubContent>
 						</ContextMenuSub>
@@ -90,7 +90,7 @@ export function PaneContextMenu<TData>({
 	return (
 		<ContextMenu>
 			<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-			<ContextMenuContent>
+			<ContextMenuContent className="z-[100]">
 				<ContextMenuItems actions={actions} context={context} />
 			</ContextMenuContent>
 		</ContextMenu>

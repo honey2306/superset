@@ -223,10 +223,10 @@ export function UpdatesPill({ isCollapsed = false }: UpdatesPillProps) {
 						(isDownloading || isInstalling || isUpdated) &&
 							"bg-foreground/[0.045] ring-foreground/[0.06]",
 						(isDownloading || isUpdated) && "text-fg-mute",
-						isInstalling && "text-warning dark:text-warning",
+						isInstalling && "text-warning",
 						isReady &&
 							!isInstalling &&
-							"bg-success-tint ring-emerald-500/25 text-success hover:bg-success-tint dark:text-success",
+							"bg-success-tint ring-success/25 text-success hover:bg-success-tint",
 						isError &&
 							"bg-destructive/10 ring-destructive/25 text-destructive hover:bg-destructive/20",
 					)}

@@ -1,8 +1,12 @@
 import { getTerminalColors, type Theme } from "shared/themes";
 
+/**
+ * Renders each theme's own palette (not the active theme's), so the swatch
+ * must read from `theme.terminal` rather than the app CSS variables — it's
+ * showing a preview of what picking that theme would look like.
+ */
 export function ThemeSwatch({ theme }: { theme: Theme }) {
 	const terminal = getTerminalColors(theme);
-	const isDark = theme.type === "dark";
 	return (
 		<div
 			className="flex h-5 w-7 shrink-0 items-center justify-center gap-1 rounded-sm font-semibold"
@@ -17,7 +21,7 @@ export function ThemeSwatch({ theme }: { theme: Theme }) {
 			/>
 			<span
 				className="text-[9px] leading-none"
-				style={{ color: isDark ? "#fff" : "#000", opacity: 0.9 }}
+				style={{ color: terminal.foreground, opacity: 0.9 }}
 			>
 				Aa
 			</span>

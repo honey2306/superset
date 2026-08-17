@@ -60,7 +60,7 @@ export function AgentSelect<T extends string>({
 		value != null &&
 		((allowNone && value === noneValue) || selectableIds.has(value))
 			? value
-			: undefined;
+			: "";
 	const showSeparator = (allowNone || agents.length > 0) && !disabled;
 
 	const handleValueChange = (nextValue: string) => {

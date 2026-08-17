@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { makeCustomResponseOutcome } from "@superset/session-protocol";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
 	AcpPermissionCard,
 	approvalDetail,
+	approvalPlan,
 	buildPermissionOutcome,
 	isAskUserPermission,
 	mergePermissionToolCall,
@@ -51,6 +53,21 @@ describe("approvalDetail", () => {
 				rawInput: { command: "bash", args: ["-lc", "bun run test"] },
 			}),
 		).toBe("bash -lc bun run test");
+	});
+
+	test("extracts ExitPlanMode markdown without exposing internal metadata", () => {
+		expect(
+			approvalPlan({
+				toolCallId: "exit-plan-1",
+				title: "ExitPlanMode",
+				kind: "other",
+				rawInput: {
+					plan: "## Implementation\n\n- Add the feature",
+					planFilePath: "/Users/test/.claude/plans/example.md",
+				},
+				_meta: { claudeCode: { toolName: "ExitPlanMode" } },
+			}),
+		).toBe("## Implementation\n\n- Add the feature");
 	});
 
 	test("shows structured input for non-execute approvals", () => {
@@ -131,6 +148,42 @@ describe("buildPermissionOutcome", () => {
 });
 
 describe("AcpPermissionCard", () => {
+	test("renders an ExitPlanMode plan as markdown instead of escaped JSON", () => {
+		const markup = renderToStaticMarkup(
+			createElement(AcpPermissionCard, {
+				permission: {
+					requestId: "exit-plan-1",
+					options: [
+						{
+							optionId: "approve",
+							name: "Yes, and bypass permissions",
+							kind: "allow_once",
+						},
+					],
+					requestedAt: 0,
+					resolution: null,
+				},
+				sourceToolCall: {
+					toolCallId: "exit-plan-1",
+					title: "ExitPlanMode",
+					kind: "other",
+					rawInput: {
+						plan: "## Implementation\n\n- Add the feature",
+						planFilePath: "/Users/test/.claude/plans/example.md",
+					},
+					_meta: { claudeCode: { toolName: "ExitPlanMode" } },
+				},
+				onRespond: async () => undefined,
+			}),
+		);
+
+		expect(markup).toContain('class="acp-perm__plan"');
+		expect(markup).toContain(">Plan<");
+		expect(markup).toContain("Implementation");
+		expect(markup).not.toContain("planFilePath");
+		expect(markup).not.toContain("\\n");
+	});
+
 	test("renders resolved multi-select AskUser history as all answered choices", () => {
 		const markup = renderToStaticMarkup(
 			createElement(AcpPermissionCard, {
@@ -157,6 +210,23 @@ describe("AcpPermissionCard", () => {
 		expect(markup).toContain('data-variant="askuser"');
 		expect(markup).toContain('aria-hidden="true">✓</span>');
 		expect(markup).not.toContain("Permission ·");
+	});
+
+	test("renders a resolved custom AskUser answer as its text", () => {
+		const markup = renderToStaticMarkup(
+			createElement(AcpPermissionCard, {
+				permission: {
+					requestId: "ask-custom-resolved",
+					options: [{ optionId: "skip", name: "Skip", kind: "reject_once" }],
+					requestedAt: 0,
+					resolution: makeCustomResponseOutcome("A custom answer"),
+				},
+				variant: "askuser",
+				onRespond: async () => undefined,
+			}),
+		);
+
+		expect(markup).toContain("Answered: A custom answer");
 	});
 
 	test("keeps ordinary resolved approvals labelled as permissions", () => {
@@ -201,6 +271,31 @@ describe("AcpPermissionCard", () => {
 		);
 		expect(questionIndex).toBeGreaterThan(-1);
 		expect(choiceIndex).toBeGreaterThan(questionIndex);
+	});
+
+	test("renders a free-text answer alongside Skip when supported", () => {
+		const markup = renderToStaticMarkup(
+			createElement(AcpPermissionCard, {
+				permission: {
+					requestId: "ask-custom",
+					options: [
+						{ optionId: "blue", name: "Blue", kind: "allow_once" },
+						{ optionId: "skip", name: "Skip", kind: "reject_once" },
+					],
+					requestedAt: 0,
+					allowsCustomResponse: true,
+					resolution: null,
+				},
+				variant: "askuser",
+				onRespond: async () => undefined,
+			}),
+		);
+
+		expect(markup).toContain('aria-label="Custom answer"');
+		expect(markup).toContain('placeholder="Type your own answer…"');
+		expect(markup).toContain(">or<");
+		expect(markup).toContain(">Send<");
+		expect(markup).toContain(">Skip<");
 	});
 
 	test("renders multi-select options as clickable custom checkbox rows", () => {

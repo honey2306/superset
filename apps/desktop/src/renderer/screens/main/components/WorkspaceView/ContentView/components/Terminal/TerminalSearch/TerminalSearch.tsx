@@ -11,14 +11,32 @@ interface TerminalSearchProps {
 	onClose: () => void;
 }
 
-const SEARCH_DECORATIONS: ISearchOptions["decorations"] = {
-	matchBackground: "#515c6a",
-	matchBorder: "#74879f",
-	matchOverviewRuler: "#d186167e",
-	activeMatchBackground: "#515c6a",
-	activeMatchBorder: "#ffd33d",
-	activeMatchColorOverviewRuler: "#ffd33d",
-};
+function readCssColor(name: string, fallback: string): string {
+	if (typeof window === "undefined") return fallback;
+	const value = getComputedStyle(document.documentElement)
+		.getPropertyValue(name)
+		.trim();
+	return value || fallback;
+}
+
+/**
+ * xterm-addon-search needs concrete CSS color strings, so we resolve the
+ * theme's highlight tokens at open time. Fallbacks match the VS Code
+ * search palette in case the theme store hasn't hydrated yet.
+ */
+function getSearchDecorations(): ISearchOptions["decorations"] {
+	const match = readCssColor("--highlight-match", "#515c6a");
+	const active = readCssColor("--highlight-active", "#ffd33d");
+	const line = readCssColor("--line-strong", "#74879f");
+	return {
+		matchBackground: match,
+		matchBorder: line,
+		matchOverviewRuler: match,
+		activeMatchBackground: active,
+		activeMatchBorder: active,
+		activeMatchColorOverviewRuler: active,
+	};
+}
 
 export function TerminalSearch({
 	searchAddon,
@@ -30,14 +48,20 @@ export function TerminalSearch({
 	const [query, setQuery] = useState("");
 	const [matchCount, setMatchCount] = useState<number | null>(null);
 	const [caseSensitive, setCaseSensitive] = useState(false);
+	// Re-resolve theme-derived decorations each time the panel opens so a
+	// theme change between opens is picked up.
+	const [decorations, setDecorations] = useState(() => getSearchDecorations());
+	useEffect(() => {
+		if (isOpen) setDecorations(getSearchDecorations());
+	}, [isOpen]);
 
 	const searchOptions: ISearchOptions = useMemo(
 		() => ({
 			caseSensitive,
 			regex: false,
-			decorations: SEARCH_DECORATIONS,
+			decorations,
 		}),
-		[caseSensitive],
+		[caseSensitive, decorations],
 	);
 
 	// Focus input when search opens

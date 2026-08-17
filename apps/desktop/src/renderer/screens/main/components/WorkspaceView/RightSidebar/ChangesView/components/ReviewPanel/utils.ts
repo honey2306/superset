@@ -14,36 +14,33 @@ export const ALL_COMMENTS_COPY_ACTION_KEY = "comments:all";
 export const reviewDecisionConfig = {
 	approved: {
 		labelKey: "changes.reviewState.approved" as const satisfies MessageKey,
-		className:
-			"border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+		className: "border border-success/25 bg-success-tint text-success",
 	},
 	changes_requested: {
 		labelKey:
 			"changes.reviewState.changesRequested" as const satisfies MessageKey,
-		className:
-			"border border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300",
+		className: "border border-danger/25 bg-danger-tint text-danger",
 	},
 	pending: {
 		labelKey: "changes.reviewState.reviewPending" as const satisfies MessageKey,
-		className:
-			"border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+		className: "border border-warning/25 bg-warning-tint text-warning",
 	},
 } as const;
 
 export const checkIconConfig = {
 	success: {
 		icon: LuCheck,
-		className: "text-emerald-600 dark:text-emerald-400",
+		className: "text-success",
 		labelKey: "changes.checkState.passed" as const satisfies MessageKey,
 	},
 	failure: {
 		icon: LuX,
-		className: "text-red-600 dark:text-red-400",
+		className: "text-danger",
 		labelKey: "changes.checkState.failed" as const satisfies MessageKey,
 	},
 	pending: {
 		icon: LuLoaderCircle,
-		className: "text-amber-600 dark:text-amber-400",
+		className: "text-warning",
 		labelKey: "changes.checkState.pending" as const satisfies MessageKey,
 	},
 	skipped: {

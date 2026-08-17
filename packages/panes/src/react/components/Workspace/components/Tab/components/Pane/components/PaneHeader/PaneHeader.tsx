@@ -30,16 +30,17 @@ export function PaneHeader({
 	onClick,
 	onMiddleClick,
 }: PaneHeaderProps) {
+	const hasCustomToolbar = toolbar != null;
 	const [{ isDragging }, connectDrag] = useDrag(
 		() => ({
 			type: PANE_DRAG_TYPE,
 			item: { paneId },
-			canDrag: !!paneId,
+			canDrag: !!paneId && !hasCustomToolbar,
 			collect: (monitor) => ({
 				isDragging: monitor.isDragging(),
 			}),
 		}),
-		[paneId],
+		[paneId, hasCustomToolbar],
 	);
 
 	const nodeRef = useRef<HTMLDivElement>(null);
@@ -57,7 +58,8 @@ export function PaneHeader({
 		<div
 			ref={setRef}
 			className={cn(
-				"flex h-7 shrink-0 items-center transition-opacity duration-150 cursor-grab",
+				"flex h-7 shrink-0 items-center transition-opacity duration-150",
+				!hasCustomToolbar && "cursor-grab",
 				!isActive && "opacity-60",
 				isDragging && "opacity-30",
 			)}

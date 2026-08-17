@@ -102,7 +102,7 @@ export function PairRoute() {
 					spellCheck={false}
 					inputMode="text"
 					placeholder="XXXX-XXXX"
-					className="mt-2 block w-full rounded-lg border border-[var(--phone-border)] bg-[#090a0d] px-3 py-3 font-mono text-lg tracking-widest text-[var(--phone-text)] outline-none focus:border-[var(--phone-focus)]"
+					className="mt-2 block w-full rounded-lg border border-[var(--phone-border)] bg-[var(--phone-bg)] px-3 py-3 font-mono text-lg tracking-widest text-[var(--phone-text)] outline-none focus:border-[var(--phone-focus)]"
 				/>
 				<button
 					type="button"

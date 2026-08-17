@@ -130,7 +130,7 @@ export function useWorkspaceShortcuts() {
 					project: {
 						id: project.id,
 						name: project.name,
-						color: localProject?.color ?? "hsl(var(--primary))",
+						color: localProject?.color ?? "var(--primary)",
 						githubOwner: project.repoOwner,
 						mainRepoPath: project.repoPath,
 						hideImage: localProject?.hideImage ?? false,

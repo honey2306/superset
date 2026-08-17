@@ -168,4 +168,65 @@ describe("useAcpSession lifecycle recovery", () => {
 		expect(getCalls).toBe(5); // initial success + initial failure + 3 retries
 		expect(result.current.timeline.items).toHaveLength(1);
 	});
+
+	test("replaces an exhausted transport with a new host while preserving history", async () => {
+		let oldHostAvailable = true;
+		const oldApi = {
+			get: async () => {
+				if (!oldHostAvailable) throw new Error("old host is gone");
+				return state;
+			},
+			getMessages: async () => ({ items: history, nextCursor: null }),
+			prompt: async () => ({ accepted: true as const }),
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const newApi = {
+			...oldApi,
+			get: async () => state,
+		};
+		const { result, rerender } = renderHook(
+			({ api, connectionKey }: { api: typeof oldApi; connectionKey: string }) =>
+				useAcpSession({
+					sessionId: state.sessionId,
+					connectionKey,
+					api,
+					streamUrl: "ws://test",
+					createWebSocket: idleSocket,
+				}),
+			{
+				initialProps: { api: oldApi, connectionKey: "http://old-host" },
+			},
+		);
+		await waitFor(() => result.current.isLoading === false);
+		expect(result.current.timeline.items).toHaveLength(1);
+
+		oldHostAvailable = false;
+		await act(async () => {
+			await result.current.actions.refresh();
+		});
+		await waitFor(() => result.current.availability === "unavailable");
+		expect(result.current.timeline.items).toHaveLength(1);
+
+		rerender({ api: newApi, connectionKey: "http://new-host" });
+		// The new transport's fetch is in flight, but the old durable timeline
+		// remains renderable rather than flashing to an empty unavailable pane.
+		expect(result.current.timeline.items).toHaveLength(1);
+		await waitFor(
+			() =>
+				result.current.availability === "live" &&
+				result.current.error === null &&
+				result.current.isLoading === false,
+		);
+		expect(result.current.timeline.items).toHaveLength(1);
+	});
 });
