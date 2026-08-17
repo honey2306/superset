@@ -2,11 +2,11 @@
 
 // Desktop app release: bumps desktop + host-service to one unified version
 // (and, with --daemon, patch-bumps pty-daemon), tags desktop-v<version> to
-// trigger release-desktop.yml, monitors the build, and leaves a draft (or
-// publishes with --publish). See plans/20260709-unified-version-bumping.md and
+// trigger release-desktop.yml, monitors the build, and publishes it. See
+// plans/20260709-unified-version-bumping.md and
 // apps/desktop/RELEASE.md.
 //
-// Usage: [version] [commit] [--publish] [--merge] [--daemon]
+// Usage: [version] [commit] [--merge] [--daemon]
 
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -53,23 +53,26 @@ async function tagExists(ref: string): Promise<boolean> {
 export async function runDesktop(argv: string[]): Promise<void> {
 	let version = "";
 	let commitInput = "";
-	let autoPublish = false;
+	let deprecatedPublish = false;
 	let autoMerge = false;
 	let withDaemon = false;
 	let republish = false;
 	for (const arg of argv) {
-		if (arg === "--publish") autoPublish = true;
+		if (arg === "--publish") deprecatedPublish = true;
 		else if (arg === "--merge") autoMerge = true;
 		else if (arg === "--daemon") withDaemon = true;
 		else if (arg === "--republish" || arg === "--yes" || arg === "-y")
 			republish = true;
 		else if (arg.startsWith("-"))
 			fail(
-				`Unknown option: ${arg}\nUsage: release desktop [version] [commit] [--publish] [--merge] [--daemon] [--republish]`,
+				`Unknown option: ${arg}\nUsage: release desktop [version] [commit] [--merge] [--daemon] [--republish]`,
 			);
 		else if (!version) version = arg;
 		else if (!commitInput) commitInput = arg;
 		else fail(`Unexpected argument: ${arg}`);
+	}
+	if (deprecatedPublish) {
+		warn("--publish is no longer needed: desktop releases publish by default.");
 	}
 
 	if (!Bun.which("gh")) fail("GitHub CLI (gh) is required but not installed.");
@@ -112,7 +115,7 @@ export async function runDesktop(argv: string[]): Promise<void> {
 		prNumber = (await releaseFromHead(root, version, tag, withDaemon)).prNumber;
 	}
 
-	await monitorAndPublish(root, tag, { autoPublish, autoMerge, prNumber });
+	await monitorAndPublish(root, tag, { autoMerge, prNumber });
 }
 
 async function promptVersion(root: string): Promise<string> {
@@ -349,7 +352,7 @@ async function releaseFromCommit(
 async function monitorAndPublish(
 	root: string,
 	tag: string,
-	opts: { autoPublish: boolean; autoMerge: boolean; prNumber: string },
+	opts: { autoMerge: boolean; prNumber: string },
 ): Promise<void> {
 	const repo = await repoSlug(root);
 	console.log("");
@@ -375,36 +378,41 @@ async function monitorAndPublish(
 		else warn(`Workflow ended with status: ${conclusion}`);
 	}
 
-	info("Waiting for draft release...");
-	let found = false;
-	for (let i = 0; i < 10 && !found; i++) {
+	info("Waiting for published release...");
+	let published = false;
+	let sawDraft = false;
+	for (let i = 0; i < 10 && !published; i++) {
 		await sleep(3000);
-		const r = await $`gh release view ${tag} --json tagName --jq ${".tagName"}`
+		const r = await $`gh release view ${tag} --json isDraft --jq ${".isDraft"}`
 			.nothrow()
 			.quiet();
-		found = r.exitCode === 0;
+		if (r.exitCode === 0) {
+			published = isPublishedRelease((await r.text()).trim());
+			sawDraft ||= !published;
+		}
 	}
 	const url = `https://github.com/${repo}/releases/tag/${tag}`;
-	if (!found) {
-		warn(`Release not found yet — check ${url}`);
+	if (!published) {
+		if (sawDraft) {
+			warn(`Release is still a draft and was not published — check ${url}`);
+		} else {
+			warn(`Published release not found yet — check ${url}`);
+		}
 		return;
 	}
 
-	if (opts.autoPublish) {
-		await $`gh release edit ${tag} --draft=false`;
-		success("Release published!");
-		if (opts.autoMerge && opts.prNumber) {
-			const r =
-				await $`gh pr merge ${opts.prNumber} --squash --delete-branch`.nothrow();
-			if (r.exitCode === 0) success(`PR #${opts.prNumber} merged`);
-			else warn(`Could not merge PR #${opts.prNumber}`);
-		}
-		console.log(`\nRelease: ${url}`);
-	} else {
-		success("Draft release created!");
-		console.log(`\nReview: ${url}`);
-		console.log(`Publish with: gh release edit ${tag} --draft=false`);
+	success("Release published!");
+	if (opts.autoMerge && opts.prNumber) {
+		const r =
+			await $`gh pr merge ${opts.prNumber} --squash --delete-branch`.nothrow();
+		if (r.exitCode === 0) success(`PR #${opts.prNumber} merged`);
+		else warn(`Could not merge PR #${opts.prNumber}`);
 	}
+	console.log(`\nRelease: ${url}`);
+}
+
+export function isPublishedRelease(isDraft: string): boolean {
+	return isDraft === "false";
 }
 
 if (import.meta.main) await runDesktop(process.argv.slice(2));
