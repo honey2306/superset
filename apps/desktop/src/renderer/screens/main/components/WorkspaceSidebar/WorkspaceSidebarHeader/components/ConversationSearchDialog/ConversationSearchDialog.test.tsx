@@ -79,7 +79,10 @@ mock.module(
 	() => ({ navigateToWorkspace }),
 );
 
+const reactRouterModule = await import("@tanstack/react-router");
+
 mock.module("@tanstack/react-router", () => ({
+	...reactRouterModule,
 	useNavigate: () => mock(() => undefined),
 }));
 
