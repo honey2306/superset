@@ -5,6 +5,9 @@ import codexWhiteIcon from "./codex-white.svg";
 import copilotIcon from "./copilot.svg";
 import copilotWhiteIcon from "./copilot-white.svg";
 import cursorAgentIcon from "./cursor.svg";
+// DeepSeek whale glyph from the official site favicon:
+// https://www.deepseek.com/favicon.ico (retrieved 2026-08-18).
+import deepseekIcon from "./deepseek.png";
 import droidIcon from "./droid.svg";
 import droidWhiteIcon from "./droid-white.svg";
 import geminiIcon from "./gemini.svg";
@@ -14,6 +17,9 @@ import kimiIcon from "./kimi.svg";
 import kimiWhiteIcon from "./kimi-white.svg";
 import mastracodeIcon from "./mastracode.svg";
 import mastracodeWhiteIcon from "./mastracode-white.svg";
+// MyFlicker icon supplied by the user through Quick Add and persisted in the
+// local terminal preset settings; this is the repository copy of that upload.
+import myflickerIcon from "./myflicker.png";
 import opencodeIcon from "./opencode.svg";
 import opencodeWhiteIcon from "./opencode-white.svg";
 import piIcon from "./pi.svg";
@@ -33,6 +39,7 @@ export const PRESET_ICONS: Record<string, PresetIconSet> = {
 	claude: { light: claudeIcon, dark: claudeIcon },
 	codex: { light: codexIcon, dark: codexWhiteIcon },
 	copilot: { light: copilotIcon, dark: copilotWhiteIcon },
+	deepseek: { light: deepseekIcon, dark: deepseekIcon },
 	gemini: { light: geminiIcon, dark: geminiIcon },
 	grok: { light: grokIcon, dark: grokWhiteIcon },
 	kimi: { light: kimiIcon, dark: kimiWhiteIcon },
@@ -43,6 +50,7 @@ export const PRESET_ICONS: Record<string, PresetIconSet> = {
 	"cursor-composer": { light: cursorAgentIcon, dark: cursorAgentIcon },
 	droid: { light: droidIcon, dark: droidWhiteIcon },
 	mastracode: { light: mastracodeIcon, dark: mastracodeWhiteIcon },
+	myflicker: { light: myflickerIcon, dark: myflickerIcon },
 	opencode: { light: opencodeIcon, dark: opencodeWhiteIcon },
 	vibe: { light: vibeIcon, dark: vibeIcon },
 };
@@ -102,6 +110,7 @@ export {
 	copilotIcon,
 	copilotWhiteIcon,
 	cursorAgentIcon,
+	deepseekIcon,
 	droidIcon,
 	droidWhiteIcon,
 	geminiIcon,
@@ -111,6 +120,7 @@ export {
 	kimiWhiteIcon,
 	mastracodeIcon,
 	mastracodeWhiteIcon,
+	myflickerIcon,
 	opencodeIcon,
 	opencodeWhiteIcon,
 	piIcon,
