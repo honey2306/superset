@@ -1,6 +1,6 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { accessSync, constants, existsSync } from "node:fs";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -307,23 +307,78 @@ export function resolveAdapterProcess(
 }
 
 /**
+ * Check an external ACP executable before creating its adapter process.
+ *
+ * `spawn()` reports ENOENT asynchronously, after the renderer has already
+ * opened a loading pane. Looking up the executable first lets the create
+ * mutation return a useful, agent-specific install hint that the pane can
+ * render with Retry, without booting a potentially slow CLI just to probe it.
+ */
+export function assertExternalCliAvailable(
+	command: string,
+	displayName: string,
+	installHint: string,
+	env: NodeJS.ProcessEnv,
+): void {
+	if (!resolveExternalCliPath(command, env)) {
+		throw new Error(`${displayName} CLI is unavailable. ${installHint}`);
+	}
+}
+
+function resolveExternalCliPath(
+	command: string,
+	env: NodeJS.ProcessEnv,
+): string | null {
+	const trimmed = command.trim();
+	if (!trimmed) return null;
+
+	const hasPathSeparator =
+		trimmed.includes("/") ||
+		(process.platform === "win32" && trimmed.includes("\\"));
+	if (path.isAbsolute(trimmed) || hasPathSeparator) {
+		return isExecutablePath(trimmed) ? trimmed : null;
+	}
+
+	const pathValue = env.PATH ?? env.Path ?? "";
+	const pathEntries = pathValue.split(path.delimiter);
+	const extensions =
+		process.platform === "win32"
+			? (env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)
+			: [""];
+	for (const directory of pathEntries) {
+		for (const extension of extensions) {
+			const candidate = path.join(directory, `${trimmed}${extension}`);
+			if (isExecutablePath(candidate)) return candidate;
+		}
+	}
+	return null;
+}
+
+function isExecutablePath(candidate: string): boolean {
+	try {
+		accessSync(
+			candidate,
+			process.platform === "win32" ? constants.F_OK : constants.X_OK,
+		);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Claude ACP intentionally relies on the user's installed Claude Code CLI.
  * The packaged bridge includes the SDK JavaScript API, but never Anthropic's
  * SDK-provided fallback binary.
  */
 export function assertExternalClaudeCliAvailable(env: NodeJS.ProcessEnv): void {
 	const command = env.CLAUDE_CODE_EXECUTABLE ?? "claude";
-	const probe = spawnSync(command, ["--version"], {
+	assertExternalCliAvailable(
+		command,
+		"Claude Code",
+		"Install Claude Code and ensure `claude` is on PATH, or set CLAUDE_CODE_EXECUTABLE to its executable path.",
 		env,
-		stdio: "ignore",
-		timeout: 5_000,
-	});
-	const probeError = probe.error as NodeJS.ErrnoException | undefined;
-	if (probeError?.code === "ENOENT") {
-		throw new Error(
-			"Claude Code CLI is unavailable. Install Claude Code and ensure `claude` is on PATH, or set CLAUDE_CODE_EXECUTABLE to its executable path.",
-		);
-	}
+	);
 	// Always pin the command after a successful PATH probe. The bundled ACP
 	// bridge must never ask the SDK to resolve its removed fallback binary.
 	env.CLAUDE_CODE_EXECUTABLE = command;
@@ -1519,6 +1574,22 @@ export class AcpSessionManager {
 		};
 		if (harness === "claude-agent-acp" && !this.adapterEntry) {
 			assertExternalClaudeCliAvailable(env);
+		}
+		if (harness === "myflicker-acp") {
+			assertExternalCliAvailable(
+				adapterProcess.command,
+				"MyFlicker",
+				"Install MyFlicker CLI (`mfcli`) and ensure `mfcli` is on PATH, or set SUPERSET_MFCLI_ACP_COMMAND to its executable path.",
+				env,
+			);
+		}
+		if (harness === "deepseek-acp") {
+			assertExternalCliAvailable(
+				adapterProcess.command,
+				"DeepSeek Harness",
+				"Install DeepSeek Harness and ensure `dsh-acp-demo` is on PATH, or set SUPERSET_DSH_ACP_COMMAND to its executable path.",
+				env,
+			);
 		}
 		if (adapterProcess.usesElectronNode) env.ELECTRON_RUN_AS_NODE = "1";
 		else delete env.ELECTRON_RUN_AS_NODE;

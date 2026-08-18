@@ -78,7 +78,21 @@ describe("createDefaultTerminalPresetRows", () => {
 					args: ["--always-approve"],
 					order: 5,
 				}),
-				createAgent({ presetId: "amp", order: 6 }),
+				createAgent({
+					id: "myflicker-config",
+					presetId: "myflicker",
+					label: "MyFlicker",
+					command: "mfcli",
+					order: 6,
+				}),
+				createAgent({
+					id: "deepseek-config",
+					presetId: "deepseek",
+					label: "DeepSeek",
+					command: "dsh-acp-demo",
+					order: 7,
+				}),
+				createAgent({ presetId: "amp", order: 8 }),
 			],
 			existingPresets: [],
 			createId: () =>
@@ -93,6 +107,8 @@ describe("createDefaultTerminalPresetRows", () => {
 			"copilot-config",
 			"kimi-config",
 			"grok-config",
+			"myflicker-config",
+			"deepseek-config",
 		]);
 		expect(rows.map((row) => row.name)).toEqual([
 			"Claude",
@@ -101,8 +117,10 @@ describe("createDefaultTerminalPresetRows", () => {
 			"Copilot",
 			"Kimi Code",
 			"Grok",
+			"MyFlicker",
+			"DeepSeek",
 		]);
-		expect(rows.map((row) => row.tabOrder)).toEqual([0, 1, 2, 3, 4, 5]);
+		expect(rows.map((row) => row.tabOrder)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
 		expect(rows[0]?.commands).toEqual([
 			"claude --dangerously-skip-permissions",
 		]);
@@ -113,6 +131,8 @@ describe("createDefaultTerminalPresetRows", () => {
 		expect(rows[3]?.commands).toEqual(["copilot --allow-tool=write"]);
 		expect(rows[4]?.commands).toEqual(["kimi"]);
 		expect(rows[5]?.commands).toEqual(["grok --always-approve"]);
+		expect(rows[6]?.commands).toEqual(["mfcli"]);
+		expect(rows[7]?.commands).toEqual(["dsh-acp-demo"]);
 	});
 
 	it("includes structured agent env in seeded preset command snapshots", () => {
