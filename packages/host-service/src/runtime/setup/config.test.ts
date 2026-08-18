@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	assertProjectConfigIsEditable,
 	getProjectConfigPath,
 	hasConfiguredScripts,
 	loadSetupConfig,
@@ -548,6 +549,36 @@ describe("resolveScript", () => {
 			scriptPath: teardownScript,
 			cwd: "apps/web",
 		});
+	});
+});
+
+describe("assertProjectConfigIsEditable", () => {
+	let sandbox: Sandbox;
+
+	beforeEach(() => {
+		sandbox = createSandbox();
+	});
+
+	afterEach(() => sandbox.cleanup());
+
+	it("allows an absent or object-shaped config", () => {
+		expect(() => assertProjectConfigIsEditable(sandbox.repoPath)).not.toThrow();
+		writeRepoConfig(sandbox.repoPath, { custom: true });
+		expect(() => assertProjectConfigIsEditable(sandbox.repoPath)).not.toThrow();
+	});
+
+	it("rejects malformed config instead of allowing destructive replacement", () => {
+		writeRepoConfig(sandbox.repoPath, "{broken");
+		expect(() => assertProjectConfigIsEditable(sandbox.repoPath)).toThrow(
+			"not valid JSON",
+		);
+	});
+
+	it("rejects non-object config", () => {
+		writeRepoConfig(sandbox.repoPath, "[]");
+		expect(() => assertProjectConfigIsEditable(sandbox.repoPath)).toThrow(
+			"must contain a JSON object",
+		);
 	});
 });
 

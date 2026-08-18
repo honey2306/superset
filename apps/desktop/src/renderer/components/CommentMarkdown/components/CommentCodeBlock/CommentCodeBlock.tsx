@@ -5,40 +5,11 @@ import {
 	oneDark,
 	oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { getMermaidThemeVariables } from "renderer/lib/mermaid";
 import { useTheme } from "renderer/stores";
 import { Streamdown } from "streamdown";
 
 const mermaidPlugins = { mermaid };
-
-const MERMAID_DARK_VARS = {
-	background: "#1e1e2e",
-	primaryColor: "#313244",
-	primaryTextColor: "#cdd6f4",
-	primaryBorderColor: "#45475a",
-	secondaryColor: "#313244",
-	secondaryTextColor: "#cdd6f4",
-	secondaryBorderColor: "#45475a",
-	tertiaryColor: "#313244",
-	tertiaryTextColor: "#cdd6f4",
-	tertiaryBorderColor: "#45475a",
-	nodeBorder: "#45475a",
-	nodeTextColor: "#cdd6f4",
-	mainBkg: "#313244",
-	clusterBkg: "#1e1e2e",
-	titleColor: "#cdd6f4",
-	edgeLabelBackground: "transparent",
-	lineColor: "#6c7086",
-	textColor: "#cdd6f4",
-};
-
-const MERMAID_LIGHT_VARS = {
-	background: "#ffffff",
-	primaryColor: "#f0f0f4",
-	primaryTextColor: "#1e1e2e",
-	primaryBorderColor: "#d0d0d8",
-	lineColor: "#888",
-	textColor: "#1e1e2e",
-};
 
 interface CommentCodeBlockProps {
 	className?: string;
@@ -68,7 +39,7 @@ export function CommentCodeBlock({
 				mermaid={{
 					config: {
 						theme: "base",
-						themeVariables: isDark ? MERMAID_DARK_VARS : MERMAID_LIGHT_VARS,
+						themeVariables: getMermaidThemeVariables(theme),
 					},
 				}}
 			>

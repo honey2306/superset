@@ -13,8 +13,9 @@ export type PaneType = "terminal" | "file-viewer" | "comment";
 /**
  * Pane status for agent lifecycle indicators
  * - idle: No indicator shown (default)
- * - working: Agent actively processing (amber)
- * - permission: Agent blocked, needs user action (red)
+ * - working: Agent actively processing (blue)
+ * - permission: Agent blocked on a tool permission (amber)
+ * - askuser: Agent needs an answer to an AskUser question (purple)
  * - review: Agent completed, ready for review (green)
  * - failed: Agent turn/process ended in failure, needs attention (red)
  */
@@ -22,6 +23,7 @@ export type PaneStatus =
 	| "idle"
 	| "working"
 	| "permission"
+	| "askuser"
 	| "review"
 	| "failed";
 
@@ -41,6 +43,7 @@ export const STATUS_PRIORITY = {
 	working: 2,
 	failed: 3,
 	permission: 4,
+	askuser: 5,
 } as const satisfies Record<PaneStatus, number>;
 
 /**
@@ -71,7 +74,7 @@ export function getHighestPriorityStatus(
 		if (STATUS_PRIORITY[status] > STATUS_PRIORITY[highest]) {
 			highest = status;
 			// Early exit for max priority
-			if (highest === "permission") break;
+			if (highest === "askuser") break;
 		}
 	}
 
@@ -83,7 +86,7 @@ export function getHighestPriorityStatus(
  * (e.g. clicking a tab, focusing a pane, selecting a workspace).
  *
  * - "review"     → "idle"    (user saw the completion)
- * - "permission" → unchanged (persists until agent resumes)
+ * - "permission" / "askuser" → unchanged (persists until agent resumes)
  * - "working"    → unchanged (persists until agent stops)
  * - "idle"       → unchanged
  */

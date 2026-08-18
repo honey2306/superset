@@ -4,25 +4,32 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
 import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
-import { acpSessionStatusToPaneStatus } from "renderer/lib/panes";
+import { useNotificationStore } from "renderer/stores/notifications";
+import type { ActivePaneStatus, PaneStatus } from "shared/tabs-types";
 import {
-	type ActivePaneStatus,
-	getHighestPriorityStatus,
-	type PaneStatus,
-} from "shared/tabs-types";
+	type AcpSessionNotificationState,
+	deriveAcpSessionStatus,
+	getHighestAcpSessionStatus,
+} from "./deriveAcpSessionStatus";
+
+export interface AcpSessionStatusMaps {
+	sessionStatuses: Map<string, SessionStatus>;
+	notificationStatuses: Map<string, PaneStatus>;
+	sessionTitles: Map<string, string | null>;
+}
 
 /**
- * Live map of `sessionId → SessionStatus` for every ACP session in a workspace,
- * read from the host and invalidated on `acp-session:changed` events on the
- * host event bus. Backs both the workspace sidebar (aggregate red dot) and the
- * v2-panes-in-v1 tab strip (per-tab accessory), so the two surfaces cannot
- * drift by living off independent subscriptions.
+ * Live ACP lifecycle and notification snapshots for every session in a
+ * workspace. The same host list powers both tab and workspace indicators.
  */
-export function useAcpSessionStatusesAtHost(
+export function useAcpSessionStatusMapsAtHost(
 	hostUrl: string | null,
 	hostWorkspaceId: string | null,
-): Map<string, SessionStatus> {
+): AcpSessionStatusMaps {
 	const queryClient = useQueryClient();
+	const acpSessionSeenAt = useNotificationStore(
+		(state) => state.acpSessionSeenAt,
+	);
 	const queryKey = useMemo(
 		() => ["acp-sessions", hostUrl, hostWorkspaceId] as const,
 		[hostUrl, hostWorkspaceId],
@@ -33,10 +40,7 @@ export function useAcpSessionStatusesAtHost(
 		enabled: Boolean(hostUrl && hostWorkspaceId),
 		queryFn: () => {
 			if (!hostUrl || !hostWorkspaceId)
-				return { items: [], nextCursor: null } as {
-					items: { sessionId: string; status: SessionStatus }[];
-					nextCursor: string | null;
-				};
+				return { items: [], nextCursor: null, enabled: false };
 			return createDesktopAcpSessionClient(hostUrl).list({
 				workspaceId: hostWorkspaceId,
 				limit: 100,
@@ -62,25 +66,51 @@ export function useAcpSessionStatusesAtHost(
 	}, [hostUrl, hostWorkspaceId, queryClient, queryKey]);
 
 	return useMemo(() => {
-		const map = new Map<string, SessionStatus>();
+		const sessionStatuses = new Map<string, SessionStatus>();
+		const notificationStatuses = new Map<string, PaneStatus>();
+		const sessionTitles = new Map<string, string | null>();
 		for (const item of data?.items ?? []) {
-			map.set(item.sessionId, item.status);
+			const notificationState: AcpSessionNotificationState = {
+				status: item.status,
+				lastStopReason: item.lastStopReason,
+				lastCompletedAt: item.lastCompletedAt,
+				pendingPermissions: item.pendingPermissions,
+			};
+			sessionStatuses.set(item.sessionId, item.status);
+			sessionTitles.set(item.sessionId, item.title);
+			notificationStatuses.set(
+				item.sessionId,
+				deriveAcpSessionStatus(
+					notificationState,
+					acpSessionSeenAt[item.sessionId],
+				),
+			);
 		}
-		return map;
-	}, [data]);
+		return { sessionStatuses, notificationStatuses, sessionTitles };
+	}, [acpSessionSeenAt, data]);
 }
 
-/** Highest-priority pane status across all ACP sessions in the workspace. */
+/** Raw host lifecycle map used to keep ACP pane metadata synchronized. */
+export function useAcpSessionStatusesAtHost(
+	hostUrl: string | null,
+	hostWorkspaceId: string | null,
+): Map<string, SessionStatus> {
+	return useAcpSessionStatusMapsAtHost(hostUrl, hostWorkspaceId)
+		.sessionStatuses;
+}
+
+/** Highest-priority user-facing status across all ACP sessions. */
 export function useHighestAcpSessionStatusAtHost(
 	hostUrl: string | null,
 	hostWorkspaceId: string | null,
+	openSessionIds?: ReadonlySet<string>,
 ): ActivePaneStatus | null {
-	const statuses = useAcpSessionStatusesAtHost(hostUrl, hostWorkspaceId);
-	return useMemo(() => {
-		const paneStatuses: PaneStatus[] = [];
-		for (const status of statuses.values()) {
-			paneStatuses.push(acpSessionStatusToPaneStatus(status));
-		}
-		return getHighestPriorityStatus(paneStatuses);
-	}, [statuses]);
+	const { notificationStatuses } = useAcpSessionStatusMapsAtHost(
+		hostUrl,
+		hostWorkspaceId,
+	);
+	return useMemo(
+		() => getHighestAcpSessionStatus(notificationStatuses, openSessionIds),
+		[notificationStatuses, openSessionIds],
+	);
 }

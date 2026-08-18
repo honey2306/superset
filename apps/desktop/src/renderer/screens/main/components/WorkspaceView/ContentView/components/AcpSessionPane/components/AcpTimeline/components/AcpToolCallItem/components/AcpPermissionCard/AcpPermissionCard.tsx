@@ -4,10 +4,13 @@ import type {
 	ToolCallUpdate,
 } from "@superset/session-protocol";
 import {
+	customResponse,
+	makeCustomResponseOutcome,
 	makeSelectedOutcome,
 	selectedOptionIds,
 } from "@superset/session-protocol";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
+import { AcpMarkdown } from "../../../../../AcpMarkdown";
 
 export interface BuildPermissionOutcomeInput {
 	selectedIds: string[];
@@ -39,6 +42,8 @@ function selectedResolutionLabel(
 	options: PermissionView["options"],
 ): string {
 	if (resolution.outcome !== "selected") return resolutionLabel(resolution);
+	const custom = customResponse(resolution);
+	if (custom !== null) return custom;
 	return selectedOptionIds(resolution)
 		.map(
 			(optionId) =>
@@ -66,6 +71,27 @@ function stringArray(value: unknown): string[] | null {
 	return Array.isArray(value) && value.every((part) => typeof part === "string")
 		? value
 		: null;
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: null;
+}
+
+export function approvalPlan(
+	toolCall: ToolCallUpdate | undefined,
+): string | null {
+	if (!toolCall) return null;
+	const input = record(toolCall.rawInput);
+	const plan = input?.plan;
+	if (typeof plan !== "string" || !plan.trim()) return null;
+
+	const claudeCode = record(record(toolCall._meta)?.claudeCode);
+	const isExitPlanMode =
+		claudeCode?.toolName === "ExitPlanMode" ||
+		(input !== null && "planFilePath" in input);
+	return isExitPlanMode ? plan : null;
 }
 
 export function approvalDetail(
@@ -116,20 +142,7 @@ export function mergePermissionToolCall(
  * visual treatment only from Claude's explicit tool metadata on the source
  * tool call; option labels and titles are not a reliable discriminator.
  */
-export function isAskUserPermission(
-	permission: { isElicitation?: boolean },
-	sourceToolCall: ToolCallUpdate | undefined,
-): boolean {
-	if (permission.isElicitation === true) return true;
-	const meta = sourceToolCall?._meta;
-	if (!meta || typeof meta !== "object") return false;
-	const claudeCode = (meta as { claudeCode?: unknown }).claudeCode;
-	return (
-		typeof claudeCode === "object" &&
-		claudeCode !== null &&
-		(claudeCode as { toolName?: unknown }).toolName === "AskUserQuestion"
-	);
-}
+export { isAskUserPermission } from "@superset/session-protocol";
 
 interface AcpPermissionCardProps {
 	permission: PermissionWithToolCall;
@@ -154,10 +167,12 @@ export function AcpPermissionCard({
 	variant = "permission",
 }: AcpPermissionCardProps) {
 	const [pickedIds, setPickedIds] = useState<string[]>([]);
+	const [customText, setCustomText] = useState("");
 	const [responding, setResponding] = useState(false);
 	const toolCall = mergePermissionToolCall(permission.toolCall, sourceToolCall);
 	const toolTitle = toolCall?.title;
-	const detail = approvalDetail(toolCall);
+	const plan = approvalPlan(toolCall);
+	const detail = plan ? null : approvalDetail(toolCall);
 	const isMulti = !!permission.multiSelect;
 	const isResolved = permission.resolution !== null;
 	const selectableOptions = isMulti
@@ -178,11 +193,13 @@ export function AcpPermissionCard({
 
 	function handleSingleClick(optionId: string) {
 		if (responding || isResolved) return;
+		setCustomText("");
 		void submit({ outcome: "selected", optionId });
 	}
 
 	function toggleMulti(optionId: string) {
 		if (responding || isResolved) return;
+		setCustomText("");
 		setPickedIds((prev) =>
 			prev.includes(optionId)
 				? prev.filter((id) => id !== optionId)
@@ -195,6 +212,12 @@ export function AcpPermissionCard({
 		void submit(
 			buildPermissionOutcome({ selectedIds: pickedIds, multiSelect: true }),
 		);
+	}
+
+	function submitCustom(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		if (!customText.trim() || responding || isResolved) return;
+		void submit(makeCustomResponseOutcome(customText));
 	}
 
 	if (isResolved) {
@@ -238,18 +261,26 @@ export function AcpPermissionCard({
 				</span>
 			</div>
 
-			{variant === "permission" && (toolTitle || detail) && (
+			{variant === "permission" && (toolTitle || detail || plan) && (
 				<div className="acp-perm__context">
 					<span className="acp-perm__context-label">
-						{toolCall?.kind === "execute" && detail
-							? "Command"
-							: detail
-								? "Input"
-								: "Request"}
+						{plan
+							? "Plan"
+							: toolCall?.kind === "execute" && detail
+								? "Command"
+								: detail
+									? "Input"
+									: "Request"}
 					</span>
-					<code className="acp-perm__context-value select-text cursor-text">
-						{detail ?? `${toolTitle} — agent provided no request details`}
-					</code>
+					{plan ? (
+						<div className="acp-perm__plan">
+							<AcpMarkdown>{plan}</AcpMarkdown>
+						</div>
+					) : (
+						<code className="acp-perm__context-value select-text cursor-text">
+							{detail ?? `${toolTitle} — agent provided no request details`}
+						</code>
+					)}
 				</div>
 			)}
 
@@ -263,67 +294,97 @@ export function AcpPermissionCard({
 				<p className="acp-perm__resolved">
 					<span>Submitting…</span>
 				</p>
-			) : isMulti ? (
-				<>
-					<div className="acp-perm__multi">
-						{selectableOptions.map((opt) => {
-							const isSelected = pickedIds.includes(opt.optionId);
-							return (
-								<label
-									key={opt.optionId}
-									className="acp-perm__multi-item"
-									data-selected={isSelected}
-								>
-									<input
-										type="checkbox"
-										checked={isSelected}
-										onChange={() => toggleMulti(opt.optionId)}
-									/>
-									<span className="acp-perm__multi-indicator" aria-hidden>
-										✓
-									</span>
-									<span>{opt.name}</span>
-								</label>
-							);
-						})}
-					</div>
-					<div className="acp-perm__actions">
-						<button
-							type="button"
-							className="acp-perm__action"
-							disabled={pickedIds.length === 0}
-							onClick={submitMulti}
-						>
-							Done ({pickedIds.length})
-						</button>
-						{rejectOptions.map((option) => (
-							<button
-								key={option.optionId}
-								type="button"
-								className="acp-perm__action"
-								data-variant="ghost"
-								disabled={responding}
-								onClick={() => handleSingleClick(option.optionId)}
-							>
-								{option.name}
-							</button>
-						))}
-					</div>
-				</>
 			) : (
-				<div className="acp-perm__options">
-					{permission.options.map((opt, index) => (
-						<button
-							key={opt.optionId}
-							type="button"
-							className="acp-perm__option"
-							onClick={() => handleSingleClick(opt.optionId)}
-						>
-							<span className="acp-perm__option-key">{index + 1}</span>
-							<span>{opt.name}</span>
-						</button>
-					))}
-				</div>
+				<>
+					{isMulti ? (
+						<>
+							<div className="acp-perm__multi">
+								{selectableOptions.map((opt) => {
+									const isSelected = pickedIds.includes(opt.optionId);
+									return (
+										<label
+											key={opt.optionId}
+											className="acp-perm__multi-item"
+											data-selected={isSelected}
+										>
+											<input
+												type="checkbox"
+												checked={isSelected}
+												onChange={() => toggleMulti(opt.optionId)}
+											/>
+											<span className="acp-perm__multi-indicator" aria-hidden>
+												✓
+											</span>
+											<span>{opt.name}</span>
+										</label>
+									);
+								})}
+							</div>
+							<div className="acp-perm__actions">
+								<button
+									type="button"
+									className="acp-perm__action"
+									disabled={pickedIds.length === 0}
+									onClick={submitMulti}
+								>
+									Done ({pickedIds.length})
+								</button>
+								{rejectOptions.map((option) => (
+									<button
+										key={option.optionId}
+										type="button"
+										className="acp-perm__action"
+										data-variant="ghost"
+										disabled={responding}
+										onClick={() => handleSingleClick(option.optionId)}
+									>
+										{option.name}
+									</button>
+								))}
+							</div>
+						</>
+					) : (
+						<div className="acp-perm__options">
+							{permission.options.map((opt, index) => (
+								<button
+									key={opt.optionId}
+									type="button"
+									className="acp-perm__option"
+									onClick={() => handleSingleClick(opt.optionId)}
+								>
+									<span className="acp-perm__option-key">{index + 1}</span>
+									<span>{opt.name}</span>
+								</button>
+							))}
+						</div>
+					)}
+					{permission.allowsCustomResponse && (
+						<>
+							<div className="acp-perm__separator">
+								<span>or</span>
+							</div>
+							<form className="acp-perm__custom" onSubmit={submitCustom}>
+								<input
+									type="text"
+									value={customText}
+									onChange={(event) => {
+										setCustomText(event.target.value);
+										if (event.target.value.trim()) setPickedIds([]);
+									}}
+									placeholder="Type your own answer…"
+									aria-label="Custom answer"
+								/>
+								<button
+									type="submit"
+									className="acp-perm__action"
+									disabled={!customText.trim()}
+								>
+									Send
+								</button>
+							</form>
+						</>
+					)}
+				</>
 			)}
 		</div>
 	);

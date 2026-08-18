@@ -12,6 +12,7 @@
 import { beforeEach, mock } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { z } from "zod";
 
 process.env.NODE_ENV = "test";
@@ -23,85 +24,12 @@ const testTmpDir = join(tmpdir(), "superset-test");
 // Browser Global Mocks (required for renderer code that touches DOM)
 // =============================================================================
 
-const mockStyleMap = new Map<string, string>();
-const mockClassList = new Set<string>();
-
-const mockHead = {
-	appendChild: mock(() => {}),
-	removeChild: mock(() => {}),
-};
-
-// biome-ignore lint/suspicious/noExplicitAny: Test setup requires extending globalThis
-(globalThis as any).document = {
-	addEventListener: mock(() => {}),
-	removeEventListener: mock(() => {}),
-	documentElement: {
-		style: {
-			setProperty: (key: string, value: string) => mockStyleMap.set(key, value),
-			getPropertyValue: (key: string) => mockStyleMap.get(key) || "",
-		},
-		classList: {
-			add: (className: string) => mockClassList.add(className),
-			remove: (className: string) => mockClassList.delete(className),
-			toggle: (className: string) => {
-				mockClassList.has(className)
-					? mockClassList.delete(className)
-					: mockClassList.add(className);
-			},
-			contains: (className: string) => mockClassList.has(className),
-		},
-	},
-	head: mockHead,
-	getElementsByTagName: mock((tag: string) => {
-		if (tag === "head") return [mockHead];
-		return [];
-	}),
-	createElement: mock((_tag: string) => ({
-		setAttribute: mock(() => {}),
-		appendChild: mock(() => {}),
-		textContent: "",
-		type: "",
-	})),
-	createTextNode: mock((text: string) => ({
-		textContent: text,
-	})),
-};
-
-// zustand's persist middleware defaults to `window.localStorage`. The
-// xterm-env-polyfill preload aliases `window` to globalThis, so that lookup
-// resolves to `undefined` without throwing and persist crashes on the first
-// setState. Provide an in-memory Storage so persisted stores work in tests.
-const localStorageData = new Map<string, string>();
-(globalThis as { localStorage?: Storage }).localStorage = {
-	get length() {
-		return localStorageData.size;
-	},
-	clear: () => localStorageData.clear(),
-	getItem: (key: string) => localStorageData.get(key) ?? null,
-	key: (index: number) => [...localStorageData.keys()][index] ?? null,
-	removeItem: (key: string) => {
-		localStorageData.delete(key);
-	},
-	setItem: (key: string, value: string) => {
-		localStorageData.set(key, value);
-	},
-};
-
-beforeEach(() => {
-	localStorageData.clear();
-});
-
-// Ensure window has addEventListener/removeEventListener for react-hotkeys-hook's IIFE
-if (typeof globalThis.window !== "undefined") {
-	const win = globalThis.window as Record<string, unknown>;
-	if (!win.addEventListener) win.addEventListener = mock(() => {});
-	if (!win.removeEventListener) win.removeEventListener = mock(() => {});
-} else {
-	// biome-ignore lint/suspicious/noExplicitAny: Test setup requires extending globalThis
-	(globalThis as any).window = {
-		addEventListener: mock(() => {}),
-		removeEventListener: mock(() => {}),
-	};
+// Bun runs test files concurrently in one process. Register the real DOM from
+// the preload, before any file imports renderer dependencies. Per-file
+// `beforeAll` registration leaves a window where modules such as Mermaid and
+// Radix observe the incomplete Node stub and cache missing browser APIs.
+if (!GlobalRegistrator.isRegistered) {
+	GlobalRegistrator.register();
 }
 
 // localStorage: renderer stores persisted with zustand's `persist` middleware
@@ -133,6 +61,10 @@ Object.defineProperty(globalThis.window, "localStorage", {
 	value: mockLocalStorage,
 	writable: true,
 	configurable: true,
+});
+
+beforeEach(() => {
+	localStorageBacking.clear();
 });
 
 // =============================================================================

@@ -171,4 +171,46 @@ describe("SessionJournal", () => {
 		// A state frame remains below, but no *matching* frame → exhausted.
 		expect(page.nextBeforeSeq).toBeNull();
 	});
+
+	test("page() bounds serialized bytes while preserving cursors and one large item", () => {
+		const journal = new SessionJournal(10);
+		for (let index = 1; index <= 5; index += 1) {
+			journal.append("s", updateFrame("x".repeat(4 * 1024 * 1024)));
+		}
+		const measure = (envelope: unknown) =>
+			Buffer.byteLength(JSON.stringify(envelope));
+		const newest = journal.page({
+			limit: 200,
+			matches: (envelope) => envelope.frame.kind === "update",
+			maxBytes: 8 * 1024 * 1024,
+			measure,
+		});
+		expect(newest.items.map((entry) => entry.seq)).toEqual([5]);
+		expect(measure(newest.items)).toBeLessThan(8.5 * 1024 * 1024);
+		expect(newest.nextBeforeSeq).toBe(5);
+
+		const allSeqs: number[] = [];
+		let beforeSeq: number | undefined;
+		for (;;) {
+			const page = journal.page({
+				beforeSeq,
+				limit: 200,
+				matches: (envelope) => envelope.frame.kind === "update",
+				maxBytes: 8 * 1024 * 1024,
+				measure,
+			});
+			allSeqs.unshift(...page.items.map((entry) => entry.seq));
+			if (page.nextBeforeSeq === null) break;
+			beforeSeq = page.nextBeforeSeq;
+		}
+		expect(allSeqs).toEqual([1, 2, 3, 4, 5]);
+
+		const singleOversized = journal.page({
+			limit: 200,
+			matches: (envelope) => envelope.frame.kind === "update",
+			maxBytes: 1,
+			measure,
+		});
+		expect(singleOversized.items.map((entry) => entry.seq)).toEqual([5]);
+	});
 });

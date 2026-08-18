@@ -14,6 +14,16 @@ describe("electron-builder config", () => {
 		});
 	});
 
+	it("materializes the Pi ACP MCP extension outside app.asar", () => {
+		expect(config.extraResources).toContainEqual({
+			from: "dist/main/pi-acp-mcp-extension.js",
+			to: "pi-extensions/pi-acp-mcp-extension.js",
+		});
+		expect(packageJson.scripts["compile:app"]).toContain(
+			"bun run bundle:pi-acp-mcp",
+		);
+	});
+
 	it("excludes non-target Claude Agent SDK binaries", () => {
 		expect(config.files).toContain(
 			"!**/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/**/*",

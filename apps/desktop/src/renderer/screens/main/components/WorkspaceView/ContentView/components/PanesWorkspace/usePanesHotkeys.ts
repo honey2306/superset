@@ -20,11 +20,13 @@ export function usePanesHotkeys({
 	registry,
 	launcher,
 	addTerminalTab,
+	isActive,
 }: {
 	store: StoreApi<WorkspaceStore<PanesPaneData>>;
 	registry: PaneRegistry<PanesPaneData>;
 	launcher: TerminalLauncher;
 	addTerminalTab: () => void;
+	isActive: boolean;
 }) {
 	const handlers = buildPanesHotkeyHandlers({
 		store,
@@ -32,15 +34,16 @@ export function usePanesHotkeys({
 		launcher,
 		addTerminalTab,
 	});
+	const options = { enabled: isActive };
 
-	useHotkey("CLOSE_PANE", () => void handlers.closePane());
-	useHotkey("SPLIT_AUTO", () => void handlers.splitAuto());
-	useHotkey("SPLIT_RIGHT", () => void handlers.splitRight());
-	useHotkey("SPLIT_DOWN", () => void handlers.splitDown());
-	useHotkey("EQUALIZE_PANE_SPLITS", () => handlers.equalize());
-	useHotkey("NEW_GROUP", () => handlers.newGroup());
-	useHotkey("PREV_TAB", () => handlers.prevTab());
-	useHotkey("NEXT_TAB", () => handlers.nextTab());
-	useHotkey("PREV_TAB_ALT", () => handlers.prevTab());
-	useHotkey("NEXT_TAB_ALT", () => handlers.nextTab());
+	useHotkey("CLOSE_PANE", () => void handlers.closePane(), options);
+	useHotkey("SPLIT_AUTO", () => void handlers.splitAuto(), options);
+	useHotkey("SPLIT_RIGHT", () => void handlers.splitRight(), options);
+	useHotkey("SPLIT_DOWN", () => void handlers.splitDown(), options);
+	useHotkey("EQUALIZE_PANE_SPLITS", () => handlers.equalize(), options);
+	useHotkey("NEW_GROUP", () => handlers.newGroup(), options);
+	useHotkey("PREV_TAB", () => handlers.prevTab(), options);
+	useHotkey("NEXT_TAB", () => handlers.nextTab(), options);
+	useHotkey("PREV_TAB_ALT", () => handlers.prevTab(), options);
+	useHotkey("NEXT_TAB_ALT", () => handlers.nextTab(), options);
 }

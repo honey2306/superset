@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const PROJECT_SUPERSET_DIR_NAME = ".superset";
 const CONFIG_FILE_NAME = "config.json";
@@ -163,6 +163,50 @@ function applyLocalOverlay(
 
 export function getProjectConfigPath(repoPath: string): string {
 	return join(repoPath, PROJECT_SUPERSET_DIR_NAME, CONFIG_FILE_NAME);
+}
+
+/** Refuse autonomous edits when the canonical config cannot be preserved. */
+export function assertProjectConfigIsEditable(repoPath: string): void {
+	const configPath = getProjectConfigPath(repoPath);
+	if (!existsSync(configPath)) return;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(readFileSync(configPath, "utf-8"));
+	} catch {
+		throw new Error(`Project config is not valid JSON: ${configPath}`);
+	}
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+		throw new Error(`Project config must contain a JSON object: ${configPath}`);
+	}
+}
+
+/** Update selected project config keys without clobbering unrelated settings. */
+export function updateProjectConfig(
+	repoPath: string,
+	updates: Pick<SetupConfig, "setup" | "teardown" | "run">,
+): void {
+	const configPath = getProjectConfigPath(repoPath);
+	mkdirSync(dirname(configPath), { recursive: true });
+
+	let existing: Record<string, unknown> = {};
+	if (existsSync(configPath)) {
+		try {
+			const parsed: unknown = JSON.parse(readFileSync(configPath, "utf-8"));
+			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+				existing = parsed as Record<string, unknown>;
+			}
+		} catch {
+			existing = {};
+		}
+	}
+
+	const merged: SetupConfig & Record<string, unknown> = {
+		...existing,
+		...(updates.setup !== undefined && { setup: updates.setup }),
+		...(updates.teardown !== undefined && { teardown: updates.teardown }),
+		...(updates.run !== undefined && { run: updates.run }),
+	};
+	writeFileSync(configPath, JSON.stringify(merged, null, 2), "utf-8");
 }
 
 /**

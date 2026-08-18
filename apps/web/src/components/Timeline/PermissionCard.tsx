@@ -1,4 +1,5 @@
 import {
+	makeCustomResponseOutcome,
 	makeSelectedOutcome,
 	type PendingPermission,
 	type PermissionOption,
@@ -22,8 +23,10 @@ export function isMultiSelectPermission(pending: PendingPermission): boolean {
 export function PermissionCard({ pending, onRespond }: Props) {
 	const tool = pending.toolCall.title ?? pending.toolCall.kind ?? "tool";
 	const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
+	const [customText, setCustomText] = useState("");
 	const multiSelect = isMultiSelectPermission(pending);
 	const toggleOption = (optionId: string) => {
+		setCustomText("");
 		setSelectedOptionIds((current) =>
 			current.includes(optionId)
 				? current.filter((id) => id !== optionId)
@@ -67,6 +70,42 @@ export function PermissionCard({ pending, onRespond }: Props) {
 					</button>
 				) : null}
 			</div>
+			{pending.allowsCustomResponse ? (
+				<>
+					<div className="my-2 flex items-center gap-2 text-xs text-[var(--phone-muted)]">
+						<span className="h-px flex-1 bg-[var(--phone-border)]" />
+						<span>or</span>
+						<span className="h-px flex-1 bg-[var(--phone-border)]" />
+					</div>
+					<form
+						className="mt-2 flex gap-2"
+						onSubmit={(event) => {
+							event.preventDefault();
+							if (!customText.trim()) return;
+							onRespond(makeCustomResponseOutcome(customText));
+						}}
+					>
+						<input
+							type="text"
+							value={customText}
+							onChange={(event) => {
+								setCustomText(event.target.value);
+								if (event.target.value.trim()) setSelectedOptionIds([]);
+							}}
+							placeholder="Type your own answer…"
+							aria-label="Custom answer"
+							className="min-w-0 flex-1 rounded-lg border border-[var(--phone-border)] bg-transparent px-3 py-2 text-[var(--phone-text)]"
+						/>
+						<button
+							type="submit"
+							disabled={!customText.trim()}
+							className="mobile-primary-button px-3 py-2 text-sm disabled:opacity-40"
+						>
+							Send
+						</button>
+					</form>
+				</>
+			) : null}
 		</div>
 	);
 }

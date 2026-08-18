@@ -70,7 +70,7 @@ export function PresetsSection({
 			catalogProjects.map((project) => ({
 				id: project.id,
 				name: project.name,
-				color: "hsl(var(--primary))",
+				color: "var(--primary)",
 				mainRepoPath: project.repoPath,
 			})),
 		[catalogProjects],

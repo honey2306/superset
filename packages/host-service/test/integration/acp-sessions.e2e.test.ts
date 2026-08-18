@@ -29,6 +29,7 @@ import {
 	decodeMessagesCursor,
 	emptyTimeline,
 	foldEnvelopes,
+	makeCustomResponseOutcome,
 	makeSelectedOutcome,
 	type SessionScopedState,
 	type SessionUpdateEnvelope,
@@ -55,6 +56,14 @@ const FAKE_ADAPTER = path.join(
 const FAKE_PI_ADAPTER = path.join(
 	import.meta.dir,
 	"../fixtures/fake-pi-acp-adapter.ts",
+);
+const CODEX_ACP_BRIDGE = path.join(
+	import.meta.dir,
+	"../../src/runtime/acp-sessions/codex-app-server-acp.ts",
+);
+const FAKE_CODEX_APP_SERVER = path.join(
+	import.meta.dir,
+	"../fixtures/fake-codex-app-server.ts",
 );
 const WORKSPACE_ID = "acp-e2e-workspace";
 
@@ -108,6 +117,12 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		journalCapacity?: number;
 		piAdapterEntry?: string;
 		piStartupCache?: PiStartupCache;
+		adapterEnv?: Record<string, string>;
+		generateTitle?: (input: {
+			sessionId: string;
+			workspaceId: string;
+			message: string;
+		}) => Promise<string | null>;
 	}) {
 		const manager = new AcpSessionManager({
 			resolveWorkspaceCwd: () => workspaceDir,
@@ -117,6 +132,56 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		managers.push(manager);
 		return manager;
 	}
+
+	test("strict model creation requires the adapter to expose a model option", async () => {
+		const lenientManager = newManager({
+			adapterEnv: { FAKE_ACP_NO_MODEL_OPTION: "1" },
+		});
+		await expect(
+			lenientManager.create({
+				sessionId: "e2e-lenient-no-model-option",
+				workspaceId: WORKSPACE_ID,
+				model: "claude-sonnet-4-5",
+			}),
+		).resolves.toMatchObject({ status: "idle" });
+
+		const strictManager = newManager({
+			adapterEnv: { FAKE_ACP_NO_MODEL_OPTION: "1" },
+		});
+		await expect(
+			strictManager.create({
+				sessionId: "e2e-strict-no-model-option",
+				workspaceId: WORKSPACE_ID,
+				model: "claude-sonnet-4-5",
+				strictModel: true,
+			}),
+		).rejects.toThrow("does not expose a model option");
+	});
+
+	test("strict model creation fails when the adapter rejects selection", async () => {
+		const manager = newManager({
+			adapterEnv: { FAKE_ACP_REJECT_MODEL_SET: "1" },
+		});
+		await expect(
+			manager.create({
+				sessionId: "e2e-strict-rejected-model",
+				workspaceId: WORKSPACE_ID,
+				model: "claude-sonnet-4-5",
+				strictModel: true,
+			}),
+		).rejects.toThrow('rejected required model "claude-sonnet-4-5"');
+	});
+
+	test("strict model creation returns only after the adapter confirms selection", async () => {
+		const manager = newManager();
+		const created = await manager.create({
+			sessionId: "e2e-strict-model-applied",
+			workspaceId: WORKSPACE_ID,
+			model: "claude-sonnet-4-5",
+			strictModel: true,
+		});
+		expect(configValue(created, "model")).toBe("claude-sonnet-4-5");
+	});
 
 	test("Pi suppresses its bootstrap prelude but preserves real turn output", async () => {
 		const manager = newManager({ piAdapterEntry: FAKE_PI_ADAPTER });
@@ -753,6 +818,111 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expect(text).toContain("picked:apple+cherry");
 	}, 30_000);
 
+	test("host ask_user uses the same question cards and returns structured answers", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-host-ask-user";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const resultPromise = manager.askUser({
+			sessionId,
+			questions: [
+				{
+					question: "Pick frameworks",
+					header: "Frameworks",
+					options: [
+						{ label: "React", description: "Use the existing UI stack" },
+						{ label: "Vue" },
+					],
+					multiSelect: true,
+					allowCustomResponse: true,
+				},
+			],
+		});
+		await waitFor(
+			() => manager.get(sessionId).pendingPermissions.length > 0,
+			10_000,
+			"the host ask_user card",
+		);
+		const card = manager.get(sessionId).pendingPermissions[0];
+		if (!card) throw new Error("question card disappeared");
+		expect(card).toMatchObject({
+			isElicitation: true,
+			multiSelect: true,
+			allowsCustomResponse: true,
+		});
+		expect(card.toolCall.title).toBe("Pick frameworks");
+		expect(card.options.map((option) => option.name)).toEqual([
+			"React — Use the existing UI stack",
+			"Vue",
+			"Skip",
+		]);
+
+		manager.respondToPermission({
+			sessionId,
+			requestId: card.requestId,
+			outcome: makeSelectedOutcome(["option-0", "option-1"]),
+		});
+		await expect(resultPromise).resolves.toEqual({
+			action: "answered",
+			answers: [
+				{
+					question: "Pick frameworks",
+					selectedLabels: ["React", "Vue"],
+				},
+			],
+		});
+		expect(manager.get(sessionId).status).toBe("idle");
+
+		const abortController = new AbortController();
+		const abortedPromise = manager.askUser({
+			sessionId,
+			signal: abortController.signal,
+			questions: [
+				{
+					question: "Continue?",
+					header: "Confirm",
+					options: [{ label: "Yes" }, { label: "No" }],
+					multiSelect: false,
+					allowCustomResponse: false,
+				},
+			],
+		});
+		await waitFor(
+			() => manager.get(sessionId).pendingPermissions.length > 0,
+			10_000,
+			"the abortable host ask_user card",
+		);
+		abortController.abort();
+		await expect(abortedPromise).resolves.toEqual({
+			action: "cancelled",
+			answers: [],
+		});
+		expect(manager.get(sessionId).pendingPermissions).toEqual([]);
+
+		const disposedPromise = manager.askUser({
+			sessionId,
+			questions: [
+				{
+					question: "One last question?",
+					header: "Confirm",
+					options: [{ label: "Yes" }, { label: "No" }],
+					multiSelect: false,
+					allowCustomResponse: false,
+				},
+			],
+		});
+		await waitFor(
+			() => manager.get(sessionId).pendingPermissions.length > 0,
+			10_000,
+			"the disposable host ask_user card",
+		);
+		await manager.dispose();
+		await expect(disposedPromise).resolves.toEqual({
+			action: "cancelled",
+			answers: [],
+		});
+	}, 30_000);
+
 	test("cancel mid-tool-call: turn stops as cancelled, the open tool call terminalizes", async () => {
 		const manager = newManager();
 		const sessionId = "e2e-cancel";
@@ -1074,6 +1244,44 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		).rejects.toThrow(AcpWorkspaceMismatchError);
 	}, 30_000);
 
+	test("strict Codex creation applies the model at thread start and confirms it", async () => {
+		const manager = new AcpSessionManager({
+			resolveWorkspaceCwd: () => workspaceDir,
+			adapterEntry: FAKE_ADAPTER,
+			codexAdapterEntry: CODEX_ACP_BRIDGE,
+			adapterEnv: { CODEX_APP_SERVER_COMMAND: FAKE_CODEX_APP_SERVER },
+		});
+		managers.push(manager);
+		const state = await manager.create({
+			sessionId: "e2e-codex-strict-model",
+			workspaceId: WORKSPACE_ID,
+			harness: "codex-app-server",
+			model: "gpt-5.6-sol",
+			strictModel: true,
+		});
+		expect(configValue(state, "model")).toBe("gpt-5.6-sol");
+		expect(configValue(state, "reasoning_effort")).toBe("low");
+		await manager.setConfigOption({
+			sessionId: state.sessionId,
+			configId: "reasoning_effort",
+			value: "high",
+		});
+		expect(configValue(manager.get(state.sessionId), "reasoning_effort")).toBe(
+			"high",
+		);
+		await manager.setConfigOption({
+			sessionId: state.sessionId,
+			configId: "model",
+			value: "gpt-5.6-luna",
+		});
+		expect(configValue(manager.get(state.sessionId), "model")).toBe(
+			"gpt-5.6-luna",
+		);
+		expect(configValue(manager.get(state.sessionId), "reasoning_effort")).toBe(
+			"medium",
+		);
+	}, 30_000);
+
 	test("setMode and setConfigOption round-trip through the adapter", async () => {
 		const manager = newManager();
 		const sessionId = "e2e-config";
@@ -1338,7 +1546,37 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expect(text).toContain("empty-elicit:decline");
 	}, 30_000);
 
-	test("two-question form: sequential cards, Skip omits the answer, _custom fields ignored", async () => {
+	test("AskUser form exposes and returns its paired custom response", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-custom-response";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const { turn } = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "ask-single pick color|red, blue" }],
+		});
+		await waitFor(
+			() => manager.get(sessionId).pendingPermissions.length > 0,
+			10_000,
+			"the custom-response question card",
+		);
+		const card = manager.get(sessionId).pendingPermissions[0];
+		if (!card) throw new Error("question card disappeared");
+		expect(card.allowsCustomResponse).toBe(true);
+		manager.respondToPermission({
+			sessionId,
+			requestId: card.requestId,
+			outcome: makeCustomResponseOutcome("purple"),
+		});
+
+		expect((await turn).stopReason).toBe("end_turn");
+		const page = manager.getMessages({ sessionId, limit: 200 });
+		expect(agentText(foldEnvelopes(emptyTimeline(), page.items))).toContain(
+			"picked:purple",
+		);
+	}, 30_000);
+
+	test("two-question form: sequential cards, Skip omits the answer, custom fields share their question card", async () => {
 		const manager = newManager();
 		const sessionId = "e2e-two-questions";
 		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
@@ -1394,8 +1632,8 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		// content without its key at all.
 		const text = agentText(foldEnvelopes(emptyTimeline(), page.items));
 		expect(text).toContain("picked:red&skipped");
-		// Exactly two cards total: the question_<n>_custom "Other" fields the
-		// real adapter appends never become cards of their own.
+		// Exactly two cards total: each question_<n>_custom "Other" field is
+		// represented as free text within its question card, not a separate card.
 		expect(
 			page.items.filter(
 				(envelope) => envelope.frame.kind === "permission_requested",
@@ -1624,6 +1862,32 @@ describe("acp-sessions e2e (fake adapter)", () => {
 			"e2e-page-b1",
 			"e2e-page-b0",
 		]);
+	}, 30_000);
+
+	test("generates a title when the first prompt contains only an image", async () => {
+		let titleInput: string | null = null;
+		const manager = newManager({
+			generateTitle: async ({ message }) => {
+				titleInput = message;
+				return "Inspect image";
+			},
+		});
+		const sessionId = "e2e-title-image-only";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		await manager.prompt({
+			sessionId,
+			prompt: [
+				{
+					type: "image",
+					data: "iVBORw0KGgo=",
+					mimeType: "image/png",
+				},
+			],
+		}).turn;
+
+		expect(titleInput).toBe("[Image attached]");
+		expect(manager.get(sessionId).title).toBe("Inspect image");
 	}, 30_000);
 
 	test("session_info_update with title: null clears the title", async () => {

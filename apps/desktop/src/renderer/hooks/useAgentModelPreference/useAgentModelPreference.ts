@@ -33,6 +33,18 @@ function readStoredModel(
 }
 
 /**
+ * Non-hook variant for one-shot reads (e.g. ACP session launch, which runs
+ * outside React). Returns the user's last-picked model for `presetId`, or
+ * `null` when unset / stale.
+ */
+export function readAgentModelPreference(
+	storageKey: string,
+	presetId: string | null,
+): string | null {
+	return readStoredModel(storageKey, presetId);
+}
+
+/**
  * Last-selected model per agent preset, persisted as a JSON map in
  * localStorage. Keyed by presetId (not config UUID) so the preference
  * survives host switches and agent-config re-creation. `null` means

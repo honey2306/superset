@@ -42,6 +42,7 @@ function tool(
 			status,
 			locations: [],
 		},
+		semantics: { kind: "tool" },
 		permissions: [],
 		children,
 		startSeq: 1,
@@ -64,6 +65,12 @@ function subagent(
 			status,
 			locations: [],
 			rawInput: { subagent_type: "Explore" },
+		},
+		semantics: {
+			kind: "subagent",
+			task: "Inspect the ACP lifecycle",
+			agentType: "Explore",
+			result: [],
 		},
 	};
 }

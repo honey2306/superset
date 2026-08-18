@@ -1,5 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchStreamLink, TRPCClientError } from "@trpc/client";
+import {
+	createTRPCUntypedClient,
+	httpBatchStreamLink,
+	TRPCClientError,
+} from "@trpc/client";
 import { createContext, type ReactNode, useContext } from "react";
 import superjson from "superjson";
 import { workspaceTrpc } from "../../workspace-trpc";
@@ -16,7 +20,7 @@ function isTimeoutError(error: unknown): boolean {
 export interface WorkspaceClientContextValue {
 	hostUrl: string;
 	queryClient: QueryClient;
-	trpcClient: ReturnType<typeof workspaceTrpc.createClient>;
+	trpcClient: ReturnType<typeof createTRPCUntypedClient>;
 	getWsToken: () => string | null;
 }
 
@@ -31,7 +35,7 @@ interface WorkspaceClientProviderProps {
 interface WorkspaceClients {
 	hostUrl: string;
 	queryClient: QueryClient;
-	trpcClient: ReturnType<typeof workspaceTrpc.createClient>;
+	trpcClient: ReturnType<typeof createTRPCUntypedClient>;
 	getWsToken: () => string | null;
 }
 
@@ -39,7 +43,7 @@ const workspaceClientsCache = new Map<string, WorkspaceClients>();
 const WorkspaceClientContext =
 	createContext<WorkspaceClientContextValue | null>(null);
 
-function getWorkspaceClients(
+export function getWorkspaceClients(
 	cacheKey: string,
 	hostUrl: string,
 	headers?: () => Record<string, string>,
@@ -73,7 +77,10 @@ function getWorkspaceClients(
 		},
 	});
 
-	const trpcClient = workspaceTrpc.createClient({
+	// Hooks consume the untyped client through workspaceTrpc.Provider. Passing
+	// createClient's recursive procedure proxy here makes React development's
+	// props-diff instrumentation invoke it during a host URL switch.
+	const trpcClient = createTRPCUntypedClient({
 		links: [
 			httpBatchStreamLink({
 				url: `${hostUrl}/trpc`,

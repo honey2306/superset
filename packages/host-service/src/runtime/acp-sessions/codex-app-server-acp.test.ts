@@ -6,11 +6,13 @@ import type { McpServer } from "@agentclientprotocol/sdk";
 import type {
 	RequestPermissionRequest,
 	RequestPermissionResponse,
+	SessionUpdate,
 } from "@superset/session-protocol";
 import {
 	CodexBridge,
 	codexDecisionOptions,
 	codexMcpConfig,
+	codexToolUpdate,
 	isCodexBridgeMain,
 	selectedCodexDecision,
 } from "./codex-app-server-acp";
@@ -157,7 +159,12 @@ describe("Codex app-server MCP forwarding", () => {
 			const requests = readFileSync(logPath, "utf8")
 				.trim()
 				.split("\n")
-				.map((line) => JSON.parse(line) as { method: string; params: unknown });
+				.map((line) => JSON.parse(line) as { method: string; params: unknown })
+				.filter(
+					(request) =>
+						request.method === "thread/start" ||
+						request.method === "thread/resume",
+				);
 			expect(requests).toEqual([
 				{
 					method: "thread/start",
@@ -179,6 +186,190 @@ describe("Codex app-server MCP forwarding", () => {
 			restore();
 		}
 	});
+
+	test("exposes the Codex model catalog and reasoning controls", async () => {
+		const restore = withFixture("accept");
+		const logPath = path.join(
+			mkdtempSync(path.join(os.tmpdir(), "codex-config-")),
+			"requests.jsonl",
+		);
+		const previousLog = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+		process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = logPath;
+		try {
+			const bridge = new CodexBridge({
+				notify: async () => {},
+				request: async () =>
+					({ outcome: { outcome: "cancelled" } }) as RequestPermissionResponse,
+			});
+			await bridge.newSession(process.cwd());
+
+			expect(bridge.configOptions()).toMatchObject([
+				{
+					id: "model",
+					currentValue: "gpt-5.6-sol",
+					options: [
+						{ value: "gpt-5.6-sol", name: "GPT-5.6-Sol" },
+						{ value: "gpt-5.6-luna", name: "GPT-5.6-Luna" },
+					],
+				},
+				{
+					id: "reasoning_effort",
+					currentValue: "low",
+					options: [
+						{ value: "low", name: "Low" },
+						{ value: "high", name: "High" },
+					],
+				},
+			]);
+
+			await bridge.setConfigOption("reasoning_effort", "high");
+			await bridge.setConfigOption("model", "gpt-5.6-luna");
+			expect(bridge.configOptions()).toMatchObject([
+				{ id: "model", currentValue: "gpt-5.6-luna" },
+				{ id: "reasoning_effort", currentValue: "medium" },
+			]);
+
+			const settingsUpdates = readFileSync(logPath, "utf8")
+				.trim()
+				.split("\n")
+				.map(
+					(line) =>
+						JSON.parse(line) as {
+							method: string;
+							params: Record<string, unknown>;
+						},
+				)
+				.filter((request) => request.method === "thread/settings/update");
+			expect(settingsUpdates.map((request) => request.params)).toEqual([
+				{ threadId: "thread-1", effort: "high" },
+				{
+					threadId: "thread-1",
+					model: "gpt-5.6-luna",
+					effort: "medium",
+				},
+			]);
+		} finally {
+			if (previousLog === undefined)
+				delete process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+			else process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = previousLog;
+			restore();
+		}
+	});
+
+	test("passes the requested model at thread creation and requires the app-server to confirm it", async () => {
+		const restore = withFixture("accept");
+		const logPath = path.join(
+			mkdtempSync(path.join(os.tmpdir(), "codex-model-")),
+			"requests.jsonl",
+		);
+		const previousLog = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+		process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = logPath;
+		try {
+			const bridge = new CodexBridge({
+				notify: async () => {},
+				request: async () =>
+					({ outcome: { outcome: "cancelled" } }) as RequestPermissionResponse,
+			});
+			await expect(
+				bridge.newSession(process.cwd(), [], "gpt-5.6-sol", true),
+			).resolves.toBe("thread-1");
+			expect(
+				bridge.configOptions().find((option) => option.id === "model"),
+			).toMatchObject({ id: "model", currentValue: "gpt-5.6-sol" });
+			expect(
+				await bridge.setConfigOption("model", "gpt-5.6-sol"),
+			).toMatchObject({
+				configOptions: [
+					{ id: "model", currentValue: "gpt-5.6-sol" },
+					{ id: "reasoning_effort", currentValue: "low" },
+				],
+			});
+			const request = readFileSync(logPath, "utf8")
+				.trim()
+				.split("\n")
+				.map(
+					(line) =>
+						JSON.parse(line) as {
+							method: string;
+							params: Record<string, unknown>;
+						},
+				)
+				.find((entry) => entry.method === "thread/start");
+			expect(request?.params.model).toBe("gpt-5.6-sol");
+		} finally {
+			if (previousLog === undefined)
+				delete process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+			else process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = previousLog;
+			restore();
+		}
+	});
+
+	test("rejects strict creation when Codex confirms a different model", async () => {
+		const restore = withFixture("accept");
+		const previousModel = process.env.CODEX_BRIDGE_RETURNED_MODEL;
+		process.env.CODEX_BRIDGE_RETURNED_MODEL = "gpt-5.5";
+		try {
+			const bridge = new CodexBridge({
+				notify: async () => {},
+				request: async () =>
+					({ outcome: { outcome: "cancelled" } }) as RequestPermissionResponse,
+			});
+			await expect(
+				bridge.newSession(process.cwd(), [], "gpt-5.6-sol", true),
+			).rejects.toThrow('did not confirm required model "gpt-5.6-sol"');
+		} finally {
+			if (previousModel === undefined)
+				delete process.env.CODEX_BRIDGE_RETURNED_MODEL;
+			else process.env.CODEX_BRIDGE_RETURNED_MODEL = previousModel;
+			restore();
+		}
+	});
+});
+
+describe("Codex subagent projection", () => {
+	test.each([
+		"collabAgentToolCall",
+		"collab_tool_call",
+	])("tags %s items with the provider-neutral semantic contract", (type) => {
+		const update = codexToolUpdate({
+			id: "spawn-1",
+			type,
+			tool: "spawn_agent",
+			status: "completed",
+			prompt: "Inspect repository",
+			model: "explorer",
+			receiverThreadIds: ["child-1"],
+		});
+		expect(update).toMatchObject({
+			title: "spawn_agent",
+			rawInput: {
+				prompt: "Inspect repository",
+				model: "explorer",
+			},
+			_meta: {
+				"sh.superset/toolSemantic": {
+					kind: "subagent",
+					task: "Inspect repository",
+					agentType: "explorer",
+				},
+			},
+		});
+	});
+
+	test.each([
+		"wait",
+		"send_input",
+		"close_agent",
+		"resume_agent",
+	])("keeps the %s collaboration control as an ordinary tool", (tool) => {
+		const update = codexToolUpdate({
+			id: `${tool}-1`,
+			type: "collabAgentToolCall",
+			tool,
+			status: "completed",
+		});
+		expect(update._meta).toBeUndefined();
+	});
 });
 
 describe("Codex app-server recorded RPC fixture", () => {
@@ -189,8 +380,11 @@ describe("Codex app-server recorded RPC fixture", () => {
 		const restore = withFixture(decision);
 		const requests: RequestPermissionResponse[] = [];
 		const approvalRequests: RequestPermissionRequest[] = [];
+		const updates: SessionUpdate[] = [];
 		const bridge = new CodexBridge({
-			notify: async () => {},
+			notify: async (_method, params) => {
+				updates.push(params.update);
+			},
 			request: async (_method, params) => {
 				approvalRequests.push(params);
 				const response = {
@@ -206,6 +400,23 @@ describe("Codex app-server recorded RPC fixture", () => {
 				stopReason: "end_turn",
 			});
 			expect(requests).toHaveLength(1);
+			expect(updates).toContainEqual({
+				sessionUpdate: "usage_update",
+				used: 41_500,
+				size: 200_000,
+			});
+			expect(updates).toContainEqual({
+				sessionUpdate: "agent_message_chunk",
+				content: { type: "text", text: "Compacting context..." },
+			});
+			expect(
+				updates.filter(
+					(update) =>
+						update.sessionUpdate === "agent_message_chunk" &&
+						update.content.type === "text" &&
+						update.content.text === "Context compacted.",
+				),
+			).toHaveLength(2);
 			expect(approvalRequests[0]?.toolCall).toMatchObject({
 				title: "touch approved.txt",
 				rawInput: { command: "touch approved.txt" },

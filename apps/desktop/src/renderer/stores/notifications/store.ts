@@ -13,11 +13,9 @@ export type NotificationSourceInput =
 	| NotificationSourceKey;
 
 /**
- * Renderer-local notification state. Terminal agent statuses
- * (working/permission/idle/review) are DERIVED from host agent bindings —
- * see `renderer/hooks/host-service/useNotificationStatus` — so the only
- * facts stored here are about the user, not the agents:
- * manual unread marks and per-terminal seen timestamps.
+ * Renderer-local notification state. Agent statuses are derived from host
+ * lifecycle state, so the only facts stored here are about the user:
+ * manual unread marks and per-terminal/per-ACP-session seen timestamps.
  */
 export interface NotificationState {
 	/** Workspaces manually marked unread from the sidebar. */
@@ -30,10 +28,14 @@ export interface NotificationState {
 	 * and, with the monotonic guard, poison the comparison.
 	 */
 	terminalSeenAt: Record<string, number>;
+	/** ACP session id → last host-authored completion the user has seen. */
+	acpSessionSeenAt: Record<string, number>;
 	setManualUnread: (workspaceId: string) => void;
 	clearManualUnread: (workspaceId: string) => void;
 	markTerminalSeen: (terminalId: string, at: number) => void;
 	pruneTerminalSeen: (terminalId: string) => void;
+	markAcpSessionSeen: (sessionId: string, at: number) => void;
+	pruneAcpSessionSeen: (sessionId: string) => void;
 }
 
 export const useNotificationStore = create<NotificationState>()(
@@ -42,6 +44,7 @@ export const useNotificationStore = create<NotificationState>()(
 			(set) => ({
 				manualUnread: {},
 				terminalSeenAt: {},
+				acpSessionSeenAt: {},
 				setManualUnread: (workspaceId) => {
 					set((state) => ({
 						manualUnread: { ...state.manualUnread, [workspaceId]: true },
@@ -73,14 +76,32 @@ export const useNotificationStore = create<NotificationState>()(
 						return { terminalSeenAt };
 					});
 				},
+				markAcpSessionSeen: (sessionId, at) => {
+					set((state) => {
+						const prev = state.acpSessionSeenAt[sessionId];
+						if (prev !== undefined && prev >= at) return state;
+						return {
+							acpSessionSeenAt: { ...state.acpSessionSeenAt, [sessionId]: at },
+						};
+					});
+				},
+				pruneAcpSessionSeen: (sessionId) => {
+					set((state) => {
+						if (!(sessionId in state.acpSessionSeenAt)) return state;
+						const { [sessionId]: _removed, ...acpSessionSeenAt } =
+							state.acpSessionSeenAt;
+						return { acpSessionSeenAt };
+					});
+				},
 			}),
 			{
 				// Compatibility: retain the historical storage key across upgrades.
 				name: "v2-notifications-v1",
-				version: 2,
+				version: 3,
 				partialize: (state) => ({
 					manualUnread: state.manualUnread,
 					terminalSeenAt: state.terminalSeenAt,
+					acpSessionSeenAt: state.acpSessionSeenAt,
 				}),
 				migrate: migrateNotificationState,
 			},
@@ -91,13 +112,13 @@ export const useNotificationStore = create<NotificationState>()(
 
 type PersistedNotificationState = Pick<
 	NotificationState,
-	"manualUnread" | "terminalSeenAt"
+	"manualUnread" | "terminalSeenAt" | "acpSessionSeenAt"
 >;
 
 /**
  * v1 persisted a per-source status map. Terminal statuses are now derived
  * from host bindings (carrying them forward would resurrect the stale-dot
- * bug) and chat statuses never shipped, so only manual unread marks survive.
+ * bug), so only manual unread marks survive that migration.
  */
 export function migrateNotificationState(
 	persisted: unknown,
@@ -108,6 +129,7 @@ export function migrateNotificationState(
 		return {
 			manualUnread: state?.manualUnread ?? {},
 			terminalSeenAt: state?.terminalSeenAt ?? {},
+			acpSessionSeenAt: state?.acpSessionSeenAt ?? {},
 		};
 	}
 	const legacy = persisted as
@@ -125,7 +147,7 @@ export function migrateNotificationState(
 			manualUnread[entry.workspaceId] = true;
 		}
 	}
-	return { manualUnread, terminalSeenAt: {} };
+	return { manualUnread, terminalSeenAt: {}, acpSessionSeenAt: {} };
 }
 
 export function getNotificationSourceKey(

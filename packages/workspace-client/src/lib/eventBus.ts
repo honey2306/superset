@@ -20,7 +20,8 @@ type EventType =
 	| "catalog:changed"
 	| "workspace-operation:changed"
 	| "acp-session:changed"
-	| "acp-session:open-requested";
+	| "acp-session:open-requested"
+	| "acp-session:merge-request-open-requested";
 
 interface FsEventsPayload {
 	events: FsWatchEvent[];
@@ -135,6 +136,16 @@ export type AcpSessionOpenRequestedPayload = Omit<
 	"type" | "workspaceId"
 >;
 
+type AcpMergeRequestOpenRequestedMessage = Extract<
+	ServerMessage,
+	{ type: "acp-session:merge-request-open-requested" }
+>;
+
+export type AcpMergeRequestOpenRequestedPayload = Omit<
+	AcpMergeRequestOpenRequestedMessage,
+	"type" | "workspaceId"
+>;
+
 type WorkspaceOperationChangedMessage = Extract<
 	ServerMessage,
 	{ type: "workspace-operation:changed" }
@@ -183,7 +194,12 @@ type EventListener<T extends EventType> = T extends "fs:events"
 													workspaceId: string,
 													payload: AcpSessionOpenRequestedPayload,
 												) => void
-											: never;
+											: T extends "acp-session:merge-request-open-requested"
+												? (
+														workspaceId: string,
+														payload: AcpMergeRequestOpenRequestedPayload,
+													) => void
+												: never;
 
 interface ListenerEntry {
 	type: EventType;
@@ -236,7 +252,8 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 			message.type === "port:changed" ||
 			message.type === "workspace:changed" ||
 			message.type === "acp-session:changed" ||
-			message.type === "acp-session:open-requested"
+			message.type === "acp-session:open-requested" ||
+			message.type === "acp-session:merge-request-open-requested"
 				? message.workspaceId
 				: message.type === "project:changed"
 					? message.projectId
@@ -333,6 +350,11 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 				workspaceId,
 				payload,
 			);
+		} else if (message.type === "acp-session:merge-request-open-requested") {
+			const { type: _type, workspaceId, ...payload } = message;
+			(
+				entry.callback as EventListener<"acp-session:merge-request-open-requested">
+			)(workspaceId, payload);
 		}
 	}
 }

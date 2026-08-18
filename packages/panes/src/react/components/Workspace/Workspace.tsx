@@ -12,6 +12,7 @@ import { useWorkspaceInteractionState } from "./hooks/useWorkspaceInteractionSta
 export function Workspace<TData>({
 	store,
 	registry,
+	isActive = true,
 	className,
 	renderTabAccessory,
 	renderTabIcon,
@@ -54,6 +55,22 @@ export function Workspace<TData>({
 		}
 		return activeTab;
 	}, [draggedTabId, activeTabId, tabs, activeTab]);
+
+	// Lazily mount each tab on first visit, then keep it mounted so switching
+	// tabs preserves terminal attachments, session subscriptions, scroll, and
+	// component-local state. Tabs that have never been visited pay no startup
+	// cost.
+	const visitedTabIdsRef = useRef(new Set<string>());
+	const visitedStoreRef = useRef(store);
+	if (visitedStoreRef.current !== store) {
+		visitedStoreRef.current = store;
+		visitedTabIdsRef.current.clear();
+	}
+	if (displayedTab) visitedTabIdsRef.current.add(displayedTab.id);
+	const currentTabIds = new Set(tabs.map((tab) => tab.id));
+	for (const tabId of visitedTabIdsRef.current) {
+		if (!currentTabIds.has(tabId)) visitedTabIdsRef.current.delete(tabId);
+	}
 
 	const previousPanesRef = useRef<Map<string, Pane<TData>>>(new Map());
 	const previousStoreRef = useRef(store);
@@ -135,15 +152,34 @@ export function Workspace<TData>({
 				renderTabAccessory={renderTabAccessory}
 			/>
 			{renderBelowTabBar?.()}
-			{displayedTab ? (
-				<Tab
-					store={store}
-					tab={displayedTab}
-					registry={registry}
-					paneActions={paneActions}
-					contextMenuActions={contextMenuActions}
-					onSplitResizeDragging={onSplitResizeDragging}
-				/>
+			{tabs.length > 0 ? (
+				<div className="flex min-h-0 min-w-0 flex-1">
+					{tabs.map((tab) => {
+						if (!visitedTabIdsRef.current.has(tab.id)) return null;
+						const isDisplayed = tab.id === displayedTab?.id;
+						return (
+							<div
+								key={tab.id}
+								data-pane-tab-content={tab.id}
+								aria-hidden={!isDisplayed}
+								className={cn(
+									"min-h-0 min-w-0 flex-1",
+									!isDisplayed && "hidden",
+								)}
+							>
+								<Tab
+									store={store}
+									tab={tab}
+									isActive={isActive && isDisplayed}
+									registry={registry}
+									paneActions={paneActions}
+									contextMenuActions={contextMenuActions}
+									onSplitResizeDragging={onSplitResizeDragging}
+								/>
+							</div>
+						);
+					})}
+				</div>
 			) : (
 				<div className="flex min-h-0 min-w-0 flex-1 items-center justify-center text-sm text-muted-foreground">
 					{renderEmptyState?.() ?? "No tabs open"}

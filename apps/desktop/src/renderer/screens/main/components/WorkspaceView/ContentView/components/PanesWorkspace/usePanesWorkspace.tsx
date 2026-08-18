@@ -3,6 +3,7 @@ import type {
 	PaneDefinition,
 	PaneRegistry,
 	RendererContext,
+	WorkspaceStore,
 } from "@superset/panes";
 import { BUILTIN_AGENT_LABELS } from "@superset/shared/agent-catalog";
 import { Bot, FileText, MessageSquare, TerminalSquare } from "lucide-react";
@@ -31,8 +32,10 @@ import { useEditorSessionsStore } from "renderer/stores/editor-state/useEditorSe
 import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import { isHtmlFile, isImageFile, isMarkdownFile } from "shared/file-types";
 import type { FileViewerMode } from "shared/tabs-types";
+import type { StoreApi } from "zustand/vanilla";
 import { AcpSessionPane } from "../AcpSessionPane";
 import { AcpPaneToolbar } from "../AcpSessionPane/components/AcpPaneToolbar";
+import { mergeAcpPaneTitles } from "./acpPaneTitles";
 import {
 	buildPanesAcpLifecycleRegistry,
 	buildPanesLifecycleRegistry,
@@ -51,7 +54,6 @@ import {
 	useDefaultPaneActions,
 } from "./useDefaultActions";
 import { usePanesPresetOpeners } from "./usePanesPresetOpeners";
-import { usePanesWorkspacePaneLayout } from "./usePanesWorkspacePaneLayout";
 import { useTerminalLauncher } from "./useTerminalLauncher";
 
 const MOD_KEY = navigator.platform.toLowerCase().includes("mac")
@@ -371,7 +373,12 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 		// devtools and webview removed with internal browser feature
 
 		// --- acp agent pane ----------------------------------------------------
-		const acpLifecycle = buildPanesAcpLifecycleRegistry();
+		const acpLifecycle = buildPanesAcpLifecycleRegistry({
+			closeSession: async (sessionId) => {
+				if (!hostUrl) throw new Error("Host unavailable");
+				await createDesktopAcpSessionClient(hostUrl).api.close({ sessionId });
+			},
+		});
 
 		const acp: PaneDefinition<PanesPaneData> = {
 			...acpLifecycle,
@@ -398,6 +405,8 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 								? BUILTIN_AGENT_LABELS[acpData.agentDefinitionId]
 								: "Agent"
 						}
+						sessionId={acpData?.sessionId}
+						status={acpData?.status}
 						paneActions={<ctx.components.PaneHeaderActions />}
 					/>
 				);
@@ -426,6 +435,8 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 								: undefined
 						}
 						isLaunching={acpData.isLaunching}
+						isVisible={ctx.isVisible}
+						isFocused={ctx.isActive}
 						creationError={acpData.creationError}
 						onRetryLaunch={
 							acpData.creationError && hostWorkspaceId
@@ -466,11 +477,17 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 									}
 								: undefined
 						}
-						onSessionMetadataChange={({ title, latestUserMessage, status }) => {
+						onSessionMetadataChange={({
+							latestAgentTitle,
+							latestUserMessage,
+							status,
+						}) => {
 							const current = ctx.pane.data.acp;
+							const titles = mergeAcpPaneTitles(acpData, latestAgentTitle);
 							if (
 								current &&
-								current.title === title &&
+								current.title === titles.title &&
+								current.statusTitle === titles.statusTitle &&
 								current.latestUserMessage === latestUserMessage &&
 								current.status === status
 							)
@@ -479,7 +496,7 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 								...ctx.pane.data,
 								acp: {
 									...acpData,
-									title: title ?? undefined,
+									...titles,
 									latestUserMessage: latestUserMessage ?? undefined,
 									status,
 								},
@@ -488,6 +505,8 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 					/>
 				);
 			},
+			paneActions: (_ctx, defaults) =>
+				defaults.filter((action) => action.key !== "close"),
 			contextMenuActions: (_ctx, defaults) =>
 				defaults.map((d) =>
 					d.key === "close-pane" ? { ...d, label: "Close agent session" } : d,
@@ -516,11 +535,11 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 /**
  * Store + registry for the Host-backed panes mount.
  *
- * The store is backed by `usePanesWorkspacePaneLayout`, which persists
- * the panes layout to the shared `workspaceLocalState` TanStack DB
- * collection (per-workspace row), so layout survives remount and workspace
- * switches without consulting the legacy tabs store. `addTerminalPane` is
- * exposed for ad-hoc split tests during validation.
+ * Receives the already-hydrated panes store from the mount boundary. That
+ * keeps the registry, preset openers, and ACP launcher on the exact store
+ * rendered by the workspace, while the mount boundary owns persistence and
+ * hydration. `addTerminalPane` is exposed for ad-hoc split tests during
+ * validation.
  *
  * `paneActions` / `contextMenuActions` are the v1 default split/close/
  * equalize/move actions wired through the v1 terminal launcher; the panes
@@ -535,9 +554,9 @@ interface UsePanesWorkspaceOptions {
 
 export function usePanesWorkspace(
 	workspaceId: string,
+	store: StoreApi<WorkspaceStore<PanesPaneData>>,
 	options: UsePanesWorkspaceOptions = {},
 ) {
-	const { store } = usePanesWorkspacePaneLayout(workspaceId);
 	const registry = usePanesRegistry(workspaceId);
 	const launcher = useTerminalLauncher();
 	const paneActions = useDefaultPaneActions(launcher);

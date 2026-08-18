@@ -96,6 +96,7 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 
 	function newManager(options?: {
 		journalCapacity?: number;
+		idleHibernateMs?: number | null;
 		mcpServers?: McpServer[];
 		adapterEnv?: Record<string, string>;
 	}) {
@@ -104,6 +105,7 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 			adapterEntry: FAKE_ADAPTER,
 			persistence,
 			journalCapacity: options?.journalCapacity,
+			idleHibernateMs: options?.idleHibernateMs,
 			mcpServers: options?.mcpServers,
 			adapterEnv: options?.adapterEnv,
 		});
@@ -197,11 +199,11 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		expect(listed.lastStopReason).toBe("end_turn");
 		expect(listed.createdAt).toBe(stateBefore.createdAt);
 		expect(after.get(sessionId).status).toBe("offline");
-		// The manager itself stays passive — resurrection is the caller's
-		// explicit ensureLive (the router/stream boundaries), not getMessages.
-		expect(() => after.getMessages({ sessionId })).toThrow(
-			AcpSessionNotFoundError,
+		// Durable history is readable without waking a native adapter.
+		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
+			"hello before restart",
 		);
+		expect(after.get(sessionId).status).toBe("offline");
 
 		// ensureLive is idempotent under concurrency (deduped like create) and
 		// a no-op for ids the registry has never seen.
@@ -241,6 +243,96 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		await runTurn(after, sessionId, "say hello after restart");
 		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
 			"hello after restart",
+		);
+	}, 30_000);
+
+	test("hibernates only an unsubscribed, quiescent runtime and resumes it through session/load", async () => {
+		const manager = newManager({ idleHibernateMs: 40 });
+		const sessionId = "persist-idle-hibernate";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const unsubscribe = manager.subscribe({ sessionId, onEnvelope: () => {} });
+		await sleep(90);
+		expect(manager.get(sessionId).status).toBe("idle");
+
+		unsubscribe();
+		await sleep(15);
+		const resubscribe = manager.subscribe({ sessionId, onEnvelope: () => {} });
+		await sleep(90);
+		expect(manager.get(sessionId).status).toBe("idle");
+		resubscribe();
+		// requireLive cancels the previous timer; this idle mutation must arm a
+		// fresh one after it emits its updated state.
+		await manager.setMode({ sessionId, modeId: "plan" });
+
+		await waitFor(
+			() => manager.get(sessionId).status === "offline",
+			1_000,
+			"idle session hibernation",
+		);
+		expect(
+			manager.list({}).items.find((item) => item.sessionId === sessionId)
+				?.status,
+		).toBe("offline");
+
+		await manager.ensureLive(sessionId);
+		expect(manager.get(sessionId).status).toBe("idle");
+		await runTurn(manager, sessionId, "say resumed after hibernation");
+		expect(messageText(foldedMessages(manager, sessionId), "agent")).toContain(
+			"resumed after hibernation",
+		);
+	}, 30_000);
+
+	test("does not hibernate a running or permission-blocked session", async () => {
+		const manager = newManager({ idleHibernateMs: 40 });
+		const runningSessionId = "persist-hibernate-running";
+		await manager.create({
+			sessionId: runningSessionId,
+			workspaceId: WORKSPACE_ID,
+		});
+		const { turn: hangingTurn } = manager.prompt({
+			sessionId: runningSessionId,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		await sleep(100);
+		expect(manager.get(runningSessionId).status).toBe("running");
+		await manager.cancel({ sessionId: runningSessionId });
+		await hangingTurn;
+		await waitFor(
+			() => manager.get(runningSessionId).status === "offline",
+			1_000,
+			"completed running session hibernation",
+		);
+
+		const permissionSessionId = "persist-hibernate-permission";
+		await manager.create({
+			sessionId: permissionSessionId,
+			workspaceId: WORKSPACE_ID,
+		});
+		const { turn: permissionTurn } = manager.prompt({
+			sessionId: permissionSessionId,
+			prompt: [{ type: "text", text: "permission deploy" }],
+		});
+		await waitFor(
+			() => manager.get(permissionSessionId).pendingPermissions.length === 1,
+			1_000,
+			"permission request",
+		);
+		await sleep(100);
+		expect(manager.get(permissionSessionId).status).toBe("awaiting_permission");
+		const requestId =
+			manager.get(permissionSessionId).pendingPermissions[0]?.requestId;
+		if (!requestId) throw new Error("permission request id missing");
+		manager.respondToPermission({
+			sessionId: permissionSessionId,
+			requestId,
+			outcome: { outcome: "selected", optionId: "allow_once" },
+		});
+		await permissionTurn;
+		await waitFor(
+			() => manager.get(permissionSessionId).status === "offline",
+			1_000,
+			"resolved permission session hibernation",
 		);
 	}, 30_000);
 
@@ -344,7 +436,7 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		);
 	}, 30_000);
 
-	test("a failed session/load leaves the session offline and surfaces the error", async () => {
+	test("a missing upstream session starts fresh while retaining the durable Superset transcript", async () => {
 		const sessionId = "persist-broken";
 		const before = newManager();
 		await before.create({ sessionId, workspaceId: WORKSPACE_ID });
@@ -365,33 +457,40 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 			),
 		);
 
-		const after = newManager();
-		await expect(after.ensureLive(sessionId)).rejects.toThrow(/load/i);
-		// Still offline, still listed — the row is kept for a later retry.
-		expect(after.get(sessionId).status).toBe("offline");
-		expect(after.list({}).items.map((state) => state.sessionId)).toContain(
-			sessionId,
-		);
-		// And the failure is retryable, not a poisoned inflight entry.
-		await expect(after.ensureLive(sessionId)).rejects.toThrow(/load/i);
+		const after = newManager({
+			adapterEnv: { FAKE_ACP_DESTROY_INPUT_ON_MISSING_LOAD: "1" },
+		});
+		await after.ensureLive(sessionId);
 
-		// The stream route reports the failed load as a reset instead of
-		// hanging the socket.
-		const baseUrl = await startServer(after);
-		const resets: string[] = [];
-		subscriptions.push(
-			subscribeToSession({
-				streamUrl: `${baseUrl}/acp-sessions/${sessionId}/stream`,
-				since: 0,
-				onEnvelope: () => {},
-				onReset: (reason) => resets.push(reason),
-			}),
+		// The adapter's native session was gone, but Superset's own journal stays
+		// authoritative for the visible transcript.
+		expect(after.get(sessionId).status).toBe("idle");
+		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
+			"doomed",
 		);
-		await waitFor(
-			() => resets.includes("session_load_failed"),
-			10_000,
-			"a session_load_failed reset",
+		await runTurn(after, sessionId, "say fresh-after-missing-upstream");
+		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
+			"fresh-after-missing-upstream",
 		);
+		const replacementRecord = persistence
+			.loadAll()
+			.find((row) => row.sessionId === sessionId);
+		expect(replacementRecord?.acpSessionId).not.toBe(record.acpSessionId);
+	}, 30_000);
+
+	test("a non-missing session/load error leaves the session offline", async () => {
+		const sessionId = "persist-load-error";
+		const before = newManager();
+		await before.create({ sessionId, workspaceId: WORKSPACE_ID });
+		await before.dispose();
+
+		const after = newManager({
+			adapterEnv: { FAKE_ACP_LOAD_ERROR: "1" },
+		});
+		await expect(after.ensureLive(sessionId)).rejects.toThrow(
+			"Forced session/load failure",
+		);
+		expect(after.get(sessionId).status).toBe("offline");
 	}, 30_000);
 
 	test("a WS subscriber attaching to an offline session resurrects it and replays from seq 1", async () => {
@@ -431,7 +530,7 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		expect(after.get(sessionId).status).toBe("idle");
 	}, 30_000);
 
-	test("router: getMessages and prompt resurrect through the tRPC boundary after a host restart", async () => {
+	test("router: getMessages reads the durable journal without resurrecting; prompt resumes explicitly", async () => {
 		const sessionId = "persist-router";
 		const managerBefore = newManager();
 		const hostBefore = await createTestHost({ acpSessions: managerBefore });
@@ -464,8 +563,8 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 			listed.items.find((state) => state.sessionId === sessionId)?.status,
 		).toBe("offline");
 
-		// No explicit resurrect call anywhere: the router's ensureLive boundary
-		// must bring the session back for a plain getMessages…
+		// A history fetch is passive: opening a tab must not spawn a native agent
+		// or fail because its upstream history has gone away.
 		const page = await hostAfter.trpc.acpSessions.getMessages.query({
 			sessionId,
 			limit: 200,
@@ -474,9 +573,9 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		expect(messageText(timeline, "agent")).toContain("router-marker");
 		expect(
 			(await hostAfter.trpc.acpSessions.get.query({ sessionId })).status,
-		).toBe("idle");
+		).toBe("offline");
 
-		// …and the session keeps working.
+		// Prompt is a live boundary, so it resurrects the adapter first.
 		const ack = await hostAfter.trpc.acpSessions.prompt.mutate({
 			sessionId,
 			prompt: [{ type: "text", text: "say back from the dead" }],

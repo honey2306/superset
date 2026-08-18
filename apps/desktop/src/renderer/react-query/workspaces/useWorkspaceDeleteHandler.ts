@@ -75,6 +75,29 @@ export function createContextMenuDeleteDialogCoordinator(
 	};
 }
 
+/**
+ * Keeps a ContextMenu delete-dialog coordinator alive across React rerenders.
+ * Radix closes the menu before emitting `onCloseAutoFocus`; that close can
+ * rerender the menu with a new `onDelete` callback between the two events.
+ */
+export function useContextMenuDeleteDialogCoordinator(
+	openDeleteDialog: () => void,
+) {
+	const openDeleteDialogRef = useRef(openDeleteDialog);
+	openDeleteDialogRef.current = openDeleteDialog;
+	const coordinatorRef = useRef<ReturnType<
+		typeof createContextMenuDeleteDialogCoordinator
+	> | null>(null);
+
+	if (coordinatorRef.current === null) {
+		coordinatorRef.current = createContextMenuDeleteDialogCoordinator(() =>
+			openDeleteDialogRef.current(),
+		);
+	}
+
+	return coordinatorRef.current;
+}
+
 interface UseWorkspaceDeleteHandlerResult {
 	/** Whether the delete dialog should be shown */
 	showDeleteDialog: boolean;

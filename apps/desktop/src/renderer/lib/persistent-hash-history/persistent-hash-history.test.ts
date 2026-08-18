@@ -1,85 +1,27 @@
-import {
-	afterAll,
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	it,
-	mock,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { createPersistentHashHistory } from "./persistent-hash-history";
 
-// Mock localStorage
-const storage = new Map<string, string>();
-const mockLocalStorage = {
-	getItem: mock((key: string) => storage.get(key) ?? null),
-	setItem: mock((key: string, value: string) => storage.set(key, value)),
-	removeItem: mock((key: string) => storage.delete(key)),
-	clear: mock(() => storage.clear()),
-	get length() {
-		return storage.size;
-	},
-	key: mock((_index: number) => null as string | null),
+const storage = {
+	clear: () => localStorage.clear(),
+	get: (key: string) => localStorage.getItem(key),
+	set: (key: string, value: string) => localStorage.setItem(key, value),
 };
 
 // Mock window.history.replaceState
 const mockReplaceState = mock(
 	(_state: unknown, _unused: string, _url?: string | URL | null) => {},
 );
-
-// Set up globals BEFORE importing the module (the singleton runs at import time).
-// The originals MUST be restored afterAll: later test files in the same process
-// create zustand persist stores that read `window.localStorage` at import time,
-// and a leaked bare-mock `window` makes that undefined and crashes their setState.
-const originalWindow = (globalThis as { window?: unknown }).window;
-const originalLocalStorage = (globalThis as { localStorage?: unknown })
-	.localStorage;
-
-Object.defineProperty(globalThis, "localStorage", {
-	value: mockLocalStorage,
-	writable: true,
-	configurable: true,
-});
-
-Object.defineProperty(globalThis, "window", {
-	value: {
-		history: {
-			replaceState: mockReplaceState,
-			state: null,
-		},
-		location: {
-			pathname: "/",
-			search: "",
-		},
-	},
-	writable: true,
-	configurable: true,
-});
-
-// Now safe to import — the module-level singleton will find window/localStorage
-const { createPersistentHashHistory } = await import(
-	"./persistent-hash-history"
-);
+const originalReplaceState = window.history.replaceState;
 
 beforeEach(() => {
 	storage.clear();
 	mockReplaceState.mockClear();
+	window.history.replaceState = mockReplaceState;
 });
 
 afterEach(() => {
 	storage.clear();
-});
-
-afterAll(() => {
-	Object.defineProperty(globalThis, "window", {
-		value: originalWindow,
-		writable: true,
-		configurable: true,
-	});
-	Object.defineProperty(globalThis, "localStorage", {
-		value: originalLocalStorage,
-		writable: true,
-		configurable: true,
-	});
+	window.history.replaceState = originalReplaceState;
 });
 
 describe("createPersistentHashHistory", () => {

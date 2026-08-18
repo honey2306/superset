@@ -36,6 +36,7 @@ function makeContext(): RendererContext<PanesPaneData> {
 	return {
 		pane: { ...pane, parentDirection: null },
 		tab: { ...tab, position: 0 },
+		isVisible: true,
 		isActive: true,
 		store,
 		actions: {
@@ -194,6 +195,11 @@ describe("createPanesTerminalPaneBridge", () => {
 		};
 
 		expect(getPanesTabStatus(tab)).toBe("permission");
+		const acpData = tab.panes.acp.data.acp;
+		if (!acpData) throw new Error("ACP fixture setup failed");
+		acpData.status = "idle";
+		acpData.notificationStatus = "review";
+		expect(getPanesTabStatus(tab)).toBe("review");
 	});
 
 	test("maps ACP session lifecycle statuses to visual pane statuses", () => {
@@ -206,7 +212,25 @@ describe("createPanesTerminalPaneBridge", () => {
 		expect(acpSessionStatusToPaneStatus("idle")).toBe("idle");
 	});
 
-	test("syncs ACP session statuses into inactive acp panes", () => {
+	test("prefers AskUser when aggregating user-actionable pane statuses", () => {
+		const context = makeContext();
+		const tab = context.store.getState().getTab("tab-1");
+		if (!tab) throw new Error("fixture setup failed");
+		tab.panes.permission = {
+			id: "permission",
+			kind: "terminal",
+			data: { terminalId: "permission", status: "permission" },
+		};
+		tab.panes.askuser = {
+			id: "askuser",
+			kind: "terminal",
+			data: { terminalId: "askuser", status: "askuser" },
+		};
+
+		expect(getPanesTabStatus(tab)).toBe("askuser");
+	});
+
+	test("syncs ACP session status and title into inactive acp panes", () => {
 		const context = makeContext();
 		context.store.getState().addTab({
 			id: "tab-2",
@@ -227,16 +251,41 @@ describe("createPanesTerminalPaneBridge", () => {
 
 		syncPanesAcpStatuses(
 			context.store,
-			new Map([["session-a", "awaiting_permission"]]),
+			new Map([["session-a", "idle"]]),
+			new Map([["session-a", "review"]]),
+			new Map([["session-a", "Generated title"]]),
 		);
 
-		const acpData = context.store.getState().getPane("acp-pane")?.pane.data.acp;
-		expect(acpData?.status).toBe("awaiting_permission");
+		let acpData = context.store.getState().getPane("acp-pane")?.pane.data.acp;
+		expect(acpData?.status).toBe("idle");
+		expect(acpData?.notificationStatus).toBe("review");
+		expect(acpData?.title).toBe("Generated title");
+		expect(acpData?.statusTitle).toBe("Generated title");
+
+		syncPanesAcpStatuses(
+			context.store,
+			new Map([["session-a", "idle"]]),
+			undefined,
+			new Map([["session-a", "Current agent activity"]]),
+		);
+		acpData = context.store.getState().getPane("acp-pane")?.pane.data.acp;
+		expect(acpData?.title).toBe("Generated title");
+		expect(acpData?.statusTitle).toBe("Current agent activity");
+
+		syncPanesAcpStatuses(
+			context.store,
+			new Map([["session-a", "idle"]]),
+			undefined,
+			new Map([["session-a", null]]),
+		);
+		acpData = context.store.getState().getPane("acp-pane")?.pane.data.acp;
+		expect(acpData?.title).toBe("Generated title");
+		expect(acpData?.statusTitle).toBeUndefined();
 
 		// Missing session in the map is a no-op (host may not have reported yet).
 		syncPanesAcpStatuses(context.store, new Map());
 		expect(
 			context.store.getState().getPane("acp-pane")?.pane.data.acp?.status,
-		).toBe("awaiting_permission");
+		).toBe("idle");
 	});
 });

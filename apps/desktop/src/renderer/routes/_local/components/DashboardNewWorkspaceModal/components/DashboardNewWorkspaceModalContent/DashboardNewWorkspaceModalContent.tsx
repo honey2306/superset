@@ -35,7 +35,7 @@ export function DashboardNewWorkspaceModalContent({
 			hostProjects.map((project) => ({
 				id: project.id,
 				name: project.name,
-				color: "hsl(var(--primary))",
+				color: "var(--primary)",
 				githubOwner: project.repoOwner,
 				githubRepoName: project.repoName,
 				iconUrl: project.repoOwner

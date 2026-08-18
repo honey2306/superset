@@ -1,5 +1,6 @@
 import type { WorkspaceStore } from "@superset/panes";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { readAgentModelPreference } from "renderer/hooks/useAgentModelPreference";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
 import {
 	ACP_SUPPORTED_AGENT_IDS,
@@ -8,6 +9,7 @@ import {
 	launchAcpSession,
 } from "renderer/lib/acp-session-launch";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { MODEL_STORAGE_KEY } from "renderer/routes/_local/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/PromptGroup/types";
 import { useAcpForAgentPresets } from "renderer/screens/main/components/WorkspaceView/ContentView/hooks/useAcpForAgentPresets";
 import type { StoreApi } from "zustand/vanilla";
 import { openAcpSessionInPanesStore } from "./openAcpSessionInPanesStore";
@@ -77,10 +79,16 @@ export function useAcpPresetLauncher({
 				isLaunching?: boolean;
 				creationError?: string;
 			}) => openAcpSessionInPanesStore(store, input);
+			// agentDefinitionId doubles as the presetId for built-in agents, so
+			// the workspace-create model preference applies here too.
+			const model =
+				readAgentModelPreference(MODEL_STORAGE_KEY, agentDefinitionId) ??
+				undefined;
 			void launchAcpSession({
 				workspaceId: hostWorkspaceId,
 				agentDefinitionId,
 				client,
+				model,
 				openPane: onOpen,
 				onSessionCreated: ({ sessionId, title, status }) => {
 					onOpen({

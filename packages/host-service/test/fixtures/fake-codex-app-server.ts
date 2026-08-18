@@ -4,14 +4,51 @@ import { appendFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 
 const scenario = process.env.CODEX_BRIDGE_SCENARIO ?? "accept";
+const models = [
+	{
+		id: "gpt-5.6-sol",
+		model: "gpt-5.6-sol",
+		displayName: "GPT-5.6-Sol",
+		description: "Frontier coding model",
+		hidden: false,
+		isDefault: true,
+		defaultReasoningEffort: "low",
+		supportedReasoningEfforts: [
+			{ reasoningEffort: "low", description: "Fast" },
+			{ reasoningEffort: "high", description: "Thorough" },
+		],
+	},
+	{
+		id: "gpt-5.6-luna",
+		model: "gpt-5.6-luna",
+		displayName: "GPT-5.6-Luna",
+		description: "Fast coding model",
+		hidden: false,
+		isDefault: false,
+		defaultReasoningEffort: "medium",
+		supportedReasoningEfforts: [
+			{ reasoningEffort: "low", description: "Fast" },
+			{ reasoningEffort: "medium", description: "Balanced" },
+		],
+	},
+];
 let approvalId: string | number | null = null;
+let currentModel = models[0]?.model ?? "gpt-5.6-sol";
+let currentReasoningEffort = models[0]?.defaultReasoningEffort ?? "low";
 
 function send(frame: object): void {
 	process.stdout.write(`${JSON.stringify(frame)}\n`);
 }
 
-function recordMcpConfig(method: string | undefined, params: unknown): void {
-	if (method !== "thread/start" && method !== "thread/resume") return;
+function recordRequest(method: string | undefined, params: unknown): void {
+	if (
+		method !== "model/list" &&
+		method !== "thread/start" &&
+		method !== "thread/resume" &&
+		method !== "thread/settings/update"
+	) {
+		return;
+	}
 	const logPath = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
 	if (!logPath) return;
 	appendFileSync(logPath, `${JSON.stringify({ method, params })}\n`);
@@ -23,22 +60,111 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 		method?: string;
 		params?: { threadId?: string; turnId?: string };
 	};
-	recordMcpConfig(frame.method, frame.params);
+	recordRequest(frame.method, frame.params);
 	if (frame.method === "initialize") {
 		send({ id: frame.id, result: { userAgent: "fixture/0.143.0" } });
 		return;
 	}
+	if (frame.method === "model/list") {
+		send({ id: frame.id, result: { data: models, nextCursor: null } });
+		return;
+	}
 	if (frame.method === "thread/start") {
-		send({ id: frame.id, result: { thread: { id: "thread-1" } } });
+		const requestedModel = (frame.params as { model?: unknown } | undefined)
+			?.model;
+		currentModel =
+			process.env.CODEX_BRIDGE_RETURNED_MODEL ??
+			(typeof requestedModel === "string" ? requestedModel : currentModel);
+		currentReasoningEffort =
+			models.find((model) => model.model === currentModel)
+				?.defaultReasoningEffort ?? currentReasoningEffort;
+		send({
+			id: frame.id,
+			result: {
+				thread: { id: "thread-1" },
+				model: currentModel,
+				reasoningEffort: currentReasoningEffort,
+			},
+		});
 		return;
 	}
 	if (frame.method === "thread/resume") {
-		send({ id: frame.id, result: { thread: { id: "thread-1" } } });
+		send({
+			id: frame.id,
+			result: {
+				thread: { id: "thread-1" },
+				model: currentModel,
+				reasoningEffort: currentReasoningEffort,
+			},
+		});
+		return;
+	}
+	if (frame.method === "thread/settings/update") {
+		const settings = frame.params as
+			| { model?: unknown; effort?: unknown }
+			| undefined;
+		if (typeof settings?.model === "string") currentModel = settings.model;
+		if (typeof settings?.effort === "string") {
+			currentReasoningEffort = settings.effort;
+		}
+		send({ id: frame.id, result: {} });
 		return;
 	}
 	if (frame.method === "turn/start") {
 		send({ id: frame.id, result: { turn: { id: "turn-1" } } });
 		if (scenario === "exit") return process.exit(9);
+		send({
+			method: "item/started",
+			params: {
+				threadId: "thread-1",
+				turnId: "turn-1",
+				item: { id: "compaction-1", type: "contextCompaction" },
+			},
+		});
+		send({
+			method: "item/completed",
+			params: {
+				threadId: "thread-1",
+				turnId: "turn-1",
+				item: {
+					id: "compaction-1",
+					type: "contextCompaction",
+					status: "completed",
+				},
+			},
+		});
+		send({
+			method: "thread/compacted",
+			params: { threadId: "thread-1", turnId: "turn-1" },
+		});
+		send({
+			method: "thread/compacted",
+			params: { threadId: "thread-1", turnId: "legacy-turn" },
+		});
+		send({
+			method: "thread/tokenUsage/updated",
+			params: {
+				threadId: "thread-1",
+				turnId: "turn-1",
+				tokenUsage: {
+					last: {
+						inputTokens: 40_000,
+						cachedInputTokens: 20_000,
+						outputTokens: 1_000,
+						reasoningOutputTokens: 500,
+						totalTokens: 41_500,
+					},
+					total: {
+						inputTokens: 120_000,
+						cachedInputTokens: 60_000,
+						outputTokens: 3_000,
+						reasoningOutputTokens: 1_500,
+						totalTokens: 124_500,
+					},
+					modelContextWindow: 200_000,
+				},
+			},
+		});
 		send({
 			method: "item/started",
 			params: {

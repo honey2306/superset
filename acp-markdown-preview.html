@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACP Markdown 样式预览</title>
+<style>
+:root {
+	/* 模拟 Superset 暗色主题变量 */
+	--fg: #f8f8f2;
+	--fg-mute: color-mix(in oklch, #f8f8f2 55%, transparent);
+	--fg-faint: color-mix(in oklch, #f8f8f2 38%, transparent);
+	--line: color-mix(in oklch, #f8f8f2 10%, transparent);
+	--line-strong: color-mix(in oklch, #f8f8f2 18%, transparent);
+	--accent-solid: #ff79c6;
+	--accent-tint: color-mix(in oklch, #ff79c6 12%, transparent);
+	--info: #8be9fd;
+	--info-tint: color-mix(in oklch, #8be9fd 12%, transparent);
+	--success: #50fa7b;
+	--warning: #ffb86c;
+	--acp-panel: #1e1f28;
+	--acp-green: var(--success);
+	--acp-orange: var(--warning);
+}
+
+body {
+	background: #282a36;
+	color: var(--fg);
+	font-family: -apple-system, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+	margin: 0;
+	padding: 40px 20px;
+}
+
+.container {
+	max-width: 900px;
+	margin: 0 auto;
+}
+
+h1.page-title {
+	font-size: 28px;
+	color: var(--accent-solid);
+	margin-bottom: 10px;
+}
+
+.section-title {
+	font-size: 20px;
+	color: var(--info);
+	margin: 40px 0 20px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--line);
+}
+
+.variant {
+	margin-bottom: 40px;
+	padding: 20px;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 8px;
+}
+
+.variant-label {
+	font-size: 14px;
+	color: var(--accent-solid);
+	font-weight: 600;
+	margin-bottom: 16px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+/* 当前方案的 ACP Markdown 样式 */
+.acp-md {
+	font-size: 15px;
+	line-height: 1.7;
+	color: color-mix(in oklch, var(--fg) 88%, transparent);
+}
+.acp-md > *:first-child { margin-top: 0; }
+.acp-md > *:last-child { margin-bottom: 0; }
+
+.acp-md h1 {
+	font-size: 22px;
+	font-weight: 700;
+	color: var(--fg);
+	margin: 28px 0 12px;
+	line-height: 1.3;
+}
+.acp-md h2 {
+	font-size: 18px;
+	font-weight: 600;
+	color: var(--accent-solid);
+	margin: 24px 0 10px;
+	line-height: 1.35;
+}
+.acp-md h3 {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--fg);
+	margin: 20px 0 8px;
+}
+.acp-md p {
+	margin: 12px 0;
+	color: inherit;
+}
+.acp-md ul, .acp-md ol {
+	margin: 12px 0;
+	padding-left: 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.acp-md li {
+	margin: 0;
+	padding-left: 4px;
+	color: inherit;
+	line-height: 1.7;
+}
+.acp-md strong {
+	color: var(--fg);
+	font-weight: 600;
+}
+.acp-md em {
+	color: var(--fg);
+	font-style: italic;
+}
+.acp-md code:not(pre code) {
+	background: color-mix(in oklch, var(--fg) 8%, transparent);
+	color: var(--fg);
+	padding: 1px 5px;
+	border-radius: 3px;
+	font-family: 'SF Mono', Monaco, Consolas, monospace;
+	font-size: 0.88em;
+}
+.acp-md blockquote {
+	margin: 14px 0;
+	padding: 2px 0 2px 14px;
+	border-left: 2px solid var(--line-strong);
+	color: color-mix(in oklch, var(--fg) 70%, transparent);
+	font-style: italic;
+}
+
+/* 代码块样式 - 三种变体 */
+.acp-code {
+	margin: 14px 0;
+	border-radius: 6px;
+	overflow: hidden;
+	background: var(--acp-panel);
+	font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+/* 变体 A: 当前方案（18% fg 边框）*/
+.acp-code.variant-a {
+	border: 1px solid var(--line-strong);
+}
+
+/* 变体 B: 无边框 */
+.acp-code.variant-b {
+	border: 0;
+}
+
+/* 变体 C: 极淡边框（8% fg）*/
+.acp-code.variant-c {
+	border: 1px solid color-mix(in oklch, var(--fg) 8%, transparent);
+}
+
+.acp-code__hd {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 7px 12px;
+	background: rgba(0, 0, 0, 0.25);
+	border-bottom: 1px solid var(--line);
+	font-size: 11.5px;
+	color: color-mix(in oklch, var(--fg) 60%, transparent);
+}
+.acp-code__lang {
+	text-transform: lowercase;
+	font-weight: 500;
+	padding: 2px 7px;
+	border-radius: 3px;
+	background: color-mix(in oklch, var(--fg) 10%, transparent);
+	color: color-mix(in oklch, var(--fg) 72%, transparent);
+}
+.acp-code__body {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	font-size: 13px;
+	line-height: 1.6;
+}
+.acp-code__gutter {
+	user-select: none;
+	text-align: right;
+	padding: 10px 12px 10px 14px;
+	color: color-mix(in oklch, var(--fg) 35%, transparent);
+	font-size: 13px;
+	background: rgba(0, 0, 0, 0.15);
+	border-right: 1px solid var(--line);
+}
+.acp-code__pre {
+	margin: 0;
+	padding: 10px 14px;
+	overflow-x: auto;
+	color: color-mix(in oklch, var(--fg) 92%, transparent);
+}
+
+/* 表格样式 */
+.acp-md table {
+	width: 100%;
+	margin: 14px 0;
+	border-collapse: collapse;
+	border-radius: 6px;
+	overflow: hidden;
+	font-size: 14px;
+}
+
+/* 表格变体 A: 当前方案（有边框）*/
+.acp-md table.variant-a {
+	border: 1px solid var(--line-strong);
+}
+.acp-md table.variant-a thead {
+	background: rgba(0, 0, 0, 0.25);
+	border-bottom: 1px solid var(--line-strong);
+}
+
+/* 表格变体 B: 无外边框 */
+.acp-md table.variant-b {
+	border: 0;
+}
+.acp-md table.variant-b thead {
+	background: rgba(0, 0, 0, 0.25);
+	border-bottom: 1px solid var(--line);
+}
+
+/* 表格变体 C: 极淡边框 */
+.acp-md table.variant-c {
+	border: 1px solid color-mix(in oklch, var(--fg) 8%, transparent);
+}
+.acp-md table.variant-c thead {
+	background: rgba(0, 0, 0, 0.25);
+	border-bottom: 1px solid color-mix(in oklch, var(--fg) 8%, transparent);
+}
+
+.acp-md th {
+	padding: 9px 12px;
+	text-align: left;
+	font-weight: 600;
+	color: var(--fg);
+	border-right: 1px solid var(--line);
+}
+.acp-md th:last-child { border-right: 0; }
+.acp-md td {
+	padding: 8px 12px;
+	color: inherit;
+	border-right: 1px solid var(--line);
+	border-bottom: 1px solid var(--line);
+}
+.acp-md td:last-child { border-right: 0; }
+.acp-md tbody tr:last-child td { border-bottom: 0; }
+.acp-md tbody tr:nth-child(even) {
+	background: color-mix(in oklch, var(--fg) 3%, transparent);
+}
+.acp-md tbody tr:hover {
+	background: color-mix(in oklch, var(--fg) 5%, transparent);
+}
+</style>
+</head>
+<body>
+<div class="container">
+	<h1 class="page-title">ACP Markdown 样式预览</h1>
+	<p style="color: color-mix(in oklch, var(--fg) 70%, transparent); margin-bottom: 40px;">
+		对比三种代码块/表格边框方案：<strong>A = 当前（18% fg）</strong> | <strong>B = 无边框</strong> | <strong>C = 极淡（8% fg）</strong>
+	</p>
+
+	<div class="section-title">基础排版（标题、段落、列表）</div>
+	<div class="variant">
+		<div class="acp-md">
+			<h2>总评</h2>
+			<p>这个项目最有价值的部分，是已经形成了较清晰的闭环：Agent Server 负责 <code>理解与修改</code>、Gateway 负责 <code>模型隔离</code>、krowd 负责 <code>运行事实</code>、Player 负责 <code>呈现</code>、Desktop 负责 <code>用户控制</code>。</p>
+
+			<h3>P2: 工程化</h3>
+			<ol>
+				<li>添加根级 <code>test</code>、<code>check</code>、<code>build</code></li>
+				<li>添加 CI</li>
+				<li>编写顶层 README 和 bootstrap 脚本</li>
+				<li>提供 <code>.env.example</code></li>
+				<li>增加真正的四进程端到端测试</li>
+			</ol>
+
+			<blockquote>
+				<p>方向是合理的，而且 Agent run 恢复、工具审批、上下文压缩等部分明显经过真设计。</p>
+			</blockquote>
+		</div>
+	</div>
+
+	<div class="section-title">代码块对比</div>
+
+	<div class="variant">
+		<div class="variant-label">方案 A — 当前边框（18% fg，偏明显）</div>
+		<div class="acp-md">
+			<p>根目录目前只有统一 <code>typecheck</code>，缺少一条完整的：</p>
+			<div class="acp-code variant-a">
+				<div class="acp-code__hd">
+					<span class="acp-code__lang">bash</span>
+				</div>
+				<div class="acp-code__body">
+					<div class="acp-code__gutter">1</div>
+					<pre class="acp-code__pre">pnpm test</pre>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="variant">
+		<div class="variant-label">方案 B — 无边框（Claude / ChatGPT 风格）</div>
+		<div class="acp-md">
+			<p>根目录目前只有统一 <code>typecheck</code>，缺少一条完整的：</p>
+			<div class="acp-code variant-b">
+				<div class="acp-code__hd">
+					<span class="acp-code__lang">bash</span>
+				</div>
+				<div class="acp-code__body">
+					<div class="acp-code__gutter">1</div>
+					<pre class="acp-code__pre">pnpm test</pre>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="variant">
+		<div class="variant-label">方案 C — 极淡边框（8% fg，几乎隐形）</div>
+		<div class="acp-md">
+			<p>根目录目前只有统一 <code>typecheck</code>，缺少一条完整的：</p>
+			<div class="acp-code variant-c">
+				<div class="acp-code__hd">
+					<span class="acp-code__lang">bash</span>
+				</div>
+				<div class="acp-code__body">
+					<div class="acp-code__gutter">1</div>
+					<pre class="acp-code__pre">pnpm test</pre>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="section-title">表格对比</div>
+
+	<div class="variant">
+		<div class="variant-label">方案 A — 当前边框（18% fg）</div>
+		<div class="acp-md">
+			<table class="variant-a">
+				<thead>
+					<tr>
+						<th>层级</th>
+						<th>前</th>
+						<th>后</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>正文 <code>.acp-md</code></td>
+						<td>14px</td>
+						<td><strong>15px</strong></td>
+					</tr>
+					<tr>
+						<td>h2</td>
+						<td>15px</td>
+						<td><strong>18px</strong></td>
+					</tr>
+					<tr>
+						<td>h3</td>
+						<td>13.5px</td>
+						<td><strong>16px</strong></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<div class="variant">
+		<div class="variant-label">方案 B — 无边框</div>
+		<div class="acp-md">
+			<table class="variant-b">
+				<thead>
+					<tr>
+						<th>层级</th>
+						<th>前</th>
+						<th>后</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>正文 <code>.acp-md</code></td>
+						<td>14px</td>
+						<td><strong>15px</strong></td>
+					</tr>
+					<tr>
+						<td>h2</td>
+						<td>15px</td>
+						<td><strong>18px</strong></td>
+					</tr>
+					<tr>
+						<td>h3</td>
+						<td>13.5px</td>
+						<td><strong>16px</strong></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<div class="variant">
+		<div class="variant-label">方案 C — 极淡边框（8% fg）</div>
+		<div class="acp-md">
+			<table class="variant-c">
+				<thead>
+					<tr>
+						<th>层级</th>
+						<th>前</th>
+						<th>后</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>正文 <code>.acp-md</code></td>
+						<td>14px</td>
+						<td><strong>15px</strong></td>
+					</tr>
+					<tr>
+						<td>h2</td>
+						<td>15px</td>
+						<td><strong>18px</strong></td>
+					</tr>
+					<tr>
+						<td>h3</td>
+						<td>13.5px</td>
+						<td><strong>16px</strong></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<div style="margin-top: 60px; padding: 20px; background: rgba(0,0,0,0.3); border-radius: 8px; color: color-mix(in oklch, var(--fg) 70%, transparent); font-size: 14px;">
+		<strong style="color: var(--accent-solid);">使用方法：</strong>在浏览器打开这个文件，对比三种方案，告诉我你要 A / B / C。
+	</div>
+</div>
+</body>
+</html>

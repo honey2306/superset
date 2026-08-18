@@ -24,6 +24,8 @@ import {
 	AcpWorkspaceMismatchError,
 } from "./acp-sessions";
 import type {
+	AcpMergeRequestOpenRequestEvent,
+	AcpMergeRequestOpenRequestHandler,
 	AcpSessionChangeHandler,
 	AcpSessionOpenRequestEvent,
 	AcpSessionOpenRequestHandler,
@@ -88,6 +90,14 @@ export type RequestOperation =
 	| "unsubscribe"
 	| "shutdown";
 
+const RETRYABLE_AFTER_DISCONNECT: ReadonlySet<RequestOperation> = new Set([
+	"hello",
+	"get",
+	"list",
+	"ensureLive",
+	"getMessages",
+]);
+
 export interface AcpDaemonHello {
 	pid: number;
 	protocolVersion: number;
@@ -136,12 +146,18 @@ export interface AcpDaemonSessionOpenRequestedEvent
 	type: "session-open-requested";
 }
 
+export interface AcpDaemonMergeRequestOpenRequestedEvent
+	extends AcpMergeRequestOpenRequestEvent {
+	type: "merge-request-open-requested";
+}
+
 export type AcpDaemonMessage =
 	| AcpDaemonRequest
 	| AcpDaemonResponse
 	| AcpDaemonEvent
 	| AcpDaemonSessionChangedEvent
-	| AcpDaemonSessionOpenRequestedEvent;
+	| AcpDaemonSessionOpenRequestedEvent
+	| AcpDaemonMergeRequestOpenRequestedEvent;
 
 export function acpDaemonSocketPath(
 	organizationId: string,
@@ -179,6 +195,26 @@ interface PendingRequest {
 	reject: (reason: Error) => void;
 }
 
+class AcpDaemonDisconnectedError extends Error {
+	readonly code = "ACP_DAEMON_DISCONNECTED";
+
+	constructor() {
+		super("ACP daemon disconnected");
+		this.name = "AcpDaemonDisconnectedError";
+	}
+}
+
+function isAcpDaemonDisconnectedError(
+	error: unknown,
+): error is AcpDaemonDisconnectedError {
+	return (
+		error instanceof AcpDaemonDisconnectedError ||
+		(error instanceof Error &&
+			"code" in error &&
+			error.code === "ACP_DAEMON_DISCONNECTED")
+	);
+}
+
 interface ClientSubscription {
 	sessionId: string;
 	onEnvelope: (envelope: SessionUpdateEnvelope) => void;
@@ -203,6 +239,7 @@ export interface AcpDaemonClientOptions {
 export class AcpDaemonClient implements AcpSessionRuntime {
 	private socket: net.Socket | null = null;
 	private connecting: Promise<void> | null = null;
+	private daemonReplacement: Promise<void> | null = null;
 	private buffer = "";
 	private connectedHello: AcpDaemonHello | null = null;
 	private readonly pending = new Map<string, PendingRequest>();
@@ -210,6 +247,8 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 	private readonly sessionChangeHandlers = new Set<AcpSessionChangeHandler>();
 	private readonly sessionOpenRequestHandlers =
 		new Set<AcpSessionOpenRequestHandler>();
+	private readonly mergeRequestOpenRequestHandlers =
+		new Set<AcpMergeRequestOpenRequestHandler>();
 
 	constructor(private readonly options: AcpDaemonClientOptions) {}
 
@@ -230,6 +269,13 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		return () => {
 			this.sessionOpenRequestHandlers.delete(handler);
 		};
+	}
+
+	onMergeRequestOpenRequested(
+		handler: AcpMergeRequestOpenRequestHandler,
+	): () => void {
+		this.mergeRequestOpenRequestHandlers.add(handler);
+		return () => this.mergeRequestOpenRequestHandlers.delete(handler);
 	}
 
 	async hello(): Promise<AcpDaemonHello> {
@@ -254,7 +300,7 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 
 	async create(input: Parameters<AcpSessionRuntime["create"]>[0]) {
 		await this.connect();
-		await this.replaceConnectedDaemonIfSafe();
+		await this.ensureCompatibleDaemon();
 		return this.sendRequest<SessionScopedState>("create", input);
 	}
 
@@ -380,7 +426,17 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		params: unknown,
 	): Promise<T> {
 		await this.connect();
-		return this.sendRequest<T>(op, params);
+		try {
+			return await this.sendRequest<T>(op, params);
+		} catch (error) {
+			// Reads are safe to replay. A daemon upgrade can close the old socket
+			// while an inactive kept-alive pane is refreshing; retry that transport
+			// handoff instead of surfacing a transient loading error.
+			if (!RETRYABLE_AFTER_DISCONNECT.has(op)) throw error;
+			if (!isAcpDaemonDisconnectedError(error)) throw error;
+			await this.connect();
+			return this.sendRequest<T>(op, params);
+		}
 	}
 
 	private async sendRequest<T = void>(
@@ -407,6 +463,19 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 			this.connecting = null;
 		});
 		return this.connecting;
+	}
+
+	private async ensureCompatibleDaemon(): Promise<void> {
+		if (this.daemonReplacement) return this.daemonReplacement;
+		const replacement = this.replaceConnectedDaemonIfSafe();
+		this.daemonReplacement = replacement;
+		try {
+			await replacement;
+		} finally {
+			if (this.daemonReplacement === replacement) {
+				this.daemonReplacement = null;
+			}
+		}
 	}
 
 	private async replaceConnectedDaemonIfSafe(): Promise<void> {
@@ -472,7 +541,9 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		);
 		try {
 			closeSync(logFd);
-		} catch {}
+		} catch {
+			// Best-effort cleanup; the spawned child already owns its descriptor.
+		}
 		child.on("error", () => {});
 		child.unref();
 		const deadline = Date.now() + CONNECT_TIMEOUT_MS;
@@ -560,7 +631,7 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 			if (this.socket !== socket) return;
 			this.socket = null;
 			this.connectedHello = null;
-			this.rejectPending(new Error("ACP daemon disconnected"));
+			this.rejectPending(new AcpDaemonDisconnectedError());
 			for (const subscription of this.subscriptions.values()) {
 				subscription.onEnvelope({
 					seq: 0,
@@ -624,6 +695,20 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 				} catch (error) {
 					console.warn(
 						"[acp-daemon-client] session-open-requested handler threw",
+						error,
+					);
+				}
+			}
+			return;
+		}
+		if (message.type === "merge-request-open-requested") {
+			const { type: _type, ...payload } = message;
+			for (const handler of this.mergeRequestOpenRequestHandlers) {
+				try {
+					handler(payload);
+				} catch (error) {
+					console.warn(
+						"[acp-daemon-client] merge-request-open-requested handler threw",
 						error,
 					);
 				}

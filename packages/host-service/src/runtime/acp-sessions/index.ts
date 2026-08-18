@@ -14,6 +14,8 @@ export { type JournalPage, SessionJournal } from "./journal";
 export {
 	type AcpSessionPersistence,
 	type AcpSessionRecord,
+	type DelegationRunPersistence,
+	type DelegationRunRecord,
 	SqliteAcpSessionPersistence,
 } from "./persistence";
 export { PiStartupCache } from "./pi-startup";

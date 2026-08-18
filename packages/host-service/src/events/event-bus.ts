@@ -262,6 +262,21 @@ export class EventBus {
 		this.broadcast({ type: "acp-session:open-requested", ...message });
 	}
 
+	broadcastAcpMergeRequestOpenRequested(
+		message: Omit<
+			Extract<
+				ServerMessage,
+				{ type: "acp-session:merge-request-open-requested" }
+			>,
+			"type"
+		>,
+	): void {
+		this.broadcast({
+			type: "acp-session:merge-request-open-requested",
+			...message,
+		});
+	}
+
 	/**
 	 * Fan out a Workspace Provisioning operation state change. Unlike the
 	 * catalog wake, this ships the whole current operation snapshot so the

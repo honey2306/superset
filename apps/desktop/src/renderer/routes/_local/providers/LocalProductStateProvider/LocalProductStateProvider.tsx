@@ -33,7 +33,10 @@ function PaneRepositoryHydrator({
 	);
 
 	useEffect(() => {
-		if (!isReady) return;
+		// TanStack DB is cache-first: persisted rows can be available before the
+		// collection reaches strict readiness. Hydrate those rows immediately so
+		// switching workspaces does not flash a loading screen.
+		if (!isReady && rows.length === 0) return;
 		hydratePanesRepository(
 			rows.map((row) => ({
 				workspaceId: row.workspaceId,

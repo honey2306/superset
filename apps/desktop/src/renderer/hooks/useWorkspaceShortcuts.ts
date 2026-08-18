@@ -31,6 +31,23 @@ type SidebarGroup = {
 	}>;
 };
 
+export function sortProjectsByTabOrder<T extends { id: string }>(
+	projects: readonly T[],
+	localProjectRows: readonly { projectId: string; tabOrder: number }[],
+): T[] {
+	const localByProjectId = new Map(
+		localProjectRows.map((row) => [row.projectId, row]),
+	);
+	return [...projects].sort((left, right) => {
+		const leftOrder = localByProjectId.get(left.id)?.tabOrder;
+		const rightOrder = localByProjectId.get(right.id)?.tabOrder;
+		return (
+			(leftOrder ?? Number.MAX_SAFE_INTEGER) -
+			(rightOrder ?? Number.MAX_SAFE_INTEGER)
+		);
+	});
+}
+
 /**
  * Shared hook for workspace keyboard shortcuts.
  * Used by WorkspaceSidebar for navigation between workspaces.
@@ -61,7 +78,11 @@ export function useWorkspaceShortcuts() {
 		const localByProjectId = new Map(
 			localProjectRows.map((row) => [row.projectId, row]),
 		);
-		return projects.filter(isSidebarProjectVisible).flatMap((project) => {
+		const visibleProjects = sortProjectsByTabOrder(
+			projects.filter(isSidebarProjectVisible),
+			localProjectRows,
+		);
+		return visibleProjects.flatMap((project) => {
 			const projectWorkspaces = workspaces
 				.filter((workspace) => workspace.projectId === project.id)
 				.filter((workspace) => {
@@ -130,7 +151,7 @@ export function useWorkspaceShortcuts() {
 					project: {
 						id: project.id,
 						name: project.name,
-						color: localProject?.color ?? "hsl(var(--primary))",
+						color: localProject?.color ?? "var(--primary)",
 						githubOwner: project.repoOwner,
 						mainRepoPath: project.repoPath,
 						hideImage: localProject?.hideImage ?? false,

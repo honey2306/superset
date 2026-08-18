@@ -269,7 +269,7 @@ export function DeleteWorkspaceDialog({
 
 				{!isLoading && canDelete && hasWarnings && (
 					<div className="px-4 pb-2">
-						<div className="text-xs text-warning dark:text-warning bg-warning-tint dark:bg-warning-tint border border-yellow-200 dark:border-yellow-500/20 rounded-ds-3 px-2.5 py-1.5">
+						<div className="text-xs text-warning bg-warning-tint border border-warning/25 rounded-ds-3 px-2.5 py-1.5">
 							{hasChanges && hasUnpushedCommits
 								? t("workspace.hasChangesAndUnpushed")
 								: hasChanges

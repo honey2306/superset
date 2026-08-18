@@ -79,6 +79,35 @@ describe("eventBus", () => {
 		expect(other.length).toBe(0);
 	});
 
+	it("routes a KDev merge-request opening request only to its workspace", async () => {
+		const host = makeHostServer();
+		const bus = getEventBus(host.hostUrl, () => "tok");
+		const opened: string[] = [];
+		cleanups.push(
+			bus.on(
+				"acp-session:merge-request-open-requested",
+				"ws-1",
+				(_workspaceId, event) => opened.push(event.url),
+			),
+		);
+		cleanups.push(() => host.server.stop(true));
+
+		await waitFor(() => host.clientCount() === 1);
+		host.push({
+			type: "acp-session:merge-request-open-requested",
+			workspaceId: "ws-1",
+			sourceSessionId: "session-1",
+			provider: "kdev",
+			sourceBranch: "feature/a",
+			url: "https://kdev.corp.kuaishou.com/git/group/repo/-/create_MR?branchName=feature%2Fa",
+			occurredAt: 1,
+		});
+		await waitFor(() => opened.length === 1);
+		expect(opened).toEqual([
+			"https://kdev.corp.kuaishou.com/git/group/repo/-/create_MR?branchName=feature%2Fa",
+		]);
+	});
+
 	it("shares one connection per hostUrl across handles", async () => {
 		const host = makeHostServer();
 		const busA = getEventBus(host.hostUrl, () => "tok");

@@ -36,6 +36,9 @@ export interface TabContext<TData> extends Tab<TData> {
 export interface RendererContext<TData> {
 	pane: PaneContext<TData>;
 	tab: TabContext<TData>;
+	/** Whether this pane's workspace surface and tab are currently displayed. */
+	isVisible: boolean;
+	/** Whether this specific pane has keyboard focus within its visible tab. */
 	isActive: boolean;
 	store: StoreApi<WorkspaceStore<TData>>;
 
@@ -100,6 +103,7 @@ export interface WorkspaceInteractionState {
 export interface WorkspaceProps<TData> {
 	store: StoreApi<WorkspaceStore<TData>>;
 	registry: PaneRegistry<TData>;
+	isActive?: boolean;
 	className?: string;
 	renderTabAccessory?: (tab: Tab<TData>) => ReactNode;
 	renderTabIcon?: (tab: Tab<TData>) => ReactNode;

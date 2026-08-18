@@ -1,1 +1,1 @@
-export { AcpMessageItem } from "./AcpMessageItem";
+export { AcpAgentAuthorRow, AcpMessageItem } from "./AcpMessageItem";

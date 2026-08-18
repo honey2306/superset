@@ -52,6 +52,40 @@ function piAcpBridgePlugin() {
 	};
 }
 
+type RollupBundleEntry =
+	| { type: "asset" }
+	| { type: "chunk"; name: string; code: string };
+
+interface PiAcpMcpExtensionCjsInteropPlugin {
+	name: string;
+	generateBundle(
+		options: unknown,
+		bundle: Record<string, RollupBundleEntry>,
+		isWrite: boolean,
+	): void;
+}
+
+/**
+ * Pi loads extensions through jiti with `default: true`. Electron-vite emits
+ * the main target as CommonJS, where a TypeScript default export becomes
+ * `exports.default`; jiti consequently sees an object instead of Pi's factory
+ * function. Make this one externally-loaded extension require to its default
+ * export without changing the standalone ESM release bundle.
+ */
+export function piAcpMcpExtensionCjsInteropPlugin(): PiAcpMcpExtensionCjsInteropPlugin {
+	return {
+		name: "pi-acp-mcp-extension-cjs-interop",
+		generateBundle(_options, bundle, _isWrite) {
+			for (const output of Object.values(bundle)) {
+				if (output.type !== "chunk" || output.name !== "pi-acp-mcp-extension") {
+					continue;
+				}
+				output.code = `${output.code}\nmodule.exports = exports.default;\n`;
+			}
+		},
+	};
+}
+
 // Validate required env vars at build time using the Zod schema (single source of truth)
 await import("./src/main/env.main");
 
@@ -65,7 +99,12 @@ const workspaceDependencies = Object.keys(dependencies).filter((dependency) =>
 
 export default defineConfig({
 	main: {
-		plugins: [tsconfigPaths, copyResourcesPlugin(), piAcpBridgePlugin()],
+		plugins: [
+			tsconfigPaths,
+			copyResourcesPlugin(),
+			piAcpBridgePlugin(),
+			piAcpMcpExtensionCjsInteropPlugin(),
+		],
 
 		define: {
 			"process.env.NODE_ENV": defineEnv(process.env.NODE_ENV, "production"),
@@ -96,6 +135,11 @@ export default defineConfig({
 				process.env.SUPERSET_BUILD_CHANNEL,
 				"stable",
 			),
+			// Used only by Electron main to start the loopback host's AutoMate
+			// relay client. Do not add this to preload or renderer defines.
+			"process.env.AUTOMATE_RELAY_URL": defineEnv(
+				process.env.AUTOMATE_RELAY_URL,
+			),
 			// GitHub Actions sets this to github.repository. It is embedded into the
 			// main bundle so releases from forks update from that same repository.
 			"process.env.SUPERSET_UPDATE_REPOSITORY": defineEnv(
@@ -122,12 +166,24 @@ export default defineConfig({
 					"acp-daemon": resolve(
 						"../../packages/host-service/src/runtime/acp-sessions/daemon-entry.ts",
 					),
+					// Session-scoped Superset MCP is launched by every ACP adapter as an
+					// external Electron-as-Node subprocess. It must be a main input so
+					// electron-vite recreates it after clearing dist/main in dev/watch.
+					"superset-mcp": resolve(
+						"../../packages/host-service/src/runtime/acp-sessions/superset-mcp.ts",
+					),
 					// ACP protocol bridges are subprocesses, so emit standalone entries
 					// beside acp-daemon.js where AcpSessionManager resolves them.
 					"codex-app-server-acp": resolve(
 						"../../packages/host-service/src/runtime/acp-sessions/codex-app-server-acp.ts",
 					),
 					"pi-acp": piAcpEntry,
+					// Electron-vite clears dist/main before each development rebuild.
+					// Emit this externally loaded Pi extension as part of the main build
+					// so ACP daemon startup never observes the predev bundle as missing.
+					"pi-acp-mcp-extension": resolve(
+						"../../packages/host-service/src/runtime/acp-sessions/pi-acp-mcp-extension.ts",
+					),
 					// Bundle the ACP bridge and Claude SDK JavaScript as a standalone
 					// subprocess entry. Superset supplies only an external `claude` CLI;
 					// the SDK's optional native fallback binaries stay out of the app.

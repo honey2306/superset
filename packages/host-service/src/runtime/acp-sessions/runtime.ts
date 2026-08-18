@@ -41,6 +41,20 @@ export type AcpSessionOpenRequestHandler = (
 	event: AcpSessionOpenRequestEvent,
 ) => void;
 
+/** Best-effort request to open a provider-owned MR creation page in Desktop. */
+export interface AcpMergeRequestOpenRequestEvent {
+	workspaceId: string;
+	sourceSessionId: string;
+	provider: "kdev";
+	url: string;
+	sourceBranch: string;
+	occurredAt: number;
+}
+
+export type AcpMergeRequestOpenRequestHandler = (
+	event: AcpMergeRequestOpenRequestEvent,
+) => void;
+
 /**
  * Host-facing ACP control surface. The in-process manager and the detached
  * daemon client both implement this contract; callers must await operations so
@@ -51,6 +65,13 @@ export interface AcpSessionRuntime {
 		sessionId: string;
 		workspaceId: string;
 		harness?: SessionScopedState["harness"];
+		/**
+		 * Client-preferred model id, applied via `session/set_config_option`
+		 * after `session/new` when the adapter exposes a `model` select option.
+		 */
+		model?: string;
+		/** Fail fresh creation unless the adapter confirms the requested model. */
+		strictModel?: boolean;
 	}): MaybePromise<SessionScopedState>;
 	get(sessionId: string): MaybePromise<SessionScopedState>;
 	list(input: {
@@ -124,5 +145,8 @@ export interface AcpSessionRuntime {
 	onSessionChanged?(handler: AcpSessionChangeHandler): () => void;
 	/** Best-effort desktop presentation request emitted by Superset ACP tools. */
 	onSessionOpenRequested?(handler: AcpSessionOpenRequestHandler): () => void;
+	onMergeRequestOpenRequested?(
+		handler: AcpMergeRequestOpenRequestHandler,
+	): () => void;
 	dispose(): Promise<void>;
 }
