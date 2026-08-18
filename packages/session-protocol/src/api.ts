@@ -89,7 +89,13 @@ export const createSessionInput = z.object({
 	workspaceId: z.string().min(1),
 	/** Omitted deliberately remains Claude, preserving the existing shell. */
 	harness: z
-		.enum(["claude-agent-acp", "codex-app-server", "pi-acp", "myflicker-acp"])
+		.enum([
+			"claude-agent-acp",
+			"codex-app-server",
+			"pi-acp",
+			"myflicker-acp",
+			"deepseek-acp",
+		])
 		.optional(),
 	/**
 	 * Client-preferred model id. Applied after `session/new` via

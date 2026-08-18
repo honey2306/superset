@@ -867,18 +867,28 @@ describe("working indicator", () => {
 		expect(screen.getByRole("status").textContent).toContain("Working…");
 	});
 
-	test("does not duplicate visible activity or appear outside running status", () => {
+	test("stays visible for any timeline activity while running", () => {
 		const user = { ...message(1), role: "user" as const };
 		const agent = message(2);
-		expect(shouldShowWorkingIndicator([user, agent], "running")).toBeFalse();
+		expect(shouldShowWorkingIndicator([user, agent], "running")).toBeTrue();
 		expect(
 			shouldShowWorkingIndicator([user, tool(2, "in_progress")], "running"),
-		).toBeFalse();
+		).toBeTrue();
 		expect(
 			shouldShowWorkingIndicator([user, tool(2, "pending")], "running"),
-		).toBeFalse();
+		).toBeTrue();
+		expect(
+			shouldShowWorkingIndicator([user, tool(2, "completed")], "running"),
+		).toBeTrue();
+	});
+
+	test("hides the indicator outside running status", () => {
+		const user = { ...message(1), role: "user" as const };
 		expect(
 			shouldShowWorkingIndicator([user] as TimelineItem[], "idle"),
+		).toBeFalse();
+		expect(
+			shouldShowWorkingIndicator([user] as TimelineItem[], "dead"),
 		).toBeFalse();
 	});
 

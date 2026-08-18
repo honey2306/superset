@@ -24,6 +24,7 @@ const ACP_AGENT_BY_HARNESS = {
 	"codex-app-server": "codex",
 	"pi-acp": "pi",
 	"myflicker-acp": "myflicker",
+	"deepseek-acp": "deepseek",
 } as const satisfies Record<HarnessKind, AcpAgentDefinitionId>;
 
 interface TerminalPaneLocation {

@@ -51,7 +51,7 @@ export function resolveDelegatedExecutionTarget(db: HostDb):
 	| {
 			enabled: true;
 			valid: true;
-			agent: "claude" | "codex" | "pi" | "myflicker";
+			agent: "claude" | "codex" | "pi" | "myflicker" | "deepseek";
 			model: string | null;
 	  }
 	| { enabled: true; valid: false; error: string } {
@@ -98,7 +98,12 @@ export function resolveDelegatedExecutionTarget(db: HostDb):
 	return {
 		enabled: true,
 		valid: true,
-		agent: config.presetId as "claude" | "codex" | "pi" | "myflicker",
+		agent: config.presetId as
+			| "claude"
+			| "codex"
+			| "pi"
+			| "myflicker"
+			| "deepseek",
 		model: settings.executorModelId,
 	};
 }

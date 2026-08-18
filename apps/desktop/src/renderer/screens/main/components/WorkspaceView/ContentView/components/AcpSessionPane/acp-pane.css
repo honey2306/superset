@@ -53,11 +53,13 @@
 	--acp-red-dim: var(--danger-tint);
 	--acp-yellow: var(--warning);
 
+	/* Code and file paths use the app's stable mono stack. Keep the terminal
+	 * preference out of this token so inline Markdown does not inherit an
+	 * arbitrary terminal font and render CJK/Latin runs inconsistently. */
 	--acp-font-mono: var(
-		--superset-terminal-font-family,
-		var(--font-mono, "JetBrains Mono"),
-		"IBM Plex Mono",
+		--font-mono,
 		"SF Mono",
+		"JetBrains Mono",
 		ui-monospace,
 		Menlo,
 		Consolas,
@@ -915,6 +917,10 @@
 }
 .acp-msg[data-role="agent"] .acp-msg__author {
 	color: var(--acp-pink);
+}
+.acp-msg[data-role="thought"] .acp-msg__author {
+	letter-spacing: 0.02em;
+	text-transform: none;
 }
 .acp-msg__author-name {
 	font-weight: 500;
