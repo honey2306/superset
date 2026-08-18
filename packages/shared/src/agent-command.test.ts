@@ -5,6 +5,7 @@ import {
 	buildAgentFileCommand,
 	buildAgentPromptCommand,
 } from "./agent-command";
+import { DEFAULT_TERMINAL_PRESET_AGENT_TYPES } from "./builtin-terminal-agents";
 import { getPresetById } from "./host-agent-presets";
 
 describe("buildAgentPromptCommand", () => {
@@ -105,5 +106,12 @@ describe("grok agent registration", () => {
 		expect(preset?.command).toBe("grok");
 		expect(preset?.args).toEqual(["--always-approve"]);
 		expect(preset?.promptArgs).toEqual([]);
+	});
+});
+
+describe("ACP agent preset registration", () => {
+	it("ships MyFlicker while keeping hidden DeepSeek out of defaults", () => {
+		expect(DEFAULT_TERMINAL_PRESET_AGENT_TYPES).toContain("myflicker");
+		expect(DEFAULT_TERMINAL_PRESET_AGENT_TYPES).not.toContain("deepseek");
 	});
 });

@@ -140,6 +140,7 @@ export const BUILTIN_TERMINAL_AGENTS = [
 			"MyFlicker's coding agent with native Agent Client Protocol support.",
 		command: "mfcli",
 		nonInteractiveCommand: "mfcli --approval-mode plan -q",
+		includeInDefaultTerminalPresets: true,
 	}),
 	createBuiltinTerminalAgent({
 		id: "deepseek",
