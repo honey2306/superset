@@ -48,6 +48,19 @@ export function sortProjectsByTabOrder<T extends { id: string }>(
 	});
 }
 
+export function getSidebarProjects<T extends { id: string }>(
+	projects: readonly T[],
+	localProjectRows: readonly { projectId: string; tabOrder: number }[],
+): T[] {
+	const sidebarProjectIds = new Set(
+		localProjectRows.map((row) => row.projectId),
+	);
+	return sortProjectsByTabOrder(
+		projects.filter((project) => sidebarProjectIds.has(project.id)),
+		localProjectRows,
+	);
+}
+
 /**
  * Shared hook for workspace keyboard shortcuts.
  * Used by WorkspaceSidebar for navigation between workspaces.
@@ -78,7 +91,7 @@ export function useWorkspaceShortcuts() {
 		const localByProjectId = new Map(
 			localProjectRows.map((row) => [row.projectId, row]),
 		);
-		const visibleProjects = sortProjectsByTabOrder(
+		const visibleProjects = getSidebarProjects(
 			projects.filter(isSidebarProjectVisible),
 			localProjectRows,
 		);
