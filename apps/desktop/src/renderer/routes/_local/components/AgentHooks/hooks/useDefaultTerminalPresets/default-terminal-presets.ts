@@ -11,6 +11,8 @@ export const DEFAULT_TERMINAL_PRESET_IDS = [
 	"vibe",
 	"kimi",
 	"grok",
+	"myflicker",
+	"deepseek",
 ] as const;
 
 interface CreateDefaultTerminalPresetRowsInput {

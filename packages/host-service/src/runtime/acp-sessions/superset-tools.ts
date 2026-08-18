@@ -61,6 +61,7 @@ const AGENT_TO_HARNESS = {
 	codex: "codex-app-server",
 	pi: "pi-acp",
 	myflicker: "myflicker-acp",
+	deepseek: "deepseek-acp",
 } as const satisfies Record<SupersetAgent, HarnessKind>;
 
 function projectSession(state: SessionScopedState) {

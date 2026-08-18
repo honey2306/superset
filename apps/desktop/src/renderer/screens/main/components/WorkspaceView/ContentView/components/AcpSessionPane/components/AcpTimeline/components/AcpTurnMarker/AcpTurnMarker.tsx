@@ -8,6 +8,7 @@ interface AcpTurnMarkerProps {
 	turnNumber: number;
 	isActive: boolean;
 	isComplete: boolean;
+	isLoaded?: boolean;
 	userPreview: string;
 	agentPreview: string | null;
 	agentLabel?: string;
@@ -18,6 +19,7 @@ export function AcpTurnMarker({
 	turnNumber,
 	isActive,
 	isComplete,
+	isLoaded = true,
 	userPreview,
 	agentPreview,
 	agentLabel,
@@ -37,6 +39,7 @@ export function AcpTurnMarker({
 					type="button"
 					className="acp-turn-marker"
 					data-active={isActive ? "true" : undefined}
+					data-loaded={isLoaded ? "true" : "false"}
 					aria-current={isActive ? "step" : undefined}
 					aria-label={`${turnLabel}, ${statusLabel}. You: ${userPreview}. ${resolvedAgentLabel}: ${agentSummary}`}
 					onClick={onNavigate}

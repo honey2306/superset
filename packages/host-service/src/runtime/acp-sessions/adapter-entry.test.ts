@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
 	chmodSync,
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	rmSync,
@@ -11,6 +12,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import {
 	assertExternalClaudeCliAvailable,
+	assertExternalCliAvailable,
 	resolveAdapterProcess,
 	resolveBundledAcpEntry,
 } from "./acp-sessions";
@@ -81,12 +83,78 @@ test("starts mfcli ACP in its documented full-access approval mode", () => {
 	});
 });
 
+test("starts the DeepSeek Harness ACP server with its cordis config", () => {
+	expect(
+		resolveAdapterProcess("deepseek-acp", {
+			deepseekAdapterCommand: "/opt/tools/dsh-acp-demo",
+			deepseekAdapterConfig: "/opt/dsh/cordis.yml",
+		}),
+	).toEqual({
+		command: "/opt/tools/dsh-acp-demo",
+		args: ["--config", "/opt/dsh/cordis.yml"],
+		usesElectronNode: false,
+	});
+});
+
+test("falls back to the default dsh-acp-demo binary with no config argument", () => {
+	expect(resolveAdapterProcess("deepseek-acp")).toEqual({
+		command: "dsh-acp-demo",
+		args: [],
+		usesElectronNode: false,
+	});
+});
+
 test("explains how to install Claude when the external CLI is unavailable", () => {
 	expect(() =>
 		assertExternalClaudeCliAvailable({
 			CLAUDE_CODE_EXECUTABLE: "/missing/superset-claude",
 		}),
 	).toThrow("Claude Code CLI is unavailable");
+});
+
+test.each([
+	[
+		"MyFlicker",
+		"mfcli",
+		"Install MyFlicker CLI (`mfcli`) and ensure `mfcli` is on PATH.",
+	],
+	[
+		"DeepSeek Harness",
+		"dsh-acp-demo",
+		"Install DeepSeek Harness and ensure `dsh-acp-demo` is on PATH.",
+	],
+] as const)("explains how to install %s when its external CLI is unavailable", (displayName, command, installHint) => {
+	expect(() =>
+		assertExternalCliAvailable(
+			`/missing/${command}`,
+			displayName,
+			installHint,
+			{},
+		),
+	).toThrow(`${displayName} CLI is unavailable`);
+	expect(() =>
+		assertExternalCliAvailable(
+			`/missing/${command}`,
+			displayName,
+			installHint,
+			{},
+		),
+	).toThrow(installHint);
+});
+
+test("checks an installed external CLI without booting it", () => {
+	const root = mkdtempSync(path.join(os.tmpdir(), "external-cli-lookup-"));
+	tempDirectories.push(root);
+	const marker = path.join(root, "booted");
+	const executable = path.join(root, "mfcli");
+	writeFileSync(executable, `#!/bin/sh\ntouch '${marker}'\nexit 0\n`);
+	chmodSync(executable, 0o755);
+
+	assertExternalCliAvailable("mfcli", "MyFlicker", "Install MyFlicker CLI.", {
+		PATH: root,
+	});
+
+	expect(existsSync(marker)).toBe(false);
 });
 
 test("pins a PATH-resolved Claude command for the external-only bridge", () => {

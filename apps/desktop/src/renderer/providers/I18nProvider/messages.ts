@@ -1576,7 +1576,7 @@ export const enUSMessages = {
 		"How many hidden terminals stay fully loaded ({min}–{max}); older ones keep running but reload their last 1,000 lines when reopened",
 	"terminal.acpPresetLaunch": "Use ACP for agent presets",
 	"terminal.acpPresetLaunchDescription":
-		"Launch supported agents (Claude, Codex, Pi, MyFlicker) through the Agent Control Protocol instead of a terminal shell. Other agents keep opening in a terminal.",
+		"Launch supported agents (Claude, Codex, Pi, MyFlicker, DeepSeek) through the Agent Control Protocol instead of a terminal shell. Other agents keep opening in a terminal.",
 	"terminal.fileLinks": "Terminal file links",
 	"terminal.fileLinksDescription":
 		"Choose how to open file paths when Cmd+clicking in the terminal",
@@ -4607,7 +4607,7 @@ export const zhCNMessages: Record<MessageKey, string> = {
 		"保持完整加载的隐藏 Terminal 数量（{min}–{max}）；更早的 Terminal 会继续运行，但重新打开时会重新加载最后 1,000 行",
 	"terminal.acpPresetLaunch": "使用 ACP 启动预设 agent",
 	"terminal.acpPresetLaunchDescription":
-		"支持 ACP 的 agent（Claude、Codex、Pi、MyFlicker）通过 Agent Control Protocol 打开,而不是走终端命令行。其他 agent 仍以终端方式启动。",
+		"支持 ACP 的 agent（Claude、Codex、Pi、MyFlicker、DeepSeek）通过 Agent Control Protocol 打开，而不是走终端命令行。其他 agent 仍以终端方式启动。",
 	"terminal.fileLinks": "Terminal 文件链接",
 	"terminal.fileLinksDescription":
 		"选择在 Terminal 中按住 Cmd 点击文件路径时的打开方式",

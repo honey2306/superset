@@ -8,6 +8,7 @@ import {
 	enqueuePromptInput,
 	getMessagesInput,
 	getSessionInput,
+	getTranscriptInput,
 	listSessionsInput,
 	promptInput,
 	removeQueuedPromptInput,
@@ -112,6 +113,16 @@ export const acpSessionsRouter = router({
 					beforeSeq,
 					limit: input.limit,
 				});
+			} catch (error) {
+				rethrowMapped(error);
+			}
+		}),
+
+	getTranscript: gatedProcedure
+		.input(getTranscriptInput)
+		.query(async ({ ctx, input }) => {
+			try {
+				return await ctx.runtime.acpSessions.getTranscript(input);
 			} catch (error) {
 				rethrowMapped(error);
 			}

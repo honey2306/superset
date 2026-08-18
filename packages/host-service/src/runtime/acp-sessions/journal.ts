@@ -71,6 +71,16 @@ export class SessionJournal {
 		return this.size === 0 ? 0 : this.nextSeq - this.size;
 	}
 
+	/** Retained envelopes in chronological order for semantic transcript reads. */
+	snapshot(): SessionUpdateEnvelope[] {
+		const result: SessionUpdateEnvelope[] = [];
+		for (let index = 0; index < this.size; index += 1) {
+			const envelope = this.entryAt(index);
+			if (envelope) result.push(envelope);
+		}
+		return result;
+	}
+
 	append(sessionId: string, frame: SessionUpdateFrame): SessionUpdateEnvelope {
 		const envelope: SessionUpdateEnvelope = {
 			seq: this.nextSeq,

@@ -53,11 +53,13 @@
 	--acp-red-dim: var(--danger-tint);
 	--acp-yellow: var(--warning);
 
+	/* Code and file paths use the app's stable mono stack. Keep the terminal
+	 * preference out of this token so inline Markdown does not inherit an
+	 * arbitrary terminal font and render CJK/Latin runs inconsistently. */
 	--acp-font-mono: var(
-		--superset-terminal-font-family,
-		var(--font-mono, "JetBrains Mono"),
-		"IBM Plex Mono",
+		--font-mono,
 		"SF Mono",
+		"JetBrains Mono",
 		ui-monospace,
 		Menlo,
 		Consolas,
@@ -571,6 +573,19 @@
 .acp-timeline__older-history span[role="alert"] {
 	color: var(--acp-red);
 }
+.acp-timeline__turn-list {
+	position: relative;
+	width: 100%;
+}
+.acp-timeline__turns {
+	position: relative;
+	width: 100%;
+}
+.acp-timeline__virtual-turn {
+	position: absolute;
+	left: 0;
+	width: 100%;
+}
 .acp-turn {
 	position: relative;
 	display: flex;
@@ -586,9 +601,23 @@
 	z-index: 3;
 	width: 56px;
 	pointer-events: none;
+	display: flex;
+	flex-direction: column;
+}
+.acp-turn-rail__count {
+	flex: 0 0 auto;
+	margin-bottom: 6px;
+	color: var(--acp-muted);
+	font-family: var(--acp-font-mono);
+	font-size: 9px;
+	font-variant-numeric: tabular-nums;
+	line-height: 12px;
+	text-align: center;
+	white-space: nowrap;
 }
 .acp-turn-rail__track {
-	height: 100%;
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
@@ -634,6 +663,14 @@
 .acp-turn-marker[data-active="true"] .acp-turn-marker__tick {
 	background: var(--acp-pink);
 	opacity: 1;
+}
+.acp-turn-marker[data-loaded="false"]:not([data-active="true"])
+	.acp-turn-marker__tick {
+	width: 8px;
+	height: 4px;
+	border: 1px solid var(--acp-line-hi);
+	background: transparent;
+	opacity: 0.72;
 }
 .acp-turn-marker:focus-visible {
 	outline: 1px solid var(--acp-pink);
@@ -880,6 +917,10 @@
 }
 .acp-msg[data-role="agent"] .acp-msg__author {
 	color: var(--acp-pink);
+}
+.acp-msg[data-role="thought"] .acp-msg__author {
+	letter-spacing: 0.02em;
+	text-transform: none;
 }
 .acp-msg__author-name {
 	font-weight: 500;

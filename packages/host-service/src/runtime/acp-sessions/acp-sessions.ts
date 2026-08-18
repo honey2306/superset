@@ -1,6 +1,6 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { accessSync, constants, existsSync } from "node:fs";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -40,10 +40,13 @@ import type {
 	SessionUpdateEnvelope,
 	SessionUpdateFrame,
 	StopReason,
+	TranscriptPage,
+	TranscriptTurn,
 } from "@superset/session-protocol";
 import {
 	customResponse,
 	encodeMessagesCursor,
+	groupTranscriptTurns,
 	selectedOptionIds,
 } from "@superset/session-protocol";
 import type { AcpArtifactStore } from "./artifact-store";
@@ -53,6 +56,7 @@ import {
 	materializePiMcpConfig,
 	PI_ACP_MCP_CONFIG_ENV,
 } from "./pi-acp-mcp-config";
+import { piExtensionUiPermissionPresentation } from "./pi-extension-ui";
 import type { PiStartupCache } from "./pi-startup";
 import {
 	PI_ACP_DISABLE_EXTENSIONS_ENV,
@@ -65,6 +69,7 @@ import type {
 	AcpSessionChangeHandler,
 	AcpSessionOpenRequestHandler,
 } from "./runtime";
+import { buildTranscriptPageFromTurns } from "./transcript";
 
 export class AcpSessionNotFoundError extends Error {}
 export class AcpSessionDeadError extends Error {}
@@ -255,6 +260,8 @@ export function resolveAdapterProcess(
 		| "codexAdapterEntry"
 		| "piAdapterEntry"
 		| "myflickerAdapterCommand"
+		| "deepseekAdapterCommand"
+		| "deepseekAdapterConfig"
 	> = {},
 	execPath = process.execPath,
 ): AdapterProcessSpec {
@@ -279,6 +286,17 @@ export function resolveAdapterProcess(
 				args: ["--approval-mode", "yolo", "acp"],
 				usesElectronNode: false,
 			};
+		case "deepseek-acp":
+			return {
+				command: options.deepseekAdapterCommand ?? "dsh-acp-demo",
+				// `dsh-acp-demo` boots the DeepSeek Harness ACP server from a
+				// cordis.yml; without a config it falls back to `./cordis.yml`
+				// relative to the session cwd.
+				args: options.deepseekAdapterConfig
+					? ["--config", options.deepseekAdapterConfig]
+					: [],
+				usesElectronNode: false,
+			};
 		case "claude-agent-acp":
 			return {
 				command: execPath,
@@ -289,23 +307,78 @@ export function resolveAdapterProcess(
 }
 
 /**
+ * Check an external ACP executable before creating its adapter process.
+ *
+ * `spawn()` reports ENOENT asynchronously, after the renderer has already
+ * opened a loading pane. Looking up the executable first lets the create
+ * mutation return a useful, agent-specific install hint that the pane can
+ * render with Retry, without booting a potentially slow CLI just to probe it.
+ */
+export function assertExternalCliAvailable(
+	command: string,
+	displayName: string,
+	installHint: string,
+	env: NodeJS.ProcessEnv,
+): void {
+	if (!resolveExternalCliPath(command, env)) {
+		throw new Error(`${displayName} CLI is unavailable. ${installHint}`);
+	}
+}
+
+function resolveExternalCliPath(
+	command: string,
+	env: NodeJS.ProcessEnv,
+): string | null {
+	const trimmed = command.trim();
+	if (!trimmed) return null;
+
+	const hasPathSeparator =
+		trimmed.includes("/") ||
+		(process.platform === "win32" && trimmed.includes("\\"));
+	if (path.isAbsolute(trimmed) || hasPathSeparator) {
+		return isExecutablePath(trimmed) ? trimmed : null;
+	}
+
+	const pathValue = env.PATH ?? env.Path ?? "";
+	const pathEntries = pathValue.split(path.delimiter);
+	const extensions =
+		process.platform === "win32"
+			? (env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)
+			: [""];
+	for (const directory of pathEntries) {
+		for (const extension of extensions) {
+			const candidate = path.join(directory, `${trimmed}${extension}`);
+			if (isExecutablePath(candidate)) return candidate;
+		}
+	}
+	return null;
+}
+
+function isExecutablePath(candidate: string): boolean {
+	try {
+		accessSync(
+			candidate,
+			process.platform === "win32" ? constants.F_OK : constants.X_OK,
+		);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Claude ACP intentionally relies on the user's installed Claude Code CLI.
  * The packaged bridge includes the SDK JavaScript API, but never Anthropic's
  * SDK-provided fallback binary.
  */
 export function assertExternalClaudeCliAvailable(env: NodeJS.ProcessEnv): void {
 	const command = env.CLAUDE_CODE_EXECUTABLE ?? "claude";
-	const probe = spawnSync(command, ["--version"], {
+	assertExternalCliAvailable(
+		command,
+		"Claude Code",
+		"Install Claude Code and ensure `claude` is on PATH, or set CLAUDE_CODE_EXECUTABLE to its executable path.",
 		env,
-		stdio: "ignore",
-		timeout: 5_000,
-	});
-	const probeError = probe.error as NodeJS.ErrnoException | undefined;
-	if (probeError?.code === "ENOENT") {
-		throw new Error(
-			"Claude Code CLI is unavailable. Install Claude Code and ensure `claude` is on PATH, or set CLAUDE_CODE_EXECUTABLE to its executable path.",
-		);
-	}
+	);
 	// Always pin the command after a successful PATH probe. The bundled ACP
 	// bridge must never ask the SDK to resolve its removed fallback binary.
 	env.CLAUDE_CODE_EXECUTABLE = command;
@@ -447,6 +520,12 @@ interface InflightCreation {
 	promise: Promise<AcpSessionRuntime>;
 }
 
+interface TranscriptCacheEntry {
+	epoch: string;
+	latestSeq: number;
+	turns: TranscriptTurn[];
+}
+
 export interface AcpSessionManagerOptions {
 	/**
 	 * Resolve a workspace id to the worktree directory its sessions run in.
@@ -469,6 +548,10 @@ export interface AcpSessionManagerOptions {
 	adapterEnv?: Record<string, string | undefined>;
 	/** Executable override for MyFlicker's native ACP server. */
 	myflickerAdapterCommand?: string;
+	/** Executable override for the DeepSeek Harness ACP server (`dsh-acp-demo`). */
+	deepseekAdapterCommand?: string;
+	/** Path to the cordis.yml the DeepSeek Harness ACP server boots from. */
+	deepseekAdapterConfig?: string;
 	/** Injected in tests; production managers share the daemon-level cache. */
 	piStartupCache?: PiStartupCache;
 	/**
@@ -543,6 +626,8 @@ export class AcpSessionManager {
 	private readonly piAdapterEntry: string | undefined;
 	private readonly adapterEnv: Record<string, string | undefined>;
 	private readonly myflickerAdapterCommand: string | undefined;
+	private readonly deepseekAdapterCommand: string | undefined;
+	private readonly deepseekAdapterConfig: string | undefined;
 	private readonly piStartupCache: PiStartupCache;
 	private readonly mcpServers: McpServer[];
 	private readonly mcpServerFactory: AcpSessionManagerOptions["mcpServerFactory"];
@@ -554,6 +639,7 @@ export class AcpSessionManager {
 	private readonly idleHibernateMs: number | null;
 	private readonly runtimes = new Map<string, AcpSessionRuntime>();
 	private readonly creations = new Map<string, InflightCreation>();
+	private readonly transcriptCache = new Map<string, TranscriptCacheEntry>();
 	/**
 	 * Sessions known from the persisted registry with no adapter process
 	 * attached. Seeded once at construction; entries leave only by successful
@@ -583,6 +669,8 @@ export class AcpSessionManager {
 		this.piAdapterEntry = options.piAdapterEntry;
 		this.adapterEnv = options.adapterEnv ?? {};
 		this.myflickerAdapterCommand = options.myflickerAdapterCommand;
+		this.deepseekAdapterCommand = options.deepseekAdapterCommand;
+		this.deepseekAdapterConfig = options.deepseekAdapterConfig;
 		this.piStartupCache = options.piStartupCache ?? sharedPiStartupCache;
 		this.mcpServers = options.mcpServers ?? [];
 		this.mcpServerFactory = options.mcpServerFactory;
@@ -759,6 +847,52 @@ export class AcpSessionManager {
 					? null
 					: encodeMessagesCursor(page.nextBeforeSeq),
 		};
+	}
+
+	/** Semantic transcript page; turns never split across raw envelope boundaries. */
+	getTranscript(input: {
+		sessionId: string;
+		cursor?: string;
+		targetTurn?: number;
+		limit?: number;
+	}): TranscriptPage {
+		const runtime = this.runtimes.get(input.sessionId);
+		const cached = this.transcriptCache.get(input.sessionId);
+		let entries: SessionUpdateEnvelope[];
+		let epoch: string;
+		if (runtime) {
+			epoch = runtime.journal.epoch;
+			if (
+				cached?.epoch === epoch &&
+				cached.latestSeq === runtime.journal.latestSeq
+			) {
+				return buildTranscriptPageFromTurns(cached.turns, input);
+			}
+			entries =
+				this.persistence?.loadJournal(input.sessionId, epoch) ??
+				runtime.journal.snapshot();
+		} else {
+			const record = this.offline.get(input.sessionId);
+			if (!record) {
+				throw new AcpSessionNotFoundError(
+					`Unknown ACP session: ${input.sessionId}`,
+				);
+			}
+			epoch = record.epoch;
+			if (cached?.epoch === epoch) {
+				return buildTranscriptPageFromTurns(cached.turns, input);
+			}
+			entries =
+				this.persistence?.loadJournal(input.sessionId, epoch) ??
+				this.offlineJournal(input.sessionId).snapshot();
+		}
+		const latestSeq = entries.at(-1)?.seq ?? 0;
+		if (cached?.epoch === epoch && cached.latestSeq === latestSeq) {
+			return buildTranscriptPageFromTurns(cached.turns, input);
+		}
+		const turns = groupTranscriptTurns(entries);
+		this.transcriptCache.set(input.sessionId, { epoch, latestSeq, turns });
+		return buildTranscriptPageFromTurns(turns, input);
 	}
 
 	/**
@@ -1431,6 +1565,8 @@ export class AcpSessionManager {
 			codexAdapterEntry: this.codexAdapterEntry,
 			piAdapterEntry: this.piAdapterEntry,
 			myflickerAdapterCommand: this.myflickerAdapterCommand,
+			deepseekAdapterCommand: this.deepseekAdapterCommand,
+			deepseekAdapterConfig: this.deepseekAdapterConfig,
 		});
 		const env: Record<string, string | undefined> = {
 			...process.env,
@@ -1438,6 +1574,22 @@ export class AcpSessionManager {
 		};
 		if (harness === "claude-agent-acp" && !this.adapterEntry) {
 			assertExternalClaudeCliAvailable(env);
+		}
+		if (harness === "myflicker-acp") {
+			assertExternalCliAvailable(
+				adapterProcess.command,
+				"MyFlicker",
+				"Install MyFlicker CLI (`mfcli`) and ensure `mfcli` is on PATH, or set SUPERSET_MFCLI_ACP_COMMAND to its executable path.",
+				env,
+			);
+		}
+		if (harness === "deepseek-acp") {
+			assertExternalCliAvailable(
+				adapterProcess.command,
+				"DeepSeek Harness",
+				"Install DeepSeek Harness and ensure `dsh-acp-demo` is on PATH, or set SUPERSET_DSH_ACP_COMMAND to its executable path.",
+				env,
+			);
 		}
 		if (adapterProcess.usesElectronNode) env.ELECTRON_RUN_AS_NODE = "1";
 		else delete env.ELECTRON_RUN_AS_NODE;
@@ -2148,13 +2300,21 @@ export class AcpSessionManager {
 			context.requestId !== null && context.requestId !== undefined
 				? String(context.requestId)
 				: randomUUID();
+		const extensionUi = piExtensionUiPermissionPresentation(
+			runtime.state.harness,
+			context.params.toolCall,
+		);
 		const pending: PendingPermission = {
 			requestId,
 			toolCall: context.params.toolCall,
 			options: context.params.options,
 			requestedAt: Date.now(),
-			...(runtime.askUserToolCalls.has(context.params.toolCall.toolCallId)
+			...(runtime.askUserToolCalls.has(context.params.toolCall.toolCallId) ||
+			extensionUi
 				? { isElicitation: true }
+				: {}),
+			...(extensionUi?.allowsCustomResponse
+				? { allowsCustomResponse: true }
 				: {}),
 		};
 		runtime.state.pendingPermissions = [
