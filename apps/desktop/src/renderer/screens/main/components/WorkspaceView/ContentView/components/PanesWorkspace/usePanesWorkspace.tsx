@@ -435,6 +435,7 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 								: undefined
 						}
 						isLaunching={acpData.isLaunching}
+						isVisible={ctx.isVisible}
 						isFocused={ctx.isActive}
 						creationError={acpData.creationError}
 						onRetryLaunch={

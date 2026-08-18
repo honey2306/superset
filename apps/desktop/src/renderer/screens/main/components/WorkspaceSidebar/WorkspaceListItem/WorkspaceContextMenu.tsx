@@ -9,7 +9,7 @@ import {
 	ContextMenuSubTrigger,
 	ContextMenuTrigger,
 } from "@superset/ui/context-menu";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
 	LuArrowRightLeft,
 	LuBellOff,
@@ -32,7 +32,7 @@ import {
 	useMoveWorkspacesToSection,
 	useMoveWorkspaceToSection,
 } from "renderer/react-query/workspaces";
-import { createContextMenuDeleteDialogCoordinator } from "renderer/react-query/workspaces/useWorkspaceDeleteHandler";
+import { useContextMenuDeleteDialogCoordinator } from "renderer/react-query/workspaces/useWorkspaceDeleteHandler";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { STROKE_WIDTH } from "../constants";
 import { getPullRequestMenuActions } from "./pullRequestMenuActions";
@@ -105,10 +105,8 @@ export function WorkspaceContextMenu({
 	const deleteHotkeyText = useHotkeyDisplay("CLOSE_WORKSPACE").text;
 	const showDeleteShortcut =
 		showDeleteHotkey && deleteHotkeyText !== "Unassigned";
-	const deleteDialogCoordinator = useMemo(
-		() => createContextMenuDeleteDialogCoordinator(onDelete),
-		[onDelete],
-	);
+	const deleteDialogCoordinator =
+		useContextMenuDeleteDialogCoordinator(onDelete);
 	const pullRequestActions = getPullRequestMenuActions({
 		hasLinkedPullRequest: pullRequest !== null,
 		isPullRequestSuppressed,

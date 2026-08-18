@@ -39,6 +39,7 @@ import { useProjectRename } from "renderer/screens/main/hooks/useProjectRename";
 import { STROKE_WIDTH } from "../constants";
 import { RenameInput } from "../RenameInput";
 import { CloseProjectDialog } from "./CloseProjectDialog";
+import { useProjectCloseDialog } from "./hooks/useProjectCloseDialog";
 import { ProjectThumbnail } from "./ProjectThumbnail";
 
 interface ProjectHeaderProps {
@@ -79,7 +80,8 @@ export function ProjectHeader({
 		useDashboardSidebarState();
 	const navigate = useNavigate();
 	const params = useParams({ strict: false }) as { workspaceId?: string };
-	const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
+	const { isCloseDialogOpen, setIsCloseDialogOpen, closeDialogCoordinator } =
+		useProjectCloseDialog();
 	const [isClosing, setIsClosing] = useState(false);
 	const rename = useProjectRename(projectId, projectName);
 
@@ -87,10 +89,6 @@ export function ProjectHeader({
 		onError: (error) =>
 			toast.error(t("workspace.failedOpen", { message: error.message })),
 	});
-
-	const handleCloseProject = () => {
-		setIsCloseDialogOpen(true);
-	};
 
 	const handleConfirmClose = async () => {
 		if (isClosing) return;
@@ -219,7 +217,9 @@ export function ProjectHeader({
 							</span>
 						</TooltipContent>
 					</Tooltip>
-					<ContextMenuContent>
+					<ContextMenuContent
+						onCloseAutoFocus={closeDialogCoordinator.handleCloseAutoFocus}
+					>
 						<ContextMenuItem onSelect={rename.startRename}>
 							<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 							{t("workspace.renameAction")}
@@ -243,7 +243,7 @@ export function ProjectHeader({
 						</ContextMenuItem>
 						<ContextMenuSeparator />
 						<ContextMenuItem
-							onSelect={handleCloseProject}
+							onSelect={closeDialogCoordinator.requestOpenDeleteDialog}
 							disabled={isClosing}
 							className="text-destructive focus:text-destructive"
 						>
@@ -352,7 +352,9 @@ export function ProjectHeader({
 						</button>
 					</div>
 				</ContextMenuTrigger>
-				<ContextMenuContent>
+				<ContextMenuContent
+					onCloseAutoFocus={closeDialogCoordinator.handleCloseAutoFocus}
+				>
 					<ContextMenuItem onSelect={rename.startRename}>
 						<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 						{t("workspace.renameAction")}
@@ -381,7 +383,7 @@ export function ProjectHeader({
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 					<ContextMenuItem
-						onSelect={handleCloseProject}
+						onSelect={closeDialogCoordinator.requestOpenDeleteDialog}
 						disabled={isClosing}
 						className="text-destructive focus:text-destructive"
 					>

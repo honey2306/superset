@@ -22,12 +22,14 @@ import {
 	ACP_DAEMON_BUILD_VERSION,
 	ACP_DAEMON_PROTOCOL_VERSION,
 	type AcpDaemonEvent,
+	type AcpDaemonMergeRequestOpenRequestedEvent,
 	type AcpDaemonRequest,
 	type AcpDaemonResponse,
 	type AcpDaemonSessionChangedEvent,
 	type AcpDaemonSessionOpenRequestedEvent,
 	acpDaemonSocketPath,
 } from "./daemon";
+import { resolveKDevMergeRequestPage } from "./kdev-merge-request";
 import { browserUseMcpServerFromEnvironment } from "./local-mcp";
 import { SqliteAcpSessionPersistence } from "./persistence";
 import {
@@ -101,7 +103,11 @@ async function main(): Promise<void> {
 	await removeStaleSocket(socketPath);
 
 	const clientWriters = new Set<
-		(event: AcpDaemonSessionOpenRequestedEvent) => void
+		(
+			event:
+				| AcpDaemonSessionOpenRequestedEvent
+				| AcpDaemonMergeRequestOpenRequestedEvent,
+		) => void
 	>();
 	const toolController = new SupersetToolController({
 		manager,
@@ -139,6 +145,12 @@ async function main(): Promise<void> {
 				write({ type: "session-open-requested", ...event });
 			}
 		},
+		openMergeRequest: ({ cwd }) => resolveKDevMergeRequestPage(cwd),
+		onMergeRequestOpenRequested: (event) => {
+			for (const write of clientWriters) {
+				write({ type: "merge-request-open-requested", ...event });
+			}
+		},
 	});
 
 	let closing = false;
@@ -167,7 +179,8 @@ async function main(): Promise<void> {
 				| AcpDaemonResponse
 				| AcpDaemonEvent
 				| AcpDaemonSessionChangedEvent
-				| AcpDaemonSessionOpenRequestedEvent,
+				| AcpDaemonSessionOpenRequestedEvent
+				| AcpDaemonMergeRequestOpenRequestedEvent,
 		): boolean => {
 			if (socket.destroyed) return false;
 			const line = `${JSON.stringify(message)}\n`;

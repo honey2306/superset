@@ -149,6 +149,73 @@ describe("SupersetToolController", () => {
 		).rejects.toThrow("unavailable in the current workspace");
 	});
 
+	test("opens a KDev merge request page derived from the source session only", async () => {
+		const { manager } = fixture();
+		const requests: Array<{
+			workspaceId: string;
+			sourceSessionId: string;
+			provider: "kdev";
+			url: string;
+			sourceBranch: string;
+			occurredAt: number;
+		}> = [];
+		const controller = new SupersetToolController({
+			manager,
+			openMergeRequest: async ({ cwd }) => {
+				expect(cwd).toBe("/tmp/workspace-1");
+				return {
+					provider: "kdev" as const,
+					url: "https://kdev.corp.kuaishou.com/git/group/repo/-/create_MR?branchName=feature%2Ftest",
+					sourceBranch: "feature/test",
+				};
+			},
+			onMergeRequestOpenRequested: (request) => requests.push(request),
+		});
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "open_merge_request",
+			arguments: {},
+		});
+
+		expect(result).toEqual({
+			provider: "kdev",
+			sourceBranch: "feature/test",
+			opened: true,
+		});
+		expect(requests).toMatchObject([
+			{
+				workspaceId: "workspace-1",
+				sourceSessionId: "source",
+				provider: "kdev",
+				sourceBranch: "feature/test",
+			},
+		]);
+	});
+
+	test("rejects model-supplied merge-request paths, URLs, and branches", async () => {
+		const { manager } = fixture();
+		const controller = new SupersetToolController({
+			manager,
+			openMergeRequest: async () => {
+				throw new Error("must not be called");
+			},
+		});
+
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "open_merge_request",
+				arguments: {
+					cwd: "/tmp/other",
+					url: "https://example.com",
+					branch: "x",
+					_noargs: "must not bypass strict validation",
+				},
+			}),
+		).rejects.toThrow("Unrecognized keys");
+	});
+
 	test("reads a workspace session's persisted messages with cursor pagination", async () => {
 		const { manager, getMessages } = fixture();
 		const controller = new SupersetToolController({ manager });

@@ -17,6 +17,31 @@ interface JsonRpcRequest {
 	params?: unknown;
 }
 
+/**
+ * Claude Agent ACP currently adds this field to its internal representation of
+ * an MCP tool whose input object has no properties. It is not part of the MCP
+ * schema we advertise, and must not reach the strictly validated daemon tool.
+ */
+function normalizeToolArguments(name: string, arguments_: unknown): unknown {
+	if (
+		name !== "open_merge_request" ||
+		typeof arguments_ !== "object" ||
+		arguments_ === null ||
+		Array.isArray(arguments_)
+	) {
+		return arguments_;
+	}
+	const entries = Object.entries(arguments_);
+	if (
+		entries.length === 1 &&
+		entries[0]?.[0] === "_noargs" &&
+		typeof entries[0][1] === "string"
+	) {
+		return {};
+	}
+	return arguments_;
+}
+
 function write(message: unknown): void {
 	process.stdout.write(`${JSON.stringify(message)}\n`);
 }
@@ -146,7 +171,7 @@ async function handle(request: JsonRpcRequest): Promise<void> {
 				try {
 					const value = await callDaemon(
 						params.name,
-						params.arguments ?? {},
+						normalizeToolArguments(params.name, params.arguments ?? {}),
 						controller.signal,
 					);
 					result(request.id, {

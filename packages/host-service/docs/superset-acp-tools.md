@@ -15,6 +15,7 @@ requesting that Desktop present the new conversation.
 | `get_session_status` | Read one same-workspace session's status and summary. |
 | `send_message` | Send or queue a message to a same-workspace session. |
 | `continue_in_new_session` | Create a child conversation, seed it with a structured handoff, and open it in Desktop by default. |
+| `open_merge_request` | Open KDev's prefilled create-MR page for the current session's checked-out branch. It never pushes or creates an MR. |
 | `delegate` | Create an independent child session and seed it with a task. It remains in the background by default. |
 
 The surface deliberately uses semantic operations instead of UI primitives such
@@ -35,6 +36,13 @@ continue/delegate with focus=true
   -> host-service EventBus (`acp-session:open-requested`)
   -> active Desktop workspace
   -> openAcpSessionInPanesStore
+
+open_merge_request
+  -> daemon derives Git `origin` and checked-out branch from the source session cwd
+  -> validated KDev create-MR URL event
+  -> host-service EventBus (`acp-session:merge-request-open-requested`)
+  -> matching Desktop workspace
+  -> system browser opens the prefilled page
 ```
 
 `AcpSessionManager.mcpServerFactory` creates the declaration separately for
@@ -78,6 +86,9 @@ Superset session lists.
 - No destructive session or workspace operations are exposed by the current
   MCP tool surface.
 - Tool inputs are strict Zod schemas with bounded strings and list limits.
+- `open_merge_request` has no caller-supplied path, repository, branch, target,
+  or URL. It accepts only KDev `origin` remotes, rejects detached HEAD and
+  missing origins, and does not push or create an MR.
 
 ## Follow-up candidates
 

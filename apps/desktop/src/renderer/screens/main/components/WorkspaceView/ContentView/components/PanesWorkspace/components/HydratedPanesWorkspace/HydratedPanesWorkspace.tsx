@@ -15,12 +15,14 @@ import {
 } from "../../createPanesTerminalPaneBridge";
 import { PanesPresetBar } from "../../PanesPresetBar";
 import { useAcpSessionOpenRequests } from "../../useAcpSessionOpenRequests";
+import { useMergeRequestOpenRequests } from "../../useMergeRequestOpenRequests";
 import { usePanesDeepLinkConsumer } from "../../usePanesDeepLinkConsumer";
 import { usePanesHotkeys } from "../../usePanesHotkeys";
 import { usePanesWorkspace } from "../../usePanesWorkspace";
 
 interface HydratedPanesWorkspaceProps {
 	workspaceId: string;
+	isActive: boolean;
 	store: PanesStore;
 	hostUrl: string | null;
 	hostWorkspaceId: string | null;
@@ -28,6 +30,7 @@ interface HydratedPanesWorkspaceProps {
 
 export function HydratedPanesWorkspace({
 	workspaceId,
+	isActive,
 	store,
 	hostUrl,
 	hostWorkspaceId,
@@ -44,6 +47,7 @@ export function HydratedPanesWorkspace({
 		sessionTitles: acpTitles,
 	} = useAcpSessionStatusMapsAtHost(hostUrl, hostWorkspaceId);
 	useAcpSessionOpenRequests({ store, hostUrl, hostWorkspaceId });
+	useMergeRequestOpenRequests({ hostUrl, hostWorkspaceId });
 
 	useEffect(() => {
 		syncPanesTerminalStatuses(store, terminalStatuses);
@@ -63,8 +67,9 @@ export function HydratedPanesWorkspace({
 		registry,
 		launcher,
 		addTerminalTab: openers.addTerminalTab,
+		isActive,
 	});
-	usePanesDeepLinkConsumer({ store, hostUrl, hostWorkspaceId });
+	usePanesDeepLinkConsumer({ store, hostUrl, hostWorkspaceId, isActive });
 
 	useEffect(() => {
 		registerPanesStore(workspaceId, store);
@@ -76,6 +81,7 @@ export function HydratedPanesWorkspace({
 			<Workspace
 				className="flex-1"
 				store={store}
+				isActive={isActive}
 				registry={registry}
 				paneActions={paneActions}
 				contextMenuActions={contextMenuActions}

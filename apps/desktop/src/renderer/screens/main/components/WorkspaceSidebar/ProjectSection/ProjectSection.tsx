@@ -155,7 +155,7 @@ export function ProjectSection({
 		openModal(projectId);
 	};
 
-	const [{ isDragging }, drag] = useDrag(
+	const [{ isDragging, sourceHandlerId }, drag] = useDrag(
 		() => ({
 			type: PROJECT_TYPE,
 			item: { projectId, index, originalIndex: index },
@@ -174,12 +174,13 @@ export function ProjectSection({
 			},
 			collect: (monitor) => ({
 				isDragging: monitor.isDragging(),
+				sourceHandlerId: monitor.getHandlerId(),
 			}),
 		}),
 		[projectId, index, reorderProjectsByIndex],
 	);
 
-	const [, drop] = useDrop({
+	const [{ targetHandlerId }, drop] = useDrop({
 		accept: PROJECT_TYPE,
 		hover: (item: {
 			projectId: string;
@@ -206,6 +207,7 @@ export function ProjectSection({
 				return { reordered: true };
 			}
 		},
+		collect: (monitor) => ({ targetHandlerId: monitor.getHandlerId() }),
 	});
 
 	const projectHeaderRef = useRef<HTMLDivElement>(null);
@@ -218,6 +220,8 @@ export function ProjectSection({
 		return (
 			<div
 				ref={projectHeaderRef}
+				data-dnd-source-id={sourceHandlerId ?? undefined}
+				data-dnd-target-id={targetHandlerId ?? undefined}
 				className={cn(
 					"flex flex-col items-center py-2 border-b border-line last:border-b-0",
 					isDragging && "opacity-30",
@@ -320,6 +324,8 @@ export function ProjectSection({
 	return (
 		<div
 			ref={projectHeaderRef}
+			data-dnd-source-id={sourceHandlerId ?? undefined}
+			data-dnd-target-id={targetHandlerId ?? undefined}
 			className={cn(
 				"border-b border-line last:border-b-0",
 				isDragging && "opacity-30",

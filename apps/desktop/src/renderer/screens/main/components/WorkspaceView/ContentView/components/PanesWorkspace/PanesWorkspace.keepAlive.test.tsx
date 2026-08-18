@@ -50,10 +50,12 @@ describe("Workspace tab keep-alive", () => {
 		const mounts = new Map<string, number>();
 		const unmounts = new Map<string, number>();
 		const activeStates = new Map<string, boolean>();
+		const visibleStates = new Map<string, boolean>();
 
 		function Probe({ context }: { context: RendererContext<TestPaneData> }) {
 			const paneId = context.pane.id;
 			activeStates.set(paneId, context.isActive);
+			visibleStates.set(paneId, context.isVisible);
 			useEffect(() => {
 				mounts.set(paneId, (mounts.get(paneId) ?? 0) + 1);
 				return () => {
@@ -84,6 +86,8 @@ describe("Workspace tab keep-alive", () => {
 		expect(unmounts.has("pane-a")).toBe(false);
 		expect(activeStates.get("pane-a")).toBe(false);
 		expect(activeStates.get("pane-b")).toBe(true);
+		expect(visibleStates.get("pane-a")).toBe(false);
+		expect(visibleStates.get("pane-b")).toBe(true);
 
 		act(() => store.getState().setActiveTab("tab-a"));
 		expect(mounts.get("pane-a")).toBe(1);
@@ -91,6 +95,8 @@ describe("Workspace tab keep-alive", () => {
 		expect(unmounts.size).toBe(0);
 		expect(activeStates.get("pane-a")).toBe(true);
 		expect(activeStates.get("pane-b")).toBe(false);
+		expect(visibleStates.get("pane-a")).toBe(true);
+		expect(visibleStates.get("pane-b")).toBe(false);
 
 		const firstTab = result.container.querySelector(
 			'[data-pane-tab-content="tab-a"]',
@@ -101,5 +107,20 @@ describe("Workspace tab keep-alive", () => {
 		expect(firstTab?.getAttribute("aria-hidden")).toBe("false");
 		expect(secondTab?.getAttribute("aria-hidden")).toBe("true");
 		expect(secondTab?.classList.contains("hidden")).toBe(true);
+
+		act(() => {
+			result.rerender(
+				<DndProvider manager={manager}>
+					<Workspace store={store} registry={registry} isActive={false} />
+				</DndProvider>,
+			);
+		});
+		expect(mounts.get("pane-a")).toBe(1);
+		expect(mounts.get("pane-b")).toBe(1);
+		expect(unmounts.size).toBe(0);
+		expect(activeStates.get("pane-a")).toBe(false);
+		expect(activeStates.get("pane-b")).toBe(false);
+		expect(visibleStates.get("pane-a")).toBe(false);
+		expect(visibleStates.get("pane-b")).toBe(false);
 	});
 });

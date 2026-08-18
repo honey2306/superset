@@ -27,6 +27,7 @@ interface PaneComponentProps<TData> {
 	store: StoreApi<WorkspaceStore<TData>>;
 	tab: Tab<TData>;
 	pane: PaneType<TData>;
+	isVisible: boolean;
 	isActive: boolean;
 	registry: PaneRegistry<TData>;
 	parentDirection?: "horizontal" | "vertical" | null;
@@ -70,6 +71,7 @@ export function Pane<TData>({
 	store,
 	tab,
 	pane,
+	isVisible,
 	isActive,
 	registry,
 	parentDirection = null,
@@ -85,6 +87,7 @@ export function Pane<TData>({
 		const ctx: RendererContext<TData> = {
 			pane: { ...pane, parentDirection },
 			tab: { ...tab, position: tabPosition },
+			isVisible,
 			isActive,
 			store,
 			actions: {
@@ -142,6 +145,7 @@ export function Pane<TData>({
 	}, [
 		pane,
 		tab,
+		isVisible,
 		isActive,
 		store,
 		definition,

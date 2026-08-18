@@ -61,6 +61,7 @@ import {
 	sharedPiStartupCache,
 } from "./pi-startup";
 import type {
+	AcpMergeRequestOpenRequestHandler,
 	AcpSessionChangeHandler,
 	AcpSessionOpenRequestHandler,
 } from "./runtime";
@@ -98,6 +99,8 @@ const MESSAGE_FRAME_KINDS = new Set<SessionUpdateFrame["kind"]>([
 ]);
 /** Keep daemon responses comfortably below its 16 MiB NDJSON frame limit. */
 const MAX_MESSAGES_PAGE_BYTES = 8 * 1024 * 1024;
+/** Release an unseen, quiescent adapter after two minutes by default. */
+const DEFAULT_IDLE_HIBERNATE_MS = 2 * 60 * 1_000;
 
 function isMissingUpstreamResourceError(error: unknown): boolean {
 	return (
@@ -433,6 +436,10 @@ interface AcpSessionRuntime {
 	 * lands.
 	 */
 	titleGenerationStarted: boolean;
+	/** A title request keeps the adapter alive until its synthetic update lands. */
+	titleGenerationInFlight: boolean;
+	/** Delayed release of an idle runtime with no stream consumers. */
+	idleHibernateTimer: ReturnType<typeof setTimeout> | null;
 }
 
 interface InflightCreation {
@@ -500,6 +507,11 @@ export interface AcpSessionManagerOptions {
 		workspaceId: string;
 		message: string;
 	}) => Promise<string | null>;
+	/**
+	 * How long a session must be idle and unsubscribed before its adapter is
+	 * released. `null` disables automatic hibernation; zero is useful in tests.
+	 */
+	idleHibernateMs?: number | null;
 }
 
 /**
@@ -508,15 +520,18 @@ export interface AcpSessionManagerOptions {
  * the official SDK. Every session/update, permission request/resolution, and
  * state transition is journaled as a seq-numbered envelope (gapless, from 1)
  * and broadcast to subscribers — the WS stream and getMessages pagination
- * both read from that journal. Sessions are kept alive until the adapter
- * process dies or the manager is disposed; dead sessions keep their journal
- * (list/get/getMessages still serve them) until the graveyard evicts them.
+ * both read from that journal. Unsubscribed idle sessions may hibernate when
+ * durable persistence is available; active and in-memory-only sessions stay
+ * alive until the adapter dies or the manager is disposed. Dead sessions keep
+ * their journal (list/get/getMessages still serve them) until eviction.
  *
  * With `persistence`, session binding rows survive host restarts: a restarted
  * manager lists them as `offline` (get/list are passive) and `ensureLive` —
  * called by the router and stream route before every live-path operation —
  * resurrects one on demand via the adapter's `session/load`, which replays
  * the harness-stored transcript while retaining the durable local journal.
+ * Hibernation returns a live runtime to that same offline form, releasing its
+ * adapter process and in-memory journal without deleting durable session data.
  * The registry epoch scopes every cursor, so a recreated journal cannot be
  * mistaken for a continuation with the same numeric sequence.
  */
@@ -536,6 +551,7 @@ export class AcpSessionManager {
 	private readonly generateTitle:
 		| AcpSessionManagerOptions["generateTitle"]
 		| undefined;
+	private readonly idleHibernateMs: number | null;
 	private readonly runtimes = new Map<string, AcpSessionRuntime>();
 	private readonly creations = new Map<string, InflightCreation>();
 	/**
@@ -573,6 +589,18 @@ export class AcpSessionManager {
 		this.persistence = options.persistence;
 		this.artifactStore = options.artifactStore;
 		this.generateTitle = options.generateTitle;
+		const idleHibernateMs =
+			options.idleHibernateMs ?? DEFAULT_IDLE_HIBERNATE_MS;
+		if (
+			options.idleHibernateMs !== null &&
+			(!Number.isFinite(idleHibernateMs) || idleHibernateMs < 0)
+		) {
+			throw new Error(
+				`idle hibernate delay must be a non-negative finite number or null: ${idleHibernateMs}`,
+			);
+		}
+		this.idleHibernateMs =
+			options.idleHibernateMs === null ? null : idleHibernateMs;
 		if (this.persistence) {
 			try {
 				for (const record of this.persistence.loadAll()) {
@@ -1071,6 +1099,7 @@ export class AcpSessionManager {
 		this.persistence?.deleteSession(sessionId);
 
 		if (runtime) {
+			this.clearIdleHibernate(runtime);
 			// Stop accepting late adapter notifications before closing its transport:
 			// `abort`/`exit` handlers otherwise mark the runtime dead and re-upsert
 			// the registry row after persistence has deleted it.
@@ -1204,8 +1233,10 @@ export class AcpSessionManager {
 			onEnvelope(envelope);
 		}
 		runtime.subscribers.add(onEnvelope);
+		this.clearIdleHibernate(runtime);
 		return () => {
 			runtime.subscribers.delete(onEnvelope);
+			this.scheduleIdleHibernate(runtime);
 		};
 	}
 
@@ -1233,6 +1264,7 @@ export class AcpSessionManager {
 		);
 		await Promise.all(inflight);
 		for (const runtime of this.runtimes.values()) {
+			this.clearIdleHibernate(runtime);
 			for (const requestId of [...runtime.pendingResolvers.keys()]) {
 				this.settlePermission(runtime, requestId, { outcome: "cancelled" });
 			}
@@ -1708,6 +1740,8 @@ export class AcpSessionManager {
 				// registry — no need to regenerate. A fresh session starts
 				// title-less and the first prompt kicks off the generator.
 				titleGenerationStarted: resume?.title != null,
+				titleGenerationInFlight: false,
+				idleHibernateTimer: null,
 			};
 			runtime = created;
 			for (let index = 0; index < earlyUpdatesSize; index += 1) {
@@ -1750,6 +1784,7 @@ export class AcpSessionManager {
 			}
 
 			this.runtimes.set(sessionId, created);
+			this.scheduleIdleHibernate(created);
 			return created;
 		} catch (error) {
 			try {
@@ -1794,8 +1829,101 @@ export class AcpSessionManager {
 		});
 	}
 
+	private clearIdleHibernate(runtime: AcpSessionRuntime): void {
+		if (runtime.idleHibernateTimer === null) return;
+		clearTimeout(runtime.idleHibernateTimer);
+		runtime.idleHibernateTimer = null;
+	}
+
+	private canHibernate(runtime: AcpSessionRuntime): boolean {
+		return (
+			this.persistence !== undefined &&
+			this.runtimes.get(runtime.state.sessionId) === runtime &&
+			!runtime.dead &&
+			!runtime.closed &&
+			runtime.state.status === "idle" &&
+			runtime.subscribers.size === 0 &&
+			runtime.activePromptCount === 0 &&
+			runtime.state.queuedPrompts.length === 0 &&
+			runtime.pendingSendNow === null &&
+			runtime.state.pendingPermissions.length === 0 &&
+			runtime.pendingResolvers.size === 0 &&
+			runtime.openToolCalls.size === 0 &&
+			!runtime.titleGenerationInFlight
+		);
+	}
+
+	private scheduleIdleHibernate(runtime: AcpSessionRuntime): void {
+		this.clearIdleHibernate(runtime);
+		if (this.idleHibernateMs === null || !this.canHibernate(runtime)) return;
+		const timer = setTimeout(() => {
+			runtime.idleHibernateTimer = null;
+			if (this.canHibernate(runtime)) this.hibernate(runtime);
+		}, this.idleHibernateMs);
+		(timer as unknown as { unref?: () => void }).unref?.();
+		runtime.idleHibernateTimer = timer;
+	}
+
+	/**
+	 * Turn a live, quiescent runtime back into its persisted offline form. This
+	 * deliberately does not use close(): hibernation preserves its registry,
+	 * journal, artifacts, and native ACP session id for session/load.
+	 */
+	private hibernate(runtime: AcpSessionRuntime): void {
+		if (!this.canHibernate(runtime)) return;
+		this.clearIdleHibernate(runtime);
+		runtime.state.updatedAt = Date.now();
+		const record: AcpSessionRecord = {
+			sessionId: runtime.state.sessionId,
+			workspaceId: runtime.state.workspaceId,
+			acpSessionId: runtime.acpSessionId,
+			epoch: runtime.state.epoch,
+			harness: runtime.state.harness,
+			cwd: runtime.state.cwd,
+			title: runtime.state.title,
+			lastStopReason: runtime.state.lastStopReason,
+			lastCompletedAt: runtime.state.lastCompletedAt,
+			createdAt: runtime.state.createdAt,
+			updatedAt: runtime.state.updatedAt,
+		};
+		try {
+			// The durable registry is the recovery contract. Do not release the
+			// in-memory journal if recording this offline incarnation fails.
+			this.persistence?.upsert(record);
+		} catch (error) {
+			console.warn(
+				"[acp-sessions] failed to persist hibernated session",
+				error,
+			);
+			this.scheduleIdleHibernate(runtime);
+			return;
+		}
+		// Ignore late abort/exit events from the intentionally closed transport.
+		runtime.closed = true;
+		this.runtimes.delete(runtime.state.sessionId);
+		this.offline.set(record.sessionId, record);
+		try {
+			runtime.connection.close();
+		} catch {
+			// best-effort — the stream may already be closed
+		}
+		try {
+			runtime.child.kill();
+		} catch {
+			// best-effort — the process may already have exited
+		}
+		this.notifySessionChange({
+			sessionId: record.sessionId,
+			workspaceId: record.workspaceId,
+			eventType: "changed",
+			status: "offline",
+			occurredAt: Date.now(),
+		});
+	}
+
 	private markDead(runtime: AcpSessionRuntime, reason: string): void {
 		if (runtime.dead || runtime.closed) return;
+		this.clearIdleHibernate(runtime);
 		runtime.dead = true;
 		for (const requestId of [...runtime.pendingResolvers.keys()]) {
 			this.settlePermission(runtime, requestId, { outcome: "cancelled" });
@@ -1844,6 +1972,7 @@ export class AcpSessionManager {
 			return;
 		}
 		runtime.titleGenerationStarted = true;
+		runtime.titleGenerationInFlight = true;
 		console.log(
 			`[acp-title] start ${sessionId}: message="${message.slice(0, 80)}"`,
 		);
@@ -1883,6 +2012,10 @@ export class AcpSessionManager {
 					`[acp-sessions] title generation failed for session ${sessionId}`,
 					error,
 				);
+			})
+			.finally(() => {
+				runtime.titleGenerationInFlight = false;
+				this.scheduleIdleHibernate(runtime);
 			});
 	}
 
@@ -2307,9 +2440,12 @@ export class AcpSessionManager {
 		options?: { force?: boolean },
 	): void {
 		const next = this.computeStatus(runtime);
-		if (next === runtime.state.status && !options?.force) return;
-		runtime.state.status = next;
-		this.emitState(runtime);
+		if (next !== runtime.state.status || options?.force) {
+			runtime.state.status = next;
+			this.emitState(runtime);
+		} else {
+			this.scheduleIdleHibernate(runtime);
+		}
 	}
 
 	private emitState(runtime: AcpSessionRuntime): void {
@@ -2333,6 +2469,7 @@ export class AcpSessionManager {
 			status: runtime.state.status,
 			occurredAt: Date.now(),
 		});
+		this.scheduleIdleHibernate(runtime);
 	}
 
 	/**
@@ -2351,6 +2488,12 @@ export class AcpSessionManager {
 	// request emission. In-process managers expose the same optional runtime
 	// shape but have no renderer bridge.
 	onSessionOpenRequested(_listener: AcpSessionOpenRequestHandler): () => void {
+		return () => {};
+	}
+
+	onMergeRequestOpenRequested(
+		_listener: AcpMergeRequestOpenRequestHandler,
+	): () => void {
 		return () => {};
 	}
 
@@ -2492,6 +2635,7 @@ export class AcpSessionManager {
 				}`,
 			);
 		}
+		this.clearIdleHibernate(runtime);
 		return runtime;
 	}
 }

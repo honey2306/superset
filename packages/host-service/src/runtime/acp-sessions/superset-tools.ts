@@ -21,6 +21,15 @@ export interface AcpSessionOpenRequest {
 	occurredAt: number;
 }
 
+export interface MergeRequestOpenRequest {
+	workspaceId: string;
+	sourceSessionId: string;
+	provider: "kdev";
+	url: string;
+	sourceBranch: string;
+	occurredAt: number;
+}
+
 export type SetProjectRunCommandResult =
 	| { status: "configured"; commands: string[] }
 	| { status: "already_configured"; commands: string[] };
@@ -33,6 +42,11 @@ export type DelegatedExecutionResolution =
 export interface SupersetToolControllerOptions {
 	manager: AcpSessionManager;
 	onOpenRequested?: (event: AcpSessionOpenRequest) => void;
+	/** Resolves only the current session's KDev create-MR page. */
+	openMergeRequest?: (input: {
+		cwd: string;
+	}) => Promise<{ provider: "kdev"; url: string; sourceBranch: string }>;
+	onMergeRequestOpenRequested?: (event: MergeRequestOpenRequest) => void;
 	setProjectRunCommand?: (input: {
 		workspaceId: string;
 		commands: string[];
@@ -85,6 +99,8 @@ interface ChildLaunchRecord {
 export class SupersetToolController {
 	private readonly manager: AcpSessionManager;
 	private readonly onOpenRequested: SupersetToolControllerOptions["onOpenRequested"];
+	private readonly openMergeRequest: SupersetToolControllerOptions["openMergeRequest"];
+	private readonly onMergeRequestOpenRequested: SupersetToolControllerOptions["onMergeRequestOpenRequested"];
 	private readonly setProjectRunCommand: SupersetToolControllerOptions["setProjectRunCommand"];
 	private readonly resolveDelegatedExecution: SupersetToolControllerOptions["resolveDelegatedExecution"];
 	private readonly delegationRuns: SupersetToolControllerOptions["delegationRuns"];
@@ -94,6 +110,8 @@ export class SupersetToolController {
 	constructor(options: SupersetToolControllerOptions) {
 		this.manager = options.manager;
 		this.onOpenRequested = options.onOpenRequested;
+		this.openMergeRequest = options.openMergeRequest;
+		this.onMergeRequestOpenRequested = options.onMergeRequestOpenRequested;
 		this.setProjectRunCommand = options.setProjectRunCommand;
 		this.resolveDelegatedExecution = options.resolveDelegatedExecution;
 		this.delegationRuns = options.delegationRuns;
@@ -209,6 +227,25 @@ export class SupersetToolController {
 					workspaceId: source.workspaceId,
 					commands: request.arguments.commands,
 				});
+			}
+			case "open_merge_request": {
+				if (!this.openMergeRequest) {
+					throw new Error(
+						"Merge request opening is unavailable in this runtime",
+					);
+				}
+				const mergeRequest = await this.openMergeRequest({ cwd: source.cwd });
+				this.onMergeRequestOpenRequested?.({
+					workspaceId: source.workspaceId,
+					sourceSessionId: source.sessionId,
+					...mergeRequest,
+					occurredAt: Date.now(),
+				});
+				return {
+					provider: mergeRequest.provider,
+					sourceBranch: mergeRequest.sourceBranch,
+					opened: true,
+				};
 			}
 			default:
 				throw new Error("Unsupported Superset tool");

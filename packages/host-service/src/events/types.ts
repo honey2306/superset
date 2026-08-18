@@ -160,6 +160,17 @@ export interface AcpSessionOpenRequestedMessage {
 	occurredAt: number;
 }
 
+/** A validated, provider-owned MR page that Desktop should open externally. */
+export interface AcpMergeRequestOpenRequestedMessage {
+	type: "acp-session:merge-request-open-requested";
+	workspaceId: string;
+	sourceSessionId: string;
+	provider: "kdev";
+	url: string;
+	sourceBranch: string;
+	occurredAt: number;
+}
+
 export interface EventBusErrorMessage {
 	type: "error";
 	message: string;
@@ -177,6 +188,7 @@ export type ServerMessage =
 	| WorkspaceOperationChangedMessage
 	| AcpSessionChangedMessage
 	| AcpSessionOpenRequestedMessage
+	| AcpMergeRequestOpenRequestedMessage
 	| EventBusErrorMessage;
 
 // ── Client → Server ────────────────────────────────────────────────

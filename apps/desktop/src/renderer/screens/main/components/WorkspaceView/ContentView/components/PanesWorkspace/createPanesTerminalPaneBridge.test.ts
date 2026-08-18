@@ -36,6 +36,7 @@ function makeContext(): RendererContext<PanesPaneData> {
 	return {
 		pane: { ...pane, parentDirection: null },
 		tab: { ...tab, position: 0 },
+		isVisible: true,
 		isActive: true,
 		store,
 		actions: {
@@ -209,6 +210,24 @@ describe("createPanesTerminalPaneBridge", () => {
 		expect(acpSessionStatusToPaneStatus("dead")).toBe("failed");
 		expect(acpSessionStatusToPaneStatus("offline")).toBe("idle");
 		expect(acpSessionStatusToPaneStatus("idle")).toBe("idle");
+	});
+
+	test("prefers AskUser when aggregating user-actionable pane statuses", () => {
+		const context = makeContext();
+		const tab = context.store.getState().getTab("tab-1");
+		if (!tab) throw new Error("fixture setup failed");
+		tab.panes.permission = {
+			id: "permission",
+			kind: "terminal",
+			data: { terminalId: "permission", status: "permission" },
+		};
+		tab.panes.askuser = {
+			id: "askuser",
+			kind: "terminal",
+			data: { terminalId: "askuser", status: "askuser" },
+		};
+
+		expect(getPanesTabStatus(tab)).toBe("askuser");
 	});
 
 	test("syncs ACP session status and title into inactive acp panes", () => {

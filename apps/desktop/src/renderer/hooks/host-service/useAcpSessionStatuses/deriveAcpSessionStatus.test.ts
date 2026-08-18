@@ -7,7 +7,7 @@ import {
 
 type NotificationState = Pick<
 	SessionScopedState,
-	"status" | "lastStopReason" | "lastCompletedAt"
+	"status" | "lastStopReason" | "lastCompletedAt" | "pendingPermissions"
 >;
 
 function session(
@@ -18,6 +18,7 @@ function session(
 		status,
 		lastStopReason: null,
 		lastCompletedAt: 200,
+		pendingPermissions: [],
 		...overrides,
 	};
 }
@@ -29,6 +30,23 @@ describe("deriveAcpSessionStatus", () => {
 		expect(deriveAcpSessionStatus(session("awaiting_permission"))).toBe(
 			"permission",
 		);
+		expect(
+			deriveAcpSessionStatus(
+				session("awaiting_permission", {
+					pendingPermissions: [
+						{
+							requestId: "ask-user",
+							toolCall: {
+								toolCallId: "ask-user-call",
+								_meta: { claudeCode: { toolName: "AskUserQuestion" } },
+							},
+							options: [],
+							requestedAt: 1,
+						},
+					],
+				}),
+			),
+		).toBe("askuser");
 		expect(deriveAcpSessionStatus(session("dead"))).toBe("failed");
 	});
 

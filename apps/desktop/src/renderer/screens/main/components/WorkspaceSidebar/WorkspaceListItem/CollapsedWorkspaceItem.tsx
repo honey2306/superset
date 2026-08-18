@@ -8,10 +8,10 @@ import {
 } from "@superset/ui/context-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
-import { type RefObject, useMemo } from "react";
+import type { RefObject } from "react";
 import { LuCopy, LuGitBranch, LuX } from "react-icons/lu";
 import { useHotkeyDisplay } from "renderer/hotkeys";
-import { createContextMenuDeleteDialogCoordinator } from "renderer/react-query/workspaces/useWorkspaceDeleteHandler";
+import { useContextMenuDeleteDialogCoordinator } from "renderer/react-query/workspaces/useWorkspaceDeleteHandler";
 import type { ActivePaneStatus } from "shared/tabs-types";
 import { STROKE_WIDTH } from "../constants";
 import { DeleteWorkspaceDialog } from "./components";
@@ -53,10 +53,8 @@ export function CollapsedWorkspaceItem({
 	onCopyBranchName,
 }: CollapsedWorkspaceItemProps) {
 	const isBranchWorkspace = type === "branch";
-	const deleteDialogCoordinator = useMemo(
-		() => createContextMenuDeleteDialogCoordinator(onDeleteClick),
-		[onDeleteClick],
-	);
+	const deleteDialogCoordinator =
+		useContextMenuDeleteDialogCoordinator(onDeleteClick);
 	const deleteHotkeyText = useHotkeyDisplay("CLOSE_WORKSPACE").text;
 	const showDeleteShortcut = isActive && deleteHotkeyText !== "Unassigned";
 

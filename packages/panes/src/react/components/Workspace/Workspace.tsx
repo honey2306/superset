@@ -12,6 +12,7 @@ import { useWorkspaceInteractionState } from "./hooks/useWorkspaceInteractionSta
 export function Workspace<TData>({
 	store,
 	registry,
+	isActive = true,
 	className,
 	renderTabAccessory,
 	renderTabIcon,
@@ -169,7 +170,7 @@ export function Workspace<TData>({
 								<Tab
 									store={store}
 									tab={tab}
-									isActive={isDisplayed}
+									isActive={isActive && isDisplayed}
 									registry={registry}
 									paneActions={paneActions}
 									contextMenuActions={contextMenuActions}

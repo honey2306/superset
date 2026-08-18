@@ -98,10 +98,12 @@ export function usePanesDeepLinkConsumer({
 	store,
 	hostUrl,
 	hostWorkspaceId,
+	isActive,
 }: {
 	store: StoreApi<WorkspaceStore<PanesPaneData>>;
 	hostUrl: string | null;
 	hostWorkspaceId: string | null;
+	isActive: boolean;
 }): void {
 	const {
 		terminalId,
@@ -120,13 +122,14 @@ export function usePanesDeepLinkConsumer({
 	// `enabled` gates the query so we only fetch when a terminal deep link is
 	// actually present.
 	useEffect(() => {
-		if (!terminalId || !hostUrl || !hostWorkspaceId) return;
+		if (!isActive || !terminalId || !hostUrl || !hostWorkspaceId) return;
 		const key = terminalFocusConsumeKey(terminalId, focusRequestId);
 		if (consumedTerminalRef.current.has(key)) return;
+		let cancelled = false;
 		void getHostServiceClientByUrl(hostUrl)
 			.terminal.listSessions.query({ workspaceId: hostWorkspaceId })
 			.then(({ sessions }) => {
-				if (consumedTerminalRef.current.has(key)) return;
+				if (cancelled || consumedTerminalRef.current.has(key)) return;
 				if (!sessions.some((session) => session.terminalId === terminalId))
 					return;
 				consumedTerminalRef.current.add(key);
@@ -135,16 +138,20 @@ export function usePanesDeepLinkConsumer({
 			.catch((error) =>
 				console.warn("[deep-link] Terminal session open failed", error),
 			);
-	}, [store, terminalId, focusRequestId, hostUrl, hostWorkspaceId]);
+		return () => {
+			cancelled = true;
+		};
+	}, [store, terminalId, focusRequestId, hostUrl, hostWorkspaceId, isActive]);
 
 	useEffect(() => {
-		if (!acpSessionId || !hostUrl) return;
+		if (!isActive || !acpSessionId || !hostUrl) return;
 		const key = acpSessionConsumeKey(acpSessionId, focusRequestId);
 		if (consumedAcpRef.current.has(key)) return;
+		let cancelled = false;
 		void createDesktopAcpSessionClient(hostUrl)
 			.api.get({ sessionId: acpSessionId })
 			.then((session) => {
-				if (session.workspaceId !== hostWorkspaceId) return;
+				if (cancelled || session.workspaceId !== hostWorkspaceId) return;
 				consumedAcpRef.current.add(key);
 				const agentDefinitionId = ACP_AGENT_BY_HARNESS[session.harness];
 				openAcpSessionInPanesStore(store, {
@@ -157,16 +164,19 @@ export function usePanesDeepLinkConsumer({
 			.catch((error) =>
 				console.warn("[deep-link] ACP session open failed", error),
 			);
-	}, [acpSessionId, focusRequestId, hostUrl, hostWorkspaceId, store]);
+		return () => {
+			cancelled = true;
+		};
+	}, [acpSessionId, focusRequestId, hostUrl, hostWorkspaceId, store, isActive]);
 
 	useEffect(() => {
-		if (!openUrl) return;
+		if (!isActive || !openUrl) return;
 		const target = openUrlTarget ?? "current-tab";
 		const key = openUrlConsumeKey(openUrl, target, openUrlRequestId);
 		if (consumedUrlRef.current.has(key)) return;
 		consumedUrlRef.current.add(key);
 		openUrlInWorkspace(store, target, openUrl);
-	}, [store, openUrl, openUrlTarget, openUrlRequestId]);
+	}, [store, openUrl, openUrlTarget, openUrlRequestId, isActive]);
 }
 
 function acpSessionConsumeKey(

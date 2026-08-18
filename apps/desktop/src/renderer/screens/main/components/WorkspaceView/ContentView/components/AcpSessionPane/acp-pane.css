@@ -546,6 +546,31 @@
 	-webkit-user-select: text;
 	cursor: auto;
 }
+.acp-timeline__older-history {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	align-self: center;
+	margin-bottom: 8px;
+	color: var(--acp-muted);
+	font-size: 11px;
+}
+.acp-timeline__older-history button {
+	border: 1px solid var(--acp-line-hi);
+	border-radius: 999px;
+	padding: 4px 9px;
+	background: color-mix(in oklch, var(--acp-bg) 88%, var(--acp-fg));
+	color: var(--acp-fg);
+	font: inherit;
+	cursor: pointer;
+}
+.acp-timeline__older-history button:disabled {
+	opacity: 0.6;
+	cursor: wait;
+}
+.acp-timeline__older-history span[role="alert"] {
+	color: var(--acp-red);
+}
 .acp-turn {
 	position: relative;
 	display: flex;
@@ -898,12 +923,44 @@
 }
 .acp-msg[data-role="thought"] .acp-msg__bubble {
 	max-width: 100%;
-	padding: 8px 12px;
-	border: 1px dashed var(--acp-line-hi);
-	border-radius: 8px;
-	color: var(--acp-muted);
-	font-style: italic;
+	padding: 5px 10px;
+	border-left: 2px solid
+		color-mix(in oklch, var(--acp-line-hi) 72%, transparent);
+	color: color-mix(in oklch, var(--acp-fg) 56%, transparent);
+}
+/* Thought content is supporting context, not primary output. AcpMarkdown sets
+ * an explicit 15px size, so styling only the bubble does not make its text
+ * smaller. Override the markdown itself and tighten its vertical rhythm. */
+.acp-msg[data-role="thought"] .acp-md {
+	font-size: 12px;
+	line-height: 1.55;
+}
+.acp-msg[data-role="thought"] .acp-md h1 {
+	font-size: 15px;
+	margin: 14px 0 6px;
+}
+.acp-msg[data-role="thought"] .acp-md h2 {
 	font-size: 14px;
+	margin: 12px 0 5px;
+}
+.acp-msg[data-role="thought"] .acp-md h3,
+.acp-msg[data-role="thought"] .acp-md h4 {
+	font-size: 13px;
+	margin: 10px 0 4px;
+}
+.acp-msg[data-role="thought"] .acp-md h5,
+.acp-msg[data-role="thought"] .acp-md h6 {
+	font-size: 11px;
+	margin: 8px 0 4px;
+}
+.acp-msg[data-role="thought"] .acp-md p,
+.acp-msg[data-role="thought"] .acp-md ul,
+.acp-msg[data-role="thought"] .acp-md ol {
+	margin: 6px 0;
+}
+.acp-msg[data-role="thought"] .acp-md ul,
+.acp-msg[data-role="thought"] .acp-md ol {
+	gap: 3px;
 }
 
 /* ---------- Tool call: prose-style activity line ----------
@@ -1008,28 +1065,20 @@
 	margin-left: auto;
 }
 .acp-tool__meta[data-status="completed"]::before {
-	content: "";
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: var(--acp-green);
-	display: inline-block;
-	transform: translateY(-1px);
+	content: none;
+}
+.acp-tool__meta[data-status="completed"],
+.acp-tool__meta[data-status="failed"] {
+	font-size: 10.5px;
 }
 .acp-tool__meta[data-status="completed"] {
-	color: var(--acp-fg-2);
+	color: color-mix(in oklch, var(--acp-fg) 28%, transparent);
 }
 .acp-tool__meta[data-status="failed"] {
-	color: var(--acp-red);
+	color: color-mix(in oklch, var(--danger) 34%, transparent);
 }
 .acp-tool__meta[data-status="failed"]::before {
-	content: "";
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: var(--acp-red);
-	display: inline-block;
-	transform: translateY(-1px);
+	content: none;
 }
 .acp-tool__meta[data-status="in_progress"],
 .acp-tool__meta[data-status="pending"],
@@ -1522,17 +1571,16 @@
 .acp-md a:hover {
 	text-decoration-color: var(--acp-cyan);
 }
-/* Inline code is deliberately monochrome: colour, mono font and a faint
- * background all together would compete with headings and strong. Using
- * fg + a very light neutral tint lets a paragraph full of file names read
- * as prose, not as a tag cloud. */
+/* Inline code is deliberately monochrome and unboxed. A mono font gives file
+ * names and flags enough distinction without turning dense prose into a tag
+ * cloud. */
 .acp-md code:not(pre code) {
-	background: color-mix(in oklch, var(--acp-fg) 8%, transparent);
-	color: var(--acp-fg);
-	padding: 1px 5px;
-	border-radius: 3px;
+	background: transparent;
+	color: color-mix(in oklch, var(--acp-fg) 92%, transparent);
+	padding: 0;
+	border-radius: 0;
 	font-family: var(--acp-font-mono);
-	font-size: 0.88em;
+	font-size: 0.9em;
 	border: 0;
 }
 .acp-md blockquote {

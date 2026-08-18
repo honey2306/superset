@@ -55,6 +55,27 @@ export interface PendingPermission {
 }
 
 /**
+ * Whether a pending permission is an AskUser-style elicitation rather than a
+ * normal tool permission. `isElicitation` is authoritative for newly-created
+ * requests; the explicit Claude tool metadata retains compatibility with
+ * persisted requests that predate that field.
+ */
+export function isAskUserPermission(
+	permission: Pick<PendingPermission, "isElicitation">,
+	sourceToolCall: ToolCallUpdate | undefined,
+): boolean {
+	if (permission.isElicitation === true) return true;
+	const meta = sourceToolCall?._meta;
+	if (!meta || typeof meta !== "object") return false;
+	const claudeCode = (meta as { claudeCode?: unknown }).claudeCode;
+	return (
+		typeof claudeCode === "object" &&
+		claudeCode !== null &&
+		(claudeCode as { toolName?: unknown }).toolName === "AskUserQuestion"
+	);
+}
+
+/**
  * Multi-select answers ride the ACP-reserved `_meta` extension point on a
  * `selected` outcome — the ACP type itself is single-option, and it crosses
  * the wire verbatim (D7), so the extra picks travel as metadata. `optionId`

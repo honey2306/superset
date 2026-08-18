@@ -105,3 +105,37 @@ describe("EventBus workspace listeners", () => {
 		expect(received).toEqual(["workspace-1"]);
 	});
 });
+
+describe("EventBus merge request presentation", () => {
+	it("broadcasts a validated KDev page opening request", () => {
+		const eventBus = createEventBus();
+		const sentMessages: string[] = [];
+		const socket = {
+			readyState: 1,
+			send(data: string) {
+				sentMessages.push(data);
+			},
+			close() {},
+		};
+		eventBus.handleOpen(socket);
+
+		eventBus.broadcastAcpMergeRequestOpenRequested({
+			workspaceId: "workspace-1",
+			sourceSessionId: "session-1",
+			provider: "kdev",
+			sourceBranch: "feature/a",
+			url: "https://kdev.corp.kuaishou.com/git/group/repo/-/create_MR?branchName=feature%2Fa",
+			occurredAt: 1,
+		});
+
+		expect(JSON.parse(sentMessages[0] ?? "{}")).toEqual({
+			type: "acp-session:merge-request-open-requested",
+			workspaceId: "workspace-1",
+			sourceSessionId: "session-1",
+			provider: "kdev",
+			sourceBranch: "feature/a",
+			url: "https://kdev.corp.kuaishou.com/git/group/repo/-/create_MR?branchName=feature%2Fa",
+			occurredAt: 1,
+		});
+	});
+});

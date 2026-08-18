@@ -3,9 +3,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+	AcpDaemonClient,
 	acpDaemonBuildVersion,
 	acpDaemonSocketPath,
 	isActiveDaemonSession,
+	type RequestOperation,
 } from "./daemon";
 
 const tempDirectories: string[] = [];
@@ -27,6 +29,80 @@ describe("isActiveDaemonSession", () => {
 		expect(isActiveDaemonSession({ status: "idle" })).toBe(false);
 		expect(isActiveDaemonSession({ status: "offline" })).toBe(false);
 		expect(isActiveDaemonSession({ status: "dead" })).toBe(false);
+	});
+});
+
+describe("AcpDaemonClient reconnects", () => {
+	test("retries a read interrupted by daemon replacement", async () => {
+		const client = new AcpDaemonClient({
+			organizationId: "org-1",
+			spawnIfMissing: false,
+		});
+		const internals = client as unknown as {
+			connect: () => Promise<void>;
+			sendRequest: (op: RequestOperation, params: unknown) => Promise<unknown>;
+		};
+		let sends = 0;
+		internals.connect = async () => {};
+		internals.sendRequest = async () => {
+			sends += 1;
+			if (sends === 1) {
+				throw Object.assign(new Error("ACP daemon disconnected"), {
+					code: "ACP_DAEMON_DISCONNECTED",
+				});
+			}
+			return { sessionId: "session-1" };
+		};
+
+		await client.get("session-1");
+
+		expect(sends).toBe(2);
+	});
+
+	test("coalesces concurrent daemon compatibility checks before create", async () => {
+		const client = new AcpDaemonClient({
+			organizationId: "org-1",
+			spawnIfMissing: false,
+		});
+		const internals = client as unknown as {
+			connect: () => Promise<void>;
+			replaceConnectedDaemonIfSafe: () => Promise<void>;
+			sendRequest: (op: RequestOperation, params: unknown) => Promise<unknown>;
+		};
+		let releaseReplacement!: () => void;
+		const replacementGate = new Promise<void>((resolve) => {
+			releaseReplacement = resolve;
+		});
+		let replacementCalls = 0;
+		let activeReplacements = 0;
+		let maxActiveReplacements = 0;
+		internals.connect = async () => {};
+		internals.replaceConnectedDaemonIfSafe = async () => {
+			replacementCalls += 1;
+			activeReplacements += 1;
+			maxActiveReplacements = Math.max(
+				maxActiveReplacements,
+				activeReplacements,
+			);
+			await replacementGate;
+			activeReplacements -= 1;
+		};
+		internals.sendRequest = async () => ({ sessionId: "created" });
+
+		const first = client.create({
+			sessionId: "session-1",
+			workspaceId: "workspace-1",
+		});
+		const second = client.create({
+			sessionId: "session-2",
+			workspaceId: "workspace-1",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(replacementCalls).toBe(1);
+		expect(maxActiveReplacements).toBe(1);
+		releaseReplacement();
+		await Promise.all([first, second]);
 	});
 });
 

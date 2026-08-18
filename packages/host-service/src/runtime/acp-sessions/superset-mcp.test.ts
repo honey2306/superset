@@ -87,12 +87,28 @@ describe("Superset MCP process", () => {
 				id: 1,
 				result: { capabilities: { tools: {} } },
 			});
-			const tools = (responses[1]?.result as { tools: Array<{ name: string }> })
-				.tools;
+			const tools = (
+				responses[1]?.result as {
+					tools: Array<{
+						name: string;
+						inputSchema: Record<string, unknown>;
+					}>;
+				}
+			).tools;
 			expect(
 				tools.some((tool) => tool.name === "continue_in_new_session"),
 			).toBe(true);
 			expect(tools.some((tool) => tool.name === "ask_user")).toBe(true);
+			expect(tools.some((tool) => tool.name === "open_merge_request")).toBe(
+				true,
+			);
+			expect(
+				tools.find((tool) => tool.name === "open_merge_request")?.inputSchema,
+			).toEqual({
+				type: "object",
+				properties: {},
+				additionalProperties: false,
+			});
 			expect(tools.some((tool) => tool.name === "get_session_messages")).toBe(
 				true,
 			);
@@ -148,6 +164,57 @@ describe("Superset MCP process", () => {
 			});
 			await Bun.sleep(10);
 			expect(daemonCallClosed).toBe(true);
+		} finally {
+			server.close();
+		}
+	});
+
+	test("normalizes Claude's zero-argument placeholder before forwarding a merge request", async () => {
+		const socketPath = path.join(tempDir, "merge-request-noargs.sock");
+		const server = net.createServer((socket) => {
+			socket.setEncoding("utf8");
+			socket.once("data", (chunk: string) => {
+				const request = JSON.parse(chunk.trim()) as {
+					id: string;
+					params: unknown;
+				};
+				expect(request.params).toEqual({
+					sourceSessionId: "source-session",
+					name: "open_merge_request",
+					arguments: {},
+				});
+				socket.end(
+					`${JSON.stringify({
+						type: "response",
+						id: request.id,
+						ok: true,
+						result: { opened: true },
+					})}\n`,
+				);
+			});
+		});
+		await listen(server, socketPath);
+		try {
+			const responses = await runMcp(socketPath, [
+				{
+					jsonrpc: "2.0",
+					id: 1,
+					method: "tools/call",
+					params: {
+						name: "open_merge_request",
+						arguments: {
+							_noargs: "unused placeholder (tool takes no arguments)",
+						},
+					},
+				},
+			]);
+
+			expect(responses[0]).toMatchObject({
+				id: 1,
+				result: {
+					content: [{ type: "text", text: '{"opened":true}' }],
+				},
+			});
 		} finally {
 			server.close();
 		}

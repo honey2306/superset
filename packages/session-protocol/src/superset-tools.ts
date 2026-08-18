@@ -60,6 +60,7 @@ const setProjectRunCommandArgsSchema = z
 		commands: z.array(z.string().trim().min(1).max(10_000)).min(1).max(20),
 	})
 	.strict();
+const openMergeRequestArgsSchema = z.object({}).strict();
 const askUserArgsSchema = z
 	.object({
 		questions: z
@@ -139,6 +140,11 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 		sourceSessionId: sessionIdSchema,
 		name: z.literal("set_project_run_command"),
 		arguments: setProjectRunCommandArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("open_merge_request"),
+		arguments: openMergeRequestArgsSchema,
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
@@ -318,6 +324,16 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 				},
 			},
 			required: ["commands"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "open_merge_request",
+		description:
+			"Open the KDev create merge request page for the current session's checked-out branch. The repository and branch are derived from the session; this tool never pushes commits or creates a merge request.",
+		inputSchema: {
+			type: "object",
+			properties: {},
 			additionalProperties: false,
 		},
 	},

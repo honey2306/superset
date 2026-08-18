@@ -101,6 +101,8 @@ export interface AcpSessionPaneProps {
 	isLaunching?: boolean;
 	/** Whether this pane is currently visible and selected. */
 	isFocused?: boolean;
+	/** Whether this pane's workspace surface and tab are currently displayed. */
+	isVisible?: boolean;
 	/** Creation failure kept with the pane instead of dropping the new tab. */
 	creationError?: string;
 	onRetryLaunch?: () => void;
@@ -122,6 +124,7 @@ export function AcpSessionPane({
 	agentLabel,
 	isLaunching = false,
 	isFocused = false,
+	isVisible = true,
 	creationError,
 	onRetryLaunch,
 	onSessionMetadataChange,
@@ -145,6 +148,7 @@ export function AcpSessionPane({
 		api: client.api,
 		streamUrl,
 		initiallyLaunching: isLaunching,
+		enabled: isVisible,
 	});
 
 	const permissions = useAcpPermissions(session);
@@ -425,6 +429,11 @@ export function AcpSessionPane({
 				onOpenFile={openFileFromTool}
 				agentLabel={agentLabel}
 				status={state?.status}
+				isFocused={isFocused}
+				hasOlder={session.hasOlder}
+				isLoadingOlder={session.isLoadingOlder}
+				historyError={session.historyError}
+				onLoadOlder={session.loadOlder}
 			/>
 
 			<div className="acp-pane__composer-wrap">

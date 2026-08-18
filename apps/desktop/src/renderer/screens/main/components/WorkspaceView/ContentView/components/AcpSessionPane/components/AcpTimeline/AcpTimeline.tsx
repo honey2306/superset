@@ -9,10 +9,12 @@ import { cn } from "@superset/ui/utils";
 import { ArrowDown } from "lucide-react";
 import {
 	forwardRef,
+	memo,
 	type UIEvent,
 	useCallback,
 	useEffect,
 	useImperativeHandle,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -51,6 +53,13 @@ interface AcpTimelineProps {
 	sessionId?: string;
 	/** Current session status, used to distinguish an idle timeline from work. */
 	status?: SessionStatus;
+	/** Whether the pane is displayed. Inactive tabs stay mounted but use display:none. */
+	isFocused?: boolean;
+	/** Whether an older journal page is available before this timeline. */
+	hasOlder?: boolean;
+	isLoadingOlder?: boolean;
+	historyError?: Error | null;
+	onLoadOlder?(): Promise<void>;
 }
 
 export interface AcpTimelineHandle {
@@ -159,8 +168,8 @@ function renderItem(
 	);
 }
 
-export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
-	function AcpTimeline(
+export const AcpTimeline = memo(
+	forwardRef<AcpTimelineHandle, AcpTimelineProps>(function AcpTimeline(
 		{
 			timeline,
 			onRespond,
@@ -171,6 +180,11 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 			agentLabel,
 			sessionId,
 			status,
+			isFocused = true,
+			hasOlder = false,
+			isLoadingOlder = false,
+			historyError = null,
+			onLoadOlder,
 		},
 		ref,
 	) {
@@ -180,6 +194,7 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 		const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
 		const activeTurnFrameRef = useRef<number | null>(null);
 		const hasInitiallyScrolledRef = useRef(false);
+		const wasFocusedRef = useRef(isFocused);
 		const lastUserMessageIdRef = useRef<string | null>(null);
 		// Guarded while a programmatic smooth-scroll to a user message is running.
 		// Without it, the first onScroll frames still read as "near bottom" (the
@@ -187,6 +202,11 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 		// effect below snaps to scrollHeight — cancelling the smooth scroll.
 		const isJumpingToUserRef = useRef(false);
 		const jumpEndTimerRef = useRef<number | null>(null);
+		const prependAnchorRef = useRef<{
+			scrollHeight: number;
+			scrollTop: number;
+		} | null>(null);
+		const skipAutoFollowAfterPrependRef = useRef(false);
 
 		const isNearBottom = useCallback((el: HTMLElement): boolean => {
 			return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -244,6 +264,18 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 			setShowJumpButton(false);
 		}, []);
 
+		const loadOlder = useCallback(async () => {
+			const scroll = scrollRef.current;
+			if (scroll) {
+				prependAnchorRef.current = {
+					scrollHeight: scroll.scrollHeight,
+					scrollTop: scroll.scrollTop,
+				};
+				skipAutoFollowAfterPrependRef.current = true;
+			}
+			await onLoadOlder?.();
+		}, [onLoadOlder]);
+
 		useImperativeHandle(
 			ref,
 			() => ({
@@ -299,6 +331,15 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 			};
 		}, []);
 
+		useLayoutEffect(() => {
+			const anchor = prependAnchorRef.current;
+			const scroll = scrollRef.current;
+			if (!anchor || !scroll || isLoadingOlder) return;
+			prependAnchorRef.current = null;
+			scroll.scrollTop =
+				anchor.scrollTop + (scroll.scrollHeight - anchor.scrollHeight);
+		}, [isLoadingOlder]);
+
 		useEffect(() => {
 			const el = scrollRef.current;
 			if (!el) return;
@@ -325,6 +366,10 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 				delete el.dataset.jumpingToUser;
 				el.querySelector(".acp-msg.is-flashed")?.classList.remove("is-flashed");
 			}
+			if (skipAutoFollowAfterPrependRef.current) {
+				skipAutoFollowAfterPrependRef.current = false;
+				return;
+			}
 
 			if (!hasInitiallyScrolledRef.current || autoFollow || hasNewUserMessage) {
 				el.scrollTop = el.scrollHeight;
@@ -335,6 +380,22 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 				setShowJumpButton(false);
 			}
 		}, [timeline.items, autoFollow]);
+
+		useEffect(() => {
+			const becameFocused = isFocused && !wasFocusedRef.current;
+			wasFocusedRef.current = isFocused;
+			if (!becameFocused || !autoFollow) return;
+
+			// Kept-alive panes are display:none while inactive, causing their
+			// scrollHeight to read as zero during streaming updates. Wait until the
+			// browser has restored layout before returning an auto-following reader
+			// to the latest item. A deliberate manual reading position is untouched.
+			const frame = window.requestAnimationFrame(() => {
+				const el = scrollRef.current;
+				if (el) el.scrollTop = el.scrollHeight;
+			});
+			return () => window.cancelAnimationFrame(frame);
+		}, [isFocused, autoFollow]);
 
 		const showWorkingIndicator = shouldShowWorkingIndicator(
 			timeline.items,
@@ -457,11 +518,32 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 				)}
 			</output>
 		);
+		const olderHistoryControl = (hasOlder || historyError) && (
+			<div className="acp-timeline__older-history">
+				<button
+					type="button"
+					onClick={() => void loadOlder()}
+					disabled={isLoadingOlder || !onLoadOlder}
+				>
+					{isLoadingOlder
+						? "Loading earlier messages…"
+						: "Load earlier messages"}
+				</button>
+				{historyError && (
+					<span role="alert">Couldn’t load earlier messages. Try again.</span>
+				)}
+			</div>
+		);
 
 		if (timeline.items.length === 0) {
 			return (
 				<div className="acp-pane__timeline">
-					<div className={cn("acp-pane__scroll", className)}>
+					<div
+						className={cn("acp-pane__scroll", className)}
+						ref={scrollRef}
+						onScroll={handleScroll}
+					>
+						{olderHistoryControl}
 						<AcpEmptyState
 							sessionId={sessionId}
 							cwd={cwd}
@@ -491,6 +573,7 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 					onScroll={handleScroll}
 				>
 					<div className="acp-pane__body-inner">
+						{olderHistoryControl}
 						{turns.map((turn, i) => {
 							const isLast = i === turns.length - 1;
 							const autoCollapse = isTurnAutoCollapsible(turn, isLast, status);
@@ -558,5 +641,5 @@ export const AcpTimeline = forwardRef<AcpTimelineHandle, AcpTimelineProps>(
 				)}
 			</div>
 		);
-	},
+	}),
 );

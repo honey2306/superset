@@ -8,7 +8,13 @@ import { usePanesWorkspacePaneLayout } from "./usePanesWorkspacePaneLayout";
  * Newly provisioned workspaces can become routable one render before their
  * local-state row reaches the process-lifetime panes repository.
  */
-export function PanesWorkspace({ workspaceId }: { workspaceId: string }) {
+export function PanesWorkspace({
+	workspaceId,
+	isActive,
+}: {
+	workspaceId: string;
+	isActive: boolean;
+}) {
 	const { activeHostUrl: hostUrl } = useLocalHostService();
 	const hostWorkspaceId = hostUrl ? workspaceId : null;
 	const { store, isLayoutReady } = usePanesWorkspacePaneLayout(workspaceId);
@@ -20,6 +26,7 @@ export function PanesWorkspace({ workspaceId }: { workspaceId: string }) {
 	return (
 		<HydratedPanesWorkspace
 			workspaceId={workspaceId}
+			isActive={isActive}
 			store={store}
 			hostUrl={hostUrl}
 			hostWorkspaceId={hostWorkspaceId}

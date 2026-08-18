@@ -61,7 +61,17 @@ export function useWorkspaceShortcuts() {
 		const localByProjectId = new Map(
 			localProjectRows.map((row) => [row.projectId, row]),
 		);
-		return projects.filter(isSidebarProjectVisible).flatMap((project) => {
+		const visibleProjects = projects
+			.filter(isSidebarProjectVisible)
+			.sort((left, right) => {
+				const leftOrder = localByProjectId.get(left.id)?.tabOrder;
+				const rightOrder = localByProjectId.get(right.id)?.tabOrder;
+				return (
+					(leftOrder ?? Number.MAX_SAFE_INTEGER) -
+					(rightOrder ?? Number.MAX_SAFE_INTEGER)
+				);
+			});
+		return visibleProjects.flatMap((project) => {
 			const projectWorkspaces = workspaces
 				.filter((workspace) => workspace.projectId === project.id)
 				.filter((workspace) => {

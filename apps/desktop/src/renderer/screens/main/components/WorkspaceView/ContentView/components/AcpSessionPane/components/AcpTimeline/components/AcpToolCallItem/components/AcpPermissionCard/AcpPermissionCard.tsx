@@ -142,20 +142,7 @@ export function mergePermissionToolCall(
  * visual treatment only from Claude's explicit tool metadata on the source
  * tool call; option labels and titles are not a reliable discriminator.
  */
-export function isAskUserPermission(
-	permission: { isElicitation?: boolean },
-	sourceToolCall: ToolCallUpdate | undefined,
-): boolean {
-	if (permission.isElicitation === true) return true;
-	const meta = sourceToolCall?._meta;
-	if (!meta || typeof meta !== "object") return false;
-	const claudeCode = (meta as { claudeCode?: unknown }).claudeCode;
-	return (
-		typeof claudeCode === "object" &&
-		claudeCode !== null &&
-		(claudeCode as { toolName?: unknown }).toolName === "AskUserQuestion"
-	);
-}
+export { isAskUserPermission } from "@superset/session-protocol";
 
 interface AcpPermissionCardProps {
 	permission: PermissionWithToolCall;

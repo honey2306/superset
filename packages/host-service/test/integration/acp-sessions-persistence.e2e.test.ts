@@ -96,6 +96,7 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 
 	function newManager(options?: {
 		journalCapacity?: number;
+		idleHibernateMs?: number | null;
 		mcpServers?: McpServer[];
 		adapterEnv?: Record<string, string>;
 	}) {
@@ -104,6 +105,7 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 			adapterEntry: FAKE_ADAPTER,
 			persistence,
 			journalCapacity: options?.journalCapacity,
+			idleHibernateMs: options?.idleHibernateMs,
 			mcpServers: options?.mcpServers,
 			adapterEnv: options?.adapterEnv,
 		});
@@ -241,6 +243,96 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		await runTurn(after, sessionId, "say hello after restart");
 		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
 			"hello after restart",
+		);
+	}, 30_000);
+
+	test("hibernates only an unsubscribed, quiescent runtime and resumes it through session/load", async () => {
+		const manager = newManager({ idleHibernateMs: 40 });
+		const sessionId = "persist-idle-hibernate";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const unsubscribe = manager.subscribe({ sessionId, onEnvelope: () => {} });
+		await sleep(90);
+		expect(manager.get(sessionId).status).toBe("idle");
+
+		unsubscribe();
+		await sleep(15);
+		const resubscribe = manager.subscribe({ sessionId, onEnvelope: () => {} });
+		await sleep(90);
+		expect(manager.get(sessionId).status).toBe("idle");
+		resubscribe();
+		// requireLive cancels the previous timer; this idle mutation must arm a
+		// fresh one after it emits its updated state.
+		await manager.setMode({ sessionId, modeId: "plan" });
+
+		await waitFor(
+			() => manager.get(sessionId).status === "offline",
+			1_000,
+			"idle session hibernation",
+		);
+		expect(
+			manager.list({}).items.find((item) => item.sessionId === sessionId)
+				?.status,
+		).toBe("offline");
+
+		await manager.ensureLive(sessionId);
+		expect(manager.get(sessionId).status).toBe("idle");
+		await runTurn(manager, sessionId, "say resumed after hibernation");
+		expect(messageText(foldedMessages(manager, sessionId), "agent")).toContain(
+			"resumed after hibernation",
+		);
+	}, 30_000);
+
+	test("does not hibernate a running or permission-blocked session", async () => {
+		const manager = newManager({ idleHibernateMs: 40 });
+		const runningSessionId = "persist-hibernate-running";
+		await manager.create({
+			sessionId: runningSessionId,
+			workspaceId: WORKSPACE_ID,
+		});
+		const { turn: hangingTurn } = manager.prompt({
+			sessionId: runningSessionId,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		await sleep(100);
+		expect(manager.get(runningSessionId).status).toBe("running");
+		await manager.cancel({ sessionId: runningSessionId });
+		await hangingTurn;
+		await waitFor(
+			() => manager.get(runningSessionId).status === "offline",
+			1_000,
+			"completed running session hibernation",
+		);
+
+		const permissionSessionId = "persist-hibernate-permission";
+		await manager.create({
+			sessionId: permissionSessionId,
+			workspaceId: WORKSPACE_ID,
+		});
+		const { turn: permissionTurn } = manager.prompt({
+			sessionId: permissionSessionId,
+			prompt: [{ type: "text", text: "permission deploy" }],
+		});
+		await waitFor(
+			() => manager.get(permissionSessionId).pendingPermissions.length === 1,
+			1_000,
+			"permission request",
+		);
+		await sleep(100);
+		expect(manager.get(permissionSessionId).status).toBe("awaiting_permission");
+		const requestId =
+			manager.get(permissionSessionId).pendingPermissions[0]?.requestId;
+		if (!requestId) throw new Error("permission request id missing");
+		manager.respondToPermission({
+			sessionId: permissionSessionId,
+			requestId,
+			outcome: { outcome: "selected", optionId: "allow_once" },
+		});
+		await permissionTurn;
+		await waitFor(
+			() => manager.get(permissionSessionId).status === "offline",
+			1_000,
+			"resolved permission session hibernation",
 		);
 	}, 30_000);
 

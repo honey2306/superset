@@ -37,8 +37,14 @@ export interface UseAcpSessionOptions {
 	streamUrl: string | (() => string | Promise<string>);
 	/** Injectable for tests / non-global WebSocket environments. */
 	createWebSocket?: (url: string) => WebSocketLike;
-	/** Page size used while fetching the complete message history (default 200). */
+	/** Number of newest historical envelopes fetched per page (default 200). */
 	pageSize?: number;
+	/**
+	 * Whether this consumer is actively displaying the session. Disabled
+	 * consumers retain their last rendered state, but do not fetch or subscribe
+	 * until re-enabled. Defaults to true for non-pane callers.
+	 */
+	enabled?: boolean;
 	/**
 	 * The caller just requested this session id and the host may still be
 	 * starting its adapter. During this bounded period, a 404 is expected.
@@ -56,7 +62,7 @@ export interface AcpSessionActions {
 	): Promise<RespondToPermissionResult>;
 	setMode(modeId: string): Promise<void>;
 	setConfigOption(configId: string, value: string | boolean): Promise<void>;
-	/** Full resync: re-fetch state + complete message history, resubscribe. */
+	/** Full resync: re-fetch state + the newest history page, then resubscribe. */
 	refresh(): Promise<void>;
 
 	/** Append a follow-up prompt to the host-managed queue. */
@@ -76,7 +82,7 @@ export interface AcpSessionActions {
 export interface UseAcpSessionResult {
 	/** Live session-scoped state (status, pending permissions, modes...). */
 	state: SessionScopedState | null;
-	/** Folded, render-ready timeline of the complete history + live updates. */
+	/** Folded, render-ready timeline of loaded history + live updates. */
 	timeline: FoldedTimeline;
 	streamStatus: StreamStatus;
 	/** True during the initial (or refresh) resync round-trip. */
@@ -84,6 +90,14 @@ export interface UseAcpSessionResult {
 	/** Whether the current session transport is live, retrying, or exhausted. */
 	availability: "live" | "retrying" | "unavailable";
 	error: Error | null;
+	/** More historical messages are available before the currently loaded page. */
+	hasOlder: boolean;
+	/** True while an older history page is being fetched. */
+	isLoadingOlder: boolean;
+	/** A failed older-page request; live state and timeline remain usable. */
+	historyError: Error | null;
+	/** Fetch and prepend the next older history page. Safe to call repeatedly. */
+	loadOlder(): Promise<void>;
 	actions: AcpSessionActions;
 }
 
@@ -91,6 +105,24 @@ export interface UseAcpSessionResult {
 const MAX_RESYNC_RETRIES = 3;
 const RESYNC_RETRY_BASE_DELAY_MS = 250;
 export const INITIAL_LAUNCH_NOT_FOUND_RETRY_WINDOW_MS = 30_000;
+
+type PendingEnvelopeBatch = {
+	epoch: number;
+	envelopes: SessionUpdateEnvelope[];
+	cancel: () => void;
+};
+
+function mergeEnvelopesInSequence(
+	...groups: readonly SessionUpdateEnvelope[][]
+): SessionUpdateEnvelope[] {
+	const bySeq = new Map<number, SessionUpdateEnvelope>();
+	for (const envelope of groups.flat()) {
+		// A page boundary can overlap with a live catch-up frame. Prefer the
+		// already-rendered envelope so an older read cannot replace newer data.
+		if (!bySeq.has(envelope.seq)) bySeq.set(envelope.seq, envelope);
+	}
+	return [...bySeq.values()].sort((a, b) => a.seq - b.seq);
+}
 
 function isNotFoundError(cause: unknown): boolean {
 	if (!(cause instanceof Error)) return false;
@@ -175,7 +207,7 @@ export async function fetchCompleteMessageHistory(
 export function useAcpSession(
 	options: UseAcpSessionOptions,
 ): UseAcpSessionResult {
-	const { sessionId, pageSize, connectionKey } = options;
+	const { sessionId, pageSize = 200, connectionKey, enabled = true } = options;
 	const initiallyLaunchingRef = useRef(options.initiallyLaunching ?? false);
 	initiallyLaunchingRef.current = options.initiallyLaunching ?? false;
 
@@ -188,6 +220,8 @@ export function useAcpSession(
 	streamUrlRef.current = options.streamUrl;
 	const createWebSocketRef = useRef(options.createWebSocket);
 	createWebSocketRef.current = options.createWebSocket;
+	const enabledRef = useRef(enabled);
+	enabledRef.current = enabled;
 
 	const [fetchedState, setFetchedState] = useState<SessionScopedState | null>(
 		null,
@@ -196,6 +230,9 @@ export function useAcpSession(
 	const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
+	const [hasOlder, setHasOlder] = useState(false);
+	const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+	const [historyError, setHistoryError] = useState<Error | null>(null);
 	const [availability, setAvailability] = useState<
 		"live" | "retrying" | "unavailable"
 	>("live");
@@ -209,6 +246,10 @@ export function useAcpSession(
 	const epochRef = useRef(0);
 	const subscriptionRef = useRef<SessionSubscription | null>(null);
 	const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pendingEnvelopeBatchRef = useRef<PendingEnvelopeBatch | null>(null);
+	const olderCursorRef = useRef<string | null>(null);
+	const seenOlderCursorsRef = useRef(new Set<string>());
+	const olderLoadPromiseRef = useRef<Promise<void> | null>(null);
 	const launchStartedAtRef = useRef<number | null>(
 		options.initiallyLaunching ? Date.now() : null,
 	);
@@ -220,31 +261,125 @@ export function useAcpSession(
 		}
 	}, []);
 
+	const cancelPendingEnvelopeBatch = useCallback(() => {
+		pendingEnvelopeBatchRef.current?.cancel();
+		pendingEnvelopeBatchRef.current = null;
+	}, []);
+
+	const enqueueLiveEnvelope = useCallback(
+		(envelope: SessionUpdateEnvelope, epoch: number) => {
+			if (!enabledRef.current || epoch !== epochRef.current) return;
+			const currentBatch = pendingEnvelopeBatchRef.current;
+			if (currentBatch?.epoch === epoch) {
+				currentBatch.envelopes.push(envelope);
+				return;
+			}
+			cancelPendingEnvelopeBatch();
+
+			let cancelled = false;
+			const batch: PendingEnvelopeBatch = {
+				epoch,
+				envelopes: [envelope],
+				cancel: () => {
+					cancelled = true;
+				},
+			};
+			const flush = () => {
+				if (
+					cancelled ||
+					pendingEnvelopeBatchRef.current !== batch ||
+					!enabledRef.current ||
+					epoch !== epochRef.current
+				)
+					return;
+				pendingEnvelopeBatchRef.current = null;
+				let nextTimeline = timelineRef.current;
+				for (const pendingEnvelope of batch.envelopes) {
+					if (pendingEnvelope.frame.kind === "state") {
+						authoritativeStateRef.current = pendingEnvelope.frame.state;
+					} else if (
+						pendingEnvelope.frame.kind === "update" &&
+						pendingEnvelope.frame.update.sessionUpdate ===
+							"available_commands_update" &&
+						authoritativeStateRef.current !== null
+					) {
+						authoritativeStateRef.current = {
+							...authoritativeStateRef.current,
+							availableCommands: pendingEnvelope.frame.update.availableCommands,
+						};
+					}
+					if (pendingEnvelope.frame.kind === "state") {
+						envelopesRef.current = envelopesRef.current.filter(
+							(buffered) => buffered.frame.kind !== "state",
+						);
+					}
+					envelopesRef.current.push(pendingEnvelope);
+					nextTimeline = overlayAuthoritativeState(
+						foldEnvelope(nextTimeline, pendingEnvelope),
+						authoritativeStateRef.current,
+					);
+				}
+				timelineRef.current = nextTimeline;
+				setTimeline(nextTimeline);
+			};
+			if (
+				typeof requestAnimationFrame === "function" &&
+				typeof cancelAnimationFrame === "function"
+			) {
+				const frame = requestAnimationFrame(flush);
+				batch.cancel = () => {
+					cancelled = true;
+					cancelAnimationFrame(frame);
+				};
+			} else {
+				const timeout = setTimeout(flush, 0);
+				batch.cancel = () => {
+					cancelled = true;
+					clearTimeout(timeout);
+				};
+			}
+			pendingEnvelopeBatchRef.current = batch;
+		},
+		[cancelPendingEnvelopeBatch],
+	);
+
 	const resync = useCallback(
 		async function resync(retryAttempt = 0): Promise<void> {
+			if (!enabledRef.current) return;
 			const epoch = ++epochRef.current;
 			if (retryAttempt === 0) clearRetryTimer();
+			cancelPendingEnvelopeBatch();
 			subscriptionRef.current?.close();
 			subscriptionRef.current = null;
+			olderCursorRef.current = null;
+			seenOlderCursorsRef.current = new Set();
+			olderLoadPromiseRef.current = null;
 			setIsLoading(true);
+			setHasOlder(false);
+			setIsLoadingOlder(false);
+			setHistoryError(null);
 			try {
 				const api = apiRef.current;
 				const state = await api.get({ sessionId });
-				if (epoch !== epochRef.current) return;
+				if (!enabledRef.current || epoch !== epochRef.current) return;
 				// Publish passive `offline` state before the live history read tries to
 				// resurrect it. If session/load fails, the UI can explain that this is a
 				// resumable registry row (and keep its composer disabled) alongside the
 				// actual load error instead of looking like a brand-new empty thread.
 				setFetchedState(state);
 				authoritativeStateRef.current = state;
-				const history = await fetchCompleteMessageHistory(
-					api,
+				const page = await api.getMessages({
 					sessionId,
-					pageSize,
-				);
-				if (epoch !== epochRef.current) return;
+					limit: pageSize,
+				});
+				if (!enabledRef.current || epoch !== epochRef.current) return;
 
-				envelopesRef.current = history;
+				envelopesRef.current = mergeEnvelopesInSequence(page.items);
+				olderCursorRef.current = page.nextCursor;
+				seenOlderCursorsRef.current = new Set();
+				olderLoadPromiseRef.current = null;
+				setHasOlder(page.nextCursor !== null);
+				setHistoryError(null);
 				// Historical pages can carry a stale available_commands_update. The
 				// just-fetched state snapshot is current and must win. Seed it before
 				// folding too: some adapters replay message snapshots without journaling
@@ -252,7 +387,7 @@ export function useAcpSession(
 				const seeded = overlayAuthoritativeState(
 					foldEnvelopes(
 						overlayAuthoritativeState(emptyTimeline(), state),
-						history,
+						envelopesRef.current,
 					),
 					state,
 				);
@@ -264,7 +399,7 @@ export function useAcpSession(
 
 				// Empty journal page but a non-zero server cursor (e.g. evicted
 				// journal): subscribe from the server's seq to avoid a reset loop.
-				const since = seeded.lastSeq > 0 ? seeded.lastSeq : state.lastSeq;
+				const since = Math.max(seeded.lastSeq, state.lastSeq);
 				subscriptionRef.current = subscribeToSession({
 					streamUrl: () => {
 						const current = streamUrlRef.current;
@@ -274,47 +409,19 @@ export function useAcpSession(
 					epoch: state.epoch,
 					createWebSocket: createWebSocketRef.current,
 					onEnvelope: (envelope) => {
-						if (epoch !== epochRef.current) return;
-						if (envelope.frame.kind === "state") {
-							authoritativeStateRef.current = envelope.frame.state;
-						} else if (
-							envelope.frame.kind === "update" &&
-							envelope.frame.update.sessionUpdate ===
-								"available_commands_update" &&
-							authoritativeStateRef.current !== null
-						) {
-							authoritativeStateRef.current = {
-								...authoritativeStateRef.current,
-								availableCommands: envelope.frame.update.availableCommands,
-							};
-						}
-						if (envelope.frame.kind === "state") {
-							// State frames are full snapshots and last-wins in fold —
-							// superseded ones only bloat this refold buffer (they arrive on
-							// every status/permission transition for the lifetime of the
-							// mount), so keep just the newest.
-							envelopesRef.current = envelopesRef.current.filter(
-								(buffered) => buffered.frame.kind !== "state",
-							);
-						}
-						envelopesRef.current.push(envelope);
-						timelineRef.current = overlayAuthoritativeState(
-							foldEnvelope(timelineRef.current, envelope),
-							authoritativeStateRef.current,
-						);
-						setTimeline(timelineRef.current);
+						enqueueLiveEnvelope(envelope, epoch);
 					},
 					onStatus: (status) => {
-						if (epoch !== epochRef.current) return;
+						if (!enabledRef.current || epoch !== epochRef.current) return;
 						setStreamStatus(status);
 					},
 					onReset: () => {
-						if (epoch !== epochRef.current) return;
+						if (!enabledRef.current || epoch !== epochRef.current) return;
 						void resync();
 					},
 				});
 			} catch (cause) {
-				if (epoch !== epochRef.current) return;
+				if (!enabledRef.current || epoch !== epochRef.current) return;
 				setIsLoading(false);
 				setError(cause instanceof Error ? cause : new Error(String(cause)));
 				const retryInitialLaunchNotFound = shouldRetryInitialLaunchNotFound({
@@ -335,13 +442,103 @@ export function useAcpSession(
 					: RESYNC_RETRY_BASE_DELAY_MS * 2 ** retryAttempt;
 				retryTimerRef.current = setTimeout(() => {
 					retryTimerRef.current = null;
-					if (epoch !== epochRef.current) return;
+					if (!enabledRef.current || epoch !== epochRef.current) return;
 					void resync(retryAttempt + 1);
 				}, delay);
 			}
 		},
-		[sessionId, pageSize, clearRetryTimer],
+		[
+			sessionId,
+			pageSize,
+			clearRetryTimer,
+			cancelPendingEnvelopeBatch,
+			enqueueLiveEnvelope,
+		],
 	);
+
+	const loadOlder = useCallback(async (): Promise<void> => {
+		if (olderLoadPromiseRef.current !== null) {
+			return olderLoadPromiseRef.current;
+		}
+		const cursor = olderCursorRef.current;
+		if (!enabledRef.current || cursor === null) return;
+		if (seenOlderCursorsRef.current.has(cursor)) {
+			const repeatedCursorError = new Error(
+				`getMessages returned a repeated cursor: ${cursor}`,
+			);
+			olderCursorRef.current = null;
+			setHasOlder(false);
+			setHistoryError(repeatedCursorError);
+			return;
+		}
+
+		const epoch = epochRef.current;
+		seenOlderCursorsRef.current.add(cursor);
+		setIsLoadingOlder(true);
+		setHistoryError(null);
+		let request: Promise<void> | undefined;
+		request = (async () => {
+			try {
+				const page = await apiRef.current.getMessages({
+					sessionId,
+					cursor,
+					limit: pageSize,
+				});
+				if (!enabledRef.current || epoch !== epochRef.current) return;
+
+				if (
+					page.nextCursor !== null &&
+					seenOlderCursorsRef.current.has(page.nextCursor)
+				) {
+					olderCursorRef.current = null;
+					setHasOlder(false);
+					setHistoryError(
+						new Error(
+							`getMessages returned a repeated cursor: ${page.nextCursor}`,
+						),
+					);
+					return;
+				}
+
+				envelopesRef.current = mergeEnvelopesInSequence(
+					page.items,
+					envelopesRef.current,
+				);
+				const nextTimeline = overlayAuthoritativeState(
+					foldEnvelopes(
+						overlayAuthoritativeState(
+							emptyTimeline(),
+							authoritativeStateRef.current,
+						),
+						envelopesRef.current,
+					),
+					authoritativeStateRef.current,
+				);
+				timelineRef.current = nextTimeline;
+				setTimeline(nextTimeline);
+				olderCursorRef.current = page.nextCursor;
+				setHasOlder(page.nextCursor !== null);
+				setHistoryError(null);
+			} catch (cause) {
+				if (!enabledRef.current || epoch !== epochRef.current) return;
+				// The request did not yield a page, so this cursor is safe to retry.
+				seenOlderCursorsRef.current.delete(cursor);
+				setHistoryError(
+					cause instanceof Error ? cause : new Error(String(cause)),
+				);
+			} finally {
+				if (enabledRef.current && epoch === epochRef.current) {
+					setIsLoadingOlder(false);
+				}
+				if (request !== undefined && olderLoadPromiseRef.current === request) {
+					olderLoadPromiseRef.current = null;
+				}
+			}
+		})();
+		if (request === undefined) return;
+		olderLoadPromiseRef.current = request;
+		return request;
+	}, [pageSize, sessionId]);
 
 	// The session currently reflected by the rendered state/timeline. When the
 	// route swaps sessionIds in place, the old session's thread (and its still-
@@ -358,11 +555,17 @@ export function useAcpSession(
 			envelopesRef.current = [];
 			timelineRef.current = emptyTimeline();
 			authoritativeStateRef.current = null;
+			olderCursorRef.current = null;
+			seenOlderCursorsRef.current = new Set();
+			olderLoadPromiseRef.current = null;
 			clearRetryTimer();
 			setFetchedState(null);
 			setTimeline(timelineRef.current);
 			setStreamStatus("connecting");
 			setAvailability("live");
+			setHasOlder(false);
+			setIsLoadingOlder(false);
+			setHistoryError(null);
 			launchStartedAtRef.current = initiallyLaunchingRef.current
 				? Date.now()
 				: null;
@@ -377,14 +580,22 @@ export function useAcpSession(
 			setAvailability("live");
 			setError(null);
 		}
-		void resync();
+		if (enabled) void resync();
 		return () => {
 			epochRef.current += 1;
 			clearRetryTimer();
+			cancelPendingEnvelopeBatch();
 			subscriptionRef.current?.close();
 			subscriptionRef.current = null;
 		};
-	}, [sessionId, resync, clearRetryTimer, connectionKey]);
+	}, [
+		sessionId,
+		resync,
+		clearRetryTimer,
+		cancelPendingEnvelopeBatch,
+		connectionKey,
+		enabled,
+	]);
 
 	const actions = useMemo<AcpSessionActions>(
 		() => ({
@@ -423,6 +634,10 @@ export function useAcpSession(
 		isLoading,
 		availability,
 		error,
+		hasOlder,
+		isLoadingOlder,
+		historyError,
+		loadOlder,
 		actions,
 	};
 }

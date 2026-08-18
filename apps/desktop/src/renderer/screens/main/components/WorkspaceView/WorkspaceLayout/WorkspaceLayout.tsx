@@ -10,6 +10,7 @@ import { ResizablePanel } from "../../ResizablePanel";
 import { ChangesContent, ScrollProvider } from "../ChangesContent";
 import { ContentView } from "../ContentView";
 import { RightSidebar } from "../RightSidebar";
+import { KeepAliveWorkspaceSurfaces } from "./components/KeepAliveWorkspaceSurfaces";
 
 interface WorkspaceLayoutProps {
 	supportsChanges: boolean;
@@ -37,15 +38,18 @@ export function WorkspaceLayout({
 	return (
 		<ScrollProvider>
 			<div className="flex-1 min-w-0 overflow-hidden">
-				{isExpanded ? (
-					<ChangesContent />
-				) : (
-					<ContentView
-						defaultExternalApp={defaultExternalApp}
-						onOpenInApp={onOpenInApp}
-						onOpenQuickOpen={onOpenQuickOpen}
-					/>
-				)}
+				<KeepAliveWorkspaceSurfaces
+					isChangesActive={isExpanded}
+					renderChanges={() => <ChangesContent />}
+					renderContent={(isActive) => (
+						<ContentView
+							isActive={isActive}
+							defaultExternalApp={defaultExternalApp}
+							onOpenInApp={onOpenInApp}
+							onOpenQuickOpen={onOpenQuickOpen}
+						/>
+					)}
+				/>
 			</div>
 			{isSidebarOpen && (
 				<ResizablePanel

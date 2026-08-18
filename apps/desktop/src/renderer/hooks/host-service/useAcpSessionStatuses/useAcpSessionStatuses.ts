@@ -74,6 +74,7 @@ export function useAcpSessionStatusMapsAtHost(
 				status: item.status,
 				lastStopReason: item.lastStopReason,
 				lastCompletedAt: item.lastCompletedAt,
+				pendingPermissions: item.pendingPermissions,
 			};
 			sessionStatuses.set(item.sessionId, item.status);
 			sessionTitles.set(item.sessionId, item.title);

@@ -1,4 +1,7 @@
-import type { SessionScopedState } from "@superset/session-protocol";
+import {
+	isAskUserPermission,
+	type SessionScopedState,
+} from "@superset/session-protocol";
 import {
 	type ActivePaneStatus,
 	getHighestPriorityStatus,
@@ -7,7 +10,7 @@ import {
 
 export type AcpSessionNotificationState = Pick<
 	SessionScopedState,
-	"status" | "lastStopReason" | "lastCompletedAt"
+	"status" | "lastStopReason" | "lastCompletedAt" | "pendingPermissions"
 >;
 
 /**
@@ -34,7 +37,11 @@ export function deriveAcpSessionStatus(
 		case "running":
 			return "working";
 		case "awaiting_permission":
-			return "permission";
+			return session.pendingPermissions.some((permission) =>
+				isAskUserPermission(permission, permission.toolCall),
+			)
+				? "askuser"
+				: "permission";
 		case "dead":
 			return "failed";
 		case "idle":

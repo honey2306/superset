@@ -225,6 +225,9 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		acpSessions.onSessionOpenRequested?.((event) => {
 			eventBus.broadcastAcpSessionOpenRequested(event);
 		});
+		acpSessions.onMergeRequestOpenRequested?.((event) => {
+			eventBus.broadcastAcpMergeRequestOpenRequested(event);
+		});
 	}
 
 	// Workspace Catalog Module (M1) — the sole normal writer of identity

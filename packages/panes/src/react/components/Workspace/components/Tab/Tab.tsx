@@ -168,6 +168,7 @@ function LayoutNodeView<TData>({
 				store={store}
 				tab={tab}
 				pane={pane}
+				isVisible={isActive}
 				isActive={isActive && tab.activePaneId === pane.id}
 				registry={registry}
 				paneActions={paneActions}
