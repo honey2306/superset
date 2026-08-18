@@ -53,11 +53,13 @@
 	--acp-red-dim: var(--danger-tint);
 	--acp-yellow: var(--warning);
 
+	/* Code and file paths use the app's stable mono stack. Keep the terminal
+	 * preference out of this token so inline Markdown does not inherit an
+	 * arbitrary terminal font and render CJK/Latin runs inconsistently. */
 	--acp-font-mono: var(
-		--superset-terminal-font-family,
-		var(--font-mono, "JetBrains Mono"),
-		"IBM Plex Mono",
+		--font-mono,
 		"SF Mono",
+		"JetBrains Mono",
 		ui-monospace,
 		Menlo,
 		Consolas,
@@ -881,6 +883,11 @@
 .acp-msg[data-role="agent"] .acp-msg__author {
 	color: var(--acp-pink);
 }
+.acp-msg[data-role="thought"] .acp-msg__author {
+	letter-spacing: 0.02em;
+	text-transform: none;
+	display: none;
+}
 .acp-msg__author-name {
 	font-weight: 500;
 }
@@ -923,9 +930,9 @@
 }
 .acp-msg[data-role="thought"] .acp-msg__bubble {
 	max-width: 100%;
-	padding: 5px 10px;
-	border-left: 2px solid
-		color-mix(in oklch, var(--acp-line-hi) 72%, transparent);
+	padding: 3px 10px;
+	border-left: 1px solid
+		color-mix(in oklch, var(--acp-line-hi) 44%, transparent);
 	color: color-mix(in oklch, var(--acp-fg) 56%, transparent);
 }
 /* Thought content is supporting context, not primary output. AcpMarkdown sets
@@ -934,29 +941,30 @@
 .acp-msg[data-role="thought"] .acp-md {
 	font-size: 12px;
 	line-height: 1.55;
+	color: inherit;
 }
 .acp-msg[data-role="thought"] .acp-md h1 {
 	font-size: 15px;
-	margin: 14px 0 6px;
+	margin: 10px 0 4px;
 }
 .acp-msg[data-role="thought"] .acp-md h2 {
 	font-size: 14px;
-	margin: 12px 0 5px;
+	margin: 9px 0 4px;
 }
 .acp-msg[data-role="thought"] .acp-md h3,
 .acp-msg[data-role="thought"] .acp-md h4 {
 	font-size: 13px;
-	margin: 10px 0 4px;
+	margin: 8px 0 3px;
 }
 .acp-msg[data-role="thought"] .acp-md h5,
 .acp-msg[data-role="thought"] .acp-md h6 {
 	font-size: 11px;
-	margin: 8px 0 4px;
+	margin: 6px 0 3px;
 }
 .acp-msg[data-role="thought"] .acp-md p,
 .acp-msg[data-role="thought"] .acp-md ul,
 .acp-msg[data-role="thought"] .acp-md ol {
-	margin: 6px 0;
+	margin: 4px 0;
 }
 .acp-msg[data-role="thought"] .acp-md ul,
 .acp-msg[data-role="thought"] .acp-md ol {
@@ -1482,7 +1490,7 @@
 .acp-md h1 {
 	font-size: 22px;
 	font-weight: 700;
-	color: var(--acp-fg);
+	color: var(--acp-pink);
 	margin: 28px 0 12px;
 	line-height: 1.3;
 	letter-spacing: -0.005em;
@@ -1498,14 +1506,14 @@
 .acp-md h3 {
 	font-size: 16px;
 	font-weight: 600;
-	color: var(--acp-fg);
+	color: color-mix(in oklch, var(--acp-pink) 88%, var(--acp-fg));
 	margin: 20px 0 8px;
 	line-height: 1.4;
 }
 .acp-md h4 {
 	font-size: 15px;
 	font-weight: 600;
-	color: var(--acp-fg);
+	color: color-mix(in oklch, var(--acp-pink) 68%, var(--acp-fg));
 	margin: 16px 0 6px;
 	line-height: 1.45;
 }
@@ -1571,17 +1579,21 @@
 .acp-md a:hover {
 	text-decoration-color: var(--acp-cyan);
 }
-/* Inline code is deliberately monochrome and unboxed. A mono font gives file
- * names and flags enough distinction without turning dense prose into a tag
- * cloud. */
+/* Keep prose tokens in the body sans stack so CJK and Latin text share a
+ * consistent rhythm. A quiet neutral wash and medium weight distinguish code
+ * without turning a sentence into a row of pills. Code blocks and table cells
+ * override the family below and stay mono. */
 .acp-md code:not(pre code) {
-	background: transparent;
-	color: color-mix(in oklch, var(--acp-fg) 92%, transparent);
-	padding: 0;
-	border-radius: 0;
-	font-family: var(--acp-font-mono);
-	font-size: 0.9em;
+	background: color-mix(in oklch, var(--acp-fg) 6%, transparent);
+	color: color-mix(in oklch, var(--acp-fg) 96%, transparent);
+	padding: 0.06em 0.24em;
+	border-radius: 4px;
+	font-family: var(--acp-font-sans);
+	font-size: 1em;
+	font-weight: 500;
 	border: 0;
+	-webkit-box-decoration-break: clone;
+	box-decoration-break: clone;
 }
 .acp-md blockquote {
 	margin: 14px 0;

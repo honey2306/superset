@@ -61,6 +61,7 @@ const AGENT_TO_HARNESS = {
 	codex: "codex-app-server",
 	pi: "pi-acp",
 	myflicker: "myflicker-acp",
+	deepseek: "deepseek-acp",
 } as const satisfies Record<SupersetAgent, HarnessKind>;
 
 function projectSession(state: SessionScopedState) {
@@ -126,6 +127,15 @@ export class SupersetToolController {
 		}
 	}
 
+	/**
+	 * Resolve the host-wide delegated executor without requiring a live source
+	 * session. MCP servers ask for this while their parent adapter is still
+	 * inside `session/new`, before the manager has published the runtime.
+	 */
+	getDelegatedExecution(): DelegatedExecutionResolution {
+		return this.resolveDelegatedExecution?.() ?? { enabled: false };
+	}
+
 	async execute(
 		input: unknown,
 		signal?: AbortSignal,
@@ -139,9 +149,7 @@ export class SupersetToolController {
 					workspaceId: source.workspaceId,
 					limit: 100,
 				});
-				const delegatedExecution = this.resolveDelegatedExecution?.() ?? {
-					enabled: false as const,
-				};
+				const delegatedExecution = this.getDelegatedExecution();
 				return {
 					workspaceId: source.workspaceId,
 					cwd: source.cwd,

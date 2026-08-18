@@ -66,14 +66,6 @@ export interface AcpTimelineHandle {
 	scrollToLastUserMessage(): boolean;
 }
 
-function flattenTimelineItems(items: readonly TimelineItem[]): TimelineItem[] {
-	return items.flatMap((item) =>
-		item.kind === "tool_call"
-			? [item, ...flattenTimelineItems(item.children)]
-			: [item],
-	);
-}
-
 function isCompletedPlan(item: PlanItem): boolean {
 	return (
 		item.entries.length > 0 &&
@@ -81,35 +73,12 @@ function isCompletedPlan(item: PlanItem): boolean {
 	);
 }
 
-/**
- * A running session can have a short quiet interval between ACP frames. The
- * latest item supplies sufficient activity feedback when it is a streaming
- * message/thought or a pending tool; otherwise render a lightweight indicator.
- * Subagents keep the indicator visible so delegated activity does not make the
- * main agent's running state disappear from the bottom of the timeline.
- */
+/** The session status is the source of truth for the bottom activity indicator. */
 export function shouldShowWorkingIndicator(
-	items: readonly TimelineItem[],
+	_items: readonly TimelineItem[],
 	status?: SessionStatus,
 ): boolean {
-	if (status !== "running") return false;
-
-	const latestRoot = items.at(-1);
-	if (
-		latestRoot?.kind === "tool_call" &&
-		latestRoot.semantics.kind === "subagent"
-	) {
-		return true;
-	}
-
-	const latest = flattenTimelineItems(items).at(-1);
-	if (!latest) return true;
-	if (latest.kind === "tool_call") {
-		return (
-			latest.call.status !== "in_progress" && latest.call.status !== "pending"
-		);
-	}
-	return latest.kind !== "message" || latest.role === "user";
+	return status === "running";
 }
 
 function renderItem(

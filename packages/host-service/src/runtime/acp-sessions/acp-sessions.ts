@@ -53,6 +53,7 @@ import {
 	materializePiMcpConfig,
 	PI_ACP_MCP_CONFIG_ENV,
 } from "./pi-acp-mcp-config";
+import { piExtensionUiPermissionPresentation } from "./pi-extension-ui";
 import type { PiStartupCache } from "./pi-startup";
 import {
 	PI_ACP_DISABLE_EXTENSIONS_ENV,
@@ -255,6 +256,8 @@ export function resolveAdapterProcess(
 		| "codexAdapterEntry"
 		| "piAdapterEntry"
 		| "myflickerAdapterCommand"
+		| "deepseekAdapterCommand"
+		| "deepseekAdapterConfig"
 	> = {},
 	execPath = process.execPath,
 ): AdapterProcessSpec {
@@ -277,6 +280,17 @@ export function resolveAdapterProcess(
 				// mfcli 0.3.14 has no ACP modes; its documented full-access mode
 				// is a CLI flag and must precede the `acp` subcommand.
 				args: ["--approval-mode", "yolo", "acp"],
+				usesElectronNode: false,
+			};
+		case "deepseek-acp":
+			return {
+				command: options.deepseekAdapterCommand ?? "dsh-acp-demo",
+				// `dsh-acp-demo` boots the DeepSeek Harness ACP server from a
+				// cordis.yml; without a config it falls back to `./cordis.yml`
+				// relative to the session cwd.
+				args: options.deepseekAdapterConfig
+					? ["--config", options.deepseekAdapterConfig]
+					: [],
 				usesElectronNode: false,
 			};
 		case "claude-agent-acp":
@@ -469,6 +483,10 @@ export interface AcpSessionManagerOptions {
 	adapterEnv?: Record<string, string | undefined>;
 	/** Executable override for MyFlicker's native ACP server. */
 	myflickerAdapterCommand?: string;
+	/** Executable override for the DeepSeek Harness ACP server (`dsh-acp-demo`). */
+	deepseekAdapterCommand?: string;
+	/** Path to the cordis.yml the DeepSeek Harness ACP server boots from. */
+	deepseekAdapterConfig?: string;
 	/** Injected in tests; production managers share the daemon-level cache. */
 	piStartupCache?: PiStartupCache;
 	/**
@@ -543,6 +561,8 @@ export class AcpSessionManager {
 	private readonly piAdapterEntry: string | undefined;
 	private readonly adapterEnv: Record<string, string | undefined>;
 	private readonly myflickerAdapterCommand: string | undefined;
+	private readonly deepseekAdapterCommand: string | undefined;
+	private readonly deepseekAdapterConfig: string | undefined;
 	private readonly piStartupCache: PiStartupCache;
 	private readonly mcpServers: McpServer[];
 	private readonly mcpServerFactory: AcpSessionManagerOptions["mcpServerFactory"];
@@ -583,6 +603,8 @@ export class AcpSessionManager {
 		this.piAdapterEntry = options.piAdapterEntry;
 		this.adapterEnv = options.adapterEnv ?? {};
 		this.myflickerAdapterCommand = options.myflickerAdapterCommand;
+		this.deepseekAdapterCommand = options.deepseekAdapterCommand;
+		this.deepseekAdapterConfig = options.deepseekAdapterConfig;
 		this.piStartupCache = options.piStartupCache ?? sharedPiStartupCache;
 		this.mcpServers = options.mcpServers ?? [];
 		this.mcpServerFactory = options.mcpServerFactory;
@@ -1431,6 +1453,8 @@ export class AcpSessionManager {
 			codexAdapterEntry: this.codexAdapterEntry,
 			piAdapterEntry: this.piAdapterEntry,
 			myflickerAdapterCommand: this.myflickerAdapterCommand,
+			deepseekAdapterCommand: this.deepseekAdapterCommand,
+			deepseekAdapterConfig: this.deepseekAdapterConfig,
 		});
 		const env: Record<string, string | undefined> = {
 			...process.env,
@@ -2148,13 +2172,21 @@ export class AcpSessionManager {
 			context.requestId !== null && context.requestId !== undefined
 				? String(context.requestId)
 				: randomUUID();
+		const extensionUi = piExtensionUiPermissionPresentation(
+			runtime.state.harness,
+			context.params.toolCall,
+		);
 		const pending: PendingPermission = {
 			requestId,
 			toolCall: context.params.toolCall,
 			options: context.params.options,
 			requestedAt: Date.now(),
-			...(runtime.askUserToolCalls.has(context.params.toolCall.toolCallId)
+			...(runtime.askUserToolCalls.has(context.params.toolCall.toolCallId) ||
+			extensionUi
 				? { isElicitation: true }
+				: {}),
+			...(extensionUi?.allowsCustomResponse
+				? { allowsCustomResponse: true }
 				: {}),
 		};
 		runtime.state.pendingPermissions = [

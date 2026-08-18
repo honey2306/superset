@@ -133,6 +133,14 @@ export const BUILTIN_TERMINAL_AGENTS = [
 		nonInteractiveCommand: "mfcli --approval-mode plan -q",
 	}),
 	createBuiltinTerminalAgent({
+		id: "deepseek",
+		label: "DeepSeek",
+		description:
+			"DeepSeek Harness's coding agent with native Agent Client Protocol support.",
+		command: "dsh-acp-demo",
+		nonInteractiveCommand: "dsh-acp-demo",
+	}),
+	createBuiltinTerminalAgent({
 		id: "copilot",
 		label: "Copilot",
 		description:

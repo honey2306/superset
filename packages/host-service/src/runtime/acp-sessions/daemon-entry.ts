@@ -58,6 +58,9 @@ async function main(): Promise<void> {
 		process.env.SUPERSET_MFCLI_ACP_COMMAND ??
 		process.env.SUPERSET_MFCLI_TITLE_COMMAND ??
 		"mfcli";
+	const deepseekCommand =
+		process.env.SUPERSET_DSH_ACP_COMMAND ?? "dsh-acp-demo";
+	const deepseekConfig = process.env.SUPERSET_DSH_ACP_CONFIG;
 	const cliAutoUpdater = new AcpCliAutoUpdater({
 		commands: acpCliUpdateCommands({
 			claude: claudeCommand,
@@ -89,6 +92,8 @@ async function main(): Promise<void> {
 		codexAdapterEntry: process.env.SUPERSET_CODEX_ACP_ADAPTER_ENTRY,
 		piAdapterEntry: process.env.SUPERSET_PI_ACP_ADAPTER_ENTRY,
 		myflickerAdapterCommand: mfcliCommand,
+		deepseekAdapterCommand: deepseekCommand,
+		deepseekAdapterConfig: deepseekConfig,
 		adapterEnv: {
 			[PI_ACP_MCP_EXTENSION_ENV]: resolvePiAcpMcpExtensionPath(),
 		},
@@ -471,6 +476,9 @@ async function dispatch(
 				break;
 			case "supersetTool":
 				result = await toolController.execute(request.params, signal);
+				break;
+			case "getDelegatedExecution":
+				result = toolController.getDelegatedExecution();
 				break;
 			case "subscribe": {
 				const input = request.params as {

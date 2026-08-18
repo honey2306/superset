@@ -53,19 +53,41 @@ describe("Superset MCP process", () => {
 			socket.once("data", (chunk: string) => {
 				const request = JSON.parse(chunk.trim()) as {
 					id: string;
+					op: string;
 					params: unknown;
 				};
-				expect(request.params).toEqual({
-					sourceSessionId: "source-session",
-					name: "get_context",
-					arguments: {},
-				});
+				if (request.op === "supersetTool") {
+					expect(request.params).toEqual({
+						sourceSessionId: "source-session",
+						name: "get_context",
+						arguments: {},
+					});
+				} else {
+					expect(request.op).toBe("getDelegatedExecution");
+					expect(request.params).toEqual({});
+				}
 				socket.end(
 					`${JSON.stringify({
 						type: "response",
 						id: request.id,
 						ok: true,
-						result: { workspaceId: "workspace-1" },
+						result:
+							request.op === "getDelegatedExecution"
+								? {
+										enabled: true,
+										valid: true,
+										agent: "claude",
+										model: "sonnet",
+									}
+								: {
+										workspaceId: "workspace-1",
+										delegatedExecution: {
+											enabled: true,
+											valid: true,
+											agent: "claude",
+											model: "sonnet",
+										},
+									},
 					})}\n`,
 				);
 			});
@@ -82,15 +104,24 @@ describe("Superset MCP process", () => {
 					params: { name: "get_context", arguments: {} },
 				},
 			]);
+			const responseFor = (id: number) =>
+				responses.find((response) => response.id === id);
+			const initializeResponse = responseFor(1);
+			const toolsListResponse = responseFor(2);
+			const toolCallResponse = responseFor(3);
 
-			expect(responses[0]).toMatchObject({
+			expect(initializeResponse).toMatchObject({
 				id: 1,
 				result: { capabilities: { tools: {} } },
 			});
+			expect(
+				(initializeResponse?.result as { instructions?: string }).instructions,
+			).toContain("Proactively use the Superset delegate tool");
 			const tools = (
-				responses[1]?.result as {
+				toolsListResponse?.result as {
 					tools: Array<{
 						name: string;
+						description?: string;
 						inputSchema: Record<string, unknown>;
 					}>;
 				}
@@ -112,14 +143,71 @@ describe("Superset MCP process", () => {
 			expect(tools.some((tool) => tool.name === "get_session_messages")).toBe(
 				true,
 			);
-			expect(responses[2]).toMatchObject({
+			expect(tools.some((tool) => tool.name === "delegate")).toBe(true);
+			expect(
+				tools.find((tool) => tool.name === "delegate")?.description,
+			).toContain("Do not wait for the user to ask");
+			expect(toolCallResponse).toMatchObject({
 				id: 3,
 				result: {
-					content: [{ type: "text", text: '{"workspaceId":"workspace-1"}' }],
+					content: [
+						{
+							type: "text",
+							text: '{"workspaceId":"workspace-1","delegatedExecution":{"enabled":true,"valid":true,"agent":"claude","model":"sonnet"}}',
+						},
+					],
 				},
 			});
 		} finally {
 			server.close();
+		}
+	});
+
+	test("hides delegate when delegated execution is disabled or invalid", async () => {
+		for (const [name, delegatedExecution] of [
+			["disabled", { enabled: false }],
+			[
+				"invalid",
+				{
+					enabled: true,
+					valid: false,
+					error: "The selected executor no longer exists.",
+				},
+			] as const,
+		] as const) {
+			const socketPath = path.join(tempDir, `${name}.sock`);
+			const server = net.createServer((socket) => {
+				socket.setEncoding("utf8");
+				socket.once("data", (chunk: string) => {
+					const request = JSON.parse(chunk.trim()) as {
+						id: string;
+						op: string;
+						params: unknown;
+					};
+					expect(request.op).toBe("getDelegatedExecution");
+					expect(request.params).toEqual({});
+					socket.end(
+						`${JSON.stringify({
+							type: "response",
+							id: request.id,
+							ok: true,
+							result: delegatedExecution,
+						})}\n`,
+					);
+				});
+			});
+			await listen(server, socketPath);
+			try {
+				const responses = await runMcp(socketPath, [
+					{ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} },
+				]);
+				const tools = (
+					responses[0]?.result as { tools: Array<{ name: string }> }
+				).tools;
+				expect(tools.some((tool) => tool.name === "delegate")).toBe(false);
+			} finally {
+				server.close();
+			}
 		}
 	});
 
