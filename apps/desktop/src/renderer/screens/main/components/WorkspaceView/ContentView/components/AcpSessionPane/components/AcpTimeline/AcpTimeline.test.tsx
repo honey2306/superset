@@ -169,10 +169,37 @@ describe("focus-only parent updates", () => {
 			true,
 		);
 	});
+
+	test("windows the DOM for a long semantic transcript", () => {
+		const turnCount = 120;
+		const items = Array.from({ length: turnCount }, (_, index) => [
+			userMessage(index * 2 + 1),
+			message(index * 2 + 2),
+		]).flat();
+		const result = render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items,
+					lastSeq: turnCount * 2,
+				},
+				onRespond: async () => {},
+			}),
+		);
+
+		const renderedTurns = result.container.querySelectorAll(".acp-turn");
+		expect(renderedTurns.length).toBeGreaterThan(0);
+		expect(renderedTurns.length).toBeLessThan(turnCount);
+		expect(
+			result.container
+				.querySelector(".acp-timeline__turns")
+				?.getAttribute("style"),
+		).toContain("height");
+	});
 });
 
 describe("older history", () => {
-	test("offers an accessible control and disables it while loading", () => {
+	test("keeps loading lightweight and only offers a control after failure", () => {
 		let loadCalls = 0;
 		const onLoadOlder = async () => {
 			loadCalls += 1;
@@ -185,11 +212,7 @@ describe("older history", () => {
 				onLoadOlder,
 			}),
 		);
-		const button = screen.getByRole("button", {
-			name: "Load earlier messages",
-		});
-		fireEvent.click(button);
-		expect(loadCalls).toBe(1);
+		expect(screen.queryByRole("button")).toBeNull();
 		result.rerender(
 			createElement(AcpTimeline, {
 				timeline: timeline(1),
@@ -199,9 +222,97 @@ describe("older history", () => {
 				onLoadOlder,
 			}),
 		);
-		expect((button as HTMLButtonElement).disabled).toBe(true);
-		expect(button.textContent).toBe("Loading earlier messages…");
+		expect(screen.getByText("Loading earlier turns…")).toBeTruthy();
+		result.rerender(
+			createElement(AcpTimeline, {
+				timeline: timeline(1),
+				onRespond: async () => {},
+				hasOlder: true,
+				historyError: new Error("network failed"),
+				onLoadOlder,
+			}),
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+		expect(loadCalls).toBe(1);
 		result.unmount();
+	});
+
+	test("automatically loads older turns when the reader reaches the top", async () => {
+		let loadCalls = 0;
+		let release: (() => void) | undefined;
+		const loading = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const result = render(
+			createElement(AcpTimeline, {
+				timeline: timeline(2),
+				onRespond: async () => {},
+				hasOlder: true,
+				onLoadOlder: async () => {
+					loadCalls += 1;
+					await loading;
+				},
+			}),
+		);
+		const scroll = result.container.querySelector(
+			".acp-pane__scroll",
+		) as HTMLDivElement;
+		setScrollMetrics(scroll, { clientHeight: 200, scrollHeight: 1_000 });
+		scroll.scrollTop = 0;
+		fireEvent.scroll(scroll);
+		fireEvent.scroll(scroll);
+		expect(loadCalls).toBe(1);
+		release?.();
+		await act(async () => {
+			await loading;
+		});
+	});
+
+	test("shows the server total and unloaded rail markers", () => {
+		const result = render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [userMessage(3), message(4)],
+				},
+				onRespond: async () => {},
+				totalTurns: 3,
+				loadedTurnNumbers: [2],
+				turnIndex: [
+					{
+						turnNumber: 1,
+						startSeq: 1,
+						endSeq: 2,
+						userPreview: "old",
+						agentPreview: "answer",
+						isComplete: true,
+					},
+					{
+						turnNumber: 2,
+						startSeq: 3,
+						endSeq: 4,
+						userPreview: "middle",
+						agentPreview: "answer",
+						isComplete: true,
+					},
+					{
+						turnNumber: 3,
+						startSeq: 5,
+						endSeq: 6,
+						userPreview: "latest",
+						agentPreview: "answer",
+						isComplete: true,
+					},
+				],
+			}),
+		);
+		expect(screen.getByText("Turn 2 / 3")).toBeTruthy();
+		expect(result.container.querySelectorAll(".acp-turn-marker")).toHaveLength(
+			3,
+		);
+		expect(
+			result.container.querySelector('[data-loaded="false"]'),
+		).toBeTruthy();
 	});
 });
 
@@ -318,6 +429,53 @@ describe("turn navigation", () => {
 				.getAttribute("aria-current"),
 		).toBe("step");
 	});
+
+	test("loads an unloaded rail turn before locating it", async () => {
+		let rendered: ReturnType<typeof render>;
+		let loadCalls = 0;
+		const index = [
+			{
+				turnNumber: 1,
+				startSeq: 1,
+				endSeq: 2,
+				userPreview: "old",
+				agentPreview: "answer",
+				isComplete: true,
+			},
+			{
+				turnNumber: 2,
+				startSeq: 3,
+				endSeq: 4,
+				userPreview: "latest",
+				agentPreview: "answer",
+				isComplete: true,
+			},
+		];
+		const latest = [userMessage(3), message(4)];
+		const all = [userMessage(1), message(2), ...latest];
+		const props = (items: TimelineItem[]) => ({
+			timeline: { ...timeline(0), items },
+			onRespond: async () => {},
+			totalTurns: 2,
+			turnIndex: index,
+			loadedTurnNumbers: items === latest ? [2] : [1, 2],
+			onLoadTurn: async () => {
+				loadCalls += 1;
+				rendered.rerender(createElement(AcpTimeline, props(all)));
+			},
+		});
+		rendered = render(createElement(AcpTimeline, props(latest)));
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: /^Turn 1,/ }));
+			await new Promise((resolve) => setTimeout(resolve, 40));
+		});
+		expect(loadCalls).toBe(1);
+		expect(
+			(rendered.container.querySelector(".acp-pane__scroll") as HTMLElement)
+				.dataset.jumpingToUser,
+		).toBe("true");
+	});
 });
 
 describe("AcpTimeline scrolling", () => {
@@ -329,6 +487,7 @@ describe("AcpTimeline scrolling", () => {
 				timeline: firstPage,
 				onRespond: async () => {},
 				hasOlder: true,
+				historyError: new Error("first request failed"),
 				onLoadOlder,
 			}),
 		);
@@ -338,9 +497,7 @@ describe("AcpTimeline scrolling", () => {
 		setScrollMetrics(scroll, { clientHeight: 200, scrollHeight: 1_000 });
 		scroll.scrollTop = 260;
 		fireEvent.scroll(scroll);
-		fireEvent.click(
-			screen.getByRole("button", { name: "Load earlier messages" }),
-		);
+		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
 		result.rerender(
 			createElement(AcpTimeline, {

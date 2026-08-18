@@ -5,6 +5,7 @@ export interface AcpTurnRailItem {
 	id: string;
 	turnNumber: number;
 	isComplete: boolean;
+	isLoaded?: boolean;
 	userPreview: string;
 	agentPreview: string | null;
 }
@@ -14,6 +15,7 @@ interface AcpTurnRailProps {
 	activeTurnId: string | null;
 	agentLabel?: string;
 	onNavigate(turnId: string, turnNumber: number): void;
+	totalTurns?: number;
 }
 
 export function AcpTurnRail({
@@ -21,8 +23,11 @@ export function AcpTurnRail({
 	activeTurnId,
 	agentLabel,
 	onNavigate,
+	totalTurns,
 }: AcpTurnRailProps) {
 	const trackRef = useRef<HTMLDivElement>(null);
+	const activeTurnNumber =
+		items.find((item) => item.id === activeTurnId)?.turnNumber ?? null;
 
 	useEffect(() => {
 		const track = trackRef.current;
@@ -45,6 +50,11 @@ export function AcpTurnRail({
 
 	return (
 		<nav className="acp-turn-rail" aria-label="Conversation turns">
+			{totalTurns !== undefined && totalTurns > 0 && (
+				<div className="acp-turn-rail__count" aria-live="polite">
+					Turn {activeTurnNumber ?? "—"} / {totalTurns}
+				</div>
+			)}
 			<div className="acp-turn-rail__track" ref={trackRef}>
 				{items.map((item) => (
 					<AcpTurnMarker
@@ -52,6 +62,7 @@ export function AcpTurnRail({
 						turnNumber={item.turnNumber}
 						isActive={activeTurnId === item.id}
 						isComplete={item.isComplete}
+						isLoaded={item.isLoaded}
 						userPreview={item.userPreview}
 						agentPreview={item.agentPreview}
 						agentLabel={agentLabel}

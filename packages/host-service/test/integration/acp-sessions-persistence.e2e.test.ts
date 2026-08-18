@@ -390,6 +390,33 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		expect(text).not.toContain("replay-marker-1");
 	}, 30_000);
 
+	test("semantic transcript indexing uses the durable journal beyond the live ring", async () => {
+		const sessionId = "persist-full-semantic-transcript";
+		const before = newManager();
+		await before.create({ sessionId, workspaceId: WORKSPACE_ID });
+		for (let turn = 1; turn <= 6; turn += 1) {
+			await runTurn(before, sessionId, `say semantic-marker-${turn}`);
+		}
+		await before.dispose();
+
+		const after = newManager({ journalCapacity: 4 });
+		await after.ensureLive(sessionId);
+		expect(
+			after.getMessages({ sessionId, limit: 100 }).items.length,
+		).toBeLessThanOrEqual(4);
+
+		const latest = after.getTranscript({ sessionId, limit: 2 });
+		expect(latest.totalTurns).toBe(6);
+		expect(latest.index).toHaveLength(6);
+		expect(latest.turns.map(({ turnNumber }) => turnNumber)).toEqual([5, 6]);
+		expect(latest.nextCursor).not.toBeNull();
+
+		const oldest = after.getTranscript({ sessionId, targetTurn: 1 });
+		expect(oldest.turns).toHaveLength(1);
+		expect(oldest.turns[0]?.turnNumber).toBe(1);
+		expect(oldest.turns[0]?.userPreview).toContain("semantic-marker-1");
+	}, 30_000);
+
 	test("close permanently removes a live session and its durable recovery state", async () => {
 		const sessionId = "persist-close";
 		const manager = newManager();

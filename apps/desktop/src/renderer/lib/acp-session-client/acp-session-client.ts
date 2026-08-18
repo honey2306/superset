@@ -38,6 +38,7 @@ export function createDesktopAcpSessionClient(
 	const api: AcpSessionsApi = {
 		get: (input) => trpc().get.query(input),
 		getMessages: (input) => trpc().getMessages.query(input),
+		getTranscript: (input) => trpc().getTranscript.query(input),
 		prompt: (input) => trpc().prompt.mutate(input),
 		respondToPermission: (input) => trpc().respondToPermission.mutate(input),
 		cancel: (input) => trpc().cancel.mutate(input),

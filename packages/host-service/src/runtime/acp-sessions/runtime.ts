@@ -9,6 +9,7 @@ import type {
 	SessionStatus,
 	SessionsPage,
 	SessionUpdateEnvelope,
+	TranscriptPage,
 } from "@superset/session-protocol";
 
 type MaybePromise<T> = T | Promise<T>;
@@ -85,6 +86,12 @@ export interface AcpSessionRuntime {
 		beforeSeq?: number;
 		limit?: number;
 	}): MaybePromise<MessagesPage>;
+	getTranscript(input: {
+		sessionId: string;
+		cursor?: string;
+		targetTurn?: number;
+		limit?: number;
+	}): MaybePromise<TranscriptPage>;
 	prompt(input: {
 		sessionId: string;
 		commandId?: string;

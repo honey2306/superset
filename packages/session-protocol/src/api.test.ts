@@ -3,8 +3,11 @@ import {
 	closeSessionInput,
 	createSessionInput,
 	decodeMessagesCursor,
+	decodeTranscriptCursor,
 	encodeMessagesCursor,
+	encodeTranscriptCursor,
 	getMessagesInput,
+	getTranscriptInput,
 	listSessionsInput,
 	promptInput,
 	respondToPermissionInput,
@@ -27,6 +30,19 @@ describe("messages cursor", () => {
 		for (const bad of ["", "s0", "s-1", "s1.5", "42", "sabc", "s01"]) {
 			expect(decodeMessagesCursor(bad)).toBeNull();
 		}
+	});
+});
+
+describe("transcript cursor", () => {
+	test("round-trips positive turn numbers", () => {
+		for (const turn of [1, 42, 5000]) {
+			expect(decodeTranscriptCursor(encodeTranscriptCursor(turn))).toBe(turn);
+		}
+	});
+
+	test("rejects raw event cursors", () => {
+		expect(decodeTranscriptCursor("s42")).toBeNull();
+		expect(() => encodeTranscriptCursor(0)).toThrow();
 	});
 });
 
@@ -100,6 +116,18 @@ describe("router input schemas", () => {
 		expect(
 			getMessagesInput.safeParse({ sessionId: "s1", limit: 500 }).success,
 		).toBe(false);
+	});
+
+	test("getTranscriptInput accepts a turn target and defaults its page size", () => {
+		const parsed = getTranscriptInput.parse({ sessionId: "s1" });
+		expect(parsed.limit).toBe(8);
+		expect(
+			getTranscriptInput.safeParse({
+				sessionId: "s1",
+				targetTurn: 3,
+				limit: 2,
+			}).success,
+		).toBe(true);
 	});
 
 	test("listSessionsInput rejects malformed and unsafe numeric cursors", () => {
