@@ -7,6 +7,7 @@
 // apps/desktop/RELEASE.md.
 //
 // Usage: [version] [commit] [--merge] [--daemon]
+//        [version] --direct [--daemon]
 
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -57,15 +58,17 @@ export async function runDesktop(argv: string[]): Promise<void> {
 	let autoMerge = false;
 	let withDaemon = false;
 	let republish = false;
+	let direct = false;
 	for (const arg of argv) {
 		if (arg === "--publish") deprecatedPublish = true;
 		else if (arg === "--merge") autoMerge = true;
+		else if (arg === "--direct") direct = true;
 		else if (arg === "--daemon") withDaemon = true;
 		else if (arg === "--republish" || arg === "--yes" || arg === "-y")
 			republish = true;
 		else if (arg.startsWith("-"))
 			fail(
-				`Unknown option: ${arg}\nUsage: release desktop [version] [commit] [--merge] [--daemon] [--republish]`,
+				`Unknown option: ${arg}\nUsage: release desktop [version] [commit] [--merge] [--daemon] [--republish]\n       release desktop [version] --direct [--daemon] [--republish]`,
 			);
 		else if (!version) version = arg;
 		else if (!commitInput) commitInput = arg;
@@ -104,11 +107,23 @@ export async function runDesktop(argv: string[]): Promise<void> {
 	const tag = `desktop-v${version}`;
 	info(`Starting release process for version ${version}`);
 	console.log("");
+	const branch = (await $`git branch --show-current`.text()).trim();
+	if (shouldUseDirectRelease({ branch, commitInput, direct })) {
+		direct = true;
+		if (!argv.includes("--direct")) {
+			info("Using the default solo-maintainer flow on main.");
+		}
+	}
+	if (direct) {
+		await assertDirectReleaseReady(root, { autoMerge, commitInput });
+	}
 
 	await handleExistingTag(tag, republish);
 
 	let prNumber = "";
-	if (commitInput) {
+	if (direct) {
+		await releaseFromHead(root, version, tag, withDaemon);
+	} else if (commitInput) {
 		prNumber = (await releaseFromCommit(version, commitInput, tag, withDaemon))
 			.prNumber;
 	} else {
@@ -116,6 +131,70 @@ export async function runDesktop(argv: string[]): Promise<void> {
 	}
 
 	await monitorAndPublish(root, tag, { autoMerge, prNumber });
+}
+
+export interface DirectReleaseState {
+	branch: string;
+	worktreeStatus: string;
+	headSha: string;
+	originMainSha: string;
+	commitInput: string;
+	autoMerge: boolean;
+}
+
+export function shouldUseDirectRelease(input: {
+	branch: string;
+	commitInput: string;
+	direct: boolean;
+}): boolean {
+	return input.direct || (!input.commitInput && input.branch === "main");
+}
+
+/** Pure preflight used to keep direct releases confined to a clean, current main. */
+export function directReleaseErrors(state: DirectReleaseState): string[] {
+	const errors: string[] = [];
+	if (state.commitInput) {
+		errors.push("--direct cannot be combined with a commit SHA");
+	}
+	if (state.autoMerge) {
+		errors.push("--direct does not create a PR, so it cannot use --merge");
+	}
+	if (state.branch !== "main") {
+		errors.push(
+			`--direct must run from main (current branch: ${state.branch})`,
+		);
+	}
+	if (state.worktreeStatus.trim()) {
+		errors.push("--direct requires a clean working tree");
+	}
+	if (!state.originMainSha) {
+		errors.push("could not resolve origin/main after fetching it");
+	} else if (state.headSha !== state.originMainSha) {
+		errors.push("local main must exactly match origin/main");
+	}
+	return errors;
+}
+
+async function assertDirectReleaseReady(
+	root: string,
+	options: Pick<DirectReleaseState, "autoMerge" | "commitInput">,
+): Promise<void> {
+	info("Checking direct-release safety constraints...");
+	await $`git fetch origin main`.cwd(root).quiet();
+	const state: DirectReleaseState = {
+		...options,
+		branch: (await $`git branch --show-current`.cwd(root).text()).trim(),
+		worktreeStatus: (await $`git status --porcelain`.cwd(root).text()).trim(),
+		headSha: (await $`git rev-parse HEAD`.cwd(root).text()).trim(),
+		originMainSha: (
+			await $`git rev-parse --verify origin/main`.cwd(root).nothrow().text()
+		).trim(),
+	};
+	const errors = directReleaseErrors(state);
+	if (errors.length > 0) {
+		fail(`Direct release blocked:\n- ${errors.join("\n- ")}`);
+	}
+	success("Direct release will update main without creating a PR");
 }
 
 async function promptVersion(root: string): Promise<string> {

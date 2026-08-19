@@ -13,8 +13,10 @@ function usage(): void {
 	console.log(`Usage: bun run release <command> [flags]
 
 Commands:
-  desktop [version] [commit] [--merge] [--daemon] [--republish]
-      New version; desktop + host-service move together.
+  desktop [version] [--direct] [--daemon] [--republish]
+      Default solo flow: bump and push a clean, current main without a PR.
+  desktop [version] <commit> [--merge] [--daemon] [--republish]
+      Optional PR flow: release an exact commit through a version-bump PR.
   check
       Verify versions are unified (exit 1 on drift).
 

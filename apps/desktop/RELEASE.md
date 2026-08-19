@@ -6,7 +6,7 @@ From the monorepo root, use the unified entry point:
 
 ```bash
 bun run release           # interactive: pick Desktop or CLI hotfix
-bun run release desktop   # desktop release directly
+bun run release desktop 2.0.6  # default solo-maintainer release, no PR
 ```
 
 The release toolchain is TypeScript under `scripts/release/` (run by Bun). For the
@@ -29,14 +29,14 @@ The flow will:
 ### Options
 
 ```bash
-# Interactive version selection (recommended)
-bun run release desktop
+# Default solo-maintainer flow: clean, current main; no PRs
+bun run release desktop 2.0.6
 
-# Explicit version
-bun run release desktop 0.0.50
+# Reviewed flow: release an exact main commit through a version-bump PR
+bun run release desktop 2.0.6 <main-commit-sha>
 
 # Also squash-merge the version bump PR after release
-bun run release desktop 0.0.50 --merge
+bun run release desktop 2.0.6 <main-commit-sha> --merge
 
 # Non-interactive (e.g. an agent): pass a version; use --republish to
 # recreate an existing tag instead of being prompted.
