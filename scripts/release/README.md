@@ -18,18 +18,37 @@ build step). The entry point is **`bun run release`**. Design/rationale lives in
 | Command | When |
 | --- | --- |
 | `bun run release` | Interactive desktop release menu (TTY only). |
-| `bun run release desktop [version]` | New desktop release. Moves desktop + host-service together and publishes latest after a successful build. |
+| `bun run release desktop <version>` | **Default solo mode.** Updates a clean, current `main` directly and creates no PR. |
+| `bun run release desktop <version> <main-sha> [--merge]` | Optional PR mode. Releases an exact commit and records the version through a bump PR. |
 | `… --daemon` | Also patch-bump and ship pty-daemon. |
 | `bun run release check` | Verify desktop and host-service versions match. |
 
 `version` is `MAJOR.MINOR.PATCH`. For automation, always pass it explicitly.
 
-## Cut from a release branch (not `main`)
+## Choose a release mode
 
-Releases are cut on a dedicated release branch, not on `main` or a feature
-branch.
+### Solo-maintainer mode (no PR)
 
-### Release a specific commit
+Use this when direct pushes to `main` are intentional:
+
+```bash
+git switch main
+git pull --ff-only
+bun run release desktop 2.0.6
+```
+
+The script hard-blocks unless the worktree is clean and local `main` exactly
+matches `origin/main`. It commits the desktop + host-service version bump,
+pushes `main`, tags that commit, and publishes the release. This normally
+creates two workflow runs: CI for the `main` push and the desktop release build
+for the tag push. It creates no feature PR or version-bump PR. `--direct` is an
+optional explicit alias for this default behavior and cannot be combined with a
+commit SHA or `--merge`.
+
+### Bump-PR mode
+
+Keep this mode for repositories that want review or branch protection around
+the version commit.
 
 This provisions an ephemeral release branch from the commit, applies the version
 bump, tags, pushes, and opens the bump PR; the current worktree is untouched:
@@ -38,16 +57,16 @@ bump, tags, pushes, and opens the bump PR; the current worktree is untouched:
 bun run release desktop 1.17.1 <main-commit-sha>
 ```
 
-### Release from an existing release branch
+You can also release from an existing release branch:
 
 ```bash
 git switch -c release-1.17.1
 bun run release desktop 1.17.1
 ```
 
-Either path creates `desktop-v<version>`, triggering `release-desktop.yml`, and
-opens `chore(desktop): bump version to <version>` into `main`. Merge the bump PR
-so `main` records the released version.
+Either PR-mode path creates `desktop-v<version>`, triggers
+`release-desktop.yml`, and opens `chore(desktop): bump version to <version>`
+into `main`. Merge the bump PR so `main` records the released version.
 
 ## Published releases
 
