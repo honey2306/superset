@@ -15,7 +15,8 @@ export type HarnessKind =
 	| "claude-agent-acp"
 	| "codex-app-server"
 	| "pi-acp"
-	| "myflicker-acp";
+	| "myflicker-acp"
+	| "deepseek-acp";
 
 export type SessionStatus =
 	| "starting"

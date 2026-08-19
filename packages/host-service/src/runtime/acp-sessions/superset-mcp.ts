@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import net from "node:net";
 import { createInterface } from "node:readline";
-import { SUPERSET_TOOL_DEFINITIONS } from "@superset/session-protocol";
+import {
+	SUPERSET_DELEGATION_INSTRUCTIONS,
+	SUPERSET_TOOL_DEFINITIONS,
+} from "@superset/session-protocol";
 import type { AcpDaemonRequest, AcpDaemonResponse } from "./daemon";
 
 const MCP_PROTOCOL_VERSION = "2024-11-05";
@@ -58,6 +61,7 @@ async function callDaemon(
 	name: string,
 	args: unknown,
 	signal?: AbortSignal,
+	op: "supersetTool" | "getDelegatedExecution" = "supersetTool",
 ): Promise<unknown> {
 	return new Promise((resolve, reject) => {
 		const socket = net.createConnection(socketPath);
@@ -67,12 +71,15 @@ async function callDaemon(
 		const request: AcpDaemonRequest = {
 			type: "request",
 			id,
-			op: "supersetTool",
-			params: {
-				sourceSessionId,
-				name,
-				arguments: args,
-			},
+			op,
+			params:
+				op === "getDelegatedExecution"
+					? {}
+					: {
+							sourceSessionId,
+							name,
+							arguments: args,
+						},
 		};
 		const timeout =
 			name === "ask_user"
@@ -133,6 +140,41 @@ async function callDaemon(
 	});
 }
 
+/**
+ * The MCP process is intentionally adapter-agnostic, so it cannot read host
+ * settings directly. Ask the daemon for the host setting's current
+ * resolution before advertising the model-facing tool surface. This is a
+ * host-wide setting, so the query deliberately does not require a published
+ * parent runtime. Fail closed: a missing daemon or an invalid target must
+ * never make `delegate` visible.
+ */
+async function delegatedExecutionAvailable(): Promise<boolean> {
+	try {
+		const delegatedExecution = await callDaemon(
+			"get_delegated_execution",
+			{},
+			undefined,
+			"getDelegatedExecution",
+		);
+		if (typeof delegatedExecution !== "object" || delegatedExecution === null) {
+			return false;
+		}
+		const state = delegatedExecution as {
+			enabled?: unknown;
+			valid?: unknown;
+		};
+		return state.enabled === true && state.valid === true;
+	} catch {
+		return false;
+	}
+}
+
+function visibleToolDefinitions(includeDelegate: boolean) {
+	return includeDelegate
+		? SUPERSET_TOOL_DEFINITIONS
+		: SUPERSET_TOOL_DEFINITIONS.filter((tool) => tool.name !== "delegate");
+}
+
 const activeToolCalls = new Map<JsonRpcId, AbortController>();
 
 async function handle(request: JsonRpcRequest): Promise<void> {
@@ -146,17 +188,25 @@ async function handle(request: JsonRpcRequest): Promise<void> {
 	try {
 		switch (request.method) {
 			case "initialize":
-				result(request.id, {
-					protocolVersion: MCP_PROTOCOL_VERSION,
-					capabilities: { tools: {} },
-					serverInfo: { name: "superset", version: "1" },
-				});
+				{
+					const includeDelegate = await delegatedExecutionAvailable();
+					result(request.id, {
+						protocolVersion: MCP_PROTOCOL_VERSION,
+						capabilities: { tools: {} },
+						serverInfo: { name: "superset", version: "1" },
+						...(includeDelegate
+							? { instructions: SUPERSET_DELEGATION_INSTRUCTIONS }
+							: {}),
+					});
+				}
 				return;
 			case "ping":
 				result(request.id, {});
 				return;
 			case "tools/list":
-				result(request.id, { tools: SUPERSET_TOOL_DEFINITIONS });
+				result(request.id, {
+					tools: visibleToolDefinitions(await delegatedExecutionAvailable()),
+				});
 				return;
 			case "tools/call": {
 				const params = request.params as

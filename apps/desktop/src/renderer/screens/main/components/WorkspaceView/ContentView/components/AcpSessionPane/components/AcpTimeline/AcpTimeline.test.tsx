@@ -205,8 +205,8 @@ describe("older history", () => {
 	});
 });
 
-describe("plan dock", () => {
-	test("hides a plan after every entry is completed", () => {
+describe("plan rendering", () => {
+	test("keeps a completed plan inline after the turn is settled", () => {
 		const completedPlan = plan(2);
 		completedPlan.entries = completedPlan.entries.map((entry) => ({
 			...entry,
@@ -218,43 +218,59 @@ describe("plan dock", () => {
 		});
 
 		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
-		expect(result.container.querySelector(".acp-plan")).toBeNull();
+		expect(
+			result.container.querySelector(".acp-pane__scroll .acp-plan"),
+		).toBeTruthy();
+		expect(screen.getByText("Inspect ACP timeline")).toBeTruthy();
 	});
 
-	test("keeps the active plan collapsed below the scrolling timeline", () => {
+	test("keeps the active plan inline in the answer", () => {
 		const result = renderTimeline({
 			...timeline(0),
 			items: [message(1), plan(2), message(3)],
 		});
 
 		const scroll = result.container.querySelector(".acp-pane__scroll");
-		const dock = result.container.querySelector(".acp-plan-dock");
-		expect(scroll?.nextElementSibling).toBe(dock);
-		expect(scroll?.querySelector(".acp-plan")).toBeNull();
-		expect(dock?.querySelector(".acp-plan")).toBeNull();
-		expect(screen.getByText("1/3")).toBeTruthy();
+		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
+		expect(scroll?.querySelector(".acp-plan")).toBeTruthy();
 		expect(screen.getByText("Keep plan docked")).toBeTruthy();
-		expect(
-			screen
-				.getByRole("button", { name: "Expand plan" })
-				.getAttribute("aria-expanded"),
-		).toBe("false");
 	});
 
-	test("reveals the existing plan card when clicked", () => {
-		const result = renderTimeline({
-			...timeline(0),
-			items: [message(1), plan(2), message(3)],
+	test("offers approve and feedback actions for the latest settled plan", async () => {
+		let approvedFeedback: string | undefined;
+		let requestedFeedback: string | undefined;
+		render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [userMessage(1), plan(2), message(3)],
+				},
+				onRespond: async () => {},
+				status: "idle",
+				canReviewPlan: true,
+				onApprovePlan: async (feedback) => {
+					approvedFeedback = feedback;
+				},
+				onRequestPlanChanges: async (feedback) => {
+					requestedFeedback = feedback;
+				},
+			}),
+		);
+
+		fireEvent.change(
+			screen.getByPlaceholderText("Add feedback for revisions…"),
+			{
+				target: { value: "Keep the public API stable" },
+			},
+		);
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Approve plan" }));
 		});
-
-		fireEvent.click(screen.getByRole("button", { name: "Expand plan" }));
-
-		expect(
-			result.container.querySelector(".acp-plan-dock .acp-plan"),
-		).toBeTruthy();
-		expect(screen.getByRole("button", { name: "Collapse plan" })).toBeTruthy();
-		expect(screen.getByText("Inspect ACP timeline")).toBeTruthy();
-		expect(screen.getByText("Verify behavior")).toBeTruthy();
+		expect(approvedFeedback).toBe("Keep the public API stable");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Request changes" }));
+		});
+		expect(requestedFeedback).toBe("Keep the public API stable");
 	});
 });
 
@@ -710,18 +726,43 @@ describe("working indicator", () => {
 		expect(screen.getByRole("status").textContent).toContain("Working…");
 	});
 
-	test("does not duplicate visible activity or appear outside running status", () => {
+	test("stays visible for any timeline activity while running", () => {
 		const user = { ...message(1), role: "user" as const };
 		const agent = message(2);
-		expect(shouldShowWorkingIndicator([user, agent], "running")).toBeFalse();
+		expect(shouldShowWorkingIndicator([user, agent], "running")).toBeTrue();
 		expect(
 			shouldShowWorkingIndicator([user, tool(2, "in_progress")], "running"),
-		).toBeFalse();
+		).toBeTrue();
 		expect(
 			shouldShowWorkingIndicator([user, tool(2, "pending")], "running"),
-		).toBeFalse();
+		).toBeTrue();
+		expect(
+			shouldShowWorkingIndicator([user, tool(2, "completed")], "running"),
+		).toBeTrue();
+	});
+
+	test("renders below an in-progress tool while the session is running", () => {
+		render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [userMessage(1), tool(2, "in_progress")],
+				},
+				onRespond: async () => {},
+				status: "running",
+			}),
+		);
+
+		expect(screen.getByRole("status").textContent).toContain("Working…");
+	});
+
+	test("hides the indicator outside running status", () => {
+		const user = { ...message(1), role: "user" as const };
 		expect(
 			shouldShowWorkingIndicator([user] as TimelineItem[], "idle"),
+		).toBeFalse();
+		expect(
+			shouldShowWorkingIndicator([user] as TimelineItem[], "dead"),
 		).toBeFalse();
 	});
 

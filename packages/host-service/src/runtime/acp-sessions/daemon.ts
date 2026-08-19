@@ -86,6 +86,7 @@ export type RequestOperation =
 	| "editQueuedPrompt"
 	| "clearQueue"
 	| "supersetTool"
+	| "getDelegatedExecution"
 	| "subscribe"
 	| "unsubscribe"
 	| "shutdown";

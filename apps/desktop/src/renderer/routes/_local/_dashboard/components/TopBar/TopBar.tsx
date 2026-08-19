@@ -7,6 +7,7 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useWorkspaceProjection } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
 import { NavigationControls } from "../NavigationControls";
+import { RightSidebarToggle } from "../RightSidebarToggle";
 import { SidebarToggle } from "../SidebarToggle";
 import { OpenAIUsageBadge } from "./components/OpenAIUsageBadge";
 import { OpenInMenuButton } from "./components/OpenInMenuButton";
@@ -60,6 +61,7 @@ export function TopBar() {
 						projectId={workspace.projectId}
 					/>
 				) : null}
+				{workspaceId ? <RightSidebarToggle /> : null}
 				{!isMac && <WindowControls />}
 			</div>
 		</div>

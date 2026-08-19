@@ -5,6 +5,7 @@ export const supersetAgentSchema = z.enum([
 	"codex",
 	"pi",
 	"myflicker",
+	"deepseek",
 ]);
 
 const sessionIdSchema = z.string().min(1).max(256);
@@ -156,6 +157,15 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 export type SupersetAgent = z.infer<typeof supersetAgentSchema>;
 export type SupersetToolRequest = z.infer<typeof supersetToolRequestSchema>;
 
+/**
+ * Instructions exposed by the Superset MCP server when its universal
+ * delegated-execution target is available. Keep this adapter-agnostic: ACP
+ * clients may surface MCP `initialize.instructions`, tool descriptions, or
+ * both to their model.
+ */
+export const SUPERSET_DELEGATION_INSTRUCTIONS =
+	"Delegated execution is enabled for this workspace. Proactively use the Superset delegate tool for substantial implementation work (for example, multi-file changes, non-trivial bug fixes, features, or work that needs investigation and tests); do not wait for the user to request delegation. Call delegate before making those changes, with a self-contained objective, approach, constraints, relevant files, and acceptance checks. After the child finishes, inspect its changes and validation before accepting the result. The delegate uses the globally configured executor for this workspace.";
+
 /** JSON Schemas advertised by the bundled Superset MCP server. */
 export const SUPERSET_TOOL_DEFINITIONS = [
 	{
@@ -285,7 +295,7 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 				handoff: { type: "string", minLength: 1, maxLength: 100_000 },
 				agent: {
 					type: "string",
-					enum: ["claude", "codex", "pi", "myflicker"],
+					enum: ["claude", "codex", "pi", "myflicker", "deepseek"],
 				},
 				focus: { type: "boolean", default: true },
 				idempotencyKey: { type: "string", minLength: 1, maxLength: 128 },
@@ -297,7 +307,7 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "delegate",
 		description:
-			"Delegate execution to another ACP session in the current workspace. Before delegating, analyze and plan the work, then provide a self-contained handoff with the objective, decided approach, constraints, relevant files, and acceptance checks. The child always inherits the current ACP tab's agent and selected concrete model; it cannot select a different agent. The child runs independently; monitor it with list_sessions/get_session_status and inspect its actual changes and validation before accepting the work.",
+			"Proactively delegate substantial implementation work to the globally configured executor in the current workspace. Do not wait for the user to ask. Call this before making multi-file changes, non-trivial bug fixes, features, or work that needs investigation and tests. Provide a self-contained handoff with the objective, decided approach, constraints, relevant files, and acceptance checks. The child runs independently; monitor it with list_sessions/get_session_status and inspect its actual changes and validation before accepting the work.",
 		inputSchema: {
 			type: "object",
 			properties: {

@@ -1,15 +1,39 @@
 import type { PlanItem } from "@superset/session-protocol";
+import { useState } from "react";
 
 interface AcpPlanItemProps {
 	item: PlanItem;
+	review?: {
+		isSubmitting: boolean;
+		onApprove(feedback?: string): Promise<void>;
+		onRequestChanges(feedback: string): Promise<void>;
+	};
 }
 
-export function AcpPlanItem({ item }: AcpPlanItemProps) {
+export function AcpPlanItem({ item, review }: AcpPlanItemProps) {
+	const [feedback, setFeedback] = useState("");
+	const [action, setAction] = useState<"approve" | "revise" | null>(null);
 	const done = item.entries.filter((e) => e.status === "completed").length;
 	const inProgress = item.entries.filter(
 		(e) => e.status === "in_progress",
 	).length;
 	const total = item.entries.length;
+	const trimmedFeedback = feedback.trim();
+
+	async function submit(nextAction: "approve" | "revise") {
+		if (!review || review.isSubmitting || action) return;
+		if (nextAction === "revise" && !trimmedFeedback) return;
+		setAction(nextAction);
+		try {
+			if (nextAction === "approve") {
+				await review.onApprove(trimmedFeedback || undefined);
+			} else {
+				await review.onRequestChanges(trimmedFeedback);
+			}
+		} finally {
+			setAction(null);
+		}
+	}
 
 	return (
 		<div className="acp-plan" data-removed={item.removed ? "true" : undefined}>
@@ -47,6 +71,39 @@ export function AcpPlanItem({ item }: AcpPlanItemProps) {
 					</li>
 				))}
 			</ol>
+			{review && (
+				<div className="acp-plan__review">
+					<label className="acp-plan__feedback">
+						<span>Feedback (optional)</span>
+						<textarea
+							value={feedback}
+							onChange={(event) => setFeedback(event.target.value)}
+							placeholder="Add feedback for revisions…"
+							disabled={review.isSubmitting || action !== null}
+							rows={3}
+						/>
+					</label>
+					<div className="acp-plan__actions">
+						<button
+							type="button"
+							disabled={
+								review.isSubmitting || action !== null || !trimmedFeedback
+							}
+							onClick={() => void submit("revise")}
+						>
+							{action === "revise" ? "Sending…" : "Request changes"}
+						</button>
+						<button
+							type="button"
+							data-variant="primary"
+							disabled={review.isSubmitting || action !== null}
+							onClick={() => void submit("approve")}
+						>
+							{action === "approve" ? "Approving…" : "Approve plan"}
+						</button>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
