@@ -16,19 +16,25 @@ describe("StatusIndicator", () => {
 			const markup = renderToStaticMarkup(
 				<StatusIndicator status={status as keyof typeof statusClasses} />,
 			);
-			expect(markup).toContain(`rounded-full ${colorClass}"`);
+			expect(markup).toContain(`rounded-full ${colorClass}`);
 		}
 	});
 
-	test("uses a larger, opaque pulse for attention states", () => {
-		const pulsingStatuses = [
-			"working",
-			"permission",
-			"askuser",
-			"failed",
-		] as const;
+	test("uses a restrained same-size breathing animation for working", () => {
+		const workingMarkup = renderToStaticMarkup(
+			<StatusIndicator status="working" />,
+		);
 
-		for (const status of pulsingStatuses) {
+		expect(workingMarkup).toContain("animate-pulse");
+		expect(workingMarkup).toContain("opacity-75");
+		expect(workingMarkup).not.toContain("-inset-1");
+		expect(workingMarkup).not.toContain("animate-ping");
+	});
+
+	test("uses a larger, opaque pulse for attention states", () => {
+		const attentionStatuses = ["permission", "askuser", "failed"] as const;
+
+		for (const status of attentionStatuses) {
 			const markup = renderToStaticMarkup(<StatusIndicator status={status} />);
 
 			expect(markup).toContain("-inset-1");

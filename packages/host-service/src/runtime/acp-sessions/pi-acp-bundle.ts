@@ -189,5 +189,31 @@ function buildStartupInfo(`,
 	if (withExtensionInput === withExtensionCommands) {
 		throw new Error("Unsupported pi-acp bundle: extension input hook changed");
 	}
-	return withExtensionInput;
+	const withExtensionNotify = withExtensionInput.replace(
+		`    if (method === "notify") {
+      this.emit({
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: stringProp(ev, "message") ?? "Pi notification" },
+        _meta: { piAcp: { notify: { level: stringProp(ev, "notifyType") ?? "info" } } }
+      });
+      await this.proc.sendExtensionUiResponse({ id, cancelled: true });
+      return;
+    }`,
+		`    if (method === "notify") {
+      const notifyType = stringProp(ev, "notifyType") ?? "info";
+      if (notifyType !== "info") {
+        this.emit({
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: stringProp(ev, "message") ?? "Pi notification" },
+          _meta: { piAcp: { notify: { level: notifyType } } }
+        });
+      }
+      await this.proc.sendExtensionUiResponse({ id, cancelled: true });
+      return;
+    }`,
+	);
+	if (withExtensionNotify === withExtensionInput) {
+		throw new Error("Unsupported pi-acp bundle: extension notify hook changed");
+	}
+	return withExtensionNotify;
 }

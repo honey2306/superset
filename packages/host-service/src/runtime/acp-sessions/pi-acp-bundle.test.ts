@@ -74,6 +74,15 @@ async function handleExtensionUiRequest() {
       await this.proc.sendExtensionUiResponse({ id, cancelled: true });
       return;
     }
+    if (method === "notify") {
+      this.emit({
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: stringProp(ev, "message") ?? "Pi notification" },
+        _meta: { piAcp: { notify: { level: stringProp(ev, "notifyType") ?? "info" } } }
+      });
+      await this.proc.sendExtensionUiResponse({ id, cancelled: true });
+      return;
+    }
 }
 function buildUpdateNotice() {
   spawnSync("npm", ["view"]);
@@ -114,6 +123,17 @@ describe("patchPiAcpBundle", () => {
 		);
 		expect(patched).not.toContain(
 			"UI request is not supported in ACP yet; cancelling it.",
+		);
+	});
+
+	test("suppresses info notifications while preserving warning and error updates", () => {
+		const patched = patchPiAcpBundle(piAcp033);
+
+		expect(patched).toMatch(
+			/if \(method === "notify"\) \{\s*const notifyType = stringProp\(ev, "notifyType"\) \?\? "info";\s*if \(notifyType !== "info"\) \{[\s\S]*?sessionUpdate: "agent_message_chunk"[\s\S]*?level: notifyType/s,
+		);
+		expect(patched).toContain(
+			"await this.proc.sendExtensionUiResponse({ id, cancelled: true });",
 		);
 	});
 
