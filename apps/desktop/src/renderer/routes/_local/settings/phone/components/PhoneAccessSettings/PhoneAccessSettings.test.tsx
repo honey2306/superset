@@ -6,10 +6,21 @@ import { buildAutoMatePairingUrl } from "./pairing-url";
 
 let relayMailboxId: string | undefined;
 let pairingCode: string | undefined;
+let hostQueryOptions: {
+	refetchInterval?: (query: {
+		state: { data: { relayMailboxId?: string } | undefined };
+	}) => number | false | undefined;
+};
 
 mock.module("@tanstack/react-query", () => ({
-	useQuery: (options: { queryKey: string[] }) => {
+	useQuery: (options: {
+		queryKey: string[];
+		refetchInterval?: (query: {
+			state: { data: { relayMailboxId?: string } | undefined };
+		}) => number | false | undefined;
+	}) => {
 		if (options.queryKey[0] === "host") {
+			hostQueryOptions = options;
 			return { data: { relayMailboxId }, isLoading: false };
 		}
 		return { data: [], isLoading: false, refetch: () => {} };
@@ -48,6 +59,7 @@ afterEach(() => {
 	cleanup();
 	relayMailboxId = undefined;
 	pairingCode = undefined;
+	hostQueryOptions = {};
 });
 
 describe("PhoneAccessSettings", () => {
@@ -72,9 +84,30 @@ describe("PhoneAccessSettings", () => {
 		expect(
 			screen.getByRole("button", { name: "Generate pairing code" }),
 		).toHaveProperty("disabled", false);
+		const generateButton = screen.getByRole("button", {
+			name: "Generate pairing code",
+		});
+		expect(generateButton.className).toContain("bg-accent");
+		expect(generateButton.className).not.toContain("bg-accent-solid");
 		expect(
 			screen.getByText(buildAutoMatePairingUrl(pairingCode, relayMailboxId)),
 		).toBeTruthy();
 		expect(screen.queryByText(/127\.0\.0\.1|\.local/i)).toBeNull();
+	});
+
+	test("polls for relay configuration until it becomes available", () => {
+		render(createElement(PhoneAccessSettings));
+
+		expect(hostQueryOptions.refetchInterval?.({ state: { data: {} } })).toBe(
+			2_000,
+		);
+		expect(
+			hostQueryOptions.refetchInterval?.({ state: { data: undefined } }),
+		).toBe(2_000);
+		expect(
+			hostQueryOptions.refetchInterval?.({
+				state: { data: { relayMailboxId: "mailbox-1" } },
+			}),
+		).toBe(false);
 	});
 });

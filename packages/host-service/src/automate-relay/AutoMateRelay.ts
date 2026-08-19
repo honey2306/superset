@@ -571,6 +571,7 @@ const PHONE_RELAY_TRPC_PATHS = new Set([
 	"host.info",
 	"phone.pairing.redeem",
 	"phone.me",
+	"terminal.listSessions",
 	"terminalAgents.listByWorkspace",
 	"terminalAgents.getOrCreate",
 	"workspaceCatalog.snapshot",

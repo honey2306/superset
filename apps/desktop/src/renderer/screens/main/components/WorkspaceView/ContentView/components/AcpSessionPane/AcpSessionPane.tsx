@@ -434,6 +434,10 @@ export function AcpSessionPane({
 				isLoadingOlder={session.isLoadingOlder}
 				historyError={session.historyError}
 				onLoadOlder={session.loadOlder}
+				turnIndex={session.turnIndex}
+				totalTurns={session.totalTurns}
+				loadedTurnNumbers={session.loadedTurnNumbers}
+				onLoadTurn={session.loadTurn}
 			/>
 
 			<div className="acp-pane__composer-wrap">

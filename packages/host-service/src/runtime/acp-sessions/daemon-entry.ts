@@ -408,6 +408,11 @@ async function dispatch(
 					request.params as Parameters<AcpSessionManager["getMessages"]>[0],
 				);
 				break;
+			case "getTranscript":
+				result = manager.getTranscript(
+					request.params as Parameters<AcpSessionManager["getTranscript"]>[0],
+				);
+				break;
 			case "prompt": {
 				const admission = manager.prompt(
 					request.params as Parameters<AcpSessionManager["prompt"]>[0],

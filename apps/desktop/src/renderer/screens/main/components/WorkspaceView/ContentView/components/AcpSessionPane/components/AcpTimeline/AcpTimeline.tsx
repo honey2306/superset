@@ -4,8 +4,16 @@ import type {
 	RequestPermissionOutcome,
 	SessionStatus,
 	TimelineItem,
+	TranscriptTurnSummary,
 } from "@superset/session-protocol";
 import { cn } from "@superset/ui/utils";
+import {
+	measureElement as defaultMeasureElement,
+	observeElementRect as defaultObserveElementRect,
+	type Rect,
+	useVirtualizer,
+	type Virtualizer,
+} from "@tanstack/react-virtual";
 import { ArrowDown } from "lucide-react";
 import {
 	forwardRef,
@@ -37,6 +45,41 @@ import {
 } from "./utils/turns";
 import { formatTurnDuration, useTurnDurations } from "./utils/useTurnDurations";
 
+const ESTIMATED_TURN_HEIGHT = 240;
+const VIRTUALIZER_FALLBACK_VIEWPORT_HEIGHT = 640;
+const VIRTUALIZER_INITIAL_RECT: Rect = {
+	width: 0,
+	height: VIRTUALIZER_FALLBACK_VIEWPORT_HEIGHT,
+};
+
+/**
+ * A hidden kept-alive pane has a zero-sized scroll element until it is shown.
+ * Keep a small estimated window mounted in that state so the first focused
+ * frame can still measure/locate a turn; ResizeObserver replaces this value
+ * with the real viewport as soon as layout is available.
+ */
+function observeTimelineRect(
+	instance: Virtualizer<HTMLDivElement, HTMLDivElement>,
+	callback: (rect: Rect) => void,
+) {
+	return defaultObserveElementRect(instance, (rect) =>
+		callback({
+			...rect,
+			height: rect.height || VIRTUALIZER_FALLBACK_VIEWPORT_HEIGHT,
+		}),
+	);
+}
+
+function measureTimelineTurn(
+	element: HTMLDivElement,
+	entry: ResizeObserverEntry | undefined,
+	instance: Virtualizer<HTMLDivElement, HTMLDivElement>,
+): number {
+	return (
+		defaultMeasureElement(element, entry, instance) || ESTIMATED_TURN_HEIGHT
+	);
+}
+
 interface AcpTimelineProps {
 	timeline: FoldedTimeline;
 	onRespond(
@@ -60,6 +103,11 @@ interface AcpTimelineProps {
 	isLoadingOlder?: boolean;
 	historyError?: Error | null;
 	onLoadOlder?(): Promise<void>;
+	/** Full semantic turn index; loaded content remains in `timeline`. */
+	turnIndex?: readonly TranscriptTurnSummary[];
+	totalTurns?: number;
+	loadedTurnNumbers?: readonly number[];
+	onLoadTurn?(turnNumber: number): Promise<void>;
 }
 
 export interface AcpTimelineHandle {
@@ -154,10 +202,15 @@ export const AcpTimeline = memo(
 			isLoadingOlder = false,
 			historyError = null,
 			onLoadOlder,
+			turnIndex = [],
+			totalTurns = 0,
+			loadedTurnNumbers = [],
+			onLoadTurn,
 		},
 		ref,
 	) {
 		const scrollRef = useRef<HTMLDivElement>(null);
+		const turnListRef = useRef<HTMLDivElement>(null);
 		const [autoFollow, setAutoFollow] = useState(true);
 		const [showJumpButton, setShowJumpButton] = useState(false);
 		const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
@@ -174,8 +227,12 @@ export const AcpTimeline = memo(
 		const prependAnchorRef = useRef<{
 			scrollHeight: number;
 			scrollTop: number;
+			element: HTMLElement | null;
+			elementTop: number | null;
 		} | null>(null);
 		const skipAutoFollowAfterPrependRef = useRef(false);
+		const topLoadTriggeredRef = useRef(false);
+		const loadOlderRef = useRef<(() => Promise<void>) | null>(null);
 
 		const isNearBottom = useCallback((el: HTMLElement): boolean => {
 			return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -214,6 +271,22 @@ export const AcpTimeline = memo(
 				const near = isNearBottom(el);
 				setAutoFollow(near);
 				setShowJumpButton(!near);
+				if (el.scrollTop > 96) topLoadTriggeredRef.current = false;
+				if (
+					el.scrollTop <= 48 &&
+					hasOlder &&
+					!isLoadingOlder &&
+					!topLoadTriggeredRef.current &&
+					loadOlderRef.current
+				) {
+					topLoadTriggeredRef.current = true;
+					void loadOlderRef.current().finally(() => {
+						const currentScroll = scrollRef.current;
+						if (currentScroll && currentScroll.scrollTop > 96) {
+							topLoadTriggeredRef.current = false;
+						}
+					});
+				}
 				if (activeTurnFrameRef.current !== null) {
 					window.cancelAnimationFrame(activeTurnFrameRef.current);
 				}
@@ -222,7 +295,7 @@ export const AcpTimeline = memo(
 					activeTurnFrameRef.current = null;
 				});
 			},
-			[isNearBottom, updateActiveTurn],
+			[hasOlder, isLoadingOlder, isNearBottom, updateActiveTurn],
 		);
 
 		const scrollToBottom = useCallback(() => {
@@ -236,14 +309,24 @@ export const AcpTimeline = memo(
 		const loadOlder = useCallback(async () => {
 			const scroll = scrollRef.current;
 			if (scroll) {
+				const firstVisible = Array.from(
+					scroll.querySelectorAll<HTMLElement>("[data-turn-id]"),
+				).find(
+					(element) =>
+						element.getBoundingClientRect().bottom >
+						scroll.getBoundingClientRect().top,
+				);
 				prependAnchorRef.current = {
 					scrollHeight: scroll.scrollHeight,
 					scrollTop: scroll.scrollTop,
+					element: firstVisible ?? null,
+					elementTop: firstVisible?.getBoundingClientRect().top ?? null,
 				};
 				skipAutoFollowAfterPrependRef.current = true;
 			}
 			await onLoadOlder?.();
 		}, [onLoadOlder]);
+		loadOlderRef.current = loadOlder;
 
 		useImperativeHandle(
 			ref,
@@ -305,8 +388,13 @@ export const AcpTimeline = memo(
 			const scroll = scrollRef.current;
 			if (!anchor || !scroll || isLoadingOlder) return;
 			prependAnchorRef.current = null;
-			scroll.scrollTop =
-				anchor.scrollTop + (scroll.scrollHeight - anchor.scrollHeight);
+			if (anchor.element?.isConnected && anchor.elementTop !== null) {
+				const nextTop = anchor.element.getBoundingClientRect().top;
+				scroll.scrollTop += nextTop - anchor.elementTop;
+			} else {
+				scroll.scrollTop =
+					anchor.scrollTop + (scroll.scrollHeight - anchor.scrollHeight);
+			}
 		}, [isLoadingOlder]);
 
 		useEffect(() => {
@@ -388,18 +476,83 @@ export const AcpTimeline = memo(
 			const numbers = new Map<string, number>();
 			let turnNumber = 0;
 			for (const turn of turns) {
-				if (!getTurnUserMessage(turn)) continue;
+				const userMessage = getTurnUserMessage(turn);
+				if (!userMessage) continue;
+				const indexed = turnIndex.find(
+					(summary) => summary.startSeq === userMessage.startSeq,
+				);
 				turnNumber += 1;
-				numbers.set(turn.id, turnNumber);
+				numbers.set(turn.id, indexed?.turnNumber ?? turnNumber);
 			}
 			return numbers;
-		}, [turns]);
-		const latestTurnId = Array.from(turnNumberById.keys()).at(-1) ?? null;
+		}, [turnIndex, turns]);
+		// Async rail navigation can span a transcript fetch and a React commit.
+		// Keep the latest grouped turns available to that callback while retaining
+		// stable virtualizer/item keys across prepends.
+		const turnsRef = useRef(turns);
+		turnsRef.current = turns;
+		const turnNumberByIdRef = useRef(turnNumberById);
+		turnNumberByIdRef.current = turnNumberById;
+		const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+			count: turns.length,
+			getScrollElement: () => scrollRef.current,
+			getItemKey: (index) => turns[index]?.id ?? index,
+			estimateSize: () => ESTIMATED_TURN_HEIGHT,
+			gap: 12,
+			initialRect: VIRTUALIZER_INITIAL_RECT,
+			measureElement: measureTimelineTurn,
+			observeElementRect: observeTimelineRect,
+			overscan: 3,
+			scrollMargin: turnListRef.current?.offsetTop ?? 0,
+		});
+		const virtualTurns = virtualizer.getVirtualItems();
+		const latestLoadedTurnId = Array.from(turnNumberById.keys()).at(-1) ?? null;
+		const latestLoadedTurnNumber = latestLoadedTurnId
+			? turnNumberById.get(latestLoadedTurnId)
+			: undefined;
+		const latestTurnId =
+			turnIndex.length > 0
+				? latestLoadedTurnNumber
+					? `turn:${latestLoadedTurnNumber}`
+					: null
+				: latestLoadedTurnId;
 		const resolvedActiveTurnId =
-			activeTurnId && turnNumberById.has(activeTurnId)
+			activeTurnId &&
+			(turnIndex.length > 0
+				? activeTurnId.startsWith("turn:")
+				: turnNumberById.has(activeTurnId))
 				? activeTurnId
 				: latestTurnId;
 		const turnRailItems = useMemo(() => {
+			if (turnIndex.length > 0) {
+				const loadedByNumber = new Map<number, (typeof turns)[number]>();
+				for (const turn of turns) {
+					const number = turnNumberById.get(turn.id);
+					if (number !== undefined) loadedByNumber.set(number, turn);
+				}
+				return turnIndex.map<AcpTurnRailItem>((summary) => {
+					const loaded = loadedByNumber.get(summary.turnNumber);
+					const userMessage = loaded ? getTurnUserMessage(loaded) : null;
+					return {
+						id: `turn:${summary.turnNumber}`,
+						turnNumber: summary.turnNumber,
+						isComplete:
+							loaded && summary.turnNumber === totalTurns
+								? loaded.isComplete &&
+									status !== "starting" &&
+									status !== "running" &&
+									status !== "awaiting_permission"
+								: (loaded?.isComplete ?? summary.isComplete),
+						isLoaded: loadedTurnNumbers.includes(summary.turnNumber),
+						userPreview: userMessage
+							? messagePreviewText(userMessage)
+							: summary.userPreview,
+						agentPreview: loaded?.finalAgentMessage
+							? messagePreviewText(loaded.finalAgentMessage)
+							: summary.agentPreview,
+					};
+				});
+			}
 			return turns.flatMap<AcpTurnRailItem>((turn, index) => {
 				const turnNumber = turnNumberById.get(turn.id);
 				const userMessage = getTurnUserMessage(turn);
@@ -424,7 +577,14 @@ export const AcpTimeline = memo(
 					},
 				];
 			});
-		}, [status, turnNumberById, turns]);
+		}, [
+			loadedTurnNumbers,
+			status,
+			totalTurns,
+			turnIndex,
+			turnNumberById,
+			turns,
+		]);
 		const [expandedOverrides, setExpandedOverrides] = useState<
 			Record<string, boolean>
 		>({});
@@ -435,12 +595,40 @@ export const AcpTimeline = memo(
 			}));
 		}, []);
 		const navigateToTurn = useCallback(
-			(turnId: string, turnNumber: number) => {
+			async (turnId: string, turnNumber: number) => {
 				const scroll = scrollRef.current;
-				const target = scroll?.querySelector<HTMLElement>(
+				let target = scroll?.querySelector<HTMLElement>(
 					`[data-turn-number="${turnNumber}"]`,
 				);
-				if (!scroll || !target) return;
+				if (!scroll) return;
+				if (!target) {
+					setActiveTurnId(turnId);
+					const findLoadedTurnIndex = () =>
+						turnsRef.current.findIndex(
+							(turn) => turnNumberByIdRef.current.get(turn.id) === turnNumber,
+						);
+					let targetIndex = findLoadedTurnIndex();
+					if (targetIndex < 0 && onLoadTurn) {
+						await onLoadTurn(turnNumber);
+						targetIndex = findLoadedTurnIndex();
+					}
+					if (targetIndex >= 0) {
+						// The target may be loaded but outside the current DOM window. Ask
+						// the virtualizer to mount it before querying its real element.
+						virtualizer.scrollToIndex(targetIndex, { align: "start" });
+						await new Promise<void>((resolve) => {
+							if (typeof window.requestAnimationFrame === "function") {
+								window.requestAnimationFrame(() => resolve());
+							} else {
+								window.setTimeout(resolve, 0);
+							}
+						});
+					}
+					target = scroll.querySelector<HTMLElement>(
+						`[data-turn-number="${turnNumber}"]`,
+					);
+				}
+				if (!target) return;
 				const scrollBounds = scroll.getBoundingClientRect();
 				const targetBounds = target.getBoundingClientRect();
 				const targetTop = Math.max(
@@ -468,11 +656,11 @@ export const AcpTimeline = memo(
 					jumpEndTimerRef.current = null;
 				}, 700);
 			},
-			[isNearBottom],
+			[isNearBottom, onLoadTurn, virtualizer],
 		);
 
-		const activeTurnDuration = latestTurnId
-			? formatTurnDuration(turnDurations.get(latestTurnId) ?? 0)
+		const activeTurnDuration = latestLoadedTurnId
+			? formatTurnDuration(turnDurations.get(latestLoadedTurnId) ?? 0)
 			: null;
 		const workingIndicator = showWorkingIndicator && (
 			<output className="acp-timeline__working">
@@ -487,19 +675,20 @@ export const AcpTimeline = memo(
 				)}
 			</output>
 		);
-		const olderHistoryControl = (hasOlder || historyError) && (
+		const olderHistoryControl = (isLoadingOlder || historyError) && (
 			<div className="acp-timeline__older-history">
-				<button
-					type="button"
-					onClick={() => void loadOlder()}
-					disabled={isLoadingOlder || !onLoadOlder}
-				>
-					{isLoadingOlder
-						? "Loading earlier messages…"
-						: "Load earlier messages"}
-				</button>
+				{isLoadingOlder && <output>Loading earlier turns…</output>}
 				{historyError && (
-					<span role="alert">Couldn’t load earlier messages. Try again.</span>
+					<>
+						<span role="alert">Couldn’t load earlier turns.</span>
+						<button
+							type="button"
+							onClick={() => void loadOlder()}
+							disabled={!onLoadOlder}
+						>
+							Retry
+						</button>
+					</>
 				)}
 			</div>
 		);
@@ -543,57 +732,88 @@ export const AcpTimeline = memo(
 				>
 					<div className="acp-pane__body-inner">
 						{olderHistoryControl}
-						{turns.map((turn, i) => {
-							const isLast = i === turns.length - 1;
-							const autoCollapse = isTurnAutoCollapsible(turn, isLast, status);
-							const override = expandedOverrides[turn.id];
-							const expanded =
-								override !== undefined ? override : !autoCollapse;
-							const turnNumber = turnNumberById.get(turn.id);
-							const duration = formatTurnDuration(
-								turnDurations.get(turn.id) ?? 0,
-							);
-							return (
-								<section
-									key={turn.id}
-									className="acp-turn"
-									data-turn-id={turnNumber ? turn.id : undefined}
-									data-turn-number={turnNumber}
-								>
-									{turn.preItems.map((item) =>
-										renderItem(item, onRespond, agentLabel, onOpenFile),
-									)}
-									{/* Author row heads the whole agent turn (process
-									    summary + final reply). Only shown when the turn
-									    has agent output to attribute. */}
-									{(turn.processItems.length > 0 || turn.finalAgentMessage) && (
-										<AcpAgentAuthorRow agentLabel={agentLabel} />
-									)}
-									{autoCollapse && (
-										<AcpTurnSummary
-											text={turnSummaryText(turn)}
-											expanded={expanded}
-											onToggle={() => toggleTurnExpanded(turn.id)}
-											duration={duration}
-										/>
-									)}
-									{expanded &&
-										turn.processItems.map((item) =>
-											renderItem(item, onRespond, agentLabel, onOpenFile),
-										)}
-									{turn.finalAgentMessage &&
-										renderItem(
-											turn.finalAgentMessage,
-											onRespond,
-											agentLabel,
-											onOpenFile,
-										)}
-									{turn.trailingItems.map((item) =>
-										renderItem(item, onRespond, agentLabel, onOpenFile),
-									)}
-								</section>
-							);
-						})}
+						<div className="acp-timeline__turn-list" ref={turnListRef}>
+							<div
+								className="acp-timeline__turns"
+								style={{ height: virtualizer.getTotalSize() }}
+							>
+								{virtualTurns.map((virtualTurn) => {
+									const turn = turns[virtualTurn.index];
+									if (!turn) return null;
+									const isLast = virtualTurn.index === turns.length - 1;
+									const autoCollapse = isTurnAutoCollapsible(
+										turn,
+										isLast,
+										status,
+									);
+									const override = expandedOverrides[turn.id];
+									const expanded =
+										override !== undefined ? override : !autoCollapse;
+									const turnNumber = turnNumberById.get(turn.id);
+									const duration = formatTurnDuration(
+										turnDurations.get(turn.id) ?? 0,
+									);
+									return (
+										<div
+											key={virtualTurn.key}
+											className="acp-timeline__virtual-turn"
+											data-index={virtualTurn.index}
+											ref={virtualizer.measureElement}
+											style={{
+												top:
+													virtualTurn.start -
+													(virtualizer.options.scrollMargin ?? 0),
+											}}
+										>
+											<section
+												className="acp-turn"
+												data-turn-id={
+													turnNumber
+														? turnIndex.length > 0
+															? `turn:${turnNumber}`
+															: turn.id
+														: undefined
+												}
+												data-turn-number={turnNumber}
+											>
+												{turn.preItems.map((item) =>
+													renderItem(item, onRespond, agentLabel, onOpenFile),
+												)}
+												{/* Author row heads the whole agent turn (process
+												    summary + final reply). Only shown when the turn
+												    has agent output to attribute. */}
+												{(turn.processItems.length > 0 ||
+													turn.finalAgentMessage) && (
+													<AcpAgentAuthorRow agentLabel={agentLabel} />
+												)}
+												{autoCollapse && (
+													<AcpTurnSummary
+														text={turnSummaryText(turn)}
+														expanded={expanded}
+														onToggle={() => toggleTurnExpanded(turn.id)}
+														duration={duration}
+													/>
+												)}
+												{expanded &&
+													turn.processItems.map((item) =>
+														renderItem(item, onRespond, agentLabel, onOpenFile),
+													)}
+												{turn.finalAgentMessage &&
+													renderItem(
+														turn.finalAgentMessage,
+														onRespond,
+														agentLabel,
+														onOpenFile,
+													)}
+												{turn.trailingItems.map((item) =>
+													renderItem(item, onRespond, agentLabel, onOpenFile),
+												)}
+											</section>
+										</div>
+									);
+								})}
+							</div>
+						</div>
 						{workingIndicator}
 					</div>
 				</div>

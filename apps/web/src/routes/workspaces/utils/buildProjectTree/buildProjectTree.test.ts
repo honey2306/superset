@@ -25,6 +25,7 @@ test("combines ACP sessions and terminal agents beneath their real workspace", (
 							updatedAt: 20,
 						},
 					],
+					terminalSessions: [],
 					terminalAgents: [
 						{
 							terminalId: "terminal-1",
@@ -57,6 +58,97 @@ test("combines ACP sessions and terminal agents beneath their real workspace", (
 	]);
 });
 
+test("renders ordinary terminal sessions without an agent binding", () => {
+	const tree = buildProjectTree({
+		projects: [{ id: "project-1", name: "Superset", repoPath: "/repo" }],
+		workspaces: [
+			{
+				id: "workspace-1",
+				projectId: "project-1",
+				name: "main",
+				branch: "main",
+			},
+		],
+		contentsByWorkspaceId: new Map([
+			[
+				"workspace-1",
+				{
+					acpEnabled: false,
+					terminalSessions: [
+						{
+							terminalId: "terminal-1",
+							createdAt: 40,
+							exited: false,
+							title: "Shell",
+						},
+					],
+					terminalAgents: [],
+				},
+			],
+		]),
+		agentLabel: (agentId) => `Agent ${agentId}`,
+	});
+
+	expect(tree[0]?.workspaces[0]?.leaves).toEqual([
+		{
+			kind: "terminal",
+			id: "terminal-1",
+			title: "Shell",
+			updatedAt: 40,
+			running: true,
+		},
+	]);
+});
+
+test("enriches a bound terminal without duplicating its session", () => {
+	const tree = buildProjectTree({
+		projects: [{ id: "project-1", name: "Superset", repoPath: "/repo" }],
+		workspaces: [
+			{
+				id: "workspace-1",
+				projectId: "project-1",
+				name: "main",
+				branch: "main",
+			},
+		],
+		contentsByWorkspaceId: new Map([
+			[
+				"workspace-1",
+				{
+					acpEnabled: false,
+					terminalSessions: [
+						{
+							terminalId: "terminal-1",
+							createdAt: 10,
+							exited: false,
+							title: "Shell",
+						},
+					],
+					terminalAgents: [
+						{
+							terminalId: "terminal-1",
+							agentId: "codex",
+							lastEventAt: 50,
+							lastEventType: "Start",
+						},
+					],
+				},
+			],
+		]),
+		agentLabel: (agentId) => `Agent ${agentId}`,
+	});
+
+	expect(tree[0]?.workspaces[0]?.leaves).toEqual([
+		{
+			kind: "terminal",
+			id: "terminal-1",
+			title: "Agent codex",
+			updatedAt: 50,
+			running: true,
+		},
+	]);
+});
+
 test("hides ACP leaves when the host has ACP disabled without hiding terminals", () => {
 	const tree = buildProjectTree({
 		projects: [{ id: "project-1", name: null, repoPath: "/repo" }],
@@ -80,6 +172,7 @@ test("hides ACP leaves when the host has ACP disabled without hiding terminals",
 							updatedAt: 10,
 						},
 					],
+					terminalSessions: [],
 					terminalAgents: [
 						{
 							terminalId: "terminal-1",

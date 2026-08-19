@@ -5,6 +5,14 @@ import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostS
 import { PairingQrCode } from "./components/PairingQrCode";
 import { buildAutoMatePairingUrl } from "./pairing-url";
 
+const PHONE_RELAY_REFETCH_INTERVAL_MS = 2_000;
+
+export function getPhoneRelayRefetchInterval(
+	hostInfo: { relayMailboxId?: string } | undefined,
+): number | false {
+	return hostInfo?.relayMailboxId ? false : PHONE_RELAY_REFETCH_INTERVAL_MS;
+}
+
 export function PhoneAccessSettings() {
 	const { activeHostUrl } = useLocalHostService();
 
@@ -17,6 +25,7 @@ export function PhoneAccessSettings() {
 		queryKey: ["host", "info", activeHostUrl],
 		enabled: !!trpc,
 		queryFn: () => trpc?.host.info.query(),
+		refetchInterval: (query) => getPhoneRelayRefetchInterval(query.state.data),
 	});
 
 	const sessions = useQuery({
@@ -75,7 +84,7 @@ export function PhoneAccessSettings() {
 					type="button"
 					disabled={!trpc || !relayAvailable || mint.isPending}
 					onClick={() => mint.mutate()}
-					className="mt-2 self-start rounded-ds-3 bg-accent-solid px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-50"
+					className="mt-2 self-start rounded-ds-3 border border-accent-line bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-tint disabled:opacity-50"
 				>
 					{mint.isPending ? "Generating…" : "Generate pairing code"}
 				</button>

@@ -40,10 +40,13 @@ import type {
 	SessionUpdateEnvelope,
 	SessionUpdateFrame,
 	StopReason,
+	TranscriptPage,
+	TranscriptTurn,
 } from "@superset/session-protocol";
 import {
 	customResponse,
 	encodeMessagesCursor,
+	groupTranscriptTurns,
 	selectedOptionIds,
 } from "@superset/session-protocol";
 import type { AcpArtifactStore } from "./artifact-store";
@@ -66,6 +69,7 @@ import type {
 	AcpSessionChangeHandler,
 	AcpSessionOpenRequestHandler,
 } from "./runtime";
+import { buildTranscriptPageFromTurns } from "./transcript";
 
 export class AcpSessionNotFoundError extends Error {}
 export class AcpSessionDeadError extends Error {}
@@ -461,6 +465,12 @@ interface InflightCreation {
 	promise: Promise<AcpSessionRuntime>;
 }
 
+interface TranscriptCacheEntry {
+	epoch: string;
+	latestSeq: number;
+	turns: TranscriptTurn[];
+}
+
 export interface AcpSessionManagerOptions {
 	/**
 	 * Resolve a workspace id to the worktree directory its sessions run in.
@@ -574,6 +584,7 @@ export class AcpSessionManager {
 	private readonly idleHibernateMs: number | null;
 	private readonly runtimes = new Map<string, AcpSessionRuntime>();
 	private readonly creations = new Map<string, InflightCreation>();
+	private readonly transcriptCache = new Map<string, TranscriptCacheEntry>();
 	/**
 	 * Sessions known from the persisted registry with no adapter process
 	 * attached. Seeded once at construction; entries leave only by successful
@@ -781,6 +792,52 @@ export class AcpSessionManager {
 					? null
 					: encodeMessagesCursor(page.nextBeforeSeq),
 		};
+	}
+
+	/** Semantic transcript page; turns never split across raw envelope boundaries. */
+	getTranscript(input: {
+		sessionId: string;
+		cursor?: string;
+		targetTurn?: number;
+		limit?: number;
+	}): TranscriptPage {
+		const runtime = this.runtimes.get(input.sessionId);
+		const cached = this.transcriptCache.get(input.sessionId);
+		let entries: SessionUpdateEnvelope[];
+		let epoch: string;
+		if (runtime) {
+			epoch = runtime.journal.epoch;
+			if (
+				cached?.epoch === epoch &&
+				cached.latestSeq === runtime.journal.latestSeq
+			) {
+				return buildTranscriptPageFromTurns(cached.turns, input);
+			}
+			entries =
+				this.persistence?.loadJournal(input.sessionId, epoch) ??
+				runtime.journal.snapshot();
+		} else {
+			const record = this.offline.get(input.sessionId);
+			if (!record) {
+				throw new AcpSessionNotFoundError(
+					`Unknown ACP session: ${input.sessionId}`,
+				);
+			}
+			epoch = record.epoch;
+			if (cached?.epoch === epoch) {
+				return buildTranscriptPageFromTurns(cached.turns, input);
+			}
+			entries =
+				this.persistence?.loadJournal(input.sessionId, epoch) ??
+				this.offlineJournal(input.sessionId).snapshot();
+		}
+		const latestSeq = entries.at(-1)?.seq ?? 0;
+		if (cached?.epoch === epoch && cached.latestSeq === latestSeq) {
+			return buildTranscriptPageFromTurns(cached.turns, input);
+		}
+		const turns = groupTranscriptTurns(entries);
+		this.transcriptCache.set(input.sessionId, { epoch, latestSeq, turns });
+		return buildTranscriptPageFromTurns(turns, input);
 	}
 
 	/**

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ContentBlock, RequestPermissionOutcome } from "./acp";
 import type { SessionUpdateEnvelope } from "./envelope";
 import type { SessionScopedState } from "./state";
+import type { TranscriptTurn, TranscriptTurnSummary } from "./transcript";
 
 // ---------------------------------------------------------------------------
 // Cursor encoding for getMessages (journal walked backwards from newest).
@@ -9,6 +10,7 @@ import type { SessionScopedState } from "./state";
 // ---------------------------------------------------------------------------
 
 const CURSOR_PATTERN = /^s([1-9][0-9]*)$/;
+const TRANSCRIPT_CURSOR_PATTERN = /^t([1-9][0-9]*)$/;
 
 export function encodeMessagesCursor(beforeSeq: number): string {
 	if (!Number.isInteger(beforeSeq) || beforeSeq < 1) {
@@ -22,6 +24,21 @@ export function decodeMessagesCursor(cursor: string): number | null {
 	if (!match) return null;
 	const seq = Number(match[1]);
 	return Number.isSafeInteger(seq) ? seq : null;
+}
+
+/** Cursor naming the oldest turn in the next (older) transcript page. */
+export function encodeTranscriptCursor(beforeTurn: number): string {
+	if (!Number.isInteger(beforeTurn) || beforeTurn < 1) {
+		throw new Error(`invalid transcript cursor turn: ${beforeTurn}`);
+	}
+	return `t${beforeTurn}`;
+}
+
+export function decodeTranscriptCursor(cursor: string): number | null {
+	const match = TRANSCRIPT_CURSOR_PATTERN.exec(cursor);
+	if (!match) return null;
+	const turn = Number(match[1]);
+	return Number.isSafeInteger(turn) ? turn : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +114,19 @@ export const getMessagesInput = z.object({
 	sessionId: sessionIdSchema,
 	cursor: z.string().optional(),
 	limit: limitSchema,
+});
+
+const transcriptLimitSchema = z.number().int().min(1).max(50).default(8);
+
+export const getTranscriptInput = z.object({
+	sessionId: sessionIdSchema,
+	cursor: z
+		.string()
+		.regex(TRANSCRIPT_CURSOR_PATTERN, "expected a transcript turn cursor")
+		.optional(),
+	/** Return a page containing this 1-based turn, used by the rail. */
+	targetTurn: z.number().int().min(1).optional(),
+	limit: transcriptLimitSchema,
 });
 
 export const promptInput = z.object({
@@ -186,6 +216,16 @@ export interface MessagesPage {
 	nextCursor: string | null;
 }
 
+export interface TranscriptPage {
+	/** Complete semantic turns in chronological order. */
+	turns: TranscriptTurn[];
+	/** Lightweight index for the entire retained transcript. */
+	index: TranscriptTurnSummary[];
+	totalTurns: number;
+	/** Cursor for the next page of older turns. */
+	nextCursor: string | null;
+}
+
 /**
  * `enabled` doubles as the capability signal: `list` is the one ungated ACP
  * procedure, so a host with the feature off answers `{ items: [], enabled:
@@ -209,6 +249,13 @@ export interface AcpSessionsApi {
 		cursor?: string;
 		limit?: number;
 	}): Promise<MessagesPage>;
+	/** Semantic history; optional while older hosts/fixtures only support raw pages. */
+	getTranscript?(input: {
+		sessionId: string;
+		cursor?: string;
+		targetTurn?: number;
+		limit?: number;
+	}): Promise<TranscriptPage>;
 	prompt(input: {
 		sessionId: string;
 		commandId?: string;

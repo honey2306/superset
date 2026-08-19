@@ -5,6 +5,7 @@ export interface AcpTurnRailItem {
 	id: string;
 	turnNumber: number;
 	isComplete: boolean;
+	isLoaded?: boolean;
 	userPreview: string;
 	agentPreview: string | null;
 }
@@ -52,6 +53,7 @@ export function AcpTurnRail({
 						turnNumber={item.turnNumber}
 						isActive={activeTurnId === item.id}
 						isComplete={item.isComplete}
+						isLoaded={item.isLoaded}
 						userPreview={item.userPreview}
 						agentPreview={item.agentPreview}
 						agentLabel={agentLabel}

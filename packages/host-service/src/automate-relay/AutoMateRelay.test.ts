@@ -53,6 +53,7 @@ describe("AutoMateRelay", () => {
 		expect(isAllowedPath("/trpc/acpSessions.get?input=encoded")).toBe(true);
 		expect(isAllowedPath("/trpc/terminalAgents.listByWorkspace")).toBe(true);
 		expect(isAllowedPath("/trpc/terminalAgents.getOrCreate")).toBe(true);
+		expect(isAllowedPath("/trpc/terminal.listSessions")).toBe(true);
 		expect(isAllowedPath("/trpc/terminalAgents.list")).toBe(false);
 		expect(isAllowedPath("/acp-sessions/a/stream?token=phone")).toBe(true);
 		expect(isAllowedPath("https://evil.example/trpc")).toBe(false);

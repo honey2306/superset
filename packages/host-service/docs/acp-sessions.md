@@ -186,6 +186,17 @@ disk-backed history source, while the in-memory ring keeps only a small recent
 catch-up window. The React layer should retain only pages the user has loaded
 plus a bounded live-event buffer.
 
+### Semantic transcript reads
+
+The user-facing history surface is `acpSessions.getTranscript`, not the raw
+`getMessages` envelope cursor. A transcript page contains complete turns (from
+one `user_message_chunk` start through the envelope before the next user
+message), an `index` of lightweight turn summaries, and `totalTurns`. The
+initial page contains the newest turns; older pages use `t<turn-number>`
+cursors. The rail can request an individual unloaded turn with `targetTurn`.
+Raw `getMessages` remains available to protocol/debug tooling and for stream
+catch-up compatibility, but Desktop does not expose its event page numbers.
+
 ## Stream Contract
 
 Every envelope has a per-runtime numeric sequence:

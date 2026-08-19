@@ -293,6 +293,193 @@ describe("useAcpSession lifecycle recovery", () => {
 		expect(item.blocks).toEqual([{ type: "text", text: "oldernewer live" }]);
 	});
 
+	test("uses the semantic index for total turns, dedupes older loads, and loads a target turn", async () => {
+		const calls: Array<{
+			cursor?: string;
+			targetTurn?: number;
+			limit?: number;
+		}> = [];
+		const sockets: ReturnType<typeof idleSocket>[] = [];
+		const user = (seq: number, text: string): SessionUpdateEnvelope => ({
+			seq,
+			epoch: state.epoch,
+			sessionId: state.sessionId,
+			ts: seq,
+			frame: {
+				kind: "update",
+				update: {
+					sessionUpdate: "user_message_chunk",
+					content: { type: "text", text },
+				},
+			},
+		});
+		const turnOne = [user(1, "old question"), messageEnvelope("old answer", 2)];
+		const turnTwo = [
+			user(3, "new question"),
+			messageEnvelope("part one", 4),
+			messageEnvelope("part two", 5),
+			messageEnvelope("new answer", 6),
+		];
+		let releaseOlder: (() => void) | undefined;
+		const olderGate = new Promise<void>((resolve) => {
+			releaseOlder = resolve;
+		});
+		const api = {
+			get: async () => ({ ...state, lastSeq: 6 }),
+			getMessages: async () => ({ items: [], nextCursor: null }),
+			getTranscript: async (input: {
+				cursor?: string;
+				targetTurn?: number;
+				limit?: number;
+			}) => {
+				calls.push(input);
+				if (input.targetTurn === 1) {
+					return {
+						turns: [
+							{
+								turnNumber: 1,
+								startSeq: 1,
+								endSeq: 2,
+								userPreview: "old question",
+								agentPreview: "old answer",
+								isComplete: true,
+								items: turnOne,
+							},
+						],
+						index: [
+							{
+								turnNumber: 1,
+								startSeq: 1,
+								endSeq: 2,
+								userPreview: "old question",
+								agentPreview: "old answer",
+								isComplete: true,
+							},
+							{
+								turnNumber: 2,
+								startSeq: 3,
+								endSeq: 6,
+								userPreview: "new question",
+								agentPreview: "new answer",
+								isComplete: true,
+							},
+						],
+						totalTurns: 2,
+						nextCursor: null,
+					};
+				}
+				if (input.cursor === undefined) {
+					return {
+						turns: [
+							{
+								turnNumber: 2,
+								startSeq: 3,
+								endSeq: 6,
+								userPreview: "new question",
+								agentPreview: "new answer",
+								isComplete: true,
+								items: turnTwo,
+							},
+						],
+						index: [
+							{
+								turnNumber: 1,
+								startSeq: 1,
+								endSeq: 2,
+								userPreview: "old question",
+								agentPreview: "old answer",
+								isComplete: true,
+							},
+							{
+								turnNumber: 2,
+								startSeq: 3,
+								endSeq: 6,
+								userPreview: "new question",
+								agentPreview: "new answer",
+								isComplete: true,
+							},
+						],
+						totalTurns: 2,
+						nextCursor: "t2",
+					};
+				}
+				await olderGate;
+				return {
+					turns: [
+						{
+							turnNumber: 1,
+							startSeq: 1,
+							endSeq: 2,
+							userPreview: "old question",
+							agentPreview: "old answer",
+							isComplete: true,
+							items: turnOne,
+						},
+					],
+					index: [],
+					totalTurns: 2,
+					nextCursor: null,
+				};
+			},
+			prompt: async () => ({ accepted: true as const }),
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const { result } = renderHook(() =>
+			useAcpSession({
+				sessionId: state.sessionId,
+				pageSize: 1,
+				api,
+				streamUrl: "ws://test",
+				createWebSocket: () => {
+					const socket = idleSocket();
+					sockets.push(socket);
+					return socket;
+				},
+			}),
+		);
+		await waitFor(() => result.current.isLoading === false);
+		expect(calls[0]?.limit).toBe(8);
+		expect(result.current.totalTurns).toBe(2);
+		expect(result.current.loadedTurnNumbers).toEqual([2]);
+		await act(async () => {
+			await result.current.loadTurn(1);
+		});
+		expect(calls.filter(({ targetTurn }) => targetTurn === 1)).toHaveLength(1);
+		expect(result.current.loadedTurnNumbers).toEqual([1, 2]);
+
+		await act(async () => {
+			sockets[0]?.onmessage?.({
+				data: JSON.stringify(user(7, "live question")),
+			});
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		});
+		expect(result.current.totalTurns).toBe(3);
+		expect(result.current.loadedTurnNumbers).toEqual([1, 2, 3]);
+
+		const firstOlder = result.current.loadOlder();
+		const secondOlder = result.current.loadOlder();
+		expect(calls.filter(({ cursor }) => cursor === "t2")).toHaveLength(1);
+		expect(calls.find(({ cursor }) => cursor === "t2")?.limit).toBe(1);
+		releaseOlder?.();
+		await act(async () => {
+			await Promise.all([firstOlder, secondOlder]);
+		});
+		expect(result.current.loadedTurnNumbers).toEqual([1, 2]);
+		// A target request for an already loaded turn is a no-op.
+		await result.current.loadTurn(1);
+		expect(calls.filter(({ targetTurn }) => targetTurn === 1)).toHaveLength(1);
+	});
+
 	test("keeps cached history disabled through a transient failure, then restores admission", async () => {
 		let fail = false;
 		const api = {

@@ -16,7 +16,12 @@ function createFetcher(): {
 			calls.push(workspaceId);
 			return new Promise((resolve) => {
 				pending.set(workspaceId, () =>
-					resolve({ acpEnabled: true, sessions: [], terminalAgents: [] }),
+					resolve({
+						acpEnabled: true,
+						sessions: [],
+						terminalSessions: [],
+						terminalAgents: [],
+					}),
 				);
 			});
 		},
@@ -47,7 +52,12 @@ test("shares in-flight loads and retries a failed workspace without affecting ot
 		if (workspaceId === "workspace-2" && attempts++ === 0) {
 			throw new Error("offline");
 		}
-		return { acpEnabled: true, sessions: [], terminalAgents: [] };
+		return {
+			acpEnabled: true,
+			sessions: [],
+			terminalSessions: [],
+			terminalAgents: [],
+		};
 	});
 
 	const first = loader.load("workspace-2");
@@ -65,7 +75,12 @@ test("a fourteen-workspace catalog loads one workspace initially, then one more 
 	const calls: string[] = [];
 	const loader = createWorkspaceContentsLoader(async (workspaceId) => {
 		calls.push(workspaceId);
-		return { acpEnabled: true, sessions: [], terminalAgents: [] };
+		return {
+			acpEnabled: true,
+			sessions: [],
+			terminalSessions: [],
+			terminalAgents: [],
+		};
 	});
 	const workspaceIds = Array.from(
 		{ length: 14 },

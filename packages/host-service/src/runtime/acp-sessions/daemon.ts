@@ -14,6 +14,7 @@ import type {
 	SessionStatus,
 	SessionsPage,
 	SessionUpdateEnvelope,
+	TranscriptPage,
 } from "@superset/session-protocol";
 import hostServicePackageJson from "../../../package.json" with {
 	type: "json",
@@ -73,6 +74,7 @@ export type RequestOperation =
 	| "list"
 	| "ensureLive"
 	| "getMessages"
+	| "getTranscript"
 	| "prompt"
 	| "respondToPermission"
 	| "cancel"
@@ -97,6 +99,7 @@ const RETRYABLE_AFTER_DISCONNECT: ReadonlySet<RequestOperation> = new Set([
 	"list",
 	"ensureLive",
 	"getMessages",
+	"getTranscript",
 ]);
 
 export interface AcpDaemonHello {
@@ -319,6 +322,12 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 
 	async getMessages(input: Parameters<AcpSessionRuntime["getMessages"]>[0]) {
 		return this.request<MessagesPage>("getMessages", input);
+	}
+
+	async getTranscript(
+		input: Parameters<AcpSessionRuntime["getTranscript"]>[0],
+	): Promise<TranscriptPage> {
+		return this.request<TranscriptPage>("getTranscript", input);
 	}
 
 	async prompt(input: Parameters<AcpSessionRuntime["prompt"]>[0]) {

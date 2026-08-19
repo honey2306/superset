@@ -11,8 +11,10 @@ import { ProjectTree } from "./components/ProjectTree";
 import {
 	buildProjectTree,
 	type TerminalAgentRecord,
+	type TerminalSessionRecord,
 	type WorkspaceContents,
 } from "./workspaces/utils/buildProjectTree/buildProjectTree";
+import { createWorkspaceCatalogRefresher } from "./workspaces/utils/workspaceCatalogRefresher/workspaceCatalogRefresher";
 import {
 	createWorkspaceContentsLoader,
 	type WorkspaceContentsLoadState,
@@ -55,6 +57,15 @@ function toTerminalAgentRecord(agent: {
 	return agent;
 }
 
+function toTerminalSessionRecord(session: {
+	terminalId: string;
+	createdAt: number;
+	exited: boolean;
+	title: string | null;
+}): TerminalSessionRecord {
+	return session;
+}
+
 export function WorkspacesRoute() {
 	const navigate = useNavigate();
 	const session = getStoredSession();
@@ -78,13 +89,17 @@ export function WorkspacesRoute() {
 	const mountedRef = useRef(true);
 	const workspaceContentsLoader = useRef(
 		createWorkspaceContentsLoader(async (workspaceId) => {
-			const [acp, terminalAgents] = await Promise.all([
+			const [acp, terminalSessions, terminalAgents] = await Promise.all([
 				getTrpc().acpSessions.list.query({ workspaceId, limit: 50 }),
+				getTrpc().terminal.listSessions.query({ workspaceId }),
 				getTrpc().terminalAgents.listByWorkspace.query({ workspaceId }),
 			]);
 			return {
 				acpEnabled: acp.enabled,
 				sessions: acp.items,
+				terminalSessions: terminalSessions.sessions.map(
+					toTerminalSessionRecord,
+				),
 				terminalAgents: terminalAgents.map(toTerminalAgentRecord),
 			};
 		}),
@@ -152,42 +167,48 @@ export function WorkspacesRoute() {
 
 	useEffect(() => {
 		mountedRef.current = true;
-		let cancelled = false;
-		void (async () => {
-			try {
-				const nextSnapshot = await getTrpc().workspaceCatalog.snapshot.query();
-				if (cancelled) return;
-				setSnapshot(nextSnapshot);
-				const nextProjects = snapshotProjects(nextSnapshot);
-				const nextWorkspaces = snapshotWorkspaces(nextSnapshot);
-				const firstWorkspace = nextWorkspaces[0];
-				const firstProject =
-					nextProjects.find(
-						(project) => project.id === firstWorkspace?.projectId,
-					) ?? nextProjects[0];
-				if (firstProject) setExpandedProjectIds(new Set([firstProject.id]));
-				if (firstWorkspace) {
-					setExpandedWorkspaceIds(new Set([firstWorkspace.id]));
-					loadWorkspaceContents(firstWorkspace.id);
-				}
-			} catch (caught) {
-				if (cancelled) return;
-				if (isUnauthorized(caught)) {
-					clearStoredSession();
-					resetTrpc();
-					if (isAutoMateWebAppPath(location.pathname)) {
-						window.location.replace(
-							getAutoMateCleanPairPath(location.pathname),
-						);
-					} else navigate("/pair", { replace: true });
-					return;
-				}
-				setError(caught instanceof Error ? caught.message : "Failed to load");
-			}
-		})();
-		return () => {
-			cancelled = true;
-		};
+		let initialSnapshotLoaded = false;
+		const refresher = createWorkspaceCatalogRefresher(
+			() => getTrpc().workspaceCatalog.snapshot.query(),
+			{
+				onSnapshot: (nextSnapshot) => {
+					if (!mountedRef.current) return;
+					setSnapshot(nextSnapshot);
+					setError(null);
+					if (initialSnapshotLoaded) return;
+					initialSnapshotLoaded = true;
+					const nextProjects = snapshotProjects(nextSnapshot);
+					const nextWorkspaces = snapshotWorkspaces(nextSnapshot);
+					const firstWorkspace = nextWorkspaces[0];
+					const firstProject =
+						nextProjects.find(
+							(project) => project.id === firstWorkspace?.projectId,
+						) ?? nextProjects[0];
+					if (firstProject) setExpandedProjectIds(new Set([firstProject.id]));
+					if (firstWorkspace) {
+						setExpandedWorkspaceIds(new Set([firstWorkspace.id]));
+						loadWorkspaceContents(firstWorkspace.id);
+					}
+				},
+				onError: (caught) => {
+					if (!mountedRef.current) return;
+					if (isUnauthorized(caught)) {
+						clearStoredSession();
+						resetTrpc();
+						if (isAutoMateWebAppPath(location.pathname)) {
+							window.location.replace(
+								getAutoMateCleanPairPath(location.pathname),
+							);
+						} else navigate("/pair", { replace: true });
+						return;
+					}
+					setError(caught instanceof Error ? caught.message : "Failed to load");
+				},
+			},
+		);
+		refresher.start();
+		void refresher.refresh();
+		return () => refresher.stop();
 	}, [navigate, loadWorkspaceContents]);
 
 	const projects = useMemo(
