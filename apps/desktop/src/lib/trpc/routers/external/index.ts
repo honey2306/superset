@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import nodePath from "node:path";
 import {
 	EXTERNAL_APPS,
@@ -42,7 +43,7 @@ async function openPathInApp(
 	location?: OpenInAppLocation,
 ): Promise<void> {
 	if (app === "finder") {
-		shell.showItemInFolder(filePath);
+		await openPathInFinder(filePath);
 		return;
 	}
 
@@ -66,6 +67,25 @@ async function openPathInApp(
 	}
 
 	await shell.openPath(filePath);
+}
+
+async function openPathInFinder(filePath: string): Promise<void> {
+	let isDirectory = false;
+	try {
+		isDirectory = (await stat(filePath)).isDirectory();
+	} catch {
+		// Preserve the reveal behavior when the path cannot be inspected.
+	}
+
+	if (!isDirectory) {
+		shell.showItemInFolder(filePath);
+		return;
+	}
+
+	const error = await shell.openPath(filePath);
+	if (error) {
+		throw new Error(error);
+	}
 }
 
 /**
