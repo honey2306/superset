@@ -1024,7 +1024,7 @@
 .acp-tool__head {
 	display: flex;
 	align-items: baseline;
-	gap: 0;
+	gap: 8px;
 	padding: 2px 0;
 	background: transparent;
 	border: 0;
@@ -1048,6 +1048,7 @@
 	align-items: center;
 	justify-content: center;
 	width: 12px;
+	margin-right: -10px;
 	color: var(--acp-dim);
 	font-family: var(--acp-font-mono);
 	font-size: 12px;
@@ -1142,12 +1143,12 @@
 		transform: rotate(360deg);
 	}
 }
-/* Expanded body indents to align with the kind label (caret 12px + no gap
- * = 12px), so diffs / permission history / raw output visually continue the
- * tool row instead of forming a separate boxed panel. */
+/* Expanded body indents to align with the kind label (12px caret + 8px gap
+ * - 10px caret margin = 10px), so diffs / permission history / raw output
+ * visually continue the tool row instead of forming a separate boxed panel. */
 .acp-tool__body {
 	position: relative;
-	margin: 6px 0 8px 12px;
+	margin: 6px 0 8px 10px;
 	padding: 0;
 	border: 0;
 	display: flex;
