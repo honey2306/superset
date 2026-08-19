@@ -7,6 +7,7 @@ import type {
 import {
 	BUILTIN_TERMINAL_AGENT_TYPES,
 	BUILTIN_TERMINAL_AGENTS,
+	USER_VISIBLE_BUILTIN_TERMINAL_AGENTS,
 } from "./builtin-terminal-agents";
 
 export const BUILTIN_AGENT_IDS = BUILTIN_TERMINAL_AGENT_TYPES;
@@ -60,6 +61,15 @@ export const AGENT_IDENTITY_LABELS: Record<AgentIdentityId, string> = {
 
 export const BUILTIN_AGENT_DEFINITIONS: readonly AgentDefinition[] =
 	BUILTIN_TERMINAL_AGENTS;
+
+/**
+ * Built-in definitions intended for user-facing Agent preset selectors.
+ * `BUILTIN_AGENT_DEFINITIONS` remains the complete catalog so hidden agents
+ * retain their stable identity and can continue to launch from persisted or
+ * explicitly addressed configurations.
+ */
+export const USER_VISIBLE_BUILTIN_AGENT_DEFINITIONS: readonly AgentDefinition[] =
+	USER_VISIBLE_BUILTIN_TERMINAL_AGENTS;
 
 export function getBuiltinAgentDefinition(id: BuiltinAgentId): AgentDefinition {
 	const definition = BUILTIN_AGENT_DEFINITIONS.find((item) => item.id === id);

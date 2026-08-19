@@ -1,8 +1,8 @@
 import {
 	type AgentDefinition,
 	type AgentDefinitionId,
-	BUILTIN_AGENT_DEFINITIONS,
 	type TerminalAgentDefinition,
+	USER_VISIBLE_BUILTIN_AGENT_DEFINITIONS,
 } from "./agent-catalog";
 import type { TaskInput } from "./agent-command";
 import {
@@ -138,7 +138,7 @@ export function getAgentDefinitions(
 	customDefinitions: AgentCustomDefinition[] | null | undefined,
 ): AgentDefinition[] {
 	return [
-		...BUILTIN_AGENT_DEFINITIONS,
+		...USER_VISIBLE_BUILTIN_AGENT_DEFINITIONS,
 		...readAgentCustomDefinitions(customDefinitions).map((definition) =>
 			toUserTerminalAgentDefinition(definition),
 		),
@@ -328,7 +328,6 @@ export function resolveAgentConfigs({
 		),
 	);
 }
-
 export function getAgentDefinitionById({
 	customDefinitions,
 	id,

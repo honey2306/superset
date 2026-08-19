@@ -62,6 +62,12 @@ describe("agentConfigsRouter", () => {
 			expect(result.find((row) => row.presetId === "superset")).toBeUndefined();
 		});
 
+		it("does not seed the hidden DeepSeek preset", async () => {
+			const caller = createCaller();
+			const result = await caller.list();
+			expect(result.find((row) => row.presetId === "deepseek")).toBeUndefined();
+		});
+
 		it("seeds Claude with its most permissive flag", async () => {
 			const caller = createCaller();
 			const result = await caller.list();
