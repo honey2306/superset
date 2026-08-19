@@ -2133,6 +2133,60 @@
 	color: var(--acp-orange);
 	background: var(--acp-orange-dim);
 }
+.acp-plan__review {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--acp-line);
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+}
+.acp-plan__feedback {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	color: var(--acp-muted);
+	font-size: 10.5px;
+}
+.acp-plan__feedback textarea {
+	resize: vertical;
+	min-height: 62px;
+	border: 1px solid var(--acp-line-hi);
+	border-radius: 5px;
+	background: rgba(0, 0, 0, 0.18);
+	color: var(--acp-fg);
+	padding: 8px 9px;
+	font: inherit;
+	font-size: 12px;
+}
+.acp-plan__feedback textarea:focus {
+	outline: 1px solid var(--acp-cyan);
+	outline-offset: -1px;
+}
+.acp-plan__actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+.acp-plan__actions button {
+	border: 1px solid var(--acp-line-hi);
+	border-radius: 5px;
+	background: transparent;
+	color: var(--acp-fg-2);
+	padding: 6px 10px;
+	font: inherit;
+	font-size: 11.5px;
+	cursor: pointer;
+}
+.acp-plan__actions button[data-variant="primary"] {
+	border-color: color-mix(in oklch, var(--acp-cyan) 55%, var(--acp-line));
+	background: color-mix(in oklch, var(--acp-cyan) 12%, transparent);
+	color: var(--acp-cyan);
+}
+.acp-plan__actions button:disabled {
+	cursor: default;
+	opacity: 0.45;
+}
 
 /* The active plan stays docked above the composer. Its compact trigger is the
    default view; expanding reveals the existing Plan card without changing the

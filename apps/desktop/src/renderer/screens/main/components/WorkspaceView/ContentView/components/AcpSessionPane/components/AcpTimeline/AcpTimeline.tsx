@@ -21,7 +21,6 @@ import {
 } from "react";
 import { AcpEmptyState } from "../AcpEmptyState";
 import { AcpAgentAuthorRow, AcpMessageItem } from "./components/AcpMessageItem";
-import { AcpPlanDock } from "./components/AcpPlanDock";
 import { AcpPlanItem } from "./components/AcpPlanItem";
 import { AcpSubagentItem } from "./components/AcpSubagentItem";
 import { AcpToolCallItem } from "./components/AcpToolCallItem";
@@ -60,17 +59,14 @@ interface AcpTimelineProps {
 	isLoadingOlder?: boolean;
 	historyError?: Error | null;
 	onLoadOlder?(): Promise<void>;
+	canReviewPlan?: boolean;
+	isReviewingPlan?: boolean;
+	onApprovePlan?(feedback?: string): Promise<void>;
+	onRequestPlanChanges?(feedback: string): Promise<void>;
 }
 
 export interface AcpTimelineHandle {
 	scrollToLastUserMessage(): boolean;
-}
-
-function isCompletedPlan(item: PlanItem): boolean {
-	return (
-		item.entries.length > 0 &&
-		item.entries.every((entry) => entry.status === "completed")
-	);
 }
 
 /** The session status is the source of truth for the bottom activity indicator. */
@@ -90,6 +86,11 @@ function renderItem(
 	agentLabel?: string,
 	onOpenFile?: (path: string) => void,
 	presentation: "default" | "subagent" = "default",
+	planReview?: {
+		isSubmitting: boolean;
+		onApprove(feedback?: string): Promise<void>;
+		onRequestChanges(feedback: string): Promise<void>;
+	},
 ): React.ReactNode {
 	if (item.kind === "message") {
 		return (
@@ -127,7 +128,7 @@ function renderItem(
 		);
 	}
 	if (item.kind === "plan") {
-		return <AcpPlanItem key={item.id} item={item} />;
+		return <AcpPlanItem key={item.id} item={item} review={planReview} />;
 	}
 	return (
 		<AcpUnknownContent
@@ -154,6 +155,10 @@ export const AcpTimeline = memo(
 			isLoadingOlder = false,
 			historyError = null,
 			onLoadOlder,
+			canReviewPlan = false,
+			isReviewingPlan = false,
+			onApprovePlan,
+			onRequestPlanChanges,
 		},
 		ref,
 	) {
@@ -370,15 +375,26 @@ export const AcpTimeline = memo(
 			timeline.items,
 			status,
 		);
-		const activePlan = timeline.items.findLast(
-			(item): item is PlanItem =>
-				item.kind === "plan" && !item.removed && !isCompletedPlan(item),
+		const latestPlan = timeline.items.findLast(
+			(item): item is PlanItem => item.kind === "plan" && !item.removed,
 		);
-		const visibleItems = timeline.items.filter(
-			(item) =>
-				item.id !== activePlan?.id &&
-				!(item.kind === "plan" && isCompletedPlan(item)),
-		);
+		const visibleItems = timeline.items;
+		const reviewablePlan =
+			canReviewPlan &&
+			status === "idle" &&
+			latestPlan?.entries.some((entry) => entry.status !== "completed") &&
+			onApprovePlan &&
+			onRequestPlanChanges
+				? latestPlan
+				: null;
+		const reviewForItem = (item: TimelineItem) =>
+			item.id === reviewablePlan?.id && onApprovePlan && onRequestPlanChanges
+				? {
+						isSubmitting: isReviewingPlan,
+						onApprove: onApprovePlan,
+						onRequestChanges: onRequestPlanChanges,
+					}
+				: undefined;
 		// Group the visible flat timeline into turns for collapse-per-turn
 		// rendering. `expandedOverrides` remembers which completed turns the user
 		// manually expanded so clicks stick while more items stream in.
@@ -526,10 +542,7 @@ export const AcpTimeline = memo(
 		}
 
 		return (
-			<div
-				className="acp-pane__timeline"
-				data-has-plan={activePlan ? "true" : undefined}
-			>
+			<div className="acp-pane__timeline">
 				<AcpTurnRail
 					items={turnRailItems}
 					activeTurnId={resolvedActiveTurnId}
@@ -561,7 +574,14 @@ export const AcpTimeline = memo(
 									data-turn-number={turnNumber}
 								>
 									{turn.preItems.map((item) =>
-										renderItem(item, onRespond, agentLabel, onOpenFile),
+										renderItem(
+											item,
+											onRespond,
+											agentLabel,
+											onOpenFile,
+											"default",
+											reviewForItem(item),
+										),
 									)}
 									{/* Author row heads the whole agent turn (process
 									    summary + final reply). Only shown when the turn
@@ -577,19 +597,36 @@ export const AcpTimeline = memo(
 											duration={duration}
 										/>
 									)}
-									{expanded &&
-										turn.processItems.map((item) =>
-											renderItem(item, onRespond, agentLabel, onOpenFile),
-										)}
+									{turn.processItems.map((item) =>
+										item.kind === "plan" || expanded
+											? renderItem(
+													item,
+													onRespond,
+													agentLabel,
+													onOpenFile,
+													"default",
+													reviewForItem(item),
+												)
+											: null,
+									)}
 									{turn.finalAgentMessage &&
 										renderItem(
 											turn.finalAgentMessage,
 											onRespond,
 											agentLabel,
 											onOpenFile,
+											"default",
+											reviewForItem(turn.finalAgentMessage),
 										)}
 									{turn.trailingItems.map((item) =>
-										renderItem(item, onRespond, agentLabel, onOpenFile),
+										renderItem(
+											item,
+											onRespond,
+											agentLabel,
+											onOpenFile,
+											"default",
+											reviewForItem(item),
+										),
 									)}
 								</section>
 							);
@@ -597,7 +634,6 @@ export const AcpTimeline = memo(
 						{workingIndicator}
 					</div>
 				</div>
-				{activePlan && <AcpPlanDock key={activePlan.id} item={activePlan} />}
 				{showJumpButton && (
 					<button
 						type="button"
