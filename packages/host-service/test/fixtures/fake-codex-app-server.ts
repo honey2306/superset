@@ -113,6 +113,40 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 	if (frame.method === "turn/start") {
 		send({ id: frame.id, result: { turn: { id: "turn-1" } } });
 		if (scenario === "exit") return process.exit(9);
+		if (scenario === "plan") {
+			send({
+				method: "turn/plan/updated",
+				params: {
+					threadId: "thread-1",
+					turnId: "turn-1",
+					explanation: "Reviewing the implementation path.",
+					plan: [
+						{ step: "Inspect repository", status: "completed" },
+						{ step: "Implement fix", status: "inProgress" },
+					],
+				},
+			});
+			send({
+				method: "item/completed",
+				params: {
+					threadId: "thread-1",
+					turnId: "turn-1",
+					item: {
+						id: "plan-1",
+						type: "plan",
+						text: "proposal-only plan: inspect, implement, verify",
+					},
+				},
+			});
+			send({
+				method: "turn/completed",
+				params: {
+					threadId: "thread-1",
+					turn: { id: "turn-1", status: "completed" },
+				},
+			});
+			return;
+		}
 		send({
 			method: "item/started",
 			params: {

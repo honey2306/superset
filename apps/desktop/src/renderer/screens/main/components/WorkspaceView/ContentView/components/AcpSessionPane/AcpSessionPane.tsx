@@ -1,6 +1,7 @@
 import type {
 	RequestPermissionOutcome,
 	SessionConfigOption,
+	SessionModeState,
 	SessionStatus,
 	TimelineItem,
 	ToolCallUpdate,
@@ -41,6 +42,30 @@ function modelLabel(
 
 	const value = option.currentValue;
 	return value == null || value === "" ? undefined : String(value);
+}
+
+function modeLooksLikePlan(mode: SessionModeState): boolean {
+	const selected = mode.availableModes.find(
+		(candidate) => candidate.id === mode.currentModeId,
+	);
+	return /plan/i.test(`${mode.currentModeId} ${selected?.name ?? ""}`);
+}
+
+/** Pick the execution mode used after a user approves a proposed plan. */
+export function planExecutionModeId(
+	mode: SessionModeState | null,
+): string | null {
+	if (!mode || !modeLooksLikePlan(mode)) return null;
+	return (
+		mode.availableModes.find(
+			(candidate) => candidate.id === "bypassPermissions",
+		)?.id ??
+		mode.availableModes.find((candidate) => candidate.id === "default")?.id ??
+		mode.availableModes.find(
+			(candidate) => !/plan/i.test(`${candidate.id} ${candidate.name}`),
+		)?.id ??
+		null
+	);
 }
 
 function findToolCall(
@@ -291,6 +316,41 @@ export function AcpSessionPane({
 		onSessionMetadataChange(next);
 	}, [session.state, session.timeline.items, onSessionMetadataChange]);
 
+	const state = session.state;
+	const currentMode =
+		session.timeline.meta.currentMode ?? state?.currentMode ?? null;
+	const handleApprovePlan = useCallback(
+		(feedback?: string) =>
+			handleSessionUpdate(async () => {
+				const executionModeId = planExecutionModeId(currentMode);
+				if (executionModeId && executionModeId !== currentMode?.currentModeId) {
+					await session.actions.setMode(executionModeId);
+				}
+				const suffix = feedback?.trim()
+					? `\n\nAdditional feedback:\n${feedback.trim()}`
+					: "";
+				await session.actions.prompt([
+					{
+						type: "text",
+						text: `The plan is approved. Proceed with implementation.${suffix}`,
+					},
+				]);
+			}),
+		[currentMode, handleSessionUpdate, session.actions],
+	);
+	const handleRequestPlanChanges = useCallback(
+		(feedback: string) =>
+			handleSessionUpdate(async () => {
+				await session.actions.prompt([
+					{
+						type: "text",
+						text: `Please revise the plan with this feedback:\n\n${feedback.trim()}`,
+					},
+				]);
+			}),
+		[handleSessionUpdate, session.actions],
+	);
+
 	if (
 		(session.isLoading || isLaunching || session.availability === "retrying") &&
 		!session.state
@@ -335,7 +395,6 @@ export function AcpSessionPane({
 		);
 	}
 
-	const state = session.state;
 	const model =
 		modelLabel(session.timeline.meta.configOptions ?? []) ??
 		modelLabel(state?.configOptions ?? []);
@@ -350,7 +409,6 @@ export function AcpSessionPane({
 		session.timeline.items,
 		state?.status,
 	);
-
 	if (isResumeFailure) {
 		return (
 			<div className="acp-pane">
@@ -438,6 +496,10 @@ export function AcpSessionPane({
 				totalTurns={session.totalTurns}
 				loadedTurnNumbers={session.loadedTurnNumbers}
 				onLoadTurn={session.loadTurn}
+				canReviewPlan={permissions.pending.length === 0}
+				isReviewingPlan={isUpdatingSession}
+				onApprovePlan={handleApprovePlan}
+				onRequestPlanChanges={handleRequestPlanChanges}
 			/>
 
 			<div className="acp-pane__composer-wrap">

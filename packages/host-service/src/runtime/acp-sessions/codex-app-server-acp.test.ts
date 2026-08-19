@@ -12,6 +12,7 @@ import {
 	CodexBridge,
 	codexDecisionOptions,
 	codexMcpConfig,
+	codexPlanUpdate,
 	codexToolUpdate,
 	isCodexBridgeMain,
 	selectedCodexDecision,
@@ -29,7 +30,7 @@ const BROWSER_USE_MCP: McpServer = {
 	env: [{ name: "BROWSER_USE_PROFILE", value: "Superset" }],
 };
 
-function withFixture(scenario: "accept" | "decline" | "exit") {
+function withFixture(scenario: "accept" | "decline" | "exit" | "plan") {
 	const previousCommand = process.env.CODEX_APP_SERVER_COMMAND;
 	const previousScenario = process.env.CODEX_BRIDGE_SCENARIO;
 	process.env.CODEX_APP_SERVER_COMMAND = FIXTURE;
@@ -372,6 +373,44 @@ describe("Codex subagent projection", () => {
 	});
 });
 
+describe("Codex plan projection", () => {
+	test("maps app-server plan statuses into ACP plan entries", () => {
+		expect(
+			codexPlanUpdate({
+				plan: [
+					{ step: "Inspect repository", status: "completed" },
+					{ step: "Implement fix", status: "inProgress" },
+					{ step: "Run tests", status: "pending" },
+				],
+				explanation: "Checking the current implementation first.",
+			}),
+		).toEqual({
+			sessionUpdate: "plan",
+			entries: [
+				{
+					content: "Inspect repository",
+					priority: "medium",
+					status: "completed",
+				},
+				{
+					content: "Implement fix",
+					priority: "medium",
+					status: "in_progress",
+				},
+				{
+					content: "Run tests",
+					priority: "medium",
+					status: "pending",
+				},
+			],
+			_meta: {
+				"sh.superset/codexPlanExplanation":
+					"Checking the current implementation first.",
+			},
+		});
+	});
+});
+
 describe("Codex app-server recorded RPC fixture", () => {
 	test.each([
 		"accept",
@@ -437,6 +476,42 @@ describe("Codex app-server recorded RPC fixture", () => {
 			await expect(
 				bridge.prompt([{ type: "text", text: "fixture" }]),
 			).rejects.toThrow("exited");
+		} finally {
+			restore();
+		}
+	});
+
+	test("renders a Codex plan update as structured ACP content", async () => {
+		const restore = withFixture("plan");
+		const updates: SessionUpdate[] = [];
+		const bridge = new CodexBridge({
+			notify: async (_method, params) => {
+				updates.push(params.update);
+			},
+			request: async () => ({ outcome: { outcome: "cancelled" } }),
+		});
+		try {
+			await bridge.newSession(process.cwd());
+			await expect(
+				bridge.prompt([{ type: "text", text: "show the plan" }]),
+			).resolves.toEqual({ stopReason: "end_turn" });
+
+			const plan = updates.find((update) => update.sessionUpdate === "plan");
+			expect(plan).toMatchObject({
+				sessionUpdate: "plan",
+				entries: [
+					{ content: "Inspect repository", status: "completed" },
+					{ content: "Implement fix", status: "in_progress" },
+				],
+			});
+			expect(
+				updates.some(
+					(update) =>
+						update.sessionUpdate === "agent_message_chunk" &&
+						update.content.type === "text" &&
+						update.content.text.includes("proposal-only plan"),
+				),
+			).toBe(true);
 		} finally {
 			restore();
 		}

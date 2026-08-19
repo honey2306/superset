@@ -70,6 +70,44 @@ type CodexUsageUpdate = Extract<
 	SessionUpdate,
 	{ sessionUpdate: "usage_update" }
 >;
+type CodexPlanUpdate = Extract<SessionUpdate, { sessionUpdate: "plan" }>;
+
+/** Project Codex's structured turn plan into ACP's provider-neutral plan shape. */
+export function codexPlanUpdate(
+	params: Record<string, unknown>,
+): CodexPlanUpdate | null {
+	if (!Array.isArray(params.plan)) return null;
+	const entries = params.plan.flatMap((value) => {
+		if (!value || typeof value !== "object") return [];
+		const step = value as { step?: unknown; status?: unknown };
+		if (typeof step.step !== "string" || !step.step.trim()) return [];
+		const status: "completed" | "in_progress" | "pending" =
+			step.status === "completed"
+				? "completed"
+				: step.status === "inProgress" || step.status === "in_progress"
+					? "in_progress"
+					: "pending";
+		return [
+			{
+				content: step.step,
+				priority: "medium" as const,
+				status,
+			},
+		];
+	});
+	if (entries.length === 0) return null;
+	return {
+		sessionUpdate: "plan",
+		entries,
+		...(typeof params.explanation === "string" && params.explanation.trim()
+			? {
+					_meta: {
+						"sh.superset/codexPlanExplanation": params.explanation,
+					},
+				}
+			: {}),
+	};
+}
 
 /** Map Codex's active context size, not cumulative thread spend, to ACP usage. */
 export function codexUsageUpdate(
@@ -405,6 +443,11 @@ export class CodexBridge {
 			});
 		if (frame.method === "thread/tokenUsage/updated") {
 			const update = codexUsageUpdate(params);
+			if (update) void notify(update);
+			return;
+		}
+		if (frame.method === "turn/plan/updated") {
+			const update = codexPlanUpdate(params);
 			if (update) void notify(update);
 			return;
 		}

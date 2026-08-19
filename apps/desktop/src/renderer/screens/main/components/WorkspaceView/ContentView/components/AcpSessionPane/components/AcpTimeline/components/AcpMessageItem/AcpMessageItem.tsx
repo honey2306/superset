@@ -8,6 +8,8 @@ interface AcpMessageItemProps {
 	/** Hide the inline author label — used when the timeline renders its own
 	 * author row above the turn's process summary. */
 	hideAuthor?: boolean;
+	/** Show this message's timestamp below its content. */
+	showTimestamp?: boolean;
 }
 
 const ROLE_NAME: Record<string, string> = {
@@ -15,15 +17,36 @@ const ROLE_NAME: Record<string, string> = {
 	thought: "Thinking",
 };
 
+function formatMessageTimestamp(timestamp: number) {
+	const date = new Date(timestamp);
+	if (!Number.isFinite(timestamp) || Number.isNaN(date.getTime())) return null;
+	return {
+		iso: date.toISOString(),
+		short: date.toLocaleTimeString(undefined, {
+			hour: "2-digit",
+			minute: "2-digit",
+		}),
+		full: date.toLocaleString(undefined, {
+			dateStyle: "medium",
+			timeStyle: "short",
+		}),
+	};
+}
+
 export function AcpMessageItem({
 	item,
 	agentLabel,
 	hideAuthor,
+	showTimestamp = false,
 }: AcpMessageItemProps) {
 	const authorName =
 		item.role === "agent"
 			? (agentLabel ?? "Claude")
 			: (ROLE_NAME[item.role] ?? item.role);
+	const timestamp =
+		showTimestamp && item.updatedAt !== undefined
+			? formatMessageTimestamp(item.updatedAt)
+			: null;
 
 	return (
 		<div className="acp-msg" data-role={item.role}>
@@ -43,6 +66,15 @@ export function AcpMessageItem({
 					<AcpContentBlock key={`b-${i}`} block={block} />
 				))}
 			</div>
+			{timestamp && (
+				<time
+					className="acp-msg__time"
+					dateTime={timestamp.iso}
+					title={timestamp.full}
+				>
+					{timestamp.short}
+				</time>
+			)}
 		</div>
 	);
 }

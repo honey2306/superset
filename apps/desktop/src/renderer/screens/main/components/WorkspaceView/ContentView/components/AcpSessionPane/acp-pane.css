@@ -928,6 +928,13 @@
 	font-family:
 		-apple-system, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
 }
+.acp-msg__time {
+	padding: 0 4px;
+	font-family: var(--acp-font-mono);
+	font-size: 10px;
+	line-height: 1.4;
+	color: var(--acp-muted);
+}
 .acp-msg[data-role="user"] .acp-msg__bubble {
 	padding: 9px 14px;
 	background: var(--info-tint);
@@ -960,7 +967,7 @@
 	color: color-mix(in oklch, var(--acp-fg) 56%, transparent);
 }
 /* Thought content is supporting context, not primary output. AcpMarkdown sets
- * an explicit 15px size, so styling only the bubble does not make its text
+ * an explicit 14.5px size, so styling only the bubble does not make its text
  * smaller. Override the markdown itself and tighten its vertical rhythm. */
 .acp-msg[data-role="thought"] .acp-md {
 	font-size: 12px;
@@ -1476,31 +1483,38 @@
 
 /* ---------- Markdown (in agent messages) ----------
  *
- * Accent hierarchy — ONE pink signal per line:
- *   h2 is the only element that carries the pink accent (agent output uses
- *   h2 as the primary section header 90% of the time). h1 falls back to fg
- *   so h1 + h2 don't stack two pinks, and inline `code` is deliberately
- *   uncolored (fg + faint bg + mono) so a paragraph full of file names and
- *   flags doesn't render as a row of pink pills — the classic failure mode
- *   of coloured inline code in code-review prose.
+ * Pi-inspired: one color, one meaning. Pi (the terminal coding agent) renders
+ * every heading level in the same accent color and leans on weight + spacing
+ * — not a color ramp — to carry hierarchy; inline code gets its own color
+ * distinct from headings so a reader never has to ask "is this pink thing a
+ * heading or a code span?" We keep that discipline but swap Pi's palette for
+ * ours: pink is reserved for headings, cyan (already the pane's inline-code /
+ * info color) marks code, and purple marks links — three signals, three
+ * meanings, never overlapping.
  *
- * Colour hierarchy — 4 tiers so a screen of prose has real depth:
- *   heading / strong  ~100% fg   (the anchors your eye lands on)
- *   body / p / li     ~88% fg    (readable in dark mode; the global
- *                                 --fg-mute is 55%, way too grey for a
- *                                 long CJK paragraph)
- *   em                ~100% fg   (italic needs weight to survive in dark)
- *   muted / h5 / h6   ~52% fg    (visibly greyer than body, so it reads
- *                                 as a caption, not "just more text")
+ * Sizing follows Pi's terminal-derived rhythm too: headings sit close to body
+ * size (14.5–17px) since a color+weight change is enough of a signal without
+ * also jumping several point sizes, and the whole block runs a touch smaller
+ * and airier (14.5px / 1.72) than before so dense agent output doesn't feel
+ * heavy.
  *
- * Spacing — headings lead the section below them:
- *   margin-top is roughly 2× margin-bottom on every heading, so the header
- *   pulls away from the previous block and sits close to what it introduces.
- *   Body paragraph margin is 12px (comfortable for 15px CJK-heavy prose). */
+ * Color hierarchy:
+ *   heading            pink, 100% (every level — weight/spacing carries rank)
+ *   inline code        cyan, 100% (never pink — stays visually distinct from headings)
+ *   link               purple (--acp-purple)
+ *   strong             ~98% fg
+ *   body / p / li      ~86% fg
+ *   em                 ~90% fg
+ *   list marker        ~35-50% fg (neutral — color is reserved for text roles)
+ *   blockquote         ~60% fg, not italic (Pi renders quotes upright)
+ *
+ * Spacing — headings lead the section below them, margin-bottom shrinks as
+ * level deepens (h1: 24/8, h2: 22/6, h3+: 20/4 or 18/4) so headings sit close
+ * to what they introduce instead of floating mid-section. */
 .acp-md {
-	font-size: 15px;
-	line-height: 1.7;
-	color: color-mix(in oklch, var(--acp-fg) 88%, transparent);
+	font-size: 14.5px;
+	line-height: 1.72;
+	color: color-mix(in oklch, var(--acp-fg) 86%, transparent);
 }
 .acp-md > *:first-child {
 	margin-top: 0;
@@ -1511,120 +1525,129 @@
 .acp-md [data-streamdown="code-block-header"] {
 	font-size: 11px;
 }
-.acp-md h1 {
-	font-size: 22px;
-	font-weight: 700;
-	color: var(--acp-pink);
-	margin: 28px 0 12px;
-	line-height: 1.3;
-	letter-spacing: -0.005em;
-}
-.acp-md h2 {
-	font-size: 18px;
-	font-weight: 600;
-	color: var(--acp-pink);
-	margin: 24px 0 10px;
-	line-height: 1.35;
-	letter-spacing: 0.005em;
-}
-.acp-md h3 {
-	font-size: 16px;
-	font-weight: 600;
-	color: color-mix(in oklch, var(--acp-pink) 88%, var(--acp-fg));
-	margin: 20px 0 8px;
-	line-height: 1.4;
-}
-.acp-md h4 {
-	font-size: 15px;
-	font-weight: 600;
-	color: color-mix(in oklch, var(--acp-pink) 68%, var(--acp-fg));
-	margin: 16px 0 6px;
-	line-height: 1.45;
-}
+.acp-md h1,
+.acp-md h2,
+.acp-md h3,
+.acp-md h4,
 .acp-md h5,
 .acp-md h6 {
-	font-size: 12px;
+	color: var(--acp-pink);
 	font-weight: 600;
-	color: color-mix(in oklch, var(--acp-fg) 52%, transparent);
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
-	margin: 14px 0 6px;
+	letter-spacing: -0.005em;
+}
+.acp-md h1 {
+	font-size: 17px;
+	font-weight: 700;
+	margin: 36px 0 8px;
+	line-height: 1.4;
+}
+.acp-md h2 {
+	font-size: 15.5px;
+	margin: 32px 0 6px;
+	line-height: 1.45;
+}
+.acp-md h3 {
+	font-size: 14.5px;
+	margin: 28px 0 4px;
+	line-height: 1.5;
+}
+.acp-md h4,
+.acp-md h5,
+.acp-md h6 {
+	font-size: 14.5px;
+	margin: 24px 0 4px;
 	line-height: 1.5;
 }
 .acp-md p {
-	margin: 12px 0;
+	margin: 10px 0;
 	color: inherit;
 }
 .acp-md ul,
 .acp-md ol {
-	margin: 12px 0;
-	padding-left: 24px;
+	margin: 10px 0;
+	padding-left: 28px;
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: 4px;
 }
 .acp-md li {
 	margin: 0;
 	padding-left: 4px;
 	color: inherit;
-	line-height: 1.7;
+	line-height: 1.72;
 }
 .acp-md li > p {
 	margin: 0;
 }
 .acp-md li > ul,
 .acp-md li > ol {
-	margin: 6px 0 0;
+	margin: 4px 0 0;
+	padding-left: 28px;
 }
 .acp-md li + li {
 	margin-top: 0;
 }
+/* Markers stay neutral (never pink/cyan/purple — those are reserved for
+ * heading/code/link) but need enough contrast to actually read as a bullet
+ * against the pane's dark background; 35%/50% measured too faint in practice
+ * and nearly vanished at normal viewing distance. */
 .acp-md ul li::marker {
-	color: color-mix(in oklch, var(--acp-fg) 45%, transparent);
+	color: color-mix(in oklch, var(--acp-fg) 55%, transparent);
 }
 .acp-md ol li::marker {
-	color: color-mix(in oklch, var(--acp-fg) 55%, transparent);
+	color: color-mix(in oklch, var(--acp-fg) 68%, transparent);
 	font-weight: 500;
 }
 .acp-md strong {
-	color: var(--acp-fg);
+	color: color-mix(in oklch, var(--acp-fg) 98%, transparent);
 	font-weight: 600;
 }
 .acp-md em {
-	color: var(--acp-fg);
+	color: color-mix(in oklch, var(--acp-fg) 90%, transparent);
 	font-style: italic;
 }
 .acp-md a {
-	color: var(--acp-cyan);
+	color: var(--acp-purple);
 	text-decoration: underline;
-	text-decoration-color: color-mix(in oklch, var(--info) 30%, transparent);
+	text-decoration-color: color-mix(
+		in oklch,
+		var(--acp-purple) 30%,
+		transparent
+	);
 	text-underline-offset: 3px;
 }
 .acp-md a:hover {
-	text-decoration-color: var(--acp-cyan);
+	text-decoration-color: var(--acp-purple);
 }
-/* Keep prose tokens in the body sans stack so CJK and Latin text share a
- * consistent rhythm. A quiet neutral wash and medium weight distinguish code
- * without turning a sentence into a row of pills. Code blocks and table cells
- * override the family below and stay mono. */
+/* Inline code carries its own signal (cyan) so it never gets confused with a
+ * pink heading. No background — a sentence full of `--flag`s and paths stays
+ * a clean row of mono text instead of a strip of pills that skews line
+ * height. Code blocks and table cells override the family below and stay
+ * mono (this rule already is, unlike the old sans-stack inline code).
+ *
+ * Wrapping: prefer keeping a whole path/identifier on one line (browsers'
+ * default `word-break: normal` treats `/` `-` `.` as break opportunities and
+ * chops paths like `~/.kimi-code/config.toml` in the middle, which reads as
+ * two broken words rather than one path). `keep-all` disables those mid-token
+ * break points; `overflow-wrap: anywhere` is the fallback so a genuinely
+ * over-long token (single word wider than the pane) still wraps instead of
+ * overflowing the pane horizontally. */
 .acp-md code:not(pre code) {
-	background: color-mix(in oklch, var(--acp-fg) 6%, transparent);
-	color: color-mix(in oklch, var(--acp-fg) 96%, transparent);
-	padding: 0.06em 0.24em;
-	border-radius: 4px;
-	font-family: var(--acp-font-sans);
-	font-size: 1em;
+	background: transparent;
+	color: var(--acp-cyan);
+	padding: 0;
+	font-family: var(--acp-font-mono);
+	font-size: 0.88em;
 	font-weight: 500;
-	border: 0;
-	-webkit-box-decoration-break: clone;
-	box-decoration-break: clone;
+	word-break: keep-all;
+	overflow-wrap: anywhere;
 }
 .acp-md blockquote {
-	margin: 14px 0;
+	margin: 12px 0;
 	padding: 2px 0 2px 14px;
 	border-left: 2px solid var(--acp-line-hi);
-	color: color-mix(in oklch, var(--acp-fg) 70%, transparent);
-	font-style: italic;
+	color: color-mix(in oklch, var(--acp-fg) 60%, transparent);
+	font-style: normal;
 }
 .acp-md blockquote p {
 	margin: 6px 0;
@@ -1632,7 +1655,7 @@
 .acp-md hr {
 	border: 0;
 	border-top: 1px solid var(--acp-line);
-	margin: 20px 0;
+	margin: 16px 0;
 }
 
 /* ---------- Tables ----------
@@ -2156,6 +2179,60 @@
 .acp-plan__priority[data-level="medium"] {
 	color: var(--acp-orange);
 	background: var(--acp-orange-dim);
+}
+.acp-plan__review {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--acp-line);
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+}
+.acp-plan__feedback {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	color: var(--acp-muted);
+	font-size: 10.5px;
+}
+.acp-plan__feedback textarea {
+	resize: vertical;
+	min-height: 62px;
+	border: 1px solid var(--acp-line-hi);
+	border-radius: 5px;
+	background: rgba(0, 0, 0, 0.18);
+	color: var(--acp-fg);
+	padding: 8px 9px;
+	font: inherit;
+	font-size: 12px;
+}
+.acp-plan__feedback textarea:focus {
+	outline: 1px solid var(--acp-cyan);
+	outline-offset: -1px;
+}
+.acp-plan__actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+.acp-plan__actions button {
+	border: 1px solid var(--acp-line-hi);
+	border-radius: 5px;
+	background: transparent;
+	color: var(--acp-fg-2);
+	padding: 6px 10px;
+	font: inherit;
+	font-size: 11.5px;
+	cursor: pointer;
+}
+.acp-plan__actions button[data-variant="primary"] {
+	border-color: color-mix(in oklch, var(--acp-cyan) 55%, var(--acp-line));
+	background: color-mix(in oklch, var(--acp-cyan) 12%, transparent);
+	color: var(--acp-cyan);
+}
+.acp-plan__actions button:disabled {
+	cursor: default;
+	opacity: 0.45;
 }
 
 /* The active plan stays docked above the composer. Its compact trigger is the

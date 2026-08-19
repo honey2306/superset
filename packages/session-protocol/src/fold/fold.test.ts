@@ -81,6 +81,8 @@ describe("message folding", () => {
 		expect(item.blocks).toEqual([{ type: "text", text: "Hello, world" }]);
 		expect(item.startSeq).toBe(1);
 		expect(item.endSeq).toBe(2);
+		expect(item.startedAt).toBe(1001);
+		expect(item.updatedAt).toBe(1002);
 	});
 
 	test.each([

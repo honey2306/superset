@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACP Markdown 样式优化方案对比</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+            background: #1e1e1e;
+            color: rgba(255,255,255,0.88);
+            padding: 32px 24px;
+            line-height: 1.6;
+        }
+
+        .header {
+            max-width: 1800px;
+            margin: 0 auto 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .header p {
+            font-size: 15px;
+            color: rgba(255,255,255,0.55);
+        }
+
+        .comparison {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .variant {
+            background: #282a36;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            overflow: hidden;
+        }
+
+        .variant-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .variant-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .variant-desc {
+            font-size: 13px;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.5;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .variant-content {
+            padding: 32px 48px;
+            max-height: none;
+            overflow: visible;
+        }
+
+        .variant {
+            background: #282a36;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            overflow: hidden;
+        }
+
+        .variant-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+        }
+
+        .variant-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .variant-desc {
+            font-size: 13px;
+            color: rgba(255,255,255,0.5);
+            line-height: 1.5;
+        }
+
+        .variant-content {
+            padding: 24px;
+            max-height: calc(100vh - 280px);
+            overflow-y: auto;
+        }
+
+        .variant-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .variant-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .variant-content::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+            border-radius: 4px;
+        }
+
+        .variant-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        /* === 当前样式（基准） === */
+        .current .acp-md {
+            font-size: 15px;
+            line-height: 1.7;
+            color: rgba(255,255,255,0.88);
+        }
+
+        .current .acp-md h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #ff79c6;
+            margin: 28px 0 12px;
+            line-height: 1.3;
+            letter-spacing: -0.005em;
+        }
+
+        .current .acp-md h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ff79c6;
+            margin: 24px 0 10px;
+            line-height: 1.35;
+            letter-spacing: 0.005em;
+        }
+
+        .current .acp-md h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: color-mix(in oklch, #ff79c6 88%, rgba(255,255,255,0.88));
+            margin: 20px 0 8px;
+            line-height: 1.4;
+        }
+
+        .current .acp-md h4 {
+            font-size: 15px;
+            font-weight: 600;
+            color: color-mix(in oklch, #ff79c6 68%, rgba(255,255,255,0.88));
+            margin: 16px 0 6px;
+            line-height: 1.45;
+        }
+
+        .current .acp-md code {
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.96);
+            padding: 0.06em 0.24em;
+            border-radius: 4px;
+            font-family: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+            font-size: 1em;
+            font-weight: 500;
+        }
+
+        /* === 方案 1：克制主义 === */
+        .variant1 .acp-md {
+            font-size: 15px;
+            line-height: 1.7;
+            color: rgba(255,255,255,0.88);
+        }
+
+        .variant1 .acp-md h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.98);
+            margin: 32px 0 14px;
+            line-height: 1.25;
+            letter-spacing: -0.01em;
+        }
+
+        .variant1 .acp-md h2 {
+            font-size: 19px;
+            font-weight: 600;
+            color: #ff79c6;
+            margin: 28px 0 12px;
+            line-height: 1.3;
+            letter-spacing: -0.005em;
+        }
+
+        .variant1 .acp-md h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.92);
+            margin: 22px 0 10px;
+            line-height: 1.4;
+        }
+
+        .variant1 .acp-md h4 {
+            font-size: 15px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.75);
+            margin: 18px 0 8px;
+            line-height: 1.45;
+        }
+
+        .variant1 .acp-md code {
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.96);
+            padding: 0.08em 0.28em;
+            border-radius: 4px;
+            font-family: -apple-system, "SF Pro Text", "PingFang SC", "Noto Sans SC", sans-serif;
+            font-size: 0.98em;
+            font-weight: 500;
+        }
+
+        /* === 方案 2：极简纯净 === */
+        .variant2 .acp-md {
+            font-size: 14.5px;
+            line-height: 1.65;
+            color: rgba(255,255,255,0.85);
+        }
+
+        .variant2 .acp-md h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.98);
+            margin: 30px 0 14px;
+            line-height: 1.25;
+            letter-spacing: -0.01em;
+        }
+
+        .variant2 .acp-md h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.95);
+            margin: 26px 0 12px;
+            line-height: 1.3;
+            letter-spacing: -0.005em;
+        }
+
+        .variant2 .acp-md h3 {
+            font-size: 15.5px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.88);
+            margin: 22px 0 10px;
+            line-height: 1.4;
+        }
+
+        .variant2 .acp-md h4 {
+            font-size: 14.5px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.72);
+            margin: 18px 0 8px;
+            line-height: 1.45;
+        }
+
+        .variant2 .acp-md code {
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.92);
+            padding: 0.1em 0.32em;
+            border-radius: 3px;
+            font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.92em;
+            font-weight: 450;
+        }
+
+        /* === 方案 3：平衡优雅 === */
+        .variant3 .acp-md {
+            font-size: 15px;
+            line-height: 1.68;
+            color: rgba(255,255,255,0.87);
+        }
+
+        .variant3 .acp-md h1 {
+            font-size: 23px;
+            font-weight: 700;
+            color: rgba(255, 121, 198, 0.75);
+            margin: 30px 0 14px;
+            line-height: 1.28;
+            letter-spacing: -0.008em;
+        }
+
+        .variant3 .acp-md h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.95);
+            margin: 26px 0 11px;
+            line-height: 1.32;
+            letter-spacing: -0.003em;
+        }
+
+        .variant3 .acp-md h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.88);
+            margin: 22px 0 10px;
+            line-height: 1.38;
+        }
+
+        .variant3 .acp-md h4 {
+            font-size: 15px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.70);
+            margin: 18px 0 8px;
+            line-height: 1.43;
+        }
+
+        .variant3 .acp-md code {
+            background: transparent;
+            color: rgba(255,255,255,0.90);
+            padding: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+            font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.95em;
+            font-weight: 450;
+        }
+
+        /* === 方案 4：Pi 排版哲学 + Superset 主题色（完整映射） === */
+        /*
+         * Pi 的完整设计规范，映射到 Superset 主题色：
+         *
+         * Pi 原色 → Superset 映射：
+         *   mdHeading: #f0c674 (暖金) → #ff79c6 (主题粉)
+         *   mdCode: #8abeb7 (accent 青) → #ff79c6 (主题粉)
+         *   mdLink: #81a2be (柔和蓝) → #8be9fd (Superset cyan)
+         *   mdLinkUrl: #666666 (dimGray) → rgba(255,255,255,0.4) (灰)
+         *   mdListBullet: #8abeb7 (accent) → rgba(255,255,255,0.35) (纯灰)
+         *   mdQuote/mdQuoteBorder/mdHr: #808080 (gray) → rgba(255,255,255,0.15~0.6) (纯灰)
+         *   text: #d4d4d4 → rgba(255,255,255,0.86)
+         *
+         * Pi 的排版节奏：
+         *   - 字号收敛：正文 14.5px，标题 17/15.5/14.5/14.5
+         *   - 行高宽松：1.72（让 CJK 透气）
+         *   - 段间距紧凑：10px
+         *   - 标题间距递减：h1 24/8, h2 22/6, h3 20/4
+         *   - inline code 无背景
+         *   - 引用不用斜体（保持中性）
+         */
+        .variant4 .acp-md {
+            font-size: 14.5px;
+            line-height: 1.72;
+            color: rgba(255,255,255,0.86);
+        }
+
+        /* 标题：全用 Superset 主题粉色，字号收敛，靠字重分层 */
+        .variant4 .acp-md h1,
+        .variant4 .acp-md h2,
+        .variant4 .acp-md h3,
+        .variant4 .acp-md h4,
+        .variant4 .acp-md h5,
+        .variant4 .acp-md h6 {
+            color: #ff79c6;
+            font-weight: 600;
+            letter-spacing: -0.005em;
+        }
+
+        .variant4 .acp-md h1 {
+            font-size: 17px;
+            font-weight: 700;
+            margin: 24px 0 8px;
+            line-height: 1.4;
+        }
+
+        .variant4 .acp-md h2 {
+            font-size: 15.5px;
+            margin: 22px 0 6px;
+            line-height: 1.45;
+        }
+
+        .variant4 .acp-md h3 {
+            font-size: 14.5px;
+            margin: 20px 0 4px;
+            line-height: 1.5;
+        }
+
+        .variant4 .acp-md h4,
+        .variant4 .acp-md h5,
+        .variant4 .acp-md h6 {
+            font-size: 14.5px;
+            margin: 18px 0 4px;
+            line-height: 1.5;
+        }
+
+        /* inline code：Pi 用 accent 色 + 无背景
+         * → 映射到 Superset 主题粉色 + 无背景 + mono 字体 */
+        .variant4 .acp-md code {
+            background: transparent;
+            color: #ff79c6;
+            padding: 0;
+            font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.88em;
+            font-weight: 500;
+        }
+
+        /* 段落间距紧凑 */
+        .variant4 .acp-md p {
+            margin: 10px 0;
+        }
+
+        /* 列表 - Pi bullet 也用 accent 色，但我们映射到纯灰避免粉色堆叠 */
+        .variant4 .acp-md ul,
+        .variant4 .acp-md ol {
+            margin: 10px 0;
+            padding-left: 24px;
+            gap: 4px;
+        }
+
+        .variant4 .acp-md ul li::marker {
+            color: rgba(255,255,255,0.35);
+        }
+
+        .variant4 .acp-md ol li::marker {
+            color: rgba(255,255,255,0.5);
+            font-weight: 500;
+        }
+
+        /* 链接：Pi 用 #81a2be 柔和蓝 → 映射到 Superset cyan #8be9fd */
+        .variant4 .acp-md a {
+            color: #8be9fd;
+            text-decoration: underline;
+            text-decoration-color: rgba(139, 233, 253, 0.3);
+            text-underline-offset: 3px;
+        }
+
+        .variant4 .acp-md a:hover {
+            text-decoration-color: #8be9fd;
+        }
+
+        /* 引用：Pi 用纯灰 + 不用斜体 */
+        .variant4 .acp-md blockquote {
+            border-left: 2px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.6);
+            margin: 12px 0;
+            padding: 2px 0 2px 12px;
+            font-style: normal;
+        }
+
+        .variant4 .acp-md blockquote p {
+            margin: 6px 0;
+        }
+
+        /* hr：Pi 用纯灰 */
+        .variant4 .acp-md hr {
+            border: 0;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin: 16px 0;
+        }
+
+        /* 加粗：Pi 不特殊处理，继承文本色但加重 */
+        .variant4 .acp-md strong {
+            color: rgba(255,255,255,0.98);
+            font-weight: 600;
+        }
+
+        /* 斜体：Pi 保持文本色 */
+        .variant4 .acp-md em {
+            color: rgba(255,255,255,0.9);
+            font-style: italic;
+        }
+
+        /* === 方案 5：严格 Pi 规矩（一色一语义） === */
+        /*
+         * Pi 的核心设计原则：一个颜色只表达一个语义
+         *
+         * Pi 原版：
+         *   标题 = 暖金色 #f0c674（只标"这是标题"）
+         *   inline code = accent 青 #8abeb7（只标"这是代码"）
+         *   链接 = 柔和蓝 #81a2be（只标"这是链接"）
+         *   其他 = 纯灰
+         *
+         * Superset 映射（严格遵守一色一语义）：
+         *   标题 = 主题粉 #ff79c6（只标"这是标题"）
+         *   inline code = cyan #8be9fd（只标"这是代码"，对应 Pi accent）
+         *   链接 = 柔和紫 #bd93f9（独立色，避开 cyan 撞色）
+         *   列表 bullet/引用/hr = 纯灰
+         *
+         * 排版节奏完全继承方案 4（Pi 节奏）
+         */
+        .variant5 .acp-md {
+            font-size: 14.5px;
+            line-height: 1.72;
+            color: rgba(255,255,255,0.86);
+        }
+
+        .variant5 .acp-md h1,
+        .variant5 .acp-md h2,
+        .variant5 .acp-md h3,
+        .variant5 .acp-md h4,
+        .variant5 .acp-md h5,
+        .variant5 .acp-md h6 {
+            color: #ff79c6;
+            font-weight: 600;
+            letter-spacing: -0.005em;
+        }
+
+        .variant5 .acp-md h1 {
+            font-size: 17px;
+            font-weight: 700;
+            margin: 36px 0 8px;
+            line-height: 1.4;
+        }
+
+        .variant5 .acp-md h2 {
+            font-size: 15.5px;
+            margin: 32px 0 6px;
+            line-height: 1.45;
+        }
+
+        .variant5 .acp-md h3 {
+            font-size: 14.5px;
+            margin: 28px 0 4px;
+            line-height: 1.5;
+        }
+
+        .variant5 .acp-md h4,
+        .variant5 .acp-md h5,
+        .variant5 .acp-md h6 {
+            font-size: 14.5px;
+            margin: 24px 0 4px;
+            line-height: 1.5;
+        }
+
+        /* inline code：cyan 色，独立语义
+         * 粉色只给标题，cyan 只给代码，互不重叠
+         * word-break: keep-all + overflow-wrap: anywhere 让长路径优先整体不换行，
+         * 只在真的超出容器宽度时才从任意位置断，避免 ~/.kimi-code/config.toml
+         * 被 / 或 - 切断阅读节奏。 */
+        .variant5 .acp-md code {
+            background: transparent;
+            color: #8be9fd;
+            padding: 0;
+            font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.88em;
+            font-weight: 500;
+            word-break: keep-all;
+            overflow-wrap: anywhere;
+        }
+
+        .variant5 .acp-md p {
+            margin: 10px 0;
+        }
+
+        /* === 缩进规则（按 Pi 源码精确对齐） ===
+         * Pi 用等宽字符做缩进，我们换算成 px（假设 1 字符 ≈ 7px）：
+         *   列表：每层 4 空格 = 28px（无序 marker "- "、有序 "1. "）
+         *   嵌套列表：再 +4 空格 = 再 +28px
+         *   代码块：每行前 2 空格 = 14px
+         *   引用块：左侧 "│ " = 14px
+         *   标题/正文：不缩进，顶到边界
+         */
+
+        /* 列表：顶层缩进 28px */
+        .variant5 .acp-md ul,
+        .variant5 .acp-md ol {
+            margin: 10px 0;
+            padding-left: 28px;
+            gap: 4px;
+        }
+
+        /* 嵌套列表：再 +28px */
+        .variant5 .acp-md li > ul,
+        .variant5 .acp-md li > ol {
+            margin: 4px 0 0;
+            padding-left: 28px;
+        }
+
+        /* 引用块：左侧 border + 14px 缩进 */
+        .variant5 .acp-md blockquote {
+            border-left: 2px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.6);
+            margin: 12px 0;
+            padding: 2px 0 2px 14px;
+            font-style: normal;
+        }
+
+        /* 代码块：每行前 14px 缩进（模拟 Pi 的 "  " 前缀） */
+        .variant5 .acp-md pre {
+            padding: 8px 0 8px 14px;
+            margin: 10px 0;
+            background: transparent;
+            font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.88em;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.86);
+            border-left: 2px solid rgba(255,255,255,0.08);
+        }
+
+        .variant5 .acp-md pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            font-size: inherit;
+        }
+
+        .variant5 .acp-md ul li::marker {
+            color: rgba(255,255,255,0.55);
+        }
+
+        .variant5 .acp-md ol li::marker {
+            color: rgba(255,255,255,0.68);
+            font-weight: 500;
+        }
+
+        /* 链接：柔和紫，独立语义（避开 cyan 撞色） */
+        .variant5 .acp-md a {
+            color: #bd93f9;
+            text-decoration: underline;
+            text-decoration-color: rgba(189, 147, 249, 0.3);
+            text-underline-offset: 3px;
+        }
+
+        .variant5 .acp-md a:hover {
+            text-decoration-color: #bd93f9;
+        }
+
+        .variant5 .acp-md blockquote p {
+            margin: 6px 0;
+        }
+
+        .variant5 .acp-md hr {
+            border: 0;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin: 16px 0;
+        }
+
+        .variant5 .acp-md strong {
+            color: rgba(255,255,255,0.98);
+            font-weight: 600;
+        }
+
+        .variant5 .acp-md em {
+            color: rgba(255,255,255,0.9);
+            font-style: italic;
+        }
+
+        /* === 共用样式 === */
+        .acp-md > *:first-child {
+            margin-top: 0;
+        }
+
+        .acp-md > *:last-child {
+            margin-bottom: 0;
+        }
+
+        .acp-md p {
+            margin: 12px 0;
+        }
+
+        .acp-md ul {
+            margin: 12px 0;
+            padding-left: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .acp-md li {
+            margin: 0;
+            padding-left: 4px;
+            line-height: 1.65;
+        }
+
+        .acp-md ul li::marker {
+            color: rgba(255,255,255,0.45);
+        }
+
+        .acp-md strong {
+            color: rgba(255,255,255,0.98);
+            font-weight: 600;
+        }
+
+        .acp-md em {
+            font-style: italic;
+            color: rgba(255,255,255,0.92);
+        }
+
+        .acp-md a {
+            color: #8be9fd;
+            text-decoration: underline;
+            text-decoration-color: rgba(139, 233, 253, 0.3);
+            text-underline-offset: 3px;
+        }
+
+        .acp-md blockquote {
+            margin: 14px 0;
+            padding: 2px 0 2px 14px;
+            border-left: 2px solid rgba(255,255,255,0.18);
+            color: rgba(255,255,255,0.70);
+            font-style: italic;
+        }
+
+        .acp-md hr {
+            border: 0;
+            border-top: 1px solid rgba(255,255,255,0.10);
+            margin: 20px 0;
+        }
+
+        @media (max-width: 1600px) {
+            .comparison {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .variant-content {
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ACP Markdown 样式优化方案对比</h1>
+        <p>参考 Pi coding agent 的设计：所有标题用同一颜色，靠字号+字重区分层级 · 以下是 3 套优化方案</p>
+    </div>
+
+    <div class="comparison">
+        <!-- 方案 1：克制主义 -->
+        <div class="variant variant1">
+            <div class="variant-header">
+                <div class="variant-title">方案 1：克制主义</div>
+                <div class="variant-desc">只有 h2 用主题粉色作为视觉锚点，其他标题全用灰度层级。类似 Linear / Notion 的做法，一个屏幕最多一处强调色。</div>
+            </div>
+            <div class="variant-content">
+                <div class="acp-md">
+                    <h1>主标题 H1：使用高对比灰色</h1>
+                    <p>这是正文段落，字号 15px，行高 1.7。用于长篇 CJK 阅读，保持舒适的呼吸感。通过合理的段落间距和行高，让文字有足够的空间呼吸。</p>
+
+                    <h2>次级标题 H2：唯一使用主题粉色</h2>
+                    <p>H2 是 Agent 输出中最常用的段落标题（占比 90%），因此给它主题色作为视觉锚点。这样一个屏幕里最多只有一处强调色，不会造成视觉疲劳。</p>
+
+                    <h3>三级标题 H3：高对比灰色</h3>
+                    <p>H3 使用 92% 不透明度的白色，比正文（88%）稍亮，但不用主题色。通过字号（16px）和字重（600）与正文区分。</p>
+
+                    <h4>四级标题 H4：中等灰色</h4>
+                    <p>H4 使用 75% 不透明度，明显比正文更灰，适合作为小节标题或补充说明。</p>
+
+                    <p>文件路径和代码示例：<code>src/components/Button.tsx</code> 保持 sans 字体和淡背景，避免一行里满是 <code>--flag</code> 和 <code>api.method()</code> 时出现"粉色药丸"堆叠的视觉爆炸。</p>
+
+                    <ul>
+                        <li>列表项使用与正文相同的灰度</li>
+                        <li>Marker 使用 45% 不透明度，足够低调</li>
+                        <li>保持 6px 的列表项间距，让内容透气</li>
+                    </ul>
+
+                    <blockquote>
+                        引用块使用 70% 不透明度和斜体，配合左侧边框，让引用内容明显区别于正文但不会过于突出。
+                    </blockquote>
+
+                    <p><strong>加粗文字</strong>使用 98% 不透明度和 600 字重，<em>斜体文字</em>使用 92% 不透明度。<a href="#">链接</a>使用青色（cyan）并带有淡淡的下划线。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 方案 2：极简纯净 -->
+        <div class="variant variant2">
+            <div class="variant-header">
+                <div class="variant-title">方案 2：极简纯净</div>
+                <div class="variant-desc">所有标题完全不用主题色，纯灰度层级。主题粉色只留给链接/tag/强调。inline code 切回 mono 字体。类似 GitHub / Stripe 文档。</div>
+            </div>
+            <div class="variant-content">
+                <div class="acp-md">
+                    <h1>主标题 H1：纯白高对比</h1>
+                    <p>这是正文段落，字号缩小到 14.5px，行高 1.65。更紧凑的排版适合对话流场景，一屏能看到更多内容。整体风格偏向技术文档的纯净感。</p>
+
+                    <h2>次级标题 H2：95% 白色</h2>
+                    <p>H2 也不用主题色，而是用 95% 不透明度的白色。标题层级完全靠字号、字重、灰度深浅来区分，没有任何彩色干扰。</p>
+
+                    <h3>三级标题 H3：88% 灰色</h3>
+                    <p>H3 使用 88% 不透明度，与正文（85%）有细微差别。字号 15.5px，比正文稍大，配合 600 字重形成层级。</p>
+
+                    <h4>四级标题 H4：72% 中灰</h4>
+                    <p>H4 使用 72% 不透明度，明显比正文更灰。适合作为小节标题或辅助性标题。</p>
+
+                    <p>文件路径和代码示例：<code>src/components/Button.tsx</code> 切回等宽字体（mono），配合极淡背景（4% 不透明度）。这样路径和代码更有技术感，同时背景足够淡不会撑高行。</p>
+
+                    <ul>
+                        <li>列表项保持紧凑的行距</li>
+                        <li>整体节奏更快，适合快速浏览</li>
+                        <li>极简风格，没有任何彩色元素</li>
+                    </ul>
+
+                    <blockquote>
+                        引用块同样使用灰度，整个界面只有链接和语法高亮会出现颜色，其他全是黑白灰。
+                    </blockquote>
+
+                    <p><strong>加粗文字</strong>和<em>斜体文字</em>也都是灰度，只有<a href="#">链接</a>保留青色。这种极简风格让用户的注意力完全集中在内容本身。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 方案 3：平衡优雅 -->
+        <div class="variant variant3">
+            <div class="variant-header">
+                <div class="variant-title">方案 3：平衡优雅</div>
+                <div class="variant-desc">H1 用淡雅粉色（75% 不透明度），其他标题用灰度。inline code 用 mono + 无背景 + 淡下划线。在品牌感和克制之间取得平衡。</div>
+            </div>
+            <div class="variant-content">
+                <div class="acp-md">
+                    <h1>主标题 H1：淡雅粉色</h1>
+                    <p>这是正文段落，字号 15px，行高 1.68。H1 使用主题粉色但降低到 75% 不透明度，让粉色变得更内敛、更优雅，不会过于抢眼。</p>
+
+                    <h2>次级标题 H2：95% 白色</h2>
+                    <p>H2 不用粉色，而是用高对比白色（95%）。这样 H1 的淡粉色就成为页面中唯一的品牌色点缀，既保留品牌识别度，又不会造成"粉色疲劳"。</p>
+
+                    <h3>三级标题 H3：88% 灰色</h3>
+                    <p>H3 使用 88% 不透明度的白色，与正文（87%）略有差异。字号 16px，配合 600 字重，形成清晰的层级。</p>
+
+                    <h4>四级标题 H4：70% 中灰</h4>
+                    <p>H4 使用 70% 不透明度，明显比正文更灰，适合作为补充性标题。</p>
+
+                    <p>文件路径和代码示例：<code>src/components/Button.tsx</code> 使用 mono 字体，但去掉背景，改用淡淡的下划线（12% 不透明度）。这样既有技术感，又不会因为背景块让行高变得参差不齐。</p>
+
+                    <ul>
+                        <li>列表项保持适中的间距</li>
+                        <li>行高 1.68 让 CJK 文字有足够呼吸空间</li>
+                        <li>整体风格在克制和品牌感之间取得平衡</li>
+                    </ul>
+
+                    <blockquote>
+                        引用块使用灰度和斜体，配合左侧边框。整体排版在专业感和亲和力之间找到平衡点。
+                    </blockquote>
+
+                    <p><strong>加粗文字</strong>使用高对比白色，<em>斜体文字</em>稍弱一些。<a href="#">链接</a>保留青色和下划线。这个方案结合了方案 1 和方案 2 的优点。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 方案 4：Pi 风格 -->
+        <div class="variant variant4">
+            <div class="variant-header">
+                <div class="variant-title">方案 4：Pi 排版哲学 + Superset 主题色（完整映射）</div>
+                <div class="variant-desc">所有元素都对齐 Pi：正文/标题/code/链接/列表/引用/hr。Pi 原色映射到 Superset 主题色（金→粉、青→粉、蓝→cyan、accent→灰）。</div>
+            </div>
+            <div class="variant-content">
+                <div class="acp-md">
+                    <h1>主标题 H1：粉色 17px 700</h1>
+                    <p>正文 14.5px、行高 1.72、段间距 10px、色 rgba(255,255,255,0.86)。字号收敛让排版紧凑，行高稍大保持透气。</p>
+
+                    <h2>次级标题 H2：粉色 15.5px 600</h2>
+                    <p>标题字号跨度极小（17→15.5→14.5），靠字重和粉色识别"这是标题"，不再靠字号大小分层级。标题下距 4-8px，紧贴段落。</p>
+
+                    <h3>三级标题 H3：粉色 14.5px 600</h3>
+                    <p>H3 与正文同字号，仅字重不同。深层级用得少，不需要再细分。</p>
+
+                    <h4>四级标题 H4：粉色 14.5px 600</h4>
+
+                    <p><strong>inline code</strong> 完全无背景：<code>src/components/Button.tsx</code>、<code>useMediaQuery()</code>、<code>--flag</code>、<code>process.env.NODE_ENV</code>。一段话满是 code 也不会撑高行、堆叠药丸。mono 字体 + 主题粉 + 0.88em。</p>
+
+                    <p><strong>链接</strong>用 Superset cyan：<a href="#">Read the docs</a>、<a href="#">GitHub Issue #123</a>、<a href="#">https://superset.ai/api</a>。下划线用同色 30% 透明度，hover 时加深。</p>
+
+                    <p><strong>文件路径</strong>：路径就是 inline code，不做特殊区分。<code>apps/desktop/src/renderer/screens/main/AcpSessionPane.tsx</code> 和 <code>packages/db/src/schema/user.ts</code> 都是 mono + 粉色 + 无背景。</p>
+
+                    <p><strong>无序列表</strong>：marker 用 35% 白色纯灰（Pi 原本用 accent 色，映射时避免粉色堆叠）：</p>
+                    <ul>
+                        <li>列表项字号继承正文 14.5px</li>
+                        <li>行高 1.72，marker 纯灰不抢戏</li>
+                        <li>项间距 4px，紧凑但不粘连</li>
+                    </ul>
+
+                    <p><strong>有序列表</strong>：数字 marker 用 50% 白色纯灰：</p>
+                    <ol>
+                        <li>第一步：读取 <code>package.json</code></li>
+                        <li>第二步：调用 <code>bun install</code></li>
+                        <li>第三步：验证 <a href="#">安装结果</a></li>
+                    </ol>
+
+                    <blockquote>
+                        引用块用纯灰 + 不用斜体（Pi 保持中性）。左边框 2px、15% 白色，文字 60% 白色。适合放长引用不会太扎眼。
+                    </blockquote>
+
+                    <p><strong>加粗</strong>用 98% 白色 + 600 字重、<em>斜体</em>用 90% 白色。<strong>粗+<code>code</code>+<em>斜</em></strong>组合起来也不打架。</p>
+
+                    <hr>
+
+                    <p>分隔线用 8% 白色，极淡。整个系统只有 3 种颜色：<strong>正文白</strong>、<code>粉色</code>（标题+code）、<a href="#">青色</a>（链接）。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 方案 5：严格 Pi 规矩 -->
+        <div class="variant variant5">
+            <div class="variant-header">
+                <div class="variant-title">方案 5：严格 Pi 规矩（一色一语义）</div>
+                <div class="variant-desc">严格遵守 Pi 的核心原则：一个颜色只表达一个语义。粉色=标题、cyan=代码、紫=链接、其他=灰。视觉信号极其干净，各司其职。</div>
+            </div>
+            <div class="variant-content">
+                <div class="acp-md">
+                    <h1>主标题 H1：只有粉色标题会出现</h1>
+                    <p>正文 14.5px、行高 1.72，色 rgba(255,255,255,0.86)。排版节奏完全按 Pi。</p>
+
+                    <h2>次级标题 H2：粉色只做标题信号</h2>
+                    <p>粉色在整个文档中<strong>只</strong>表示"这是标题"，不会出现在正文/代码/链接里。你眼睛看到粉色，立刻知道那是一个标题。</p>
+
+                    <h3>三级标题 H3</h3>
+                    <p>字号收敛、字重区分（600/700），层级依然清晰。</p>
+
+                    <h4>四级标题 H4</h4>
+
+                    <p><strong>inline code</strong> 用 <span style="color:#8be9fd">cyan</span>（对应 Pi 的 accent 青）：<code>src/components/Button.tsx</code>、<code>useMediaQuery()</code>、<code>--flag</code>、<code>process.env.NODE_ENV</code>。cyan 在整个文档中<strong>只</strong>标记代码。</p>
+
+                    <p><strong>链接</strong>用 <span style="color:#bd93f9">柔和紫</span>（避开 cyan 撞色）：<a href="#">Read the docs</a>、<a href="#">GitHub Issue #123</a>、<a href="#">https://superset.ai/api</a>。紫色在整个文档中<strong>只</strong>标记链接。</p>
+
+                    <p><strong>文件路径</strong>：路径就是 inline code，全部用 cyan。<code>apps/desktop/src/renderer/screens/main/AcpSessionPane.tsx</code>、<code>packages/db/src/schema/user.ts</code>。</p>
+
+                    <p><strong>无序列表</strong>：marker 用纯灰，避免占用颜色语义：</p>
+                    <ul>
+                        <li>列表项字号继承正文 14.5px</li>
+                        <li>marker 35% 白色纯灰</li>
+                        <li>项间距 4px，紧凑但透气</li>
+                    </ul>
+
+                    <p><strong>有序列表</strong>：</p>
+                    <ol>
+                        <li>读取 <code>package.json</code></li>
+                        <li>调用 <code>bun install</code></li>
+                        <li>验证 <a href="#">安装结果</a></li>
+                    </ol>
+
+                    <blockquote>
+                        引用块纯灰、不用斜体。左边框 2px 15% 白，文字 60% 白。放长引用不扎眼。
+                    </blockquote>
+
+                    <p><strong>加粗</strong>用 98% 白色（不加色相）、<em>斜体</em>用 90% 白色。<strong>粗+<code>code</code>+<em>斜</em></strong>组合，每个信号各自独立。</p>
+
+                    <hr>
+
+                    <p>整个系统 <strong>3+1</strong> 种颜色，各司其职：</p>
+                    <ul>
+                        <li><strong>正文白</strong> - 内容主体</li>
+                        <li><code>粉色</code> - 只标题</li>
+                        <li><code>cyan</code> - 只代码</li>
+                        <li><a href="#">紫色</a> - 只链接</li>
+                    </ul>
+                    <p>看到任何一种颜色，语义都是唯一的。这就是 Pi 一色一语义的核心。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -3,6 +3,7 @@ import { MessageResponse } from "@superset/ui/ai-elements/message";
 import { useState } from "react";
 import { AcpMarkdown } from "../../../AcpMarkdown";
 import { AcpUnknownContent } from "../AcpUnknownContent";
+import { AcpImagePreview } from "./components/AcpImagePreview";
 
 interface AcpContentBlockProps {
 	block: ContentBlock;
@@ -23,19 +24,7 @@ export function AcpContentBlock({ block }: AcpContentBlockProps) {
 			? block.data
 			: `data:${block.mimeType};base64,${block.data}`;
 		if (!src) return <AcpUnknownContent content={block} />;
-		return (
-			<img
-				src={src}
-				alt=""
-				style={{
-					maxHeight: 160,
-					maxWidth: "min(100%, 240px)",
-					borderRadius: 4,
-					border: "1px solid var(--acp-line)",
-					objectFit: "contain",
-				}}
-			/>
-		);
+		return <AcpImagePreview src={src} />;
 	}
 
 	if (block.type === "audio") {

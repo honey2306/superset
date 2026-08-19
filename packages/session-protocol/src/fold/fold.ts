@@ -191,7 +191,7 @@ export function foldEnvelope(
 	const { frame } = envelope;
 	switch (frame.kind) {
 		case "update":
-			foldUpdate(next, frame.update, envelope.seq);
+			foldUpdate(next, frame.update, envelope.seq, envelope.ts);
 			break;
 		case "permission_requested": {
 			const { pending } = frame;
@@ -249,7 +249,12 @@ export function foldEnvelope(
 			);
 			break;
 		case "prompt_rejected":
-			markPromptFailed(next.items, frame.promptStartSeq, envelope.seq);
+			markPromptFailed(
+				next.items,
+				frame.promptStartSeq,
+				envelope.seq,
+				envelope.ts,
+			);
 			break;
 		case "state":
 			next.state = frame.state;
@@ -289,16 +294,17 @@ function foldUpdate(
 	timeline: FoldedTimeline,
 	update: SessionUpdate,
 	seq: number,
+	ts: number,
 ): void {
 	switch (update.sessionUpdate) {
 		case "user_message_chunk":
-			appendChunk(timeline, "user", update.content, seq);
+			appendChunk(timeline, "user", update.content, seq, ts);
 			break;
 		case "agent_message_chunk":
-			appendChunk(timeline, "agent", update.content, seq);
+			appendChunk(timeline, "agent", update.content, seq, ts);
 			break;
 		case "agent_thought_chunk":
-			appendChunk(timeline, "thought", update.content, seq);
+			appendChunk(timeline, "thought", update.content, seq, ts);
 			break;
 		case "tool_call":
 			upsertToolCall(timeline, update, seq, () =>
@@ -395,6 +401,7 @@ function appendChunk(
 	role: MessageRole,
 	content: ContentBlock,
 	seq: number,
+	ts: number,
 ): void {
 	const last = timeline.items[timeline.items.length - 1];
 	// User chunks merge only when seq-contiguous with the open bubble: the host
@@ -428,6 +435,7 @@ function appendChunk(
 					timeline.items[timeline.items.length - 1] = {
 						...last,
 						endSeq: seq,
+						updatedAt: ts,
 					};
 					return;
 				}
@@ -437,6 +445,7 @@ function appendChunk(
 						...last,
 						blocks,
 						endSeq: seq,
+						updatedAt: ts,
 					};
 					return;
 				}
@@ -457,6 +466,7 @@ function appendChunk(
 			...last,
 			blocks,
 			endSeq: seq,
+			updatedAt: ts,
 		};
 		return;
 	}
@@ -468,6 +478,8 @@ function appendChunk(
 		failed: false,
 		startSeq: seq,
 		endSeq: seq,
+		startedAt: ts,
+		updatedAt: ts,
 	});
 }
 
@@ -480,19 +492,20 @@ function markPromptFailed(
 	items: TimelineItem[],
 	promptStartSeq: number,
 	seq: number,
+	ts: number,
 ): void {
 	for (let i = items.length - 1; i >= 0; i--) {
 		const item = items[i];
 		if (item?.kind !== "message" || item.role !== "user") continue;
 		if (item.startSeq <= promptStartSeq && promptStartSeq <= item.endSeq) {
-			items[i] = { ...item, failed: true, endSeq: seq };
+			items[i] = { ...item, failed: true, endSeq: seq, updatedAt: ts };
 			return;
 		}
 	}
 	for (let i = items.length - 1; i >= 0; i--) {
 		const item = items[i];
 		if (item?.kind === "message" && item.role === "user") {
-			items[i] = { ...item, failed: true, endSeq: seq };
+			items[i] = { ...item, failed: true, endSeq: seq, updatedAt: ts };
 			return;
 		}
 	}

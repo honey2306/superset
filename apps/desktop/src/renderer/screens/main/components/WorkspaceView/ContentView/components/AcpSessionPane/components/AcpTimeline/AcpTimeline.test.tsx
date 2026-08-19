@@ -388,8 +388,8 @@ describe("older history", () => {
 	});
 });
 
-describe("plan dock", () => {
-	test("hides a plan after every entry is completed", () => {
+describe("plan rendering", () => {
+	test("keeps a completed plan inline after the turn is settled", () => {
 		const completedPlan = plan(2);
 		completedPlan.entries = completedPlan.entries.map((entry) => ({
 			...entry,
@@ -401,43 +401,59 @@ describe("plan dock", () => {
 		});
 
 		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
-		expect(result.container.querySelector(".acp-plan")).toBeNull();
+		expect(
+			result.container.querySelector(".acp-pane__scroll .acp-plan"),
+		).toBeTruthy();
+		expect(screen.getByText("Inspect ACP timeline")).toBeTruthy();
 	});
 
-	test("keeps the active plan collapsed below the scrolling timeline", () => {
+	test("keeps the active plan inline in the answer", () => {
 		const result = renderTimeline({
 			...timeline(0),
 			items: [message(1), plan(2), message(3)],
 		});
 
 		const scroll = result.container.querySelector(".acp-pane__scroll");
-		const dock = result.container.querySelector(".acp-plan-dock");
-		expect(scroll?.nextElementSibling).toBe(dock);
-		expect(scroll?.querySelector(".acp-plan")).toBeNull();
-		expect(dock?.querySelector(".acp-plan")).toBeNull();
-		expect(screen.getByText("1/3")).toBeTruthy();
+		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
+		expect(scroll?.querySelector(".acp-plan")).toBeTruthy();
 		expect(screen.getByText("Keep plan docked")).toBeTruthy();
-		expect(
-			screen
-				.getByRole("button", { name: "Expand plan" })
-				.getAttribute("aria-expanded"),
-		).toBe("false");
 	});
 
-	test("reveals the existing plan card when clicked", () => {
-		const result = renderTimeline({
-			...timeline(0),
-			items: [message(1), plan(2), message(3)],
+	test("offers approve and feedback actions for the latest settled plan", async () => {
+		let approvedFeedback: string | undefined;
+		let requestedFeedback: string | undefined;
+		render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [userMessage(1), plan(2), message(3)],
+				},
+				onRespond: async () => {},
+				status: "idle",
+				canReviewPlan: true,
+				onApprovePlan: async (feedback) => {
+					approvedFeedback = feedback;
+				},
+				onRequestPlanChanges: async (feedback) => {
+					requestedFeedback = feedback;
+				},
+			}),
+		);
+
+		fireEvent.change(
+			screen.getByPlaceholderText("Add feedback for revisions…"),
+			{
+				target: { value: "Keep the public API stable" },
+			},
+		);
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Approve plan" }));
 		});
-
-		fireEvent.click(screen.getByRole("button", { name: "Expand plan" }));
-
-		expect(
-			result.container.querySelector(".acp-plan-dock .acp-plan"),
-		).toBeTruthy();
-		expect(screen.getByRole("button", { name: "Collapse plan" })).toBeTruthy();
-		expect(screen.getByText("Inspect ACP timeline")).toBeTruthy();
-		expect(screen.getByText("Verify behavior")).toBeTruthy();
+		expect(approvedFeedback).toBe("Keep the public API stable");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Request changes" }));
+		});
+		expect(requestedFeedback).toBe("Keep the public API stable");
 	});
 });
 
@@ -817,6 +833,65 @@ describe("turn collapsing", () => {
 });
 
 describe("turn durations", () => {
+	test("shows a timestamp below a user message immediately", () => {
+		const sentAt = Date.UTC(2026, 7, 19, 9, 40);
+		const result = render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [{ ...userMessage(1), updatedAt: sentAt }],
+				},
+				onRespond: async () => {},
+				status: "running",
+			}),
+		);
+
+		const timestamp = result.container.querySelector(
+			'.acp-msg[data-role="user"] .acp-msg__time',
+		);
+		expect(timestamp?.getAttribute("datetime")).toBe(
+			new Date(sentAt).toISOString(),
+		);
+	});
+
+	test("shows a timestamp below a settled final response", () => {
+		const completedAt = Date.UTC(2026, 7, 19, 9, 42);
+		const result = render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [userMessage(1), { ...message(2), updatedAt: completedAt }],
+				},
+				onRespond: async () => {},
+				status: "idle",
+			}),
+		);
+
+		const timestamp = result.container.querySelector(".acp-msg__time");
+		expect(timestamp?.tagName).toBe("TIME");
+		expect(timestamp?.getAttribute("datetime")).toBe(
+			new Date(completedAt).toISOString(),
+		);
+	});
+
+	test("does not show a completion timestamp while the turn is running", () => {
+		const result = render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [
+						userMessage(1),
+						{ ...message(2), updatedAt: Date.UTC(2026, 7, 19, 9, 42) },
+					],
+				},
+				onRespond: async () => {},
+				status: "running",
+			}),
+		);
+
+		expect(result.container.querySelector(".acp-msg__time")).toBeNull();
+	});
+
 	test("hides a completed turn duration when there is no process summary", async () => {
 		window.localStorage.setItem(
 			"acp-turn-durations:session-1",
