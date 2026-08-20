@@ -100,6 +100,7 @@ describe("patchPiAcpBundle", () => {
 		expect(patched).toContain("SUPERSET_PI_ACP_DISABLE_EXTENSIONS");
 		expect(patched).toContain("SUPERSET_PI_ACP_MCP_EXTENSION");
 		expect(patched).toContain('["--extension", process.env.');
+		expect(patched).toContain("SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT");
 		expect(patched).toContain('sessionUpdate: "usage_update", used, size');
 		expect(patched).toContain("stats?.contextUsage?.tokens");
 		expect(patched).toContain("stats?.contextUsage?.contextWindow");

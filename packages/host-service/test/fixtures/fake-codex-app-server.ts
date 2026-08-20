@@ -45,7 +45,8 @@ function recordRequest(method: string | undefined, params: unknown): void {
 		method !== "model/list" &&
 		method !== "thread/start" &&
 		method !== "thread/resume" &&
-		method !== "thread/settings/update"
+		method !== "thread/settings/update" &&
+		method !== "mcpServer/tool/call"
 	) {
 		return;
 	}
@@ -113,6 +114,37 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 	if (frame.method === "turn/start") {
 		send({ id: frame.id, result: { turn: { id: "turn-1" } } });
 		if (scenario === "exit") return process.exit(9);
+		if (scenario === "mcp-elicitation") {
+			send({
+				method: "mcpServer/elicitation/request",
+				id: 69,
+				params: {
+					threadId: "thread-1",
+					turnId: "turn-1",
+					serverName: "superset",
+					mode: "form",
+					message: "Allow Superset tool call?",
+					requestedSchema: { type: "object", properties: {} },
+					_meta: { codex_approval_kind: "mcp_tool_call" },
+				},
+			});
+			return;
+		}
+		if (scenario === "dynamic-tool") {
+			send({
+				method: "item/tool/call",
+				id: 70,
+				params: {
+					threadId: "thread-1",
+					turnId: "turn-1",
+					callId: "dynamic-call-1",
+					namespace: "superset",
+					tool: "delegate",
+					arguments: { task: "fixture delegated task" },
+				},
+			});
+			return;
+		}
 		if (scenario === "plan") {
 			send({
 				method: "turn/plan/updated",
@@ -222,6 +254,44 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 				itemId: "call-1",
 				reason: "Approve fixture",
 				availableDecisions: ["accept", "decline", "cancel"],
+			},
+		});
+		return;
+	}
+	if (frame.method === "mcpServer/tool/call") {
+		recordRequest(frame.method, frame.params);
+		send({
+			id: frame.id,
+			result: {
+				content: [{ type: "text", text: "fixture delegated result" }],
+				isError: false,
+			},
+		});
+		return;
+	}
+	if (frame.id === 70) {
+		const logPath = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+		if (logPath) {
+			appendFileSync(
+				logPath,
+				`${JSON.stringify({ method: "item/tool/call.response", params: frame.result })}\n`,
+			);
+		}
+		send({
+			method: "turn/completed",
+			params: {
+				threadId: "thread-1",
+				turn: { id: "turn-1", status: "completed" },
+			},
+		});
+		return;
+	}
+	if (frame.id === 69) {
+		send({
+			method: "turn/completed",
+			params: {
+				threadId: "thread-1",
+				turn: { id: "turn-1", status: "completed" },
 			},
 		});
 		return;

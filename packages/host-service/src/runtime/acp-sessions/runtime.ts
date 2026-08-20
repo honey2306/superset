@@ -9,6 +9,7 @@ import type {
 	SessionStatus,
 	SessionsPage,
 	SessionUpdateEnvelope,
+	SupersetSessionRole,
 	TranscriptPage,
 } from "@superset/session-protocol";
 
@@ -73,6 +74,8 @@ export interface AcpSessionRuntime {
 		model?: string;
 		/** Fail fresh creation unless the adapter confirms the requested model. */
 		strictModel?: boolean;
+		/** Persist whether this session coordinates or executes a delegation. */
+		role?: SupersetSessionRole;
 	}): MaybePromise<SessionScopedState>;
 	get(sessionId: string): MaybePromise<SessionScopedState>;
 	list(input: {

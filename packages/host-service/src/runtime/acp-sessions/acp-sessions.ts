@@ -41,6 +41,7 @@ import type {
 	SessionUpdateEnvelope,
 	SessionUpdateFrame,
 	StopReason,
+	SupersetSessionRole,
 	TranscriptPage,
 	TranscriptTurn,
 } from "@superset/session-protocol";
@@ -48,6 +49,10 @@ import {
 	customResponse,
 	encodeMessagesCursor,
 	groupTranscriptTurns,
+	SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS,
+	SUPERSET_DELEGATED_EXECUTOR_ROLE,
+	SUPERSET_DELEGATION_META_KEY,
+	SUPERSET_ROOT_COORDINATOR_ROLE,
 	selectedOptionIds,
 } from "@superset/session-protocol";
 import type { AcpArtifactStore } from "./artifact-store";
@@ -465,6 +470,8 @@ function extractElicitationQuestions(
 interface AcpSessionRuntime {
 	/** Mutable session-scoped state; snapshots are cloned on the way out. */
 	state: SessionScopedState;
+	/** Persisted Superset coordinator/executor boundary for this session. */
+	role: SupersetSessionRole;
 	/** The adapter's ACP session id — host-internal, never leaves this file. */
 	acpSessionId: string;
 	child: ChildProcess;
@@ -566,7 +573,18 @@ export interface AcpSessionManagerOptions {
 		sessionId: string;
 		workspaceId: string;
 		cwd: string;
+		role: SupersetSessionRole;
 	}) => McpServer[];
+	/**
+	 * Resolve instructions that must be placed in the model-facing context for
+	 * a new or resumed ACP session. This is intentionally evaluated per session
+	 * so a host settings change applies to the next session without restarting
+	 * the daemon. Harnesses receive this through their native high-priority
+	 * field when one exists, with the Superset metadata key as a bridge.
+	 */
+	modelFacingInstructions?: (input: {
+		role: SupersetSessionRole;
+	}) => string | undefined;
 	/**
 	 * Durable session registry. When set, every session's binding row
 	 * (workspace, adapter session id, title, stop reason) is upserted on each
@@ -632,6 +650,9 @@ export class AcpSessionManager {
 	private readonly piStartupCache: PiStartupCache;
 	private readonly mcpServers: McpServer[];
 	private readonly mcpServerFactory: AcpSessionManagerOptions["mcpServerFactory"];
+	private readonly modelFacingInstructions:
+		| AcpSessionManagerOptions["modelFacingInstructions"]
+		| undefined;
 	private readonly persistence: AcpSessionPersistence | undefined;
 	private readonly artifactStore: AcpArtifactStore | undefined;
 	private readonly generateTitle:
@@ -675,6 +696,7 @@ export class AcpSessionManager {
 		this.piStartupCache = options.piStartupCache ?? sharedPiStartupCache;
 		this.mcpServers = options.mcpServers ?? [];
 		this.mcpServerFactory = options.mcpServerFactory;
+		this.modelFacingInstructions = options.modelFacingInstructions;
 		this.persistence = options.persistence;
 		this.artifactStore = options.artifactStore;
 		this.generateTitle = options.generateTitle;
@@ -725,6 +747,8 @@ export class AcpSessionManager {
 		 * it never reports a configured model while silently using the default.
 		 */
 		strictModel?: boolean;
+		/** Root sessions coordinate; delegated children execute a handoff. */
+		role?: SupersetSessionRole;
 	}): Promise<SessionScopedState> {
 		if (input.strictModel && !input.model) {
 			throw new Error("Strict ACP model selection requires a model id");
@@ -735,6 +759,7 @@ export class AcpSessionManager {
 			input.harness ?? "claude-agent-acp",
 			input.model,
 			input.strictModel ?? false,
+			input.role,
 		);
 		return this.snapshotState(runtime);
 	}
@@ -745,6 +770,13 @@ export class AcpSessionManager {
 		const record = this.offline.get(sessionId);
 		if (record) return this.offlineState(record);
 		throw new AcpSessionNotFoundError(`Unknown ACP session: ${sessionId}`);
+	}
+
+	/** Return the persisted coordinator/executor role for host-owned callers. */
+	getRole(sessionId: string): SupersetSessionRole {
+		const runtime = this.runtimes.get(sessionId);
+		if (runtime) return runtime.role;
+		return this.offline.get(sessionId)?.role ?? SUPERSET_ROOT_COORDINATOR_ROLE;
 	}
 
 	/**
@@ -1462,6 +1494,7 @@ export class AcpSessionManager {
 		harness: HarnessKind,
 		model?: string,
 		strictModel = false,
+		role?: SupersetSessionRole,
 	): Promise<AcpSessionRuntime> {
 		const existing = this.runtimes.get(sessionId);
 		if (existing) {
@@ -1473,6 +1506,11 @@ export class AcpSessionManager {
 			if (existing.state.harness !== harness) {
 				throw new AcpWorkspaceMismatchError(
 					`Session ${sessionId} is already bound to ${existing.state.harness}`,
+				);
+			}
+			if (role !== undefined && existing.role !== role) {
+				throw new AcpWorkspaceMismatchError(
+					`Session ${sessionId} is already bound to role ${existing.role}`,
 				);
 			}
 			return existing;
@@ -1503,6 +1541,11 @@ export class AcpSessionManager {
 					`Session ${sessionId} is already bound to ${record.harness}`,
 				);
 			}
+			if (role !== undefined && record.role !== role) {
+				throw new AcpWorkspaceMismatchError(
+					`Session ${sessionId} is already bound to role ${record.role}`,
+				);
+			}
 			return this.resurrectRuntime(record);
 		}
 
@@ -1514,6 +1557,7 @@ export class AcpSessionManager {
 			false,
 			model,
 			strictModel,
+			role ?? SUPERSET_ROOT_COORDINATOR_ROLE,
 		).finally(() => {
 			this.creations.delete(sessionId);
 		});
@@ -1557,6 +1601,7 @@ export class AcpSessionManager {
 		model?: string,
 		/** Fail creation unless the adapter confirms the requested model. */
 		strictModel = false,
+		role: SupersetSessionRole = resume?.role ?? SUPERSET_ROOT_COORDINATOR_ROLE,
 	): Promise<AcpSessionRuntime> {
 		let epoch = resume?.epoch ?? randomUUID();
 		let durableEntries: SessionUpdateEnvelope[] = [];
@@ -1586,8 +1631,27 @@ export class AcpSessionManager {
 		const cwd = await this.resolveWorkspaceCwd(workspaceId);
 		const mcpServers = [
 			...this.mcpServers,
-			...(this.mcpServerFactory?.({ sessionId, workspaceId, cwd }) ?? []),
+			...(this.mcpServerFactory?.({ sessionId, workspaceId, cwd, role }) ?? []),
 		];
+		const modelFacingInstructions = (
+			role === SUPERSET_DELEGATED_EXECUTOR_ROLE
+				? SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS
+				: this.modelFacingInstructions?.({ role })
+		)?.trim();
+		const sessionMeta = modelFacingInstructions
+			? ({
+					[SUPERSET_DELEGATION_META_KEY]: modelFacingInstructions,
+					...(harness === "claude-agent-acp"
+						? {
+								systemPrompt: {
+									type: "preset" as const,
+									preset: "claude_code" as const,
+									append: modelFacingInstructions,
+								},
+							}
+						: {}),
+				} satisfies Record<string, unknown>)
+			: undefined;
 		// process.execPath instead of a PATH lookup for "node": inside the
 		// packaged Electron app there is no node on PATH — the Electron binary
 		// itself runs the script when ELECTRON_RUN_AS_NODE is set (the same
@@ -1608,6 +1672,16 @@ export class AcpSessionManager {
 			...process.env,
 			...this.adapterEnv,
 		};
+		if (harness === "pi-acp" && modelFacingInstructions) {
+			// pi-acp 0.0.33 has no ACP developer-instructions field, but its
+			// underlying Pi RPC process supports the native CLI
+			// --append-system-prompt flag. The bundled bridge below maps this
+			// environment value to that high-priority system prompt argument.
+			env.SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT = modelFacingInstructions;
+		} else {
+			delete env.SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT;
+		}
+		env.SUPERSET_ACP_SESSION_ROLE = role;
 		if (harness === "claude-agent-acp" && !this.adapterEntry) {
 			assertExternalClaudeCliAvailable(env);
 		}
@@ -1782,6 +1856,7 @@ export class AcpSessionManager {
 						sessionId: resume.acpSessionId,
 						cwd,
 						mcpServers,
+						...(sessionMeta ? { _meta: sessionMeta } : {}),
 					});
 					acpSessionId = resume.acpSessionId;
 					modes = loaded.modes ?? null;
@@ -1797,6 +1872,7 @@ export class AcpSessionManager {
 				const session = await connection.agent.request("session/new", {
 					cwd,
 					mcpServers,
+					...(sessionMeta ? { _meta: sessionMeta } : {}),
 				});
 				acpSessionId = session.sessionId;
 				if (harness === "pi-acp") {
@@ -1904,6 +1980,7 @@ export class AcpSessionManager {
 					createdAt: resume?.createdAt ?? now,
 					updatedAt: now,
 				},
+				role,
 				acpSessionId,
 				child,
 				connection,
@@ -2066,6 +2143,7 @@ export class AcpSessionManager {
 			workspaceId: runtime.state.workspaceId,
 			acpSessionId: runtime.acpSessionId,
 			epoch: runtime.state.epoch,
+			role: runtime.role,
 			harness: runtime.state.harness,
 			cwd: runtime.state.cwd,
 			title: runtime.state.title,
@@ -2713,6 +2791,7 @@ export class AcpSessionManager {
 				workspaceId: runtime.state.workspaceId,
 				acpSessionId: runtime.acpSessionId,
 				epoch: runtime.state.epoch,
+				role: runtime.role,
 				harness: runtime.state.harness,
 				cwd: runtime.state.cwd,
 				title: runtime.state.title,

@@ -141,6 +141,13 @@
       "when": 1786896190784,
       "tag": "0019_organic_sprite",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1787218569120,
+      "tag": "0020_equal_fantastic_four",
+      "breakpoints": true
     }
   ]
 }

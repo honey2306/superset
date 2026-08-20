@@ -33,6 +33,7 @@ import {
 	makeSelectedOutcome,
 	type SessionScopedState,
 	type SessionUpdateEnvelope,
+	SUPERSET_DELEGATION_META_KEY,
 	type Timeline,
 } from "@superset/session-protocol";
 import {
@@ -44,6 +45,7 @@ import {
 	AcpSessionManager,
 	AcpSessionNotFoundError,
 	type AcpSessionPersistence,
+	type AcpSessionRecord,
 	AcpWorkspaceMismatchError,
 	PiStartupCache,
 	registerAcpSessionStreamRoute,
@@ -118,6 +120,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		piAdapterEntry?: string;
 		piStartupCache?: PiStartupCache;
 		adapterEnv?: Record<string, string>;
+		modelFacingInstructions?: () => string | undefined;
 		generateTitle?: (input: {
 			sessionId: string;
 			workspaceId: string;
@@ -132,6 +135,106 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		managers.push(manager);
 		return manager;
 	}
+
+	test("places Superset delegation instructions in Claude's system prompt metadata", async () => {
+		const sessionId = "model-context-delegation";
+		const mcpRequestLog = path.join(workspaceDir, "delegation-context.jsonl");
+		const instructions = "Use Superset delegate before substantial changes.";
+		const manager = newManager({
+			adapterEnv: { FAKE_ACP_MCP_REQUEST_LOG: mcpRequestLog },
+			modelFacingInstructions: () => instructions,
+		});
+
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+
+		const requests = (await Bun.file(mcpRequestLog).text())
+			.trim()
+			.split("\n")
+			.map(
+				(line) =>
+					JSON.parse(line) as {
+						phase: string;
+						meta?: Record<string, unknown>;
+					},
+			);
+		expect(requests[0]?.meta).toEqual({
+			[SUPERSET_DELEGATION_META_KEY]: instructions,
+			systemPrompt: {
+				type: "preset",
+				preset: "claude_code",
+				append: instructions,
+			},
+		});
+	}, 30_000);
+
+	test("persists delegated executor role and restores it without an explicit role", async () => {
+		const sessionId = "delegated-role-restart";
+		const rows = new Map<string, AcpSessionRecord>();
+		const persistence: AcpSessionPersistence = {
+			loadAll: () => [...rows.values()],
+			upsert: (record) => rows.set(record.sessionId, record),
+			loadJournal: () => [],
+			appendEnvelope: () => {},
+			reserveCommand: () => true,
+			releaseCommand: () => {},
+			deleteSession: (id) => rows.delete(id),
+		};
+		const first = new AcpSessionManager({
+			resolveWorkspaceCwd: () => workspaceDir,
+			adapterEntry: FAKE_ADAPTER,
+			persistence,
+		});
+		managers.push(first);
+		await first.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			role: "delegated-executor",
+		});
+		expect(rows.get(sessionId)?.role).toBe("delegated-executor");
+		await first.dispose();
+
+		const restarted = new AcpSessionManager({
+			resolveWorkspaceCwd: () => workspaceDir,
+			adapterEntry: FAKE_ADAPTER,
+			persistence,
+		});
+		managers.push(restarted);
+		expect(restarted.getRole(sessionId)).toBe("delegated-executor");
+		await restarted.create({ sessionId, workspaceId: WORKSPACE_ID });
+		expect(restarted.getRole(sessionId)).toBe("delegated-executor");
+		await expect(
+			restarted.create({
+				sessionId,
+				workspaceId: WORKSPACE_ID,
+				role: "root-coordinator",
+			}),
+		).rejects.toThrow("already bound to role delegated-executor");
+	}, 30_000);
+
+	test("places Superset delegation instructions in Pi's appended system prompt", async () => {
+		const sessionId = "pi-model-context-delegation";
+		const mcpRequestLog = path.join(
+			workspaceDir,
+			"pi-delegation-context.jsonl",
+		);
+		const instructions = "Use Superset delegate before substantial changes.";
+		const manager = newManager({
+			adapterEnv: { FAKE_ACP_MCP_REQUEST_LOG: mcpRequestLog },
+			modelFacingInstructions: () => instructions,
+			piAdapterEntry: FAKE_ADAPTER,
+		});
+
+		await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			harness: "pi-acp",
+		});
+
+		const request = JSON.parse(
+			(await Bun.file(mcpRequestLog).text()).trim(),
+		) as { piAppendSystemPrompt?: string };
+		expect(request.piAppendSystemPrompt).toBe(instructions);
+	}, 30_000);
 
 	test("strict model creation requires the adapter to expose a model option", async () => {
 		const lenientManager = newManager({

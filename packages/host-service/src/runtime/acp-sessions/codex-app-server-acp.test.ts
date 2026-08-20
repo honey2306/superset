@@ -11,8 +11,10 @@ import type {
 import {
 	CodexBridge,
 	codexDecisionOptions,
+	codexDynamicToolCallResponse,
 	codexMcpConfig,
 	codexPlanUpdate,
+	codexThreadConfig,
 	codexToolUpdate,
 	isCodexBridgeMain,
 	selectedCodexDecision,
@@ -30,7 +32,15 @@ const BROWSER_USE_MCP: McpServer = {
 	env: [{ name: "BROWSER_USE_PROFILE", value: "Superset" }],
 };
 
-function withFixture(scenario: "accept" | "decline" | "exit" | "plan") {
+function withFixture(
+	scenario:
+		| "accept"
+		| "decline"
+		| "exit"
+		| "plan"
+		| "dynamic-tool"
+		| "mcp-elicitation",
+) {
 	const previousCommand = process.env.CODEX_APP_SERVER_COMMAND;
 	const previousScenario = process.env.CODEX_BRIDGE_SCENARIO;
 	process.env.CODEX_APP_SERVER_COMMAND = FIXTURE;
@@ -126,6 +136,132 @@ describe("Codex app-server approval decisions", () => {
 });
 
 describe("Codex app-server MCP forwarding", () => {
+	test("forwards MCP tool approval elicitations through ACP permission", async () => {
+		const restore = withFixture("mcp-elicitation");
+		const requests: RequestPermissionRequest[] = [];
+		const bridge = new CodexBridge({
+			notify: async () => {},
+			request: async (_method, params) => {
+				requests.push(params);
+				return {
+					outcome: { outcome: "selected", optionId: "allow_once" },
+				} as RequestPermissionResponse;
+			},
+		});
+		try {
+			await bridge.newSession(process.cwd());
+			await expect(
+				bridge.prompt([{ type: "text", text: "approve MCP" }]),
+			).resolves.toEqual({ stopReason: "end_turn" });
+			expect(requests).toHaveLength(1);
+			expect(requests[0]).toMatchObject({
+				toolCall: { title: "Allow Superset tool call?", status: "pending" },
+				options: [
+					{ optionId: "allow_once", kind: "allow_once" },
+					{ optionId: "allow_session", kind: "allow_always" },
+					{ optionId: "decline", kind: "reject_once" },
+				],
+			});
+		} finally {
+			restore();
+		}
+	});
+
+	test("disables native subagents when Superset role instructions are present", () => {
+		expect(codexThreadConfig([BROWSER_USE_MCP], true)).toEqual({
+			...codexMcpConfig([BROWSER_USE_MCP]),
+			features: { multi_agent: false },
+		});
+		expect(codexThreadConfig([], false)).toBeUndefined();
+	});
+
+	test("round-trips item/tool/call through mcpServer/tool/call", async () => {
+		const restore = withFixture("dynamic-tool");
+		const logPath = path.join(
+			mkdtempSync(path.join(os.tmpdir(), "codex-dynamic-tool-")),
+			"requests.jsonl",
+		);
+		const previousLog = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+		process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = logPath;
+		try {
+			const bridge = new CodexBridge({
+				notify: async () => {},
+				request: async () =>
+					({ outcome: { outcome: "cancelled" } }) as RequestPermissionResponse,
+			});
+			await bridge.newSession(process.cwd());
+			await expect(
+				bridge.prompt([{ type: "text", text: "run the fixture" }]),
+			).resolves.toEqual({ stopReason: "end_turn" });
+
+			const requests = readFileSync(logPath, "utf8")
+				.trim()
+				.split("\n")
+				.map(
+					(line) =>
+						JSON.parse(line) as {
+							method: string;
+							params: Record<string, unknown>;
+						},
+				)
+				.filter((request) => request.method.includes("tool/call"));
+			expect(requests).toContainEqual({
+				method: "mcpServer/tool/call",
+				params: {
+					threadId: "thread-1",
+					server: "superset",
+					tool: "delegate",
+					arguments: { task: "fixture delegated task" },
+				},
+			});
+			expect(requests).toContainEqual({
+				method: "item/tool/call.response",
+				params: {
+					contentItems: [
+						{ type: "inputText", text: "fixture delegated result" },
+					],
+					success: true,
+				},
+			});
+		} finally {
+			if (previousLog === undefined)
+				delete process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+			else process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = previousLog;
+			restore();
+		}
+	});
+
+	test("converts MCP content blocks to Codex dynamic response items", () => {
+		expect(
+			codexDynamicToolCallResponse({
+				content: [
+					{ type: "text", text: "hello" },
+					{ type: "image", mimeType: "image/png", data: "abc" },
+					{ type: "audio", mimeType: "audio/wav", data: "def" },
+				],
+				isError: false,
+			}),
+		).toEqual({
+			contentItems: [
+				{ type: "inputText", text: "hello" },
+				{ type: "inputImage", imageUrl: "data:image/png;base64,abc" },
+				{
+					type: "inputText",
+					text: JSON.stringify({
+						type: "audio",
+						mimeType: "audio/wav",
+						data: "def",
+					}),
+				},
+			],
+			success: true,
+		});
+		expect(codexDynamicToolCallResponse(null, "tool failed")).toEqual({
+			contentItems: [{ type: "inputText", text: "tool failed" }],
+			success: false,
+		});
+	});
+
 	test("translates ACP stdio MCP servers into per-thread Codex config", () => {
 		expect(codexMcpConfig([BROWSER_USE_MCP])).toEqual({
 			mcp_servers: {
@@ -179,6 +315,62 @@ describe("Codex app-server MCP forwarding", () => {
 						config: codexMcpConfig([BROWSER_USE_MCP]),
 					}),
 				},
+			]);
+		} finally {
+			if (previousLog === undefined)
+				delete process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+			else process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = previousLog;
+			restore();
+		}
+	});
+
+	test("forwards parent coordination instructions as developer instructions", async () => {
+		const restore = withFixture("accept");
+		const logPath = path.join(
+			mkdtempSync(path.join(os.tmpdir(), "codex-developer-instructions-")),
+			"requests.jsonl",
+		);
+		const previousLog = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+		process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = logPath;
+		const instructions = "Use Superset delegate before substantial changes.";
+		try {
+			const client = {
+				notify: async () => {},
+				request: async () =>
+					({ outcome: { outcome: "cancelled" } }) as RequestPermissionResponse,
+			};
+			const started = new CodexBridge(client);
+			await started.newSession(
+				process.cwd(),
+				[],
+				undefined,
+				false,
+				instructions,
+			);
+			const resumed = new CodexBridge(client);
+			await resumed.loadSession("thread-1", process.cwd(), [], instructions);
+
+			const requests = readFileSync(logPath, "utf8")
+				.trim()
+				.split("\n")
+				.map(
+					(line) =>
+						JSON.parse(line) as {
+							method: string;
+							params: Record<string, unknown>;
+						},
+				)
+				.filter(
+					(request) =>
+						request.method === "thread/start" ||
+						request.method === "thread/resume",
+				);
+			expect(
+				requests.map((request) => request.params.developerInstructions),
+			).toEqual([instructions, instructions]);
+			expect(requests.map((request) => request.params.config)).toEqual([
+				{ features: { multi_agent: false } },
+				{ features: { multi_agent: false } },
 			]);
 		} finally {
 			if (previousLog === undefined)

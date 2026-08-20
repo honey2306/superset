@@ -1,4 +1,8 @@
-import type { HarnessKind, StopReason } from "@superset/session-protocol";
+import type {
+	HarnessKind,
+	StopReason,
+	SupersetSessionRole,
+} from "@superset/session-protocol";
 import type {
 	AgentDefinitionId,
 	AgentIdentityId,
@@ -127,6 +131,8 @@ export const hostSettings = sqliteTable("host_settings", {
 		.default(false),
 	delegatedExecutionAgentConfigId: text("delegated_execution_agent_config_id"),
 	delegatedExecutionModelId: text("delegated_execution_model_id"),
+	/** Ordered user-configurable delegation profiles, encoded as JSON. */
+	delegationProfiles: text("delegation_profiles"),
 });
 
 /**
@@ -559,6 +565,11 @@ export const acpSessions = sqliteTable(
 		workspaceId: text("workspace_id").notNull(),
 		acpSessionId: text("acp_session_id").notNull(),
 		epoch: text().notNull().default("legacy"),
+		/** Root sessions coordinate; delegated sessions execute a handoff. */
+		role: text()
+			.notNull()
+			.default("root-coordinator")
+			.$type<SupersetSessionRole>(),
 		harness: text().notNull().$type<HarnessKind>(),
 		cwd: text().notNull(),
 		title: text(),
@@ -578,6 +589,8 @@ export type DelegationRunStatus =
 	| "creating"
 	| "running"
 	| "completed"
+	| "cancelled"
+	| "interrupted"
 	| "failed";
 
 export const delegationRuns = sqliteTable(

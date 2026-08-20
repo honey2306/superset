@@ -52,6 +52,8 @@ const continueInNewSessionArgsSchema = z
 const delegateArgsSchema = z
 	.object({
 		task: messageSchema,
+		/** Optional for backwards compatibility; omitted calls use the first valid profile. */
+		profileId: z.string().trim().min(1).max(128).optional(),
 		focus: z.boolean().default(false),
 		idempotencyKey: z.string().min(1).max(128).optional(),
 	})
@@ -191,14 +193,65 @@ export type SupersetAgent = z.infer<typeof supersetAgentSchema>;
 export type UpdatePlanArguments = z.infer<typeof updatePlanArgsSchema>;
 export type SupersetToolRequest = z.infer<typeof supersetToolRequestSchema>;
 
+/** Persisted role of an ACP session in Superset's coordinator boundary. */
+export const SUPERSET_ROOT_COORDINATOR_ROLE = "root-coordinator" as const;
+export const SUPERSET_DELEGATED_EXECUTOR_ROLE = "delegated-executor" as const;
+export type SupersetSessionRole =
+	| typeof SUPERSET_ROOT_COORDINATOR_ROLE
+	| typeof SUPERSET_DELEGATED_EXECUTOR_ROLE;
+
+/** The model-facing subset of a configurable delegation profile. */
+export interface SupersetDelegationProfileSummary {
+	id: string;
+	name: string;
+	description: string;
+	enabled: boolean;
+	valid: boolean;
+	agent?: SupersetAgent;
+	model?: string | null;
+}
+
+export function formatSupersetDelegationInstructions(
+	profiles: readonly SupersetDelegationProfileSummary[] = [],
+): string {
+	const availableProfiles = profiles.filter(
+		(profile) => profile.enabled && profile.valid,
+	);
+	const profileText =
+		availableProfiles.length === 0
+			? ""
+			: ` Available profiles (choose one with profileId when calling Superset delegate): ${availableProfiles
+					.map(
+						(profile) =>
+							`id=${profile.id}, name=${profile.name}, when to use=${profile.description}`,
+					)
+					.join("; ")}.`;
+	return `${SUPERSET_DELEGATION_INSTRUCTIONS}${profileText}`;
+}
+
+/** `_meta` key used to carry Superset-only model instructions through ACP. */
+export const SUPERSET_DELEGATION_META_KEY =
+	"sh.superset/delegationInstructions" as const;
+
 /**
- * Instructions exposed by the Superset MCP server when its universal
- * delegated-execution target is available. Keep this adapter-agnostic: ACP
- * clients may surface MCP `initialize.instructions`, tool descriptions, or
- * both to their model.
+ * Instructions exposed when the Superset delegate tool is available.
+ *
+ * Keep this explicit about the boundary with native harness subagents. The
+ * current ACP session is the parent/coordinator: native subagent tools belong
+ * to the provider, while `delegate` is the Superset handoff that creates and
+ * tracks a child ACP session. These instructions are copied into each
+ * harness's highest-priority supported prompt field as well as MCP metadata.
  */
 export const SUPERSET_DELEGATION_INSTRUCTIONS =
-	"Delegated execution is enabled for this workspace. Proactively use the Superset delegate tool for substantial implementation work (for example, multi-file changes, non-trivial bug fixes, features, or work that needs investigation and tests); do not wait for the user to request delegation. Call delegate before making those changes, with a self-contained objective, approach, constraints, relevant files, and acceptance checks. After the child finishes, inspect its changes and validation before accepting the result. The delegate uses the globally configured executor for this workspace.";
+	"Superset delegated execution is enabled for this workspace. You are the parent/coordinator Agent: proactively use the Superset `delegate` tool for substantial implementation work (multi-file changes, non-trivial bug fixes, features, or work that needs investigation and tests); do not wait for the user to request delegation. Call Superset `delegate` before making those changes with a self-contained objective, approach, constraints, relevant files, and acceptance checks. The Superset delegate is distinct from native provider subagent tools (such as Claude Task or Codex spawn_agent): for tracked implementation work, use Superset `delegate` instead of those native tools. If repository or project instructions require delegating implementation to a subagent, satisfy that requirement with Superset `delegate`; do not additionally create a provider-native subagent. After the child finishes, inspect its actual changes and validation, then continue coordinating or fix gaps yourself before accepting the result and replying to the user. Only follow this instruction when the Superset `delegate` tool is present in the available tools.";
+
+/**
+ * High-priority instructions for a child created by Superset `delegate`.
+ * Deliberately contains no coordinator/delegation guidance: a delegated child
+ * is an executor and must finish the handed-off task itself.
+ */
+export const SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS =
+	"You are a delegated executor Agent running inside a Superset child session. Directly execute the current delegated task in the workspace, including inspecting files, making the requested changes, and running the relevant validation. Do not use any delegation or subagent mechanism: do not call Superset `delegate`, and do not use provider-native tools such as Codex `spawn_agent` or Claude `Task`. Perform the work yourself and do not hand it back for further delegation. Report the concrete work completed, files changed, and validation results when you finish.";
 
 /** JSON Schemas advertised by the bundled Superset MCP server. */
 export const SUPERSET_TOOL_DEFINITIONS = [
@@ -341,11 +394,12 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "delegate",
 		description:
-			"Proactively delegate substantial implementation work to the globally configured executor in the current workspace. Do not wait for the user to ask. Call this before making multi-file changes, non-trivial bug fixes, features, or work that needs investigation and tests. Provide a self-contained handoff with the objective, decided approach, constraints, relevant files, and acceptance checks. The child runs independently; monitor it with list_sessions/get_session_status and inspect its actual changes and validation before accepting the work.",
+			"Proactively delegate substantial implementation work to a configured delegation profile in the current workspace. Do not wait for the user to ask. Call this before making multi-file changes, non-trivial bug fixes, features, or work that needs investigation and tests. Choose a profileId when one is available and relevant; omit it only when the deterministic default is appropriate. Provide a self-contained handoff with the objective, decided approach, constraints, relevant files, and acceptance checks. The child runs independently; monitor it with list_sessions/get_session_status and inspect its actual changes and validation before accepting the work.",
 		inputSchema: {
 			type: "object",
 			properties: {
 				task: { type: "string", minLength: 1, maxLength: 100_000 },
+				profileId: { type: "string", minLength: 1, maxLength: 128 },
 				focus: { type: "boolean", default: false },
 				idempotencyKey: { type: "string", minLength: 1, maxLength: 128 },
 			},

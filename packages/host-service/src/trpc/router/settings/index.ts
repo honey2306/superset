@@ -14,5 +14,9 @@ export const settingsRouter = router({
 });
 
 export type { HostAgentConfig } from "./agent-configs";
-export type { DelegatedExecutionSettings } from "./delegated-execution";
+export type {
+	DelegatedExecutionSettings,
+	DelegationProfile,
+	DelegationProfilesState,
+} from "./delegated-execution";
 export type { HostWorktreeLocationSettings } from "./worktree-location";

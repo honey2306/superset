@@ -2,10 +2,12 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { McpServer } from "@agentclientprotocol/sdk";
+import type { SupersetSessionRole } from "@superset/session-protocol";
 
 export interface SupersetMcpServerInput {
 	sessionId: string;
 	daemonSocketPath: string;
+	role?: SupersetSessionRole;
 	execPath?: string;
 	scriptPath?: string;
 }
@@ -37,6 +39,9 @@ export function supersetMcpServer(input: SupersetMcpServerInput): McpServer {
 				name: "SUPERSET_ACP_SOURCE_SESSION_ID",
 				value: input.sessionId,
 			},
+			...(input.role
+				? [{ name: "SUPERSET_ACP_SESSION_ROLE", value: input.role }]
+				: []),
 		],
 	};
 }

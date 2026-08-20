@@ -1,10 +1,19 @@
 import { existsSync, unlinkSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
+import {
+	formatSupersetDelegationInstructions,
+	SUPERSET_ROOT_COORDINATOR_ROLE,
+} from "@superset/session-protocol";
 import { eq } from "drizzle-orm";
 import { createDb } from "../../db";
 import { projects, workspaces } from "../../db/schema";
-import { resolveDelegatedExecutionTarget } from "../../trpc/router/settings/delegated-execution-target";
+import {
+	readDelegationProfiles,
+	resolveDelegatedExecutionTarget,
+	resolveDelegationProfileTargets,
+	toDelegationProfileSummary,
+} from "../../trpc/router/settings/delegated-execution-target";
 import {
 	assertProjectConfigIsEditable,
 	resolveScript,
@@ -100,9 +109,17 @@ async function main(): Promise<void> {
 		mcpServers: [browserUseMcpServerFromEnvironment()].filter(
 			(server): server is NonNullable<typeof server> => server !== null,
 		),
-		mcpServerFactory: ({ sessionId }) => [
-			supersetMcpServer({ sessionId, daemonSocketPath: socketPath }),
+		mcpServerFactory: ({ sessionId, role }) => [
+			supersetMcpServer({ sessionId, daemonSocketPath: socketPath, role }),
 		],
+		modelFacingInstructions: ({ role }) => {
+			if (role !== SUPERSET_ROOT_COORDINATOR_ROLE) return undefined;
+			const profiles = resolveDelegationProfileTargets(db);
+			const summaries = profiles.map(toDelegationProfileSummary);
+			return summaries.some((profile) => profile.enabled && profile.valid)
+				? formatSupersetDelegationInstructions(summaries)
+				: undefined;
+		},
 		generateTitle: ({ message }) => generateAcpSessionTitle(message),
 	});
 	await removeStaleSocket(socketPath);
@@ -117,7 +134,47 @@ async function main(): Promise<void> {
 	const toolController = new SupersetToolController({
 		manager,
 		delegationRuns: persistence,
-		resolveDelegatedExecution: () => resolveDelegatedExecutionTarget(db),
+		resolveDelegatedExecution: () => {
+			const profiles = resolveDelegationProfileTargets(db);
+			const profilesState = readDelegationProfiles(db);
+			if (profilesState.persisted) {
+				const selected = profiles.find(
+					(profile) => profile.enabled && profile.valid && profile.agent,
+				);
+				if (selected?.agent) {
+					return {
+						enabled: true as const,
+						valid: true as const,
+						agent: selected.agent,
+						model: selected.model ?? null,
+						profiles,
+						profilesConfigured: true,
+					};
+				}
+				const invalid = profiles.find((profile) => profile.enabled);
+				if (invalid) {
+					return {
+						enabled: true as const,
+						valid: false as const,
+						error:
+							invalid.error ??
+							`Delegation profile '${invalid.name}' has an invalid executor target.`,
+						profiles,
+						profilesConfigured: true,
+					};
+				}
+				return {
+					enabled: false as const,
+					profiles,
+					profilesConfigured: true,
+				};
+			}
+			return {
+				...resolveDelegatedExecutionTarget(db),
+				profiles,
+				profilesConfigured: false,
+			};
+		},
 		setProjectRunCommand: ({ workspaceId, commands }) => {
 			const project = db
 				.select({ id: projects.id, repoPath: projects.repoPath })

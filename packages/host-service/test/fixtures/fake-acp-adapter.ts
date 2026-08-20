@@ -79,10 +79,27 @@ let sessionId = "fake-acp-unset";
 const storePath = (id: string) =>
 	path.join(process.cwd(), ".fake-acp-store", `${id}.jsonl`);
 
-function recordMcpServers(phase: "new" | "load", mcpServers: unknown): void {
+function recordSessionSetup(
+	phase: "new" | "load",
+	mcpServers: unknown,
+	meta: unknown,
+): void {
 	const logPath = process.env.FAKE_ACP_MCP_REQUEST_LOG;
 	if (!logPath) return;
-	appendFileSync(logPath, `${JSON.stringify({ phase, mcpServers })}\n`);
+	appendFileSync(
+		logPath,
+		`${JSON.stringify({
+			phase,
+			mcpServers,
+			...(meta ? { meta } : {}),
+			...(process.env.SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT
+				? {
+						piAppendSystemPrompt:
+							process.env.SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT,
+					}
+				: {}),
+		})}\n`,
+	);
 }
 
 function recordUpdate(update: schema.SessionUpdate): void {
@@ -270,7 +287,7 @@ const app = agent({ name: "fake-acp-adapter" })
 		protocolVersion: PROTOCOL_VERSION,
 	}))
 	.onRequest("session/new", (context) => {
-		recordMcpServers("new", context.params.mcpServers);
+		recordSessionSetup("new", context.params.mcpServers, context.params._meta);
 		sessionId = `fake-acp-${randomUUID()}`;
 		notifyAvailableCommands(context.client);
 		return {
@@ -283,7 +300,7 @@ const app = agent({ name: "fake-acp-adapter" })
 		};
 	})
 	.onRequest("session/load", async (context) => {
-		recordMcpServers("load", context.params.mcpServers);
+		recordSessionSetup("load", context.params.mcpServers, context.params._meta);
 		sessionId = context.params.sessionId;
 		if (process.env.FAKE_ACP_LOAD_ERROR === "1") {
 			throw new RequestError(-32003, "Forced session/load failure");

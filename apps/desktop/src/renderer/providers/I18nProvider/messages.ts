@@ -424,6 +424,23 @@ export const enUSMessages = {
 	"delegatedExecution.title": "Delegated execution",
 	"delegatedExecution.description":
 		"Allow ACP tabs to delegate work using the selected executor and model. Only agents pinned to your tab bar are available.",
+	"delegatedExecution.profilesDescription":
+		"Configure reusable delegation profiles. The current agent remains the coordinator and chooses a profile based on its description.",
+	"delegatedExecution.profileName": "Profile name",
+	"delegatedExecution.profileDescription": "When to use",
+	"delegatedExecution.profileDescriptionHint":
+		"This description tells the coordinating agent when to select this profile.",
+	"delegatedExecution.profileInstructions":
+		"Instructions for the delegated agent",
+	"delegatedExecution.profileEnabled": "Enabled",
+	"delegatedExecution.addProfile": "Add profile",
+	"delegatedExecution.moveUp": "Move up",
+	"delegatedExecution.moveDown": "Move down",
+	"delegatedExecution.profilesLoadFailed":
+		"Failed to load delegation profiles.",
+	"delegatedExecution.profilesSaved": "Delegation profiles saved.",
+	"delegatedExecution.profilesSaveFailed":
+		"Failed to save delegation profiles.",
 	"delegatedExecution.agent": "Agent",
 	"delegatedExecution.agentPlaceholder": "Choose a pinned agent",
 	"delegatedExecution.agentHint":
@@ -3521,6 +3538,20 @@ export const zhCNMessages: Record<MessageKey, string> = {
 	"delegatedExecution.title": "委派执行",
 	"delegatedExecution.description":
 		"允许 ACP 标签页使用所选的执行智能体和模型委派工作。仅显示已固定到标签栏的智能体。",
+	"delegatedExecution.profilesDescription":
+		"配置可复用的委派配置。当前智能体保持主控，并根据用途说明选择合适的配置。",
+	"delegatedExecution.profileName": "配置名称",
+	"delegatedExecution.profileDescription": "何时使用",
+	"delegatedExecution.profileDescriptionHint":
+		"主控智能体会根据这段说明判断何时选择该配置。",
+	"delegatedExecution.profileInstructions": "给被委派智能体的指令",
+	"delegatedExecution.profileEnabled": "启用",
+	"delegatedExecution.addProfile": "添加配置",
+	"delegatedExecution.moveUp": "上移",
+	"delegatedExecution.moveDown": "下移",
+	"delegatedExecution.profilesLoadFailed": "加载委派配置失败。",
+	"delegatedExecution.profilesSaved": "委派配置已保存。",
+	"delegatedExecution.profilesSaveFailed": "保存委派配置失败。",
 	"delegatedExecution.agent": "智能体",
 	"delegatedExecution.agentPlaceholder": "选择已固定的智能体",
 	"delegatedExecution.agentHint":

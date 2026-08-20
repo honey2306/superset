@@ -5,10 +5,14 @@ import type {
 } from "@superset/session-protocol";
 import {
 	decodeMessagesCursor,
+	SUPERSET_DELEGATED_EXECUTOR_ROLE,
+	SUPERSET_ROOT_COORDINATOR_ROLE,
 	type SupersetAgent,
+	type SupersetDelegationProfileSummary,
 	type SupersetToolRequest,
 	supersetToolRequestSchema,
 } from "@superset/session-protocol";
+import type { DelegationProfileTarget } from "../../trpc/router/settings/delegated-execution-target";
 import type { AcpSessionManager } from "./acp-sessions";
 import type { DelegationRunPersistence } from "./persistence";
 
@@ -35,9 +39,23 @@ export type SetProjectRunCommandResult =
 	| { status: "already_configured"; commands: string[] };
 
 export type DelegatedExecutionResolution =
-	| { enabled: false }
-	| { enabled: true; valid: false; error: string }
-	| { enabled: true; valid: true; agent: SupersetAgent; model: string | null };
+	| ({ enabled: false } & DelegatedExecutionProfileState)
+	| ({
+			enabled: true;
+			valid: false;
+			error: string;
+	  } & DelegatedExecutionProfileState)
+	| ({
+			enabled: true;
+			valid: true;
+			agent: SupersetAgent;
+			model: string | null;
+	  } & DelegatedExecutionProfileState);
+
+interface DelegatedExecutionProfileState {
+	profiles?: DelegationProfileTarget[];
+	profilesConfigured?: boolean;
+}
 
 export interface SupersetToolControllerOptions {
 	manager: AcpSessionManager;
@@ -81,6 +99,16 @@ function textPrompt(text: string) {
 	return [{ type: "text" as const, text }];
 }
 
+type DelegationTerminalStatus = "completed" | "cancelled" | "interrupted";
+
+function delegationStatusForStopReason(
+	stopReason: string,
+): DelegationTerminalStatus {
+	if (stopReason === "cancelled" || stopReason === "cancel") return "cancelled";
+	if (stopReason === "interrupted") return "interrupted";
+	return "completed";
+}
+
 interface ChildLaunchRecord {
 	child: Promise<SessionScopedState>;
 	prompt: Promise<void>;
@@ -90,6 +118,8 @@ interface ChildLaunchRecord {
 	harness: HarnessKind;
 	childSessionId: string;
 	delegationRunId: string | null;
+	profileName: string | null;
+	profileInstructions: string | null;
 }
 
 /**
@@ -142,6 +172,13 @@ export class SupersetToolController {
 	): Promise<Record<string, unknown>> {
 		const request = supersetToolRequestSchema.parse(input);
 		const source = this.manager.get(request.sourceSessionId);
+		if (
+			request.name === "delegate" &&
+			this.manager.getRole?.(request.sourceSessionId) ===
+				SUPERSET_DELEGATED_EXECUTOR_ROLE
+		) {
+			throw new Error("Delegated executor sessions cannot delegate again");
+		}
 
 		switch (request.name) {
 			case "get_context": {
@@ -156,6 +193,17 @@ export class SupersetToolController {
 					currentSession: projectSession(source),
 					sessions: siblings.items.map(projectSession),
 					delegatedExecution,
+					delegationProfiles: (delegatedExecution.profiles ?? []).map(
+						(profile): SupersetDelegationProfileSummary => ({
+							id: profile.id,
+							name: profile.name,
+							description: profile.description,
+							enabled: profile.enabled,
+							valid: profile.enabled && profile.valid,
+							...(profile.agent ? { agent: profile.agent } : {}),
+							...(profile.model !== undefined ? { model: profile.model } : {}),
+						}),
+					),
 				};
 			}
 			case "list_sessions": {
@@ -360,7 +408,10 @@ export class SupersetToolController {
 				// Creation already succeeded. Retry prompt admission against the same
 				// child instead of allocating duplicate delegated work.
 				if (record.prompt === failedPrompt) {
-					record.prompt = this.promptChildForRecord(record, input.prompt);
+					record.prompt = this.promptChildForRecord(
+						record,
+						this.buildDelegatedPrompt(record, input.prompt),
+					);
 				}
 			}
 		}
@@ -413,30 +464,61 @@ export class SupersetToolController {
 		let harness = selectedAgent
 			? AGENT_TO_HARNESS[selectedAgent]
 			: source.harness;
+		let profileName: string | null = null;
+		let profileInstructions: string | null = null;
 
 		if (request.name === "delegate") {
-			const delegatedExecution = this.resolveDelegatedExecution?.();
-			if (delegatedExecution && !delegatedExecution.enabled) {
+			const delegatedExecution = this.getDelegatedExecution();
+			const selectedProfile = this.selectDelegationProfile(
+				delegatedExecution,
+				request.arguments.profileId,
+			);
+			if (selectedProfile) {
+				profileName = selectedProfile.name;
+				profileInstructions = selectedProfile.instructions;
+				harness = AGENT_TO_HARNESS[selectedProfile.agent as SupersetAgent];
+				actualAgent = selectedProfile.agent ?? null;
+				actualModel = selectedProfile.model ?? null;
+			} else if (delegatedExecution.enabled === false) {
 				throw new Error("Delegated execution is disabled");
-			}
-			if (!delegatedExecution?.enabled) {
+			} else if (!delegatedExecution.valid) {
+				throw new Error(delegatedExecution.error);
+			} else if (delegatedExecution.profiles === undefined) {
+				// Legacy callers and in-process controllers may only provide the
+				// original single target. Keep that path intact while profiles roll out.
+				harness = AGENT_TO_HARNESS[delegatedExecution.agent];
+				actualAgent = delegatedExecution.agent;
+				actualModel = delegatedExecution.model;
+			} else {
 				throw new Error("Delegated execution target is unavailable");
 			}
-			if (!delegatedExecution.valid) {
-				throw new Error(delegatedExecution.error);
+			if (!actualAgent || !AGENT_TO_HARNESS[actualAgent as SupersetAgent]) {
+				throw new Error("The selected delegation profile has no ACP executor.");
 			}
-			// The global Settings target is the only delegate executor. The tool
-			// schema deliberately has no agent field, so a parent cannot bypass it.
-			harness = AGENT_TO_HARNESS[delegatedExecution.agent];
-			actualAgent = delegatedExecution.agent;
-			actualModel = delegatedExecution.model;
+			harness = AGENT_TO_HARNESS[actualAgent as SupersetAgent];
+			/*
+			 * Profile-specific instructions are part of the child's task handoff,
+			 * not parent-only context. This preserves the coordinator boundary while
+			 * letting a profile specialize how the child approaches the task.
+			 */
 		}
 
+		const childPrompt =
+			request.name === "delegate"
+				? this.buildDelegatedPrompt(
+						{ profileName, profileInstructions },
+						input.prompt,
+					)
+				: input.prompt;
 		const childSessionId = randomUUID();
 		const child = this.manager.create({
 			sessionId: childSessionId,
 			workspaceId: source.workspaceId,
 			harness,
+			role:
+				request.name === "delegate"
+					? SUPERSET_DELEGATED_EXECUTOR_ROLE
+					: SUPERSET_ROOT_COORDINATOR_ROLE,
 			...(actualModel ? { model: actualModel, strictModel: true } : {}),
 		});
 		const childPromise = Promise.resolve(child);
@@ -449,8 +531,10 @@ export class SupersetToolController {
 			harness,
 			childSessionId,
 			delegationRunId: null,
+			profileName,
+			profileInstructions,
 		};
-		record.prompt = this.promptChildForRecord(record, input.prompt);
+		record.prompt = this.promptChildForRecord(record, childPrompt);
 		return record;
 	}
 
@@ -462,6 +546,47 @@ export class SupersetToolController {
 			onAdmitted: () => this.markDelegationRunning(record),
 			onTurn: (turn) => this.watchDelegationTurn(record, turn),
 		});
+	}
+
+	private buildDelegatedPrompt(
+		record: Pick<ChildLaunchRecord, "profileName" | "profileInstructions">,
+		prompt: string,
+	): string {
+		if (!record.profileInstructions) return prompt;
+		return `Delegation profile: ${record.profileName ?? "configured profile"}\n\n${record.profileInstructions}\n\nDelegated task:\n${prompt}`;
+	}
+
+	private selectDelegationProfile(
+		delegatedExecution: DelegatedExecutionResolution,
+		profileId: string | undefined,
+	): DelegationProfileTarget | null {
+		const profiles = delegatedExecution.profiles;
+		if (profiles === undefined) return null;
+		const selected = profileId
+			? profiles.find((profile) => profile.id === profileId)
+			: profiles.find((profile) => profile.enabled && profile.valid);
+		if (!selected) {
+			if (profileId) {
+				throw new Error(`Delegation profile '${profileId}' is unavailable.`);
+			}
+			if (delegatedExecution.profilesConfigured) {
+				throw new Error("No enabled valid delegation profile is available.");
+			}
+			return null;
+		}
+		if (!selected.enabled) {
+			throw new Error(`Delegation profile '${selected.name}' is disabled.`);
+		}
+		if (!selected.valid) {
+			throw new Error(
+				selected.error ??
+					`Delegation profile '${selected.name}' has an invalid executor target.`,
+			);
+		}
+		if (!selected.agent) {
+			throw new Error(`Delegation profile '${selected.name}' has no executor.`);
+		}
+		return selected;
 	}
 
 	private async promptChild(
@@ -506,24 +631,32 @@ export class SupersetToolController {
 		turn: Promise<{ stopReason: string }>,
 	): void {
 		void turn.then(
-			() => {
-				if (!record.delegationRunId || !this.delegationRuns) return;
-				if (
-					this.delegationRunByChildSessionId.get(record.childSessionId) !==
-					record.delegationRunId
-				) {
-					return;
-				}
-				const now = Date.now();
-				this.delegationRuns.updateDelegationRun(record.delegationRunId, {
-					status: "completed",
-					completedAt: now,
-					updatedAt: now,
-				});
-				this.delegationRunByChildSessionId.delete(record.childSessionId);
-			},
+			(result) => this.markDelegationStopped(record, result.stopReason),
 			(error: unknown) => this.markDelegationFailed(record, error),
 		);
+	}
+
+	private markDelegationStopped(
+		record: ChildLaunchRecord,
+		stopReason: string,
+	): void {
+		if (!record.delegationRunId || !this.delegationRuns) return;
+		if (
+			this.delegationRunByChildSessionId.get(record.childSessionId) !==
+			record.delegationRunId
+		) {
+			return;
+		}
+		const now = Date.now();
+		const status = delegationStatusForStopReason(stopReason);
+		this.delegationRuns.updateDelegationRun(record.delegationRunId, {
+			status,
+			completedAt: status === "completed" ? now : null,
+			failedAt: null,
+			failureMessage: null,
+			updatedAt: now,
+		});
+		this.delegationRunByChildSessionId.delete(record.childSessionId);
 	}
 
 	private markDelegationFailed(
@@ -541,6 +674,7 @@ export class SupersetToolController {
 		this.delegationRuns.updateDelegationRun(record.delegationRunId, {
 			status: "failed",
 			failureMessage: error instanceof Error ? error.message : String(error),
+			completedAt: null,
 			failedAt: now,
 			updatedAt: now,
 		});
@@ -561,6 +695,7 @@ export class SupersetToolController {
 			this.delegationRuns.updateDelegationRun(runId, {
 				status: "failed",
 				failureMessage: child.lastError,
+				completedAt: null,
 				failedAt: now,
 				updatedAt: now,
 			});
@@ -569,9 +704,13 @@ export class SupersetToolController {
 		}
 		if (child.lastStopReason) {
 			const now = Date.now();
+			const status = delegationStatusForStopReason(child.lastStopReason);
 			this.delegationRuns.updateDelegationRun(runId, {
-				status: "completed",
-				completedAt: child.lastCompletedAt ?? now,
+				status,
+				completedAt:
+					status === "completed" ? (child.lastCompletedAt ?? now) : null,
+				failedAt: null,
+				failureMessage: null,
 				updatedAt: now,
 			});
 			this.delegationRunByChildSessionId.delete(childSessionId);

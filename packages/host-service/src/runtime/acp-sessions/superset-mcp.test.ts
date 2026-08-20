@@ -18,13 +18,18 @@ async function listen(server: net.Server, socketPath: string): Promise<void> {
 	});
 }
 
-async function runMcp(socketPath: string, requests: unknown[]) {
+async function runMcp(
+	socketPath: string,
+	requests: unknown[],
+	role?: "root-coordinator" | "delegated-executor",
+) {
 	const child = Bun.spawn({
 		cmd: [process.execPath, scriptPath],
 		env: {
 			...process.env,
 			SUPERSET_ACP_DAEMON_SOCKET_PATH: socketPath,
 			SUPERSET_ACP_SOURCE_SESSION_ID: "source-session",
+			...(role ? { SUPERSET_ACP_SESSION_ROLE: role } : {}),
 		},
 		stdin: "pipe",
 		stdout: "pipe",
@@ -116,7 +121,7 @@ describe("Superset MCP process", () => {
 			});
 			expect(
 				(initializeResponse?.result as { instructions?: string }).instructions,
-			).toContain("Proactively use the Superset delegate tool");
+			).toContain("proactively use the Superset `delegate` tool");
 			const tools = (
 				toolsListResponse?.result as {
 					tools: Array<{
@@ -226,6 +231,23 @@ describe("Superset MCP process", () => {
 				server.close();
 			}
 		}
+	});
+
+	test("hides delegate and coordinator instructions in a delegated child", async () => {
+		const responses = await runMcp(
+			path.join(tempDir, "delegated-child.sock"),
+			[
+				{ jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
+				{ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
+			],
+			"delegated-executor",
+		);
+		expect(
+			(responses[0]?.result as { instructions?: unknown }).instructions,
+		).toBeUndefined();
+		const tools = (responses[1]?.result as { tools: Array<{ name: string }> })
+			.tools;
+		expect(tools.some((tool) => tool.name === "delegate")).toBe(false);
 	});
 
 	test("forwards MCP cancellation and closes a pending ask_user daemon call", async () => {

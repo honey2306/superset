@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import net from "node:net";
 import { createInterface } from "node:readline";
 import {
+	formatSupersetDelegationInstructions,
+	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DELEGATION_INSTRUCTIONS,
 	SUPERSET_TOOL_DEFINITIONS,
 } from "@superset/session-protocol";
@@ -11,6 +13,8 @@ const MCP_PROTOCOL_VERSION = "2024-11-05";
 const DAEMON_CALL_TIMEOUT_MS = 120_000;
 const socketPath = requiredEnv("SUPERSET_ACP_DAEMON_SOCKET_PATH");
 const sourceSessionId = requiredEnv("SUPERSET_ACP_SOURCE_SESSION_ID");
+const isDelegatedExecutor =
+	process.env.SUPERSET_ACP_SESSION_ROLE === SUPERSET_DELEGATED_EXECUTOR_ROLE;
 
 type JsonRpcId = string | number;
 interface JsonRpcRequest {
@@ -148,7 +152,13 @@ async function callDaemon(
  * parent runtime. Fail closed: a missing daemon or an invalid target must
  * never make `delegate` visible.
  */
-async function delegatedExecutionAvailable(): Promise<boolean> {
+interface DelegationAvailability {
+	available: boolean;
+	instructions?: string;
+}
+
+async function delegatedExecutionAvailability(): Promise<DelegationAvailability> {
+	if (isDelegatedExecutor) return { available: false };
 	try {
 		const delegatedExecution = await callDaemon(
 			"get_delegated_execution",
@@ -157,15 +167,52 @@ async function delegatedExecutionAvailable(): Promise<boolean> {
 			"getDelegatedExecution",
 		);
 		if (typeof delegatedExecution !== "object" || delegatedExecution === null) {
-			return false;
+			return { available: false };
 		}
 		const state = delegatedExecution as {
 			enabled?: unknown;
 			valid?: unknown;
+			profiles?: unknown;
 		};
-		return state.enabled === true && state.valid === true;
+		if (Array.isArray(state.profiles)) {
+			const profiles = state.profiles.filter(
+				(
+					profile,
+				): profile is {
+					id: string;
+					name: string;
+					description: string;
+					enabled: boolean;
+					valid: boolean;
+				} =>
+					typeof profile === "object" &&
+					profile !== null &&
+					typeof (profile as { id?: unknown }).id === "string" &&
+					typeof (profile as { name?: unknown }).name === "string" &&
+					typeof (profile as { description?: unknown }).description ===
+						"string" &&
+					typeof (profile as { enabled?: unknown }).enabled === "boolean" &&
+					typeof (profile as { valid?: unknown }).valid === "boolean",
+			);
+			const available = profiles.some(
+				(profile) => profile.enabled && profile.valid,
+			);
+			return {
+				available,
+				...(available
+					? {
+							instructions: formatSupersetDelegationInstructions(profiles),
+						}
+					: {}),
+			};
+		}
+		const available = state.enabled === true && state.valid === true;
+		return {
+			available,
+			...(available ? { instructions: SUPERSET_DELEGATION_INSTRUCTIONS } : {}),
+		};
 	} catch {
-		return false;
+		return { available: false };
 	}
 }
 
@@ -189,13 +236,16 @@ async function handle(request: JsonRpcRequest): Promise<void> {
 		switch (request.method) {
 			case "initialize":
 				{
-					const includeDelegate = await delegatedExecutionAvailable();
+					const availability = await delegatedExecutionAvailability();
 					result(request.id, {
 						protocolVersion: MCP_PROTOCOL_VERSION,
+						// Dynamic profile changes apply to newly initialized MCP clients;
+						// this standalone process does not advertise listChanged until a
+						// daemon subscription is wired end-to-end.
 						capabilities: { tools: {} },
 						serverInfo: { name: "superset", version: "1" },
-						...(includeDelegate
-							? { instructions: SUPERSET_DELEGATION_INSTRUCTIONS }
+						...(availability.available
+							? { instructions: availability.instructions }
 							: {}),
 					});
 				}
@@ -205,7 +255,9 @@ async function handle(request: JsonRpcRequest): Promise<void> {
 				return;
 			case "tools/list":
 				result(request.id, {
-					tools: visibleToolDefinitions(await delegatedExecutionAvailable()),
+					tools: visibleToolDefinitions(
+						(await delegatedExecutionAvailability()).available,
+					),
 				});
 				return;
 			case "tools/call": {

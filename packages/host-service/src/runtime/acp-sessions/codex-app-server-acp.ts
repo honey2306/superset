@@ -16,6 +16,7 @@ import {
 	type SessionConfigOption,
 	type SessionUpdate,
 	type StopReason,
+	SUPERSET_DELEGATION_META_KEY,
 	TOOL_SEMANTIC_META_KEY,
 	type ToolKind,
 } from "@superset/session-protocol";
@@ -71,6 +72,122 @@ type CodexUsageUpdate = Extract<
 	{ sessionUpdate: "usage_update" }
 >;
 type CodexPlanUpdate = Extract<SessionUpdate, { sessionUpdate: "plan" }>;
+
+/** The response envelope expected by Codex app-server's dynamic tool bridge. */
+export type CodexDynamicToolCallContentItem =
+	| { type: "inputText"; text: string }
+	| { type: "inputImage"; imageUrl: string };
+
+export interface CodexDynamicToolCallResponse {
+	contentItems: CodexDynamicToolCallContentItem[];
+	success: boolean;
+}
+
+function jsonText(value: unknown): string {
+	if (typeof value === "string") return value;
+	try {
+		return JSON.stringify(value);
+	} catch {
+		return String(value);
+	}
+}
+
+function imageDataUrl(mimeType: unknown, data: unknown): string | undefined {
+	return typeof mimeType === "string" && typeof data === "string"
+		? `data:${mimeType};base64,${data}`
+		: undefined;
+}
+
+/**
+ * Convert an MCP `tools/call` result to Codex 0.148's DynamicToolCallResponse.
+ * Codex calls this bridge through `item/tool/call`; it does not understand MCP
+ * content block names, so preserving the request without this conversion
+ * leaves the app-server turn waiting forever.
+ */
+export function codexDynamicToolCallResponse(
+	value: unknown,
+	errorMessage?: string,
+): CodexDynamicToolCallResponse {
+	if (errorMessage) {
+		return {
+			contentItems: [{ type: "inputText", text: errorMessage }],
+			success: false,
+		};
+	}
+	if (value && typeof value === "object" && !Array.isArray(value)) {
+		const result = value as Record<string, unknown>;
+		if (
+			Array.isArray(result.contentItems) &&
+			typeof result.success === "boolean"
+		) {
+			const contentItems = result.contentItems.flatMap(
+				(item): CodexDynamicToolCallContentItem[] => {
+					if (!item || typeof item !== "object") return [];
+					const record = item as Record<string, unknown>;
+					if (record.type === "inputText" && typeof record.text === "string") {
+						return [{ type: "inputText" as const, text: record.text }];
+					}
+					if (
+						record.type === "inputImage" &&
+						typeof record.imageUrl === "string"
+					) {
+						return [{ type: "inputImage" as const, imageUrl: record.imageUrl }];
+					}
+					return [];
+				},
+			);
+			return {
+				contentItems:
+					contentItems.length > 0
+						? contentItems
+						: [{ type: "inputText", text: "" }],
+				success: result.success,
+			};
+		}
+		const content = Array.isArray(result.content) ? result.content : [];
+		const contentItems = content.flatMap(
+			(item): CodexDynamicToolCallContentItem[] => {
+				if (!item || typeof item !== "object") {
+					return [{ type: "inputText" as const, text: jsonText(item) }];
+				}
+				const record = item as Record<string, unknown>;
+				if (record.type === "text" && typeof record.text === "string") {
+					return [{ type: "inputText" as const, text: record.text }];
+				}
+				if (record.type === "image") {
+					const imageUrl = imageDataUrl(record.mimeType, record.data);
+					if (imageUrl) {
+						return [{ type: "inputImage" as const, imageUrl }];
+					}
+				}
+				// DynamicToolCallResponse has no inputAudio variant. Preserve audio and
+				// future MCP blocks as text so the model still receives the result.
+				if (record.type === "audio") {
+					return [{ type: "inputText" as const, text: jsonText(item) }];
+				}
+				return [{ type: "inputText" as const, text: jsonText(item) }];
+			},
+		);
+		return {
+			contentItems:
+				contentItems.length > 0
+					? contentItems
+					: [{ type: "inputText", text: jsonText(value) }],
+			success: result.isError !== true,
+		};
+	}
+	return {
+		contentItems: [{ type: "inputText", text: jsonText(value) }],
+		success: true,
+	};
+}
+
+function delegationInstructionsFromMeta(meta: unknown): string | undefined {
+	if (!meta || typeof meta !== "object" || Array.isArray(meta))
+		return undefined;
+	const value = (meta as Record<string, unknown>)[SUPERSET_DELEGATION_META_KEY];
+	return typeof value === "string" && value.trim() ? value : undefined;
+}
 
 /** Project Codex's structured turn plan into ACP's provider-neutral plan shape. */
 export function codexPlanUpdate(
@@ -168,6 +285,33 @@ export function codexMcpConfig(mcpServers: readonly McpServer[]):
 	return Object.keys(mcpServersConfig).length > 0
 		? { mcp_servers: mcpServersConfig }
 		: undefined;
+}
+
+/**
+ * Superset owns delegation for coordinator/executor ACP sessions. Disable
+ * Codex's provider-native collaboration surface when role instructions are
+ * present so repository guidance cannot route tracked work around `delegate`.
+ */
+export function codexThreadConfig(
+	mcpServers: readonly McpServer[],
+	disableNativeSubagents: boolean,
+):
+	| {
+			mcp_servers?: Record<
+				string,
+				{ command: string; args: string[]; env: Record<string, string> }
+			>;
+			features?: { multi_agent: false };
+	  }
+	| undefined {
+	const mcpConfig = codexMcpConfig(mcpServers);
+	if (!mcpConfig && !disableNativeSubagents) return undefined;
+	return {
+		...mcpConfig,
+		...(disableNativeSubagents
+			? { features: { multi_agent: false as const } }
+			: {}),
+	};
 }
 
 export function codexDecisionOptions(
@@ -432,6 +576,17 @@ export class CodexBridge {
 		if (!frame.method) return;
 		const params = frame.params ?? {};
 		if (!this.matches(params)) return;
+		if (
+			frame.id !== undefined &&
+			frame.method === "mcpServer/elicitation/request"
+		) {
+			this.handleMcpElicitation(frame.id, params);
+			return;
+		}
+		if (frame.id !== undefined && frame.method === "item/tool/call") {
+			void this.handleDynamicToolCall(frame.id, params);
+			return;
+		}
 		if (frame.id !== undefined && APPROVAL_METHODS.has(frame.method)) {
 			this.handleApproval(frame.id, params);
 			return;
@@ -549,6 +704,123 @@ export class CodexBridge {
 		}
 		if (!QUIET_NOTIFICATIONS.has(frame.method)) return;
 	}
+	private handleMcpElicitation(
+		id: RpcId,
+		params: Record<string, unknown>,
+	): void {
+		const serverName =
+			typeof params.serverName === "string" ? params.serverName : "MCP";
+		const message =
+			typeof params.message === "string" && params.message.trim()
+				? params.message
+				: `Allow ${serverName} tool call`;
+		const itemId = `mcp-elicitation-${String(id)}`;
+		const options: PermissionOption[] = [
+			{ optionId: "allow_once", name: "Allow", kind: "allow_once" },
+			{
+				optionId: "allow_session",
+				name: "Allow for session",
+				kind: "allow_always",
+			},
+			{ optionId: "decline", name: "Decline", kind: "reject_once" },
+		];
+		void this.client
+			.request("session/request_permission", {
+				sessionId: this.threadId ?? String(params.threadId ?? "codex-pending"),
+				toolCall: {
+					toolCallId: itemId,
+					title: message,
+					kind: "other",
+					status: "pending",
+					rawInput: params,
+				},
+				options,
+			})
+			.then((response) => {
+				const selected =
+					response.outcome.outcome === "selected"
+						? response.outcome.optionId
+						: "cancel";
+				if (selected === "allow_once" || selected === "allow_session") {
+					this.write?.({
+						jsonrpc: "2.0",
+						id,
+						result: {
+							action: "accept",
+							content: {},
+							...(selected === "allow_session"
+								? { _meta: { persist: "session" } }
+								: {}),
+						},
+					});
+					return;
+				}
+				this.write?.({
+					jsonrpc: "2.0",
+					id,
+					result: {
+						action: selected === "decline" ? "decline" : "cancel",
+						content: null,
+					},
+				});
+			})
+			.catch(() =>
+				this.write?.({
+					jsonrpc: "2.0",
+					id,
+					result: { action: "cancel", content: null },
+				}),
+			);
+	}
+	private async handleDynamicToolCall(
+		id: RpcId,
+		params: Record<string, unknown>,
+	): Promise<void> {
+		const threadId =
+			typeof params.threadId === "string" ? params.threadId : this.threadId;
+		const server =
+			typeof params.namespace === "string" && params.namespace.trim()
+				? params.namespace
+				: undefined;
+		const tool =
+			typeof params.tool === "string" && params.tool.trim()
+				? params.tool
+				: undefined;
+		if (!threadId || !server || !tool) {
+			this.write?.({
+				jsonrpc: "2.0",
+				id,
+				result: codexDynamicToolCallResponse(
+					null,
+					"Codex dynamic tool request is missing threadId, namespace, or tool",
+				),
+			});
+			return;
+		}
+		try {
+			const result = await this.request("mcpServer/tool/call", {
+				threadId,
+				server,
+				tool,
+				arguments: params.arguments ?? {},
+				...(params._meta !== undefined ? { _meta: params._meta } : {}),
+			});
+			this.write?.({
+				jsonrpc: "2.0",
+				id,
+				result: codexDynamicToolCallResponse(result),
+			});
+		} catch (error) {
+			this.write?.({
+				jsonrpc: "2.0",
+				id,
+				result: codexDynamicToolCallResponse(
+					null,
+					error instanceof Error ? error.message : String(error),
+				),
+			});
+		}
+	}
 	private handleApproval(id: RpcId, params: Record<string, unknown>): void {
 		const options = codexDecisionOptions(params.availableDecisions);
 		const itemId = String(params.itemId ?? "codex-approval");
@@ -649,6 +921,7 @@ export class CodexBridge {
 		mcpServers: readonly McpServer[] = [],
 		requestedModel?: string,
 		strictModel = false,
+		developerInstructions?: string,
 	): Promise<string> {
 		try {
 			await this.boot();
@@ -658,7 +931,8 @@ export class CodexBridge {
 				approvalPolicy: "on-request",
 				sandbox: "workspace-write",
 				...(requestedModel ? { model: requestedModel } : {}),
-				config: codexMcpConfig(mcpServers),
+				...(developerInstructions ? { developerInstructions } : {}),
+				config: codexThreadConfig(mcpServers, Boolean(developerInstructions)),
 			})) as {
 				thread?: { id?: string };
 				model?: unknown;
@@ -777,6 +1051,7 @@ export class CodexBridge {
 		sessionId: string,
 		cwd: string,
 		mcpServers: readonly McpServer[] = [],
+		developerInstructions?: string,
 	): Promise<void> {
 		try {
 			await this.boot();
@@ -784,7 +1059,8 @@ export class CodexBridge {
 			const response = (await this.request("thread/resume", {
 				threadId: sessionId,
 				cwd,
-				config: codexMcpConfig(mcpServers),
+				...(developerInstructions ? { developerInstructions } : {}),
+				config: codexThreadConfig(mcpServers, Boolean(developerInstructions)),
 			})) as {
 				thread?: { id?: string };
 				model?: unknown;
@@ -886,6 +1162,7 @@ if (isCodexBridgeMain(import.meta.url, process.argv[1], import.meta.main)) {
 					context.params.mcpServers,
 					requestedModel,
 					process.env.SUPERSET_CODEX_STRICT_MODEL === "1",
+					delegationInstructionsFromMeta(context.params._meta),
 				),
 				configOptions: bridge.configOptions(),
 			};
@@ -896,6 +1173,7 @@ if (isCodexBridgeMain(import.meta.url, process.argv[1], import.meta.main)) {
 				context.params.sessionId,
 				context.params.cwd,
 				context.params.mcpServers,
+				delegationInstructionsFromMeta(context.params._meta),
 			);
 			return { configOptions: bridge.configOptions() };
 		})

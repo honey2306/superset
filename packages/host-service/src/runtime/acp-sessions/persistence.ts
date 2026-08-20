@@ -3,6 +3,7 @@ import type {
 	SessionUpdateEnvelope,
 	SessionUpdateFrame,
 	StopReason,
+	SupersetSessionRole,
 } from "@superset/session-protocol";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { HostDb } from "../../db";
@@ -32,6 +33,7 @@ export interface AcpSessionRecord {
 	/** Adapter-side ACP session id — the `session/load` key. */
 	acpSessionId: string;
 	epoch: string;
+	role: SupersetSessionRole;
 	harness: HarnessKind;
 	cwd: string;
 	title: string | null;
@@ -119,6 +121,7 @@ export class SqliteAcpSessionPersistence
 					workspaceId: record.workspaceId,
 					acpSessionId: record.acpSessionId,
 					epoch: record.epoch,
+					role: record.role,
 					harness: record.harness,
 					cwd: record.cwd,
 					title: record.title,

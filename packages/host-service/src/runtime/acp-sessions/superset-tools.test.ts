@@ -41,7 +41,16 @@ function fixture() {
 		["sibling", state("sibling")],
 		["foreign", state("foreign", "workspace-2")],
 	]);
-	const prompt = mock(async () => ({ accepted: true as const }));
+	const roles = new Map<string, string>([
+		["source", "root-coordinator"],
+		["sibling", "root-coordinator"],
+		["foreign", "root-coordinator"],
+	]);
+	const prompt = mock(
+		async (_input: { prompt: Array<{ type: "text"; text: string }> }) => ({
+			accepted: true as const,
+		}),
+	);
 	const enqueuePrompt = mock(() => ({ accepted: true as const }));
 	const updatePlan = mock(() => ({
 		seq: 21,
@@ -82,12 +91,14 @@ function fixture() {
 			harness?: SessionScopedState["harness"];
 			model?: string;
 			strictModel?: boolean;
+			role?: "root-coordinator" | "delegated-executor";
 		}) => {
 			const created = {
 				...state(input.sessionId, input.workspaceId),
 				harness: input.harness ?? "claude-agent-acp",
 			};
 			states.set(input.sessionId, created);
+			roles.set(input.sessionId, input.role ?? "root-coordinator");
 			return created;
 		},
 	);
@@ -111,6 +122,7 @@ function fixture() {
 			enabled: true,
 		}),
 		create,
+		getRole: (sessionId: string) => roles.get(sessionId) ?? "root-coordinator",
 		getMessages,
 		prompt,
 		ensureLive: mock(async () => {}),
@@ -126,6 +138,7 @@ function fixture() {
 		enqueuePrompt,
 		updatePlan,
 		askUser,
+		roles,
 	};
 }
 
@@ -424,6 +437,7 @@ describe("SupersetToolController", () => {
 			harness: "codex-app-server",
 			model: "gpt-5.6-sol",
 			strictModel: true,
+			role: "delegated-executor",
 		});
 		expect(delegated).toMatchObject({
 			actualAgent: "codex",
@@ -473,11 +487,107 @@ describe("SupersetToolController", () => {
 			harness: "claude-agent-acp",
 			model: "sonnet",
 			strictModel: true,
+			role: "delegated-executor",
 		});
 		expect(delegated).toMatchObject({
 			actualAgent: "claude",
 			actualModel: "sonnet",
 		});
+	});
+
+	test("routes a selected profile and includes its instructions in the child task", async () => {
+		const { manager, create, prompt } = fixture();
+		const controller = new SupersetToolController({
+			manager,
+			resolveDelegatedExecution: () => ({
+				enabled: true,
+				valid: true,
+				agent: "claude",
+				model: "sonnet",
+				profilesConfigured: true,
+				profiles: [
+					{
+						id: "design",
+						name: "Design",
+						description: "Architecture first",
+						instructions: "Start with a design and acceptance checks.",
+						enabled: true,
+						valid: true,
+						order: 0,
+						executorAgentConfigId: "codex-config",
+						executorModelId: "gpt-5.6-sol",
+						agent: "codex",
+						model: "gpt-5.6-sol",
+					},
+				],
+			}),
+		});
+
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "delegate",
+			arguments: {
+				profileId: "design",
+				task: "Implement the planned change",
+			},
+		});
+		expect(create.mock.calls[0]?.[0]).toMatchObject({
+			harness: "codex-app-server",
+			model: "gpt-5.6-sol",
+			strictModel: true,
+		});
+		expect(prompt.mock.calls[0]?.[0]?.prompt).toEqual([
+			{
+				type: "text",
+				text: "Delegation profile: Design\n\nStart with a design and acceptance checks.\n\nDelegated task:\nImplement the planned change",
+			},
+		]);
+	});
+
+	test("omitted profileId chooses the first enabled valid profile in order", async () => {
+		const { manager, create } = fixture();
+		const controller = new SupersetToolController({
+			manager,
+			resolveDelegatedExecution: () => ({
+				enabled: true,
+				valid: true,
+				agent: "claude",
+				model: "sonnet",
+				profilesConfigured: true,
+				profiles: [
+					{
+						id: "disabled",
+						name: "Disabled",
+						description: "",
+						instructions: null,
+						enabled: false,
+						valid: false,
+						order: 0,
+						executorAgentConfigId: null,
+						executorModelId: null,
+					},
+					{
+						id: "first-valid",
+						name: "First valid",
+						description: "",
+						instructions: null,
+						enabled: true,
+						valid: true,
+						order: 1,
+						executorAgentConfigId: "pi-config",
+						executorModelId: null,
+						agent: "pi",
+						model: null,
+					},
+				],
+			}),
+		});
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "delegate",
+			arguments: { task: "Use the default profile" },
+		});
+		expect(create.mock.calls[0]?.[0]).toMatchObject({ harness: "pi-acp" });
 	});
 
 	test("uses the global Pi target with its adapter default model", async () => {
@@ -570,6 +680,132 @@ describe("SupersetToolController", () => {
 				status: "completed",
 			}),
 		);
+	});
+
+	test.each([
+		"cancelled",
+		"interrupted",
+	] as const)("preserves %s as the delegated run terminal status", async (stopReason) => {
+		const { manager, prompt } = fixture();
+		prompt.mockImplementation(
+			async () =>
+				({
+					accepted: true as const,
+					turn: Promise.resolve({ stopReason }),
+				}) as unknown as { accepted: true },
+		);
+		const updates: Array<
+			{ id: string } & Parameters<
+				DelegationRunPersistence["updateDelegationRun"]
+			>[1]
+		> = [];
+		const delegationRuns: DelegationRunPersistence = {
+			createDelegationRun: () => {},
+			updateDelegationRun: (id, update) => updates.push({ id, ...update }),
+			getDelegationRun: () => null,
+			listDelegationRunsByParent: () => [],
+			listActiveDelegationRuns: () => [],
+		};
+		const controller = new SupersetToolController({
+			manager,
+			delegationRuns,
+			resolveDelegatedExecution: () => ({
+				enabled: true,
+				valid: true,
+				agent: "claude",
+				model: "sonnet",
+			}),
+		});
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "delegate",
+			arguments: { task: "Stop this child" },
+		});
+		await Promise.resolve();
+		expect(updates).toContainEqual(
+			expect.objectContaining({
+				id: result.delegationRunId,
+				status: stopReason,
+				completedAt: null,
+			}),
+		);
+		expect(updates).not.toContainEqual(
+			expect.objectContaining({
+				id: result.delegationRunId,
+				status: "completed",
+			}),
+		);
+	});
+
+	test("marks a rejected child turn as failed", async () => {
+		const { manager, prompt } = fixture();
+		prompt.mockImplementation(
+			async () =>
+				({
+					accepted: true as const,
+					turn: Promise.reject(new Error("child transport failed")),
+				}) as unknown as { accepted: true },
+		);
+		const updates: Array<
+			{ id: string } & Parameters<
+				DelegationRunPersistence["updateDelegationRun"]
+			>[1]
+		> = [];
+		const delegationRuns: DelegationRunPersistence = {
+			createDelegationRun: () => {},
+			updateDelegationRun: (id, update) => updates.push({ id, ...update }),
+			getDelegationRun: () => null,
+			listDelegationRunsByParent: () => [],
+			listActiveDelegationRuns: () => [],
+		};
+		const controller = new SupersetToolController({
+			manager,
+			delegationRuns,
+			resolveDelegatedExecution: () => ({
+				enabled: true,
+				valid: true,
+				agent: "claude",
+				model: "sonnet",
+			}),
+		});
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "delegate",
+			arguments: { task: "Fail this child" },
+		});
+		await Promise.resolve();
+		expect(updates).toContainEqual(
+			expect.objectContaining({
+				id: result.delegationRunId,
+				status: "failed",
+				failureMessage: "child transport failed",
+				completedAt: null,
+			}),
+		);
+	});
+
+	test("rejects recursive delegation from a delegated executor session", async () => {
+		const { manager, roles } = fixture();
+		roles.set("source", "delegated-executor");
+		const controller = new SupersetToolController({
+			manager,
+			resolveDelegatedExecution: () => ({
+				enabled: true,
+				valid: true,
+				agent: "claude",
+				model: "sonnet",
+			}),
+		});
+
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "delegate",
+				arguments: { task: "Do not recurse" },
+			}),
+		).rejects.toThrow("cannot delegate again");
 	});
 
 	test("reconciles an active persisted handoff when the controller restarts", () => {

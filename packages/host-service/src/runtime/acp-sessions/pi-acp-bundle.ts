@@ -14,6 +14,7 @@ export function patchPiAcpBundle(source: string): string {
   "--no-themes",
   ...(process.env.SUPERSET_PI_ACP_DISABLE_EXTENSIONS === "1" ? ["--no-extensions"] : []),
   ...(process.env.SUPERSET_PI_ACP_MCP_EXTENSION ? ["--extension", process.env.SUPERSET_PI_ACP_MCP_EXTENSION] : []),
+  ...(process.env.SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT ? ["--append-system-prompt", process.env.SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT] : []),
 ];`,
 	);
 	if (withRpcFlags === source) {

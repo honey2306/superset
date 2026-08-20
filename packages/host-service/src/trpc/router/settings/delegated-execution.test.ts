@@ -7,6 +7,7 @@ import type { HostServiceContext } from "../../../types";
 import {
 	createDelegatedExecutionRouter,
 	resolveDelegatedExecutionTarget,
+	resolveDelegationProfileTargets,
 } from "./delegated-execution";
 import {
 	type DelegatedExecutionModel,
@@ -30,7 +31,8 @@ function createCaller(
 			branch_prefix_custom text,
 			delegated_execution_enabled integer NOT NULL DEFAULT 0,
 			delegated_execution_agent_config_id text,
-			delegated_execution_model_id text
+			delegated_execution_model_id text,
+			delegation_profiles text
 		);
 		CREATE TABLE host_agent_configs (
 			id text PRIMARY KEY,
@@ -180,6 +182,70 @@ describe("delegatedExecutionRouter", () => {
 		await expect(
 			caller.models({ executorAgentConfigId: "gemini-config" }),
 		).rejects.toThrow("does not support ACP");
+	});
+
+	it("derives only the direct profile from legacy settings", async () => {
+		const { caller, db } = createCaller();
+		seedAgentConfig(db, "codex-config", "codex");
+		await caller.set({
+			enabled: true,
+			executorAgentConfigId: "codex-config",
+			executorModelId: "gpt-5.6-sol",
+		});
+
+		const profiles = await caller.profiles();
+		expect(profiles.persisted).toBe(false);
+		expect(profiles.profiles).toHaveLength(3);
+		expect(profiles.profiles[0]).toMatchObject({
+			id: "direct-execution",
+			enabled: true,
+			executorAgentConfigId: "codex-config",
+			executorModelId: "gpt-5.6-sol",
+		});
+		expect(
+			profiles.profiles.slice(1).every((profile) => !profile.enabled),
+		).toBe(true);
+	});
+
+	it("persists ordered profiles and resolves the selected executor", async () => {
+		const { caller, db } = createCaller();
+		seedAgentConfig(db, "codex-config", "codex");
+		const saved = await caller.setProfiles([
+			{
+				id: "design",
+				name: "Design",
+				description: "Architecture and investigation",
+				instructions: "Write a short design before editing.",
+				enabled: true,
+				order: 4,
+				executorAgentConfigId: "codex-config",
+				executorModelId: "gpt-5.6-sol",
+			},
+			{
+				id: "disabled",
+				name: "Disabled",
+				description: "Not currently available",
+				instructions: null,
+				enabled: false,
+				order: 1,
+				executorAgentConfigId: null,
+				executorModelId: null,
+			},
+		]);
+		expect(saved.persisted).toBe(true);
+		expect(saved.profiles.map((profile) => profile.id)).toEqual([
+			"design",
+			"disabled",
+		]);
+		const targets = resolveDelegationProfileTargets(db as unknown as HostDb);
+		expect(targets[0]).toMatchObject({
+			id: "design",
+			enabled: true,
+			valid: true,
+			agent: "codex",
+			model: "gpt-5.6-sol",
+		});
+		expect(targets[1]).toMatchObject({ id: "disabled", enabled: false });
 	});
 });
 
