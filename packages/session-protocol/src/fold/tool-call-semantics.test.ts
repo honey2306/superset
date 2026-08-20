@@ -102,4 +102,47 @@ describe("canonical tool-call semantics", () => {
 			result: [{ content: [{ type: "text", text: "Readable finding" }] }],
 		});
 	});
+
+	test("extracts Pi output after its fan-out diagnostic", () => {
+		const semantics = canonicalizeToolCallSemantics(
+			call({
+				title: "subagent",
+				content: [
+					{
+						type: "content",
+						content: {
+							type: "text",
+							text: `Run fan-out: 1/64 used, 63 remaining
+Workflow completed.
+
+Return:
+${JSON.stringify({
+	key: "main",
+	ok: true,
+	agent: "reviewer",
+	runId: "2d3a8598",
+	output:
+		"## Review\n\n### Blocker\n- Production persistence sidecar boundary is missing.",
+})}`,
+						},
+					},
+				],
+			}),
+			[],
+		);
+
+		expect(semantics).toMatchObject({
+			kind: "subagent",
+			result: [
+				{
+					content: [
+						{
+							type: "text",
+							text: "## Review\n\n### Blocker\n- Production persistence sidecar boundary is missing.",
+						},
+					],
+				},
+			],
+		});
+	});
 });

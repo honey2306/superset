@@ -5,6 +5,11 @@ import { AcpPlanItem } from "../AcpPlanItem";
 
 interface AcpPlanDockProps {
 	item: PlanItem;
+	review?: {
+		isSubmitting: boolean;
+		onApprove(feedback?: string): Promise<void>;
+		onRequestChanges(feedback: string): Promise<void>;
+	};
 }
 
 function getPlanSummary(item: PlanItem): string {
@@ -15,10 +20,13 @@ function getPlanSummary(item: PlanItem): string {
 	);
 }
 
-export function AcpPlanDock({ item }: AcpPlanDockProps) {
+export function AcpPlanDock({ item, review }: AcpPlanDockProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const done = item.entries.filter(
 		(entry) => entry.status === "completed",
+	).length;
+	const inProgress = item.entries.filter(
+		(entry) => entry.status === "in_progress",
 	).length;
 	const total = item.entries.length;
 
@@ -26,7 +34,7 @@ export function AcpPlanDock({ item }: AcpPlanDockProps) {
 		<div className="acp-plan-dock">
 			{isExpanded && (
 				<div className="acp-plan-dock__popover">
-					<AcpPlanItem item={item} />
+					<AcpPlanItem item={item} review={review} />
 				</div>
 			)}
 			<button
@@ -37,8 +45,11 @@ export function AcpPlanDock({ item }: AcpPlanDockProps) {
 				onClick={() => setIsExpanded((expanded) => !expanded)}
 			>
 				<ListChecks className="acp-plan-dock__icon" aria-hidden />
-				<span className="acp-plan-dock__progress">
-					{done}/{total}
+				<span
+					className="acp-plan-dock__progress"
+					title={`${done} completed, ${inProgress} in progress, ${total - done - inProgress} pending`}
+				>
+					{done + inProgress}/{total}
 				</span>
 				<span className="acp-plan-dock__summary">{getPlanSummary(item)}</span>
 				<ChevronDown className="acp-plan-dock__chevron" aria-hidden />

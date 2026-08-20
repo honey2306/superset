@@ -37,6 +37,7 @@ import type {
 	SessionScopedState,
 	SessionStatus,
 	SessionsPage,
+	SessionUpdate,
 	SessionUpdateEnvelope,
 	SessionUpdateFrame,
 	StopReason,
@@ -1000,6 +1001,41 @@ export class AcpSessionManager {
 		// prompt-settle hook will fire pendingSendNow before any tail item.
 		await this.cancel({ sessionId: input.sessionId });
 		return { accepted: true };
+	}
+
+	/**
+	 * Publish a host-owned, provider-neutral ACP plan for a live session.
+	 *
+	 * The caller supplies only the source session id resolved by the MCP
+	 * controller; this method deliberately uses requireLive so an offline or
+	 * dead session cannot receive a plan update. journalFrame is the single
+	 * journal/persistence/subscriber fan-out path used by adapter updates too.
+	 */
+	updatePlan(input: {
+		sessionId: string;
+		entries: Array<{
+			content: string;
+			status: "pending" | "in_progress" | "completed";
+		}>;
+		explanation?: string;
+	}): SessionUpdateEnvelope {
+		const runtime = this.requireLive(input.sessionId);
+		const update: Extract<SessionUpdate, { sessionUpdate: "plan" }> = {
+			sessionUpdate: "plan",
+			entries: input.entries.map((entry) => ({
+				content: entry.content,
+				status: entry.status,
+				priority: "medium" as const,
+			})),
+			...(input.explanation
+				? {
+						_meta: {
+							"sh.superset/updatePlanExplanation": input.explanation,
+						},
+					}
+				: {}),
+		};
+		return this.journalFrame(runtime, { kind: "update", update });
 	}
 
 	removeQueuedPrompt(input: { sessionId: string; queueId: string }): void {

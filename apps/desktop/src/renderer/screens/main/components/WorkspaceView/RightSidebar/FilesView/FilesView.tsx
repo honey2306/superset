@@ -22,10 +22,7 @@ import { openFileInPanes } from "renderer/lib/panes";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
-import {
-	retargetAbsolutePath,
-	toRelativeWorkspacePath,
-} from "shared/absolute-paths";
+import { retargetAbsolutePath } from "shared/absolute-paths";
 import type {
 	DirectoryEntry,
 	FileSystemChangeEvent,
@@ -38,6 +35,7 @@ import { NewItemInput } from "./components/NewItemInput";
 import { RenameInput } from "./components/RenameInput";
 import { ROW_HEIGHT, TREE_INDENT } from "./constants";
 import { fileSearchQueryKey } from "./fileQueryKeys";
+import { createFileTreeDataLoader } from "./fileTreeDataLoader";
 import { useFileSearch } from "./hooks/useFileSearch";
 import { useFileTreeActions } from "./hooks/useFileTreeActions";
 import type { NewItemMode } from "./types";
@@ -54,11 +52,6 @@ interface FileTreeController {
 	getItemInstance(
 		itemId: string,
 	): ItemInstance<DirectoryEntry> | null | undefined;
-}
-
-function getEntryRelativePath(rootPath: string, absolutePath: string): string {
-	const relativePath = toRelativeWorkspacePath(rootPath, absolutePath);
-	return relativePath === "." ? "" : relativePath;
 }
 
 function getPathSegmentSeparator(absolutePath: string): string {
@@ -169,7 +162,28 @@ export function FilesView() {
 	const hostUrl = useWorkspaceHostUrl(workspaceId ?? null);
 	const hostUrlRef = useRef(hostUrl);
 	hostUrlRef.current = hostUrl;
+	const workspaceIdRef = useRef(workspaceId);
+	workspaceIdRef.current = workspaceId;
 	const queryClient = useQueryClient();
+	const fileTreeDataLoader = useMemo(
+		() =>
+			createFileTreeDataLoader({
+				getWorktreePath: () => worktreePathRef.current,
+				entryCache: entryCacheRef.current,
+				listDirectory: async (absolutePath) => {
+					const currentHostUrl = hostUrlRef.current;
+					const currentWorkspaceId = workspaceIdRef.current;
+					if (!currentHostUrl || !currentWorkspaceId) return { entries: [] };
+					return getHostServiceClientByUrl(
+						currentHostUrl,
+					).filesystem.listDirectory.query({
+						workspaceId: currentWorkspaceId,
+						absolutePath,
+					});
+				},
+			}),
+		[],
+	);
 
 	const tree = useTree<DirectoryEntry>({
 		rootItemId: "root",
@@ -177,71 +191,7 @@ export function FilesView() {
 			item.getItemData()?.name ?? "",
 		isItemFolder: (item: ItemInstance<DirectoryEntry>) =>
 			item.getItemData()?.isDirectory ?? false,
-		dataLoader: {
-			getItem: async (itemId: string): Promise<DirectoryEntry> => {
-				if (itemId === "root") {
-					return {
-						id: "root",
-						name: "root",
-						path: worktreePathRef.current ?? "",
-						relativePath: "",
-						isDirectory: true,
-					};
-				}
-
-				const cachedEntry = entryCacheRef.current.get(itemId);
-				if (cachedEntry) {
-					return cachedEntry;
-				}
-
-				const currentPath = worktreePathRef.current;
-				const name = itemId.split(/[/\\]/).pop() ?? itemId;
-				const relativePath =
-					currentPath && itemId.startsWith(currentPath)
-						? itemId.slice(currentPath.length).replace(/^[/\\]/, "")
-						: itemId;
-
-				return {
-					id: itemId,
-					name,
-					path: itemId,
-					relativePath,
-					isDirectory: false,
-				};
-			},
-			getChildren: async (itemId: string): Promise<string[]> => {
-				const currentPath = worktreePathRef.current;
-				if (!currentPath) return [];
-
-				const dirPath = itemId === "root" ? currentPath : itemId;
-				if (!dirPath) return [];
-
-				try {
-					const currentHostUrl = hostUrlRef.current;
-					if (!currentHostUrl || !workspaceId) return [];
-					const { entries } = await getHostServiceClientByUrl(
-						currentHostUrl,
-					).filesystem.listDirectory.query({
-						workspaceId,
-						absolutePath: dirPath,
-					});
-					const nextEntries = entries.map((entry) => ({
-						id: entry.absolutePath,
-						name: entry.name,
-						path: entry.absolutePath,
-						relativePath: getEntryRelativePath(currentPath, entry.absolutePath),
-						isDirectory: entry.kind === "directory",
-					}));
-					for (const entry of nextEntries) {
-						entryCacheRef.current.set(entry.path, entry);
-					}
-					return nextEntries.map((entry) => entry.path);
-				} catch (error) {
-					console.error("[FilesView] Failed to load children:", error);
-					return [];
-				}
-			},
-		},
+		dataLoader: fileTreeDataLoader,
 		features: [asyncDataLoaderFeature, selectionFeature, expandAllFeature],
 	});
 

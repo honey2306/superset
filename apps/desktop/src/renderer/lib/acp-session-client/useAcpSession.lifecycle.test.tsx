@@ -93,6 +93,77 @@ async function waitFor(predicate: () => boolean, timeoutMs = 3_000) {
 }
 
 describe("useAcpSession lifecycle recovery", () => {
+	test("publishes refreshed state before reopened transcript history finishes loading", async () => {
+		let currentStatus: SessionScopedState["status"] = "running";
+		let transcriptCalls = 0;
+		let releaseReopenedTranscript: (() => void) | undefined;
+		const reopenedTranscriptGate = new Promise<void>((resolve) => {
+			releaseReopenedTranscript = resolve;
+		});
+		const transcriptTurn = {
+			turnNumber: 1,
+			startSeq: 1,
+			endSeq: 1,
+			userPreview: "Existing prompt",
+			agentPreview: "preserved history",
+			isComplete: true,
+			items: history,
+		};
+		const api = {
+			get: async () => ({ ...state, status: currentStatus }),
+			getMessages: async () => ({ items: [], nextCursor: null }),
+			getTranscript: async () => {
+				transcriptCalls += 1;
+				if (transcriptCalls === 2) await reopenedTranscriptGate;
+				return {
+					turns: [transcriptTurn],
+					index: [transcriptTurn],
+					totalTurns: 1,
+					nextCursor: null,
+				};
+			},
+			prompt: async () => ({ accepted: true as const }),
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const { result, rerender } = renderHook(
+			({ enabled }: { enabled: boolean }) =>
+				useAcpSession({
+					sessionId: state.sessionId,
+					api,
+					streamUrl: "ws://test",
+					createWebSocket: idleSocket,
+					enabled,
+				}),
+			{ initialProps: { enabled: true } },
+		);
+
+		await waitFor(() => result.current.isLoading === false);
+		expect(result.current.state?.status).toBe("running");
+		expect(result.current.timeline.items).toHaveLength(1);
+
+		rerender({ enabled: false });
+		currentStatus = "idle";
+		rerender({ enabled: true });
+		await waitFor(() => transcriptCalls === 2);
+
+		expect(result.current.isLoading).toBe(true);
+		expect(result.current.state?.status).toBe("idle");
+		expect(result.current.timeline.items).toHaveLength(1);
+
+		releaseReopenedTranscript?.();
+		await waitFor(() => result.current.isLoading === false);
+	});
+
 	test("does not subscribe while hidden and fully resyncs when visible again", async () => {
 		let getCalls = 0;
 		let getMessagesCalls = 0;

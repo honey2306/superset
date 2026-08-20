@@ -388,8 +388,8 @@ describe("older history", () => {
 	});
 });
 
-describe("plan rendering", () => {
-	test("keeps a completed plan inline after the turn is settled", () => {
+describe("plan dock", () => {
+	test("hides a plan after every entry is completed", () => {
 		const completedPlan = plan(2);
 		completedPlan.entries = completedPlan.entries.map((entry) => ({
 			...entry,
@@ -401,25 +401,87 @@ describe("plan rendering", () => {
 		});
 
 		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
-		expect(
-			result.container.querySelector(".acp-pane__scroll .acp-plan"),
-		).toBeTruthy();
-		expect(screen.getByText("Inspect ACP timeline")).toBeTruthy();
+		expect(result.container.querySelector(".acp-plan")).toBeNull();
 	});
 
-	test("keeps the active plan inline in the answer", () => {
+	test("keeps the active plan collapsed above the composer", () => {
 		const result = renderTimeline({
 			...timeline(0),
 			items: [message(1), plan(2), message(3)],
 		});
 
 		const scroll = result.container.querySelector(".acp-pane__scroll");
-		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
-		expect(scroll?.querySelector(".acp-plan")).toBeTruthy();
+		const dock = result.container.querySelector(".acp-plan-dock");
+		expect(scroll?.nextElementSibling).toBe(dock);
+		expect(scroll?.querySelector(".acp-plan")).toBeNull();
+		expect(dock?.querySelector(".acp-plan")).toBeNull();
+		expect(screen.getByText("2/3")).toBeTruthy();
+		expect(
+			screen.getByTitle("1 completed, 1 in progress, 1 pending"),
+		).toBeTruthy();
 		expect(screen.getByText("Keep plan docked")).toBeTruthy();
+		expect(
+			screen
+				.getByRole("button", { name: "Expand plan" })
+				.getAttribute("aria-expanded"),
+		).toBe("false");
 	});
 
-	test("offers approve and feedback actions for the latest settled plan", async () => {
+	test("counts the in-progress step in compact progress", () => {
+		renderTimeline({
+			...timeline(0),
+			items: [message(1), plan(2), message(3)],
+		});
+
+		expect(screen.getByText("2/3")).toBeTruthy();
+	});
+
+	test("removes the dock when the latest plan update completes", () => {
+		const activePlan = plan(2);
+		const completedPlan: PlanItem = {
+			...plan(3),
+			entries: activePlan.entries.map((entry) => ({
+				...entry,
+				status: "completed",
+			})),
+		};
+		const result = renderTimeline({
+			...timeline(0),
+			items: [message(1), activePlan],
+		});
+		expect(result.container.querySelector(".acp-plan-dock")).toBeTruthy();
+
+		result.rerender(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [message(1), activePlan, completedPlan],
+				},
+				onRespond: async () => {},
+			}),
+		);
+
+		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
+		expect(result.container.querySelector(".acp-plan")).toBeNull();
+	});
+
+	test("reveals the existing plan card when clicked", () => {
+		const result = renderTimeline({
+			...timeline(0),
+			items: [message(1), plan(2), message(3)],
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Expand plan" }));
+
+		expect(
+			result.container.querySelector(".acp-plan-dock .acp-plan"),
+		).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Collapse plan" })).toBeTruthy();
+		expect(screen.getByText("Inspect ACP timeline")).toBeTruthy();
+		expect(screen.getByText("Verify behavior")).toBeTruthy();
+	});
+
+	test("offers approve and feedback actions from the expanded dock", async () => {
 		let approvedFeedback: string | undefined;
 		let requestedFeedback: string | undefined;
 		render(
@@ -439,6 +501,7 @@ describe("plan rendering", () => {
 				},
 			}),
 		);
+		fireEvent.click(screen.getByRole("button", { name: "Expand plan" }));
 
 		fireEvent.change(
 			screen.getByPlaceholderText("Add feedback for revisions…"),
@@ -567,6 +630,42 @@ describe("turn navigation", () => {
 });
 
 describe("AcpTimeline scrolling", () => {
+	test("opens an initially focused conversation at the bottom after layout", () => {
+		const pendingFrames: FrameRequestCallback[] = [];
+		const originalRequestAnimationFrame = window.requestAnimationFrame;
+		const originalCancelAnimationFrame = window.cancelAnimationFrame;
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			pendingFrames.push(callback);
+			return pendingFrames.length;
+		}) as typeof window.requestAnimationFrame;
+		window.cancelAnimationFrame =
+			(() => {}) as typeof window.cancelAnimationFrame;
+
+		try {
+			const result = render(
+				createElement(AcpTimeline, {
+					timeline: timeline(2),
+					onRespond: async () => {},
+					isFocused: true,
+				}),
+			);
+			const body = result.container.querySelector(
+				".acp-pane__scroll",
+			) as HTMLDivElement;
+
+			// The virtualized timeline becomes measurable after its first commit.
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_000 });
+			act(() => {
+				for (const frame of pendingFrames.splice(0)) frame(0);
+			});
+
+			expect(body.scrollTop).toBe(1_000);
+		} finally {
+			window.requestAnimationFrame = originalRequestAnimationFrame;
+			window.cancelAnimationFrame = originalCancelAnimationFrame;
+		}
+	});
+
 	test("keeps the reading position stable when an older page is prepended", () => {
 		const onLoadOlder = async () => {};
 		const firstPage = timeline(2);

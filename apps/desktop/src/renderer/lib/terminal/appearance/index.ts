@@ -231,7 +231,9 @@ function readCachedTerminalTheme(): ITheme {
 		if (theme) {
 			return toXtermTheme(getTerminalColors(theme));
 		}
-	} catch {}
+	} catch {
+		// Invalid or unavailable cached theme falls back to the built-in default.
+	}
 	const defaultTheme = builtInThemes.find((t) => t.id === DEFAULT_THEME_ID);
 	return defaultTheme
 		? toXtermTheme(getTerminalColors(defaultTheme))

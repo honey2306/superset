@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>方案一：原始优化版</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+      background: #1e1f29;
+      padding: 48px 24px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* 直接使用 ACP 的 plan 样式，优化视觉层次 */
+    .acp-plan {
+      border: 1px solid color-mix(in oklch, #f8f8f2 10%, transparent);
+      border-radius: 6px;
+      background: #282a36;
+      padding: 10px 12px;
+    }
+
+    .acp-plan__head {
+      color: #8be9fd;
+      font-size: 10.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 500;
+    }
+
+    .acp-plan__head-progress {
+      margin-left: auto;
+      color: color-mix(in oklch, #f8f8f2 55%, transparent);
+      font-size: 10.5px;
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+
+    .acp-plan__items {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .acp-plan__item {
+      display: grid;
+      grid-template-columns: 16px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      font-size: 12.5px;
+      line-height: 1.4;
+      padding: 2px 0;
+      border-radius: 3px;
+      transition: background 0.15s ease;
+    }
+
+    .acp-plan__item:hover {
+      background: color-mix(in oklch, #f8f8f2 3%, transparent);
+    }
+
+    .acp-plan__box {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1.5px solid color-mix(in oklch, #f8f8f2 38%, transparent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: transparent;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .acp-plan__item[data-status="completed"] .acp-plan__box {
+      background: #50fa7b;
+      border-color: #50fa7b;
+      color: #1e1f29;
+    }
+
+    .acp-plan__item[data-status="in_progress"] .acp-plan__box {
+      border-color: #ffb86c;
+      background: color-mix(in oklch, #ffb86c 12%, transparent);
+      color: #ffb86c;
+    }
+
+    .acp-plan__spinner {
+      display: block;
+      width: 8px;
+      height: 8px;
+      border: 1.5px solid #ffb86c;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: acp-plan-spin 0.8s linear infinite;
+    }
+
+    @keyframes acp-plan-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .acp-plan__text {
+      color: #f8f8f2;
+    }
+
+    .acp-plan__item[data-status="completed"] .acp-plan__text {
+      color: color-mix(in oklch, #f8f8f2 55%, transparent);
+      text-decoration: line-through;
+    }
+
+    .acp-plan__item[data-status="in_progress"] .acp-plan__text {
+      color: #f8f8f2;
+      font-weight: 500;
+    }
+
+    .acp-plan__priority {
+      font-size: 9.5px;
+      padding: 0 5px;
+      border-radius: 2px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: color-mix(in oklch, #f8f8f2 55%, transparent);
+      background: color-mix(in oklch, #f8f8f2 10%, transparent);
+      flex-shrink: 0;
+    }
+
+    .acp-plan__priority[data-level="medium"] {
+      color: #ffb86c;
+      background: color-mix(in oklch, #ffb86c 12%, transparent);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="acp-plan">
+      <div class="acp-plan__head">
+        <span aria-hidden>◫</span>
+        <span>Plan</span>
+        <span class="acp-plan__head-progress">2 / 3 in progress</span>
+      </div>
+      <ol class="acp-plan__items">
+        <li class="acp-plan__item" data-status="completed">
+          <span class="acp-plan__box" aria-hidden>✓</span>
+          <span class="acp-plan__text">状态一</span>
+          <span class="acp-plan__priority" data-level="medium">Medium</span>
+        </li>
+        <li class="acp-plan__item" data-status="in_progress">
+          <span class="acp-plan__box" aria-hidden>
+            <span class="acp-plan__spinner"></span>
+          </span>
+          <span class="acp-plan__text">状态二</span>
+          <span class="acp-plan__priority" data-level="medium">Medium</span>
+        </li>
+        <li class="acp-plan__item" data-status="pending">
+          <span class="acp-plan__box" aria-hidden></span>
+          <span class="acp-plan__text">状态三</span>
+          <span class="acp-plan__priority" data-level="medium">Medium</span>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.acp-plan__item').forEach(item => {
+      item.addEventListener('click', function() {
+        const currentStatus = this.dataset.status;
+        if (currentStatus === 'pending') {
+          this.dataset.status = 'in_progress';
+        } else if (currentStatus === 'in_progress') {
+          this.dataset.status = 'completed';
+        } else {
+          this.dataset.status = 'pending';
+        }
+        updateProgress();
+      });
+    });
+
+    function updateProgress() {
+      const items = document.querySelectorAll('.acp-plan__item');
+      const done = Array.from(items).filter(i => i.dataset.status === 'completed').length;
+      const inProgress = Array.from(items).filter(i => i.dataset.status === 'in_progress').length;
+      const total = items.length;
+      const progress = document.querySelector('.acp-plan__head-progress');
+      progress.textContent = `${done + inProgress} / ${total}${inProgress > 0 ? ' in progress' : ''}`;
+    }
+  </script>
+</body>
+</html>

@@ -653,14 +653,6 @@
 	background: var(--acp-pink);
 	opacity: 1;
 }
-.acp-turn-marker[data-loaded="false"]:not([data-active="true"])
-	.acp-turn-marker__tick {
-	width: 8px;
-	height: 4px;
-	border: 1px solid var(--acp-line-hi);
-	background: transparent;
-	opacity: 0.72;
-}
 .acp-turn-marker:focus-visible {
 	outline: 1px solid var(--acp-pink);
 	outline-offset: -2px;
@@ -1024,7 +1016,7 @@
 .acp-tool__head {
 	display: flex;
 	align-items: baseline;
-	gap: 8px;
+	gap: 4px;
 	padding: 2px 0;
 	background: transparent;
 	border: 0;
@@ -1047,8 +1039,7 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 12px;
-	margin-right: -10px;
+	width: 6px;
 	color: var(--acp-dim);
 	font-family: var(--acp-font-mono);
 	font-size: 12px;
@@ -1143,9 +1134,9 @@
 		transform: rotate(360deg);
 	}
 }
-/* Expanded body indents to align with the kind label (12px caret + 8px gap
- * - 10px caret margin = 10px), so diffs / permission history / raw output
- * visually continue the tool row instead of forming a separate boxed panel. */
+/* Expanded body indents to align with the kind label (6px caret + 4px gap
+ * = 10px), so diffs / permission history / raw output visually continue the
+ * tool row instead of forming a separate boxed panel. */
 .acp-tool__body {
 	position: relative;
 	margin: 6px 0 8px 10px;
@@ -1228,103 +1219,108 @@
 	text-transform: uppercase;
 }
 
-/* ---------- Subagent activity ---------- */
+/* ---------- Subagent activity ----------
+ * Variant A · Whisper Line — no card frame, no left rail. The row
+ * carries its status through the eyebrow color, the tools progress
+ * dots, and the trailing status pill. Hover reveals a faint tint.
+ */
 .acp-subagent {
-	border: 1px solid color-mix(in oklch, var(--acp-purple) 28%, transparent);
-	border-radius: 7px;
-	background: rgba(255, 255, 255, 0.015);
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
 	overflow: hidden;
-	box-shadow:
-		inset 2px 0 0 color-mix(in oklch, var(--acp-purple) 70%, transparent),
-		0 8px 28px rgba(0, 0, 0, 0.1);
-}
-.acp-subagent[data-status="awaiting_approval"] {
-	border-color: color-mix(in oklch, var(--warning) 46%, transparent);
-	box-shadow:
-		inset 2px 0 0 var(--acp-orange),
-		0 0 24px var(--warning-tint);
-}
-.acp-subagent[data-status="failed"] {
-	border-color: color-mix(in oklch, var(--danger) 40%, transparent);
-	box-shadow: inset 2px 0 0 var(--acp-red);
-}
-.acp-subagent[data-status="completed"] {
-	border-color: var(--acp-line-hi);
 	box-shadow: none;
+}
+.acp-subagent[data-status="awaiting_approval"],
+.acp-subagent[data-status="failed"],
+.acp-subagent[data-status="completed"] {
+	border: 0;
+	box-shadow: none;
+	background: transparent;
 }
 .acp-subagent__head {
 	width: 100%;
-	min-height: 51px;
+	min-height: 40px;
 	display: flex;
 	align-items: center;
-	gap: 9px;
-	padding: 7px 11px;
+	gap: 10px;
+	padding: 8px 10px 8px 6px;
 	border: 0;
-	background: var(--acp-purple-dim);
+	border-radius: 5px;
+	background: transparent;
 	color: inherit;
 	font: inherit;
 	font-family: var(--acp-font-mono);
 	text-align: left;
 	cursor: pointer;
+	transition: background 120ms ease;
 }
 .acp-subagent[data-status="completed"] .acp-subagent__head {
-	background: rgba(255, 255, 255, 0.018);
+	background: transparent;
 }
 .acp-subagent__head:hover {
-	background: var(--acp-purple-dim);
+	background: rgba(255, 255, 255, 0.025);
 }
 .acp-subagent__caret {
 	width: 10px;
 	color: var(--acp-muted);
-	font-size: 14px;
+	font-size: 12px;
 	line-height: 1;
 	flex-shrink: 0;
 }
 .acp-subagent__mark {
-	width: 22px;
-	height: 22px;
+	width: 14px;
+	height: 14px;
 	display: grid;
-	grid-template-columns: repeat(2, 4px);
-	grid-template-rows: repeat(2, 4px);
+	grid-template-columns: repeat(2, 3px);
+	grid-template-rows: repeat(2, 3px);
 	place-content: center;
 	gap: 2px;
-	border: 1px solid color-mix(in oklch, var(--acp-purple) 38%, transparent);
-	border-radius: 4px;
-	background: var(--acp-purple-dim);
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 	flex-shrink: 0;
 }
 .acp-subagent__mark i {
-	width: 4px;
-	height: 4px;
-	border-radius: 1px;
+	width: 3px;
+	height: 3px;
+	border-radius: 0.5px;
 	background: var(--acp-purple);
 }
 .acp-subagent__identity {
-	min-width: 190px;
+	min-width: 0;
 	flex: 1 1 auto;
 	display: flex;
-	flex-direction: column;
-	gap: 2px;
+	flex-direction: row;
+	align-items: baseline;
+	gap: 8px;
+	overflow: hidden;
 }
 .acp-subagent__eyebrow {
-	color: var(--acp-purple);
-	font-size: 9px;
-	font-weight: 600;
-	letter-spacing: 0.12em;
+	color: var(--acp-muted);
+	font-size: 10px;
+	font-weight: 500;
+	letter-spacing: 0;
+	white-space: nowrap;
+	flex-shrink: 0;
 }
 .acp-subagent__eyebrow b {
-	margin-left: 4px;
-	color: var(--acp-muted);
-	font-weight: 500;
-	letter-spacing: 0.03em;
+	margin-left: 3px;
+	color: var(--acp-purple);
+	font-weight: 600;
+	letter-spacing: 0;
 	text-transform: none;
 }
 .acp-subagent__task {
-	color: var(--acp-fg);
-	font-size: 11.5px;
+	color: var(--acp-fg-2);
+	font-family: var(--acp-font-sans);
+	font-size: 12.5px;
+	line-height: 1.4;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	min-width: 0;
+	flex: 1 1 auto;
 }
 .acp-subagent__summary {
 	display: flex;
@@ -1376,9 +1372,12 @@
 	animation: acp-blink 1.2s ease-in-out infinite;
 }
 .acp-subagent__body {
-	padding: 8px 10px 10px 42px;
-	border-top: 1px solid var(--acp-line);
-	background: rgba(0, 0, 0, 0.13);
+	padding: 6px 10px 10px 26px;
+	margin-top: 2px;
+	border-top: 0;
+	background: transparent;
+	border-left: 1px solid var(--acp-line);
+	margin-left: 12px;
 }
 .acp-subagent__activity-head {
 	display: flex;
@@ -1471,14 +1470,12 @@
 	}
 }
 @container acp-pane (max-width: 520px) {
-	.acp-subagent__identity {
-		min-width: 0;
-	}
 	.acp-subagent__eyebrow b {
 		display: none;
 	}
 	.acp-subagent__body {
-		padding-left: 22px;
+		margin-left: 8px;
+		padding-left: 14px;
 	}
 }
 
@@ -1620,11 +1617,11 @@
 .acp-md a:hover {
 	text-decoration-color: var(--acp-purple);
 }
-/* Inline code carries its own signal (cyan) so it never gets confused with a
- * pink heading. No background — a sentence full of `--flag`s and paths stays
- * a clean row of mono text instead of a strip of pills that skews line
- * height. Code blocks and table cells override the family below and stay
- * mono (this rule already is, unlike the old sans-stack inline code).
+/* Inline code outside headings carries its own signal (cyan). No background
+ * — a sentence full of `--flag`s and paths stays a clean row of mono text
+ * instead of a strip of pills that skews line height. Code blocks and table
+ * cells override the family below and stay mono (this rule already is, unlike
+ * the old sans-stack inline code).
  *
  * Wrapping: prefer keeping a whole path/identifier on one line (browsers'
  * default `word-break: normal` treats `/` `-` `.` as break opportunities and
@@ -1642,6 +1639,16 @@
 	font-weight: 500;
 	word-break: keep-all;
 	overflow-wrap: anywhere;
+}
+/* A heading is one visual unit. Markdown code spans inside it retain their
+ * semantic <code> element but inherit the heading treatment instead of
+ * splitting the title into pink sans text and smaller cyan mono text. */
+.acp-md :is(h1, h2, h3, h4, h5, h6) code:not(pre code) {
+	color: inherit;
+	font-family: inherit;
+	font-size: inherit;
+	font-weight: inherit;
+	letter-spacing: inherit;
 }
 .acp-md blockquote {
 	margin: 12px 0;
@@ -2119,34 +2126,32 @@
 	line-height: 1.4;
 }
 .acp-plan__box {
-	width: 14px;
-	height: 14px;
-	border-radius: 4px;
-	border: 1.5px solid var(--acp-dim);
+	width: 16px;
+	height: 16px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 10px;
-	color: transparent;
+	flex-shrink: 0;
 }
-.acp-plan__item[data-status="completed"] .acp-plan__box {
-	background: var(--acp-green);
-	border-color: var(--acp-green);
-	color: var(--background);
+.acp-plan__box svg {
+	width: 16px;
+	height: 16px;
+	display: block;
 }
-.acp-plan__item[data-status="in_progress"] .acp-plan__box {
-	border-color: var(--acp-orange);
-	background: var(--acp-orange-dim);
-	color: var(--acp-orange);
+.acp-plan__item[data-status="completed"] .acp-plan__box svg {
+	/* Green circle with checkmark */
+}
+.acp-plan__item[data-status="in_progress"] .acp-plan__box svg {
+	/* Orange spinning arc */
+}
+.acp-plan__item[data-status="pending"] .acp-plan__box svg {
+	/* Dim empty circle */
 }
 .acp-plan__spinner {
 	display: block;
-	width: 8px;
-	height: 8px;
-	border: 1.5px solid var(--acp-orange);
-	border-right-color: transparent;
-	border-radius: 50%;
-	animation: acp-plan-spin 0.8s linear infinite;
+	width: 16px;
+	height: 16px;
+	animation: acp-plan-spin 1.2s linear infinite;
 }
 @keyframes acp-plan-spin {
 	to {

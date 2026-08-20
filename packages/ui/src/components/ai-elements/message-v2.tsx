@@ -1,6 +1,7 @@
 "use client";
 
 import type mermaid from "mermaid";
+import type { ComponentProps } from "react";
 import { memo, useEffect, useRef } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
@@ -23,6 +24,8 @@ export type MessageResponseV2Props = {
 	controls?: unknown;
 	linkSafety?: unknown;
 	mode?: string;
+	remarkPlugins?: ComponentProps<typeof ReactMarkdown>["remarkPlugins"];
+	components?: Components;
 };
 
 const components: Components = {
@@ -53,7 +56,13 @@ const components: Components = {
 };
 
 export const MessageResponseV2 = memo(
-	({ children, className, mermaid }: MessageResponseV2Props) => {
+	({
+		children,
+		className,
+		mermaid,
+		remarkPlugins,
+		components: componentOverrides,
+	}: MessageResponseV2Props) => {
 		const containerRef = useRef<HTMLDivElement>(null);
 
 		// Mermaid 初始化
@@ -81,9 +90,9 @@ export const MessageResponseV2 = memo(
 		return (
 			<div ref={containerRef} className={cn("acp-md", className)}>
 				<ReactMarkdown
-					remarkPlugins={[remarkGfm]}
+					remarkPlugins={[remarkGfm, ...(remarkPlugins ?? [])]}
 					rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeMermaid]}
-					components={components}
+					components={{ ...components, ...componentOverrides }}
 				>
 					{children}
 				</ReactMarkdown>
@@ -91,7 +100,10 @@ export const MessageResponseV2 = memo(
 		);
 	},
 	(prev, next) =>
-		prev.children === next.children && prev.isAnimating === next.isAnimating,
+		prev.children === next.children &&
+		prev.isAnimating === next.isAnimating &&
+		prev.remarkPlugins === next.remarkPlugins &&
+		prev.components === next.components,
 );
 
 MessageResponseV2.displayName = "MessageResponseV2";

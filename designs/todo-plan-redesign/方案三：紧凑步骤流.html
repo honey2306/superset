@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>方案三：紧凑步骤流</title>
+  <style>
+    :root {
+      --background: #1e1f29;
+      --surface:    #282a36;
+      --surface-2:  #21222c;
+      --fg:         #f8f8f2;
+      --fg-mute:    rgba(248,248,242,0.55);
+      --fg-faint:   rgba(248,248,242,0.38);
+      --line:       rgba(248,248,242,0.10);
+      --line-hi:    rgba(248,248,242,0.18);
+      --hover:      rgba(248,248,242,0.06);
+      --accent:     #ff79c6;
+      --accent-2:   #bd93f9;
+      --success:    #50fa7b;
+      --warning:    #ffb86c;
+      --danger:     #ff5555;
+      --info:       #8be9fd;
+      --font-sans:  -apple-system,"SF Pro Text","PingFang SC","Noto Sans SC",sans-serif;
+      --font-mono:  "SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--background);
+      padding: 48px 24px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container { width:100%; max-width: 480px; }
+
+    /* ── Plan card ── */
+    .plan {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      padding: 11px 14px 10px;
+    }
+
+    /* ── Header row ── */
+    .plan__head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .plan__icon {
+      color: var(--info);
+      font-size: 12px;
+      line-height: 1;
+    }
+    .plan__title {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--info);
+    }
+    .plan__spacer { flex: 1; }
+    .plan__count {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--fg-mute);
+      letter-spacing: 0.02em;
+    }
+    .plan__count .active { color: var(--warning); font-weight: 600; }
+
+    /* ── Task list (step flow) ── */
+    .plan__items {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .plan__item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 4px 7px 0;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.1s ease;
+      border-radius: 4px;
+    }
+    .plan__item:hover { background: var(--hover); }
+
+    /* Vertical connector between steps */
+    .plan__item:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 13px;
+      top: 26px;
+      width: 1px;
+      height: calc(100% - 16px);
+      background: var(--line);
+    }
+    .plan__item[data-status="completed"]:not(:last-child)::after {
+      background: rgba(80,250,123,0.25);
+    }
+
+    /* Step number circle */
+    .plan__circle {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1.5px solid var(--line-hi);
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--fg-faint);
+      transition: all 0.2s ease;
+      position: relative;
+      z-index: 1;
+    }
+    .plan__item[data-status="completed"] .plan__circle {
+      background: var(--success);
+      border-color: var(--success);
+      color: var(--background);
+      font-size: 10px;
+    }
+    .plan__item[data-status="in_progress"] .plan__circle {
+      border-color: var(--warning);
+      background: rgba(255,184,108,0.15);
+      color: var(--warning);
+      box-shadow: 0 0 0 3px rgba(255,184,108,0.08);
+    }
+    .plan__item:hover .plan__circle { border-color: var(--fg-mute); }
+
+    .plan__spinner {
+      display: block;
+      width: 10px;
+      height: 10px;
+      border: 1.5px solid var(--warning);
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Task body */
+    .plan__body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+    .plan__text {
+      font-size: 12.5px;
+      color: var(--fg);
+      line-height: 1.4;
+      transition: color 0.2s;
+    }
+    .plan__item[data-status="completed"] .plan__text {
+      color: var(--fg-mute);
+      text-decoration: line-through;
+      text-decoration-color: var(--fg-faint);
+      text-decoration-thickness: 1px;
+    }
+    .plan__item[data-status="in_progress"] .plan__text {
+      color: var(--fg);
+      font-weight: 500;
+    }
+
+    /* Right side: status dot + badge */
+    .plan__meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .plan__dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--fg-faint);
+      transition: all 0.2s;
+    }
+    .plan__item[data-status="completed"] .plan__dot {
+      background: var(--success);
+    }
+    .plan__item[data-status="in_progress"] .plan__dot {
+      background: var(--warning);
+      box-shadow: 0 0 0 3px rgba(255,184,108,0.2);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(255,184,108,0.2); }
+      50%      { box-shadow: 0 0 0 5px rgba(255,184,108,0.08); }
+    }
+
+    .plan__badge {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--line);
+      color: var(--fg-faint);
+      background: transparent;
+      transition: all 0.15s;
+    }
+    .plan__item[data-status="in_progress"] .plan__badge {
+      color: var(--warning);
+      border-color: rgba(255,184,108,0.3);
+      background: rgba(255,184,108,0.08);
+    }
+    .plan__item[data-status="completed"] .plan__badge {
+      opacity: 0.35;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="plan" id="plan">
+      <div class="plan__head">
+        <span class="plan__icon" aria-hidden>◫</span>
+        <span class="plan__title">Plan</span>
+        <div class="plan__spacer"></div>
+        <span class="plan__count">
+          <span class="active" id="activeCount">2</span> / <span id="totalCount">3</span> in progress
+        </span>
+      </div>
+
+      <ol class="plan__items">
+        <li class="plan__item" data-status="completed" data-step="1">
+          <div class="plan__circle">✓</div>
+          <div class="plan__body">
+            <span class="plan__text">状态一</span>
+            <div class="plan__meta">
+              <span class="plan__dot"></span>
+              <span class="plan__badge">Medium</span>
+            </div>
+          </div>
+        </li>
+        <li class="plan__item" data-status="in_progress" data-step="2">
+          <div class="plan__circle"><span class="plan__spinner"></span></div>
+          <div class="plan__body">
+            <span class="plan__text">状态二</span>
+            <div class="plan__meta">
+              <span class="plan__dot"></span>
+              <span class="plan__badge">Medium</span>
+            </div>
+          </div>
+        </li>
+        <li class="plan__item" data-status="pending" data-step="3">
+          <div class="plan__circle">3</div>
+          <div class="plan__body">
+            <span class="plan__text">状态三</span>
+            <div class="plan__meta">
+              <span class="plan__dot"></span>
+              <span class="plan__badge">Medium</span>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    function cycle(status) {
+      if (status === 'pending')     return 'in_progress';
+      if (status === 'in_progress') return 'completed';
+      return 'pending';
+    }
+    function updateUI() {
+      const items = document.querySelectorAll('.plan__item');
+      const done = [...items].filter(i => i.dataset.status === 'completed').length;
+      const active = [...items].filter(i => i.dataset.status === 'in_progress').length;
+      const total = items.length;
+      document.getElementById('activeCount').textContent = done + active;
+      document.getElementById('totalCount').textContent = total;
+
+      items.forEach(item => {
+        const circle = item.querySelector('.plan__circle');
+        const step = item.dataset.step;
+        const s = item.dataset.status;
+        if (s === 'completed') {
+          circle.innerHTML = '✓';
+        } else if (s === 'in_progress') {
+          circle.innerHTML = '<span class="plan__spinner"></span>';
+        } else {
+          circle.textContent = step;
+        }
+      });
+    }
+    document.querySelectorAll('.plan__item').forEach(item => {
+      item.addEventListener('click', () => {
+        item.dataset.status = cycle(item.dataset.status);
+        updateUI();
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,20 +1,22 @@
 interface WorkspaceAheadBehindProps {
-	ahead: number;
-	behind: number;
+	pullCount: number;
+	pushCount: number;
+	hasUpstream: boolean;
 }
 
 export function WorkspaceAheadBehind({
-	ahead,
-	behind,
+	pullCount,
+	pushCount,
+	hasUpstream,
 }: WorkspaceAheadBehindProps) {
-	if (ahead === 0 && behind === 0) {
+	if (!hasUpstream || (pullCount === 0 && pushCount === 0)) {
 		return null;
 	}
 
 	return (
 		<div className="flex items-center gap-1.5 text-[10px] font-mono tabular-nums shrink-0">
-			{behind > 0 && <span className="text-warning">↓{behind}</span>}
-			{ahead > 0 && <span className="text-success">↑{ahead}</span>}
+			{pullCount > 0 && <span className="text-warning">↓{pullCount}</span>}
+			{pushCount > 0 && <span className="text-success">↑{pushCount}</span>}
 		</div>
 	);
 }

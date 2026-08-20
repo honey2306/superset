@@ -43,6 +43,25 @@ function fixture() {
 	]);
 	const prompt = mock(async () => ({ accepted: true as const }));
 	const enqueuePrompt = mock(() => ({ accepted: true as const }));
+	const updatePlan = mock(() => ({
+		seq: 21,
+		epoch: "epoch-1",
+		sessionId: "source",
+		ts: 1,
+		frame: {
+			kind: "update" as const,
+			update: {
+				sessionUpdate: "plan" as const,
+				entries: [
+					{
+						content: "Inspect the implementation",
+						status: "in_progress" as const,
+						priority: "medium" as const,
+					},
+				],
+			},
+		},
+	}));
 	const getMessages = mock(() => ({
 		items: [{ seq: 12, frame: { kind: "agent_message_chunk", text: "done" } }],
 		nextCursor: "s8",
@@ -96,12 +115,93 @@ function fixture() {
 		prompt,
 		ensureLive: mock(async () => {}),
 		enqueuePrompt,
+		updatePlan,
 		askUser,
 	} as unknown as AcpSessionManager;
-	return { manager, create, getMessages, prompt, enqueuePrompt, askUser };
+	return {
+		manager,
+		create,
+		getMessages,
+		prompt,
+		enqueuePrompt,
+		updatePlan,
+		askUser,
+	};
 }
 
 describe("SupersetToolController", () => {
+	test("publishes a complete plan for the source session", async () => {
+		const { manager, updatePlan } = fixture();
+		const controller = new SupersetToolController({ manager });
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "update_plan",
+			arguments: {
+				plan: [
+					{ step: "Inspect the implementation", status: "in_progress" },
+					{ step: "Add regression coverage", status: "pending" },
+				],
+				explanation: "Starting with the implementation review.",
+			},
+		});
+
+		expect(updatePlan).toHaveBeenCalledWith({
+			sessionId: "source",
+			entries: [
+				{ content: "Inspect the implementation", status: "in_progress" },
+				{ content: "Add regression coverage", status: "pending" },
+			],
+			explanation: "Starting with the implementation review.",
+		});
+		expect(result).toEqual({ updated: true, sessionId: "source", seq: 21 });
+	});
+
+	test("rejects plans with more than one in-progress step", async () => {
+		const { manager, updatePlan } = fixture();
+		const controller = new SupersetToolController({ manager });
+
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "update_plan",
+				arguments: {
+					plan: [
+						{ step: "First", status: "in_progress" },
+						{ step: "Second", status: "in_progress" },
+					],
+				},
+			}),
+		).rejects.toThrow("at most one in_progress");
+		expect(updatePlan).not.toHaveBeenCalled();
+	});
+
+	test("rejects empty and oversized plan steps", async () => {
+		const { manager, updatePlan } = fixture();
+		const controller = new SupersetToolController({ manager });
+
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "update_plan",
+				arguments: { plan: [{ step: "   ", status: "pending" }] },
+			}),
+		).rejects.toThrow();
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "update_plan",
+				arguments: {
+					plan: Array.from({ length: 51 }, (_, index) => ({
+						step: `Step ${index + 1}`,
+						status: "pending" as const,
+					})),
+				},
+			}),
+		).rejects.toThrow();
+		expect(updatePlan).not.toHaveBeenCalled();
+	});
+
 	test("projects context and sessions only from the source workspace", async () => {
 		const { manager } = fixture();
 		const controller = new SupersetToolController({

@@ -140,7 +140,7 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 			: t("dashboard.configureRunAria");
 
 	return (
-		<div className="flex items-center no-drag">
+		<div className="group/run-button flex items-center no-drag">
 			{/* Main button - Run/Stop action */}
 			<button
 				type="button"
@@ -150,15 +150,14 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 				className={cn(
 					"group flex items-center gap-1.5 h-6 px-1.5 sm:px-2 rounded-l border border-r-0 border-line/60 bg-secondary/50 text-xs font-medium",
 					"transition-all duration-150 ease-out",
-					"hover:bg-secondary hover:border-line",
 					"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 					"active:scale-[0.98]",
 					isPending && "opacity-50 pointer-events-none",
 					isRunning
-						? "text-success border-success/25 bg-success-tint/10"
+						? "text-success border-success/40 bg-success-tint hover:bg-success-tint group-hover/run-button:bg-success-tint group-hover/run-button:border-success/40"
 						: hasRunCommand
-							? "text-fg"
-							: "text-fg-mute/80 border-line/40 bg-secondary/40",
+							? "text-fg hover:bg-secondary hover:border-line group-hover/run-button:bg-secondary group-hover/run-button:border-line"
+							: "text-fg-mute/80 border-line/40 bg-secondary/40 hover:bg-secondary hover:border-line group-hover/run-button:bg-secondary group-hover/run-button:border-line",
 				)}
 			>
 				{isRunning ? (
@@ -186,14 +185,14 @@ export const WorkspaceRunButton = memo(function WorkspaceRunButton({
 						className={cn(
 							"flex items-center justify-center h-6 w-6 rounded-r border border-line/60 bg-secondary/50 text-fg-mute",
 							"transition-all duration-150 ease-out",
-							"hover:bg-secondary hover:border-line hover:text-fg",
 							"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 							"active:scale-[0.98]",
 							isPending && "opacity-50 pointer-events-none",
 							isRunning
-								? "text-success border-success/25 bg-success-tint/10 hover:bg-success-tint/20"
-								: !hasRunCommand &&
-										"text-fg-mute/80 border-line/40 bg-secondary/40",
+								? "text-success border-success/40 bg-success-tint hover:bg-success-tint group-hover/run-button:bg-success-tint group-hover/run-button:border-success/40"
+								: !hasRunCommand
+									? "text-fg-mute/80 border-line/40 bg-secondary/40 hover:bg-secondary hover:border-line hover:text-fg group-hover/run-button:bg-secondary group-hover/run-button:border-line group-hover/run-button:text-fg"
+									: "hover:bg-secondary hover:border-line hover:text-fg group-hover/run-button:bg-secondary group-hover/run-button:border-line group-hover/run-button:text-fg",
 						)}
 					>
 						<HiChevronDown className="size-3.5" />

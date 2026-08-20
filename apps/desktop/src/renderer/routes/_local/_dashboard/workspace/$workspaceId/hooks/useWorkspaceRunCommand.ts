@@ -11,6 +11,7 @@ import {
 } from "renderer/lib/panes";
 import { useHostTerminalLauncher } from "renderer/lib/terminal/host-terminal-launcher";
 import { buildTerminalCommand } from "renderer/lib/terminal/launch-command";
+import { createWorkspaceRunStartPlan } from "./workspace-run-start-plan";
 
 interface UseWorkspaceRunCommandOptions {
 	workspaceId: string;
@@ -18,6 +19,15 @@ interface UseWorkspaceRunCommandOptions {
 }
 
 const CTRL_C_INPUT = "\u0003";
+
+function isTerminalUnavailableMessage(message: string): boolean {
+	return (
+		message.includes("not found") ||
+		message.includes("not alive") ||
+		message.includes("has exited") ||
+		message.includes("disposed")
+	);
+}
 
 export function useWorkspaceRunCommand({
 	workspaceId,
@@ -84,7 +94,7 @@ export function useWorkspaceRunCommand({
 			} catch (error) {
 				const message =
 					error instanceof Error ? error.message : "Unknown error";
-				if (message.includes("not found") || message.includes("not alive")) {
+				if (isTerminalUnavailableMessage(message)) {
 					setRunState(liveRun.paneId, "stopped-by-exit");
 				} else {
 					toast.error("Failed to stop workspace run command", {
@@ -111,46 +121,71 @@ export function useWorkspaceRunCommand({
 			}
 			const initialCwd =
 				runDefinition?.cwd ?? (worktreePath?.trim() || undefined);
-			const existing = findPane(
+			const existingStoppedByUser = findPane(
 				workspaceId,
 				(data, kind) =>
-					kind === "terminal" && data.workspaceRun?.workspaceId === workspaceId,
+					kind === "terminal" &&
+					data.workspaceRun?.workspaceId === workspaceId &&
+					data.workspaceRun.state === "stopped-by-user",
 			);
-			let paneId: string;
-			if (existing) {
-				paneId = existing.paneId;
-				focusPane(workspaceId, paneId);
-				updatePaneData(workspaceId, paneId, (data) => ({
+			const plan = createWorkspaceRunStartPlan({
+				command,
+				initialCwd,
+				existingPane: existingStoppedByUser
+					? {
+							paneId: existingStoppedByUser.paneId,
+							state: "stopped-by-user",
+						}
+					: null,
+			});
+
+			if (plan.kind === "write-existing") {
+				let shouldCreateNewPane = false;
+				focusPane(workspaceId, plan.paneId);
+				updatePaneData(workspaceId, plan.paneId, (data) => ({
 					...data,
 					workspaceRun: { workspaceId, state: "running", command },
 				}));
-			} else {
-				const result = addTerminalPane(workspaceId, {
-					initialCwd,
-					title: "Workspace Run",
-					data: {
-						workspaceRun: { workspaceId, state: "running", command },
-					},
-					dedupeKey: `workspace-run:${workspaceId}`,
-				});
-				if (result.status !== "applied") {
-					toast.error("Workspace panes are not available yet");
-					return;
+				try {
+					await terminalLauncher.write({
+						terminalId: plan.paneId,
+						workspaceId,
+						data: plan.data,
+					});
+				} catch (error) {
+					const message =
+						error instanceof Error ? error.message : "Unknown error";
+					setRunState(plan.paneId, "stopped-by-exit");
+					if (!isTerminalUnavailableMessage(message)) {
+						toast.error("Failed to run workspace command", {
+							description: message,
+						});
+						return;
+					}
+					shouldCreateNewPane = true;
 				}
-				paneId = result.value.paneId;
+				if (!shouldCreateNewPane) return;
 			}
-			try {
-				await terminalLauncher.launchCommand({
-					terminalId: paneId,
-					workspaceId,
-					command,
-					cwd: initialCwd,
-				});
-			} catch (error) {
-				setRunState(paneId, "stopped-by-exit");
-				toast.error("Failed to run workspace command", {
-					description: error instanceof Error ? error.message : "Unknown error",
-				});
+
+			const newPanePlan =
+				plan.kind === "new-pane"
+					? plan
+					: {
+							kind: "new-pane" as const,
+							initialCommand: command,
+							initialCwd,
+						};
+			const result = addTerminalPane(workspaceId, {
+				initialCwd: newPanePlan.initialCwd,
+				initialCommand: newPanePlan.initialCommand,
+				title: "Workspace Run",
+				data: {
+					workspaceRun: { workspaceId, state: "running", command },
+				},
+				dedupeKey: `workspace-run:${workspaceId}`,
+			});
+			if (result.status === "rejected") {
+				toast.error("Workspace panes are not available yet");
 			}
 		} catch (error) {
 			toast.error("Failed to resolve workspace run command", {
@@ -183,7 +218,7 @@ export function useWorkspaceRunCommand({
 			setRunState(liveRun.paneId, "stopped-by-user");
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Unknown error";
-			if (message.includes("not found") || message.includes("not alive")) {
+			if (isTerminalUnavailableMessage(message)) {
 				setRunState(liveRun.paneId, "stopped-by-exit");
 			} else {
 				toast.error("Failed to force stop workspace run command", {

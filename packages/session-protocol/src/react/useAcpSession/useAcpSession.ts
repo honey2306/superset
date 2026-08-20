@@ -467,6 +467,16 @@ export function useAcpSession(
 				// actual load error instead of looking like a brand-new empty thread.
 				setFetchedState(state);
 				authoritativeStateRef.current = state;
+				// A same-session resync deliberately keeps the durable timeline visible.
+				// Overlay the fresh lifecycle snapshot immediately so a reopened pane
+				// does not keep rendering stale running/permission state while its
+				// transcript page is still loading.
+				const timelineWithFreshState = overlayAuthoritativeState(
+					timelineRef.current,
+					state,
+				);
+				timelineRef.current = timelineWithFreshState;
+				setTimeline(timelineWithFreshState);
 				const transcriptPage = api.getTranscript
 					? await api.getTranscript({
 							sessionId,

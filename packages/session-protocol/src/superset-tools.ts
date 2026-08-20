@@ -61,6 +61,34 @@ const setProjectRunCommandArgsSchema = z
 		commands: z.array(z.string().trim().min(1).max(10_000)).min(1).max(20),
 	})
 	.strict();
+const updatePlanArgsSchema = z
+	.object({
+		plan: z
+			.array(
+				z
+					.object({
+						step: z.string().trim().min(1).max(10_000),
+						status: z.enum(["pending", "in_progress", "completed"]),
+					})
+					.strict(),
+			)
+			.min(1)
+			.max(50),
+		explanation: z.string().trim().min(1).max(10_000).optional(),
+	})
+	.strict()
+	.superRefine((value, context) => {
+		const inProgressCount = value.plan.filter(
+			(entry) => entry.status === "in_progress",
+		).length;
+		if (inProgressCount > 1) {
+			context.addIssue({
+				code: "custom",
+				path: ["plan"],
+				message: "A plan may have at most one in_progress step",
+			});
+		}
+	});
 const openMergeRequestArgsSchema = z.object({}).strict();
 const askUserArgsSchema = z
 	.object({
@@ -144,6 +172,11 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
+		name: z.literal("update_plan"),
+		arguments: updatePlanArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
 		name: z.literal("open_merge_request"),
 		arguments: openMergeRequestArgsSchema,
 	}),
@@ -155,6 +188,7 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 ]);
 
 export type SupersetAgent = z.infer<typeof supersetAgentSchema>;
+export type UpdatePlanArguments = z.infer<typeof updatePlanArgsSchema>;
 export type SupersetToolRequest = z.infer<typeof supersetToolRequestSchema>;
 
 /**
@@ -334,6 +368,36 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 				},
 			},
 			required: ["commands"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "update_plan",
+		description:
+			"Publish the complete current execution plan for this session in Superset's ACP timeline. Use this Superset tool for user-visible multi-step planning and update it when a step starts or finishes; do not rely on provider-specific or private task/todo tools. Submit every step on each call; each step must be pending, in_progress, or completed, with at most one in_progress step.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				plan: {
+					type: "array",
+					minItems: 1,
+					maxItems: 50,
+					items: {
+						type: "object",
+						properties: {
+							step: { type: "string", minLength: 1, maxLength: 10_000 },
+							status: {
+								type: "string",
+								enum: ["pending", "in_progress", "completed"],
+							},
+						},
+						required: ["step", "status"],
+						additionalProperties: false,
+					},
+				},
+				explanation: { type: "string", minLength: 1, maxLength: 10_000 },
+			},
+			required: ["plan"],
 			additionalProperties: false,
 		},
 	},

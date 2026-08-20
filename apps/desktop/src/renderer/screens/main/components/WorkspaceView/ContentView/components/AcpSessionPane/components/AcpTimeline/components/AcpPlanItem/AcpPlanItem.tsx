@@ -38,7 +38,6 @@ export function AcpPlanItem({ item, review }: AcpPlanItemProps) {
 	return (
 		<div className="acp-plan" data-removed={item.removed ? "true" : undefined}>
 			<div className="acp-plan__head">
-				<span aria-hidden>◫</span>
 				<span>Plan{item.removed ? " (removed)" : ""}</span>
 				<span className="acp-plan__head-progress">
 					{done + inProgress} / {total}
@@ -55,11 +54,40 @@ export function AcpPlanItem({ item, review }: AcpPlanItemProps) {
 					>
 						<span className="acp-plan__box" aria-hidden>
 							{entry.status === "completed" ? (
-								"✓"
+								<svg
+									aria-hidden="true"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="#50fa7b"
+									strokeWidth="2"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
+									<circle cx="8" cy="8" r="6.5" />
+									<path d="M5 8l2 2 4-4" />
+								</svg>
 							) : entry.status === "in_progress" ? (
-								<span className="acp-plan__spinner" />
+								<svg
+									aria-hidden="true"
+									className="acp-plan__spinner"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="#ffb86c"
+									strokeWidth="2"
+									strokeLinecap="round"
+								>
+									<path d="M8 2 A6 6 0 0 1 14 8" />
+								</svg>
 							) : (
-								""
+								<svg
+									aria-hidden="true"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="rgba(255,255,255,0.2)"
+									strokeWidth="2"
+								>
+									<circle cx="8" cy="8" r="6.5" />
+								</svg>
 							)}
 						</span>
 						<span className="acp-plan__text">{entry.content}</span>

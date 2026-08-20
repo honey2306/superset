@@ -183,6 +183,52 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expect(configValue(created, "model")).toBe("claude-sonnet-4-5");
 	});
 
+	test("host plan updates are journaled and broadcast to subscribers", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-host-plan-update";
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+		const received: SessionUpdateEnvelope[] = [];
+		const unsubscribe = manager.subscribe({
+			sessionId,
+			onEnvelope: (envelope) => received.push(envelope),
+		});
+
+		const envelope = manager.updatePlan({
+			sessionId,
+			entries: [
+				{ content: "Inspect the implementation", status: "in_progress" },
+				{ content: "Run the checks", status: "pending" },
+			],
+			explanation: "Beginning the implementation review.",
+		});
+		unsubscribe();
+
+		expect(received).toContainEqual(envelope);
+		expect(envelope.frame).toEqual({
+			kind: "update",
+			update: {
+				sessionUpdate: "plan",
+				entries: [
+					{
+						content: "Inspect the implementation",
+						status: "in_progress",
+						priority: "medium",
+					},
+					{
+						content: "Run the checks",
+						status: "pending",
+						priority: "medium",
+					},
+				],
+				_meta: {
+					"sh.superset/updatePlanExplanation":
+						"Beginning the implementation review.",
+				},
+			},
+		});
+		expect(manager.getMessages({ sessionId }).items).toContainEqual(envelope);
+	});
+
 	test("Pi suppresses its bootstrap prelude but preserves real turn output", async () => {
 		const manager = newManager({ piAdapterEntry: FAKE_PI_ADAPTER });
 		const sessionId = "e2e-pi-bootstrap";

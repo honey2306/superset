@@ -474,6 +474,7 @@
 	}
 
 	.xterm {
+		padding-inline: 12px;
 		font-family: var(--superset-terminal-font-family, ui-monospace, monospace);
 	}
 
@@ -637,4 +638,9 @@
 	.tiptap-chat-input p {
 		margin: 0;
 	}
+}
+
+/* Keep xterm's internal padding on the active terminal theme background. */
+.xterm:not(.allow-transparency) .xterm-viewport {
+	background-color: inherit;
 }

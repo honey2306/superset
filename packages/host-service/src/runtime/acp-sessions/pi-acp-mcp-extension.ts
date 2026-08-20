@@ -6,6 +6,8 @@ import readline from "node:readline";
 // externally loaded extension does not pull host-service code into its bundle.
 const PI_ACP_MCP_CONFIG_ENV = "SUPERSET_PI_ACP_MCP_CONFIG";
 const MCP_PROTOCOL_VERSION = "2025-06-18";
+const MCP_REQUEST_TIMEOUT_MS = 90_000;
+const MCP_TOOL_CALL_TIMEOUT_MS = 120_000;
 
 interface SessionMcpConfig {
 	mcpServers: Record<
@@ -43,6 +45,10 @@ interface PendingRequest {
 	reject: (reason: Error) => void;
 	removeAbortListener?: () => void;
 	timeout?: ReturnType<typeof setTimeout>;
+}
+
+interface StdioMcpClientOptions {
+	toolCallTimeoutMs?: number;
 }
 
 interface PiToolResultContent {
@@ -85,10 +91,16 @@ function processEnvironment(
 export class StdioMcpClient {
 	private readonly child: ChildProcessWithoutNullStreams;
 	private readonly pending = new Map<number, PendingRequest>();
+	private readonly toolCallTimeoutMs: number;
 	private nextId = 1;
 	private closed = false;
 
-	constructor(server: SessionMcpConfig["mcpServers"][string]) {
+	constructor(
+		server: SessionMcpConfig["mcpServers"][string],
+		options: StdioMcpClientOptions = {},
+	) {
+		this.toolCallTimeoutMs =
+			options.toolCallTimeoutMs ?? MCP_TOOL_CALL_TIMEOUT_MS;
 		this.child = spawn(server.command, server.args, {
 			env: processEnvironment(server.env),
 			stdio: ["pipe", "pipe", "pipe"],
@@ -112,11 +124,16 @@ export class StdioMcpClient {
 	}
 
 	async initialize(): Promise<void> {
-		await this.request("initialize", {
-			protocolVersion: MCP_PROTOCOL_VERSION,
-			capabilities: {},
-			clientInfo: { name: "superset-pi-acp", version: "1" },
-		});
+		await this.request(
+			"initialize",
+			{
+				protocolVersion: MCP_PROTOCOL_VERSION,
+				capabilities: {},
+				clientInfo: { name: "superset-pi-acp", version: "1" },
+			},
+			undefined,
+			MCP_REQUEST_TIMEOUT_MS,
+		);
 		this.notify("notifications/initialized", {});
 	}
 
@@ -124,7 +141,12 @@ export class StdioMcpClient {
 		const tools: McpTool[] = [];
 		let cursor: string | undefined;
 		do {
-			const result = await this.request("tools/list", cursor ? { cursor } : {});
+			const result = await this.request(
+				"tools/list",
+				cursor ? { cursor } : {},
+				undefined,
+				MCP_REQUEST_TIMEOUT_MS,
+			);
 			if (
 				typeof result !== "object" ||
 				result === null ||
@@ -151,7 +173,7 @@ export class StdioMcpClient {
 			"tools/call",
 			{ name, arguments: args },
 			signal,
-			120_000,
+			name === "ask_user" ? undefined : this.toolCallTimeoutMs,
 		)) as McpToolResult;
 	}
 
@@ -184,23 +206,29 @@ export class StdioMcpClient {
 		method: string,
 		params: Record<string, unknown>,
 		signal?: AbortSignal,
-		timeoutMs = 90_000,
+		timeoutMs?: number,
 	): Promise<unknown> {
 		if (this.closed) return Promise.reject(new Error("MCP client is closed"));
 		const id = this.nextId++;
 		return new Promise((resolve, reject) => {
 			const pending: PendingRequest = { resolve, reject };
-			const timeout = setTimeout(() => {
-				this.pending.delete(id);
-				pending.removeAbortListener?.();
-				reject(new Error(`MCP request timed out: ${method}`));
-			}, timeoutMs);
-			timeout.unref();
-			pending.timeout = timeout;
+			if (timeoutMs !== undefined) {
+				const timeout = setTimeout(() => {
+					if (!this.pending.delete(id)) return;
+					pending.removeAbortListener?.();
+					this.notify("notifications/cancelled", {
+						requestId: id,
+						reason: `MCP request timed out: ${method}`,
+					});
+					reject(new Error(`MCP request timed out: ${method}`));
+				}, timeoutMs);
+				timeout.unref();
+				pending.timeout = timeout;
+			}
 			if (signal) {
 				const onAbort = () => {
 					this.pending.delete(id);
-					clearTimeout(timeout);
+					if (pending.timeout) clearTimeout(pending.timeout);
 					this.notify("notifications/cancelled", {
 						requestId: id,
 						reason: "Pi tool call cancelled",

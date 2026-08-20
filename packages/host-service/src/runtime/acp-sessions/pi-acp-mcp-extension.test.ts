@@ -1,9 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import supersetAcpMcpExtension, {
 	type PiExtensionApi,
+	StdioMcpClient,
 } from "./pi-acp-mcp-extension";
 
 const tempDirectories: string[] = [];
@@ -19,6 +26,18 @@ afterEach(() => {
 		rmSync(directory, { force: true, recursive: true });
 	}
 });
+
+async function waitForFile(
+	filePath: string,
+	timeoutMs = 1_000,
+): Promise<string> {
+	const deadline = Date.now() + timeoutMs;
+	while (Date.now() < deadline) {
+		if (existsSync(filePath)) return readFileSync(filePath, "utf8");
+		await Bun.sleep(5);
+	}
+	throw new Error(`Timed out waiting for ${filePath}`);
+}
 
 test("registers and invokes ACP-provided MCP tools", async () => {
 	const directory = mkdtempSync(path.join(os.tmpdir(), "pi-acp-mcp-test-"));
@@ -87,4 +106,99 @@ lines.on("line", (line) => {
 	});
 	await shutdown?.();
 	expect(existsSync(stoppedPath)).toBe(true);
+});
+
+test("waits for ask_user beyond the ordinary MCP tool timeout", async () => {
+	const directory = mkdtempSync(path.join(os.tmpdir(), "pi-acp-mcp-ask-user-"));
+	tempDirectories.push(directory);
+	const serverPath = path.join(directory, "fake-mcp.ts");
+	writeFileSync(
+		serverPath,
+		`import readline from "node:readline";
+const lines = readline.createInterface({ input: process.stdin });
+lines.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.method !== "tools/call") return;
+  if (message.params?.name !== "ask_user") return;
+  setTimeout(() => {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: { content: [{ type: "text", text: "answered" }] } }));
+  }, 100);
+});
+`,
+	);
+
+	const client = new StdioMcpClient(
+		{
+			command: process.execPath,
+			args: [serverPath],
+			env: {},
+		},
+		{ toolCallTimeoutMs: 20 },
+	);
+	try {
+		const askUser = client.callTool("ask_user", { questions: [] });
+		const state = await Promise.race([
+			askUser.then(
+				() => "resolved",
+				() => "rejected",
+			),
+			Bun.sleep(50).then(() => "pending"),
+		]);
+		expect(state).toBe("pending");
+		expect(await askUser).toMatchObject({
+			content: [{ type: "text", text: "answered" }],
+		});
+	} finally {
+		await client.close();
+	}
+});
+
+test("cancels timed-out non-interactive MCP calls", async () => {
+	const directory = mkdtempSync(path.join(os.tmpdir(), "pi-acp-mcp-timeout-"));
+	tempDirectories.push(directory);
+	const serverPath = path.join(directory, "fake-mcp.ts");
+	const cancellationPath = path.join(directory, "cancelled.json");
+	writeFileSync(
+		serverPath,
+		`import { writeFileSync } from "node:fs";
+import readline from "node:readline";
+const lines = readline.createInterface({ input: process.stdin });
+lines.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.method === "notifications/cancelled") {
+    writeFileSync(${JSON.stringify(cancellationPath)}, JSON.stringify(message.params));
+  }
+});
+`,
+	);
+
+	const client = new StdioMcpClient(
+		{
+			command: process.execPath,
+			args: [serverPath],
+			env: {},
+		},
+		{ toolCallTimeoutMs: 20 },
+	);
+	try {
+		const slowCall = client.callTool("slow_tool", {});
+		const outcome = await Promise.race([
+			slowCall.then(
+				() => "resolved",
+				(error) => (error instanceof Error ? error.message : String(error)),
+			),
+			Bun.sleep(100).then(() => "still-pending"),
+		]);
+		expect(outcome).toBe("MCP request timed out: tools/call");
+		const cancellation = JSON.parse(await waitForFile(cancellationPath)) as {
+			requestId: number;
+			reason: string;
+		};
+		expect(cancellation).toEqual({
+			requestId: 1,
+			reason: "MCP request timed out: tools/call",
+		});
+	} finally {
+		await client.close();
+	}
 });

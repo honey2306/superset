@@ -29,7 +29,7 @@ const SUBAGENT_TITLES = new Set([
 	"task",
 ]);
 const WORKFLOW_RESULT_PREFIX =
-	/^Workflow completed(?: with \d+ child run\(s\))?\.\s*Return:\s*/;
+	/^(?:Run fan-out: \d+\/\d+ used, \d+ remaining\r?\n)?Workflow completed(?: with \d+ child run\(s\))?\.\s*Return:\s*/;
 const METADATA_KEYS = new Set([
 	"agent",
 	"artifactPaths",

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>方案二：进度条 + 状态左轨</title>
+  <style>
+    :root {
+      --background: #1e1f29;
+      --surface:    #282a36;
+      --surface-2:  #21222c;
+      --fg:         #f8f8f2;
+      --fg-mute:    rgba(248,248,242,0.55);
+      --fg-faint:   rgba(248,248,242,0.38);
+      --line:       rgba(248,248,242,0.10);
+      --line-hi:    rgba(248,248,242,0.18);
+      --hover:      rgba(248,248,242,0.06);
+      --success:    #50fa7b;
+      --warning:    #ffb86c;
+      --info:       #8be9fd;
+      --font-sans:  -apple-system,"SF Pro Text","PingFang SC","Noto Sans SC",sans-serif;
+      --font-mono:  "SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--background);
+      padding: 48px 24px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container { width:100%; max-width: 520px; }
+
+    .plan {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .plan__head {
+      padding: 11px 14px 0;
+    }
+    .plan__head-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+    .plan__icon { color: var(--info); font-size: 13px; line-height: 1; }
+    .plan__title {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--info);
+    }
+    .plan__spacer { flex: 1; }
+    .plan__progress-label {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--fg-mute);
+    }
+    .plan__progress-label .done { color: var(--success); font-weight: 600; }
+
+    .plan__track {
+      height: 2px;
+      background: var(--line);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .plan__fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--success) 0%, #a0fdba 100%);
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .plan__items {
+      list-style: none;
+      border-top: 1px solid var(--line);
+    }
+    .plan__item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 14px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.12s ease;
+      border-bottom: 1px solid var(--line);
+    }
+    .plan__item:last-child { border-bottom: 0; }
+    .plan__item:hover { background: var(--hover); }
+
+    /* left status bar */
+    .plan__item::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 4px; bottom: 4px;
+      width: 2.5px;
+      border-radius: 0 2px 2px 0;
+      background: transparent;
+      transition: background 0.2s ease;
+    }
+    .plan__item[data-status="completed"]::before  { background: var(--success); }
+    .plan__item[data-status="in_progress"]::before { background: var(--warning); }
+
+    .plan__box {
+      flex-shrink: 0;
+      width: 16px; height: 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .plan__box svg {
+      width: 16px; height: 16px;
+      display: block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .plan__box--spin { animation: spin 0.75s linear infinite; }
+
+    .plan__text {
+      flex: 1; font-size: 12.5px; color: var(--fg); line-height: 1.4;
+      transition: color 0.2s;
+    }
+    .plan__item[data-status="completed"] .plan__text {
+      color: var(--fg-mute);
+      text-decoration: line-through;
+      text-decoration-color: var(--fg-faint);
+      text-decoration-thickness: 1px;
+    }
+    .plan__item[data-status="in_progress"] .plan__text {
+      color: var(--fg); font-weight: 500;
+    }
+
+    .plan__priority {
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--line);
+      color: var(--fg-faint);
+      background: transparent;
+      transition: all 0.2s;
+    }
+    .plan__item[data-status="in_progress"] .plan__priority {
+      color: var(--warning);
+      border-color: rgba(255,184,108,0.35);
+      background: rgba(255,184,108,0.08);
+    }
+    .plan__item[data-status="completed"] .plan__priority { opacity: 0.4; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="plan" id="plan">
+      <div class="plan__head">
+        <div class="plan__head-row">
+          <span class="plan__title">Plan</span>
+          <div class="plan__spacer"></div>
+          <span class="plan__progress-label">
+            <span class="done" id="doneCount">2</span> / <span id="totalCount">3</span> in progress
+          </span>
+        </div>
+        <div class="plan__track">
+          <div class="plan__fill" id="progressFill" style="width: 67%"></div>
+        </div>
+      </div>
+
+      <ol class="plan__items">
+        <li class="plan__item" data-status="completed">
+          <span class="plan__box" aria-hidden>
+            <svg viewBox="0 0 16 16" fill="none" stroke="#50fa7b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M5 8l2 2 4-4"/></svg>
+          </span>
+          <span class="plan__text">状态一</span>
+          <span class="plan__priority" data-level="medium">Medium</span>
+        </li>
+        <li class="plan__item" data-status="in_progress">
+          <span class="plan__box" aria-hidden>
+            <svg class="plan__box--spin" viewBox="0 0 16 16" fill="none" stroke="#ffb86c" stroke-width="2" stroke-linecap="round"><path d="M8 2 A6 6 0 0 1 14 8"/></svg>
+          </span>
+          <span class="plan__text">状态二</span>
+          <span class="plan__priority" data-level="medium">Medium</span>
+        </li>
+        <li class="plan__item" data-status="pending">
+          <span class="plan__box" aria-hidden>
+            <svg viewBox="0 0 16 16" fill="none" stroke="rgba(248,248,242,0.25)" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/></svg>
+          </span>
+          <span class="plan__text">状态三</span>
+          <span class="plan__priority" data-level="medium">Medium</span>
+        </li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    function cycle(s) {
+      return s === 'pending' ? 'in_progress' : s === 'in_progress' ? 'completed' : 'pending';
+    }
+    function updateUI() {
+      const items = document.querySelectorAll('.plan__item');
+      const done = [...items].filter(i => i.dataset.status === 'completed').length;
+      const active = [...items].filter(i => i.dataset.status === 'in_progress').length;
+      const total = items.length;
+      document.getElementById('progressFill').style.width = Math.round((done/total)*100) + '%';
+      document.getElementById('doneCount').textContent = done + active;
+      document.getElementById('totalCount').textContent = total;
+      items.forEach(item => {
+        const box = item.querySelector('.plan__box');
+        const s = item.dataset.status;
+        if (s === 'completed') {
+          box.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="#50fa7b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M5 8l2 2 4-4"/></svg>';
+        } else if (s === 'in_progress') {
+          box.innerHTML = '<svg class="plan__box--spin" viewBox="0 0 16 16" fill="none" stroke="#ffb86c" stroke-width="2" stroke-linecap="round"><path d="M8 2 A6 6 0 0 1 14 8"/></svg>';
+        } else {
+          box.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="rgba(248,248,242,0.25)" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/></svg>';
+        }
+      });
+    }
+    document.querySelectorAll('.plan__item').forEach(item => {
+      item.addEventListener('click', () => { item.dataset.status = cycle(item.dataset.status); updateUI(); });
+    });
+  </script>
+</body>
+</html>

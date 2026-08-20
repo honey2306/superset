@@ -210,8 +210,8 @@ describe("host-service-terminal-adapter (Milestone 1)", () => {
 		expect(createSession).toHaveBeenCalledTimes(1);
 	});
 
-	it("deduplicates concurrent create requests for the same pane", async () => {
-		const { client, createSession } = createMockClient();
+	it("deduplicates concurrent attaches and queues the initial command once", async () => {
+		const { client, calls, createSession } = createMockClient();
 		const adapter = createHostServiceTerminalAdapter({
 			hostUrl: "http://127.0.0.1:9999",
 			workspaceId: "ws-concurrent",
@@ -223,15 +223,21 @@ describe("host-service-terminal-adapter (Milestone 1)", () => {
 			adapter.createOrAttach({
 				paneId: "pane-concurrent",
 				tabId: "tab-1",
+				command: "bun run dev",
 			}),
 			adapter.createOrAttach({
 				paneId: "pane-concurrent",
 				tabId: "tab-1",
+				command: "bun run dev",
 			}),
 		]);
 
 		expect(second).toBe(first);
 		expect(createSession).toHaveBeenCalledTimes(1);
+		expect(calls[0]?.input).toMatchObject({
+			terminalId: "pane-concurrent",
+			initialCommand: "bun run dev",
+		});
 	});
 
 	it("allows a failed create request to be retried", async () => {

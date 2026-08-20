@@ -1,4 +1,5 @@
 import type { MessageItem } from "@superset/session-protocol";
+import type { MarkdownFileTarget } from "../../../AcpMarkdown/linkifyAcpMarkdown";
 import { AcpContentBlock } from "../AcpContentBlock";
 
 interface AcpMessageItemProps {
@@ -10,6 +11,11 @@ interface AcpMessageItemProps {
 	hideAuthor?: boolean;
 	/** Show this message's timestamp below its content. */
 	showTimestamp?: boolean;
+	onOpenMarkdownFile?(
+		target: MarkdownFileTarget,
+		openExternally: boolean,
+	): void;
+	onOpenUrl?(url: string): void;
 }
 
 const ROLE_NAME: Record<string, string> = {
@@ -38,6 +44,8 @@ export function AcpMessageItem({
 	agentLabel,
 	hideAuthor,
 	showTimestamp = false,
+	onOpenMarkdownFile,
+	onOpenUrl,
 }: AcpMessageItemProps) {
 	const authorName =
 		item.role === "agent"
@@ -62,8 +70,13 @@ export function AcpMessageItem({
 			)}
 			<div className="acp-msg__bubble">
 				{item.blocks.map((block, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
-					<AcpContentBlock key={`b-${i}`} block={block} />
+					<AcpContentBlock
+						// biome-ignore lint/suspicious/noArrayIndexKey: content blocks have no stable id
+						key={`b-${i}`}
+						block={block}
+						onOpenMarkdownFile={onOpenMarkdownFile}
+						onOpenUrl={onOpenUrl}
+					/>
 				))}
 			</div>
 			{timestamp && (

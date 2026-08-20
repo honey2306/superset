@@ -130,6 +130,23 @@ describe("Superset MCP process", () => {
 				tools.some((tool) => tool.name === "continue_in_new_session"),
 			).toBe(true);
 			expect(tools.some((tool) => tool.name === "ask_user")).toBe(true);
+			expect(tools.some((tool) => tool.name === "update_plan")).toBe(true);
+			expect(
+				tools.find((tool) => tool.name === "update_plan")?.inputSchema,
+			).toMatchObject({
+				type: "object",
+				properties: {
+					plan: {
+						type: "array",
+						minItems: 1,
+						maxItems: 50,
+					},
+				},
+				required: ["plan"],
+			});
+			expect(
+				tools.find((tool) => tool.name === "update_plan")?.description,
+			).toContain("provider-specific");
 			expect(tools.some((tool) => tool.name === "open_merge_request")).toBe(
 				true,
 			);

@@ -200,24 +200,21 @@ export function WorkspaceListItem({
 		staleTime: GITHUB_STATUS_STALE_TIME,
 	});
 
-	const { data: aheadBehind, refetch: refetchAheadBehind } = useQuery({
-		queryKey: ["host-workspace-ahead-behind", hostUrl, hostWorkspaceId],
-		enabled: isBranchWorkspace && Boolean(hostUrl && hostWorkspaceId),
-		staleTime: GITHUB_STATUS_STALE_TIME,
-		queryFn: async () => {
-			if (!hostUrl || !hostWorkspaceId) return { ahead: 0, behind: 0 };
-			const status = await getHostServiceClientByUrl(
-				hostUrl,
-			).git.getStatus.query({
-				workspaceId: hostWorkspaceId,
-				priority: "background",
-			});
-			return {
-				ahead: status.currentBranch.aheadCount,
-				behind: status.currentBranch.behindCount,
-			};
+	const { data: branchSyncStatus, refetch: refetchBranchSyncStatus } = useQuery(
+		{
+			queryKey: ["git-branch-sync-status", hostUrl, hostWorkspaceId],
+			enabled: isBranchWorkspace && Boolean(hostUrl && hostWorkspaceId),
+			staleTime: GITHUB_STATUS_STALE_TIME,
+			queryFn: async () => {
+				if (!hostUrl || !hostWorkspaceId) return null;
+				return getHostServiceClientByUrl(hostUrl).git.getBranchSyncStatus.query(
+					{
+						workspaceId: hostWorkspaceId,
+					},
+				);
+			},
 		},
-	});
+	);
 
 	useBranchSyncInvalidation({
 		gitBranch: localChanges?.branch,
@@ -259,7 +256,7 @@ export function WorkspaceListItem({
 
 	const handleMouseEnter = () => {
 		onGithubMouseEnter();
-		if (isBranchWorkspace) void refetchAheadBehind();
+		if (isBranchWorkspace) void refetchBranchSyncStatus();
 	};
 
 	const handleOpenInFinder = () => {
@@ -430,10 +427,11 @@ export function WorkspaceListItem({
 								{isBranchWorkspace ? "local" : name || branch}
 							</span>
 
-							{isBranchWorkspace && aheadBehind && (
+							{isBranchWorkspace && branchSyncStatus && (
 								<WorkspaceAheadBehind
-									ahead={aheadBehind.ahead}
-									behind={aheadBehind.behind}
+									pullCount={branchSyncStatus.pullCount}
+									pushCount={branchSyncStatus.pushCount}
+									hasUpstream={branchSyncStatus.hasUpstream}
 								/>
 							)}
 							{workspaceRunState && showBranchSubtitle && (

@@ -116,7 +116,9 @@ function restoreBuffer(terminalId: string, terminal: XTerm) {
 			terminal.write(data);
 			touchTerminalStatePersistedAt(terminalId);
 		}
-	} catch {}
+	} catch {
+		// Missing or invalid persisted output should not block terminal startup.
+	}
 }
 
 /**
@@ -138,7 +140,9 @@ function clearPersistedBuffer(terminalId: string) {
 	try {
 		localStorage.removeItem(`${STORAGE_KEY_PREFIX}${terminalId}`);
 		removeTerminalStatePersistedAt(terminalId);
-	} catch {}
+	} catch {
+		// Storage cleanup is best-effort.
+	}
 }
 
 function persistDimensions(
@@ -176,7 +180,9 @@ function loadSavedDimensions(
 function clearPersistedDimensions(terminalId: string) {
 	try {
 		localStorage.removeItem(`${DIMS_KEY_PREFIX}${terminalId}`);
-	} catch {}
+	} catch {
+		// Storage cleanup is best-effort.
+	}
 }
 
 /** Clear persisted renderer state even when no live runtime entry remains. */
@@ -296,6 +302,10 @@ export function createRuntime(
 	wrapper.style.height = "100%";
 	applyTerminalFontFamilyCssVariable(wrapper, appearance.fontFamily);
 	terminal.open(wrapper);
+	terminal.element?.style.setProperty(
+		"background-color",
+		appearance.background,
+	);
 
 	installTerminalKeyEventHandler(terminal);
 	installTerminalWheelEventHandler(terminal);
@@ -396,6 +406,10 @@ export function updateRuntimeAppearance(
 	onResize?: () => void,
 ) {
 	const { terminal } = runtime;
+	terminal.element?.style.setProperty(
+		"background-color",
+		appearance.background,
+	);
 	terminal.options.theme = appearance.theme;
 
 	const fontChanged =

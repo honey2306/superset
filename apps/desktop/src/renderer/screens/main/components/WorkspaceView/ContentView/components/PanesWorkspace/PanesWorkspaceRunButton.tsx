@@ -52,7 +52,7 @@ export function PanesWorkspaceRunButton({
 	}, [handleConfigure, hasRunCommand, isRunning, toggleWorkspaceRun]);
 
 	return (
-		<div className="flex items-center">
+		<div className="group/run-button flex items-center">
 			<button
 				type="button"
 				onClick={handleRun}
@@ -60,13 +60,13 @@ export function PanesWorkspaceRunButton({
 				aria-label={isRunning ? "Stop workspace run" : "Run workspace"}
 				className={cn(
 					"flex items-center gap-1.5 h-6 px-1.5 sm:px-2 rounded-l border border-r-0 border-line/60 bg-secondary/50 text-xs font-medium",
-					"transition-all duration-150 ease-out hover:bg-secondary hover:border-line focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.98]",
+					"transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.98]",
 					isPending && "opacity-50 pointer-events-none",
 					isRunning
-						? "text-success border-success/25 bg-success-tint"
+						? "text-success border-success/40 bg-success-tint hover:bg-success-tint group-hover/run-button:bg-success-tint group-hover/run-button:border-success/40"
 						: hasRunCommand
-							? "text-fg"
-							: "text-fg-mute/80 border-line/40 bg-secondary/40",
+							? "text-fg hover:bg-secondary hover:border-line group-hover/run-button:bg-secondary group-hover/run-button:border-line"
+							: "text-fg-mute/80 border-line/40 bg-secondary/40 hover:bg-secondary hover:border-line group-hover/run-button:bg-secondary group-hover/run-button:border-line",
 				)}
 			>
 				{isRunning ? (
@@ -84,7 +84,12 @@ export function PanesWorkspaceRunButton({
 						variant="ghost"
 						size="icon"
 						aria-label="Run options"
-						className="h-6 w-6 rounded-l-none rounded-r border border-line/60 bg-secondary/50"
+						className={cn(
+							"h-6 w-6 rounded-l-none rounded-r border border-line/60 bg-secondary/50",
+							isRunning
+								? "border-success/40 bg-success-tint text-success hover:bg-success-tint group-hover/run-button:bg-success-tint group-hover/run-button:border-success/40"
+								: "text-fg-mute hover:bg-secondary hover:border-line hover:text-fg group-hover/run-button:bg-secondary group-hover/run-button:border-line group-hover/run-button:text-fg",
+						)}
 					>
 						<HiChevronDown className="size-3.5" />
 					</Button>

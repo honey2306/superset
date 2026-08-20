@@ -28,7 +28,9 @@ import {
 	useState,
 } from "react";
 import { AcpEmptyState } from "../AcpEmptyState";
+import type { MarkdownFileTarget } from "../AcpMarkdown/linkifyAcpMarkdown";
 import { AcpAgentAuthorRow, AcpMessageItem } from "./components/AcpMessageItem";
+import { AcpPlanDock } from "./components/AcpPlanDock";
 import { AcpPlanItem } from "./components/AcpPlanItem";
 import { AcpSubagentItem } from "./components/AcpSubagentItem";
 import { AcpToolCallItem } from "./components/AcpToolCallItem";
@@ -88,6 +90,11 @@ interface AcpTimelineProps {
 	): Promise<void>;
 	className?: string;
 	onOpenFile?(path: string): void;
+	onOpenMarkdownFile?(
+		target: MarkdownFileTarget,
+		openExternally: boolean,
+	): void;
+	onOpenUrl?(url: string): void;
 	cwd?: string;
 	model?: string;
 	/** Human-readable agent name for message author labels. */
@@ -118,6 +125,13 @@ export interface AcpTimelineHandle {
 	scrollToLastUserMessage(): boolean;
 }
 
+function isCompletedPlan(item: PlanItem): boolean {
+	return (
+		item.entries.length > 0 &&
+		item.entries.every((entry) => entry.status === "completed")
+	);
+}
+
 /** The session status is the source of truth for the bottom activity indicator. */
 export function shouldShowWorkingIndicator(
 	_items: readonly TimelineItem[],
@@ -134,6 +148,11 @@ function renderItem(
 	) => Promise<void>,
 	agentLabel?: string,
 	onOpenFile?: (path: string) => void,
+	onOpenMarkdownFile?: (
+		target: MarkdownFileTarget,
+		openExternally: boolean,
+	) => void,
+	onOpenUrl?: (url: string) => void,
 	presentation: "default" | "subagent" = "default",
 	showTimestamp = false,
 	planReview?: {
@@ -150,6 +169,8 @@ function renderItem(
 				agentLabel={agentLabel}
 				hideAuthor={item.role === "agent"}
 				showTimestamp={showTimestamp || item.role === "user"}
+				onOpenMarkdownFile={onOpenMarkdownFile}
+				onOpenUrl={onOpenUrl}
 			/>
 		);
 	}
@@ -160,7 +181,15 @@ function renderItem(
 					key={item.id}
 					item={item}
 					renderChild={(child) =>
-						renderItem(child, onRespond, agentLabel, onOpenFile, "subagent")
+						renderItem(
+							child,
+							onRespond,
+							agentLabel,
+							onOpenFile,
+							onOpenMarkdownFile,
+							onOpenUrl,
+							"subagent",
+						)
 					}
 				/>
 			);
@@ -173,7 +202,15 @@ function renderItem(
 				onRespond={onRespond}
 				presentation={presentation}
 				renderChild={(child) =>
-					renderItem(child, onRespond, agentLabel, onOpenFile, "subagent")
+					renderItem(
+						child,
+						onRespond,
+						agentLabel,
+						onOpenFile,
+						onOpenMarkdownFile,
+						onOpenUrl,
+						"subagent",
+					)
 				}
 			/>
 		);
@@ -197,6 +234,8 @@ export const AcpTimeline = memo(
 			className,
 			cwd,
 			onOpenFile,
+			onOpenMarkdownFile,
+			onOpenUrl,
 			model,
 			agentLabel,
 			sessionId,
@@ -223,8 +262,11 @@ export const AcpTimeline = memo(
 		const [showJumpButton, setShowJumpButton] = useState(false);
 		const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
 		const activeTurnFrameRef = useRef<number | null>(null);
+		const initialScrollFrameRef = useRef<number | null>(null);
 		const hasInitiallyScrolledRef = useRef(false);
 		const wasFocusedRef = useRef(isFocused);
+		const isFocusedRef = useRef(isFocused);
+		isFocusedRef.current = isFocused;
 		const lastUserMessageIdRef = useRef<string | null>(null);
 		// Guarded while a programmatic smooth-scroll to a user message is running.
 		// Without it, the first onScroll frames still read as "near bottom" (the
@@ -275,6 +317,10 @@ export const AcpTimeline = memo(
 		const handleScroll = useCallback(
 			(e: UIEvent<HTMLDivElement>) => {
 				if (isJumpingToUserRef.current) return;
+				if (initialScrollFrameRef.current !== null) {
+					window.cancelAnimationFrame(initialScrollFrameRef.current);
+					initialScrollFrameRef.current = null;
+				}
 				const el = e.currentTarget;
 				const near = isNearBottom(el);
 				setAutoFollow(near);
@@ -436,9 +482,32 @@ export const AcpTimeline = memo(
 				return;
 			}
 
-			if (!hasInitiallyScrolledRef.current || autoFollow || hasNewUserMessage) {
-				el.scrollTop = el.scrollHeight;
+			if (!hasInitiallyScrolledRef.current) {
+				if (!isFocusedRef.current) {
+					// A kept-alive hidden pane is not measurable yet. Mark it ready so
+					// the focus transition effect below performs the deferred scroll.
+					hasInitiallyScrolledRef.current = true;
+					return;
+				}
+				// The virtualizer measures after this effect. Defer the first scroll
+				// until the next frame so scrollHeight reflects the rendered history.
 				hasInitiallyScrolledRef.current = true;
+				const frame = window.requestAnimationFrame(() => {
+					const current = scrollRef.current;
+					if (current) current.scrollTop = current.scrollHeight;
+					initialScrollFrameRef.current = null;
+				});
+				initialScrollFrameRef.current = frame;
+				return () => {
+					window.cancelAnimationFrame(frame);
+					if (initialScrollFrameRef.current === frame) {
+						initialScrollFrameRef.current = null;
+					}
+				};
+			}
+
+			if (autoFollow || hasNewUserMessage) {
+				el.scrollTop = el.scrollHeight;
 			}
 			if (hasNewUserMessage) {
 				setAutoFollow(true);
@@ -466,17 +535,22 @@ export const AcpTimeline = memo(
 			timeline.items,
 			status,
 		);
+		// ACP plan updates are snapshots. The latest non-removed snapshot owns the
+		// dock, even when it is completed; an older open plan must never reappear.
 		const latestPlan = timeline.items.findLast(
 			(item): item is PlanItem => item.kind === "plan" && !item.removed,
 		);
-		const visibleItems = timeline.items;
+		const activePlan =
+			latestPlan && !isCompletedPlan(latestPlan) ? latestPlan : null;
+		// Plans are represented by the dock, never as ordinary transcript content.
+		const visibleItems = timeline.items.filter((item) => item.kind !== "plan");
 		const reviewablePlan =
 			canReviewPlan &&
 			status === "idle" &&
-			latestPlan?.entries.some((entry) => entry.status !== "completed") &&
+			activePlan?.entries.some((entry) => entry.status !== "completed") &&
 			onApprovePlan &&
 			onRequestPlanChanges
-				? latestPlan
+				? activePlan
 				: null;
 		const reviewForItem = (item: TimelineItem) =>
 			item.id === reviewablePlan?.id && onApprovePlan && onRequestPlanChanges
@@ -734,7 +808,10 @@ export const AcpTimeline = memo(
 		}
 
 		return (
-			<div className="acp-pane__timeline">
+			<div
+				className="acp-pane__timeline"
+				data-has-plan={activePlan ? "true" : undefined}
+			>
 				<AcpTurnRail
 					items={turnRailItems}
 					activeTurnId={resolvedActiveTurnId}
@@ -799,6 +876,8 @@ export const AcpTimeline = memo(
 														onRespond,
 														agentLabel,
 														onOpenFile,
+														onOpenMarkdownFile,
+														onOpenUrl,
 														"default",
 														false,
 														reviewForItem(item),
@@ -826,6 +905,8 @@ export const AcpTimeline = memo(
 																onRespond,
 																agentLabel,
 																onOpenFile,
+																onOpenMarkdownFile,
+																onOpenUrl,
 																"default",
 																false,
 																reviewForItem(item),
@@ -838,6 +919,8 @@ export const AcpTimeline = memo(
 														onRespond,
 														agentLabel,
 														onOpenFile,
+														onOpenMarkdownFile,
+														onOpenUrl,
 														"default",
 														turnSettled,
 														reviewForItem(turn.finalAgentMessage),
@@ -848,6 +931,8 @@ export const AcpTimeline = memo(
 														onRespond,
 														agentLabel,
 														onOpenFile,
+														onOpenMarkdownFile,
+														onOpenUrl,
 														"default",
 														false,
 														reviewForItem(item),
@@ -862,6 +947,13 @@ export const AcpTimeline = memo(
 						{workingIndicator}
 					</div>
 				</div>
+				{activePlan && (
+					<AcpPlanDock
+						key={activePlan.id}
+						item={activePlan}
+						review={reviewForItem(activePlan)}
+					/>
+				)}
 				{showJumpButton && (
 					<button
 						type="button"

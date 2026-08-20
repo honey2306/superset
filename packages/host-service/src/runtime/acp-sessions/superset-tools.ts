@@ -236,6 +236,21 @@ export class SupersetToolController {
 					commands: request.arguments.commands,
 				});
 			}
+			case "update_plan": {
+				const envelope = this.manager.updatePlan({
+					sessionId: source.sessionId,
+					entries: request.arguments.plan.map((entry) => ({
+						content: entry.step,
+						status: entry.status,
+					})),
+					explanation: request.arguments.explanation,
+				});
+				return {
+					updated: true,
+					sessionId: source.sessionId,
+					seq: envelope.seq,
+				};
+			}
 			case "open_merge_request": {
 				if (!this.openMergeRequest) {
 					throw new Error(

@@ -2,18 +2,32 @@ import type { ContentBlock } from "@superset/session-protocol";
 import { MessageResponse } from "@superset/ui/ai-elements/message";
 import { useState } from "react";
 import { AcpMarkdown } from "../../../AcpMarkdown";
+import type { MarkdownFileTarget } from "../../../AcpMarkdown/linkifyAcpMarkdown";
 import { AcpUnknownContent } from "../AcpUnknownContent";
 import { AcpImagePreview } from "./components/AcpImagePreview";
 
 interface AcpContentBlockProps {
 	block: ContentBlock;
+	onOpenMarkdownFile?(
+		target: MarkdownFileTarget,
+		openExternally: boolean,
+	): void;
+	onOpenUrl?(url: string): void;
 }
 
-export function AcpContentBlock({ block }: AcpContentBlockProps) {
+export function AcpContentBlock({
+	block,
+	onOpenMarkdownFile,
+	onOpenUrl,
+}: AcpContentBlockProps) {
 	const [expanded, setExpanded] = useState(false);
 
 	if (block.type === "text") {
-		return <AcpMarkdown>{block.text}</AcpMarkdown>;
+		return (
+			<AcpMarkdown onOpenFile={onOpenMarkdownFile} onOpenUrl={onOpenUrl}>
+				{block.text}
+			</AcpMarkdown>
+		);
 	}
 
 	if (block.type === "image") {

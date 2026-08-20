@@ -1,0 +1,18 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "SubAgent Refined": {
+      "versions": [
+        {
+          "path": "SubAgent Refined.html",
+          "createdAt": "2026-08-19T07:54:17.816Z",
+          "status": "needs-review"
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-08-19T07:54:17.818Z",
+  "updatedAt": "2026-08-19T07:54:17.818Z"
+}

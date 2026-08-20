@@ -13,11 +13,15 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
 import { openFileInPanes } from "renderer/lib/panes";
+import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { useProjectDefaultApp } from "renderer/routes/_local/hooks/useProjectDefaultApp";
+import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { normalizeWorkspaceFilePath } from "renderer/screens/main/components/WorkspaceView/ContentView/components/AcpSessionPane/utils/file-paths";
 import { useNotificationStore } from "renderer/stores/notifications";
 import "./acp-pane.css";
 import { AcpComposer } from "./components/AcpComposer";
 import { AcpEmptyState } from "./components/AcpEmptyState";
+import type { MarkdownFileTarget } from "./components/AcpMarkdown/linkifyAcpMarkdown";
 import { AcpSessionError } from "./components/AcpSessionError";
 import { AcpStatusBar } from "./components/AcpStatusBar";
 import { AcpTimeline, type AcpTimelineHandle } from "./components/AcpTimeline";
@@ -44,11 +48,20 @@ function modelLabel(
 	return value == null || value === "" ? undefined : String(value);
 }
 
-function modeLooksLikePlan(mode: SessionModeState): boolean {
+export function modeLooksLikePlan(mode: SessionModeState): boolean {
 	const selected = mode.availableModes.find(
 		(candidate) => candidate.id === mode.currentModeId,
 	);
 	return /plan/i.test(`${mode.currentModeId} ${selected?.name ?? ""}`);
+}
+
+export function canReviewPlanForMode(
+	mode: SessionModeState | null,
+	pendingPermissionCount: number,
+): boolean {
+	return (
+		mode !== null && pendingPermissionCount === 0 && modeLooksLikePlan(mode)
+	);
 }
 
 /** Pick the execution mode used after a user approves a proposed plan. */
@@ -154,6 +167,8 @@ export function AcpSessionPane({
 	onRetryLaunch,
 	onSessionMetadataChange,
 }: AcpSessionPaneProps) {
+	const { workspace } = useCatalogWorkspace(workspaceId);
+	const { app: defaultOpenInApp } = useProjectDefaultApp(workspace?.projectId);
 	// Stabilize the client across renders — a fresh client per render means a
 	// fresh api object + streamUrl closure, which can trigger useAcpSession to
 	// tear down and re-initialize when the pane is only re-rendered (e.g. tab
@@ -220,6 +235,33 @@ export function AcpSessionPane({
 		},
 		[cwd, rendererWorkspaceId],
 	);
+	const openFileFromMarkdown = useCallback(
+		(target: MarkdownFileTarget, openExternally: boolean) => {
+			const filePath = normalizeWorkspaceFilePath({
+				filePath: target.path,
+				workspaceRoot: cwd,
+			});
+			if (!filePath) return;
+			if (openExternally) {
+				void electronTrpcClient.external.openInApp.mutate({
+					path: filePath,
+					app: defaultOpenInApp ?? "cursor",
+					...(target.line === undefined ? {} : { line: target.line }),
+					...(target.column === undefined ? {} : { column: target.column }),
+				});
+				return;
+			}
+			openFileInPanes(rendererWorkspaceId, {
+				filePath,
+				line: target.line,
+				column: target.column,
+			});
+		},
+		[cwd, defaultOpenInApp, rendererWorkspaceId],
+	);
+	const openUrlFromMarkdown = useCallback((url: string) => {
+		void electronTrpcClient.external.openUrl.mutate(url);
+	}, []);
 
 	const [mutationError, setMutationError] = useState<string | null>(null);
 	const [isCancelling, setIsCancelling] = useState(false);
@@ -485,6 +527,8 @@ export function AcpSessionPane({
 				cwd={cwd}
 				model={model}
 				onOpenFile={openFileFromTool}
+				onOpenMarkdownFile={openFileFromMarkdown}
+				onOpenUrl={openUrlFromMarkdown}
 				agentLabel={agentLabel}
 				status={state?.status}
 				isFocused={isFocused}
@@ -496,7 +540,10 @@ export function AcpSessionPane({
 				totalTurns={session.totalTurns}
 				loadedTurnNumbers={session.loadedTurnNumbers}
 				onLoadTurn={session.loadTurn}
-				canReviewPlan={permissions.pending.length === 0}
+				canReviewPlan={canReviewPlanForMode(
+					currentMode,
+					permissions.pending.length,
+				)}
 				isReviewingPlan={isUpdatingSession}
 				onApprovePlan={handleApprovePlan}
 				onRequestPlanChanges={handleRequestPlanChanges}
