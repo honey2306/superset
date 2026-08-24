@@ -52,6 +52,9 @@ export interface DelegationRunRecord {
 	childSessionId: string;
 	childWorkspaceId: string;
 	handoff: string;
+	profileId: string | null;
+	contextSnapshotJson: string | null;
+	resultJson: string | null;
 	actualAgent: string | null;
 	actualModel: string | null;
 	harness: HarnessKind;
@@ -69,12 +72,13 @@ export interface DelegationRunPersistence {
 	updateDelegationRun(
 		id: string,
 		update: {
-			status: DelegationRunStatus;
+			status?: DelegationRunStatus;
 			updatedAt: number;
 			startedAt?: number | null;
 			completedAt?: number | null;
 			failedAt?: number | null;
 			failureMessage?: string | null;
+			resultJson?: string | null;
 		},
 	): void;
 	getDelegationRun(id: string): DelegationRunRecord | null;

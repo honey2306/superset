@@ -121,7 +121,7 @@ describe("Superset MCP process", () => {
 			});
 			expect(
 				(initializeResponse?.result as { instructions?: string }).instructions,
-			).toContain("proactively use the Superset `delegate` tool");
+			).toContain("execute work directly by default");
 			const tools = (
 				toolsListResponse?.result as {
 					tools: Array<{
@@ -135,6 +135,10 @@ describe("Superset MCP process", () => {
 				tools.some((tool) => tool.name === "continue_in_new_session"),
 			).toBe(true);
 			expect(tools.some((tool) => tool.name === "ask_user")).toBe(true);
+			expect(tools.some((tool) => tool.name === "wait_delegation")).toBe(true);
+			expect(
+				tools.some((tool) => tool.name === "report_delegation_result"),
+			).toBe(false);
 			expect(tools.some((tool) => tool.name === "update_plan")).toBe(true);
 			expect(
 				tools.find((tool) => tool.name === "update_plan")?.inputSchema,
@@ -168,7 +172,23 @@ describe("Superset MCP process", () => {
 			expect(tools.some((tool) => tool.name === "delegate")).toBe(true);
 			expect(
 				tools.find((tool) => tool.name === "delegate")?.description,
-			).toContain("Do not wait for the user to ask");
+			).toContain("Execute directly by default");
+			expect(
+				tools.find((tool) => tool.name === "delegate")?.inputSchema,
+			).toMatchObject({
+				properties: {
+					contextSnapshot: {
+						type: "object",
+						properties: {
+							summary: { maxLength: 4_000 },
+							relevantFacts: { maxItems: 20 },
+							relevantFiles: { maxItems: 30 },
+							constraints: { maxItems: 20 },
+							acceptanceChecks: { maxItems: 20 },
+						},
+					},
+				},
+			});
 			expect(toolCallResponse).toMatchObject({
 				id: 3,
 				result: {
@@ -227,6 +247,9 @@ describe("Superset MCP process", () => {
 					responses[0]?.result as { tools: Array<{ name: string }> }
 				).tools;
 				expect(tools.some((tool) => tool.name === "delegate")).toBe(false);
+				expect(tools.some((tool) => tool.name === "wait_delegation")).toBe(
+					true,
+				);
 			} finally {
 				server.close();
 			}
@@ -248,6 +271,10 @@ describe("Superset MCP process", () => {
 		const tools = (responses[1]?.result as { tools: Array<{ name: string }> })
 			.tools;
 		expect(tools.some((tool) => tool.name === "delegate")).toBe(false);
+		expect(tools.some((tool) => tool.name === "wait_delegation")).toBe(false);
+		expect(tools.some((tool) => tool.name === "report_delegation_result")).toBe(
+			true,
+		);
 	});
 
 	test("forwards MCP cancellation and closes a pending ask_user daemon call", async () => {

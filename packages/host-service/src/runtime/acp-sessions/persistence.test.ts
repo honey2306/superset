@@ -16,6 +16,9 @@ describe("SqliteAcpSessionPersistence delegation runs", () => {
 				child_session_id TEXT NOT NULL UNIQUE,
 				child_workspace_id TEXT NOT NULL,
 				handoff TEXT NOT NULL,
+				profile_id TEXT,
+				context_snapshot_json TEXT,
+				result_json TEXT,
 				actual_agent TEXT,
 				actual_model TEXT,
 				harness TEXT NOT NULL,
@@ -40,6 +43,9 @@ describe("SqliteAcpSessionPersistence delegation runs", () => {
 			childSessionId: "child-1",
 			childWorkspaceId: "workspace-1",
 			handoff: "Implement durable handoffs",
+			profileId: "default",
+			contextSnapshotJson: '{"summary":"Existing context"}',
+			resultJson: null,
 			actualAgent: "codex",
 			actualModel: "gpt-5.6-sol",
 			harness: "codex-app-server",
@@ -55,6 +61,9 @@ describe("SqliteAcpSessionPersistence delegation runs", () => {
 		expect(persistence.getDelegationRun("run-1")).toMatchObject({
 			childSessionId: "child-1",
 			handoff: "Implement durable handoffs",
+			profileId: "default",
+			contextSnapshotJson: '{"summary":"Existing context"}',
+			resultJson: null,
 			status: "creating",
 		});
 		expect(persistence.listDelegationRunsByParent("parent-1", 10)).toHaveLength(

@@ -153,6 +153,55 @@ lines.on("line", (line) => {
 	}
 });
 
+test("waits for wait_delegation beyond the ordinary MCP tool timeout", async () => {
+	const directory = mkdtempSync(
+		path.join(os.tmpdir(), "pi-acp-mcp-wait-delegation-"),
+	);
+	tempDirectories.push(directory);
+	const serverPath = path.join(directory, "fake-mcp.ts");
+	writeFileSync(
+		serverPath,
+		`import readline from "node:readline";
+const lines = readline.createInterface({ input: process.stdin });
+lines.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.method !== "tools/call") return;
+  if (message.params?.name !== "wait_delegation") return;
+  setTimeout(() => {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: { content: [{ type: "text", text: "completed" }] } }));
+  }, 100);
+});
+`,
+	);
+
+	const client = new StdioMcpClient(
+		{
+			command: process.execPath,
+			args: [serverPath],
+			env: {},
+		},
+		{ toolCallTimeoutMs: 20 },
+	);
+	try {
+		const wait = client.callTool("wait_delegation", {
+			delegationRunId: "run-1",
+		});
+		const state = await Promise.race([
+			wait.then(
+				() => "resolved",
+				() => "rejected",
+			),
+			Bun.sleep(50).then(() => "pending"),
+		]);
+		expect(state).toBe("pending");
+		expect(await wait).toMatchObject({
+			content: [{ type: "text", text: "completed" }],
+		});
+	} finally {
+		await client.close();
+	}
+});
+
 test("cancels timed-out non-interactive MCP calls", async () => {
 	const directory = mkdtempSync(path.join(os.tmpdir(), "pi-acp-mcp-timeout-"));
 	tempDirectories.push(directory);

@@ -49,13 +49,82 @@ const continueInNewSessionArgsSchema = z
 		idempotencyKey: z.string().min(1).max(128).optional(),
 	})
 	.strict();
+
+const MAX_DELEGATION_PAYLOAD_BYTES = 32 * 1024;
+
+function addSerializedPayloadLimit<T extends z.ZodTypeAny>(schema: T) {
+	return schema.superRefine((value, context) => {
+		const serialized = JSON.stringify(value);
+		if (serialized === undefined) return;
+		const bytes = new TextEncoder().encode(serialized).byteLength;
+		if (bytes > MAX_DELEGATION_PAYLOAD_BYTES) {
+			context.addIssue({
+				code: "custom",
+				message: `serialized delegation payload must be at most ${MAX_DELEGATION_PAYLOAD_BYTES} bytes`,
+			});
+		}
+	});
+}
+
+const delegationContextSnapshotSchema = addSerializedPayloadLimit(
+	z
+		.object({
+			summary: z.string().trim().min(1).max(4_000).optional(),
+			relevantFacts: z
+				.array(z.string().trim().min(1).max(1_000))
+				.max(20)
+				.optional(),
+			relevantFiles: z
+				.array(z.string().trim().min(1).max(1_000))
+				.max(30)
+				.optional(),
+			constraints: z
+				.array(z.string().trim().min(1).max(1_000))
+				.max(20)
+				.optional(),
+			acceptanceChecks: z
+				.array(z.string().trim().min(1).max(1_000))
+				.max(20)
+				.optional(),
+		})
+		.strict(),
+);
+
+const delegationValidationSchema = z
+	.object({
+		command: z.string().trim().min(1).max(1_000),
+		status: z.enum(["passed", "failed", "not_run"]),
+		details: z.string().trim().max(2_000).optional(),
+	})
+	.strict();
+
+const delegationResultSchema = addSerializedPayloadLimit(
+	z
+		.object({
+			summary: z.string().trim().min(1).max(4_000),
+			filesChanged: z
+				.array(z.string().trim().min(1).max(1_000))
+				.max(100)
+				.optional(),
+			validation: z.array(delegationValidationSchema).max(50).optional(),
+			notes: z.array(z.string().trim().min(1).max(1_000)).max(50).optional(),
+		})
+		.strict(),
+);
+
 const delegateArgsSchema = z
 	.object({
 		task: messageSchema,
-		/** Optional for backwards compatibility; omitted calls use the first valid profile. */
+		/** Optional for backwards compatibility; configured profiles require it at runtime. */
 		profileId: z.string().trim().min(1).max(128).optional(),
+		contextSnapshot: delegationContextSnapshotSchema.optional(),
 		focus: z.boolean().default(false),
 		idempotencyKey: z.string().min(1).max(128).optional(),
+	})
+	.strict();
+const waitDelegationArgsSchema = z
+	.object({
+		delegationRunId: z.string().trim().min(1).max(256),
 	})
 	.strict();
 const setProjectRunCommandArgsSchema = z
@@ -169,6 +238,21 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
+		name: z.literal("wait_delegation"),
+		arguments: waitDelegationArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("report_delegation_result"),
+		arguments: z
+			.object({
+				delegationRunId: z.string().trim().min(1).max(256),
+				result: delegationResultSchema,
+			})
+			.strict(),
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
 		name: z.literal("set_project_run_command"),
 		arguments: setProjectRunCommandArgsSchema,
 	}),
@@ -192,6 +276,10 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 export type SupersetAgent = z.infer<typeof supersetAgentSchema>;
 export type UpdatePlanArguments = z.infer<typeof updatePlanArgsSchema>;
 export type SupersetToolRequest = z.infer<typeof supersetToolRequestSchema>;
+export type DelegationContextSnapshot = z.infer<
+	typeof delegationContextSnapshotSchema
+>;
+export type DelegationResult = z.infer<typeof delegationResultSchema>;
 
 /** Persisted role of an ACP session in Superset's coordinator boundary. */
 export const SUPERSET_ROOT_COORDINATOR_ROLE = "root-coordinator" as const;
@@ -220,7 +308,7 @@ export function formatSupersetDelegationInstructions(
 	const profileText =
 		availableProfiles.length === 0
 			? ""
-			: ` Available profiles (choose one with profileId when calling Superset delegate): ${availableProfiles
+			: ` Available profiles (provide profileId when calling Superset delegate; it is required for persisted profiles): ${availableProfiles
 					.map(
 						(profile) =>
 							`id=${profile.id}, name=${profile.name}, when to use=${profile.description}`,
@@ -243,7 +331,7 @@ export const SUPERSET_DELEGATION_META_KEY =
  * harness's highest-priority supported prompt field as well as MCP metadata.
  */
 export const SUPERSET_DELEGATION_INSTRUCTIONS =
-	"Superset delegated execution is enabled for this workspace. You are the parent/coordinator Agent: proactively use the Superset `delegate` tool for substantial implementation work (multi-file changes, non-trivial bug fixes, features, or work that needs investigation and tests); do not wait for the user to request delegation. Call Superset `delegate` before making those changes with a self-contained objective, approach, constraints, relevant files, and acceptance checks. The Superset delegate is distinct from native provider subagent tools (such as Claude Task or Codex spawn_agent): for tracked implementation work, use Superset `delegate` instead of those native tools. If repository or project instructions require delegating implementation to a subagent, satisfy that requirement with Superset `delegate`; do not additionally create a provider-native subagent. After the child finishes, inspect its actual changes and validation, then continue coordinating or fix gaps yourself before accepting the result and replying to the user. Only follow this instruction when the Superset `delegate` tool is present in the available tools.";
+	"Superset delegated execution is enabled for this workspace. You are the parent/coordinator Agent: execute work directly by default. Use the Superset `delegate` tool only when a task is clearly independent, tightly bounded, and delegation is worth the overhead; usually use 1–3 children, each with a distinct, non-overlapping responsibility. Do not delegate dependent tasks. When delegating, provide a self-contained objective, a finite structured contextSnapshot containing only facts relevant to that child, constraints, relevant files, and acceptance checks. The Superset delegate is distinct from native harness subagent tools (such as Claude Task or Codex spawn_agent): for tracked implementation work, use Superset `delegate` instead of those native tools. If repository or project instructions require delegating implementation to a subagent, satisfy that requirement with Superset `delegate`; do not additionally create a provider-native subagent. After `delegate` returns a `delegationRunId`, use `wait_delegation` to wait for that child run to reach a terminal state instead of polling list_sessions or get_session_status; then inspect its actual changes and validation, continue coordinating or fix gaps yourself, and only then accept the result and reply to the user. Only follow this instruction when the Superset `delegate` tool is present in the available tools.";
 
 /**
  * High-priority instructions for a child created by Superset `delegate`.
@@ -251,7 +339,7 @@ export const SUPERSET_DELEGATION_INSTRUCTIONS =
  * is an executor and must finish the handed-off task itself.
  */
 export const SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS =
-	"You are a delegated executor Agent running inside a Superset child session. Directly execute the current delegated task in the workspace, including inspecting files, making the requested changes, and running the relevant validation. Do not use any delegation or subagent mechanism: do not call Superset `delegate`, and do not use provider-native tools such as Codex `spawn_agent` or Claude `Task`. Perform the work yourself and do not hand it back for further delegation. Report the concrete work completed, files changed, and validation results when you finish.";
+	"You are a delegated executor Agent running inside a Superset child session. Directly execute the current delegated task in the workspace, including inspecting files, making the requested changes, and running the relevant validation. You receive only a finite context snapshot relevant to this task; verify decision-critical facts in the workspace and do not infer or require context from sibling tasks. Do not use any delegation or subagent mechanism: do not call Superset `delegate`, and do not use provider-native tools such as Codex `spawn_agent` or Claude `Task`. Perform the work yourself and do not hand it back for further delegation. Before finishing, call Superset `report_delegation_result` with the provided delegationRunId and a concise structured summary of work, changed files, validation, and notes.";
 
 /** JSON Schemas advertised by the bundled Superset MCP server. */
 export const SUPERSET_TOOL_DEFINITIONS = [
@@ -394,16 +482,104 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "delegate",
 		description:
-			"Proactively delegate substantial implementation work to a configured delegation profile in the current workspace. Do not wait for the user to ask. Call this before making multi-file changes, non-trivial bug fixes, features, or work that needs investigation and tests. Choose a profileId when one is available and relevant; omit it only when the deterministic default is appropriate. Provide a self-contained handoff with the objective, decided approach, constraints, relevant files, and acceptance checks. The child runs independently; monitor it with list_sessions/get_session_status and inspect its actual changes and validation before accepting the work.",
+			"Delegate only a clearly independent, tightly bounded task when it is worth the overhead; usually use 1–3 children with distinct, non-overlapping responsibilities. Execute directly by default and do not delegate dependent tasks. When delegating, provide a finite structured contextSnapshot containing only facts relevant to this child; each snapshot is structurally bounded and serialized to at most 32 KiB. With persisted profiles configured, profileId is required; generated defaults and the legacy single target may omit it. The child runs independently; after this tool returns a delegationRunId, use wait_delegation for event-driven completion rather than polling list_sessions/get_session_status, then inspect the child's actual changes and validation before accepting the work.",
 		inputSchema: {
 			type: "object",
 			properties: {
 				task: { type: "string", minLength: 1, maxLength: 100_000 },
 				profileId: { type: "string", minLength: 1, maxLength: 128 },
+				contextSnapshot: {
+					type: "object",
+					properties: {
+						summary: { type: "string", minLength: 1, maxLength: 4_000 },
+						relevantFacts: {
+							type: "array",
+							items: { type: "string", minLength: 1, maxLength: 1_000 },
+							maxItems: 20,
+						},
+						relevantFiles: {
+							type: "array",
+							items: { type: "string", minLength: 1, maxLength: 1_000 },
+							maxItems: 30,
+						},
+						constraints: {
+							type: "array",
+							items: { type: "string", minLength: 1, maxLength: 1_000 },
+							maxItems: 20,
+						},
+						acceptanceChecks: {
+							type: "array",
+							items: { type: "string", minLength: 1, maxLength: 1_000 },
+							maxItems: 20,
+						},
+					},
+					additionalProperties: false,
+				},
 				focus: { type: "boolean", default: false },
 				idempotencyKey: { type: "string", minLength: 1, maxLength: 128 },
 			},
 			required: ["task"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "wait_delegation",
+		description:
+			"Wait for a delegated child run to complete, be cancelled/interrupted, or fail. This wait is event-driven and may remain pending for a long time; use it once with the delegationRunId returned by delegate instead of repeatedly polling list_sessions or get_session_status. The result includes the terminal status, any failure message, and the child's structured result when reported.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				delegationRunId: { type: "string", minLength: 1, maxLength: 256 },
+			},
+			required: ["delegationRunId"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "report_delegation_result",
+		description:
+			"Child-only tool: report the finite structured result for the current delegated run before finishing. Include a concise summary, changed files, validation commands/statuses, and notes; the serialized result is at most 32 KiB. The host validates and persists the result; it does not merge sibling context.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				delegationRunId: { type: "string", minLength: 1, maxLength: 256 },
+				result: {
+					type: "object",
+					properties: {
+						summary: { type: "string", minLength: 1, maxLength: 4_000 },
+						filesChanged: {
+							type: "array",
+							items: { type: "string", minLength: 1, maxLength: 1_000 },
+							maxItems: 100,
+						},
+						validation: {
+							type: "array",
+							items: {
+								type: "object",
+								properties: {
+									command: { type: "string", minLength: 1, maxLength: 1_000 },
+									status: {
+										type: "string",
+										enum: ["passed", "failed", "not_run"],
+									},
+									details: { type: "string", maxLength: 2_000 },
+								},
+								required: ["command", "status"],
+								additionalProperties: false,
+							},
+							maxItems: 50,
+						},
+						notes: {
+							type: "array",
+							items: { type: "string", minLength: 1, maxLength: 1_000 },
+							maxItems: 50,
+						},
+					},
+					required: ["summary"],
+					additionalProperties: false,
+				},
+			},
+			required: ["delegationRunId", "result"],
 			additionalProperties: false,
 		},
 	},

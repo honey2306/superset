@@ -4,6 +4,8 @@ import type {
 	SessionScopedState,
 } from "@superset/session-protocol";
 import {
+	type DelegationContextSnapshot,
+	type DelegationResult,
 	decodeMessagesCursor,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_ROOT_COORDINATOR_ROLE,
@@ -14,7 +16,10 @@ import {
 } from "@superset/session-protocol";
 import type { DelegationProfileTarget } from "../../trpc/router/settings/delegated-execution-target";
 import type { AcpSessionManager } from "./acp-sessions";
-import type { DelegationRunPersistence } from "./persistence";
+import type {
+	DelegationRunPersistence,
+	DelegationRunRecord,
+} from "./persistence";
 
 export interface AcpSessionOpenRequest {
 	workspaceId: string;
@@ -101,12 +106,73 @@ function textPrompt(text: string) {
 
 type DelegationTerminalStatus = "completed" | "cancelled" | "interrupted";
 
+type DelegationWaiter = {
+	resolve: (value: Record<string, unknown>) => void;
+	reject: (reason: Error) => void;
+};
+
+function parseJsonObject(
+	json: string | null | undefined,
+): Record<string, unknown> | null {
+	if (!json) return null;
+	try {
+		const value: unknown = JSON.parse(json);
+		return typeof value === "object" && value !== null && !Array.isArray(value)
+			? (value as Record<string, unknown>)
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+function canonicalJson(value: unknown): string {
+	if (Array.isArray(value)) {
+		return `[${value.map((entry) => canonicalJson(entry)).join(",")}]`;
+	}
+	if (typeof value === "object" && value !== null) {
+		return `{${Object.entries(value as Record<string, unknown>)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`)
+			.join(",")}}`;
+	}
+	return JSON.stringify(value) ?? "null";
+}
+
 function delegationStatusForStopReason(
 	stopReason: string,
 ): DelegationTerminalStatus {
 	if (stopReason === "cancelled" || stopReason === "cancel") return "cancelled";
 	if (stopReason === "interrupted") return "interrupted";
 	return "completed";
+}
+
+function isTerminalDelegationStatus(
+	status: DelegationRunRecord["status"],
+): boolean {
+	return (
+		status === "completed" ||
+		status === "cancelled" ||
+		status === "interrupted" ||
+		status === "failed"
+	);
+}
+
+function delegationWaitResult(
+	run: DelegationRunRecord,
+): Record<string, unknown> {
+	return {
+		delegationRunId: run.id,
+		sessionId: run.childSessionId,
+		workspaceId: run.childWorkspaceId,
+		status: run.status,
+		failureMessage: run.failureMessage,
+		completedAt: run.completedAt,
+		failedAt: run.failedAt,
+		actualAgent: run.actualAgent,
+		actualModel: run.actualModel,
+		harness: run.harness,
+		result: parseJsonObject(run.resultJson),
+	};
 }
 
 interface ChildLaunchRecord {
@@ -118,8 +184,10 @@ interface ChildLaunchRecord {
 	harness: HarnessKind;
 	childSessionId: string;
 	delegationRunId: string | null;
+	profileId: string | null;
 	profileName: string | null;
 	profileInstructions: string | null;
+	promptText: string;
 }
 
 /**
@@ -137,6 +205,7 @@ export class SupersetToolController {
 	private readonly delegationRuns: SupersetToolControllerOptions["delegationRuns"];
 	private readonly childByIdempotencyKey = new Map<string, ChildLaunchRecord>();
 	private readonly delegationRunByChildSessionId = new Map<string, string>();
+	private readonly delegationWaiters = new Map<string, Set<DelegationWaiter>>();
 
 	constructor(options: SupersetToolControllerOptions) {
 		this.manager = options.manager;
@@ -268,7 +337,20 @@ export class SupersetToolController {
 				return this.createChild(request, source, {
 					prompt: request.arguments.task,
 					reason: "delegation",
+					contextSnapshot: request.arguments.contextSnapshot,
 				});
+			case "wait_delegation":
+				return this.waitForDelegation(
+					source,
+					request.arguments.delegationRunId,
+					signal,
+				);
+			case "report_delegation_result":
+				return this.reportDelegationResult(
+					source,
+					request.arguments.delegationRunId,
+					request.arguments.result,
+				);
 			case "ask_user":
 				return this.manager.askUser({
 					sessionId: source.sessionId,
@@ -323,6 +405,147 @@ export class SupersetToolController {
 		}
 	}
 
+	private reportDelegationResult(
+		source: SessionScopedState,
+		delegationRunId: string,
+		result: DelegationResult,
+	): Record<string, unknown> {
+		if (
+			this.manager.getRole?.(source.sessionId) !==
+			SUPERSET_DELEGATED_EXECUTOR_ROLE
+		) {
+			throw new Error(
+				"Only delegated executor sessions can report delegation results",
+			);
+		}
+		if (!this.delegationRuns) {
+			throw new Error("Delegation persistence is unavailable");
+		}
+		const run = this.delegationRuns.getDelegationRun(delegationRunId);
+		if (
+			!run ||
+			run.childSessionId !== source.sessionId ||
+			run.childWorkspaceId !== source.workspaceId
+		) {
+			throw new Error("Delegation run is unavailable for this child session");
+		}
+		const resultJson = JSON.stringify(result);
+		if (run.resultJson !== null && run.resultJson !== undefined) {
+			if (
+				canonicalJson(parseJsonObject(run.resultJson)) !== canonicalJson(result)
+			) {
+				throw new Error(
+					"A different result was already reported for this delegation run",
+				);
+			}
+			return {
+				delegationRunId,
+				accepted: true,
+				result,
+				idempotent: true,
+			};
+		}
+		if (isTerminalDelegationStatus(run.status)) {
+			throw new Error("Delegation run is already terminal");
+		}
+		this.delegationRuns.updateDelegationRun(delegationRunId, {
+			resultJson,
+			updatedAt: Date.now(),
+		});
+		return { delegationRunId, accepted: true, result };
+	}
+
+	private waitForDelegation(
+		source: SessionScopedState,
+		delegationRunId: string,
+		signal?: AbortSignal,
+	): Promise<Record<string, unknown>> {
+		if (!this.delegationRuns) {
+			throw new Error("Delegation persistence is unavailable");
+		}
+		const run = this.delegationRuns.getDelegationRun(delegationRunId);
+		if (
+			!run ||
+			run.parentSessionId !== source.sessionId ||
+			run.parentWorkspaceId !== source.workspaceId
+		) {
+			throw new Error("Delegation run is unavailable in the current session");
+		}
+		if (isTerminalDelegationStatus(run.status)) {
+			return Promise.resolve(delegationWaitResult(run));
+		}
+		if (signal?.aborted) {
+			return Promise.reject(new Error("Superset tool call cancelled"));
+		}
+
+		return new Promise<Record<string, unknown>>((resolve, reject) => {
+			let settled = false;
+			const onAbort = () => {
+				if (settled) return;
+				settled = true;
+				this.removeDelegationWaiter(delegationRunId, waiter);
+				reject(new Error("Superset tool call cancelled"));
+			};
+			const waiter: DelegationWaiter = {
+				resolve: (value) => {
+					if (settled) return;
+					settled = true;
+					cleanup();
+					resolve(value);
+				},
+				reject: (error) => {
+					if (settled) return;
+					settled = true;
+					cleanup();
+					reject(error);
+				},
+			};
+			const cleanup = () => {
+				signal?.removeEventListener("abort", onAbort);
+				this.removeDelegationWaiter(delegationRunId, waiter);
+			};
+			signal?.addEventListener("abort", onAbort, { once: true });
+			let waiters = this.delegationWaiters.get(delegationRunId);
+			if (!waiters) {
+				waiters = new Set();
+				this.delegationWaiters.set(delegationRunId, waiters);
+			}
+			waiters.add(waiter);
+
+			// Persistence is synchronous. Re-read after registering to close the
+			// small race where the child completed immediately before the waiter
+			// was installed. Completion notification remains event-driven.
+			const current = this.delegationRuns?.getDelegationRun(delegationRunId);
+			if (!current) {
+				waiter.reject(new Error("Delegation run is no longer available"));
+			} else if (isTerminalDelegationStatus(current.status)) {
+				waiter.resolve(delegationWaitResult(current));
+			}
+		});
+	}
+
+	private removeDelegationWaiter(
+		delegationRunId: string,
+		waiter: DelegationWaiter,
+	): void {
+		const waiters = this.delegationWaiters.get(delegationRunId);
+		if (!waiters) return;
+		waiters.delete(waiter);
+		if (waiters.size === 0) this.delegationWaiters.delete(delegationRunId);
+	}
+
+	private notifyDelegationWaiters(delegationRunId: string): void {
+		if (!this.delegationRuns) return;
+		const run = this.delegationRuns.getDelegationRun(delegationRunId);
+		if (!run || !isTerminalDelegationStatus(run.status)) return;
+		const waiters = this.delegationWaiters.get(delegationRunId);
+		if (!waiters) return;
+		this.delegationWaiters.delete(delegationRunId);
+		for (const waiter of waiters) {
+			waiter.resolve(delegationWaitResult(run));
+		}
+	}
+
 	private getWorkspaceSession(
 		source: SessionScopedState,
 		targetSessionId: string,
@@ -348,6 +571,7 @@ export class SupersetToolController {
 		input: {
 			prompt: string;
 			reason: AcpSessionOpenRequest["reason"];
+			contextSnapshot?: DelegationContextSnapshot;
 		},
 	): Promise<Record<string, unknown>> {
 		const idempotencyKey = request.arguments.idempotencyKey
@@ -369,6 +593,11 @@ export class SupersetToolController {
 					childSessionId: record.childSessionId,
 					childWorkspaceId: source.workspaceId,
 					handoff: input.prompt,
+					profileId: record.profileId,
+					contextSnapshotJson: input.contextSnapshot
+						? JSON.stringify(input.contextSnapshot)
+						: null,
+					resultJson: null,
 					actualAgent: record.actualAgent,
 					actualModel: record.actualModel,
 					harness: record.harness,
@@ -388,6 +617,19 @@ export class SupersetToolController {
 				void createdRecord.child.catch((error: unknown) => {
 					this.markDelegationFailed(createdRecord, error);
 				});
+			}
+			if (request.name === "delegate") {
+				record.promptText = this.buildDelegatedPrompt(
+					record,
+					input.prompt,
+					input.contextSnapshot,
+				);
+			} else {
+				record.promptText = input.prompt;
+			}
+			record.prompt = this.promptChildForRecord(record, record.promptText);
+			if (request.name === "delegate" && this.delegationRuns) {
+				const createdRecord = record;
 				void createdRecord.prompt.catch((error: unknown) => {
 					this.markDelegationFailed(createdRecord, error);
 				});
@@ -408,10 +650,7 @@ export class SupersetToolController {
 				// Creation already succeeded. Retry prompt admission against the same
 				// child instead of allocating duplicate delegated work.
 				if (record.prompt === failedPrompt) {
-					record.prompt = this.promptChildForRecord(
-						record,
-						this.buildDelegatedPrompt(record, input.prompt),
-					);
+					record.prompt = this.promptChildForRecord(record, record.promptText);
 				}
 			}
 		}
@@ -453,6 +692,7 @@ export class SupersetToolController {
 		input: {
 			prompt: string;
 			reason: AcpSessionOpenRequest["reason"];
+			contextSnapshot?: DelegationContextSnapshot;
 		},
 	): ChildLaunchRecord {
 		const selectedAgent =
@@ -464,6 +704,10 @@ export class SupersetToolController {
 		let harness = selectedAgent
 			? AGENT_TO_HARNESS[selectedAgent]
 			: source.harness;
+		let profileId: string | null =
+			request.name === "delegate"
+				? (request.arguments.profileId ?? null)
+				: null;
 		let profileName: string | null = null;
 		let profileInstructions: string | null = null;
 
@@ -474,6 +718,7 @@ export class SupersetToolController {
 				request.arguments.profileId,
 			);
 			if (selectedProfile) {
+				profileId = selectedProfile.id;
 				profileName = selectedProfile.name;
 				profileInstructions = selectedProfile.instructions;
 				harness = AGENT_TO_HARNESS[selectedProfile.agent as SupersetAgent];
@@ -503,13 +748,7 @@ export class SupersetToolController {
 			 */
 		}
 
-		const childPrompt =
-			request.name === "delegate"
-				? this.buildDelegatedPrompt(
-						{ profileName, profileInstructions },
-						input.prompt,
-					)
-				: input.prompt;
+		const childPrompt = input.prompt;
 		const childSessionId = randomUUID();
 		const child = this.manager.create({
 			sessionId: childSessionId,
@@ -531,10 +770,11 @@ export class SupersetToolController {
 			harness,
 			childSessionId,
 			delegationRunId: null,
+			profileId,
 			profileName,
 			profileInstructions,
+			promptText: childPrompt,
 		};
-		record.prompt = this.promptChildForRecord(record, childPrompt);
 		return record;
 	}
 
@@ -549,11 +789,24 @@ export class SupersetToolController {
 	}
 
 	private buildDelegatedPrompt(
-		record: Pick<ChildLaunchRecord, "profileName" | "profileInstructions">,
+		record: Pick<
+			ChildLaunchRecord,
+			"profileName" | "profileInstructions" | "delegationRunId"
+		>,
 		prompt: string,
+		contextSnapshot?: DelegationContextSnapshot,
 	): string {
-		if (!record.profileInstructions) return prompt;
-		return `Delegation profile: ${record.profileName ?? "configured profile"}\n\n${record.profileInstructions}\n\nDelegated task:\n${prompt}`;
+		const profileText = record.profileInstructions
+			? `Delegation profile: ${record.profileName ?? "configured profile"}\n\n${record.profileInstructions}\n\n`
+			: "";
+		const contextText = contextSnapshot
+			? `\n\nFinite context snapshot (verify decision-critical facts):\n${JSON.stringify(contextSnapshot, null, 2)}`
+			: "";
+		const reportText = record.delegationRunId
+			? `\n\nWhen the task is complete, call Superset report_delegation_result with delegationRunId '${record.delegationRunId}' before your final response.`
+			: "";
+		if (!profileText && !contextText && !reportText) return prompt;
+		return `${profileText}Delegated task:\n${prompt}${contextText}${reportText}`;
 	}
 
 	private selectDelegationProfile(
@@ -562,6 +815,11 @@ export class SupersetToolController {
 	): DelegationProfileTarget | null {
 		const profiles = delegatedExecution.profiles;
 		if (profiles === undefined) return null;
+		if (!profileId && delegatedExecution.profilesConfigured) {
+			throw new Error(
+				"profileId is required when persisted delegation profiles are configured.",
+			);
+		}
 		const selected = profileId
 			? profiles.find((profile) => profile.id === profileId)
 			: profiles.find((profile) => profile.enabled && profile.valid);
@@ -656,6 +914,7 @@ export class SupersetToolController {
 			failureMessage: null,
 			updatedAt: now,
 		});
+		this.notifyDelegationWaiters(record.delegationRunId);
 		this.delegationRunByChildSessionId.delete(record.childSessionId);
 	}
 
@@ -678,6 +937,7 @@ export class SupersetToolController {
 			failedAt: now,
 			updatedAt: now,
 		});
+		this.notifyDelegationWaiters(record.delegationRunId);
 		this.delegationRunByChildSessionId.delete(record.childSessionId);
 	}
 
@@ -699,6 +959,7 @@ export class SupersetToolController {
 				failedAt: now,
 				updatedAt: now,
 			});
+			this.notifyDelegationWaiters(runId);
 			this.delegationRunByChildSessionId.delete(childSessionId);
 			return;
 		}
@@ -713,6 +974,7 @@ export class SupersetToolController {
 				failureMessage: null,
 				updatedAt: now,
 			});
+			this.notifyDelegationWaiters(runId);
 			this.delegationRunByChildSessionId.delete(childSessionId);
 		}
 	}

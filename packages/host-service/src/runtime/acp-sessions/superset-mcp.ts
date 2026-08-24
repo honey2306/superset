@@ -11,6 +11,7 @@ import type { AcpDaemonRequest, AcpDaemonResponse } from "./daemon";
 
 const MCP_PROTOCOL_VERSION = "2024-11-05";
 const DAEMON_CALL_TIMEOUT_MS = 120_000;
+const LONG_RUNNING_TOOL_NAMES = new Set(["ask_user", "wait_delegation"]);
 const socketPath = requiredEnv("SUPERSET_ACP_DAEMON_SOCKET_PATH");
 const sourceSessionId = requiredEnv("SUPERSET_ACP_SOURCE_SESSION_ID");
 const isDelegatedExecutor =
@@ -85,12 +86,11 @@ async function callDaemon(
 							arguments: args,
 						},
 		};
-		const timeout =
-			name === "ask_user"
-				? undefined
-				: setTimeout(() => {
-						finish(new Error("Superset daemon tool call timed out"));
-					}, DAEMON_CALL_TIMEOUT_MS);
+		const timeout = LONG_RUNNING_TOOL_NAMES.has(name)
+			? undefined
+			: setTimeout(() => {
+					finish(new Error("Superset daemon tool call timed out"));
+				}, DAEMON_CALL_TIMEOUT_MS);
 		const finish = (cause?: Error, value?: unknown) => {
 			if (settled) return;
 			settled = true;
@@ -217,9 +217,15 @@ async function delegatedExecutionAvailability(): Promise<DelegationAvailability>
 }
 
 function visibleToolDefinitions(includeDelegate: boolean) {
-	return includeDelegate
-		? SUPERSET_TOOL_DEFINITIONS
-		: SUPERSET_TOOL_DEFINITIONS.filter((tool) => tool.name !== "delegate");
+	return SUPERSET_TOOL_DEFINITIONS.filter((tool) => {
+		if (tool.name === "delegate") return includeDelegate;
+		if (tool.name === "report_delegation_result") return isDelegatedExecutor;
+		// A root coordinator may need to resume waiting for an existing durable
+		// run after delegation profiles are disabled or become invalid. Delegated
+		// executors cannot own runs and should not see either coordination tool.
+		if (tool.name === "wait_delegation") return !isDelegatedExecutor;
+		return true;
+	});
 }
 
 const activeToolCalls = new Map<JsonRpcId, AbortController>();

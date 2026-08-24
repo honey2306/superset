@@ -8,6 +8,7 @@ const PI_ACP_MCP_CONFIG_ENV = "SUPERSET_PI_ACP_MCP_CONFIG";
 const MCP_PROTOCOL_VERSION = "2025-06-18";
 const MCP_REQUEST_TIMEOUT_MS = 90_000;
 const MCP_TOOL_CALL_TIMEOUT_MS = 120_000;
+const LONG_RUNNING_TOOL_NAMES = new Set(["ask_user", "wait_delegation"]);
 
 interface SessionMcpConfig {
 	mcpServers: Record<
@@ -173,7 +174,7 @@ export class StdioMcpClient {
 			"tools/call",
 			{ name, arguments: args },
 			signal,
-			name === "ask_user" ? undefined : this.toolCallTimeoutMs,
+			LONG_RUNNING_TOOL_NAMES.has(name) ? undefined : this.toolCallTimeoutMs,
 		)) as McpToolResult;
 	}
 

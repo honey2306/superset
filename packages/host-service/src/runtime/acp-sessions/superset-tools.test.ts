@@ -544,7 +544,7 @@ describe("SupersetToolController", () => {
 		]);
 	});
 
-	test("omitted profileId chooses the first enabled valid profile in order", async () => {
+	test("requires profileId when persisted profiles are configured", async () => {
 		const { manager, create } = fixture();
 		const controller = new SupersetToolController({
 			manager,
@@ -582,11 +582,56 @@ describe("SupersetToolController", () => {
 				],
 			}),
 		});
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "delegate",
+				arguments: { task: "Use the default profile" },
+			}),
+		).rejects.toThrow("profileId is required");
+		expect(create).not.toHaveBeenCalled();
 		await controller.execute({
 			sourceSessionId: "source",
 			name: "delegate",
-			arguments: { task: "Use the default profile" },
+			arguments: { profileId: "first-valid", task: "Use the selected profile" },
 		});
+		expect(create.mock.calls[0]?.[0]).toMatchObject({ harness: "pi-acp" });
+	});
+
+	test("keeps implicit selection for generated unpersisted profiles", async () => {
+		const { manager, create } = fixture();
+		const controller = new SupersetToolController({
+			manager,
+			resolveDelegatedExecution: () => ({
+				enabled: true,
+				valid: true,
+				agent: "claude",
+				model: "sonnet",
+				profilesConfigured: false,
+				profiles: [
+					{
+						id: "generated-default",
+						name: "Generated default",
+						description: "",
+						instructions: null,
+						enabled: true,
+						valid: true,
+						order: 0,
+						executorAgentConfigId: "pi-config",
+						executorModelId: null,
+						agent: "pi",
+						model: null,
+					},
+				],
+			}),
+		});
+
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "delegate",
+			arguments: { task: "Use the generated default" },
+		});
+
 		expect(create.mock.calls[0]?.[0]).toMatchObject({ harness: "pi-acp" });
 	});
 
@@ -619,10 +664,13 @@ describe("SupersetToolController", () => {
 	test("persists a delegate handoff and its child lifecycle", async () => {
 		const { manager, prompt } = fixture();
 		const turn = Promise.resolve({ stopReason: "end_turn" });
-		prompt.mockImplementation(
-			async () =>
-				({ accepted: true as const, turn }) as unknown as { accepted: true },
-		);
+		const sequence: string[] = [];
+		prompt.mockImplementation(async () => {
+			sequence.push("prompt");
+			return { accepted: true as const, turn } as unknown as {
+				accepted: true;
+			};
+		});
 		const created: DelegationRunRecord[] = [];
 		const updates: Array<
 			{ id: string } & Parameters<
@@ -630,7 +678,10 @@ describe("SupersetToolController", () => {
 			>[1]
 		> = [];
 		const delegationRuns: DelegationRunPersistence = {
-			createDelegationRun: (record) => created.push(record),
+			createDelegationRun: (record) => {
+				sequence.push("run");
+				created.push(record);
+			},
 			updateDelegationRun: (id, update) => updates.push({ id, ...update }),
 			getDelegationRun: () => null,
 			listDelegationRunsByParent: () => [],
@@ -650,7 +701,14 @@ describe("SupersetToolController", () => {
 		const result = await controller.execute({
 			sourceSessionId: "source",
 			name: "delegate",
-			arguments: { task: "Implement the planned change" },
+			arguments: {
+				task: "Implement the planned change",
+				contextSnapshot: {
+					summary: "Only inspect the delegation runtime",
+					relevantFiles: ["packages/host-service/src/runtime/acp-sessions"],
+					acceptanceChecks: ["Run the focused tests"],
+				},
+			},
 		});
 
 		expect(created).toHaveLength(1);
@@ -661,11 +719,23 @@ describe("SupersetToolController", () => {
 			childSessionId: result.sessionId,
 			childWorkspaceId: "workspace-1",
 			handoff: "Implement the planned change",
+			contextSnapshotJson: JSON.stringify({
+				summary: "Only inspect the delegation runtime",
+				relevantFiles: ["packages/host-service/src/runtime/acp-sessions"],
+				acceptanceChecks: ["Run the focused tests"],
+			}),
 			actualAgent: "claude",
 			actualModel: "sonnet",
 			harness: "claude-agent-acp",
 			status: "creating",
 		});
+		expect(sequence).toEqual(["run", "prompt"]);
+		expect(prompt.mock.calls[0]?.[0]?.prompt[0]?.text).toContain(
+			`delegationRunId '${result.delegationRunId}'`,
+		);
+		expect(prompt.mock.calls[0]?.[0]?.prompt[0]?.text).toContain(
+			"Only inspect the delegation runtime",
+		);
 		expect(updates).toContainEqual(
 			expect.objectContaining({
 				id: result.delegationRunId,
@@ -680,6 +750,260 @@ describe("SupersetToolController", () => {
 				status: "completed",
 			}),
 		);
+	});
+
+	test("waits for delegated completion without polling and fans out to concurrent waiters", async () => {
+		const { manager, prompt } = fixture();
+		let resolveTurn!: (result: { stopReason: string }) => void;
+		const turn = new Promise<{ stopReason: string }>((resolve) => {
+			resolveTurn = resolve;
+		});
+		prompt.mockImplementation(
+			async () =>
+				({ accepted: true as const, turn }) as unknown as { accepted: true },
+		);
+		let persistedRun: DelegationRunRecord | null = null;
+		const delegationRuns: DelegationRunPersistence = {
+			createDelegationRun: (record) => {
+				persistedRun = record;
+			},
+			updateDelegationRun: (id, update) => {
+				if (persistedRun?.id !== id) return;
+				persistedRun = { ...persistedRun, ...update };
+			},
+			getDelegationRun: (id) => (persistedRun?.id === id ? persistedRun : null),
+			listDelegationRunsByParent: () => [],
+			listActiveDelegationRuns: () => [],
+		};
+		const controller = new SupersetToolController({
+			manager,
+			delegationRuns,
+			resolveDelegatedExecution: () => ({
+				enabled: true,
+				valid: true,
+				agent: "claude",
+				model: "sonnet",
+			}),
+		});
+
+		const delegated = await controller.execute({
+			sourceSessionId: "source",
+			name: "delegate",
+			arguments: { task: "Wait for this child" },
+		});
+		const waitArguments = {
+			sourceSessionId: "source",
+			name: "wait_delegation" as const,
+			arguments: { delegationRunId: delegated.delegationRunId as string },
+		};
+		const first = controller.execute(waitArguments);
+		const second = controller.execute(waitArguments);
+		const pending = await Promise.race([
+			first.then(() => "resolved"),
+			Bun.sleep(20).then(() => "pending"),
+		]);
+		expect(pending).toBe("pending");
+		const reportedResult = {
+			summary: "Completed the delegated work",
+			validation: [{ command: "bun test", status: "passed" as const }],
+		};
+		await controller.execute({
+			sourceSessionId: delegated.sessionId as string,
+			name: "report_delegation_result",
+			arguments: {
+				delegationRunId: delegated.delegationRunId as string,
+				result: reportedResult,
+			},
+		});
+
+		resolveTurn({ stopReason: "end_turn" });
+		expect(await Promise.all([first, second])).toEqual([
+			expect.objectContaining({
+				delegationRunId: delegated.delegationRunId,
+				sessionId: delegated.sessionId,
+				status: "completed",
+				result: reportedResult,
+			}),
+			expect.objectContaining({
+				delegationRunId: delegated.delegationRunId,
+				sessionId: delegated.sessionId,
+				status: "completed",
+				result: reportedResult,
+			}),
+		]);
+	});
+
+	test("accepts a child result only for its owned active run and is idempotent", async () => {
+		const { manager, roles } = fixture();
+		roles.set("sibling", "delegated-executor");
+		let persistedRun: DelegationRunRecord = {
+			id: "run-report",
+			parentSessionId: "source",
+			parentWorkspaceId: "workspace-1",
+			childSessionId: "sibling",
+			childWorkspaceId: "workspace-1",
+			handoff: "Report this task",
+			profileId: "profile-1",
+			contextSnapshotJson: '{"summary":"Relevant context"}',
+			resultJson: null,
+			actualAgent: "claude",
+			actualModel: "sonnet",
+			harness: "claude-agent-acp",
+			status: "running",
+			failureMessage: null,
+			createdAt: 1,
+			startedAt: 2,
+			completedAt: null,
+			failedAt: null,
+			updatedAt: 2,
+		};
+		const updates: Array<
+			Parameters<DelegationRunPersistence["updateDelegationRun"]>[1]
+		> = [];
+		const delegationRuns: DelegationRunPersistence = {
+			createDelegationRun: () => {},
+			updateDelegationRun: (_id, update) => {
+				updates.push(update);
+				persistedRun = { ...persistedRun, ...update };
+			},
+			getDelegationRun: (id) => (id === persistedRun.id ? persistedRun : null),
+			listDelegationRunsByParent: () => [],
+			listActiveDelegationRuns: () => [],
+		};
+		const controller = new SupersetToolController({ manager, delegationRuns });
+		const result = {
+			summary: "Implemented and validated the child task.",
+			filesChanged: ["packages/example.ts"],
+			validation: [{ command: "bun test", status: "passed" as const }],
+			notes: ["No sibling context was used."],
+		};
+
+		await expect(
+			controller.execute({
+				sourceSessionId: "sibling",
+				name: "report_delegation_result",
+				arguments: { delegationRunId: "run-report", result },
+			}),
+		).resolves.toMatchObject({ accepted: true, result });
+		expect(updates).toContainEqual(
+			expect.objectContaining({ resultJson: JSON.stringify(result) }),
+		);
+		await expect(
+			controller.execute({
+				sourceSessionId: "sibling",
+				name: "report_delegation_result",
+				arguments: { delegationRunId: "run-report", result },
+			}),
+		).resolves.toMatchObject({ accepted: true, idempotent: true });
+		await expect(
+			controller.execute({
+				sourceSessionId: "sibling",
+				name: "report_delegation_result",
+				arguments: {
+					delegationRunId: "run-report",
+					result: { summary: "A conflicting result" },
+				},
+			}),
+		).rejects.toThrow("different result");
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "report_delegation_result",
+				arguments: { delegationRunId: "run-report", result },
+			}),
+		).rejects.toThrow("Only delegated executor");
+		roles.set("foreign", "delegated-executor");
+		await expect(
+			controller.execute({
+				sourceSessionId: "foreign",
+				name: "report_delegation_result",
+				arguments: { delegationRunId: "run-report", result },
+			}),
+		).rejects.toThrow("unavailable for this child session");
+		persistedRun = {
+			...persistedRun,
+			status: "completed",
+			completedAt: 3,
+		};
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "wait_delegation",
+				arguments: { delegationRunId: "run-report" },
+			}),
+		).resolves.toMatchObject({ status: "completed", result });
+		persistedRun = { ...persistedRun, resultJson: null };
+		await expect(
+			controller.execute({
+				sourceSessionId: "sibling",
+				name: "report_delegation_result",
+				arguments: { delegationRunId: "run-report", result },
+			}),
+		).rejects.toThrow("already terminal");
+	});
+
+	test("returns persisted terminal runs immediately and honors cancellation", async () => {
+		const { manager } = fixture();
+		let persistedRun: DelegationRunRecord = {
+			id: "run-terminal",
+			parentSessionId: "source",
+			parentWorkspaceId: "workspace-1",
+			childSessionId: "sibling",
+			childWorkspaceId: "workspace-1",
+			handoff: "Already finished",
+			profileId: null,
+			contextSnapshotJson: null,
+			resultJson: null,
+			actualAgent: "claude",
+			actualModel: "sonnet",
+			harness: "claude-agent-acp",
+			status: "completed",
+			failureMessage: null,
+			createdAt: 1,
+			startedAt: 2,
+			completedAt: 3,
+			failedAt: null,
+			updatedAt: 3,
+		};
+		const delegationRuns: DelegationRunPersistence = {
+			createDelegationRun: () => {},
+			updateDelegationRun: () => {},
+			getDelegationRun: (id) => (persistedRun.id === id ? persistedRun : null),
+			listDelegationRunsByParent: () => [],
+			listActiveDelegationRuns: () => [],
+		};
+		const controller = new SupersetToolController({ manager, delegationRuns });
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "wait_delegation",
+				arguments: { delegationRunId: "run-terminal" },
+			}),
+		).resolves.toMatchObject({ status: "completed", completedAt: 3 });
+		await expect(
+			controller.execute({
+				sourceSessionId: "sibling",
+				name: "wait_delegation",
+				arguments: { delegationRunId: "run-terminal" },
+			}),
+		).rejects.toThrow("Delegation run is unavailable in the current session");
+
+		persistedRun = { ...persistedRun, status: "running", completedAt: null };
+		const controllerWithActiveRun = new SupersetToolController({
+			manager,
+			delegationRuns,
+		});
+		const abortController = new AbortController();
+		const wait = controllerWithActiveRun.execute(
+			{
+				sourceSessionId: "source",
+				name: "wait_delegation",
+				arguments: { delegationRunId: "run-terminal" },
+			},
+			abortController.signal,
+		);
+		abortController.abort();
+		await expect(wait).rejects.toThrow("Superset tool call cancelled");
 	});
 
 	test.each([
@@ -831,6 +1155,9 @@ describe("SupersetToolController", () => {
 					childSessionId: "sibling",
 					childWorkspaceId: "workspace-1",
 					handoff: "Finish the task",
+					profileId: null,
+					contextSnapshotJson: null,
+					resultJson: null,
 					actualAgent: "codex",
 					actualModel: null,
 					harness: "claude-agent-acp",
