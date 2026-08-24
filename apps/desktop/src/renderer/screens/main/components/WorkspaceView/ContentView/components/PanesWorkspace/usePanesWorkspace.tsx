@@ -33,7 +33,7 @@ import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import { isHtmlFile, isImageFile, isMarkdownFile } from "shared/file-types";
 import type { FileViewerMode } from "shared/tabs-types";
 import type { StoreApi } from "zustand/vanilla";
-import { AcpSessionPane } from "../AcpSessionPane";
+import { AcpSessionPane, acpSessionPaneKey } from "../AcpSessionPane";
 import { AcpPaneToolbar } from "../AcpSessionPane/components/AcpPaneToolbar";
 import { mergeAcpPaneTitles } from "./acpPaneTitles";
 import {
@@ -103,7 +103,10 @@ function terminalStatusClass(status: PanesPaneData["status"]): string {
  * workspace-client daemon health query); M2 keeps the rich-input entry out
  * of scope until a host-agnostic connection indicator exists.
  */
-function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
+function usePanesRegistry(
+	workspaceId: string,
+	isWorkspaceActive: boolean,
+): PaneRegistry<PanesPaneData> {
 	const { t } = useTranslation();
 	const { workspace } = useCatalogWorkspace(workspaceId);
 	const { activeHostUrl: hostUrl } = useLocalHostService();
@@ -422,6 +425,7 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 				}
 				return (
 					<AcpSessionPane
+						key={acpSessionPaneKey(acpData.sessionId)}
 						sessionId={acpData.sessionId}
 						hostUrl={hostUrl}
 						// ACP file completion calls the host filesystem API, whose
@@ -436,6 +440,7 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 						}
 						isLaunching={acpData.isLaunching}
 						isVisible={ctx.isVisible}
+						isWorkspaceActive={isWorkspaceActive}
 						isFocused={ctx.isActive}
 						creationError={acpData.creationError}
 						onRetryLaunch={
@@ -529,6 +534,7 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 		workspace?.worktreePath,
 		hostUrl,
 		hostWorkspaceId,
+		isWorkspaceActive,
 	]);
 }
 
@@ -548,16 +554,18 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
  * them with its clipboard/kill slice.
  */
 interface UsePanesWorkspaceOptions {
+	/** Transport identity for the workspace's host service. */
 	hostUrl?: string | null;
 	hostWorkspaceId?: string | null;
+	isWorkspaceActive: boolean;
 }
 
 export function usePanesWorkspace(
 	workspaceId: string,
 	store: StoreApi<WorkspaceStore<PanesPaneData>>,
-	options: UsePanesWorkspaceOptions = {},
+	options: UsePanesWorkspaceOptions,
 ) {
-	const registry = usePanesRegistry(workspaceId);
+	const registry = usePanesRegistry(workspaceId, options.isWorkspaceActive);
 	const launcher = useTerminalLauncher();
 	const paneActions = useDefaultPaneActions(launcher);
 	const contextMenuActions = useDefaultContextMenuActions(registry, launcher);
@@ -565,6 +573,7 @@ export function usePanesWorkspace(
 		store,
 		hostUrl: options.hostUrl,
 		hostWorkspaceId: options.hostWorkspaceId,
+		isWorkspaceActive: options.isWorkspaceActive,
 	});
 	const openers = usePanesPresetOpeners(workspaceId, store, acpLauncher);
 

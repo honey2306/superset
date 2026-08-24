@@ -116,6 +116,13 @@ const MAX_RESYNC_RETRIES = 3;
 const RESYNC_RETRY_BASE_DELAY_MS = 250;
 export const INITIAL_LAUNCH_NOT_FOUND_RETRY_WINDOW_MS = 30_000;
 
+class InitialLaunchOfflineError extends Error {
+	constructor() {
+		super("ACP session adapter is still launching");
+		this.name = "InitialLaunchOfflineError";
+	}
+}
+
 type PendingEnvelopeBatch = {
 	epoch: number;
 	envelopes: SessionUpdateEnvelope[];
@@ -332,6 +339,9 @@ export function useAcpSession(
 	const launchStartedAtRef = useRef<number | null>(
 		options.initiallyLaunching ? Date.now() : null,
 	);
+	const previousInitiallyLaunchingRef = useRef(
+		options.initiallyLaunching ?? false,
+	);
 
 	const clearRetryTimer = useCallback(() => {
 		if (retryTimerRef.current !== null) {
@@ -461,6 +471,24 @@ export function useAcpSession(
 				const api = apiRef.current;
 				const state = await api.get({ sessionId });
 				if (!enabledRef.current || epoch !== epochRef.current) return;
+				const launchElapsedMs =
+					launchStartedAtRef.current === null
+						? Number.POSITIVE_INFINITY
+						: Date.now() - launchStartedAtRef.current;
+				const newlyCreatedOfflineRow =
+					state.status === "offline" &&
+					Date.now() - state.createdAt <
+						INITIAL_LAUNCH_NOT_FOUND_RETRY_WINDOW_MS;
+				// A durable registry row exists before its adapter is attached. Treat
+				// that transient offline snapshot like a launch-time 404 so it cannot
+				// become the pane's final state before creation completion is observed.
+				if (
+					state.status === "offline" &&
+					(launchElapsedMs < INITIAL_LAUNCH_NOT_FOUND_RETRY_WINDOW_MS ||
+						newlyCreatedOfflineRow)
+				) {
+					throw new InitialLaunchOfflineError();
+				}
 				// Publish passive `offline` state before the live history read tries to
 				// resurrect it. If session/load fails, the UI can explain that this is a
 				// resumable registry row (and keep its composer disabled) alongside the
@@ -563,22 +591,33 @@ export function useAcpSession(
 				if (!enabledRef.current || epoch !== epochRef.current) return;
 				setIsLoading(false);
 				setError(cause instanceof Error ? cause : new Error(String(cause)));
+				const launchElapsedMs =
+					launchStartedAtRef.current === null
+						? Number.POSITIVE_INFINITY
+						: Date.now() - launchStartedAtRef.current;
 				const retryInitialLaunchNotFound = shouldRetryInitialLaunchNotFound({
 					initiallyLaunching: initiallyLaunchingRef.current,
 					cause,
-					elapsedMs:
-						launchStartedAtRef.current === null
-							? Number.POSITIVE_INFINITY
-							: Date.now() - launchStartedAtRef.current,
+					elapsedMs: launchElapsedMs,
 				});
-				if (retryAttempt >= MAX_RESYNC_RETRIES && !retryInitialLaunchNotFound) {
+				// The throw site already verified either the launch clock or the
+				// registry row's creation clock. Keep this retry outside the generic
+				// attempt budget; the next read re-evaluates the 30-second window.
+				const retryInitialLaunchOffline =
+					cause instanceof InitialLaunchOfflineError;
+				if (
+					retryAttempt >= MAX_RESYNC_RETRIES &&
+					!retryInitialLaunchNotFound &&
+					!retryInitialLaunchOffline
+				) {
 					setAvailability("unavailable");
 					return;
 				}
 				setAvailability("retrying");
-				const delay = retryInitialLaunchNotFound
-					? 1_000
-					: RESYNC_RETRY_BASE_DELAY_MS * 2 ** retryAttempt;
+				const delay =
+					retryInitialLaunchNotFound || retryInitialLaunchOffline
+						? 1_000
+						: RESYNC_RETRY_BASE_DELAY_MS * 2 ** retryAttempt;
 				retryTimerRef.current = setTimeout(() => {
 					retryTimerRef.current = null;
 					if (!enabledRef.current || epoch !== epochRef.current) return;
@@ -837,6 +876,20 @@ export function useAcpSession(
 		enabled,
 	]);
 
+	useEffect(() => {
+		const wasLaunching = previousInitiallyLaunchingRef.current;
+		const isLaunching = options.initiallyLaunching ?? false;
+		previousInitiallyLaunchingRef.current = isLaunching;
+		if (!wasLaunching && isLaunching) {
+			launchStartedAtRef.current = Date.now();
+			return;
+		}
+		// The first read can legitimately find the durable offline registry row
+		// while the launcher is still creating its adapter. Creation completion is
+		// therefore a lifecycle boundary even when the initial read did not 404.
+		if (wasLaunching && !isLaunching && enabled) void resync();
+	}, [enabled, options.initiallyLaunching, resync]);
+
 	const actions = useMemo<AcpSessionActions>(
 		() => ({
 			prompt: (blocks) => apiRef.current.prompt({ sessionId, prompt: blocks }),
@@ -866,21 +919,30 @@ export function useAcpSession(
 		[sessionId, resync],
 	);
 
+	// React renders once with the new props before the sessionId effect can clear
+	// the old session's refs/state. Do not expose that stale snapshot to the pane:
+	// an offline old session would otherwise make the new session's composer show
+	// "Session unavailable" until a later refresh. The effect still performs the
+	// durable reset and starts the new resync; this guard only makes that boundary
+	// synchronous from the renderer's point of view.
+	const switchingSession = renderedSessionIdRef.current !== sessionId;
+	const renderedTimeline = switchingSession ? emptyTimeline() : timeline;
+
 	return {
 		// State frames folded from the stream supersede the initial fetch.
-		state: timeline.state ?? fetchedState,
-		timeline,
-		streamStatus,
-		isLoading,
-		availability,
-		error,
-		hasOlder,
-		isLoadingOlder,
-		historyError,
+		state: switchingSession ? null : (renderedTimeline.state ?? fetchedState),
+		timeline: renderedTimeline,
+		streamStatus: switchingSession ? "connecting" : streamStatus,
+		isLoading: switchingSession || isLoading,
+		availability: switchingSession ? "live" : availability,
+		error: switchingSession ? null : error,
+		hasOlder: switchingSession ? false : hasOlder,
+		isLoadingOlder: switchingSession ? false : isLoadingOlder,
+		historyError: switchingSession ? null : historyError,
 		loadOlder,
-		totalTurns,
-		turnIndex,
-		loadedTurnNumbers,
+		totalTurns: switchingSession ? 0 : totalTurns,
+		turnIndex: switchingSession ? [] : turnIndex,
+		loadedTurnNumbers: switchingSession ? [] : loadedTurnNumbers,
 		loadTurn,
 		actions,
 	};

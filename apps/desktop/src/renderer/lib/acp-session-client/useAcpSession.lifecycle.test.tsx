@@ -93,6 +93,169 @@ async function waitFor(predicate: () => boolean, timeoutMs = 3_000) {
 }
 
 describe("useAcpSession lifecycle recovery", () => {
+	test("does not render the previous session while switching ids", async () => {
+		const oldSession: SessionScopedState = {
+			...state,
+			sessionId: "old-offline-session",
+			status: "offline",
+			createdAt: 1,
+			updatedAt: 1,
+		};
+		const newSession: SessionScopedState = {
+			...state,
+			sessionId: "new-idle-session",
+			status: "idle",
+		};
+		const renders: Array<{
+			sessionId: string;
+			state: SessionScopedState | null;
+			timelineItems: number;
+			error: Error | null;
+			isLoading: boolean;
+		}> = [];
+		const api = {
+			get: async ({ sessionId }: { sessionId: string }) =>
+				sessionId === oldSession.sessionId ? oldSession : newSession,
+			getMessages: async ({ sessionId }: { sessionId: string }) => ({
+				items: history.map((envelope) => ({
+					...envelope,
+					sessionId,
+				})),
+				nextCursor: null,
+			}),
+			prompt: async () => ({ accepted: true as const }),
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const { result, rerender } = renderHook(
+			({ sessionId }: { sessionId: string }) => {
+				const snapshot = useAcpSession({
+					sessionId,
+					api,
+					streamUrl: "ws://test",
+					createWebSocket: idleSocket,
+				});
+				renders.push({
+					sessionId,
+					state: snapshot.state,
+					timelineItems: snapshot.timeline.items.length,
+					error: snapshot.error,
+					isLoading: snapshot.isLoading,
+				});
+				return snapshot;
+			},
+			{ initialProps: { sessionId: oldSession.sessionId } },
+		);
+
+		await waitFor(() => result.current.state?.status === "offline");
+		const rendersBeforeSwitch = renders.length;
+		rerender({ sessionId: newSession.sessionId });
+		const firstNewRender = renders
+			.slice(rendersBeforeSwitch)
+			.find(({ sessionId }) => sessionId === newSession.sessionId);
+
+		expect(firstNewRender).toMatchObject({
+			state: null,
+			timelineItems: 0,
+			error: null,
+			isLoading: true,
+		});
+	});
+
+	test("resyncs when adapter creation finishes after an offline registry read", async () => {
+		let getCalls = 0;
+		const api = {
+			get: async () => {
+				getCalls += 1;
+				return {
+					...state,
+					status: getCalls < 5 ? ("offline" as const) : ("idle" as const),
+				};
+			},
+			getMessages: async () => ({ items: history, nextCursor: null }),
+			prompt: async () => ({ accepted: true as const }),
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const { result, rerender } = renderHook(
+			({ initiallyLaunching }: { initiallyLaunching: boolean }) =>
+				useAcpSession({
+					sessionId: state.sessionId,
+					api,
+					streamUrl: "ws://test",
+					createWebSocket: idleSocket,
+					initiallyLaunching,
+				}),
+			{ initialProps: { initiallyLaunching: true } },
+		);
+
+		await waitFor(
+			() => getCalls === 5 && result.current.state?.status === "idle",
+			6_000,
+		);
+		expect(result.current.state?.status).toBe("idle");
+		rerender({ initiallyLaunching: false });
+		expect(getCalls).toBeGreaterThanOrEqual(2);
+	});
+
+	test("retries a newly created offline row after launch state remounts", async () => {
+		let getCalls = 0;
+		const api = {
+			get: async () => {
+				getCalls += 1;
+				return {
+					...state,
+					createdAt: Date.now(),
+					status: getCalls === 1 ? ("offline" as const) : ("idle" as const),
+				};
+			},
+			getMessages: async () => ({ items: history, nextCursor: null }),
+			prompt: async () => ({ accepted: true as const }),
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const { result } = renderHook(() =>
+			useAcpSession({
+				sessionId: state.sessionId,
+				api,
+				streamUrl: "ws://test",
+				createWebSocket: idleSocket,
+			}),
+		);
+
+		await waitFor(
+			() => getCalls === 2 && result.current.state?.status === "idle",
+		);
+		expect(result.current.error).toBeNull();
+	});
+
 	test("publishes refreshed state before reopened transcript history finishes loading", async () => {
 		let currentStatus: SessionScopedState["status"] = "running";
 		let transcriptCalls = 0;

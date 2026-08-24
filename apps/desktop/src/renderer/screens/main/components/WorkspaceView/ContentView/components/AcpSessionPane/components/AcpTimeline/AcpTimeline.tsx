@@ -125,13 +125,6 @@ export interface AcpTimelineHandle {
 	scrollToLastUserMessage(): boolean;
 }
 
-function isCompletedPlan(item: PlanItem): boolean {
-	return (
-		item.entries.length > 0 &&
-		item.entries.every((entry) => entry.status === "completed")
-	);
-}
-
 /** The session status is the source of truth for the bottom activity indicator. */
 export function shouldShowWorkingIndicator(
 	_items: readonly TimelineItem[],
@@ -536,21 +529,21 @@ export const AcpTimeline = memo(
 			status,
 		);
 		// ACP plan updates are snapshots. The latest non-removed snapshot owns the
-		// dock, even when it is completed; an older open plan must never reappear.
-		const latestPlan = timeline.items.findLast(
-			(item): item is PlanItem => item.kind === "plan" && !item.removed,
-		);
-		const activePlan =
-			latestPlan && !isCompletedPlan(latestPlan) ? latestPlan : null;
+		// dock, including its completed state, so a successful final update remains
+		// visible instead of disappearing without a transcript fallback.
+		const dockedPlan =
+			timeline.items.findLast(
+				(item): item is PlanItem => item.kind === "plan" && !item.removed,
+			) ?? null;
 		// Plans are represented by the dock, never as ordinary transcript content.
 		const visibleItems = timeline.items.filter((item) => item.kind !== "plan");
 		const reviewablePlan =
 			canReviewPlan &&
 			status === "idle" &&
-			activePlan?.entries.some((entry) => entry.status !== "completed") &&
+			dockedPlan?.entries.some((entry) => entry.status !== "completed") &&
 			onApprovePlan &&
 			onRequestPlanChanges
-				? activePlan
+				? dockedPlan
 				: null;
 		const reviewForItem = (item: TimelineItem) =>
 			item.id === reviewablePlan?.id && onApprovePlan && onRequestPlanChanges
@@ -810,7 +803,7 @@ export const AcpTimeline = memo(
 		return (
 			<div
 				className="acp-pane__timeline"
-				data-has-plan={activePlan ? "true" : undefined}
+				data-has-plan={dockedPlan ? "true" : undefined}
 			>
 				<AcpTurnRail
 					items={turnRailItems}
@@ -947,11 +940,11 @@ export const AcpTimeline = memo(
 						{workingIndicator}
 					</div>
 				</div>
-				{activePlan && (
+				{dockedPlan && (
 					<AcpPlanDock
-						key={activePlan.id}
-						item={activePlan}
-						review={reviewForItem(activePlan)}
+						key={dockedPlan.id}
+						item={dockedPlan}
+						review={reviewForItem(dockedPlan)}
 					/>
 				)}
 				{showJumpButton && (

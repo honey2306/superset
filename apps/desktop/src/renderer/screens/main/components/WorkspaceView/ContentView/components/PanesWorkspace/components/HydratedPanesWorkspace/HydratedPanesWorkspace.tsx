@@ -23,6 +23,7 @@ import { usePanesWorkspace } from "../../usePanesWorkspace";
 interface HydratedPanesWorkspaceProps {
 	workspaceId: string;
 	isActive: boolean;
+	isWorkspaceActive: boolean;
 	store: PanesStore;
 	hostUrl: string | null;
 	hostWorkspaceId: string | null;
@@ -31,12 +32,17 @@ interface HydratedPanesWorkspaceProps {
 export function HydratedPanesWorkspace({
 	workspaceId,
 	isActive,
+	isWorkspaceActive,
 	store,
 	hostUrl,
 	hostWorkspaceId,
 }: HydratedPanesWorkspaceProps) {
 	const { registry, launcher, paneActions, contextMenuActions, openers } =
-		usePanesWorkspace(workspaceId, store, { hostUrl, hostWorkspaceId });
+		usePanesWorkspace(workspaceId, store, {
+			hostUrl,
+			hostWorkspaceId,
+			isWorkspaceActive,
+		});
 	const terminalStatuses = useTerminalAgentStatusesAtHost(
 		hostUrl,
 		hostWorkspaceId,

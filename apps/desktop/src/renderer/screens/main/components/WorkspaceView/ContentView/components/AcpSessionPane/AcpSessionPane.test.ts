@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { SessionModeState } from "@superset/session-protocol";
-import { canReviewPlanForMode } from "./AcpSessionPane";
+import {
+	acpSessionPaneKey,
+	canReviewPlanForMode,
+	shouldEnableAcpSession,
+} from "./AcpSessionPane";
 
 const planMode: SessionModeState = {
 	currentModeId: "plan",
@@ -17,6 +21,38 @@ const executionMode: SessionModeState = {
 		{ id: "plan", name: "Plan" },
 	],
 };
+
+describe("ACP session connection lifecycle", () => {
+	test("keys the mounted pane by backend session identity", () => {
+		expect(acpSessionPaneKey("session-old")).not.toBe(
+			acpSessionPaneKey("session-new"),
+		);
+	});
+
+	test("uses workspace or activity retention to enable a hidden pane", () => {
+		expect(
+			shouldEnableAcpSession({
+				isVisible: false,
+				isConnectionEnabled: true,
+			}),
+		).toBe(true);
+		expect(
+			shouldEnableAcpSession({
+				isVisible: false,
+				isConnectionEnabled: false,
+			}),
+		).toBe(false);
+	});
+
+	test("keeps a visible pane enabled after activity retention expires", () => {
+		expect(
+			shouldEnableAcpSession({
+				isVisible: true,
+				isConnectionEnabled: false,
+			}),
+		).toBe(true);
+	});
+});
 
 describe("plan review gating", () => {
 	test("requires the actual ACP plan mode and no pending permission", () => {
