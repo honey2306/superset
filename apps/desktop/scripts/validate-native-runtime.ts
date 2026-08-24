@@ -199,8 +199,12 @@ function getPackageName(specifier: string): string {
 	return specifier.split("/")[0] ?? specifier;
 }
 
-function isAllowedBareRequire(specifier: string): boolean {
-	if (builtinModuleSpecifiers.has(specifier)) {
+export function isAllowedBareRequire(specifier: string): boolean {
+	// `builtinModules` can lag the Node runtime bundled by Electron (for
+	// example, Bun 1.3.14 does not list the newer `node:sqlite` builtin).
+	// The `node:` namespace is reserved for Node builtins, so recognize it
+	// independently of the validator's host runtime version.
+	if (specifier.startsWith("node:") || builtinModuleSpecifiers.has(specifier)) {
 		return true;
 	}
 
@@ -638,4 +642,4 @@ function main(): void {
 	console.log("[validate:native-runtime] All checks passed");
 }
 
-main();
+if (import.meta.main) main();
