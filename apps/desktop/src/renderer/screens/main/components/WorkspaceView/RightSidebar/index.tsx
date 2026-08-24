@@ -6,7 +6,9 @@ import { useCallback } from "react";
 import {
 	LuExpand,
 	LuFile,
+	LuGitBranch,
 	LuGitCompareArrows,
+	LuInfo,
 	LuShrink,
 	LuX,
 } from "react-icons/lu";
@@ -22,8 +24,10 @@ import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { useScrollContext } from "../ChangesContent";
 import { ChangesView } from "./ChangesView";
+import { LogView } from "./ChangesView/components/LogView";
 import { FilesView } from "./FilesView";
 import { getSidebarHeaderTabButtonClassName } from "./headerTabStyles";
+import { InfoView } from "./InfoView";
 
 function TabButton({
 	isActive,
@@ -87,7 +91,10 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 	const setMode = useSidebarStore((s) => s.setMode);
 	const sidebarWidth = useSidebarStore((s) => s.sidebarWidth);
 	const isExpanded = supportsChanges && currentMode === SidebarMode.Changes;
-	const compactTabs = sidebarWidth < 250;
+	// Four labeled tabs plus the window actions do not fit at the default
+	// 250px sidebar width. Keep the compact icon treatment until the sidebar has
+	// enough room for every tab without pushing the actions off-screen.
+	const compactTabs = sidebarWidth < 380;
 
 	const handleExpandToggle = () => {
 		setMode(isExpanded ? SidebarMode.Tabs : SidebarMode.Changes);
@@ -161,11 +168,27 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 							compact={compactTabs}
 						/>
 					)}
+					{supportsChanges && (
+						<TabButton
+							isActive={rightSidebarTab === RightSidebarTab.History}
+							onClick={() => setRightSidebarTab(RightSidebarTab.History)}
+							icon={<LuGitBranch className="size-3.5" />}
+							label="History"
+							compact={compactTabs}
+						/>
+					)}
 					<TabButton
 						isActive={rightSidebarTab === RightSidebarTab.Files}
 						onClick={() => setRightSidebarTab(RightSidebarTab.Files)}
 						icon={<LuFile className="size-3.5" />}
 						label="Files"
+						compact={compactTabs}
+					/>
+					<TabButton
+						isActive={rightSidebarTab === RightSidebarTab.Info}
+						onClick={() => setRightSidebarTab(RightSidebarTab.Info)}
+						icon={<LuInfo className="size-3.5" />}
+						label="Info"
 						compact={compactTabs}
 					/>
 				</div>
@@ -229,7 +252,38 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 			)}
 			<div
 				className={
-					rightSidebarTab === RightSidebarTab.Changes && supportsChanges
+					rightSidebarTab === RightSidebarTab.Info
+						? "flex-1 min-h-0 flex flex-col overflow-hidden"
+						: "hidden"
+				}
+			>
+				<InfoView workspaceId={workspaceId ?? null} />
+			</div>
+			{supportsChanges && (
+				<div
+					className={
+						rightSidebarTab === RightSidebarTab.History
+							? "flex-1 min-h-0 flex flex-col overflow-hidden"
+							: "hidden"
+					}
+				>
+					{workspaceId && worktreePath ? (
+						<LogView
+							workspaceId={workspaceId}
+							worktreePath={worktreePath}
+							projectId={workspace?.projectId}
+							onFileOpen={(file, commitHash) =>
+								handleFileOpen?.(file, "committed", commitHash)
+							}
+						/>
+					) : null}
+				</div>
+			)}
+			<div
+				className={
+					rightSidebarTab === RightSidebarTab.Info ||
+					(rightSidebarTab === RightSidebarTab.Changes && supportsChanges) ||
+					(rightSidebarTab === RightSidebarTab.History && supportsChanges)
 						? "hidden"
 						: "flex-1 min-h-0 flex flex-col overflow-hidden"
 				}

@@ -119,6 +119,48 @@ describe("workspace-scoped git changes capabilities", () => {
 		]);
 	});
 
+	test("lists all refs in topology order without widening file history", async () => {
+		await scenario.repo.commit("main revision");
+		await scenario.repo.git.checkoutLocalBranch("feature/history");
+		const featureHash = await scenario.repo.commit("feature revision");
+		await scenario.repo.git.checkout("main");
+		await scenario.repo.commit("later main revision");
+
+		const mainLog = await scenario.host.trpc.git.listLog.query({
+			workspaceId: scenario.workspaceId,
+			limit: 20,
+		});
+		const allLog = await scenario.host.trpc.git.listLog.query({
+			workspaceId: scenario.workspaceId,
+			limit: 20,
+			all: true,
+		});
+
+		expect(mainLog.some((entry) => entry.hash === featureHash)).toBe(false);
+		expect(allLog.some((entry) => entry.hash === featureHash)).toBe(true);
+		expect(allLog.find((entry) => entry.hash === featureHash)?.branch).toBe(
+			"feature/history",
+		);
+		const allIndexes = new Map(
+			allLog.map((entry, index) => [entry.hash, index]),
+		);
+		for (const [index, entry] of allLog.entries()) {
+			for (const parent of entry.parents) {
+				const parentIndex = allIndexes.get(parent);
+				if (parentIndex !== undefined)
+					expect(parentIndex).toBeGreaterThan(index);
+			}
+		}
+		expect(allLog[0]?.parents).toBeInstanceOf(Array);
+		expect(allLog.every((entry) => Array.isArray(entry.refs))).toBe(true);
+
+		const history = await scenario.host.trpc.git.getFileHistory.query({
+			workspaceId: scenario.workspaceId,
+			filePath: "README.md",
+		});
+		expect(history.some((entry) => entry.hash === featureHash)).toBe(false);
+	});
+
 	test("lists, inspects, applies, pops, and drops indexed stashes", async () => {
 		const path = join(scenario.repo.repoPath, "README.md");
 		writeFileSync(path, "stash one\n");

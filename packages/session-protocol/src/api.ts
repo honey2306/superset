@@ -84,6 +84,17 @@ export const listSessionsInput = z.object({
 	limit: limitSchema,
 });
 
+/** Inputs for the workspace-scoped delegation activity rail. */
+export const listDelegationRunsInput = z.object({
+	workspaceId: z.string().min(1),
+	limit: z.number().int().min(1).max(200).default(100),
+});
+
+/** Stop one persisted delegated child run. */
+export const stopDelegationRunInput = z.object({
+	runId: z.string().min(1),
+});
+
 export const createSessionInput = z.object({
 	sessionId: sessionIdSchema,
 	workspaceId: z.string().min(1),

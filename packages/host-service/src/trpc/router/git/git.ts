@@ -651,6 +651,7 @@ export const gitRouter = router({
 				skip: z.number().int().min(0).default(0),
 				grep: z.string().optional(),
 				author: z.string().optional(),
+				all: z.boolean().default(false),
 			}),
 		)
 		.query(async ({ ctx, input }) => {
@@ -664,6 +665,7 @@ export const gitRouter = router({
 					skip: input.skip,
 					grep: input.grep,
 					author: input.author,
+					all: input.all,
 				},
 				{ timeoutMs: 30_000 },
 			);

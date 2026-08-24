@@ -17,6 +17,7 @@ import {
 	type Timeline,
 } from "@superset/session-protocol";
 import { TRPCClientError } from "@trpc/client";
+import { delegationRuns } from "../../src/db/schema";
 import { AcpSessionManager } from "../../src/runtime/acp-sessions";
 import { createTestHost, type TestHost } from "../helpers/createTestHost";
 
@@ -254,6 +255,46 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 		expect(
 			await trpcErrorCode(host.trpc.acpSessions.get.query({ sessionId })),
 		).toBe("NOT_FOUND");
+	}, 30_000);
+
+	test("lists workspace delegation activity and stops an orphaned child", async () => {
+		const runId = "router-workspace-delegation";
+		host.db
+			.insert(delegationRuns)
+			.values({
+				id: runId,
+				parentSessionId: "closed-parent-session",
+				parentWorkspaceId: "another-workspace",
+				childSessionId: "closed-child-session",
+				childWorkspaceId: WORKSPACE_ID,
+				handoff: "Inspect the workspace activity rail",
+				actualAgent: "codex",
+				actualModel: "gpt-test",
+				harness: "codex-app-server",
+				status: "running",
+				failureMessage: null,
+				createdAt: 10,
+				startedAt: 20,
+				completedAt: null,
+				failedAt: null,
+				updatedAt: 20,
+			})
+			.run();
+
+		const listed = await host.trpc.acpSessions.listDelegationRuns.query({
+			workspaceId: WORKSPACE_ID,
+		});
+		expect(listed).toHaveLength(1);
+		expect(listed[0]).toMatchObject({
+			id: runId,
+			childWorkspaceId: WORKSPACE_ID,
+			handoff: "Inspect the workspace activity rail",
+		});
+
+		const stopped = await host.trpc.acpSessions.stopDelegationRun.mutate({
+			runId,
+		});
+		expect(stopped).toMatchObject({ id: runId, status: "cancelled" });
 	}, 30_000);
 
 	test("the surface requires host auth, list included", async () => {
