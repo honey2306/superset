@@ -37,6 +37,7 @@ export type WorkspaceContents = {
 	sessions: AcpSessionRecord[];
 	terminalSessions: TerminalSessionRecord[];
 	terminalAgents: TerminalAgentRecord[];
+	warnings?: readonly string[];
 };
 
 export type MergedTerminalRecord = {

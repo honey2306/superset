@@ -1,8 +1,9 @@
 # AutoMate relay build
 
-The AutoMate-hosted phone UI connects directly to task `16739` over its
-private WebSocket endpoint. Keep the task token in the ignored file
-`apps/web/.env.automate.local`:
+The AutoMate-hosted phone UI calls task `16739` through its private HTTP
+`/run` endpoint. Keep the task token in the ignored file
+`apps/web/.env.automate.local` using the task's WebSocket URL as the shared
+configuration format:
 
 ```dotenv
 VITE_AUTOMATE_RELAY_URL=wss://automate.corp.kuaishou.com/res/task/16739/ws?token=<task-token>
@@ -31,6 +32,12 @@ The desktop/Host side uses the same private task URL from the root `.env`:
 ```dotenv
 AUTOMATE_RELAY_URL=wss://automate.corp.kuaishou.com/res/task/16739/ws?token=<task-token>
 ```
+
+Both clients convert that value to
+`https://automate.corp.kuaishou.com/res/task/16739/run` and send the token in
+the `x-am-task-token` header. HTTP task execution is intentional: AutoMate's
+WebSocket sandbox currently rejects the relay's asynchronous task entrypoint,
+while `/run` supports the same Redis-backed mailbox operations reliably.
 
 When that variable is absent, Host does not advertise an AutoMate mailbox and
 the desktop pairing screen offers only direct access.

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { draftToRestore } from "./composerDraft";
 
 interface Props {
 	disabled?: boolean;
@@ -17,13 +18,27 @@ export function Composer({
 }: Props) {
 	const [value, setValue] = useState("");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const draftVersionRef = useRef(0);
 
 	function handleSubmit(): void {
 		if (disabled || (busy && !queueing)) return;
 		if (!value.trim()) return;
 		const text = value;
+		const submissionVersion = draftVersionRef.current;
 		setValue("");
-		void onSubmit(text);
+		const restoreOnFailure = () => {
+			const draft = draftToRestore({
+				currentVersion: draftVersionRef.current,
+				submissionVersion,
+				submittedText: text,
+			});
+			if (draft !== null) setValue(draft);
+		};
+		try {
+			void Promise.resolve(onSubmit(text)).catch(restoreOnFailure);
+		} catch {
+			restoreOnFailure();
+		}
 	}
 
 	return (
@@ -31,7 +46,10 @@ export function Composer({
 			<textarea
 				ref={textareaRef}
 				value={value}
-				onChange={(e) => setValue(e.target.value)}
+				onChange={(e) => {
+					draftVersionRef.current += 1;
+					setValue(e.target.value);
+				}}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" && !e.shiftKey && !e.altKey) {
 						e.preventDefault();

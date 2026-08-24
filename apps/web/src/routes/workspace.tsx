@@ -14,6 +14,7 @@ import {
 	type TerminalAgentRecord,
 	type TerminalSessionRecord,
 } from "./workspaces/utils/buildProjectTree/buildProjectTree";
+import { resolveWorkspaceContents } from "./workspaces/utils/workspaceContentsLoader/resolveWorkspaceContents";
 
 function randomSessionId(): string {
 	// UUID v4 falls back to a short-random when crypto.randomUUID is missing.
@@ -36,6 +37,7 @@ export function WorkspaceRoute() {
 	const [sessions, setSessions] = useState<SessionScopedState[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [warning, setWarning] = useState<string | null>(null);
 	const [enabled, setEnabled] = useState(true);
 	const [creating, setCreating] = useState(false);
 	const [selectedAcpAgentId, setSelectedAcpAgentId] = useState(
@@ -56,16 +58,23 @@ export function WorkspaceRoute() {
 		let cancelled = false;
 		void (async () => {
 			try {
-				const [page, terminalPage, agents] = await Promise.all([
-					getTrpc().acpSessions.list.query({ workspaceId, limit: 50 }),
-					getTrpc().terminal.listSessions.query({ workspaceId }),
-					getTrpc().terminalAgents.listByWorkspace.query({ workspaceId }),
-				]);
+				const result = await resolveWorkspaceContents({
+					acp: getTrpc().acpSessions.list.query({ workspaceId, limit: 50 }),
+					terminalSessions: getTrpc().terminal.listSessions.query({
+						workspaceId,
+					}),
+					terminalAgents: getTrpc().terminalAgents.listByWorkspace.query({
+						workspaceId,
+					}),
+				});
 				if (cancelled) return;
-				setEnabled(page.enabled);
-				setSessions(page.items);
-				setTerminalSessions(terminalPage.sessions);
-				setTerminalAgents(agents);
+				setEnabled(result.contents.acpEnabled);
+				setSessions(result.contents.sessions);
+				setTerminalSessions(result.contents.terminalSessions);
+				setTerminalAgents(result.contents.terminalAgents);
+				setWarning(
+					result.warnings.length > 0 ? result.warnings.join(" ") : null,
+				);
 			} catch (err) {
 				if (cancelled) return;
 				setError(err instanceof Error ? err.message : "Failed to load");
@@ -137,7 +146,11 @@ export function WorkspaceRoute() {
 			}}
 		>
 			<header className="mb-4 flex items-center gap-2">
-				<Link to={getPhoneRoute("/")} className="text-white/60">
+				<Link
+					to={getPhoneRoute("/")}
+					className="mobile-workspace-back"
+					aria-label="Back to projects"
+				>
 					←
 				</Link>
 				<h1 className="text-lg font-semibold">Workspace</h1>
@@ -153,6 +166,11 @@ export function WorkspaceRoute() {
 			{error ? (
 				<div className="mb-3 rounded-md bg-red-500/10 p-3 text-sm text-red-300 ring-1 ring-red-500/20">
 					{error}
+				</div>
+			) : null}
+			{warning ? (
+				<div className="mb-3 rounded-md bg-yellow-500/10 p-3 text-sm text-yellow-200 ring-1 ring-yellow-500/20">
+					{warning}
 				</div>
 			) : null}
 

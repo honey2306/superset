@@ -1,5 +1,35 @@
 export type PairingPathParams = { code?: string; mailboxId?: string };
 
+/**
+ * AutoMate can reopen the generic `#/pair` route after the platform has
+ * stripped the mailbox path segment. Keep the mailbox from the existing
+ * session in that case; a normal LAN pairing must never inherit relay state.
+ */
+export function getAutoMatePairingMailboxId({
+	isAutoMateWebApp,
+	routeMailboxId,
+	storedMailboxId,
+}: {
+	isAutoMateWebApp: boolean;
+	routeMailboxId?: string;
+	storedMailboxId?: string;
+}): string | undefined {
+	if (!isAutoMateWebApp) return undefined;
+	if (routeMailboxId) return routeMailboxId;
+	if (storedMailboxId) return storedMailboxId;
+	return undefined;
+}
+
+export function canRedeemPairing({
+	isAutoMateWebApp,
+	relayMailboxId,
+}: {
+	isAutoMateWebApp: boolean;
+	relayMailboxId?: string;
+}): boolean {
+	return !isAutoMateWebApp || Boolean(relayMailboxId);
+}
+
 export function getPairingCredentials(
 	searchParams: URLSearchParams,
 	pathParams: PairingPathParams,

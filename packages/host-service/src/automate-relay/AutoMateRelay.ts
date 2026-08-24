@@ -11,6 +11,7 @@ export interface RelayDependencies {
 		init?: RequestInit,
 	) => Promise<Response>;
 	baseUrl: string;
+	createWebSocket?: RelaySocketFactory;
 	sleep?: (ms: number) => Promise<void>;
 }
 type RelayMessage = { seq: number; messageId: string; body: RelayEnvelope };
@@ -20,20 +21,29 @@ type OutboundEnvelope = {
 	resolve: () => void;
 	reject: (error: Error) => void;
 };
-export const EMPTY_RELAY_PULL_DELAY_MS = 50;
+// Host and phone each keep one mailbox direction alive. At 500ms, idle polling
+// stays at ~4 requests/sec combined, leaving headroom under task QPS=10 for
+// pushes and acknowledgements while keeping streaming responsive.
+export const EMPTY_RELAY_PULL_DELAY_MS = 500;
 const MAX_CONCURRENT_TASK_REQUESTS = 4;
 
 /** Host-side mailbox worker. The relay is only a carrier; phone credentials survive unchanged. */
 export class AutoMateRelay {
 	private stopped = false;
 	private readonly seen = new Set<string>();
-	private readonly streams = new Map<string, WebSocket>();
+	private readonly streams = new Map<string, RelaySocket>();
+	private readonly streamFrameTails = new Map<string, Promise<void>>();
 	private readonly outboundQueue: OutboundEnvelope[] = [];
 	private outboundPumping = false;
+	private readonly createWebSocket: RelaySocketFactory;
 	constructor(
 		readonly mailboxId: string,
 		private readonly deps: RelayDependencies,
-	) {}
+	) {
+		this.createWebSocket =
+			deps.createWebSocket ??
+			((url) => new WebSocket(url) as unknown as RelaySocket);
+	}
 	start(): void {
 		void this.run();
 	}
@@ -44,6 +54,7 @@ export class AutoMateRelay {
 		this.outboundQueue.length = 0;
 		for (const socket of this.streams.values()) socket.close();
 		this.streams.clear();
+		this.streamFrameTails.clear();
 		this.deps.client.close?.();
 	}
 	private async invoke(input: unknown): Promise<unknown> {
@@ -238,23 +249,24 @@ export class AutoMateRelay {
 		}
 		const target = new URL(request.path, this.deps.baseUrl);
 		target.protocol = target.protocol === "https:" ? "wss:" : "ws:";
-		const socket = new WebSocket(target.toString());
+		const socket = this.createWebSocket(target.toString());
+		socket.binaryType = "arraybuffer";
 		this.streams.set(request.channelId, socket);
 		socket.onmessage = (event) => {
-			this.enqueueStreamPush({
+			this.enqueueEncodedStreamEvent(request.channelId, async () => ({
 				kind: "stream.frame",
 				channelId: request.channelId,
-				body: encodeRelayFrame(event.data),
-			});
+				body: await encodeRelayFrame(event.data),
+			}));
 		};
 		socket.onclose = (event) => {
 			this.streams.delete(request.channelId);
-			this.enqueueStreamPush({
+			this.enqueueEncodedStreamEvent(request.channelId, async () => ({
 				kind: "stream.close",
 				channelId: request.channelId,
-				code: event.code,
-				reason: event.reason,
-			});
+				code: event?.code,
+				reason: event?.reason,
+			}));
 		};
 		socket.onerror = () => {
 			this.closeStream(request.channelId, 1011, "Host stream failed");
@@ -264,6 +276,26 @@ export class AutoMateRelay {
 		const socket = this.streams.get(channelId);
 		this.streams.delete(channelId);
 		socket?.close(code, reason);
+	}
+	private enqueueEncodedStreamEvent(
+		channelId: string,
+		encode: () => Promise<RelayEnvelope>,
+	): void {
+		const previous = this.streamFrameTails.get(channelId) ?? Promise.resolve();
+		const current = previous
+			.then(encode)
+			.then((body) => {
+				this.enqueueStreamPush(body);
+			})
+			.catch((error) => {
+				console.warn("[automate-relay] stream frame encoding failed", error);
+			});
+		this.streamFrameTails.set(channelId, current);
+		void current.then(() => {
+			if (this.streamFrameTails.get(channelId) === current) {
+				this.streamFrameTails.delete(channelId);
+			}
+		});
 	}
 	private async forwardStreamFrame(
 		frame: Extract<RelayEnvelope, { kind: "stream.frame" }>,
@@ -320,14 +352,15 @@ export class AutoMateRelay {
 	}
 }
 
-interface RelaySocket {
+export interface RelaySocket {
 	readyState: number;
+	binaryType?: "blob" | "arraybuffer" | "nodebuffer";
 	onopen: (() => void) | null;
 	onmessage: ((event: { data: unknown }) => void) | null;
-	onclose: (() => void) | null;
+	onclose: ((event?: { code?: number; reason?: string }) => void) | null;
 	onerror: (() => void) | null;
-	send(data: string): void;
-	close(): void;
+	send(data: string | ArrayBuffer | Uint8Array): void;
+	close(code?: number, reason?: string): void;
 }
 type RelaySocketFactory = (url: string) => RelaySocket;
 type QueuedOperation = {
@@ -547,9 +580,9 @@ export function isAllowedPath(path: string): boolean {
 		return false;
 	}
 }
-function encodeRelayFrame(
+async function encodeRelayFrame(
 	value: unknown,
-): { type: "text"; data: string } | { type: "binary"; data: string } {
+): Promise<{ type: "text"; data: string } | { type: "binary"; data: string }> {
 	if (typeof value === "string") return { type: "text", data: value };
 	if (value instanceof ArrayBuffer)
 		return { type: "binary", data: Buffer.from(value).toString("base64") };
@@ -561,6 +594,12 @@ function encodeRelayFrame(
 				value.byteOffset,
 				value.byteLength,
 			).toString("base64"),
+		};
+	}
+	if (typeof Blob !== "undefined" && value instanceof Blob) {
+		return {
+			type: "binary",
+			data: Buffer.from(await value.arrayBuffer()).toString("base64"),
 		};
 	}
 	return { type: "text", data: String(value) };

@@ -15,6 +15,7 @@ import {
 	type WorkspaceContents,
 } from "./workspaces/utils/buildProjectTree/buildProjectTree";
 import { createWorkspaceCatalogRefresher } from "./workspaces/utils/workspaceCatalogRefresher/workspaceCatalogRefresher";
+import { resolveWorkspaceContents } from "./workspaces/utils/workspaceContentsLoader/resolveWorkspaceContents";
 import {
 	createWorkspaceContentsLoader,
 	type WorkspaceContentsLoadState,
@@ -79,6 +80,9 @@ export function WorkspacesRoute() {
 	const [workspaceLoadErrors, setWorkspaceLoadErrors] = useState<
 		ReadonlyMap<string, string>
 	>(new Map());
+	const [workspaceLoadWarnings, setWorkspaceLoadWarnings] = useState<
+		ReadonlyMap<string, readonly string[]>
+	>(new Map());
 	const [error, setError] = useState<string | null>(null);
 	const [expandedProjectIds, setExpandedProjectIds] = useState<
 		ReadonlySet<string>
@@ -89,19 +93,18 @@ export function WorkspacesRoute() {
 	const mountedRef = useRef(true);
 	const workspaceContentsLoader = useRef(
 		createWorkspaceContentsLoader(async (workspaceId) => {
-			const [acp, terminalSessions, terminalAgents] = await Promise.all([
-				getTrpc().acpSessions.list.query({ workspaceId, limit: 50 }),
-				getTrpc().terminal.listSessions.query({ workspaceId }),
-				getTrpc().terminalAgents.listByWorkspace.query({ workspaceId }),
-			]);
-			return {
-				acpEnabled: acp.enabled,
-				sessions: acp.items,
-				terminalSessions: terminalSessions.sessions.map(
-					toTerminalSessionRecord,
-				),
-				terminalAgents: terminalAgents.map(toTerminalAgentRecord),
-			};
+			const result = await resolveWorkspaceContents({
+				acp: getTrpc().acpSessions.list.query({ workspaceId, limit: 50 }),
+				terminalSessions: getTrpc()
+					.terminal.listSessions.query({ workspaceId })
+					.then((response) => ({
+						sessions: response.sessions.map(toTerminalSessionRecord),
+					})),
+				terminalAgents: getTrpc()
+					.terminalAgents.listByWorkspace.query({ workspaceId })
+					.then((agents) => agents.map(toTerminalAgentRecord)),
+			});
+			return result.contents;
 		}),
 	).current;
 
@@ -128,6 +131,12 @@ export function WorkspacesRoute() {
 				next.delete(workspaceId);
 				return next;
 			});
+			setWorkspaceLoadWarnings((current) => {
+				if (!current.has(workspaceId)) return current;
+				const next = new Map(current);
+				next.delete(workspaceId);
+				return next;
+			});
 
 			void workspaceContentsLoader.load(workspaceId).then(
 				(contents) => {
@@ -140,6 +149,13 @@ export function WorkspacesRoute() {
 					setWorkspaceLoadStates((current) => {
 						const next = new Map(current);
 						next.set(workspaceId, "loaded");
+						return next;
+					});
+					setWorkspaceLoadWarnings((current) => {
+						const next = new Map(current);
+						const warnings = contents.warnings ?? [];
+						if (warnings.length > 0) next.set(workspaceId, warnings);
+						else next.delete(workspaceId);
 						return next;
 					});
 				},
@@ -157,6 +173,12 @@ export function WorkspacesRoute() {
 					setWorkspaceLoadErrors((current) => {
 						const next = new Map(current);
 						next.set(workspaceId, message);
+						return next;
+					});
+					setWorkspaceLoadWarnings((current) => {
+						if (!current.has(workspaceId)) return current;
+						const next = new Map(current);
+						next.delete(workspaceId);
 						return next;
 					});
 				},
@@ -197,9 +219,13 @@ export function WorkspacesRoute() {
 						resetTrpc();
 						if (isAutoMateWebAppPath(location.pathname)) {
 							window.location.replace(
-								getAutoMateCleanPairPath(location.pathname),
+								`${getAutoMateCleanPairPath(location.pathname)}?reason=revoked`,
 							);
-						} else navigate("/pair", { replace: true });
+						} else {
+							navigate("/pair?reason=revoked", {
+								replace: true,
+							});
+						}
 						return;
 					}
 					setError(caught instanceof Error ? caught.message : "Failed to load");
@@ -249,8 +275,10 @@ export function WorkspacesRoute() {
 						} else navigate("/pair", { replace: true });
 					}}
 					className="mobile-unpair-button"
+					title="Removes the saved pairing on this phone. The desktop session stays active."
+					aria-label="Forget pairing on this phone"
 				>
-					Unpair
+					Forget on this phone
 				</button>
 			</header>
 
@@ -270,6 +298,7 @@ export function WorkspacesRoute() {
 						expandedWorkspaceIds={expandedWorkspaceIds}
 						workspaceLoadStates={workspaceLoadStates}
 						workspaceLoadErrors={workspaceLoadErrors}
+						workspaceLoadWarnings={workspaceLoadWarnings}
 						onToggle={() =>
 							setExpandedProjectIds((current) => toggleId(current, project.id))
 						}

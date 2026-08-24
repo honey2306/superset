@@ -1,4 +1,6 @@
-export const WORKSPACE_CATALOG_REFRESH_INTERVAL_MS = 30_000;
+// Foreground-only polling keeps revoke/expiry feedback prompt without waking
+// a background phone tab every few seconds.
+export const WORKSPACE_CATALOG_REFRESH_INTERVAL_MS = 10_000;
 
 export type WorkspaceCatalogRefreshScheduler = {
 	setInterval: (callback: () => void, intervalMs: number) => unknown;

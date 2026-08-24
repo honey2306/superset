@@ -6,7 +6,10 @@ import { serve } from "@hono/node-server";
 import { mailboxId } from "@superset/session-protocol";
 import { getHostId } from "@superset/shared/host-info";
 import { createApp } from "./app";
-import { AutoMateRelay, AutoMateRelayTaskClient } from "./automate-relay";
+import {
+	AutoMateRelay,
+	createDefaultAutoMateRelayTaskClient,
+} from "./automate-relay";
 import { getSupervisor, startDaemonBootstrap } from "./daemon";
 import { env } from "./env";
 import { installHostServiceShutdown } from "./graceful-shutdown";
@@ -80,7 +83,7 @@ async function main(): Promise<void> {
 	const relay =
 		env.AUTOMATE_RELAY_URL && relayMailboxId
 			? new AutoMateRelay(relayMailboxId, {
-					client: new AutoMateRelayTaskClient(env.AUTOMATE_RELAY_URL),
+					client: createDefaultAutoMateRelayTaskClient(env.AUTOMATE_RELAY_URL),
 					fetch,
 					baseUrl: `http://127.0.0.1:${env.PORT}`,
 				})

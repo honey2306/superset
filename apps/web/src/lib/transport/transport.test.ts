@@ -5,6 +5,7 @@ import {
 	AutoMateTaskClient,
 	EMPTY_RELAY_PULL_DELAY_MS,
 	getAutoMateRelayMailboxId,
+	getPhoneTransport,
 	isAutoMateRelayLocation,
 } from "./transport";
 
@@ -52,8 +53,8 @@ class FakeTaskScheduler {
 }
 
 describe("AutoMateRelayTransport", () => {
-	test("uses a short empty-mailbox poll delay", () => {
-		expect(EMPTY_RELAY_PULL_DELAY_MS).toBe(50);
+	test("uses a QPS-safe empty-mailbox poll delay", () => {
+		expect(EMPTY_RELAY_PULL_DELAY_MS).toBe(500);
 	});
 
 	test("decodes binary server frames without UTF-8 coercion", async () => {
@@ -442,5 +443,26 @@ describe("AutoMateRelayTransport", () => {
 				"",
 			),
 		).toBe("mailbox-1");
+	});
+
+	test("does not fall back to same-origin requests on a mailbox-less AutoMate page", () => {
+		const descriptor = Object.getOwnPropertyDescriptor(globalThis, "location");
+		Object.defineProperty(globalThis, "location", {
+			configurable: true,
+			value: {
+				origin: "https://automate.corp.kuaishou.com",
+				pathname: "/webapp/16740",
+				search: "",
+				hash: "#/pair",
+			},
+		});
+		try {
+			expect(() => getPhoneTransport()).toThrow(
+				"needs the pairing link generated",
+			);
+		} finally {
+			if (descriptor) Object.defineProperty(globalThis, "location", descriptor);
+			else delete (globalThis as { location?: unknown }).location;
+		}
 	});
 });
