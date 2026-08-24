@@ -5,8 +5,6 @@
  * lib/native/ in the distribution bundle.
  */
 import { existsSync, mkdirSync } from "node:fs";
-import { createRequire } from "node:module";
-import { patchPiAcpBundle } from "./src/runtime/acp-sessions/pi-acp-bundle";
 
 const outdir = "dist";
 if (!existsSync(outdir)) {
@@ -134,12 +132,11 @@ if (!codexBridgeResult.success) {
 	process.exit(1);
 }
 
-// pi-acp translates Pi's supported RPC mode into the same ACP transport used by
-// the other session runtimes. Bundle it beside host-service so packaged builds
-// do not depend on a globally installed adapter (Pi itself still must be on PATH).
-const moduleRequire = createRequire(import.meta.url);
+// The Pi ACP adapter owns the SDK inside its independent subprocess. Bundle it
+// beside host-service so packaged builds do not depend on a globally installed
+// Pi CLI or an external RPC bridge. Keep the artifact name for host compatibility.
 const piBridgeResult = await Bun.build({
-	entrypoints: [moduleRequire.resolve("pi-acp")],
+	entrypoints: ["src/runtime/acp-sessions/pi-sdk-acp.ts"],
 	target: "node",
 	outdir,
 	naming: "pi-acp.js",
@@ -147,17 +144,6 @@ const piBridgeResult = await Bun.build({
 	define: {
 		"process.env.NODE_ENV": JSON.stringify("production"),
 	},
-	plugins: [
-		{
-			name: "superset-pi-acp-startup",
-			setup(build) {
-				build.onLoad({ filter: /pi-acp\/dist\/index\.js$/ }, async (args) => ({
-					contents: patchPiAcpBundle(await Bun.file(args.path).text()),
-					loader: "js",
-				}));
-			},
-		},
-	],
 });
 
 if (!piBridgeResult.success) {
@@ -168,29 +154,6 @@ if (!piBridgeResult.success) {
 	process.exit(1);
 }
 
-// Pi runs outside the Host process and loads this explicit extension to bridge
-// the stdio MCP declarations that pi-acp 0.0.33 otherwise drops.
-const piMcpExtensionResult = await Bun.build({
-	entrypoints: [
-		path.join(
-			import.meta.dir,
-			"src/runtime/acp-sessions/pi-acp-mcp-extension.ts",
-		),
-	],
-	target: "node",
-	outdir,
-	naming: "pi-acp-mcp-extension.js",
-	format: "esm",
-});
-
-if (!piMcpExtensionResult.success) {
-	console.error("[host-service] Pi ACP MCP extension build failed:");
-	for (const log of piMcpExtensionResult.logs) {
-		console.error(log);
-	}
-	process.exit(1);
-}
-
 console.log(
-	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/superset-mcp.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js + ${outdir}/pi-acp-mcp-extension.js`,
+	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/superset-mcp.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js`,
 );
