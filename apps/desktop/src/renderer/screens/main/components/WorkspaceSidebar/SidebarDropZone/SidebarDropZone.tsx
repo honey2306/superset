@@ -51,6 +51,8 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 	}, []);
 
 	const handleDragOver = useCallback((e: React.DragEvent) => {
+		if (!e.dataTransfer.types.includes("Files")) return;
+
 		e.preventDefault();
 		e.stopPropagation();
 
@@ -61,6 +63,8 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 	}, []);
 
 	const handleDragLeave = useCallback((e: React.DragEvent) => {
+		if (!e.dataTransfer.types.includes("Files")) return;
+
 		e.preventDefault();
 		e.stopPropagation();
 
@@ -80,6 +84,8 @@ export function SidebarDropZone({ children, className }: SidebarDropZoneProps) {
 
 	const handleDrop = useCallback(
 		async (e: React.DragEvent) => {
+			if (!e.dataTransfer.types.includes("Files")) return;
+
 			e.preventDefault();
 			e.stopPropagation();
 			setIsDragOver(false);

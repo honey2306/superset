@@ -73,6 +73,7 @@ export function WorkspaceListItem({
 	const { t } = useTranslation();
 	const queryClient = useQueryClient();
 	const isBranchWorkspace = type === "branch";
+	const canDeleteWorkspace = !isBranchWorkspace;
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
 	const {
@@ -370,7 +371,7 @@ export function WorkspaceListItem({
 				}
 			}}
 			onAuxClick={(e) => {
-				if (e.button === 1) {
+				if (e.button === 1 && canDeleteWorkspace) {
 					e.preventDefault();
 					handleDeleteClick();
 				}
@@ -488,7 +489,7 @@ export function WorkspaceListItem({
 				hostWorkspaceId={hostWorkspaceId ?? null}
 				isBranchWorkspace={isBranchWorkspace}
 				isUnread={isUnread}
-				showDeleteHotkey={isActive}
+				showDeleteHotkey={isActive && canDeleteWorkspace}
 				workspaceStatus={combinedWorkspaceStatus}
 				pullRequest={
 					linkedPullRequest
@@ -540,13 +541,15 @@ export function WorkspaceListItem({
 					}}
 				/>
 			)}
-			<DeleteWorkspaceDialog
-				workspaceId={id}
-				workspaceName={name}
-				workspaceType={type}
-				open={showDeleteDialog}
-				onOpenChange={setShowDeleteDialog}
-			/>
+			{canDeleteWorkspace && (
+				<DeleteWorkspaceDialog
+					workspaceId={id}
+					workspaceName={name}
+					workspaceType={type}
+					open={showDeleteDialog}
+					onOpenChange={setShowDeleteDialog}
+				/>
+			)}
 		</>
 	);
 }

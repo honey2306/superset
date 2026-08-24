@@ -64,7 +64,7 @@ export function CollapsedWorkspaceItem({
 			type="button"
 			onClick={onClick}
 			onAuxClick={(e) => {
-				if (e.button === 1) {
+				if (e.button === 1 && !isBranchWorkspace) {
 					e.preventDefault();
 					onDeleteClick();
 				}
@@ -88,32 +88,23 @@ export function CollapsedWorkspaceItem({
 
 	if (isBranchWorkspace) {
 		return (
-			<>
-				<ContextMenu>
-					<Tooltip delayDuration={300}>
-						<TooltipTrigger asChild>
-							<ContextMenuTrigger asChild>{collapsedButton}</ContextMenuTrigger>
-						</TooltipTrigger>
-						<TooltipContent side="right" className="flex flex-col gap-0.5">
-							<span className="font-medium">local</span>
-							<span className="text-xs text-fg-mute font-mono">{branch}</span>
-						</TooltipContent>
-					</Tooltip>
-					<ContextMenuContent>
-						<ContextMenuItem onSelect={onCopyBranchName}>
-							<LuGitBranch className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-							Copy Branch Name
-						</ContextMenuItem>
-					</ContextMenuContent>
-				</ContextMenu>
-				<DeleteWorkspaceDialog
-					workspaceId={id}
-					workspaceName={name}
-					workspaceType={type}
-					open={showDeleteDialog}
-					onOpenChange={setShowDeleteDialog}
-				/>
-			</>
+			<ContextMenu>
+				<Tooltip delayDuration={300}>
+					<TooltipTrigger asChild>
+						<ContextMenuTrigger asChild>{collapsedButton}</ContextMenuTrigger>
+					</TooltipTrigger>
+					<TooltipContent side="right" className="flex flex-col gap-0.5">
+						<span className="font-medium">local</span>
+						<span className="text-xs text-fg-mute font-mono">{branch}</span>
+					</TooltipContent>
+				</Tooltip>
+				<ContextMenuContent>
+					<ContextMenuItem onSelect={onCopyBranchName}>
+						<LuGitBranch className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+						Copy Branch Name
+					</ContextMenuItem>
+				</ContextMenuContent>
+			</ContextMenu>
 		);
 	}
 

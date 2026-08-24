@@ -84,17 +84,23 @@ function DashboardLayout() {
 	useHotkey(
 		"CLOSE_WORKSPACE",
 		() => {
-			if (currentWorkspaceId && currentWorkspace) {
+			if (
+				currentWorkspaceId &&
+				currentWorkspace &&
+				currentWorkspace.type !== "main"
+			) {
 				setDeleteTarget({
 					workspaceId: currentWorkspaceId,
 					workspaceName: currentWorkspace.name,
-					workspaceType:
-						currentWorkspace.type === "main" ? "branch" : "worktree",
+					workspaceType: "worktree",
 				});
 			}
 		},
 		{
-			enabled: !!currentWorkspaceId && !!currentWorkspace,
+			enabled:
+				!!currentWorkspaceId &&
+				!!currentWorkspace &&
+				currentWorkspace.type !== "main",
 		},
 	);
 
