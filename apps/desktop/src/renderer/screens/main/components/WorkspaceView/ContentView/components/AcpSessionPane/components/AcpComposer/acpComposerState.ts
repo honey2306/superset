@@ -4,7 +4,10 @@ import type {
 	SessionConfigOption,
 	SessionStatus,
 } from "@superset/session-protocol";
-import type { ComposerSlashCommand } from "renderer/screens/main/components/WorkspaceView/ContentView/components/TiptapPromptEditor/useSlashCommands";
+import {
+	type ComposerSlashCommand,
+	parseSlashCommandArgumentOptions,
+} from "renderer/screens/main/components/WorkspaceView/ContentView/components/TiptapPromptEditor/useSlashCommands";
 
 export interface ResolveComposerDisabledInput {
 	status: SessionStatus | undefined;
@@ -188,13 +191,18 @@ export function acpCommandsToComposerCommands(
 						},
 		};
 	});
-	const catalog = (commands ?? []).map((command) => ({
-		name: command.name,
-		aliases: [],
-		description: command.description,
-		argumentHint: command.input?.hint ?? "",
-		kind: "custom" as const,
-	}));
+	const catalog = (commands ?? []).map((command) => {
+		const argumentHint = command.input?.hint ?? "";
+		const argumentOptions = parseSlashCommandArgumentOptions(argumentHint);
+		return {
+			name: command.name,
+			aliases: [],
+			description: command.description,
+			argumentHint,
+			kind: "custom" as const,
+			...(argumentOptions.length ? { argumentOptions } : {}),
+		};
+	});
 	const localNames = new Set(
 		local.map((command) => command.name.toLowerCase()),
 	);

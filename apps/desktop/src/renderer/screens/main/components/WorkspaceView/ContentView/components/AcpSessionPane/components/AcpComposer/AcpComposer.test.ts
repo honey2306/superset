@@ -16,6 +16,33 @@ import {
 } from "./acpComposerState";
 
 describe("acpCommandsToComposerCommands", () => {
+	test("derives picker options only from safe enumerated ACP hints", () => {
+		const result = acpCommandsToComposerCommands([
+			{
+				name: "autocompact",
+				description: "Toggle automatic context compaction",
+				input: { hint: "on|off|toggle" },
+			},
+			{
+				name: "mode",
+				description: "Select a mode",
+				input: { hint: "<default|plan|accept-edits>" },
+			},
+			{
+				name: "mario",
+				description: "Run Mario",
+				input: { hint: "[任务描述]" },
+			},
+		]);
+
+		expect(result.map((command) => command.argumentOptions)).toEqual([
+			["on", "off", "toggle"],
+			["default", "plan", "accept-edits"],
+			undefined,
+		]);
+		expect(result[2]?.argumentHint).toBe("[任务描述]");
+	});
+
 	test("preserves ACP presentation fields without adding local commands", () => {
 		const result = acpCommandsToComposerCommands([
 			{

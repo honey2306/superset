@@ -110,6 +110,8 @@ export const TiptapPromptEditor = forwardRef<
 ) {
 	const { t } = useTranslation();
 	const resolvedPlaceholder = placeholder ?? t("chatInput.placeholder");
+	const placeholderRef = useRef(resolvedPlaceholder);
+	placeholderRef.current = resolvedPlaceholder;
 	const controller = usePromptInputController();
 	const attachments = usePromptInputAttachments();
 
@@ -230,7 +232,10 @@ export const TiptapPromptEditor = forwardRef<
 			HardBreak,
 			History,
 
-			Placeholder.configure({ placeholder: resolvedPlaceholder }),
+			// The editor instance is intentionally stable while the ACP session changes.
+			// Read the current label through a ref so the extension does not retain the
+			// first render's status (for example, "Session unavailable").
+			Placeholder.configure({ placeholder: () => placeholderRef.current }),
 
 			FileMentionNode,
 			SlashCommandNode,
@@ -636,6 +641,21 @@ export const TiptapPromptEditor = forwardRef<
 	useEffect(() => {
 		editor?.setEditable(!disabled);
 	}, [disabled, editor]);
+
+	// Tiptap's placeholder decoration is calculated when the editor view updates;
+	// changing an extension option alone does not cause that update. Dispatching a
+	// metadata-only transaction refreshes the decoration without changing the
+	// document or the user's draft.
+	useEffect(() => {
+		// Keep the dependency explicit for the prop-driven refresh. The ref is
+		// also updated during render so the decoration callback never sees a
+		// stale label before this effect runs.
+		if (placeholderRef.current !== resolvedPlaceholder) {
+			placeholderRef.current = resolvedPlaceholder;
+		}
+		if (!editor) return;
+		editor.view.dispatch(editor.state.tr.setMeta("placeholder", true));
+	}, [editor, resolvedPlaceholder]);
 
 	useImperativeHandle(
 		ref,
