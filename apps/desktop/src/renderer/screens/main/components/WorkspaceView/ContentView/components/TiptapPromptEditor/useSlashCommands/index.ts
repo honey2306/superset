@@ -3,6 +3,7 @@ export {
 	filterSlashCommands,
 	getCommandMatchRank,
 	getSlashCommandSelectionBehavior,
+	parseSlashCommandArgumentOptions,
 	resolveCommandAction,
 	resolveSlashCommandArgumentOptions,
 	type SlashCommand,

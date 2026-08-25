@@ -5,7 +5,6 @@ import { isSidebarProjectVisible } from "renderer/hooks/isSidebarProjectVisible"
 import { useHotkey } from "renderer/hotkeys";
 import { navigateToWorkspace } from "renderer/routes/_local/_dashboard/utils/workspace-navigation";
 import { useLocalCollections } from "renderer/routes/_local/providers/LocalProductStateProvider";
-import { isSidebarWorkspaceVisible } from "renderer/routes/_local/providers/LocalProductStateProvider/dashboardSidebarLocal";
 import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceCatalogProvider";
 import type {
 	SidebarSection,
@@ -98,10 +97,6 @@ export function useWorkspaceShortcuts() {
 		return visibleProjects.flatMap((project) => {
 			const projectWorkspaces = workspaces
 				.filter((workspace) => workspace.projectId === project.id)
-				.filter((workspace) => {
-					const local = localByWorkspaceId.get(workspace.id);
-					return !local || isSidebarWorkspaceVisible(local);
-				})
 				.sort((a, b) => {
 					const left = localByWorkspaceId.get(a.id)?.sidebarState.tabOrder;
 					const right = localByWorkspaceId.get(b.id)?.sidebarState.tabOrder;

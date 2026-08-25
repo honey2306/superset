@@ -29,6 +29,7 @@ import {
 	AcpPermissionCard,
 	isAskUserPermission,
 } from "./components/AcpTimeline/components/AcpToolCallItem/components/AcpPermissionCard";
+import { useRetainedAcpConnection } from "./hooks/useRetainedAcpConnection";
 import { registerJumpHandler } from "./paneJumpRegistry";
 import { isContextCompacting } from "./utils/contextCompaction";
 
@@ -55,6 +56,11 @@ export function modeLooksLikePlan(mode: SessionModeState): boolean {
 	return /plan/i.test(`${mode.currentModeId} ${selected?.name ?? ""}`);
 }
 
+/** Keep the mounted ACP subtree aligned with the backend session identity. */
+export function acpSessionPaneKey(sessionId: string): string {
+	return `acp-session:${sessionId}`;
+}
+
 export function canReviewPlanForMode(
 	mode: SessionModeState | null,
 	pendingPermissionCount: number,
@@ -62,6 +68,16 @@ export function canReviewPlanForMode(
 	return (
 		mode !== null && pendingPermissionCount === 0 && modeLooksLikePlan(mode)
 	);
+}
+
+export function shouldEnableAcpSession({
+	isVisible,
+	isConnectionEnabled,
+}: {
+	isVisible: boolean;
+	isConnectionEnabled: boolean;
+}): boolean {
+	return isVisible || isConnectionEnabled;
 }
 
 /** Pick the execution mode used after a user approves a proposed plan. */
@@ -141,6 +157,8 @@ export interface AcpSessionPaneProps {
 	isFocused?: boolean;
 	/** Whether this pane's workspace surface and tab are currently displayed. */
 	isVisible?: boolean;
+	/** Whether this pane belongs to the currently selected workspace. */
+	isWorkspaceActive: boolean;
 	/** Creation failure kept with the pane instead of dropping the new tab. */
 	creationError?: string;
 	onRetryLaunch?: () => void;
@@ -163,6 +181,7 @@ export function AcpSessionPane({
 	isLaunching = false,
 	isFocused = false,
 	isVisible = true,
+	isWorkspaceActive,
 	creationError,
 	onRetryLaunch,
 	onSessionMetadataChange,
@@ -181,6 +200,9 @@ export function AcpSessionPane({
 		() => client.streamUrl(sessionId),
 		[client, sessionId],
 	);
+	const { isConnectionEnabled, recordActivity } = useRetainedAcpConnection({
+		isWorkspaceActive,
+	});
 
 	const session = useAcpSession({
 		sessionId,
@@ -188,8 +210,23 @@ export function AcpSessionPane({
 		api: client.api,
 		streamUrl,
 		initiallyLaunching: isLaunching,
-		enabled: isVisible,
+		enabled: shouldEnableAcpSession({ isVisible, isConnectionEnabled }),
 	});
+
+	const promptWithActivity = useCallback(
+		async (blocks: Parameters<typeof session.actions.prompt>[0]) => {
+			await session.actions.prompt(blocks);
+			recordActivity();
+		},
+		[recordActivity, session.actions],
+	);
+	const enqueueWithActivity = useCallback(
+		async (blocks: Parameters<typeof session.actions.enqueue>[0]) => {
+			await session.actions.enqueue(blocks);
+			recordActivity();
+		},
+		[recordActivity, session.actions],
+	);
 
 	const permissions = useAcpPermissions(session);
 	const markAcpSessionSeen = useNotificationStore(
@@ -371,26 +408,26 @@ export function AcpSessionPane({
 				const suffix = feedback?.trim()
 					? `\n\nAdditional feedback:\n${feedback.trim()}`
 					: "";
-				await session.actions.prompt([
+				await promptWithActivity([
 					{
 						type: "text",
 						text: `The plan is approved. Proceed with implementation.${suffix}`,
 					},
 				]);
 			}),
-		[currentMode, handleSessionUpdate, session.actions],
+		[currentMode, handleSessionUpdate, promptWithActivity, session.actions],
 	);
 	const handleRequestPlanChanges = useCallback(
 		(feedback: string) =>
 			handleSessionUpdate(async () => {
-				await session.actions.prompt([
+				await promptWithActivity([
 					{
 						type: "text",
 						text: `Please revise the plan with this feedback:\n\n${feedback.trim()}`,
 					},
 				]);
 			}),
-		[handleSessionUpdate, session.actions],
+		[handleSessionUpdate, promptWithActivity],
 	);
 
 	if (
@@ -601,12 +638,8 @@ export function AcpSessionPane({
 					}
 					onSetMode={session.actions.setMode}
 					onSetConfigOption={session.actions.setConfigOption}
-					onSubmit={async (blocks) => {
-						await session.actions.prompt(blocks);
-					}}
-					onEnqueue={async (blocks) => {
-						await session.actions.enqueue(blocks);
-					}}
+					onSubmit={promptWithActivity}
+					onEnqueue={enqueueWithActivity}
 					onRemoveQueued={session.actions.removeQueued}
 					onReorderQueue={session.actions.reorderQueue}
 					onEditQueued={session.actions.editQueued}

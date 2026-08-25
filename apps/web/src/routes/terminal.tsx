@@ -97,9 +97,11 @@ export function TerminalRoute() {
 		<main className="mobile-terminal-page">
 			<header className="mobile-terminal-header">
 				<Link
-					to={getPhoneRoute("/")}
+					to={getPhoneRoute(
+						workspaceId ? `/w/${encodeURIComponent(workspaceId)}` : "/",
+					)}
 					className="mobile-terminal-back"
-					aria-label="Back to projects"
+					aria-label="Back to workspace"
 				>
 					←
 				</Link>

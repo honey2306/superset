@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	createWorkspaceCatalogRefresher,
+	WORKSPACE_CATALOG_REFRESH_INTERVAL_MS,
 	type WorkspaceCatalogRefreshScheduler,
 } from "./workspaceCatalogRefresher";
 
@@ -99,4 +100,8 @@ test("refreshes changed catalog data and coalesces overlapping requests", async 
 	testScheduler.fireInterval();
 	testScheduler.fireForeground();
 	expect(fetchCount).toBe(3);
+});
+
+test("checks foreground catalog state often enough to surface revocation promptly", () => {
+	expect(WORKSPACE_CATALOG_REFRESH_INTERVAL_MS).toBe(10_000);
 });

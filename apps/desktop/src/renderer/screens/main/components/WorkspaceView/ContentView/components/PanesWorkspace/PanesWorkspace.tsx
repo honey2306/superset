@@ -11,9 +11,11 @@ import { usePanesWorkspacePaneLayout } from "./usePanesWorkspacePaneLayout";
 export function PanesWorkspace({
 	workspaceId,
 	isActive,
+	isWorkspaceActive,
 }: {
 	workspaceId: string;
 	isActive: boolean;
+	isWorkspaceActive: boolean;
 }) {
 	const { activeHostUrl: hostUrl } = useLocalHostService();
 	const hostWorkspaceId = hostUrl ? workspaceId : null;
@@ -27,6 +29,7 @@ export function PanesWorkspace({
 		<HydratedPanesWorkspace
 			workspaceId={workspaceId}
 			isActive={isActive}
+			isWorkspaceActive={isWorkspaceActive}
 			store={store}
 			hostUrl={hostUrl}
 			hostWorkspaceId={hostWorkspaceId}

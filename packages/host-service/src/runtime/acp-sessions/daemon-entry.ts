@@ -41,10 +41,6 @@ import {
 import { resolveKDevMergeRequestPage } from "./kdev-merge-request";
 import { browserUseMcpServerFromEnvironment } from "./local-mcp";
 import { SqliteAcpSessionPersistence } from "./persistence";
-import {
-	PI_ACP_MCP_EXTENSION_ENV,
-	resolvePiAcpMcpExtensionPath,
-} from "./pi-acp-mcp-config";
 import { supersetMcpServer } from "./superset-local-mcp";
 import { SupersetToolController } from "./superset-tools";
 
@@ -103,9 +99,6 @@ async function main(): Promise<void> {
 		myflickerAdapterCommand: mfcliCommand,
 		deepseekAdapterCommand: deepseekCommand,
 		deepseekAdapterConfig: deepseekConfig,
-		adapterEnv: {
-			[PI_ACP_MCP_EXTENSION_ENV]: resolvePiAcpMcpExtensionPath(),
-		},
 		mcpServers: [browserUseMcpServerFromEnvironment()].filter(
 			(server): server is NonNullable<typeof server> => server !== null,
 		),

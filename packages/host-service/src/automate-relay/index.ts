@@ -5,3 +5,10 @@ export {
 	type RelayDependencies,
 	type RelayTaskClient,
 } from "./AutoMateRelay";
+export {
+	AutoMateRelayHttpTaskClient,
+	type AutoMateRunRequest,
+	createDefaultAutoMateRelayTaskClient,
+	type RelayFetch,
+	toAutoMateRunRequest,
+} from "./AutoMateRelayHttp";

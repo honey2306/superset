@@ -10,7 +10,7 @@ function read(relativePath: string): string {
 }
 
 describe("AutoMate relay release configuration", () => {
-	test("injects the relay URL only into main without requiring the optional secret", () => {
+	test("injects the relay URL only into main and requires it in official builds", () => {
 		const viteConfig = read("apps/desktop/electron.vite.config.ts");
 		const workflow = read(".github/workflows/build-desktop.yml");
 
@@ -21,7 +21,7 @@ describe("AutoMate relay release configuration", () => {
 		expect(workflow).toContain(
 			"AUTOMATE_RELAY_URL: $" + "{{ secrets.AUTOMATE_RELAY_URL }}",
 		);
-		expect(workflow).not.toContain(
+		expect(workflow).toContain(
 			"AUTOMATE_RELAY_URL must be configured for Desktop phone access.",
 		);
 	});

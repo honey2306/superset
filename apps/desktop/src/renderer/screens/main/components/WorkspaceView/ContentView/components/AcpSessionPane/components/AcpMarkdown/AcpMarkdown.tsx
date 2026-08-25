@@ -6,6 +6,7 @@ import {
 	type MarkdownFileTarget,
 	remarkAcpLinks,
 } from "./linkifyAcpMarkdown";
+import { remarkCjkStrong } from "./remarkCjkStrong";
 
 interface AcpMarkdownProps {
 	children: string;
@@ -13,7 +14,7 @@ interface AcpMarkdownProps {
 	onOpenUrl?(url: string): void;
 }
 
-const ACP_REMARK_PLUGINS = [remarkAcpLinks];
+const ACP_REMARK_PLUGINS = [remarkCjkStrong, remarkAcpLinks];
 
 /**
  * Uses the shared conversation renderer while preserving the ACP pane's

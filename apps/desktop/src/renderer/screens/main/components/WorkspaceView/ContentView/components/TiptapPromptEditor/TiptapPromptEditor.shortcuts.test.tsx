@@ -142,4 +142,33 @@ describe("TiptapPromptEditor deletion", () => {
 
 		expect(input.textContent).toBe("");
 	});
+
+	test("updates the empty-editor placeholder when the prop changes", async () => {
+		const editorNode = (placeholder: string) => (
+			<PromptInputProvider>
+				<form>
+					<TiptapPromptEditor
+						cwd="/repo"
+						searchFiles={async () => []}
+						slashCommands={[]}
+						placeholder={placeholder}
+					/>
+				</form>
+			</PromptInputProvider>
+		);
+		const view = render(editorNode("Session unavailable"));
+		const input = document.querySelector<HTMLElement>(
+			"[contenteditable='true']",
+		);
+		if (!input) throw new Error("Tiptap editor was not rendered");
+		const getPlaceholder = () =>
+			input.querySelector<HTMLElement>("[data-placeholder]")?.dataset
+				.placeholder ?? null;
+
+		await waitFor(() => expect(getPlaceholder()).toBe("Session unavailable"));
+
+		view.rerender(editorNode("Message agent…"));
+
+		await waitFor(() => expect(getPlaceholder()).toBe("Message agent…"));
+	});
 });

@@ -47,7 +47,6 @@ import {
 	type AcpSessionPersistence,
 	type AcpSessionRecord,
 	AcpWorkspaceMismatchError,
-	PiStartupCache,
 	registerAcpSessionStreamRoute,
 } from "../../src/runtime/acp-sessions";
 
@@ -118,7 +117,6 @@ describe("acp-sessions e2e (fake adapter)", () => {
 	function newManager(options?: {
 		journalCapacity?: number;
 		piAdapterEntry?: string;
-		piStartupCache?: PiStartupCache;
 		adapterEnv?: Record<string, string>;
 		modelFacingInstructions?: () => string | undefined;
 		generateTitle?: (input: {
@@ -395,36 +393,6 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		);
 		expect(text).toContain("actual agent reply");
 		expect(text).not.toContain("pi v0.84.0");
-	});
-
-	test("Pi exposes a cached upgrade notice without exposing its TUI prelude", async () => {
-		const cache = new PiStartupCache(async (command) => ({
-			stdout: command === "pi" ? "1.2.3" : "1.3.0",
-			stderr: "",
-		}));
-		cache.refreshInBackground();
-		await waitFor(
-			() => cache.getUpdateNotice() !== null,
-			1_000,
-			"Pi upgrade cache refresh",
-		);
-		const manager = newManager({
-			piAdapterEntry: FAKE_PI_ADAPTER,
-			piStartupCache: cache,
-		});
-		const sessionId = "e2e-pi-upgrade-notice";
-		await manager.create({
-			sessionId,
-			workspaceId: WORKSPACE_ID,
-			harness: "pi-acp",
-		});
-		await sleep(25);
-
-		const text = agentText(
-			foldEnvelopes(emptyTimeline(), manager.getMessages({ sessionId }).items),
-		);
-		expect(text).toContain("New version available: v1.3.0");
-		expect(text).not.toContain("AGENTS.md");
 	});
 
 	test("advertises terminal output and preserves Pi terminal metadata through the host", async () => {

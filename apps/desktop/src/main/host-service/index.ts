@@ -10,8 +10,8 @@ import type { Duplex } from "node:stream";
 import { serve } from "@hono/node-server";
 import {
 	AutoMateRelay,
-	AutoMateRelayTaskClient,
 	createApp,
+	createDefaultAutoMateRelayTaskClient,
 	getSupervisor,
 	installProcessSafetyNet,
 	LocalGitCredentialProvider,
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
 	const relay =
 		env.AUTOMATE_RELAY_URL && relayMailboxId
 			? new AutoMateRelay(relayMailboxId, {
-					client: new AutoMateRelayTaskClient(env.AUTOMATE_RELAY_URL),
+					client: createDefaultAutoMateRelayTaskClient(env.AUTOMATE_RELAY_URL),
 					fetch,
 					baseUrl: `http://127.0.0.1:${env.HOST_SERVICE_PORT}`,
 				})

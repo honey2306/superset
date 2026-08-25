@@ -248,15 +248,15 @@ function SlashCommandChip({
 								handleChipClick(e as unknown as React.MouseEvent);
 						}}
 					>
-						<span className="text-fg-mute">/</span>
-						<span className="text-fg-mute">{name}</span>
+						<span className="text-fg">/</span>
+						<span className="text-fg">{name}</span>
 						{hasArgs && (
 							<>
-								<span className="text-fg-mute/60">:</span>
+								<span className="text-fg-mute/70">:</span>
 								{isEditing ? (
 									<input
 										ref={inputRef}
-										className="bg-transparent border-none outline-none text-fg-mute placeholder:text-fg-mute/40 leading-none"
+										className="bg-transparent border-none outline-none text-fg placeholder:text-fg-mute/60 leading-none"
 										style={{ width: `${displayWidth}ch` }}
 										value={args}
 										placeholder={placeholder}
@@ -270,7 +270,7 @@ function SlashCommandChip({
 									<span
 										className={cn(
 											"leading-none",
-											args ? "text-fg-mute" : "text-fg-mute/40",
+											args ? "text-fg" : "text-fg-mute",
 										)}
 									>
 										{args || placeholder}

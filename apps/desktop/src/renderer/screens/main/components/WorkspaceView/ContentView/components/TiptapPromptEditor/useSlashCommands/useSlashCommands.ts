@@ -21,6 +21,48 @@ export type ComposerSlashCommand = {
 
 export type SlashCommand = ComposerSlashCommand;
 
+const SIMPLE_ARGUMENT_OPTION = /^[\p{L}\p{N}][\p{L}\p{N}._:/-]*$/u;
+
+/**
+ * Parse the deliberately narrow enum syntax used by ACP command hints.
+ *
+ * Hints that contain prose or a single placeholder stay free-form inputs;
+ * only a complete pipe-delimited list of simple tokens can open the picker.
+ */
+export function parseSlashCommandArgumentOptions(
+	argumentHint: string,
+): string[] {
+	const hint = argumentHint.trim();
+	if (!hint) return [];
+
+	let values = hint;
+	const wrappers: ReadonlyArray<readonly [string, string]> = [
+		["<", ">"],
+		["[", "]"],
+		["(", ")"],
+	];
+	for (const [opening, closing] of wrappers) {
+		if (values.startsWith(opening) || values.endsWith(closing)) {
+			if (!values.startsWith(opening) || !values.endsWith(closing)) return [];
+			values = values.slice(opening.length, -closing.length).trim();
+			break;
+		}
+	}
+
+	const options = values.split("|").map((option) => option.trim());
+	if (
+		options.length < 2 ||
+		options.some((option) => !SIMPLE_ARGUMENT_OPTION.test(option))
+	) {
+		return [];
+	}
+
+	const normalized = options.map((option) => option.toLowerCase());
+	if (new Set(normalized).size !== options.length) return [];
+
+	return options;
+}
+
 function getSlashQuery(inputValue: string): string | null {
 	if (inputValue.includes("\n")) return null;
 	const match = inputValue.match(/^\/([^\s]*)$/);

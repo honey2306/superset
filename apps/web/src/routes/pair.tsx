@@ -1,11 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { setStoredSession } from "~/lib/auth-store";
-import { getPairingCredentials } from "~/lib/automate-pairing";
+import {
+	useLocation,
+	useNavigate,
+	useParams,
+	useSearchParams,
+} from "react-router-dom";
+import { getStoredRelayMailboxId, setStoredSession } from "~/lib/auth-store";
+import {
+	canRedeemPairing,
+	getAutoMatePairingMailboxId,
+	getPairingCredentials,
+} from "~/lib/automate-pairing";
 import {
 	getAutoMatePairSuccessPath,
 	isAutoMateWebAppPath,
 } from "~/lib/automate-resume";
+import {
+	AUTOMATE_PAIRING_LINK_REQUIRED_MESSAGE,
+	getPairingErrorMessage,
+} from "~/lib/pairing-error";
+import { isRevokedPairingReason } from "~/lib/pairing-reason";
 import { getTrpc, resetTrpc } from "~/lib/trpc-client";
 
 type PairState =
@@ -18,13 +32,32 @@ export function PairRoute() {
 	const [params] = useSearchParams();
 	const pathParams = useParams<{ code: string; mailboxId: string }>();
 	const navigate = useNavigate();
-	const { code: initialCode, mailboxId: relayMailboxId } =
+	const routeLocation = useLocation();
+	const { code: initialCode, mailboxId: routeMailboxId } =
 		getPairingCredentials(params, pathParams);
+	const isAutoMate = isAutoMateWebAppPath(location.pathname);
+	const relayMailboxId = getAutoMatePairingMailboxId({
+		isAutoMateWebApp: isAutoMate,
+		routeMailboxId,
+		storedMailboxId: getStoredRelayMailboxId(),
+	});
+	const canRedeem = canRedeemPairing({
+		isAutoMateWebApp: isAutoMate,
+		relayMailboxId,
+	});
 	const [code, setCode] = useState(initialCode);
 	const [state, setState] = useState<PairState>({ kind: "idle" });
+	const wasRevoked = isRevokedPairingReason(params, routeLocation.state);
 
 	const redeem = useCallback(
 		async (nextCode: string): Promise<void> => {
+			if (!canRedeem) {
+				setState({
+					kind: "error",
+					message: AUTOMATE_PAIRING_LINK_REQUIRED_MESSAGE,
+				});
+				return;
+			}
 			if (!nextCode.trim()) {
 				setState({ kind: "error", message: "Enter a pairing code." });
 				return;
@@ -49,25 +82,23 @@ export function PairRoute() {
 				setTimeout(() => {
 					const resumePath = getAutoMatePairSuccessPath(
 						storedSession,
-						isAutoMateWebAppPath(location.pathname),
+						isAutoMate,
 					);
 					if (resumePath) window.location.replace(resumePath);
 					else navigate("/", { replace: true });
 				}, 400);
 			} catch (err) {
-				const message =
-					err instanceof Error ? err.message : "Pairing failed. Try again.";
-				setState({ kind: "error", message });
+				setState({ kind: "error", message: getPairingErrorMessage(err) });
 			}
 		},
-		[navigate, relayMailboxId],
+		[navigate, canRedeem, isAutoMate, relayMailboxId],
 	);
 
 	useEffect(() => {
-		if (initialCode) {
+		if (initialCode && canRedeem) {
 			void redeem(initialCode);
 		}
-	}, [initialCode, redeem]);
+	}, [canRedeem, initialCode, redeem]);
 
 	return (
 		<main
@@ -86,33 +117,48 @@ export function PairRoute() {
 				</p>
 			</header>
 
-			<div className="mobile-surface rounded-2xl p-4">
-				<label
-					htmlFor="code"
-					className="mobile-muted-text text-xs font-medium uppercase tracking-wider"
-				>
-					Pairing code
-				</label>
-				<input
-					id="code"
-					value={code}
-					onChange={(e) => setCode(e.target.value)}
-					autoCapitalize="characters"
-					autoCorrect="off"
-					spellCheck={false}
-					inputMode="text"
-					placeholder="XXXX-XXXX"
-					className="mt-2 block w-full rounded-lg border border-[var(--phone-border)] bg-[var(--phone-bg)] px-3 py-3 font-mono text-lg tracking-widest text-[var(--phone-text)] outline-none focus:border-[var(--phone-focus)]"
-				/>
-				<button
-					type="button"
-					disabled={state.kind === "pairing"}
-					onClick={() => void redeem(code)}
-					className="mobile-primary-button mt-4 w-full px-4 py-3 font-medium transition disabled:opacity-50"
-				>
-					{state.kind === "pairing" ? "Pairing…" : "Pair this phone"}
-				</button>
-			</div>
+			{isAutoMate && !relayMailboxId ? (
+				<p className="text-center text-sm text-yellow-200" aria-live="polite">
+					{AUTOMATE_PAIRING_LINK_REQUIRED_MESSAGE}
+				</p>
+			) : null}
+
+			{wasRevoked ? (
+				<p className="text-center text-sm text-yellow-200" aria-live="polite">
+					This phone pairing was revoked from desktop. Pair it again to
+					continue.
+				</p>
+			) : null}
+
+			{canRedeem ? (
+				<div className="mobile-surface rounded-2xl p-4">
+					<label
+						htmlFor="code"
+						className="mobile-muted-text text-xs font-medium uppercase tracking-wider"
+					>
+						Pairing code
+					</label>
+					<input
+						id="code"
+						value={code}
+						onChange={(e) => setCode(e.target.value)}
+						autoCapitalize="characters"
+						autoCorrect="off"
+						spellCheck={false}
+						inputMode="text"
+						placeholder="XXXX-XXXX"
+						className="mt-2 block w-full rounded-lg border border-[var(--phone-border)] bg-[var(--phone-bg)] px-3 py-3 font-mono text-lg tracking-widest text-[var(--phone-text)] outline-none focus:border-[var(--phone-focus)]"
+					/>
+					<button
+						type="button"
+						disabled={state.kind === "pairing"}
+						onClick={() => void redeem(code)}
+						className="mobile-primary-button mt-4 w-full px-4 py-3 font-medium transition disabled:opacity-50"
+					>
+						{state.kind === "pairing" ? "Pairing…" : "Pair this phone"}
+					</button>
+				</div>
+			) : null}
 
 			{state.kind === "error" ? (
 				<p className="text-center text-sm text-red-400">{state.message}</p>

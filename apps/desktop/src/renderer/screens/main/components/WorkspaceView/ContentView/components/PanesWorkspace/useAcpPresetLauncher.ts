@@ -20,6 +20,8 @@ interface UseAcpPresetLauncherInput {
 	store: StoreApi<WorkspaceStore<PanesPaneData>>;
 	hostUrl: string | null | undefined;
 	hostWorkspaceId: string | null | undefined;
+	/** Keep-alive mounts remain rendered, but only the routed workspace may launch. */
+	isWorkspaceActive: boolean;
 }
 
 /**
@@ -37,6 +39,7 @@ export function useAcpPresetLauncher({
 	store,
 	hostUrl,
 	hostWorkspaceId,
+	isWorkspaceActive,
 }: UseAcpPresetLauncherInput): AcpPresetLauncher | undefined {
 	const { useAcpForAgentPresets: settingEnabled } = useAcpForAgentPresets();
 
@@ -45,7 +48,7 @@ export function useAcpPresetLauncher({
 	// the setting itself is off avoids paying the RPC cost for the default path.
 	const [hostSupportsAcp, setHostSupportsAcp] = useState(false);
 	useEffect(() => {
-		if (!settingEnabled || !hostUrl || !hostWorkspaceId) {
+		if (!settingEnabled || !isWorkspaceActive || !hostUrl || !hostWorkspaceId) {
 			setHostSupportsAcp(false);
 			return;
 		}
@@ -65,11 +68,11 @@ export function useAcpPresetLauncher({
 		return () => {
 			disposed = true;
 		};
-	}, [settingEnabled, hostUrl, hostWorkspaceId]);
+	}, [settingEnabled, isWorkspaceActive, hostUrl, hostWorkspaceId]);
 
 	const launchAgent = useCallback(
 		(agentDefinitionId: AcpAgentDefinitionId) => {
-			if (!hostUrl || !hostWorkspaceId) return;
+			if (!isWorkspaceActive || !hostUrl || !hostWorkspaceId) return;
 			const client = createDesktopAcpSessionClient(hostUrl);
 			const onOpen = (input: {
 				sessionId: string;
@@ -120,11 +123,17 @@ export function useAcpPresetLauncher({
 				});
 			});
 		},
-		[store, hostUrl, hostWorkspaceId],
+		[store, isWorkspaceActive, hostUrl, hostWorkspaceId],
 	);
 
 	return useMemo<AcpPresetLauncher | undefined>(() => {
-		if (!settingEnabled || !hostSupportsAcp || !hostUrl || !hostWorkspaceId) {
+		if (
+			!settingEnabled ||
+			!isWorkspaceActive ||
+			!hostSupportsAcp ||
+			!hostUrl ||
+			!hostWorkspaceId
+		) {
 			return undefined;
 		}
 		return {
@@ -134,7 +143,14 @@ export function useAcpPresetLauncher({
 				return true;
 			},
 		};
-	}, [settingEnabled, hostSupportsAcp, hostUrl, hostWorkspaceId, launchAgent]);
+	}, [
+		settingEnabled,
+		isWorkspaceActive,
+		hostSupportsAcp,
+		hostUrl,
+		hostWorkspaceId,
+		launchAgent,
+	]);
 }
 
 // Re-export for convenience when adding new ACP-eligible agents.

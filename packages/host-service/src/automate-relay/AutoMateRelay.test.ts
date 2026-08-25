@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { RelayEnvelope } from "@superset/session-protocol";
+import type { RelaySocket } from "./AutoMateRelay";
 import {
 	AutoMateRelay,
 	AutoMateRelayTaskClient,
@@ -14,8 +15,8 @@ class FakeRelaySocket {
 	onclose: (() => void) | null = null;
 	onerror: (() => void) | null = null;
 	sent: unknown[] = [];
-	send(data: string): void {
-		this.sent.push(JSON.parse(data));
+	send(data: string | ArrayBuffer | Uint8Array): void {
+		this.sent.push(JSON.parse(String(data)));
 	}
 	close(): void {
 		this.onclose?.();
@@ -25,12 +26,31 @@ class FakeRelaySocket {
 	}
 }
 
+class FakeStreamSocket {
+	readyState = 1;
+	binaryType: "blob" | "arraybuffer" | "nodebuffer" = "blob";
+	onopen: (() => void) | null = null;
+	onmessage: ((event: { data: unknown }) => void) | null = null;
+	onclose: ((event?: { code?: number; reason?: string }) => void) | null = null;
+	onerror: (() => void) | null = null;
+	sent: unknown[] = [];
+	close(code?: number, reason?: string): void {
+		this.onclose?.({ code, reason });
+	}
+	send(data: string | ArrayBuffer | Uint8Array): void {
+		this.sent.push(data);
+	}
+	emit(data: unknown): void {
+		this.onmessage?.({ data });
+	}
+}
+
 async function nextTurn(): Promise<void> {
 	await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
 describe("AutoMateRelay", () => {
-	test("uses a short empty-mailbox poll delay", async () => {
+	test("uses a QPS-safe empty-mailbox poll delay", async () => {
 		let relay: AutoMateRelay;
 		let sleptFor: number | undefined;
 		relay = new AutoMateRelay("box", {
@@ -45,7 +65,7 @@ describe("AutoMateRelay", () => {
 		relay.start();
 		await nextTurn();
 		expect(sleptFor).toBe(EMPTY_RELAY_PULL_DELAY_MS);
-		expect(sleptFor).toBe(50);
+		expect(sleptFor).toBe(500);
 	});
 
 	test("rejects paths outside tRPC and ACP streams", () => {
@@ -420,7 +440,7 @@ describe("AutoMateRelay", () => {
 		relay["streams"].set("channel-1", {
 			send: (body: string) => sent.push(body),
 			close: () => {},
-		} as unknown as WebSocket);
+		} as unknown as RelaySocket);
 
 		relay.start();
 		await done;
@@ -439,7 +459,7 @@ describe("AutoMateRelay", () => {
 		relay["streams"].set("channel-1", {
 			send: (body: Buffer) => sent.push(body),
 			close: () => {},
-		} as unknown as WebSocket);
+		} as unknown as RelaySocket);
 		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
 		await relay["forwardStreamFrame"]({
 			kind: "stream.frame",
@@ -452,6 +472,71 @@ describe("AutoMateRelay", () => {
 		const firstFrame = sent.at(0);
 		if (!firstFrame) throw new Error("Expected a binary frame");
 		expect([...firstFrame]).toEqual([0, 255, 1]);
+	});
+
+	test("sets host binary mode and preserves Blob and ArrayBuffer frames", async () => {
+		const pushes: Array<{ body?: RelayEnvelope }> = [];
+		let socket: FakeStreamSocket | undefined;
+		const relay = new AutoMateRelay("box", {
+			client: {
+				request: async (input) => {
+					if ((input as { op: string }).op === "push") {
+						pushes.push(input as { body?: RelayEnvelope });
+					}
+					return { ok: true };
+				},
+			},
+			fetch: async () => new Response("unused"),
+			baseUrl: "http://127.0.0.1:4879",
+			createWebSocket: () => {
+				socket = new FakeStreamSocket();
+				return socket;
+			},
+		});
+
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		await relay["openStream"]({
+			kind: "stream.open",
+			channelId: "channel-blob",
+			path: "/terminal/terminal-1",
+			headers: {},
+		});
+		if (!socket) throw new Error("Expected a stream socket");
+		expect(socket.binaryType).toBe("arraybuffer");
+
+		socket.emit(new Blob([Uint8Array.from([0, 255, 1])]));
+		socket.emit(Uint8Array.from([2, 254, 3]).buffer);
+
+		for (let attempt = 0; attempt < 20 && pushes.length < 2; attempt += 1) {
+			await nextTurn();
+		}
+		expect(pushes.map((push) => push.body)).toEqual([
+			{
+				kind: "stream.frames",
+				frames: [
+					{
+						channelId: "channel-blob",
+						body: {
+							type: "binary",
+							data: Buffer.from([0, 255, 1]).toString("base64"),
+						},
+					},
+				],
+			},
+			{
+				kind: "stream.frames",
+				frames: [
+					{
+						channelId: "channel-blob",
+						body: {
+							type: "binary",
+							data: Buffer.from([2, 254, 3]).toString("base64"),
+						},
+					},
+				],
+			},
+		]);
+		relay.stop();
 	});
 
 	test("closes and acknowledges a frame for an unknown stream", async () => {

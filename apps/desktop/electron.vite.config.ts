@@ -8,7 +8,6 @@ import { config } from "dotenv";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import injectProcessEnvPlugin from "rollup-plugin-inject-process-env";
 import tsconfigPathsPlugin from "vite-tsconfig-paths";
-import { patchPiAcpBundle } from "../../packages/host-service/src/runtime/acp-sessions/pi-acp-bundle";
 import { dependencies, resources, version } from "./package.json";
 import { mainExternalizedDependencies } from "./runtime-dependencies";
 import { copyResourcesPlugin, defineEnv, devPath } from "./vite/helpers";
@@ -18,7 +17,6 @@ config({ path: resolve(__dirname, "../../.env"), override: true, quiet: true });
 
 const DEV_SERVER_PORT = Number(process.env.DESKTOP_VITE_PORT);
 const moduleRequire = createRequire(import.meta.url);
-const piAcpEntry = moduleRequire.resolve("pi-acp");
 const claudeAcpRequire = createRequire(
 	moduleRequire.resolve("@agentclientprotocol/claude-agent-acp/package.json"),
 );
@@ -28,63 +26,6 @@ const claudeAcpAgentEntry = claudeAcpRequire.resolve(
 const claudeAgentSdkEntry = claudeAcpRequire.resolve(
 	"@anthropic-ai/claude-agent-sdk",
 );
-
-function piAcpBridgePlugin() {
-	return {
-		name: "pi-acp-bridge",
-		transform(code: string, id: string) {
-			if (id !== piAcpEntry) return null;
-			// pi-acp's terminal-login branch uses top-level await for a dynamic
-			// built-in import. Electron's main bundle is CJS, so make that import
-			// static before Rollup renders this standalone subprocess entry.
-			return patchPiAcpBundle(
-				code
-					.replace(
-						"#!/usr/bin/env node",
-						'#!/usr/bin/env node\nimport { spawnSync as piAcpSpawnSync } from "node:child_process";',
-					)
-					.replace(
-						'const { spawnSync: spawnSync2 } = await import("child_process");',
-						"const spawnSync2 = piAcpSpawnSync;",
-					),
-			);
-		},
-	};
-}
-
-type RollupBundleEntry =
-	| { type: "asset" }
-	| { type: "chunk"; name: string; code: string };
-
-interface PiAcpMcpExtensionCjsInteropPlugin {
-	name: string;
-	generateBundle(
-		options: unknown,
-		bundle: Record<string, RollupBundleEntry>,
-		isWrite: boolean,
-	): void;
-}
-
-/**
- * Pi loads extensions through jiti with `default: true`. Electron-vite emits
- * the main target as CommonJS, where a TypeScript default export becomes
- * `exports.default`; jiti consequently sees an object instead of Pi's factory
- * function. Make this one externally-loaded extension require to its default
- * export without changing the standalone ESM release bundle.
- */
-export function piAcpMcpExtensionCjsInteropPlugin(): PiAcpMcpExtensionCjsInteropPlugin {
-	return {
-		name: "pi-acp-mcp-extension-cjs-interop",
-		generateBundle(_options, bundle, _isWrite) {
-			for (const output of Object.values(bundle)) {
-				if (output.type !== "chunk" || output.name !== "pi-acp-mcp-extension") {
-					continue;
-				}
-				output.code = `${output.code}\nmodule.exports = exports.default;\n`;
-			}
-		},
-	};
-}
 
 // Validate required env vars at build time using the Zod schema (single source of truth)
 await import("./src/main/env.main");
@@ -99,12 +40,7 @@ const workspaceDependencies = Object.keys(dependencies).filter((dependency) =>
 
 export default defineConfig({
 	main: {
-		plugins: [
-			tsconfigPaths,
-			copyResourcesPlugin(),
-			piAcpBridgePlugin(),
-			piAcpMcpExtensionCjsInteropPlugin(),
-		],
+		plugins: [tsconfigPaths, copyResourcesPlugin()],
 
 		define: {
 			"process.env.NODE_ENV": defineEnv(process.env.NODE_ENV, "production"),
@@ -177,12 +113,10 @@ export default defineConfig({
 					"codex-app-server-acp": resolve(
 						"../../packages/host-service/src/runtime/acp-sessions/codex-app-server-acp.ts",
 					),
-					"pi-acp": piAcpEntry,
-					// Electron-vite clears dist/main before each development rebuild.
-					// Emit this externally loaded Pi extension as part of the main build
-					// so ACP daemon startup never observes the predev bundle as missing.
-					"pi-acp-mcp-extension": resolve(
-						"../../packages/host-service/src/runtime/acp-sessions/pi-acp-mcp-extension.ts",
+					// Keep the historical artifact name: the ACP session manager and
+					// packaged-runtime checks resolve dist/main/pi-acp.js.
+					"pi-acp": resolve(
+						"../../packages/host-service/src/runtime/acp-sessions/pi-sdk-acp.ts",
 					),
 					// Bundle the ACP bridge and Claude SDK JavaScript as a standalone
 					// subprocess entry. Superset supplies only an external `claude` CLI;

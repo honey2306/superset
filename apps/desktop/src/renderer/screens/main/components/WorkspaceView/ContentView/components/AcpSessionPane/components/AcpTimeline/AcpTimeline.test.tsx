@@ -1,10 +1,12 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import type {
-	FoldedTimeline,
-	MessageItem,
-	PlanItem,
-	TimelineItem,
-	ToolCallItem,
+import {
+	emptyTimeline,
+	type FoldedTimeline,
+	foldEnvelope,
+	type MessageItem,
+	type PlanItem,
+	type TimelineItem,
+	type ToolCallItem,
 } from "@superset/session-protocol";
 import { type ComponentProps, createElement, Profiler } from "react";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
@@ -389,7 +391,35 @@ describe("older history", () => {
 });
 
 describe("plan dock", () => {
-	test("hides a plan after every entry is completed", () => {
+	test("renders a successful final ACP plan update", () => {
+		const folded = foldEnvelope(emptyTimeline(), {
+			sessionId: "session-1",
+			epoch: "epoch-1",
+			seq: 1,
+			ts: 1,
+			frame: {
+				kind: "update",
+				update: {
+					sessionUpdate: "plan",
+					entries: [
+						{
+							content: "Finish implementation",
+							priority: "medium",
+							status: "completed",
+						},
+					],
+				},
+			},
+		});
+
+		const result = renderTimeline(folded);
+
+		expect(result.container.querySelector(".acp-plan-dock")).toBeTruthy();
+		expect(screen.getByText("Plan complete")).toBeTruthy();
+		expect(screen.getByText("1/1")).toBeTruthy();
+	});
+
+	test("keeps a completed plan visible in the collapsed dock", () => {
 		const completedPlan = plan(2);
 		completedPlan.entries = completedPlan.entries.map((entry) => ({
 			...entry,
@@ -400,8 +430,10 @@ describe("plan dock", () => {
 			items: [message(1), completedPlan, message(3)],
 		});
 
-		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
+		expect(result.container.querySelector(".acp-plan-dock")).toBeTruthy();
 		expect(result.container.querySelector(".acp-plan")).toBeNull();
+		expect(screen.getByText("Plan complete")).toBeTruthy();
+		expect(screen.getByText("3/3")).toBeTruthy();
 	});
 
 	test("keeps the active plan collapsed above the composer", () => {
@@ -436,7 +468,7 @@ describe("plan dock", () => {
 		expect(screen.getByText("2/3")).toBeTruthy();
 	});
 
-	test("removes the dock when the latest plan update completes", () => {
+	test("keeps the dock when the latest plan update completes", () => {
 		const activePlan = plan(2);
 		const completedPlan: PlanItem = {
 			...plan(3),
@@ -461,8 +493,9 @@ describe("plan dock", () => {
 			}),
 		);
 
-		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
+		expect(result.container.querySelector(".acp-plan-dock")).toBeTruthy();
 		expect(result.container.querySelector(".acp-plan")).toBeNull();
+		expect(screen.getByText("Plan complete")).toBeTruthy();
 	});
 
 	test("reveals the existing plan card when clicked", () => {

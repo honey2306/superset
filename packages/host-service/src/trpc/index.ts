@@ -86,13 +86,16 @@ const PHONE_ALLOWED_PATHS = new Set<string>([
 	"phone.sessions.revoke",
 	"phone.me",
 	"workspaceCatalog.snapshot",
+	// Workspace tree and phone terminal navigation need the read-only session
+	// index. Terminal mutations and daemon controls remain excluded below.
+	"terminal.listSessions",
 	"terminalAgents.listByWorkspace",
 	"terminalAgents.getOrCreate",
 ]);
 
 const PHONE_ALLOWED_PREFIXES: readonly string[] = ["acpSessions."];
 
-function isPhoneAllowed(path: string): boolean {
+export function isPhoneAllowedPath(path: string): boolean {
 	if (PHONE_ALLOWED_PATHS.has(path)) return true;
 	return PHONE_ALLOWED_PREFIXES.some((p) => path.startsWith(p));
 }
@@ -105,7 +108,7 @@ export const protectedProcedure = t.procedure.use(
 				message: "Invalid or missing authentication token.",
 			});
 		}
-		if (ctx.authKind === "phone" && !isPhoneAllowed(path)) {
+		if (ctx.authKind === "phone" && !isPhoneAllowedPath(path)) {
 			throw new TRPCError({
 				code: "FORBIDDEN",
 				message: "This operation is not available to paired phone sessions.",

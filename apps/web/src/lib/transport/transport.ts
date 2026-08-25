@@ -6,6 +6,8 @@ import {
 	getAutoMatePairingPathParams,
 	getPairingCredentials,
 } from "../automate-pairing";
+import { AUTOMATE_PAIRING_LINK_REQUIRED_MESSAGE } from "../pairing-error";
+import { createDefaultAutoMateTaskClient } from "./http-task-client";
 
 export interface PhoneTransport {
 	fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
@@ -62,7 +64,10 @@ type TaskClientOptions = {
 
 export const AUTOMATE_RELAY_ORIGIN = "https://automate.corp.kuaishou.com";
 export const AUTOMATE_RELAY_WEBAPP_PATH = "/webapp/16740";
-export const EMPTY_RELAY_PULL_DELAY_MS = 50;
+// Keep host + phone idle mailbox polling near 4 requests/sec combined, leaving
+// headroom below the task QPS=10 limit for pushes and acknowledgements while
+// keeping streaming responsive.
+export const EMPTY_RELAY_PULL_DELAY_MS = 500;
 const DEFAULT_MAX_CONCURRENT_TASK_REQUESTS = 4;
 function unwrapRelayResult(payload: unknown): unknown {
 	if (typeof payload !== "object" || payload === null) return payload;
@@ -357,7 +362,7 @@ export class AutoMateRelayTransport implements PhoneTransport {
 		private readonly taskClient: {
 			run: RelayTask;
 			close?: () => void;
-		} = new AutoMateTaskClient(getAutoMateRelayUrl()),
+		} = createDefaultAutoMateTaskClient(getAutoMateRelayUrl()),
 	) {}
 	stop(): void {
 		this.pumping = false;
@@ -591,10 +596,14 @@ class RelayPollingSocket implements WebSocketLike {
 let direct: DirectTransport | undefined;
 let relay: AutoMateRelayTransport | undefined;
 export function getPhoneTransport(): PhoneTransport {
+	const isAutoMate = isAutoMateRelayLocation(location);
 	const mailbox = getAutoMateRelayMailboxId(
 		location,
 		getStoredRelayMailboxId(),
 	);
+	if (isAutoMate && !mailbox) {
+		throw new Error(AUTOMATE_PAIRING_LINK_REQUIRED_MESSAGE);
+	}
 	if (mailbox) {
 		if (!relay || relay.mailboxId !== mailbox) {
 			relay?.stop();

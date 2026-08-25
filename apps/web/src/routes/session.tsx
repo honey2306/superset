@@ -32,6 +32,7 @@ export function SessionRoute() {
 	});
 	const permissions = useAcpPermissions(session);
 	const [busy, setBusy] = useState(false);
+	const [sendError, setSendError] = useState<string | null>(null);
 	const timelineUpdateKey = `${session.timeline.lastSeq}:${session.timeline.items.length}:${session.state?.status}`;
 	const { containerRef, onScroll } = useTimelineAutoFollow(timelineUpdateKey);
 
@@ -46,10 +47,14 @@ export function SessionRoute() {
 		const trimmed = text.trim();
 		if (!trimmed || busy) return;
 		setBusy(true);
+		setSendError(null);
 		try {
 			const blocks: ContentBlock[] = [{ type: "text", text: trimmed }];
 			if (canQueue) await session.actions.enqueue(blocks);
 			else await session.actions.prompt(blocks);
+		} catch (error) {
+			setSendError("Couldn’t send message. Try again.");
+			throw error;
 		} finally {
 			setBusy(false);
 		}
@@ -68,7 +73,8 @@ export function SessionRoute() {
 			<header className="mb-2 flex items-center gap-2 py-1">
 				<Link
 					to={getPhoneRoute(`/w/${encodeURIComponent(workspaceId)}`)}
-					className="text-white/60"
+					className="mobile-session-back"
+					aria-label="Back to workspace"
 				>
 					←
 				</Link>
@@ -90,6 +96,14 @@ export function SessionRoute() {
 			{session.error ? (
 				<div className="mb-2 rounded-md bg-red-500/10 p-2 text-xs text-red-300 ring-1 ring-red-500/20">
 					{session.error.message}
+				</div>
+			) : null}
+			{sendError ? (
+				<div
+					className="mb-2 rounded-md bg-red-500/10 p-2 text-xs text-red-300 ring-1 ring-red-500/20"
+					role="alert"
+				>
+					{sendError}
 				</div>
 			) : null}
 

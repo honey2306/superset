@@ -105,4 +105,81 @@ describe("ProjectSection project ordering drag", () => {
 		expect(reorderProjectsByIndex).toHaveBeenCalledTimes(1);
 		expect(reorderProjectsByIndex).toHaveBeenCalledWith(0, 1);
 	});
+
+	test("supports a second drag after the first drag rerenders the ordered projects", () => {
+		const manager = createDragDropManager(TestBackend);
+		let order = ["project-a", "project-b", "project-c"];
+		const renderProjects = () =>
+			order.map((projectId, index) =>
+				createElement(ProjectSection, {
+					key: projectId,
+					projectId,
+					projectName: projectId,
+					projectColor: "#000",
+					githubOwner: null,
+					mainRepoPath: "/repo",
+					hideImage: false,
+					iconUrl: null,
+					workspaces: [],
+					sections: [],
+					topLevelItems: [],
+					shortcutBaseIndex: 0,
+					index,
+				}),
+			);
+		const result = render(
+			createElement(DndProvider, { manager }, ...renderProjects()),
+		);
+		const backend = manager.getBackend() as TestBackendImpl;
+		const getHandlerIds = () =>
+			Array.from(
+				result.container.querySelectorAll<HTMLElement>(
+					"[data-dnd-source-id][data-dnd-target-id]",
+				),
+			).map((node) => ({
+				name: node.textContent,
+				sourceId: node.dataset.dndSourceId,
+				targetId: node.dataset.dndTargetId,
+			}));
+		const first = getHandlerIds();
+		const firstSource = first.find((item) => item.name === "project-a");
+		const firstTarget = first.find((item) => item.name === "project-b");
+		const firstSourceId = firstSource?.sourceId;
+		const firstTargetId = firstTarget?.targetId;
+		if (!firstSourceId || !firstTargetId) {
+			throw new Error("Initial project DnD handler IDs were not exposed");
+		}
+
+		act(() => {
+			backend.simulateBeginDrag([firstSourceId], {});
+			backend.simulateHover([firstTargetId], {});
+			backend.simulateDrop();
+			backend.simulateEndDrag();
+		});
+		expect(reorderProjectsByIndex).toHaveBeenNthCalledWith(1, 0, 1);
+		order = ["project-b", "project-a", "project-c"];
+		act(() => {
+			result.rerender(
+				createElement(DndProvider, { manager }, ...renderProjects()),
+			);
+		});
+
+		const second = getHandlerIds();
+		const secondSource = second.find((item) => item.name === "project-a");
+		const secondTarget = second.find((item) => item.name === "project-c");
+		const secondSourceId = secondSource?.sourceId;
+		const secondTargetId = secondTarget?.targetId;
+		if (!secondSourceId || !secondTargetId) {
+			throw new Error("Rerendered project DnD handler IDs were not exposed");
+		}
+		act(() => {
+			backend.simulateBeginDrag([secondSourceId], {});
+			backend.simulateHover([secondTargetId], {});
+			backend.simulateDrop();
+			backend.simulateEndDrag();
+		});
+
+		expect(reorderProjectsByIndex).toHaveBeenCalledTimes(2);
+		expect(reorderProjectsByIndex).toHaveBeenNthCalledWith(2, 1, 2);
+	});
 });

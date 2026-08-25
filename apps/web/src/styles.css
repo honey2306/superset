@@ -362,6 +362,10 @@ textarea {
 	line-height: 1.5;
 }
 
+.mobile-tree-warning {
+	color: #e7c779;
+}
+
 .mobile-new-tab-action {
 	display: flex;
 	align-items: center;
@@ -421,6 +425,24 @@ textarea {
 	color: #eee8e4;
 	font-size: 21px;
 	text-decoration: none;
+}
+
+.mobile-session-back,
+.mobile-workspace-back {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 999px;
+	color: var(--phone-text);
+	font-size: 21px;
+	text-decoration: none;
+}
+
+.mobile-session-back:active,
+.mobile-workspace-back:active {
+	background: rgb(255 255 255 / 8%);
 }
 
 .mobile-terminal-back:active {

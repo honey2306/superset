@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+	canRedeemPairing,
 	getAutoMatePairingHashParams,
+	getAutoMatePairingMailboxId,
 	getAutoMatePairingPathParams,
 	getPairingCredentials,
 } from "./automate-pairing";
@@ -40,5 +42,45 @@ describe("AutoMate pairing credentials", () => {
 	test("rejects malformed or unrelated paths", () => {
 		expect(getAutoMatePairingPathParams("/webapp/16740/pair/code")).toEqual({});
 		expect(getAutoMatePairingPathParams("/app/pair/code/mailbox")).toEqual({});
+	});
+
+	test("preserves a stored AutoMate mailbox when the generic pair route loses it", () => {
+		expect(
+			getAutoMatePairingMailboxId({
+				isAutoMateWebApp: true,
+				storedMailboxId: "old-mailbox",
+			}),
+		).toBe("old-mailbox");
+	});
+
+	test("prefers the mailbox embedded in the current AutoMate pairing link", () => {
+		expect(
+			getAutoMatePairingMailboxId({
+				isAutoMateWebApp: true,
+				routeMailboxId: "route-mailbox",
+				storedMailboxId: "old-mailbox",
+			}),
+		).toBe("route-mailbox");
+	});
+
+	test("does not carry relay state into a direct pairing", () => {
+		expect(
+			getAutoMatePairingMailboxId({
+				isAutoMateWebApp: false,
+				routeMailboxId: "route-mailbox",
+				storedMailboxId: "old-mailbox",
+			}),
+		).toBeUndefined();
+	});
+
+	test("keeps direct pairing available but blocks mailbox-less AutoMate pairing", () => {
+		expect(canRedeemPairing({ isAutoMateWebApp: false })).toBeTrue();
+		expect(canRedeemPairing({ isAutoMateWebApp: true })).toBeFalse();
+		expect(
+			canRedeemPairing({
+				isAutoMateWebApp: true,
+				relayMailboxId: "mailbox-1",
+			}),
+		).toBeTrue();
 	});
 });

@@ -30,6 +30,7 @@ export function ContentView({
 					<PanesWorkspace
 						workspaceId={id}
 						isActive={isSurfaceActive && isWorkspaceActive}
+						isWorkspaceActive={isWorkspaceActive}
 					/>
 				)}
 			/>

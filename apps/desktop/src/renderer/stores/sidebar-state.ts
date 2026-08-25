@@ -7,7 +7,9 @@ export enum SidebarMode {
 }
 
 export enum RightSidebarTab {
+	Info = "info",
 	Changes = "changes",
+	History = "history",
 	Files = "files",
 }
 

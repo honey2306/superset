@@ -4,5 +4,5 @@ import { isTemporaryProject } from "renderer/utils/isTemporaryProject";
 export function isSidebarProjectVisible(
 	project: Pick<ProjectProjection, "kind" | "repoPath">,
 ): boolean {
-	return !isTemporaryProject(project);
+	return project.kind === "temporary" || !isTemporaryProject(project);
 }

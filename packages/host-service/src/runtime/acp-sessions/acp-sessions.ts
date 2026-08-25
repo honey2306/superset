@@ -58,18 +58,7 @@ import {
 import type { AcpArtifactStore } from "./artifact-store";
 import { SessionJournal } from "./journal";
 import type { AcpSessionPersistence, AcpSessionRecord } from "./persistence";
-import {
-	materializePiMcpConfig,
-	PI_ACP_MCP_CONFIG_ENV,
-} from "./pi-acp-mcp-config";
 import { piExtensionUiPermissionPresentation } from "./pi-extension-ui";
-import type { PiStartupCache } from "./pi-startup";
-import {
-	PI_ACP_DISABLE_EXTENSIONS_ENV,
-	PI_ACP_QUIET_STARTUP_ENV,
-	PI_ACP_UPDATE_NOTICE_ENV,
-	sharedPiStartupCache,
-} from "./pi-startup";
 import type {
 	AcpMergeRequestOpenRequestHandler,
 	AcpSessionChangeHandler,
@@ -158,7 +147,7 @@ function piStartupInfoFromSessionResponse(response: unknown): string | null {
 		: null;
 }
 
-/** A cache-backed Pi upgrade notice is useful ACP output, unlike TUI prelude. */
+/** Keep suppressing legacy Pi upgrade notices when replaying old journals. */
 function isPiUpdateNotice(text: string): boolean {
 	return text.startsWith("New version available:");
 }
@@ -560,8 +549,6 @@ export interface AcpSessionManagerOptions {
 	deepseekAdapterCommand?: string;
 	/** Path to the cordis.yml the DeepSeek Harness ACP server boots from. */
 	deepseekAdapterConfig?: string;
-	/** Injected in tests; production managers share the daemon-level cache. */
-	piStartupCache?: PiStartupCache;
 	/**
 	 * Local MCP servers supplied to every ACP session setup. These are sent on
 	 * both `session/new` and `session/load`, so resumed sessions keep the same
@@ -647,7 +634,6 @@ export class AcpSessionManager {
 	private readonly myflickerAdapterCommand: string | undefined;
 	private readonly deepseekAdapterCommand: string | undefined;
 	private readonly deepseekAdapterConfig: string | undefined;
-	private readonly piStartupCache: PiStartupCache;
 	private readonly mcpServers: McpServer[];
 	private readonly mcpServerFactory: AcpSessionManagerOptions["mcpServerFactory"];
 	private readonly modelFacingInstructions:
@@ -693,7 +679,6 @@ export class AcpSessionManager {
 		this.myflickerAdapterCommand = options.myflickerAdapterCommand;
 		this.deepseekAdapterCommand = options.deepseekAdapterCommand;
 		this.deepseekAdapterConfig = options.deepseekAdapterConfig;
-		this.piStartupCache = options.piStartupCache ?? sharedPiStartupCache;
 		this.mcpServers = options.mcpServers ?? [];
 		this.mcpServerFactory = options.mcpServerFactory;
 		this.modelFacingInstructions = options.modelFacingInstructions;
@@ -1673,10 +1658,8 @@ export class AcpSessionManager {
 			...this.adapterEnv,
 		};
 		if (harness === "pi-acp" && modelFacingInstructions) {
-			// pi-acp 0.0.33 has no ACP developer-instructions field, but its
-			// underlying Pi RPC process supports the native CLI
-			// --append-system-prompt flag. The bundled bridge below maps this
-			// environment value to that high-priority system prompt argument.
+			// The SDK adapter reads the ACP metadata directly. Keep this environment
+			// fallback for older clients and source-launched adapters.
 			env.SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT = modelFacingInstructions;
 		} else {
 			delete env.SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT;
@@ -1705,23 +1688,6 @@ export class AcpSessionManager {
 		else delete env.ELECTRON_RUN_AS_NODE;
 		delete env.ANTHROPIC_API_KEY;
 		delete env.ANTHROPIC_AUTH_TOKEN;
-		if (harness === "pi-acp") {
-			// Shared process cache: this starts an advisory refresh only after a Pi
-			// session is requested, and never waits for it on the session/new path.
-			this.piStartupCache.refreshInBackground();
-			env[PI_ACP_QUIET_STARTUP_ENV] = "1";
-			const updateNotice = this.piStartupCache.getUpdateNotice();
-			if (updateNotice) env[PI_ACP_UPDATE_NOTICE_ENV] = updateNotice;
-			else delete env[PI_ACP_UPDATE_NOTICE_ENV];
-			// Default false: --no-extensions removes every user extension command and
-			// hook. Operators may explicitly opt into the ACP fast mode to avoid
-			// expensive extensions (for example pi-pretty).
-			if (process.env[PI_ACP_DISABLE_EXTENSIONS_ENV] === "1") {
-				env[PI_ACP_DISABLE_EXTENSIONS_ENV] = "1";
-			} else {
-				delete env[PI_ACP_DISABLE_EXTENSIONS_ENV];
-			}
-		}
 		if (harness === "codex-app-server" && model) {
 			// Codex app-server accepts a model only while creating the thread, not
 			// through ACP's later session/set_config_option request.
@@ -1732,30 +1698,13 @@ export class AcpSessionManager {
 			delete env.SUPERSET_CODEX_MODEL;
 			delete env.SUPERSET_CODEX_STRICT_MODEL;
 		}
-		const piMcpConfig =
-			harness === "pi-acp" && mcpServers.length > 0
-				? materializePiMcpConfig(mcpServers)
-				: null;
-		if (piMcpConfig) env[PI_ACP_MCP_CONFIG_ENV] = piMcpConfig.path;
-		else delete env[PI_ACP_MCP_CONFIG_ENV];
-		const child = (() => {
-			try {
-				return spawn(adapterProcess.command, adapterProcess.args, {
-					cwd,
-					env,
-					stdio: ["pipe", "pipe", "pipe"],
-				});
-			} catch (error) {
-				piMcpConfig?.dispose();
-				throw error;
-			}
-		})();
-		const disposePiMcpConfig = () => piMcpConfig?.dispose();
-		child.once("error", disposePiMcpConfig);
-		child.once("exit", disposePiMcpConfig);
+		const child = spawn(adapterProcess.command, adapterProcess.args, {
+			cwd,
+			env,
+			stdio: ["pipe", "pipe", "pipe"],
+		});
 		if (!child.stdin || !child.stdout) {
 			child.kill();
-			disposePiMcpConfig();
 			throw new Error("adapter child process is missing stdio pipes");
 		}
 

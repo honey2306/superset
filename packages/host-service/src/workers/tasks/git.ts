@@ -75,6 +75,7 @@ export const gitLogTask = defineWorkerTask<
 		skip?: number;
 		grep?: string;
 		author?: string;
+		all?: boolean;
 		filePath?: string;
 	},
 	GitLogEntry[]
@@ -87,15 +88,21 @@ export const gitLogTask = defineWorkerTask<
 		skip,
 		grep,
 		author,
+		all,
 		filePath,
 	}) => {
 		const git = createUserSimpleGit(worktreePath).env(gitEnv);
 		const args = [
 			"log",
+			"--topo-order",
 			`--max-count=${limit}`,
 			"--no-color",
-			"--format=%H%x1f%h%x1f%s%x1f%an%x1f%at",
+			"--decorate=short",
+			"--format=%H%x1f%h%x1f%P%x1f%D%x1f%S%x1f%s%x1f%an%x1f%at%x1e",
 		];
+		// File history is intentionally scoped to the path's reachable history;
+		// `--all` is reserved for the repository-wide History tab.
+		if (all && !filePath) args.push("--all");
 		if (skip !== undefined) args.push(`--skip=${skip}`);
 		if (grep) args.push("--fixed-strings", `--grep=${grep}`);
 		if (author) args.push("--fixed-strings", `--author=${author}`);

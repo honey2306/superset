@@ -9,6 +9,7 @@ export function ProjectTree({
 	expandedWorkspaceIds,
 	workspaceLoadStates,
 	workspaceLoadErrors,
+	workspaceLoadWarnings,
 	onToggle,
 	onWorkspaceToggle,
 }: {
@@ -17,6 +18,7 @@ export function ProjectTree({
 	expandedWorkspaceIds: ReadonlySet<string>;
 	workspaceLoadStates: ReadonlyMap<string, WorkspaceContentsLoadState>;
 	workspaceLoadErrors: ReadonlyMap<string, string>;
+	workspaceLoadWarnings: ReadonlyMap<string, readonly string[]>;
 	onToggle: () => void;
 	onWorkspaceToggle: (workspaceId: string) => void;
 }) {
@@ -58,6 +60,7 @@ export function ProjectTree({
 								expanded={expandedWorkspaceIds.has(workspace.id)}
 								loadState={workspaceLoadStates.get(workspace.id) ?? "idle"}
 								loadError={workspaceLoadErrors.get(workspace.id)}
+								loadWarnings={workspaceLoadWarnings.get(workspace.id)}
 								onToggle={() => onWorkspaceToggle(workspace.id)}
 							/>
 						))

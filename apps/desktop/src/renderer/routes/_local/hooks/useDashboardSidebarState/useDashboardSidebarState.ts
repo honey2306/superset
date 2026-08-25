@@ -68,7 +68,6 @@ function getProjectTopLevelItems(
 			.filter(
 				(item) =>
 					item.sidebarState.projectId === projectId &&
-					isSidebarWorkspaceVisible(item) &&
 					item.sidebarState.sectionId === null &&
 					item.workspaceId !== options.excludeWorkspaceId,
 			)
@@ -150,7 +149,11 @@ function ensureSidebarWorkspaceRecord(
 	projectId: string,
 ): void {
 	const existing = collections.workspaceLocalState.get(workspaceId);
-	if (existing && isSidebarWorkspaceVisible(existing)) {
+	if (
+		existing &&
+		isSidebarWorkspaceVisible(existing) &&
+		existing.sidebarState.projectId === projectId
+	) {
 		return;
 	}
 
@@ -283,11 +286,7 @@ export function useDashboardSidebarState() {
 	const reorderWorkspacesInSectionByIndex = useCallback(
 		(sectionId: string, fromIndex: number, toIndex: number) => {
 			const rows = Array.from(collections.workspaceLocalState.state.values())
-				.filter(
-					(item) =>
-						item.sidebarState.sectionId === sectionId &&
-						isSidebarWorkspaceVisible(item),
-				)
+				.filter((item) => item.sidebarState.sectionId === sectionId)
 				.sort(
 					(left, right) =>
 						left.sidebarState.tabOrder - right.sidebarState.tabOrder,
@@ -342,7 +341,6 @@ export function useDashboardSidebarState() {
 				.filter(
 					(item) =>
 						item.sidebarState.projectId === projectId &&
-						isSidebarWorkspaceVisible(item) &&
 						item.workspaceId !== workspaceId &&
 						item.sidebarState.sectionId === sectionId,
 				)
@@ -471,7 +469,6 @@ export function useDashboardSidebarState() {
 				.filter(
 					(item) =>
 						item.sidebarState.projectId === projectId &&
-						isSidebarWorkspaceVisible(item) &&
 						item.workspaceId !== workspaceId &&
 						item.sidebarState.sectionId === sectionId,
 				)
@@ -544,7 +541,6 @@ export function useDashboardSidebarState() {
 				.filter(
 					(item) =>
 						item.sidebarState.projectId === section.projectId &&
-						isSidebarWorkspaceVisible(item) &&
 						item.sidebarState.sectionId === sectionId,
 				)
 				.sort(

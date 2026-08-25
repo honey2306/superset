@@ -9,6 +9,7 @@ import {
 	getMessagesInput,
 	getSessionInput,
 	getTranscriptInput,
+	listDelegationRunsInput,
 	listSessionsInput,
 	promptInput,
 	removeQueuedPromptInput,
@@ -17,8 +18,11 @@ import {
 	sendNowInput,
 	setConfigOptionInput,
 	setModeInput,
+	stopDelegationRunInput,
 } from "@superset/session-protocol";
 import { TRPCError } from "@trpc/server";
+import { desc, eq, or } from "drizzle-orm";
+import { delegationRuns } from "../../../db/schema";
 import {
 	AcpSessionDeadError,
 	AcpSessionNotFoundError,
@@ -73,6 +77,86 @@ export const acpSessionsRouter = router({
 				return { items: [], nextCursor: null, enabled: false };
 			}
 			return await ctx.runtime.acpSessions.list(input);
+		}),
+
+	/**
+	 * Delegation activity is workspace-scoped rather than tab-scoped. Include
+	 * both sides of the handoff so a child that outlives its parent tab remains
+	 * visible in the workspace Info rail.
+	 */
+	listDelegationRuns: protectedProcedure
+		.input(listDelegationRunsInput)
+		.query(({ ctx, input }) =>
+			ctx.db
+				.select()
+				.from(delegationRuns)
+				.where(
+					or(
+						eq(delegationRuns.parentWorkspaceId, input.workspaceId),
+						eq(delegationRuns.childWorkspaceId, input.workspaceId),
+					),
+				)
+				.orderBy(desc(delegationRuns.createdAt))
+				.limit(input.limit)
+				.all(),
+		),
+
+	/** Stop an active delegated child while retaining its durable activity row. */
+	stopDelegationRun: gatedProcedure
+		.input(stopDelegationRunInput)
+		.mutation(async ({ ctx, input }) => {
+			const run = ctx.db
+				.select()
+				.from(delegationRuns)
+				.where(eq(delegationRuns.id, input.runId))
+				.get();
+			if (!run) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `Delegation run not found: ${input.runId}`,
+				});
+			}
+
+			if (run.status === "creating" || run.status === "running") {
+				try {
+					await ctx.runtime.acpSessions.ensureLive(run.childSessionId);
+					await ctx.runtime.acpSessions.cancel({
+						sessionId: run.childSessionId,
+					});
+				} catch (error) {
+					// The child may have already exited or been closed from another
+					// surface. In that case the durable run still needs a terminal
+					// status instead of remaining a forever-running orphan.
+					if (
+						!(
+							error instanceof AcpSessionNotFoundError ||
+							error instanceof AcpSessionDeadError
+						)
+					) {
+						throw error;
+					}
+				}
+
+				ctx.db
+					.update(delegationRuns)
+					.set({
+						status: "cancelled",
+						completedAt: null,
+						failedAt: null,
+						failureMessage: null,
+						updatedAt: Date.now(),
+					})
+					.where(eq(delegationRuns.id, input.runId))
+					.run();
+			}
+
+			return (
+				ctx.db
+					.select()
+					.from(delegationRuns)
+					.where(eq(delegationRuns.id, input.runId))
+					.get() ?? run
+			);
 		}),
 
 	create: gatedProcedure

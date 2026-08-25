@@ -270,20 +270,22 @@ export function WorkspaceContextMenu({
 					{t("workspace.clearStatus")}
 				</ContextMenuItem>
 			)}
-			<ContextMenuSeparator />
-			<ContextMenuItem
-				onSelect={() => {
-					deleteDialogCoordinator.requestOpenDeleteDialog();
-				}}
-			>
-				<LuX className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-				{isBranchWorkspace
-					? t("workspace.close")
-					: t("workspace.closeWorktree")}
-				{showDeleteShortcut && (
-					<ContextMenuShortcut>{deleteHotkeyText}</ContextMenuShortcut>
-				)}
-			</ContextMenuItem>
+			{!isBranchWorkspace && (
+				<>
+					<ContextMenuSeparator />
+					<ContextMenuItem
+						onSelect={() => {
+							deleteDialogCoordinator.requestOpenDeleteDialog();
+						}}
+					>
+						<LuX className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+						{t("workspace.closeWorktree")}
+						{showDeleteShortcut && (
+							<ContextMenuShortcut>{deleteHotkeyText}</ContextMenuShortcut>
+						)}
+					</ContextMenuItem>
+				</>
+			)}
 		</>
 	);
 	if (isBranchWorkspace) {

@@ -24,6 +24,37 @@ describe("AcpMarkdown", () => {
 		expect(html).toContain("<code>code</code>");
 	});
 
+	it("renders strong text when a closing delimiter touches CJK text", () => {
+		const markdown =
+			"所以结论是：**运行时确实会简单很多；改造期需要一次性把路由字段、全局表和事务边界设计正确。**整体上比继续维护当前应用层五分片更合理。";
+
+		const html = renderToStaticMarkup(<AcpMarkdown>{markdown}</AcpMarkdown>);
+
+		expect(html).toContain(
+			"<strong>运行时确实会简单很多；改造期需要一次性把路由字段、全局表和事务边界设计正确。</strong>",
+		);
+		expect(html).not.toContain("**");
+	});
+
+	it("does not recover escaped strong delimiters", () => {
+		const markdown = String.raw`\*\*不是粗体\*\*整体仍是普通文本。`;
+
+		const html = renderToStaticMarkup(<AcpMarkdown>{markdown}</AcpMarkdown>);
+
+		expect(html).not.toContain("<strong>");
+		expect(html).toContain("**");
+	});
+
+	it("does not recover delimiters inside inline or fenced code", () => {
+		const markdown = "`**inline**整体`\n\n```text\n**fenced**整体\n```";
+
+		const html = renderToStaticMarkup(<AcpMarkdown>{markdown}</AcpMarkdown>);
+
+		expect(html).not.toContain("<strong>");
+		expect(html).toContain("**inline**整体");
+		expect(html).toContain("**fenced**整体");
+	});
+
 	it("linkifies plain and inline-code file paths with locations", () => {
 		const markdown = "Open docs/guide.md:12:4 or `apps/desktop/src/main.ts:8`.";
 		const html = renderToStaticMarkup(<AcpMarkdown>{markdown}</AcpMarkdown>);

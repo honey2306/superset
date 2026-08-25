@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	filterSlashCommands,
 	getSlashCommandSelectionBehavior,
+	parseSlashCommandArgumentOptions,
 	resolveCommandAction,
 	resolveSlashCommandArgumentOptions,
 	type SlashCommand,
@@ -92,6 +93,29 @@ describe("sortSlashCommandMatches", () => {
 });
 
 describe("slash command selection behavior", () => {
+	it("parses only simple pipe-delimited argument enums", () => {
+		expect(parseSlashCommandArgumentOptions("on|off|toggle")).toEqual([
+			"on",
+			"off",
+			"toggle",
+		]);
+		expect(
+			parseSlashCommandArgumentOptions("<default|plan|accept-edits>"),
+		).toEqual(["default", "plan", "accept-edits"]);
+	});
+
+	it("does not turn free-form or mixed usage hints into options", () => {
+		for (const hint of [
+			"[任务描述]",
+			"<query>",
+			"(no args to show) all | one-at-a-time",
+			"all | one-at-a-time (default)",
+			"<safe|needs more context>",
+		]) {
+			expect(parseSlashCommandArgumentOptions(hint)).toEqual([]);
+		}
+	});
+
 	it("opens a second-level picker for commands with enumerated options", () => {
 		const command = createCommand({ name: "mode", argumentHint: "<mode>" });
 		const composerCommand = {

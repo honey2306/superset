@@ -11,12 +11,14 @@ export function WorkspaceTree({
 	expanded,
 	loadState,
 	loadError,
+	loadWarnings,
 	onToggle,
 }: {
 	workspace: TreeWorkspace;
 	expanded: boolean;
 	loadState: WorkspaceContentsLoadState;
 	loadError?: string;
+	loadWarnings?: readonly string[];
 	onToggle: () => void;
 }) {
 	const activeCount = workspace.leaves.filter((leaf) => leaf.running).length;
@@ -58,6 +60,14 @@ export function WorkspaceTree({
 						{loadState === "error" ? (
 							<p className="mobile-tree-helper" role="alert">
 								{loadError ?? "Couldn’t load this workspace."}
+							</p>
+						) : null}
+						{loadState === "loaded" && loadWarnings?.length ? (
+							<p
+								className="mobile-tree-helper mobile-tree-warning"
+								aria-live="polite"
+							>
+								{loadWarnings.join(" ")}
 							</p>
 						) : null}
 						{loadState === "loaded"
