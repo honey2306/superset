@@ -16,6 +16,11 @@ import {
 	isAutoMateWebAppPath,
 } from "~/lib/automate-resume";
 import {
+	clearPairingAttempt,
+	getOrCreatePairingAttempt,
+	redeemPairingWithRetry,
+} from "~/lib/pairing-attempt";
+import {
 	AUTOMATE_PAIRING_LINK_REQUIRED_MESSAGE,
 	getPairingErrorMessage,
 } from "~/lib/pairing-error";
@@ -24,7 +29,12 @@ import { getTrpc, resetTrpc } from "~/lib/trpc-client";
 
 type PairState =
 	| { kind: "idle" }
-	| { kind: "pairing" }
+	| {
+			kind: "pairing";
+			status: "sending" | "retrying" | "timeout";
+			attempt: number;
+			maxAttempts: number;
+	  }
 	| { kind: "paired" }
 	| { kind: "error"; message: string };
 
@@ -62,13 +72,34 @@ export function PairRoute() {
 				setState({ kind: "error", message: "Enter a pairing code." });
 				return;
 			}
-			setState({ kind: "pairing" });
+			const pairingAttempt = getOrCreatePairingAttempt(nextCode);
+			setState({
+				kind: "pairing",
+				status: "sending",
+				attempt: 1,
+				maxAttempts: 3,
+			});
 			try {
-				resetTrpc();
-				const result = await getTrpc().phone.pairing.redeem.mutate({
-					code: nextCode.trim().toUpperCase(),
-					deviceLabel: navigator.userAgent.slice(0, 64),
-				});
+				const result = await redeemPairingWithRetry(
+					pairingAttempt,
+					async ({ code, redeemNonce }) => {
+						resetTrpc();
+						return getTrpc().phone.pairing.redeem.mutate({
+							code,
+							redeemNonce,
+							deviceLabel: navigator.userAgent.slice(0, 64),
+						});
+					},
+					{
+						onStatus: ({ kind, attempt, maxAttempts }) =>
+							setState({
+								kind: "pairing",
+								status: kind === "attempting" ? "sending" : kind,
+								attempt,
+								maxAttempts,
+							}),
+					},
+				);
 				const storedSession = {
 					token: result.token,
 					sessionId: result.sessionId,
@@ -78,6 +109,7 @@ export function PairRoute() {
 					relayMailboxId,
 				};
 				setStoredSession(storedSession);
+				clearPairingAttempt(pairingAttempt.code);
 				setState({ kind: "paired" });
 				setTimeout(() => {
 					const resumePath = getAutoMatePairSuccessPath(
@@ -155,7 +187,13 @@ export function PairRoute() {
 						onClick={() => void redeem(code)}
 						className="mobile-primary-button mt-4 w-full px-4 py-3 font-medium transition disabled:opacity-50"
 					>
-						{state.kind === "pairing" ? "Pairing…" : "Pair this phone"}
+						{state.kind === "pairing"
+							? state.status === "timeout"
+								? `Timed out; retrying (${state.attempt}/${state.maxAttempts})…`
+								: state.status === "retrying"
+									? `Retrying (${state.attempt}/${state.maxAttempts})…`
+									: "Pairing…"
+							: "Pair this phone"}
 					</button>
 				</div>
 			) : null}

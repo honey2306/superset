@@ -1,6 +1,7 @@
 import type { StoredSession } from "./auth-store";
 
 export const AUTOMATE_WEBAPP_PATH = "/webapp/16740";
+export const AUTOMATE_WEBAPP_VERSION = "acp3";
 const resumeRoutePrefix = "/r/";
 const sessionKeys = [
 	"token",
@@ -71,7 +72,7 @@ export function encodeAutoMateResumeSession(session: StoredSession): string {
 
 export function getAutoMateResumeUrl(session: StoredSession): string {
 	const route = `${resumeRoutePrefix}${encodeAutoMateResumeSession(session)}`;
-	return `${AUTOMATE_WEBAPP_PATH}#${route}`;
+	return `${AUTOMATE_WEBAPP_PATH}?v=${AUTOMATE_WEBAPP_VERSION}#${route}`;
 }
 
 export function decodeAutoMateResumeSession(
@@ -94,7 +95,7 @@ export function decodeAutoMateResumeSession(
 export function getAutoMateCleanPairPath(pathname: string): string {
 	return pathname === "/app" || pathname.startsWith("/app/")
 		? "/app/pair"
-		: `${AUTOMATE_WEBAPP_PATH}#/pair`;
+		: `${AUTOMATE_WEBAPP_PATH}?v=${AUTOMATE_WEBAPP_VERSION}#/pair`;
 }
 
 export function getAutoMatePairSuccessPath(

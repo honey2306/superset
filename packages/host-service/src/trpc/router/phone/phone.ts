@@ -35,6 +35,14 @@ export const phoneRouter = router({
 				z.object({
 					code: z.string().min(4).max(32),
 					deviceLabel: z.string().max(64).optional(),
+					// The phone persists this URL-safe retry key before calling the
+					// unauthenticated endpoint. Legacy desktop/test callers may omit it.
+					redeemNonce: z
+						.string()
+						.min(16)
+						.max(128)
+						.regex(/^[A-Za-z0-9_-]+$/)
+						.optional(),
 				}),
 			)
 			.mutation(async ({ ctx, input }) => {

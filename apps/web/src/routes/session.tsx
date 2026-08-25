@@ -1,4 +1,7 @@
-import type { ContentBlock } from "@superset/session-protocol";
+import {
+	type ContentBlock,
+	isAskUserPermission,
+} from "@superset/session-protocol";
 import {
 	useAcpPermissions,
 	useAcpSession,
@@ -19,7 +22,7 @@ export function SessionRoute() {
 		workspaceId: string;
 		sessionId: string;
 	}>();
-	const client = useMemo(() => createPhoneAcpClient(), []);
+	const client = useMemo(() => createPhoneAcpClient(sessionId), [sessionId]);
 	const streamUrl = useMemo(
 		() => (sessionId ? client.streamUrl(sessionId) : () => ""),
 		[client, sessionId],
@@ -41,6 +44,9 @@ export function SessionRoute() {
 
 	const running = session.state?.status === "running";
 	const awaitingPermission = session.state?.status === "awaiting_permission";
+	const awaitingResponse = permissions.pending.some((pending) =>
+		isAskUserPermission(pending, pending.toolCall),
+	);
 	const canQueue = running || awaitingPermission;
 
 	async function submit(text: string): Promise<void> {
@@ -115,7 +121,10 @@ export function SessionRoute() {
 			>
 				<TimelineView timeline={session.timeline} />
 				{running || awaitingPermission ? (
-					<WorkingIndicator awaitingPermission={awaitingPermission} />
+					<WorkingIndicator
+						awaitingPermission={awaitingPermission}
+						awaitingResponse={awaitingResponse}
+					/>
 				) : null}
 			</div>
 

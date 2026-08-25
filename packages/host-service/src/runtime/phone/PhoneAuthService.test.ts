@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { resolveRemoteAddress } from "../../app";
@@ -59,6 +60,97 @@ describe("PhoneAuthService", () => {
 		const row = fx.service.validateRawToken(result.token);
 		expect(row?.id).toBe(result.sessionId);
 		expect(row?.deviceLabel).toBe("iPhone");
+	});
+
+	test("returns the same credentials when a response-lost redeem is retried", async () => {
+		const { code } = fx.service.mintPairingCode();
+		const redeemNonce = "0123456789abcdefghijklmnop";
+		const first = await fx.service.redeemPairingCode({ code, redeemNonce });
+		fx.db
+			.update(schema.phonePairingCodes)
+			.set({ expiresAt: Date.now() - 1 })
+			.where(eq(schema.phonePairingCodes.code, code))
+			.run();
+		const retry = await fx.service.redeemPairingCode({ code, redeemNonce });
+
+		expect(retry).toEqual(first);
+		expect(fx.service.listSessions()).toHaveLength(1);
+	});
+
+	test("concurrent redeems with one nonce share the winning session", async () => {
+		const { code } = fx.service.mintPairingCode();
+		const redeemNonce = "same-nonce-for-concurrent-retries";
+		const results = await Promise.all(
+			Array.from({ length: 8 }, () =>
+				fx.service.redeemPairingCode({ code, redeemNonce }),
+			),
+		);
+
+		expect(new Set(results.map((result) => result.token)).size).toBe(1);
+		expect(new Set(results.map((result) => result.sessionId)).size).toBe(1);
+		expect(new Set(results.map((result) => result.expiresAt)).size).toBe(1);
+		expect(fx.service.listSessions()).toHaveLength(1);
+	});
+
+	test("only one of two different nonces wins and the loser is cleaned up", async () => {
+		const { code } = fx.service.mintPairingCode();
+		const results = await Promise.allSettled([
+			fx.service.redeemPairingCode({
+				code,
+				redeemNonce: "nonce-a-with-enough-entropy",
+			}),
+			fx.service.redeemPairingCode({
+				code,
+				redeemNonce: "nonce-b-with-enough-entropy",
+			}),
+		]);
+
+		expect(
+			results.filter((result) => result.status === "fulfilled"),
+		).toHaveLength(1);
+		expect(
+			results.filter((result) => result.status === "rejected"),
+		).toHaveLength(1);
+		expect(fx.service.listSessions()).toHaveLength(1);
+	});
+
+	test("does not idempotently redeem a revoked or expired derived session", async () => {
+		const { code } = fx.service.mintPairingCode();
+		const redeemNonce = "revoked-session-retry-nonce";
+		const first = await fx.service.redeemPairingCode({ code, redeemNonce });
+		fx.service.revoke(first.sessionId);
+		await expect(
+			fx.service.redeemPairingCode({ code, redeemNonce }),
+		).rejects.toThrow(/invalid or has expired/i);
+
+		const secondFixture = boot();
+		try {
+			const secondCode = secondFixture.service.mintPairingCode().code;
+			const second = await secondFixture.service.redeemPairingCode({
+				code: secondCode,
+				redeemNonce: "expired-session-retry-nonce",
+			});
+			secondFixture.db
+				.update(schema.phoneSessions)
+				.set({ expiresAt: Date.now() - 1 })
+				.where(eq(schema.phoneSessions.id, second.sessionId))
+				.run();
+			await expect(
+				secondFixture.service.redeemPairingCode({
+					code: secondCode,
+					redeemNonce: "expired-session-retry-nonce",
+				}),
+			).rejects.toThrow(/invalid or has expired/i);
+		} finally {
+			secondFixture.dispose();
+		}
+	});
+
+	test("rejects a nonce that is too short or not URL-safe", async () => {
+		const { code } = fx.service.mintPairingCode();
+		await expect(
+			fx.service.redeemPairingCode({ code, redeemNonce: "too-short" }),
+		).rejects.toThrow(/redeemNonce/i);
 	});
 
 	test("rejects unknown pairing codes", async () => {

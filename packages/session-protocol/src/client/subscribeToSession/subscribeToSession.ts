@@ -38,7 +38,7 @@ export interface SubscribeToSessionOptions {
 	 */
 	onReset?: (reason: string) => void;
 	onStatus?: (status: StreamStatus) => void;
-	/** Fired when a seq gap is detected, right before auto-reconnect. */
+	/** Fired when a seq gap is detected, right before the subscription resets. */
 	onGap?: (info: { expected: number; received: number }) => void;
 	/** Injectable for tests / non-global WebSocket environments. */
 	createWebSocket?: (url: string) => WebSocketLike;
@@ -146,7 +146,12 @@ export function subscribeToSession(
 			if (envelope.seq <= lastSeq) return; // at-least-once dedup
 			if (envelope.seq > lastSeq + 1) {
 				onGap?.({ expected: lastSeq + 1, received: envelope.seq });
-				reconnectCurrentSocket();
+				// Reconnecting with the same cursor cannot repair a missing journal
+				// item. If the relay cursor survived while the message body expired,
+				// that loop would reconnect forever and never let the caller fetch a
+				// snapshot. Stop exactly once and let the hook resync from get + history.
+				stop();
+				onReset?.("sequence_gap");
 				return;
 			}
 		}

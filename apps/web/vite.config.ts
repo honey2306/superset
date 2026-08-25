@@ -14,23 +14,13 @@ import { defineConfig, loadEnv } from "vite";
  */
 export default defineConfig(({ mode }) => {
 	const isAutoMateBuild = mode === "automate";
-	const automateRelayUrl = loadEnv(
-		mode,
-		process.cwd(),
-		"VITE_",
-	).VITE_AUTOMATE_RELAY_URL;
-	if (isAutoMateBuild && !automateRelayUrl) {
-		throw new Error(
-			"VITE_AUTOMATE_RELAY_URL is required for the AutoMate build",
-		);
-	}
+	const automateEnv = loadEnv(mode, process.cwd(), "VITE_");
+	const legacyAutomateRelayUrl = automateEnv.VITE_AUTOMATE_RELAY_URL;
 	if (isAutoMateBuild) {
-		try {
-			if (new URL(automateRelayUrl).protocol !== "wss:") {
-				throw new Error("invalid protocol");
-			}
-		} catch {
-			throw new Error("VITE_AUTOMATE_RELAY_URL must be a valid wss:// URL");
+		if (legacyAutomateRelayUrl) {
+			throw new Error(
+				"VITE_AUTOMATE_RELAY_URL is not allowed in the AutoMate browser build; task 16740 owns the credentialed relay call",
+			);
 		}
 	}
 

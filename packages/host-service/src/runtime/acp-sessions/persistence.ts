@@ -102,6 +102,16 @@ export interface AcpSessionPersistence {
 	appendEnvelope(envelope: SessionUpdateEnvelope): void;
 	/** True only for the first delivery of a client-generated command id. */
 	reserveCommand(sessionId: string, commandId: string): boolean;
+	/**
+	 * Atomically reserve a command and append its recovery envelope. Production
+	 * persistence implements this so a Host crash cannot split admission from
+	 * the payload needed to recover it. Test/legacy implementations may omit it.
+	 */
+	reserveCommandAndAppendEnvelope?(
+		sessionId: string,
+		commandId: string,
+		envelope: SessionUpdateEnvelope,
+	): boolean;
 	releaseCommand(sessionId: string, commandId: string): void;
 	deleteSession(sessionId: string): void;
 }
@@ -199,6 +209,31 @@ export class SqliteAcpSessionPersistence
 			.onConflictDoNothing()
 			.run();
 		return result.changes > 0;
+	}
+
+	reserveCommandAndAppendEnvelope(
+		sessionId: string,
+		commandId: string,
+		envelope: SessionUpdateEnvelope,
+	): boolean {
+		return this.db.transaction((tx) => {
+			const reserved = tx
+				.insert(acpSessionCommands)
+				.values({ sessionId, commandId, createdAt: Date.now() })
+				.onConflictDoNothing()
+				.run();
+			if (reserved.changes === 0) return false;
+			tx.insert(acpSessionJournal)
+				.values({
+					sessionId: envelope.sessionId,
+					epoch: envelope.epoch,
+					seq: envelope.seq,
+					ts: envelope.ts,
+					frameJson: JSON.stringify(envelope.frame),
+				})
+				.run();
+			return true;
+		});
 	}
 
 	releaseCommand(sessionId: string, commandId: string): void {

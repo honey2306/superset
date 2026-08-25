@@ -19,7 +19,7 @@
  * scrubbing, concurrent turns, graveyard eviction, and list pagination.
  */
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -282,6 +282,58 @@ describe("acp-sessions e2e (fake adapter)", () => {
 			strictModel: true,
 		});
 		expect(configValue(created, "model")).toBe("claude-sonnet-4-5");
+	});
+
+	test("reports an unavailable workspace cwd before spawn and remains usable", async () => {
+		const missingCwd = path.join(workspaceDir, "missing-workspace-cwd");
+		let cwd = missingCwd;
+		const manager = new AcpSessionManager({
+			resolveWorkspaceCwd: () => cwd,
+			adapterEntry: FAKE_ADAPTER,
+		});
+		managers.push(manager);
+
+		await expect(
+			manager.create({
+				sessionId: "e2e-missing-workspace-cwd",
+				workspaceId: WORKSPACE_ID,
+			}),
+		).rejects.toThrow(/workspace.*cwd.*does not exist/i);
+
+		cwd = workspaceDir;
+		await expect(
+			manager.create({
+				sessionId: "e2e-after-missing-workspace-cwd",
+				workspaceId: WORKSPACE_ID,
+			}),
+		).resolves.toMatchObject({ cwd: workspaceDir, status: "idle" });
+	});
+
+	test("contains an asynchronous adapter spawn error and remains usable", async () => {
+		const brokenAdapter = path.join(workspaceDir, "broken-acp-adapter");
+		writeFileSync(brokenAdapter, "#!/definitely/missing/acp-interpreter\n");
+		chmodSync(brokenAdapter, 0o755);
+		const manager = new AcpSessionManager({
+			resolveWorkspaceCwd: () => workspaceDir,
+			adapterEntry: FAKE_ADAPTER,
+			myflickerAdapterCommand: brokenAdapter,
+		});
+		managers.push(manager);
+
+		await expect(
+			manager.create({
+				sessionId: "e2e-broken-adapter",
+				workspaceId: WORKSPACE_ID,
+				harness: "myflicker-acp",
+			}),
+		).rejects.toThrow("Failed to start myflicker-acp ACP adapter:");
+
+		await expect(
+			manager.create({
+				sessionId: "e2e-after-broken-adapter",
+				workspaceId: WORKSPACE_ID,
+			}),
+		).resolves.toMatchObject({ cwd: workspaceDir, status: "idle" });
 	});
 
 	test("host plan updates are journaled and broadcast to subscribers", async () => {
@@ -2153,6 +2205,131 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		);
 		expect(text.indexOf("cut-in")).toBeGreaterThanOrEqual(0);
 		expect(text.indexOf("tail")).toBeGreaterThan(text.indexOf("cut-in"));
+	}, 30_000);
+
+	test("commandId makes prompt, enqueuePrompt, and sendNow idempotent", async () => {
+		const reserved = new Set<string>();
+		const persistence: AcpSessionPersistence = {
+			loadAll: () => [],
+			upsert: () => {},
+			loadJournal: () => [],
+			appendEnvelope: () => {},
+			reserveCommand: (_sessionId, commandId) => {
+				if (reserved.has(commandId)) return false;
+				reserved.add(commandId);
+				return true;
+			},
+			releaseCommand: (_sessionId, commandId) => {
+				reserved.delete(commandId);
+			},
+			deleteSession: () => {},
+		};
+		const manager = new AcpSessionManager({
+			resolveWorkspaceCwd: () => workspaceDir,
+			adapterEntry: FAKE_ADAPTER,
+			persistence,
+		});
+		managers.push(manager);
+		const promptSession = "e2e-command-id-prompt";
+		await manager.create({
+			sessionId: promptSession,
+			workspaceId: WORKSPACE_ID,
+		});
+		const firstPrompt = manager.prompt({
+			sessionId: promptSession,
+			commandId: "phone-prompt-command",
+			prompt: [{ type: "text", text: "say prompt-once" }],
+		});
+		const duplicatePrompt = manager.prompt({
+			sessionId: promptSession,
+			commandId: "phone-prompt-command",
+			prompt: [{ type: "text", text: "say prompt-once" }],
+		});
+		expect(await firstPrompt.turn).toEqual({ stopReason: "end_turn" });
+		expect(await duplicatePrompt.turn).toEqual({ stopReason: "end_turn" });
+
+		const enqueueSession = "e2e-command-id-enqueue";
+		await manager.create({
+			sessionId: enqueueSession,
+			workspaceId: WORKSPACE_ID,
+		});
+		const enqueueHang = manager.prompt({
+			sessionId: enqueueSession,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		enqueueHang.turn.catch(() => {});
+		await waitForHangReady(manager, enqueueSession);
+		const firstEnqueue = manager.enqueuePrompt({
+			sessionId: enqueueSession,
+			commandId: "phone-enqueue-command",
+			prompt: [{ type: "text", text: "say queued-once" }],
+		});
+		const duplicateEnqueue = manager.enqueuePrompt({
+			sessionId: enqueueSession,
+			commandId: "phone-enqueue-command",
+			prompt: [{ type: "text", text: "say queued-once" }],
+		});
+		expect(duplicateEnqueue).toEqual(firstEnqueue);
+		expect(manager.get(enqueueSession).queuedPrompts).toHaveLength(1);
+		await manager.cancel({ sessionId: enqueueSession });
+		await enqueueHang.turn.catch(() => {});
+		await waitFor(
+			() =>
+				manager.get(enqueueSession).status === "idle" &&
+				manager.get(enqueueSession).queuedPrompts.length === 0,
+			5_000,
+			"idempotent enqueue to drain",
+		);
+
+		const sendNowSession = "e2e-command-id-send-now";
+		await manager.create({
+			sessionId: sendNowSession,
+			workspaceId: WORKSPACE_ID,
+		});
+		const sendNowHang = manager.prompt({
+			sessionId: sendNowSession,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		sendNowHang.turn.catch(() => {});
+		await waitForHangReady(manager, sendNowSession);
+		const firstSendNow = manager.sendNow({
+			sessionId: sendNowSession,
+			commandId: "phone-send-now-command",
+			prompt: [{ type: "text", text: "say send-once" }],
+		});
+		const duplicateSendNow = manager.sendNow({
+			sessionId: sendNowSession,
+			commandId: "phone-send-now-command",
+			prompt: [{ type: "text", text: "say send-once" }],
+		});
+		expect(await firstSendNow).toEqual({ accepted: true });
+		expect(await duplicateSendNow).toEqual({ accepted: true });
+		await sendNowHang.turn.catch(() => {});
+		await waitFor(
+			() =>
+				manager.get(sendNowSession).status === "idle" &&
+				manager.get(sendNowSession).queuedPrompts.length === 0,
+			5_000,
+			"idempotent sendNow to drain",
+		);
+
+		for (const sessionId of [promptSession, enqueueSession, sendNowSession]) {
+			const text = manager
+				.getMessages({ sessionId, limit: 200 })
+				.items.filter(
+					(envelope) =>
+						envelope.frame.kind === "update" &&
+						envelope.frame.update.sessionUpdate === "user_message_chunk",
+				)
+				.map((envelope) =>
+					envelope.frame.kind === "update" &&
+					envelope.frame.update.content.type === "text"
+						? envelope.frame.update.content.text
+						: "",
+				)
+				.join(" ");
+			expect(text.match(/prompt-once|queued-once|send-once/g)?.length).toBe(1);
+		}
 	}, 30_000);
 
 	test("reorderQueue full-list, edit, and remove reshape the queue", async () => {

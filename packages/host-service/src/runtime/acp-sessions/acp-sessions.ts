@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { accessSync, constants, existsSync } from "node:fs";
+import { accessSync, constants, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -27,6 +27,9 @@ import type {
 	PermissionOption,
 	PromptAccepted,
 	QueuedPrompt,
+	RemoteCommandFrame,
+	RemoteCommandOperation,
+	RemoteCommandOutcome,
 	RequestPermissionOutcome,
 	RequestPermissionRequest,
 	RequestPermissionResponse,
@@ -56,7 +59,11 @@ import {
 	selectedOptionIds,
 } from "@superset/session-protocol";
 import type { AcpArtifactStore } from "./artifact-store";
-import { SessionJournal } from "./journal";
+import {
+	orderReplayedRemoteQueue,
+	replayRemoteCommands,
+	SessionJournal,
+} from "./journal";
 import type { AcpSessionPersistence, AcpSessionRecord } from "./persistence";
 import { piExtensionUiPermissionPresentation } from "./pi-extension-ui";
 import type {
@@ -362,6 +369,48 @@ function isExecutablePath(candidate: string): boolean {
 }
 
 /**
+ * `child_process.spawn` reports an invalid cwd as an asynchronous ENOENT. In
+ * practice that error names the adapter executable, which leaves callers with
+ * a misleading "ACP connection closed" and can take down the daemon when no
+ * child error listener has been attached yet. Validate the workspace boundary
+ * before creating the child so a create request can explain what is broken.
+ */
+function assertWorkspaceCwd(cwd: string, workspaceId: string): void {
+	let stats: ReturnType<typeof statSync>;
+	try {
+		stats = statSync(cwd);
+	} catch (error) {
+		const code =
+			typeof error === "object" &&
+			error !== null &&
+			"code" in error &&
+			typeof error.code === "string"
+				? error.code
+				: undefined;
+		const reason =
+			code === "ENOENT" || code === "ENOTDIR"
+				? "does not exist"
+				: "is unavailable";
+		throw new Error(`Workspace "${workspaceId}" cwd ${reason}: ${cwd}`, {
+			cause: error,
+		});
+	}
+	if (!stats.isDirectory()) {
+		throw new Error(
+			`Workspace "${workspaceId}" cwd is not a directory: ${cwd}`,
+		);
+	}
+	try {
+		accessSync(cwd, constants.R_OK | constants.X_OK);
+	} catch (error) {
+		throw new Error(
+			`Workspace "${workspaceId}" cwd is not accessible: ${cwd}`,
+			{ cause: error },
+		);
+	}
+}
+
+/**
  * Claude ACP intentionally relies on the user's installed Claude Code CLI.
  * The packaged bridge includes the SDK JavaScript API, but never Anthropic's
  * SDK-provided fallback binary.
@@ -648,6 +697,10 @@ export class AcpSessionManager {
 	private readonly runtimes = new Map<string, AcpSessionRuntime>();
 	private readonly creations = new Map<string, InflightCreation>();
 	private readonly transcriptCache = new Map<string, TranscriptCacheEntry>();
+	/** Command ids for queued prompts are carried into the eventual prompt. */
+	private readonly queuedCommandIds = new Map<string, string>();
+	/** Command ids parked by sendNow until the current turn settles. */
+	private readonly pendingSendNowCommandIds = new Map<string, string>();
 	/**
 	 * Sessions known from the persisted registry with no adapter process
 	 * attached. Seeded once at construction; entries leave only by successful
@@ -928,10 +981,60 @@ export class AcpSessionManager {
 		accepted: true;
 		turn: Promise<{ stopReason: StopReason }>;
 	} {
+		if (!input.commandId) return this.promptInternal(input, false);
+		const runtime = this.requireLive(input.sessionId);
+		const enqueuedAt = Date.now();
+		const reserved = this.reserveAndJournalRemoteCommand(runtime, {
+			commandId: input.commandId,
+			operation: "prompt",
+			status: "queued",
+			prompt: [...input.prompt],
+			queueId: input.commandId,
+			enqueuedAt,
+		});
+		if (!reserved) {
+			return {
+				accepted: true,
+				turn: Promise.resolve({ stopReason: "end_turn" }),
+			};
+		}
+		this.journalRemoteCommand(runtime, {
+			commandId: input.commandId,
+			operation: "prompt",
+			status: "started",
+			prompt: [...input.prompt],
+			queueId: input.commandId,
+			enqueuedAt,
+		});
+		const accepted = this.promptInternal(input, true);
+		this.finishRemoteCommand(
+			runtime,
+			input.commandId,
+			"prompt",
+			input.prompt,
+			input.commandId,
+			enqueuedAt,
+			"admitted",
+		);
+		return accepted;
+	}
+
+	private promptInternal(
+		input: {
+			sessionId: string;
+			commandId?: string;
+			prompt: ContentBlock[];
+		},
+		commandAlreadyReserved: boolean,
+	): {
+		accepted: true;
+		turn: Promise<{ stopReason: StopReason }>;
+	} {
 		const runtime = this.requireLive(input.sessionId);
 		if (
 			input.commandId &&
 			this.persistence &&
+			!commandAlreadyReserved &&
 			!this.persistence.reserveCommand(input.sessionId, input.commandId)
 		) {
 			// The original admission is durable. A retry can safely return the
@@ -951,6 +1054,7 @@ export class AcpSessionManager {
 			const envelope = this.journalFrame(runtime, {
 				kind: "update",
 				update: { sessionUpdate: "user_message_chunk", content: block },
+				...(input.commandId ? { commandId: input.commandId } : {}),
 			});
 			if (promptStartSeq === 0) {
 				promptStartSeq = envelope.seq;
@@ -980,7 +1084,7 @@ export class AcpSessionManager {
 				return { stopReason: response.stopReason };
 			})
 			.catch((error: unknown) => {
-				if (input.commandId && !runtime.closed) {
+				if (input.commandId && !runtime.closed && !commandAlreadyReserved) {
 					// Admission failed, so a later retry must be allowed to try again.
 					// While the turn is live the durable reservation suppresses dupes.
 					this.persistence?.releaseCommand(input.sessionId, input.commandId);
@@ -1035,11 +1139,28 @@ export class AcpSessionManager {
 	}): EnqueuePromptResult {
 		const runtime = this.requireLive(input.sessionId);
 		const queued: QueuedPrompt = {
-			queueId: randomUUID(),
+			queueId: input.commandId ?? randomUUID(),
 			prompt: [...input.prompt],
 			enqueuedAt: Date.now(),
 		};
+		if (input.commandId) {
+			const reserved = this.reserveAndJournalRemoteCommand(runtime, {
+				commandId: input.commandId,
+				operation: "enqueuePrompt",
+				status: "queued",
+				prompt: [...queued.prompt],
+				queueId: queued.queueId,
+				enqueuedAt: queued.enqueuedAt,
+			});
+			if (!reserved) return { queueId: input.commandId };
+		}
 		runtime.state.queuedPrompts.push(queued);
+		if (input.commandId) {
+			this.queuedCommandIds.set(
+				`${input.sessionId}:${queued.queueId}`,
+				input.commandId,
+			);
+		}
 		this.emitState(runtime);
 		if (runtime.activePromptCount === 0 && !runtime.pendingSendNow) {
 			this.drainQueue(runtime);
@@ -1060,18 +1181,113 @@ export class AcpSessionManager {
 		prompt: ContentBlock[];
 	}): Promise<PromptAccepted> {
 		const runtime = this.requireLive(input.sessionId);
-		if (runtime.activePromptCount === 0) {
-			this.prompt(input);
+		if (
+			input.commandId &&
+			this.pendingSendNowCommandIds.get(input.sessionId) === input.commandId
+		) {
 			return { accepted: true };
 		}
-		runtime.pendingSendNow = {
-			queueId: randomUUID(),
+		if (runtime.activePromptCount === 0) {
+			const enqueuedAt = Date.now();
+			if (input.commandId) {
+				const reserved = this.reserveAndJournalRemoteCommand(runtime, {
+					commandId: input.commandId,
+					operation: "sendNow",
+					status: "queued",
+					prompt: [...input.prompt],
+					queueId: input.commandId,
+					enqueuedAt,
+				});
+				if (!reserved) return { accepted: true };
+				this.journalRemoteCommand(runtime, {
+					commandId: input.commandId,
+					operation: "sendNow",
+					status: "started",
+					prompt: [...input.prompt],
+					queueId: input.commandId,
+					enqueuedAt,
+				});
+			}
+			this.promptInternal(input, input.commandId !== undefined);
+			if (input.commandId) {
+				this.finishRemoteCommand(
+					runtime,
+					input.commandId,
+					"sendNow",
+					input.prompt,
+					input.commandId,
+					enqueuedAt,
+					"admitted",
+				);
+			}
+			return { accepted: true };
+		}
+		const parkedPrompt: QueuedPrompt = {
+			queueId: input.commandId ?? randomUUID(),
 			prompt: [...input.prompt],
 			enqueuedAt: Date.now(),
 		};
+		if (input.commandId) {
+			const reserved = this.reserveAndJournalRemoteCommand(runtime, {
+				commandId: input.commandId,
+				operation: "sendNow",
+				status: "queued",
+				prompt: [...parkedPrompt.prompt],
+				queueId: parkedPrompt.queueId,
+				enqueuedAt: parkedPrompt.enqueuedAt,
+			});
+			if (!reserved) return { accepted: true };
+		}
+		const previousCommandId = this.pendingSendNowCommandIds.get(
+			input.sessionId,
+		);
+		if (previousCommandId && previousCommandId !== input.commandId) {
+			const previousPrompt = runtime.pendingSendNow;
+			this.finishRemoteCommand(
+				runtime,
+				previousCommandId,
+				"sendNow",
+				previousPrompt?.prompt ?? [],
+				previousPrompt?.queueId ?? previousCommandId,
+				previousPrompt?.enqueuedAt ?? parkedPrompt.enqueuedAt,
+				"superseded",
+			);
+		}
+		runtime.pendingSendNow = parkedPrompt;
+		if (input.commandId) {
+			this.pendingSendNowCommandIds.set(input.sessionId, input.commandId);
+		}
 		// The user asked to "cut the line" — cancel the current turn. The
 		// prompt-settle hook will fire pendingSendNow before any tail item.
-		await this.cancel({ sessionId: input.sessionId });
+		try {
+			await this.cancel({ sessionId: input.sessionId });
+		} catch (error) {
+			// A newer sendNow may have replaced this parked prompt while cancel was
+			// in flight. Only roll back the prompt and map entry owned by this call;
+			// otherwise the older failure would erase the newer accepted command.
+			if (runtime.pendingSendNow === parkedPrompt) {
+				runtime.pendingSendNow = null;
+				if (
+					input.commandId &&
+					this.pendingSendNowCommandIds.get(input.sessionId) === input.commandId
+				) {
+					this.pendingSendNowCommandIds.delete(input.sessionId);
+				}
+			}
+			if (input.commandId) {
+				this.finishRemoteCommand(
+					runtime,
+					input.commandId,
+					"sendNow",
+					parkedPrompt.prompt,
+					parkedPrompt.queueId,
+					parkedPrompt.enqueuedAt,
+					"failed",
+				);
+				this.persistence?.releaseCommand(input.sessionId, input.commandId);
+			}
+			throw error;
+		}
 		return { accepted: true };
 	}
 
@@ -1112,11 +1328,29 @@ export class AcpSessionManager {
 
 	removeQueuedPrompt(input: { sessionId: string; queueId: string }): void {
 		const runtime = this.requireLive(input.sessionId);
+		const removed = runtime.state.queuedPrompts.find(
+			(entry) => entry.queueId === input.queueId,
+		);
 		const before = runtime.state.queuedPrompts.length;
 		runtime.state.queuedPrompts = runtime.state.queuedPrompts.filter(
 			(entry) => entry.queueId !== input.queueId,
 		);
 		if (runtime.state.queuedPrompts.length !== before) {
+			const commandId = this.queuedCommandIds.get(
+				`${input.sessionId}:${input.queueId}`,
+			);
+			if (commandId && removed) {
+				this.finishRemoteCommand(
+					runtime,
+					commandId,
+					"enqueuePrompt",
+					removed.prompt,
+					removed.queueId,
+					removed.enqueuedAt,
+					"removed",
+				);
+			}
+			this.queuedCommandIds.delete(`${input.sessionId}:${input.queueId}`);
 			this.emitState(runtime);
 		}
 	}
@@ -1154,6 +1388,19 @@ export class AcpSessionManager {
 		);
 		if (!entry) return;
 		entry.prompt = [...input.prompt];
+		const commandId = this.queuedCommandIds.get(
+			`${input.sessionId}:${input.queueId}`,
+		);
+		if (commandId) {
+			this.journalRemoteCommand(runtime, {
+				commandId,
+				operation: "enqueuePrompt",
+				status: "queued",
+				prompt: [...entry.prompt],
+				queueId: entry.queueId,
+				enqueuedAt: entry.enqueuedAt,
+			});
+		}
 		this.emitState(runtime);
 	}
 
@@ -1162,7 +1409,37 @@ export class AcpSessionManager {
 		if (runtime.state.queuedPrompts.length === 0 && !runtime.pendingSendNow) {
 			return;
 		}
+		for (const queued of runtime.state.queuedPrompts) {
+			const commandId = this.queuedCommandIds.get(
+				`${input.sessionId}:${queued.queueId}`,
+			);
+			if (commandId) {
+				this.finishRemoteCommand(
+					runtime,
+					commandId,
+					"enqueuePrompt",
+					queued.prompt,
+					queued.queueId,
+					queued.enqueuedAt,
+					"cleared",
+				);
+			}
+			this.queuedCommandIds.delete(`${input.sessionId}:${queued.queueId}`);
+		}
+		const pendingCommandId = this.pendingSendNowCommandIds.get(input.sessionId);
+		if (pendingCommandId && runtime.pendingSendNow) {
+			this.finishRemoteCommand(
+				runtime,
+				pendingCommandId,
+				"sendNow",
+				runtime.pendingSendNow.prompt,
+				runtime.pendingSendNow.queueId,
+				runtime.pendingSendNow.enqueuedAt,
+				"cleared",
+			);
+		}
 		runtime.state.queuedPrompts = [];
+		this.pendingSendNowCommandIds.delete(input.sessionId);
 		runtime.pendingSendNow = null;
 		this.emitState(runtime);
 	}
@@ -1185,6 +1462,28 @@ export class AcpSessionManager {
 			runtime.state.queuedPrompts = runtime.state.queuedPrompts.slice(1);
 		}
 		if (!next) return;
+		const commandKey = `${runtime.state.sessionId}:${next.queueId}`;
+		const commandId = pending
+			? this.pendingSendNowCommandIds.get(runtime.state.sessionId)
+			: this.queuedCommandIds.get(commandKey);
+		const operation: RemoteCommandOperation = pending
+			? "sendNow"
+			: "enqueuePrompt";
+		if (pending) {
+			this.pendingSendNowCommandIds.delete(runtime.state.sessionId);
+		} else {
+			this.queuedCommandIds.delete(commandKey);
+		}
+		if (commandId) {
+			this.journalRemoteCommand(runtime, {
+				commandId,
+				operation,
+				status: "started",
+				prompt: [...next.prompt],
+				queueId: next.queueId,
+				enqueuedAt: next.enqueuedAt,
+			});
+		}
 		this.emitState(runtime);
 		// `prompt` is fire-and-forget from here; its own finally hook keeps
 		// draining down the chain. Detach on the microtask queue so a synchronous
@@ -1193,14 +1492,30 @@ export class AcpSessionManager {
 		// bookkeeping in the wrong order.
 		queueMicrotask(() => {
 			try {
-				this.prompt({
-					sessionId: runtime.state.sessionId,
-					prompt: next.prompt,
-				});
+				this.promptInternal(
+					{
+						sessionId: runtime.state.sessionId,
+						prompt: next.prompt,
+						...(commandId ? { commandId } : {}),
+					},
+					commandId !== undefined,
+				);
+				if (commandId) {
+					this.finishRemoteCommand(
+						runtime,
+						commandId,
+						operation,
+						next.prompt,
+						next.queueId,
+						next.enqueuedAt,
+						"admitted",
+					);
+				}
 			} catch (error) {
 				// The session may have gone offline / dead between settle and drain.
-				// A queued prompt that no longer has a live target is dropped; the
-				// state emit above already showed it as removed from the queue.
+				// Keep the started frame unfinished: if the Host crashes after this
+				// boundary and before the command-tagged user update, replay restores
+				// the exact prompt instead of losing it.
 				console.warn("[acp-sessions] queue drain skipped", error);
 			}
 		});
@@ -1296,6 +1611,10 @@ export class AcpSessionManager {
 			}
 			runtime.pendingResolvers.clear();
 			runtime.state.pendingPermissions = [];
+			for (const queued of runtime.state.queuedPrompts) {
+				this.queuedCommandIds.delete(`${sessionId}:${queued.queueId}`);
+			}
+			this.pendingSendNowCommandIds.delete(sessionId);
 			runtime.state.queuedPrompts = [];
 			runtime.pendingSendNow = null;
 			try {
@@ -1590,6 +1909,7 @@ export class AcpSessionManager {
 	): Promise<AcpSessionRuntime> {
 		let epoch = resume?.epoch ?? randomUUID();
 		let durableEntries: SessionUpdateEnvelope[] = [];
+		let restoredQueuedCommands = replayRemoteCommands([]);
 		let persistedPiFirstUserMessageSeq: number | null = null;
 		if (resume && this.persistence) {
 			try {
@@ -1613,7 +1933,15 @@ export class AcpSessionManager {
 				epoch = randomUUID();
 			}
 		}
+		if (durableEntries.length > 0) {
+			const replayed = replayRemoteCommands(durableEntries);
+			restoredQueuedCommands = {
+				queued: orderReplayedRemoteQueue(replayed.queued, durableEntries),
+				sendNow: replayed.sendNow,
+			};
+		}
 		const cwd = await this.resolveWorkspaceCwd(workspaceId);
+		assertWorkspaceCwd(cwd, workspaceId);
 		const mcpServers = [
 			...this.mcpServers,
 			...(this.mcpServerFactory?.({ sessionId, workspaceId, cwd, role }) ?? []),
@@ -1703,6 +2031,28 @@ export class AcpSessionManager {
 			env,
 			stdio: ["pipe", "pipe", "pipe"],
 		});
+		// spawn reports ENOENT/EACCES asynchronously. Always consume this event
+		// before any ACP request so a bad adapter can reject this create without
+		// becoming an uncaught exception in the long-lived daemon process.
+		let spawnError: Error | null = null;
+		let resolveSpawnError!: () => void;
+		const spawnErrorSettled = new Promise<void>((resolve) => {
+			resolveSpawnError = resolve;
+		});
+		let rejectSpawnError: ((error: Error) => void) | undefined;
+		const spawnErrorPromise = new Promise<never>((_, reject) => {
+			rejectSpawnError = reject;
+		});
+		let closeConnectionWithSpawnError: ((error: Error) => void) | undefined;
+		// The promise is intentionally shared by startup requests and remains
+		// handled after a successful startup in case a later child error arrives.
+		void spawnErrorPromise.catch(() => {});
+		child.once("error", (error) => {
+			spawnError = error;
+			resolveSpawnError();
+			rejectSpawnError?.(error);
+			closeConnectionWithSpawnError?.(error);
+		});
 		if (!child.stdin || !child.stdout) {
 			child.kill();
 			throw new Error("adapter child process is missing stdio pipes");
@@ -1777,21 +2127,26 @@ export class AcpSessionManager {
 			Readable.toWeb(child.stdout) as unknown as ReadableStream<Uint8Array>,
 		);
 		const connection = app.connect(stream);
+		closeConnectionWithSpawnError = (error) => connection.close(error);
+		const requestDuringStartup = <T>(request: Promise<T>): Promise<T> =>
+			Promise.race([request, spawnErrorPromise]);
 
 		try {
-			await connection.agent.request("initialize", {
-				protocolVersion: PROTOCOL_VERSION,
-				clientInfo: CLIENT_INFO,
-				clientCapabilities: {
-					fs: { readTextFile: false, writeTextFile: false },
-					terminal: false,
-					_meta: { terminal_output: true },
-					// UNSTABLE ACP extension, but it is what re-enables Claude
-					// Code's built-in AskUserQuestion tool — the adapter disallows
-					// the tool for clients that can't render form elicitations.
-					elicitation: { form: {} },
-				},
-			});
+			await requestDuringStartup(
+				connection.agent.request("initialize", {
+					protocolVersion: PROTOCOL_VERSION,
+					clientInfo: CLIENT_INFO,
+					clientCapabilities: {
+						fs: { readTextFile: false, writeTextFile: false },
+						terminal: false,
+						_meta: { terminal_output: true },
+						// UNSTABLE ACP extension, but it is what re-enables Claude
+						// Code's built-in AskUserQuestion tool — the adapter disallows
+						// the tool for clients that can't render form elicitations.
+						elicitation: { form: {} },
+					},
+				}),
+			);
 			let acpSessionId: string;
 			let modes: SessionModeState | null;
 			let configOptions: SessionConfigOption[];
@@ -1801,12 +2156,14 @@ export class AcpSessionManager {
 				// session/update notifications before the response resolves — they
 				// buffer in earlyUpdates and land in the fresh journal from seq 1.
 				try {
-					const loaded = await connection.agent.request("session/load", {
-						sessionId: resume.acpSessionId,
-						cwd,
-						mcpServers,
-						...(sessionMeta ? { _meta: sessionMeta } : {}),
-					});
+					const loaded = await requestDuringStartup(
+						connection.agent.request("session/load", {
+							sessionId: resume.acpSessionId,
+							cwd,
+							mcpServers,
+							...(sessionMeta ? { _meta: sessionMeta } : {}),
+						}),
+					);
 					acpSessionId = resume.acpSessionId;
 					modes = loaded.modes ?? null;
 					configOptions = loaded.configOptions ?? [];
@@ -1818,11 +2175,13 @@ export class AcpSessionManager {
 					throw new MissingUpstreamSessionError();
 				}
 			} else {
-				const session = await connection.agent.request("session/new", {
-					cwd,
-					mcpServers,
-					...(sessionMeta ? { _meta: sessionMeta } : {}),
-				});
+				const session = await requestDuringStartup(
+					connection.agent.request("session/new", {
+						cwd,
+						mcpServers,
+						...(sessionMeta ? { _meta: sessionMeta } : {}),
+					}),
+				);
 				acpSessionId = session.sessionId;
 				if (harness === "pi-acp") {
 					piStartupInfo = piStartupInfoFromSessionResponse(session);
@@ -1855,13 +2214,12 @@ export class AcpSessionManager {
 						allOptions.find((o) => o.value.includes(model))?.value ??
 						model;
 					try {
-						const response = await connection.agent.request(
-							"session/set_config_option",
-							{
+						const response = await requestDuringStartup(
+							connection.agent.request("session/set_config_option", {
 								sessionId: acpSessionId,
 								configId: modelOption.id,
 								value: resolved,
-							},
+							}),
 						);
 						configOptions = response.configOptions;
 						const appliedModel = configOptions.find(
@@ -1900,14 +2258,17 @@ export class AcpSessionManager {
 				? modes?.currentModeId === "default"
 				: modes !== null && modes.currentModeId !== "bypassPermissions";
 			if (modes && hasBypassMode && forceBypassMode) {
-				await connection.agent.request("session/set_mode", {
-					sessionId: acpSessionId,
-					modeId: "bypassPermissions",
-				});
+				await requestDuringStartup(
+					connection.agent.request("session/set_mode", {
+						sessionId: acpSessionId,
+						modeId: "bypassPermissions",
+					}),
+				);
 				modes = { ...modes, currentModeId: "bypassPermissions" };
 			}
 
 			const now = Date.now();
+			const restoredSendNow = restoredQueuedCommands.sendNow.at(-1);
 			const created: AcpSessionRuntime = {
 				state: {
 					sessionId,
@@ -1920,7 +2281,11 @@ export class AcpSessionManager {
 					configOptions,
 					availableCommands: null,
 					pendingPermissions: [],
-					queuedPrompts: [],
+					queuedPrompts: restoredQueuedCommands.queued.map((command) => ({
+						queueId: command.queueId,
+						prompt: [...command.prompt],
+						enqueuedAt: command.enqueuedAt,
+					})),
 					cwd,
 					lastSeq: 0,
 					lastStopReason: resume?.lastStopReason ?? null,
@@ -1946,7 +2311,13 @@ export class AcpSessionManager {
 				piFirstUserMessageSeq:
 					harness === "pi-acp" ? persistedPiFirstUserMessageSeq : null,
 				activePromptCount: 0,
-				pendingSendNow: null,
+				pendingSendNow: restoredSendNow
+					? {
+							queueId: restoredSendNow.queueId,
+							prompt: [...restoredSendNow.prompt],
+							enqueuedAt: restoredSendNow.enqueuedAt,
+						}
+					: null,
 				stderrTail,
 				dead: false,
 				closed: false,
@@ -1958,6 +2329,15 @@ export class AcpSessionManager {
 				idleHibernateTimer: null,
 			};
 			runtime = created;
+			for (const command of restoredQueuedCommands.queued) {
+				this.queuedCommandIds.set(
+					`${sessionId}:${command.queueId}`,
+					command.commandId,
+				);
+			}
+			if (restoredSendNow) {
+				this.pendingSendNowCommandIds.set(sessionId, restoredSendNow.commandId);
+			}
 			for (let index = 0; index < earlyUpdatesSize; index += 1) {
 				const notification =
 					earlyUpdates[(earlyUpdatesStart + index) % this.journalCapacity];
@@ -1999,8 +2379,23 @@ export class AcpSessionManager {
 
 			this.runtimes.set(sessionId, created);
 			this.scheduleIdleHibernate(created);
+			// A restart can leave a durable queued command with no live caller to
+			// trigger the normal enqueue/sendNow drain. Register first so the
+			// prompt boundary can resolve the runtime, then drain asynchronously.
+			if (created.pendingSendNow || created.state.queuedPrompts.length > 0) {
+				queueMicrotask(() => this.drainQueue(created));
+			}
 			return created;
 		} catch (error) {
+			if (!spawnError) {
+				// The child error and the SDK's stream abort are separate events. Give
+				// the child error one turn to win that race before choosing the SDK's
+				// generic abort as the create failure.
+				await Promise.race([
+					spawnErrorSettled,
+					new Promise<void>((resolve) => setTimeout(resolve, 0)),
+				]);
+			}
 			try {
 				connection.close();
 			} catch {
@@ -2022,6 +2417,13 @@ export class AcpSessionManager {
 					resume,
 					harness,
 					true,
+				);
+			}
+			const startupSpawnError = spawnError as Error | null;
+			if (startupSpawnError) {
+				throw new Error(
+					`Failed to start ${harness} ACP adapter: ${startupSpawnError.message}`,
+					{ cause: startupSpawnError },
 				);
 			}
 			throw error;
@@ -2649,6 +3051,85 @@ export class AcpSessionManager {
 		return envelope;
 	}
 
+	/** Append a durable command lifecycle frame without exposing it as chat. */
+	private journalRemoteCommand(
+		runtime: AcpSessionRuntime,
+		frame: Omit<RemoteCommandFrame, "kind">,
+	): SessionUpdateEnvelope {
+		return this.journalFrame(runtime, { kind: "remote_command", ...frame });
+	}
+
+	/**
+	 * Commit the first durable command frame together with its idempotency key.
+	 * The SQLite implementation is atomic; the fallback keeps injected legacy
+	 * persistence implementations compatible while still failing closed on an
+	 * append error.
+	 */
+	private reserveAndJournalRemoteCommand(
+		runtime: AcpSessionRuntime,
+		frame: Omit<RemoteCommandFrame, "kind">,
+	): boolean {
+		const envelope = runtime.journal.prepare(runtime.state.sessionId, {
+			kind: "remote_command",
+			...frame,
+		});
+		const persistence = this.persistence;
+		if (persistence) {
+			if (persistence.reserveCommandAndAppendEnvelope) {
+				if (
+					!persistence.reserveCommandAndAppendEnvelope(
+						runtime.state.sessionId,
+						frame.commandId,
+						envelope,
+					)
+				) {
+					return false;
+				}
+			} else {
+				if (
+					!persistence.reserveCommand(runtime.state.sessionId, frame.commandId)
+				) {
+					return false;
+				}
+				try {
+					persistence.appendEnvelope(envelope);
+				} catch (error) {
+					persistence.releaseCommand(runtime.state.sessionId, frame.commandId);
+					throw error;
+				}
+			}
+		}
+		runtime.journal.commitPrepared(envelope);
+		for (const subscriber of runtime.subscribers) {
+			try {
+				subscriber(envelope);
+			} catch (error) {
+				console.warn("[acp-sessions] subscriber threw on envelope", error);
+			}
+		}
+		return true;
+	}
+
+	private finishRemoteCommand(
+		runtime: AcpSessionRuntime,
+		commandId: string,
+		operation: RemoteCommandOperation,
+		prompt: ContentBlock[],
+		queueId: string,
+		enqueuedAt: number,
+		outcome: RemoteCommandOutcome,
+	): void {
+		this.journalRemoteCommand(runtime, {
+			commandId,
+			operation,
+			status: "finished",
+			prompt: [...prompt],
+			queueId,
+			enqueuedAt,
+			outcome,
+		});
+	}
+
 	private computeStatus(runtime: AcpSessionRuntime): SessionStatus {
 		if (runtime.dead) return "dead";
 		if (runtime.state.pendingPermissions.length > 0) {
@@ -2799,6 +3280,24 @@ export class AcpSessionManager {
 
 	/** Synthesized snapshot for a persisted session with no adapter attached. */
 	private offlineState(record: AcpSessionRecord): SessionScopedState {
+		let queuedPrompts: QueuedPrompt[] = [];
+		try {
+			const entries =
+				this.persistence?.loadJournal(record.sessionId, record.epoch) ?? [];
+			const replayed = replayRemoteCommands(entries);
+			queuedPrompts = orderReplayedRemoteQueue(replayed.queued, entries).map(
+				(command) => ({
+					queueId: command.queueId,
+					prompt: [...command.prompt],
+					enqueuedAt: command.enqueuedAt,
+				}),
+			);
+		} catch (error) {
+			console.warn(
+				`[acp-sessions] failed to replay queued commands for ${record.sessionId}`,
+				error,
+			);
+		}
 		return {
 			sessionId: record.sessionId,
 			epoch: record.epoch,
@@ -2810,7 +3309,7 @@ export class AcpSessionManager {
 			configOptions: [],
 			availableCommands: null,
 			pendingPermissions: [],
-			queuedPrompts: [],
+			queuedPrompts,
 			cwd: record.cwd,
 			lastSeq: 0,
 			lastStopReason: record.lastStopReason,

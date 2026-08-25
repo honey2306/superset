@@ -30,6 +30,7 @@ const MAX_CONCURRENT_TASK_REQUESTS = 4;
 /** Host-side mailbox worker. The relay is only a carrier; phone credentials survive unchanged. */
 export class AutoMateRelay {
 	private stopped = false;
+	private readonly hostInstanceId = crypto.randomUUID();
 	private readonly seen = new Set<string>();
 	private readonly streams = new Map<string, RelaySocket>();
 	private readonly streamFrameTails = new Map<string, Promise<void>>();
@@ -45,6 +46,16 @@ export class AutoMateRelay {
 			((url) => new WebSocket(url) as unknown as RelaySocket);
 	}
 	start(): void {
+		// A process crash can strand phone-side polling sockets without a final
+		// stream.close. Send a durable control envelope for every new Host
+		// incarnation so the phone can close those stale channels and let its
+		// normal stream subscriber reconnect.
+		void this.enqueueOutbound(
+			{ kind: "host.reset", hostInstanceId: this.hostInstanceId },
+			true,
+		).catch((error) =>
+			console.warn("[automate-relay] host reset push failed", error),
+		);
 		void this.run();
 	}
 	stop(): void {

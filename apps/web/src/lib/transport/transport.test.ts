@@ -7,6 +7,7 @@ import {
 	getAutoMateRelayMailboxId,
 	getPhoneTransport,
 	isAutoMateRelayLocation,
+	observeRelayVisibility,
 } from "./transport";
 
 class FakeTaskSocket {
@@ -55,6 +56,55 @@ class FakeTaskScheduler {
 describe("AutoMateRelayTransport", () => {
 	test("uses a QPS-safe empty-mailbox poll delay", () => {
 		expect(EMPTY_RELAY_PULL_DELAY_MS).toBe(500);
+	});
+
+	test("closes stale channels when the host announces a restart", async () => {
+		const acknowledgements: unknown[] = [];
+		const closes: Array<{ code?: number; reason?: string }> = [];
+		let transport: AutoMateRelayTransport;
+		let resolveDone: (() => void) | undefined;
+		const done = new Promise<void>((resolve) => {
+			resolveDone = resolve;
+		});
+		transport = new AutoMateRelayTransport("mailbox", {
+			run: async (input) => {
+				const operation = input as { op: string };
+				if (operation.op === "pull") {
+					return {
+						message: {
+							seq: 71,
+							messageId: "host-restart",
+							body: {
+								kind: "host.reset",
+								hostInstanceId: "host-b",
+							} as never,
+						},
+					};
+				}
+				if (operation.op === "ack") {
+					acknowledgements.push(input);
+					transport.stop();
+					resolveDone?.();
+				}
+				return { ok: true };
+			},
+		});
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		transport["channels"].set("stale-channel", {
+			receive: () => {},
+			receiveClose: (code?: number, reason?: string) => {
+				closes.push({ code, reason });
+			},
+		} as never);
+
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		transport["startPump"]();
+		await done;
+
+		expect(closes.at(0)).toEqual({ code: 1012, reason: "Host restarted" });
+		expect(acknowledgements).toEqual([
+			{ op: "ack", mailboxId: "mailbox", direction: "s2c", seq: 71 },
+		]);
 	});
 
 	test("decodes binary server frames without UTF-8 coercion", async () => {
@@ -216,6 +266,33 @@ describe("AutoMateRelayTransport", () => {
 		transport.stop();
 	});
 
+	test("rejects and cleans up when an http response never arrives", async () => {
+		const scheduler = new FakeTaskScheduler();
+		const transport = new AutoMateRelayTransport(
+			"mailbox",
+			{
+				run: async (input) => {
+					const operation = input as { op: string };
+					if (operation.op === "pull") return { message: null };
+					return { ok: true };
+				},
+			},
+			{ scheduler, responseTimeoutMs: 1 },
+		);
+
+		try {
+			const pending = transport.fetch("http://phone.test/trpc/phone.me");
+			await Promise.resolve();
+			expect(scheduler.timeouts).toHaveLength(1);
+			scheduler.runTimeouts();
+			await expect(pending).rejects.toThrow("timed out");
+			// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+			expect(transport["pending"]).toHaveLength(0);
+		} finally {
+			transport.stop();
+		}
+	});
+
 	test("acknowledges an uncorrelated response by sequence", async () => {
 		const acknowledgements: unknown[] = [];
 		let transport: AutoMateRelayTransport;
@@ -294,6 +371,43 @@ describe("AutoMateRelayTransport", () => {
 		releaseFirstPush?.();
 		await Promise.all([first, second]);
 		expect(pushes).toHaveLength(2);
+	});
+
+	test("releases the c2s queue after a timed-out push rejects", async () => {
+		let rejectFirstPush: ((error: Error) => void) | undefined;
+		const firstPush = new Promise<never>((_resolve, reject) => {
+			rejectFirstPush = reject;
+		});
+		const pushedKinds: string[] = [];
+		const transport = new AutoMateRelayTransport("mailbox", {
+			run: async (input) => {
+				const operation = input as {
+					op: string;
+					body?: RelayEnvelope;
+				};
+				if (operation.op !== "push") return { ok: true };
+				pushedKinds.push(operation.body?.kind ?? "unknown");
+				if (pushedKinds.length === 1) return firstPush;
+				return { ok: true };
+			},
+		});
+		// A route unmount queues the stale stream close. A rapid re-entry then
+		// queues a fresh open behind it.
+		const staleClose = transport.closeChannel("stale-channel");
+		const freshOpen = transport.openChannel(
+			{} as never,
+			"http://phone.test/acp/sessions/fresh/stream",
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(pushedKinds).toEqual(["stream.close"]);
+
+		rejectFirstPush?.(
+			new Error("AutoMate browser relay proxy request timed out"),
+		);
+		await expect(staleClose).rejects.toThrow("timed out");
+		await expect(freshOpen).resolves.toBeUndefined();
+		expect(pushedKinds).toEqual(["stream.close", "stream.open"]);
+		transport.stop();
 	});
 
 	test("sends a push while an earlier pull remains unresolved", async () => {
@@ -465,4 +579,39 @@ describe("AutoMateRelayTransport", () => {
 			else delete (globalThis as { location?: unknown }).location;
 		}
 	});
+});
+
+test("relay visibility policy pauses on hidden and resumes on visible", () => {
+	let visibilityState: "hidden" | "visible" = "visible";
+	const listeners = new Set<() => void>();
+	const source = {
+		get visibilityState() {
+			return visibilityState;
+		},
+		addEventListener: (_type: "visibilitychange", listener: () => void) => {
+			listeners.add(listener);
+		},
+		removeEventListener: (_type: "visibilitychange", listener: () => void) => {
+			listeners.delete(listener);
+		},
+	};
+	let hidden = 0;
+	let visible = 0;
+	const remove = observeRelayVisibility(
+		source,
+		() => {
+			hidden += 1;
+		},
+		() => {
+			visible += 1;
+		},
+	);
+	visibilityState = "hidden";
+	for (const listener of listeners) listener();
+	visibilityState = "visible";
+	for (const listener of listeners) listener();
+	expect(hidden).toBe(1);
+	expect(visible).toBe(1);
+	remove();
+	expect(listeners).toHaveLength(0);
 });

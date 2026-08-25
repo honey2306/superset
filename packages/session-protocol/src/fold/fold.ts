@@ -269,6 +269,10 @@ export function foldEnvelope(
 		case "reset":
 			next.resetReason = frame.reason;
 			break;
+		case "remote_command":
+			// Host-owned delivery metadata advances the cursor but is never a
+			// transcript/timeline item.
+			break;
 	}
 	next.items = projectToolSemantics(next.items);
 	return next;

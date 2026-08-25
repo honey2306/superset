@@ -139,7 +139,7 @@ describe("subscribeToSession", () => {
 		h.subscription.close();
 	});
 
-	test("gap closes the socket and reconnects with since=lastSeq", async () => {
+	test("gap closes the socket and reports a reset without reconnecting", async () => {
 		const h = harness({ since: 0 });
 		h.sockets[0]?.open();
 		h.sockets[0]?.message(env(1));
@@ -147,12 +147,20 @@ describe("subscribeToSession", () => {
 		expect(h.gaps).toEqual([{ expected: 2, received: 5 }]);
 		expect(h.sockets[0]?.closedByClient).toBe(true);
 		expect(h.delivered.map((e) => e.seq)).toEqual([1]);
+		expect(h.resets).toEqual(["sequence_gap"]);
 		await tick();
-		expect(h.sockets).toHaveLength(2);
-		expect(h.sockets[1]?.url).toBe("ws://test/stream?since=1");
-		h.sockets[1]?.open();
-		h.sockets[1]?.message(env(2));
-		expect(h.delivered.map((e) => e.seq)).toEqual([1, 2]);
+		expect(h.sockets).toHaveLength(1);
+		h.subscription.close();
+	});
+
+	test("reports a sequence gap only once even if the socket emits more frames", () => {
+		const h = harness({ since: 0 });
+		h.sockets[0]?.open();
+		h.sockets[0]?.message(env(1));
+		h.sockets[0]?.message(env(5));
+		h.sockets[0]?.message(env(6));
+		expect(h.gaps).toEqual([{ expected: 2, received: 5 }]);
+		expect(h.resets).toEqual(["sequence_gap"]);
 		h.subscription.close();
 	});
 

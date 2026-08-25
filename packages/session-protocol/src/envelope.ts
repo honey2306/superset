@@ -1,9 +1,44 @@
-import type { RequestPermissionOutcome, SessionUpdate } from "./acp";
+import type {
+	ContentBlock,
+	RequestPermissionOutcome,
+	SessionUpdate,
+} from "./acp";
 import type { PendingPermission, SessionScopedState } from "./state";
+
+/** A phone-originated command which must survive a host process restart. */
+export type RemoteCommandOperation = "prompt" | "enqueuePrompt" | "sendNow";
+
+/** Terminal reason for a durable command admission. */
+export type RemoteCommandOutcome =
+	| "admitted"
+	| "removed"
+	| "cleared"
+	| "superseded"
+	| "failed";
+
+/**
+ * Host-owned command lifecycle. These frames are transport/control metadata,
+ * not conversation messages; clients advance their cursor over them but do
+ * not render them in the transcript.
+ */
+export interface RemoteCommandFrame {
+	kind: "remote_command";
+	commandId: string;
+	operation: RemoteCommandOperation;
+	status: "queued" | "started" | "finished";
+	/** The exact ACP prompt needed to recover a queued/started command. */
+	prompt?: ContentBlock[];
+	/** Stable queue identity; command ids use this as their queue id. */
+	queueId?: string;
+	/** Original queue insertion timestamp, retained across edit/replay. */
+	enqueuedAt?: number;
+	outcome?: RemoteCommandOutcome;
+}
 
 export type SessionUpdateFrame =
 	/** An ACP session/update notification, verbatim. */
-	| { kind: "update"; update: SessionUpdate }
+	| { kind: "update"; update: SessionUpdate; commandId?: string }
+	| RemoteCommandFrame
 	| { kind: "permission_requested"; pending: PendingPermission }
 	| {
 			kind: "permission_resolved";

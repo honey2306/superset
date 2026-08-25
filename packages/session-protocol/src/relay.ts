@@ -36,7 +36,12 @@ export type RelayEnvelope =
 			kind: "stream.frames";
 			frames: Array<{ channelId: string; body: RelayStreamFrame }>;
 	  }
-	| { kind: "stream.close"; channelId: string; code?: number; reason?: string };
+	| { kind: "stream.close"; channelId: string; code?: number; reason?: string }
+	/**
+	 * Sent once per Host process incarnation so phones can discard channels
+	 * whose Host-side sockets disappeared without a close event.
+	 */
+	| { kind: "host.reset"; hostInstanceId: string };
 
 export function mailboxId(organizationId: string, hostId: string): string {
 	return `superset:${organizationId}:${hostId}`;
