@@ -3,10 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export const ACP_ACTIVITY_CONNECTION_RETENTION_MS = 24 * 60 * 60 * 1_000;
 
 export function useRetainedAcpConnection({
-	isWorkspaceActive,
 	retentionMs = ACP_ACTIVITY_CONNECTION_RETENTION_MS,
 }: {
-	isWorkspaceActive: boolean;
 	retentionMs?: number;
 }): {
 	isConnectionEnabled: boolean;
@@ -30,17 +28,13 @@ export function useRetainedAcpConnection({
 		}, retentionMs);
 	}, [clearRetentionTimeout, retentionMs]);
 
-	// A pane that has been opened is an active conversation even before its
-	// first prompt. Keep its live ACP subscription while its workspace is
-	// visited so switching back does not tear down and resync the session.
-	useEffect(() => {
-		if (isWorkspaceActive) recordActivity();
-	}, [isWorkspaceActive, recordActivity]);
-
 	useEffect(() => clearRetentionTimeout, [clearRetentionTimeout]);
 
 	return {
-		isConnectionEnabled: isWorkspaceActive || isActivityRetained,
+		// Workspace activation alone must not revive every mounted historical
+		// session. Visible panes are enabled by the caller; hidden panes stay live
+		// only for the explicit activity retention window.
+		isConnectionEnabled: isActivityRetained,
 		recordActivity,
 	};
 }

@@ -29,7 +29,7 @@ describe("ACP session connection lifecycle", () => {
 		);
 	});
 
-	test("uses workspace or activity retention to enable a hidden pane", () => {
+	test("uses activity retention to enable a hidden pane", () => {
 		expect(
 			shouldEnableAcpSession({
 				isVisible: false,

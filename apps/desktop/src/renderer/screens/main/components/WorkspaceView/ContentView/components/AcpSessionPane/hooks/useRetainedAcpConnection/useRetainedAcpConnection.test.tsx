@@ -20,37 +20,18 @@ afterEach(() => {
 });
 
 describe("useRetainedAcpConnection", () => {
-	test("retains an opened conversation after leaving its workspace", () => {
+	test("does not retain a session without explicit activity", () => {
 		jest.useFakeTimers();
-		const { result, rerender } = renderHook(
-			({ isWorkspaceActive }) =>
-				useRetainedAcpConnection({ isWorkspaceActive }),
-			{ initialProps: { isWorkspaceActive: true } },
-		);
+		const { result } = renderHook(() => useRetainedAcpConnection({}));
 
-		expect(result.current.isConnectionEnabled).toBe(true);
-		rerender({ isWorkspaceActive: false });
-		expect(result.current.isConnectionEnabled).toBe(true);
-
-		act(() =>
-			jest.advanceTimersByTime(ACP_ACTIVITY_CONNECTION_RETENTION_MS - 1),
-		);
-		expect(result.current.isConnectionEnabled).toBe(true);
-
-		act(() => jest.advanceTimersByTime(1));
 		expect(result.current.isConnectionEnabled).toBe(false);
 	});
 
 	test("retains activity for exactly 24 hours after leaving", () => {
 		jest.useFakeTimers();
-		const { result, rerender } = renderHook(
-			({ isWorkspaceActive }) =>
-				useRetainedAcpConnection({ isWorkspaceActive }),
-			{ initialProps: { isWorkspaceActive: true } },
-		);
+		const { result } = renderHook(() => useRetainedAcpConnection({}));
 
 		act(() => result.current.recordActivity());
-		rerender({ isWorkspaceActive: false });
 		expect(result.current.isConnectionEnabled).toBe(true);
 
 		act(() =>
@@ -65,19 +46,13 @@ describe("useRetainedAcpConnection", () => {
 	test("later activity resets the retention deadline", () => {
 		jest.useFakeTimers();
 		const retentionMs = 1_000;
-		const { result, rerender } = renderHook(
-			({ isWorkspaceActive }) =>
-				useRetainedAcpConnection({
-					isWorkspaceActive,
-					retentionMs,
-				}),
-			{ initialProps: { isWorkspaceActive: true } },
+		const { result } = renderHook(() =>
+			useRetainedAcpConnection({ retentionMs }),
 		);
 
 		act(() => result.current.recordActivity());
 		act(() => jest.advanceTimersByTime(750));
 		act(() => result.current.recordActivity());
-		rerender({ isWorkspaceActive: false });
 		act(() => jest.advanceTimersByTime(750));
 		expect(result.current.isConnectionEnabled).toBe(true);
 
@@ -87,14 +62,9 @@ describe("useRetainedAcpConnection", () => {
 
 	test("retains every ACP agent after activity", () => {
 		jest.useFakeTimers();
-		const { result, rerender } = renderHook(
-			({ isWorkspaceActive }) =>
-				useRetainedAcpConnection({ isWorkspaceActive }),
-			{ initialProps: { isWorkspaceActive: true } },
-		);
+		const { result } = renderHook(() => useRetainedAcpConnection({}));
 
 		act(() => result.current.recordActivity());
-		rerender({ isWorkspaceActive: false });
 		expect(result.current.isConnectionEnabled).toBe(true);
 	});
 });

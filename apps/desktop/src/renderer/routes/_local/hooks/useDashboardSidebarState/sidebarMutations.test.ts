@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { selectWorkspacesToPlace } from "renderer/routes/_local/components/AgentHooks/hooks/usePlaceLocalWorktreesInSidebar/selectWorkspacesToPlace";
 import {
 	removeProjectFromSidebarState,
 	type SidebarWorkspaceRow,
@@ -97,7 +98,31 @@ function asTombstoneArg(collections: Collections) {
 const noopCleanup = () => {};
 
 describe("removeProjectFromSidebarState", () => {
-	it("tombstones the project's worktrees — existing and row-less ones — and deletes sections and the project record", () => {
+	it("prevents the reconciler from re-placing any workspace after project removal", () => {
+		const collections = makeCollections();
+		const workspaces: SidebarWorkspaceRow[] = [
+			{ id: "ws-main", projectId: "proj-1", type: "main" },
+			{ id: "ws-worktree", projectId: "proj-1", type: "worktree" },
+		];
+		collections.sidebarProjects.insert({ projectId: "proj-1" });
+
+		removeProjectFromSidebarState(
+			asRemoveArg(collections),
+			workspaces,
+			"proj-1",
+			noopCleanup,
+		);
+
+		const hiddenWorkspaceIds = new Set(
+			Array.from(collections.workspaceLocalState.state.values())
+				.filter((row) => row.sidebarState.isHidden)
+				.map((row) => row.workspaceId),
+		);
+
+		expect(selectWorkspacesToPlace(workspaces, hiddenWorkspaceIds)).toEqual([]);
+	});
+
+	it("tombstones every catalog workspace — existing and row-less — and deletes sections and the project record", () => {
 		const collections = makeCollections();
 		// Explicitly-placed worktree (has a visible local-state row).
 		collections.workspaceLocalState.insert(
@@ -145,7 +170,7 @@ describe("removeProjectFromSidebarState", () => {
 		expect(cleaned).toEqual(["ws-placed"]);
 	});
 
-	it("leaves the project's main workspace alone so re-adding the project restores it", () => {
+	it("tombstones the project's main workspaces so the reconciler cannot resurrect them", () => {
 		const collections = makeCollections();
 		collections.workspaceLocalState.insert(localStateRow("ws-main", "proj-1"));
 		const workspaces: SidebarWorkspaceRow[] = [
@@ -165,13 +190,14 @@ describe("removeProjectFromSidebarState", () => {
 			noopCleanup,
 		);
 
-		// Main row untouched (not hidden); no tombstone created for a row-less main.
+		// Both main rows are hidden, including the row-less catalog workspace.
 		expect(
 			collections.workspaceLocalState.get("ws-main")?.sidebarState.isHidden,
-		).toBe(false);
+		).toBe(true);
 		expect(
-			collections.workspaceLocalState.get("ws-main-rowless"),
-		).toBeUndefined();
+			collections.workspaceLocalState.get("ws-main-rowless")?.sidebarState
+				.isHidden,
+		).toBe(true);
 		expect(collections.sidebarProjects.get("proj-1")).toBeUndefined();
 	});
 

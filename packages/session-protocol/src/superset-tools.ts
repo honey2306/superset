@@ -18,6 +18,7 @@ const listSessionsArgsSchema = z
 const getSessionStatusArgsSchema = z
 	.object({ sessionId: sessionIdSchema })
 	.strict();
+const openSessionArgsSchema = z.object({ sessionId: sessionIdSchema }).strict();
 const getSessionMessagesArgsSchema = z
 	.object({
 		sessionId: sessionIdSchema,
@@ -228,6 +229,11 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
+		name: z.literal("open_session"),
+		arguments: openSessionArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
 		name: z.literal("get_session_messages"),
 		arguments: getSessionMessagesArgsSchema,
 	}),
@@ -424,6 +430,19 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "get_session_status",
 		description: "Get details for an ACP session in the current workspace.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				sessionId: { type: "string", minLength: 1, maxLength: 256 },
+			},
+			required: ["sessionId"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "open_session",
+		description:
+			"Open or focus an existing ACP conversation in the current workspace. If its tab is missing, Superset restores it. The sessionId must belong to the current workspace; Desktop opening is best-effort and does not restart the session.",
 		inputSchema: {
 			type: "object",
 			properties: {

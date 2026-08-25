@@ -67,19 +67,13 @@ export function tombstoneSidebarWorkspaceRecord(
  * what hides it: membership is explicit and display gates on it
  * (`buildDashboardSidebarProjects` drops any workspace whose project is absent).
  *
- * Worktrees are tombstoned so "removed" stays removed. A worktree with no
- * local-state row would be re-placed by `usePlaceLocalWorktreesInSidebar`
- * (recreating the project), and a kept-but-visible row would flood back the
- * moment anything recreates the project row — e.g. a later automation-created
- * worktree. Hiding each one (existing rows, plus this device's row-less
- * worktrees the reconciler could re-pin) means a resurrected project shows only
- * the genuinely-new worktree, not these dismissed ones.
- *
- * `main` workspaces are intentionally left alone: they surface via the gated
- * auto-include path (never re-pinned, never create a project record), so
- * deleting the project row already hides them and re-adding the project brings
- * the main back. Removing a project discards `defaultOpenInApp` (stored on the
- * project row and nowhere else); it resets to default on re-add.
+ * Every catalog workspace is tombstoned so "removed" stays removed. The
+ * reconciler places both `main` and `worktree` workspaces, so leaving a main
+ * workspace row-less would immediately recreate the project row after this
+ * mutation. Hiding existing rows as well as row-less catalog workspaces keeps
+ * the dismissal stable without relying on effect timing. An explicit
+ * `ensureWorkspaceInSidebar` call can still unhide the requested workspace
+ * when the user intentionally adds it back.
  */
 export function removeProjectFromSidebarState(
 	collections: Pick<
@@ -90,28 +84,19 @@ export function removeProjectFromSidebarState(
 	projectId: string,
 	cleanupPaneRuntimes: CleanupPaneRuntimes,
 ): void {
-	const mainWorkspaceIds = new Set(
-		workspaces
-			.filter((ws) => ws.projectId === projectId && ws.type === "main")
-			.map((ws) => ws.id),
-	);
-
-	const worktreeIds = new Set<string>();
+	const workspaceIds = new Set<string>();
 	for (const row of collections.workspaceLocalState.state.values()) {
-		if (
-			row.sidebarState.projectId === projectId &&
-			!mainWorkspaceIds.has(row.workspaceId)
-		) {
-			worktreeIds.add(row.workspaceId);
+		if (row.sidebarState.projectId === projectId) {
+			workspaceIds.add(row.workspaceId);
 		}
 	}
 	for (const ws of workspaces) {
-		if (ws.projectId === projectId && ws.type === "worktree") {
-			worktreeIds.add(ws.id);
+		if (ws.projectId === projectId) {
+			workspaceIds.add(ws.id);
 		}
 	}
 
-	for (const workspaceId of worktreeIds) {
+	for (const workspaceId of workspaceIds) {
 		tombstoneSidebarWorkspaceRecord(
 			collections,
 			workspaceId,

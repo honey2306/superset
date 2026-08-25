@@ -155,8 +155,15 @@ export interface AcpSessionOpenRequestedMessage {
 	workspaceId: string;
 	sessionId: string;
 	sourceSessionId: string;
+	/** Stable identity for this presentation request; optional for old clients. */
+	requestId?: string;
 	harness: HarnessKind;
-	reason: "context_limit" | "parallel_task" | "fresh_start" | "delegation";
+	reason:
+		| "context_limit"
+		| "parallel_task"
+		| "fresh_start"
+		| "delegation"
+		| "open_session";
 	occurredAt: number;
 }
 

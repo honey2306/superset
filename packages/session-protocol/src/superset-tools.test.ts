@@ -34,6 +34,47 @@ describe("Superset delegation protocol", () => {
 		});
 	});
 
+	test("accepts an existing-session open request and advertises it", () => {
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "parent",
+				name: "open_session",
+				arguments: { sessionId: "sibling" },
+			}),
+		).toEqual({
+			sourceSessionId: "parent",
+			name: "open_session",
+			arguments: { sessionId: "sibling" },
+		});
+		const tool = SUPERSET_TOOL_DEFINITIONS.find(
+			(entry) => entry.name === "open_session",
+		);
+		expect(tool).toMatchObject({
+			name: "open_session",
+			inputSchema: {
+				required: ["sessionId"],
+				properties: { sessionId: { type: "string" } },
+			},
+		});
+	});
+
+	test("rejects an open request without a session id or with extra fields", () => {
+		expect(() =>
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "parent",
+				name: "open_session",
+				arguments: {},
+			}),
+		).toThrow();
+		expect(() =>
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "parent",
+				name: "open_session",
+				arguments: { sessionId: "sibling", workspaceId: "workspace-2" },
+			}),
+		).toThrow();
+	});
+
 	test("accepts a finite context snapshot and structured child result", () => {
 		expect(
 			supersetToolRequestSchema.parse({

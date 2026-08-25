@@ -8,6 +8,7 @@ import {
 import { renderToStaticMarkup } from "react-dom/server";
 
 const { AcpMarkdown } = await import("./AcpMarkdown");
+const { getMarkdownFileTarget } = await import("./linkifyAcpMarkdown");
 
 afterEach(cleanup);
 
@@ -127,6 +128,55 @@ describe("AcpMarkdown", () => {
 		expect(onOpenFile).toHaveBeenCalledWith(
 			{ path: "docs/guide.md", line: 9 },
 			false,
+		);
+	});
+
+	it("decodes URL-encoded absolute file paths before opening them", () => {
+		const onOpenFile = mock(() => {});
+		render(
+			<AcpMarkdown onOpenFile={onOpenFile}>
+				{"[file](</Users/a/My Project/file.ts:12:3>)"}
+			</AcpMarkdown>,
+		);
+
+		fireEvent.click(screen.getByRole("link"));
+
+		expect(onOpenFile).toHaveBeenCalledWith(
+			{ path: "/Users/a/My Project/file.ts", line: 12, column: 3 },
+			false,
+		);
+	});
+
+	it("routes explicit file URLs through the in-app file callback", () => {
+		const onOpenFile = mock(() => {});
+		render(
+			<AcpMarkdown onOpenFile={onOpenFile}>
+				{"[file](file:///Users/a/My%20Project/file.ts:12:3)"}
+			</AcpMarkdown>,
+		);
+
+		fireEvent.click(screen.getByText("file"));
+
+		expect(onOpenFile).toHaveBeenCalledWith(
+			{
+				path: "file:///Users/a/My Project/file.ts",
+				line: 12,
+				column: 3,
+			},
+			false,
+		);
+	});
+
+	it("keeps URL decoding scoped to local paths", () => {
+		expect(
+			getMarkdownFileTarget("https://example.com/My%20File/file.ts:12"),
+		).toBeNull();
+		expect(getMarkdownFileTarget("/Users/a/My%2GProject/file.ts:12")).toEqual({
+			path: "/Users/a/My%2GProject/file.ts",
+			line: 12,
+		});
+		expect(getMarkdownFileTarget("C:/Users/a/My%20Project/file.ts:12")).toEqual(
+			{ path: "C:/Users/a/My Project/file.ts", line: 12 },
 		);
 	});
 

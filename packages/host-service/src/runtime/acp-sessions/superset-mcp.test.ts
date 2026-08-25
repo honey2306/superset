@@ -135,6 +135,12 @@ describe("Superset MCP process", () => {
 				tools.some((tool) => tool.name === "continue_in_new_session"),
 			).toBe(true);
 			expect(tools.some((tool) => tool.name === "ask_user")).toBe(true);
+			expect(tools.some((tool) => tool.name === "open_session")).toBe(true);
+			expect(
+				tools.find((tool) => tool.name === "open_session")?.inputSchema,
+			).toMatchObject({
+				required: ["sessionId"],
+			});
 			expect(tools.some((tool) => tool.name === "wait_delegation")).toBe(true);
 			expect(
 				tools.some((tool) => tool.name === "report_delegation_result"),

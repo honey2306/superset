@@ -54,6 +54,16 @@ function parseFileTarget(raw: string): MarkdownFileTarget {
 	};
 }
 
+function decodeLocalFileHref(href: string): string {
+	try {
+		return decodeURIComponent(href);
+	} catch {
+		// A malformed percent escape should not make an otherwise valid local
+		// path unclickable. The path matcher below remains the validation gate.
+		return href;
+	}
+}
+
 export function encodeMarkdownFileHref(target: MarkdownFileTarget): string {
 	return `${FILE_LINK_PREFIX}${encodeURIComponent(JSON.stringify(target))}`;
 }
@@ -85,7 +95,12 @@ export function getMarkdownFileTarget(
 	if (!href || href.startsWith("#")) {
 		return null;
 	}
-	if (/^[a-z][a-z0-9+.-]*:/iu.test(href) && !href.startsWith("file:///")) {
+	const isWindowsPath = /^[a-z]:[\\/]/iu.test(href);
+	if (
+		/^[a-z][a-z0-9+.-]*:/iu.test(href) &&
+		!href.startsWith("file:///") &&
+		!isWindowsPath
+	) {
 		return null;
 	}
 	FILE_PATH_PATTERN.lastIndex = 0;
@@ -93,7 +108,8 @@ export function getMarkdownFileTarget(
 	FILE_PATH_PATTERN.lastIndex = 0;
 	if (!match || match.index !== 0 || match[0].length !== href.length)
 		return null;
-	return parseFileTarget(href);
+	const decodedHref = decodeLocalFileHref(href);
+	return parseFileTarget(decodedHref);
 }
 
 function findLinkMatches(value: string): LinkMatch[] {
@@ -181,7 +197,13 @@ function linkifyInlineCode(node: MarkdownNode): MarkdownNode[] {
 }
 
 function transformChildren(node: MarkdownNode): void {
-	if (!node.children || node.type === "link" || node.type === "code") return;
+	if (node.type === "code") return;
+	if (node.type === "link") {
+		const target = getMarkdownFileTarget(node.url);
+		if (target) node.url = encodeMarkdownFileHref(target);
+		return;
+	}
+	if (!node.children) return;
 	node.children = node.children.flatMap((child) => {
 		if (child.type === "text") return linkifyText(child);
 		if (child.type === "inlineCode") return linkifyInlineCode(child);

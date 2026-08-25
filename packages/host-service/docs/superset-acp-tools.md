@@ -13,6 +13,7 @@ requesting that Desktop present the new conversation.
 | `get_context` | Return the current workspace, cwd, source session, and sibling session summaries. |
 | `list_sessions` | List ACP sessions in the source session's workspace. |
 | `get_session_status` | Read one same-workspace session's status and summary. |
+| `open_session` | Ask Desktop to focus an existing same-workspace conversation, restoring its tab when necessary. It never restarts the session. |
 | `send_message` | Send or queue a message to a same-workspace session. |
 | `continue_in_new_session` | Create a child conversation, seed it with a structured handoff, and open it in Desktop by default. |
 | `open_merge_request` | Open KDev's prefilled create-MR page for the current session's checked-out branch. It never pushes or creates an MR. |
@@ -36,6 +37,13 @@ continue/delegate with focus=true
   -> host-service EventBus (`acp-session:open-requested`)
   -> active Desktop workspace
   -> openAcpSessionInPanesStore
+
+open_session
+  -> authoritative source-session workspace check
+  -> daemon `session-open-requested` event (unique requestId)
+  -> host-service EventBus (`acp-session:open-requested`)
+  -> active Desktop workspace
+  -> focus existing tab or restore it with openAcpSessionInPanesStore
 
 open_merge_request
   -> daemon derives Git `origin` and checked-out branch from the source session cwd
@@ -75,6 +83,13 @@ Desktop is closed, a different workspace is mounted, or the event is otherwise
 missed. Session state remains discoverable through `list_sessions` and normal
 Superset session lists.
 
+`open_session` follows the same best-effort presentation boundary for an
+existing session. Its target is resolved from the daemon's authoritative
+session registry and must belong to the source session's workspace; callers
+cannot provide a workspace override. Each call carries a unique `requestId`,
+so a repeated request can reopen a tab after it was closed while transport
+duplicates remain idempotent in Desktop.
+
 ## Security boundaries
 
 - The daemon socket is local, application-scoped, and protected by owner-only
@@ -83,6 +98,8 @@ Superset session lists.
   argument.
 - The daemon resolves the source session before every operation.
 - Read/message targets must belong to the source workspace.
+- `open_session` targets must belong to the source workspace; the event carries
+  the source-derived workspace rather than a caller-supplied workspace.
 - No destructive session or workspace operations are exposed by the current
   MCP tool surface.
 - Tool inputs are strict Zod schemas with bounded strings and list limits.

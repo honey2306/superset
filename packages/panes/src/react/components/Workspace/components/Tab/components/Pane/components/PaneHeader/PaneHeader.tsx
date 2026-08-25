@@ -18,6 +18,20 @@ interface PaneHeaderProps {
 
 export const PANE_DRAG_TYPE = "pane";
 
+export function getPaneHeaderClassName(
+	hasCustomToolbar: boolean,
+	isActive: boolean,
+	isDragging: boolean,
+): string {
+	return cn(
+		"flex shrink-0 items-center transition-opacity duration-150",
+		!hasCustomToolbar && "h-7",
+		!hasCustomToolbar && "cursor-grab",
+		!isActive && "opacity-60",
+		isDragging && "opacity-30",
+	);
+}
+
 export function PaneHeader({
 	title,
 	icon,
@@ -57,12 +71,7 @@ export function PaneHeader({
 		// biome-ignore lint/a11y/noStaticElementInteractions: click to pin, middle-click to close
 		<div
 			ref={setRef}
-			className={cn(
-				"flex h-7 shrink-0 items-center transition-opacity duration-150",
-				!hasCustomToolbar && "cursor-grab",
-				!isActive && "opacity-60",
-				isDragging && "opacity-30",
-			)}
+			className={getPaneHeaderClassName(hasCustomToolbar, isActive, isDragging)}
 			onClick={onClick}
 			onAuxClick={(e) => {
 				if (e.button === 1 && onMiddleClick) {

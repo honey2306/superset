@@ -87,6 +87,22 @@ function messageEnvelope(text: string, seq: number): SessionUpdateEnvelope {
 	};
 }
 
+function userMessageEnvelope(text: string, seq: number): SessionUpdateEnvelope {
+	return {
+		seq,
+		epoch: state.epoch,
+		sessionId: state.sessionId,
+		ts: seq,
+		frame: {
+			kind: "update",
+			update: {
+				sessionUpdate: "user_message_chunk",
+				content: { type: "text", text },
+			},
+		},
+	};
+}
+
 async function waitFor(predicate: () => boolean, timeoutMs = 3_000) {
 	const deadline = Date.now() + timeoutMs;
 	while (!predicate()) {
@@ -457,6 +473,46 @@ describe("useAcpSession lifecycle recovery", () => {
 		expect(result.current.error).toBeNull();
 	});
 
+	test("does not expose a transient launch not-found as an error", async () => {
+		let getCalls = 0;
+		const api = {
+			get: async () => {
+				getCalls += 1;
+				if (getCalls === 1) {
+					throw new Error("Unknown ACP session: pending-session");
+				}
+				return state;
+			},
+			getMessages: async () => ({ items: history, nextCursor: null }),
+			prompt: async () => ({ accepted: true as const }),
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const { result } = renderHook(() =>
+			useAcpSession({
+				sessionId: state.sessionId,
+				api,
+				streamUrl: "ws://test",
+				createWebSocket: idleSocket,
+				initiallyLaunching: true,
+			}),
+		);
+
+		await waitFor(
+			() => getCalls === 1 && result.current.availability === "retrying",
+		);
+		expect(result.current.error).toBeNull();
+	});
+
 	test("publishes refreshed state before reopened transcript history finishes loading", async () => {
 		let currentStatus: SessionScopedState["status"] = "running";
 		let transcriptCalls = 0;
@@ -668,6 +724,119 @@ describe("useAcpSession lifecycle recovery", () => {
 			globalThis.requestAnimationFrame = previousRequestAnimationFrame;
 			globalThis.cancelAnimationFrame = previousCancelAnimationFrame;
 		}
+	});
+
+	test("renders a prompt optimistically and reconciles its server echo", async () => {
+		let resolvePrompt: (() => void) | undefined;
+		const promptGate = new Promise<{ accepted: true }>((resolve) => {
+			resolvePrompt = () => resolve({ accepted: true });
+		});
+		const sockets: ReturnType<typeof idleSocket>[] = [];
+		const api = {
+			get: async () => state,
+			getMessages: async () => ({ items: [], nextCursor: null }),
+			prompt: async () => promptGate,
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const { result } = renderHook(() =>
+			useAcpSession({
+				sessionId: state.sessionId,
+				api,
+				streamUrl: "ws://test",
+				createWebSocket: () => {
+					const socket = idleSocket();
+					sockets.push(socket);
+					return socket;
+				},
+			}),
+		);
+		await waitFor(() => result.current.isLoading === false);
+		await waitFor(() => sockets.length === 1);
+
+		const blocks = [{ type: "text" as const, text: "optimistic prompt" }];
+		let promptPromise: Promise<{ accepted: true }>;
+		act(() => {
+			promptPromise = result.current.actions.prompt(blocks);
+		});
+		const optimistic = result.current.timeline.items.at(-1);
+		expect(optimistic).toMatchObject({
+			kind: "message",
+			role: "user",
+			blocks,
+		});
+		expect(optimistic?.id).toContain("optimistic-user:");
+
+		await act(async () => {
+			sockets[0]?.onmessage?.({
+				data: JSON.stringify(userMessageEnvelope("optimistic prompt", 2)),
+			});
+			await new Promise((resolve) => setTimeout(resolve, 25));
+		});
+		const reconciled = result.current.timeline.items.filter(
+			(item) => item.kind === "message" && item.role === "user",
+		);
+		expect(reconciled).toHaveLength(1);
+		expect(reconciled[0]).toMatchObject({
+			id: "user:2",
+			blocks,
+		});
+
+		resolvePrompt?.();
+		await act(async () => {
+			await promptPromise;
+		});
+	});
+
+	test("removes a rejected prompt from the optimistic timeline", async () => {
+		let rejectPrompt: ((reason: Error) => void) | undefined;
+		const promptGate = new Promise<{ accepted: true }>((_resolve, reject) => {
+			rejectPrompt = reject;
+		});
+		const api = {
+			get: async () => state,
+			getMessages: async () => ({ items: [], nextCursor: null }),
+			prompt: async () => promptGate,
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const { result } = renderHook(() =>
+			useAcpSession({
+				sessionId: state.sessionId,
+				api,
+				streamUrl: "ws://test",
+				createWebSocket: idleSocket,
+			}),
+		);
+		await waitFor(() => result.current.isLoading === false);
+
+		const promptPromise = result.current.actions.prompt([
+			{ type: "text" as const, text: "rejected prompt" },
+		]);
+		await waitFor(() => result.current.timeline.items.length === 1);
+		rejectPrompt?.(new Error("prompt rejected"));
+		await act(async () => {
+			await promptPromise.catch(() => undefined);
+		});
+		expect(result.current.timeline.items).toHaveLength(0);
 	});
 
 	test("loads only the latest page initially, then prepends an older page without losing live frames", async () => {

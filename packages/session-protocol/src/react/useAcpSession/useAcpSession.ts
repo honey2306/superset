@@ -280,6 +280,91 @@ type PendingEnvelopeBatch = {
 	cancel: () => void;
 };
 
+interface PendingPrompt {
+	sessionId: string;
+	blocks: ContentBlock[];
+	/** Last durable seq visible when the command was admitted locally. */
+	admissionBaselineSeq: number;
+	createdAt: number;
+	/** Renderer-only identity; never persisted in the session journal. */
+	id: string;
+}
+
+function contentBlocksEqual(left: ContentBlock, right: ContentBlock): boolean {
+	return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function promptEchoesPendingPrompt(
+	pending: PendingPrompt,
+	envelope: SessionUpdateEnvelope,
+): boolean {
+	if (pending.sessionId !== envelope.sessionId) return false;
+	if (envelope.seq <= pending.admissionBaselineSeq) return false;
+	if (envelope.frame.kind === "prompt_rejected") {
+		return envelope.frame.promptStartSeq > pending.admissionBaselineSeq;
+	}
+	if (
+		envelope.frame.kind !== "update" ||
+		envelope.frame.update.sessionUpdate !== "user_message_chunk"
+	)
+		return false;
+	const firstBlock = pending.blocks[0];
+	return (
+		firstBlock !== undefined &&
+		contentBlocksEqual(envelope.frame.update.content, firstBlock)
+	);
+}
+
+function overlayPendingPrompts(
+	timeline: FoldedTimeline,
+	pendingPrompts: PendingPrompt[],
+	sessionId: string,
+): FoldedTimeline {
+	const sessionPendingPrompts = pendingPrompts.filter(
+		(pending) => pending.sessionId === sessionId,
+	);
+	if (sessionPendingPrompts.length === 0) return timeline;
+	const items: FoldedTimeline["items"] = [];
+	let pendingIndex = 0;
+	for (const item of timeline.items) {
+		while (pendingIndex < sessionPendingPrompts.length) {
+			const pending = sessionPendingPrompts[pendingIndex];
+			if (!pending || pending.admissionBaselineSeq >= item.startSeq) break;
+			items.push({
+				kind: "message",
+				id: pending.id,
+				role: "user",
+				blocks: [...pending.blocks],
+				failed: false,
+				startSeq: pending.admissionBaselineSeq + 1,
+				endSeq: pending.admissionBaselineSeq + 1,
+				startedAt: pending.createdAt,
+				updatedAt: pending.createdAt,
+			});
+			pendingIndex += 1;
+		}
+		items.push(item);
+	}
+	while (pendingIndex < sessionPendingPrompts.length) {
+		const pending = sessionPendingPrompts[pendingIndex];
+		if (pending) {
+			items.push({
+				kind: "message",
+				id: pending.id,
+				role: "user",
+				blocks: [...pending.blocks],
+				failed: false,
+				startSeq: pending.admissionBaselineSeq + 1,
+				endSeq: pending.admissionBaselineSeq + 1,
+				startedAt: pending.createdAt,
+				updatedAt: pending.createdAt,
+			});
+		}
+		pendingIndex += 1;
+	}
+	return { ...timeline, items };
+}
+
 function mergeEnvelopesInSequence(
 	...groups: readonly SessionUpdateEnvelope[][]
 ): SessionUpdateEnvelope[] {
@@ -509,6 +594,7 @@ export function useAcpSession(
 	const [availability, setAvailability] = useState<
 		"live" | "retrying" | "unavailable"
 	>("live");
+	const [pendingPrompts, setPendingPrompts] = useState<PendingPrompt[]>([]);
 
 	// Fold target between renders; epoch guards resync races (a stale resync
 	// or a stale subscription's callbacks must not clobber a newer one).
@@ -542,11 +628,64 @@ export function useAcpSession(
 	const hasOlderRef = useRef(initialSnapshot?.hasOlder ?? false);
 	const loadedTurnNumbersRef = useRef(initialSnapshot?.loadedTurnNumbers ?? []);
 	const turnLoadPromisesRef = useRef(new Map<number, Promise<void>>());
+	const pendingPromptsRef = useRef<PendingPrompt[]>([]);
+	const optimisticPromptIdRef = useRef(0);
 	const launchStartedAtRef = useRef<number | null>(
 		options.initiallyLaunching ? Date.now() : null,
 	);
 	const previousInitiallyLaunchingRef = useRef(
 		options.initiallyLaunching ?? false,
+	);
+
+	const updatePendingPrompts = useCallback((next: PendingPrompt[]) => {
+		pendingPromptsRef.current = next;
+		setPendingPrompts(next);
+	}, []);
+
+	const addPendingPrompt = useCallback(
+		(input: {
+			sessionId: string;
+			blocks: ContentBlock[];
+			baselineSeq: number;
+		}) => {
+			const pending: PendingPrompt = {
+				sessionId: input.sessionId,
+				blocks: [...input.blocks],
+				admissionBaselineSeq: input.baselineSeq,
+				createdAt: Date.now(),
+				id: `optimistic-user:${input.sessionId}:${++optimisticPromptIdRef.current}`,
+			};
+			updatePendingPrompts([...pendingPromptsRef.current, pending]);
+			return pending;
+		},
+		[updatePendingPrompts],
+	);
+
+	const removePendingPrompt = useCallback(
+		(id: string) => {
+			const next = pendingPromptsRef.current.filter(
+				(pending) => pending.id !== id,
+			);
+			if (next.length !== pendingPromptsRef.current.length) {
+				updatePendingPrompts(next);
+			}
+		},
+		[updatePendingPrompts],
+	);
+
+	const reconcilePendingPrompts = useCallback(
+		(envelopes: readonly SessionUpdateEnvelope[]) => {
+			let next = pendingPromptsRef.current;
+			for (const envelope of envelopes) {
+				const index = next.findIndex((pending) =>
+					promptEchoesPendingPrompt(pending, envelope),
+				);
+				if (index < 0) continue;
+				next = [...next.slice(0, index), ...next.slice(index + 1)];
+			}
+			if (next !== pendingPromptsRef.current) updatePendingPrompts(next);
+		},
+		[updatePendingPrompts],
 	);
 
 	const cacheSnapshot = useCallback(() => {
@@ -641,6 +780,7 @@ export function useAcpSession(
 						authoritativeStateRef.current,
 					);
 				}
+				reconcilePendingPrompts(batch.envelopes);
 				timelineRef.current = nextTimeline;
 				setTimeline(nextTimeline);
 				setTurnIndex([...transcriptIndexRef.current]);
@@ -675,7 +815,7 @@ export function useAcpSession(
 			}
 			pendingEnvelopeBatchRef.current = batch;
 		},
-		[cancelPendingEnvelopeBatch, cacheSnapshot],
+		[cancelPendingEnvelopeBatch, cacheSnapshot, reconcilePendingPrompts],
 	);
 
 	const resync = useCallback(
@@ -790,6 +930,7 @@ export function useAcpSession(
 					),
 					state,
 				);
+				reconcilePendingPrompts(envelopesRef.current);
 				timelineRef.current = seeded;
 				setTimeline(seeded);
 				setIsLoading(false);
@@ -822,8 +963,7 @@ export function useAcpSession(
 				});
 			} catch (cause) {
 				if (!enabledRef.current || epoch !== epochRef.current) return;
-				setIsLoading(false);
-				setError(cause instanceof Error ? cause : new Error(String(cause)));
+				const error = cause instanceof Error ? cause : new Error(String(cause));
 				const launchElapsedMs =
 					launchStartedAtRef.current === null
 						? Number.POSITIVE_INFINITY
@@ -838,19 +978,22 @@ export function useAcpSession(
 				// attempt budget; the next read re-evaluates the 30-second window.
 				const retryInitialLaunchOffline =
 					cause instanceof InitialLaunchOfflineError;
-				if (
-					retryAttempt >= MAX_RESYNC_RETRIES &&
-					!retryInitialLaunchNotFound &&
-					!retryInitialLaunchOffline
-				) {
+				const retryInitialLaunch =
+					retryInitialLaunchNotFound || retryInitialLaunchOffline;
+				setIsLoading(false);
+				// A launch-time not-found/offline snapshot is an expected intermediate
+				// state while the adapter is attaching. Keep it out of the error channel
+				// so the pane stays in its retry/loading state instead of flashing a
+				// failure banner between attempts.
+				setError(retryInitialLaunch ? null : error);
+				if (retryAttempt >= MAX_RESYNC_RETRIES && !retryInitialLaunch) {
 					setAvailability("unavailable");
 					return;
 				}
 				setAvailability("retrying");
-				const delay =
-					retryInitialLaunchNotFound || retryInitialLaunchOffline
-						? 1_000
-						: RESYNC_RETRY_BASE_DELAY_MS * 2 ** retryAttempt;
+				const delay = retryInitialLaunch
+					? 1_000
+					: RESYNC_RETRY_BASE_DELAY_MS * 2 ** retryAttempt;
 				retryTimerRef.current = setTimeout(() => {
 					retryTimerRef.current = null;
 					if (!enabledRef.current || epoch !== epochRef.current) return;
@@ -865,6 +1008,7 @@ export function useAcpSession(
 			cancelPendingEnvelopeBatch,
 			enqueueLiveEnvelope,
 			cacheSnapshot,
+			reconcilePendingPrompts,
 		],
 	);
 
@@ -961,6 +1105,7 @@ export function useAcpSession(
 					),
 					authoritativeStateRef.current,
 				);
+				reconcilePendingPrompts(envelopesRef.current);
 				timelineRef.current = nextTimeline;
 				setTimeline(nextTimeline);
 				const nextCursor =
@@ -989,7 +1134,7 @@ export function useAcpSession(
 		if (request === undefined) return;
 		olderLoadPromiseRef.current = request;
 		return request;
-	}, [cacheSnapshot, pageSize, sessionId]);
+	}, [cacheSnapshot, pageSize, reconcilePendingPrompts, sessionId]);
 
 	const loadTurn = useCallback(
 		async (turnNumber: number): Promise<void> => {
@@ -1037,6 +1182,7 @@ export function useAcpSession(
 						),
 						authoritativeStateRef.current,
 					);
+					reconcilePendingPrompts(envelopesRef.current);
 					timelineRef.current = nextTimeline;
 					setTimeline(nextTimeline);
 					cacheSnapshot();
@@ -1052,7 +1198,7 @@ export function useAcpSession(
 			turnLoadPromisesRef.current.set(turnNumber, request);
 			return request;
 		},
-		[cacheSnapshot, sessionId],
+		[cacheSnapshot, reconcilePendingPrompts, sessionId],
 	);
 
 	// The session currently reflected by the rendered state/timeline. When the
@@ -1067,6 +1213,7 @@ export function useAcpSession(
 		if (renderedSessionIdRef.current !== sessionId) {
 			renderedSessionIdRef.current = sessionId;
 			renderedConnectionKeyRef.current = connectionKey;
+			updatePendingPrompts([]);
 			const snapshot = readAcpSessionSnapshot(sessionId, connectionKey);
 			envelopesRef.current = snapshot?.envelopes ?? [];
 			transcriptTurnsRef.current = new Map(
@@ -1124,6 +1271,7 @@ export function useAcpSession(
 		cancelPendingEnvelopeBatch,
 		connectionKey,
 		enabled,
+		updatePendingPrompts,
 	]);
 
 	useEffect(() => {
@@ -1152,7 +1300,24 @@ export function useAcpSession(
 
 	const actions = useMemo<AcpSessionActions>(
 		() => ({
-			prompt: (blocks) => apiRef.current.prompt({ sessionId, prompt: blocks }),
+			prompt: async (blocks) => {
+				const admissionBaselineSeq = Math.max(
+					timelineRef.current.lastSeq,
+					envelopesRef.current.at(-1)?.seq ?? 0,
+					authoritativeStateRef.current?.lastSeq ?? 0,
+				);
+				const pending = addPendingPrompt({
+					sessionId,
+					blocks,
+					baselineSeq: admissionBaselineSeq,
+				});
+				try {
+					return await apiRef.current.prompt({ sessionId, prompt: blocks });
+				} catch (cause) {
+					removePendingPrompt(pending.id);
+					throw cause;
+				}
+			},
 			cancel: () => apiRef.current.cancel({ sessionId }),
 			respondToPermission: (requestId, outcome) =>
 				apiRef.current.respondToPermission({ sessionId, requestId, outcome }),
@@ -1176,7 +1341,7 @@ export function useAcpSession(
 				}),
 			clearQueue: () => apiRef.current.clearQueue({ sessionId }),
 		}),
-		[sessionId, resync],
+		[addPendingPrompt, removePendingPrompt, resync, sessionId],
 	);
 
 	// React renders once with the new props before the sessionId effect can swap
@@ -1189,7 +1354,7 @@ export function useAcpSession(
 		: null;
 	const renderedTimeline = switchingSession
 		? (switchingSnapshot?.timeline ?? emptyTimeline())
-		: timeline;
+		: overlayPendingPrompts(timeline, pendingPrompts, sessionId);
 	const renderedState = renderedTimeline.state ?? fetchedState;
 
 	return {

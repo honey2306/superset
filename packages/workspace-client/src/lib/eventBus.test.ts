@@ -108,6 +108,40 @@ describe("eventBus", () => {
 		]);
 	});
 
+	it("preserves open-session request identity for Desktop deduplication", async () => {
+		const host = makeHostServer();
+		const bus = getEventBus(host.hostUrl, () => "tok");
+		const requests: Array<{
+			sessionId: string;
+			requestId?: string;
+			reason: string;
+		}> = [];
+		cleanups.push(
+			bus.on("acp-session:open-requested", "ws-1", (_workspaceId, event) =>
+				requests.push(event),
+			),
+		);
+		cleanups.push(() => host.server.stop(true));
+
+		await waitFor(() => host.clientCount() === 1);
+		host.push({
+			type: "acp-session:open-requested",
+			workspaceId: "ws-1",
+			sessionId: "session-1",
+			sourceSessionId: "source-1",
+			requestId: "request-1",
+			harness: "pi-acp",
+			reason: "open_session",
+			occurredAt: 1,
+		});
+		await waitFor(() => requests.length === 1);
+		expect(requests[0]).toMatchObject({
+			sessionId: "session-1",
+			requestId: "request-1",
+			reason: "open_session",
+		});
+	});
+
 	it("shares one connection per hostUrl across handles", async () => {
 		const host = makeHostServer();
 		const busA = getEventBus(host.hostUrl, () => "tok");

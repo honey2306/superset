@@ -157,8 +157,6 @@ export interface AcpSessionPaneProps {
 	isFocused?: boolean;
 	/** Whether this pane's workspace surface and tab are currently displayed. */
 	isVisible?: boolean;
-	/** Whether this pane belongs to the currently selected workspace. */
-	isWorkspaceActive: boolean;
 	/** Creation failure kept with the pane instead of dropping the new tab. */
 	creationError?: string;
 	onRetryLaunch?: () => void;
@@ -181,7 +179,6 @@ export function AcpSessionPane({
 	isLaunching = false,
 	isFocused = false,
 	isVisible = true,
-	isWorkspaceActive,
 	creationError,
 	onRetryLaunch,
 	onSessionMetadataChange,
@@ -200,9 +197,7 @@ export function AcpSessionPane({
 		() => client.streamUrl(sessionId),
 		[client, sessionId],
 	);
-	const { isConnectionEnabled, recordActivity } = useRetainedAcpConnection({
-		isWorkspaceActive,
-	});
+	const { isConnectionEnabled, recordActivity } = useRetainedAcpConnection({});
 
 	const session = useAcpSession({
 		sessionId,

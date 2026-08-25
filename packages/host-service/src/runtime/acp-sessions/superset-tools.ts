@@ -27,8 +27,15 @@ export interface AcpSessionOpenRequest {
 	workspaceId: string;
 	sessionId: string;
 	sourceSessionId: string;
+	/** Stable identity for this presentation request. */
+	requestId: string;
 	harness: HarnessKind;
-	reason: "context_limit" | "parallel_task" | "fresh_start" | "delegation";
+	reason:
+		| "context_limit"
+		| "parallel_task"
+		| "fresh_start"
+		| "delegation"
+		| "open_session";
 	occurredAt: number;
 }
 
@@ -535,6 +542,39 @@ export class SupersetToolController {
 				);
 				return projectSession(target);
 			}
+			case "open_session": {
+				const target = this.getWorkspaceSession(
+					source,
+					request.arguments.sessionId,
+				);
+				const requestId = randomUUID();
+				let openRequested = false;
+				try {
+					if (this.onOpenRequested) {
+						this.onOpenRequested({
+							workspaceId: source.workspaceId,
+							sessionId: target.sessionId,
+							sourceSessionId: source.sessionId,
+							requestId,
+							harness: target.harness,
+							reason: "open_session",
+							occurredAt: Date.now(),
+						});
+						openRequested = true;
+					}
+				} catch {
+					// Presentation is best-effort. The target was already authorized
+					// and remains available even when Desktop is disconnected.
+				}
+				return {
+					sessionId: target.sessionId,
+					workspaceId: target.workspaceId,
+					status: target.status,
+					title: target.title,
+					openRequested,
+					requestId,
+				};
+			}
 			case "get_session_messages": {
 				const target = this.getWorkspaceSession(
 					source,
@@ -937,6 +977,7 @@ export class SupersetToolController {
 					workspaceId: record.childWorkspaceId,
 					sessionId: child.sessionId,
 					sourceSessionId: source.sessionId,
+					requestId: randomUUID(),
 					harness: child.harness,
 					reason: input.reason,
 					occurredAt: Date.now(),

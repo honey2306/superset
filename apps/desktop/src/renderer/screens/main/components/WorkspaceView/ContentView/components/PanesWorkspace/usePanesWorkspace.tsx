@@ -103,10 +103,7 @@ function terminalStatusClass(status: PanesPaneData["status"]): string {
  * workspace-client daemon health query); M2 keeps the rich-input entry out
  * of scope until a host-agnostic connection indicator exists.
  */
-function usePanesRegistry(
-	workspaceId: string,
-	isWorkspaceActive: boolean,
-): PaneRegistry<PanesPaneData> {
+function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 	const { t } = useTranslation();
 	const { workspace } = useCatalogWorkspace(workspaceId);
 	const { activeHostUrl: hostUrl } = useLocalHostService();
@@ -440,7 +437,6 @@ function usePanesRegistry(
 						}
 						isLaunching={acpData.isLaunching}
 						isVisible={ctx.isVisible}
-						isWorkspaceActive={isWorkspaceActive}
 						isFocused={ctx.isActive}
 						creationError={acpData.creationError}
 						onRetryLaunch={
@@ -534,7 +530,6 @@ function usePanesRegistry(
 		workspace?.worktreePath,
 		hostUrl,
 		hostWorkspaceId,
-		isWorkspaceActive,
 	]);
 }
 
@@ -565,7 +560,7 @@ export function usePanesWorkspace(
 	store: StoreApi<WorkspaceStore<PanesPaneData>>,
 	options: UsePanesWorkspaceOptions,
 ) {
-	const registry = usePanesRegistry(workspaceId, options.isWorkspaceActive);
+	const registry = usePanesRegistry(workspaceId);
 	const launcher = useTerminalLauncher();
 	const paneActions = useDefaultPaneActions(launcher);
 	const contextMenuActions = useDefaultContextMenuActions(registry, launcher);

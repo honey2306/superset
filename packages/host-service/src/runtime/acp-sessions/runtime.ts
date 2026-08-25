@@ -34,8 +34,15 @@ export interface AcpSessionOpenRequestEvent {
 	workspaceId: string;
 	sessionId: string;
 	sourceSessionId: string;
+	/** Stable identity for this presentation request; absent on older daemons. */
+	requestId?: string;
 	harness: SessionScopedState["harness"];
-	reason: "context_limit" | "parallel_task" | "fresh_start" | "delegation";
+	reason:
+		| "context_limit"
+		| "parallel_task"
+		| "fresh_start"
+		| "delegation"
+		| "open_session";
 	occurredAt: number;
 }
 

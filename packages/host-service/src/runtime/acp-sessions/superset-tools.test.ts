@@ -262,6 +262,104 @@ describe("SupersetToolController", () => {
 		).rejects.toThrow("unavailable in the current workspace");
 	});
 
+	test("opens or focuses an existing same-workspace session", async () => {
+		const { manager } = fixture();
+		const events: AcpSessionOpenRequest[] = [];
+		const controller = new SupersetToolController({
+			manager,
+			onOpenRequested: (event) => events.push(event),
+		});
+
+		const first = await controller.execute({
+			sourceSessionId: "source",
+			name: "open_session",
+			arguments: { sessionId: "sibling" },
+		});
+		const second = await controller.execute({
+			sourceSessionId: "source",
+			name: "open_session",
+			arguments: { sessionId: "sibling" },
+		});
+
+		expect(first).toMatchObject({
+			sessionId: "sibling",
+			workspaceId: "workspace-1",
+			status: "idle",
+			openRequested: true,
+		});
+		expect(second).toMatchObject({
+			sessionId: "sibling",
+			workspaceId: "workspace-1",
+			openRequested: true,
+		});
+		expect(first.requestId).toEqual(expect.any(String));
+		expect(second.requestId).toEqual(expect.any(String));
+		expect(second.requestId).not.toBe(first.requestId);
+		expect(events).toHaveLength(2);
+		expect(events).toMatchObject([
+			{
+				workspaceId: "workspace-1",
+				sessionId: "sibling",
+				sourceSessionId: "source",
+				reason: "open_session",
+			},
+			{
+				workspaceId: "workspace-1",
+				sessionId: "sibling",
+				sourceSessionId: "source",
+				reason: "open_session",
+			},
+		]);
+		expect(events[0]?.requestId).not.toBe(events[1]?.requestId);
+	});
+
+	test("rejects missing or cross-workspace sessions for open_session", async () => {
+		const { manager } = fixture();
+		const onOpenRequested = mock(() => {});
+		const controller = new SupersetToolController({
+			manager,
+			onOpenRequested,
+		});
+
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "open_session",
+				arguments: { sessionId: "foreign" },
+			}),
+		).rejects.toThrow("unavailable in the current workspace");
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "open_session",
+				arguments: { sessionId: "missing" },
+			}),
+		).rejects.toThrow("unavailable in the current workspace");
+		expect(onOpenRequested).not.toHaveBeenCalled();
+	});
+
+	test("does not fail or claim success when Desktop presentation is unavailable", async () => {
+		const { manager } = fixture();
+		const controller = new SupersetToolController({
+			manager,
+			onOpenRequested: () => {
+				throw new Error("Desktop disconnected");
+			},
+		});
+
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "open_session",
+				arguments: { sessionId: "sibling" },
+			}),
+		).resolves.toMatchObject({
+			sessionId: "sibling",
+			workspaceId: "workspace-1",
+			openRequested: false,
+		});
+	});
+
 	test("opens a KDev merge request page derived from the source session only", async () => {
 		const { manager } = fixture();
 		const requests: Array<{
