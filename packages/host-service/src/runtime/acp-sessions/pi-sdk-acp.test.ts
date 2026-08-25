@@ -20,6 +20,7 @@ import {
 	promptFailure,
 	promptText,
 	sessionResponse,
+	shouldReplayTranscript,
 	toolKind,
 	type UsageSnapshot,
 	usageFromMessage,
@@ -216,6 +217,14 @@ describe("Pi SDK ACP mappings", () => {
 			totalTokens: 0,
 		};
 		expect(acpUsage(zero)?.totalTokens).toBe(0);
+	});
+
+	test("skips persisted transcript replay only when Superset requests it", () => {
+		expect(shouldReplayTranscript(undefined)).toBe(true);
+		expect(shouldReplayTranscript({})).toBe(true);
+		expect(
+			shouldReplayTranscript({ "sh.superset/skipTranscriptReplay": true }),
+		).toBe(false);
 	});
 
 	test("returns a stable ACP session response for new and loaded sessions", () => {

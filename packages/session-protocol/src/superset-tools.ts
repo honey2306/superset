@@ -38,12 +38,19 @@ const sendMessageArgsSchema = z
 		message: messageSchema,
 	})
 	.strict();
+const targetWorkspaceIdSchema = z.string().trim().min(1).max(256);
+const targetProjectIdSchema = z.string().trim().min(1).max(256);
+const targetProjectPathSchema = z.string().trim().min(1).max(2_000);
+
 const continueInNewSessionArgsSchema = z
 	.object({
 		reason: z
 			.enum(["context_limit", "parallel_task", "fresh_start"])
 			.default("context_limit"),
 		handoff: messageSchema,
+		workspaceId: targetWorkspaceIdSchema.optional(),
+		projectId: targetProjectIdSchema.optional(),
+		projectPath: targetProjectPathSchema.optional(),
 		agent: supersetAgentSchema.optional(),
 		focus: z.boolean().default(true),
 		idempotencyKey: z.string().min(1).max(128).optional(),
@@ -115,6 +122,9 @@ const delegationResultSchema = addSerializedPayloadLimit(
 const delegateArgsSchema = z
 	.object({
 		task: messageSchema,
+		workspaceId: targetWorkspaceIdSchema.optional(),
+		projectId: targetProjectIdSchema.optional(),
+		projectPath: targetProjectPathSchema.optional(),
 		/** Optional for backwards compatibility; configured profiles require it at runtime. */
 		profileId: z.string().trim().min(1).max(128).optional(),
 		contextSnapshot: delegationContextSnapshotSchema.optional(),
@@ -426,7 +436,7 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "get_session_messages",
 		description:
-			"Read persisted timeline messages for an ACP session in the current workspace. Results are newest-first; pass nextCursor as cursor to fetch older messages.",
+			"Read persisted user, agent, and thought messages for an ACP session in the current workspace. Large content is truncated and raw tool payloads are omitted. Results are newest-first; pass nextCursor as cursor to fetch older messages.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -458,7 +468,7 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "continue_in_new_session",
 		description:
-			"Continue work in a fresh ACP conversation. Provide a self-contained handoff with goal, completed work, decisions, changed files, and next steps. Superset can open the child session in a new tab.",
+			"Continue work in a fresh ACP conversation. Provide a self-contained handoff with goal, completed work, decisions, changed files, and next steps. Defaults to a Pi session unless agent is explicitly specified. Optionally pass workspaceId, projectId, or projectPath to start the conversation in another workspace/project. Superset can open the child session in a new tab.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -468,6 +478,9 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 					default: "context_limit",
 				},
 				handoff: { type: "string", minLength: 1, maxLength: 100_000 },
+				workspaceId: { type: "string", minLength: 1, maxLength: 256 },
+				projectId: { type: "string", minLength: 1, maxLength: 256 },
+				projectPath: { type: "string", minLength: 1, maxLength: 2_000 },
 				agent: {
 					type: "string",
 					enum: ["claude", "codex", "pi", "myflicker", "deepseek"],
@@ -482,11 +495,14 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "delegate",
 		description:
-			"Delegate only a clearly independent, tightly bounded task when it is worth the overhead; usually use 1–3 children with distinct, non-overlapping responsibilities. Execute directly by default and do not delegate dependent tasks. When delegating, provide a finite structured contextSnapshot containing only facts relevant to this child; each snapshot is structurally bounded and serialized to at most 32 KiB. With persisted profiles configured, profileId is required; generated defaults and the legacy single target may omit it. The child runs independently; after this tool returns a delegationRunId, use wait_delegation for event-driven completion rather than polling list_sessions/get_session_status, then inspect the child's actual changes and validation before accepting the work.",
+			"Delegate only a clearly independent, tightly bounded task when it is worth the overhead; usually use 1–3 children with distinct, non-overlapping responsibilities. Execute directly by default and do not delegate dependent tasks. When delegating, provide a finite structured contextSnapshot containing only facts relevant to this child; each snapshot is structurally bounded and serialized to at most 32 KiB. With persisted profiles configured, profileId is required; generated defaults and the legacy single target may omit it. Optionally pass workspaceId, projectId, or projectPath to start the child in another workspace/project. The child runs independently; after this tool returns a delegationRunId, use wait_delegation for event-driven completion rather than polling list_sessions/get_session_status, then inspect the child's actual changes and validation before accepting the work.",
 		inputSchema: {
 			type: "object",
 			properties: {
 				task: { type: "string", minLength: 1, maxLength: 100_000 },
+				workspaceId: { type: "string", minLength: 1, maxLength: 256 },
+				projectId: { type: "string", minLength: 1, maxLength: 256 },
+				projectPath: { type: "string", minLength: 1, maxLength: 2_000 },
 				profileId: { type: "string", minLength: 1, maxLength: 128 },
 				contextSnapshot: {
 					type: "object",

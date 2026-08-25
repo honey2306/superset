@@ -272,6 +272,7 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 							workspaceId={workspaceId}
 							worktreePath={worktreePath}
 							projectId={workspace?.projectId}
+							isActive={rightSidebarTab === RightSidebarTab.History}
 							onFileOpen={(file, commitHash) =>
 								handleFileOpen?.(file, "committed", commitHash)
 							}

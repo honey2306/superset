@@ -1,7 +1,7 @@
 import { Button } from "@superset/ui/button";
 import { toast } from "@superset/ui/sonner";
 import { Textarea } from "@superset/ui/textarea";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { VscCheck } from "react-icons/vsc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
@@ -22,6 +22,7 @@ export function CommitInput({
 }: CommitInputProps) {
 	const { t } = useTranslation();
 	const { activeHostUrl } = useLocalHostService();
+	const queryClient = useQueryClient();
 	const [commitMessage, setCommitMessage] = useState("");
 	const commitMutation = useMutation({
 		mutationFn: (message: string) => {
@@ -34,6 +35,9 @@ export function CommitInput({
 		onSuccess: () => {
 			toast.success(t("changes.commit.toastCommitted"));
 			setCommitMessage("");
+			void queryClient.invalidateQueries({
+				queryKey: ["git-log", activeHostUrl, workspaceId],
+			});
 			onRefresh();
 		},
 		onError: (error) =>

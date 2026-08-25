@@ -29,27 +29,187 @@ export type ClassifiedToolCallContent =
 	| { kind: "diff"; path: string; oldText?: string | null; newText: string }
 	| { kind: "terminal"; terminalId: string };
 
-export function classifyToolCallContent(
-	content: unknown,
-): ClassifiedToolCallContent[] {
+function record(value: unknown): Record<string, unknown> | null {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: null;
+}
+
+function stringField(value: unknown, key: string): string | undefined {
+	const found = record(value)?.[key];
+	return typeof found === "string" && found.length > 0 ? found : undefined;
+}
+
+function parseJsonRecord(value: unknown): Record<string, unknown> | null {
+	if (typeof value !== "string") return record(value);
+	const trimmed = value.trim();
+	if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
+	try {
+		return record(JSON.parse(trimmed));
+	} catch {
+		return null;
+	}
+}
+
+function canonicalJson(value: unknown): string | null {
+	try {
+		return JSON.stringify(value);
+	} catch {
+		return null;
+	}
+}
+
+function contentTextValue(content: unknown): string | undefined {
+	const contentRecord = record(content);
+	return contentRecord?.type === "text" &&
+		typeof contentRecord.text === "string"
+		? contentRecord.text
+		: undefined;
+}
+
+function isRawOutputEcho(
+	entry: ClassifiedToolCallContent,
+	rawOutput: unknown,
+): boolean {
+	if (entry.kind !== "content") return false;
+	const text = contentTextValue(entry.content);
+	if (!text) return false;
+	if (typeof rawOutput === "string" && text.trim() === rawOutput.trim())
+		return true;
+	const parsed = parseJsonRecord(text);
+	return Boolean(parsed && canonicalJson(parsed) === canonicalJson(rawOutput));
+}
+
+function firstTextContent(content: unknown): string | undefined {
+	if (!Array.isArray(content)) return undefined;
+	for (const entry of content) {
+		const entryRecord = record(entry);
+		if (entryRecord?.type === "text" && typeof entryRecord.text === "string") {
+			return entryRecord.text;
+		}
+		const nested = record(entryRecord?.content);
+		if (nested?.type === "text" && typeof nested.text === "string") {
+			return nested.text;
+		}
+	}
+	return undefined;
+}
+
+function pathFromToolOutput(
+	output: Record<string, unknown>,
+	title?: string,
+): string {
+	const details = record(output.details);
+	const explicitPath =
+		stringField(details, "path") ?? stringField(output, "path");
+	if (explicitPath) return explicitPath;
+	const text = firstTextContent(output.content);
+	const textPath = text?.match(/\bin\s+([^\s]+)\.?$/)?.[1];
+	if (textPath) return textPath.replace(/\.$/, "");
+	const titlePath = title?.match(/^Edit\s+(.+)$/)?.[1];
+	return titlePath ?? "(unknown)";
+}
+
+function classifyEntries(content: unknown): ClassifiedToolCallContent[] {
 	if (!Array.isArray(content)) return [];
 	return content.map((entry) => {
-		if (entry?.type === "diff") {
+		const entryRecord = record(entry);
+		if (entryRecord?.type === "diff") {
 			return {
 				kind: "diff" as const,
-				path: entry.path ?? "(unknown)",
-				oldText: entry.oldText,
-				newText: entry.newText ?? "",
+				path: stringField(entryRecord, "path") ?? "(unknown)",
+				oldText:
+					typeof entryRecord.oldText === "string" ? entryRecord.oldText : null,
+				newText: stringField(entryRecord, "newText") ?? "",
 			};
 		}
-		if (entry?.type === "terminal") {
+		if (entryRecord?.type === "terminal") {
 			return {
 				kind: "terminal" as const,
-				terminalId: entry.terminalId ?? "",
+				terminalId: stringField(entryRecord, "terminalId") ?? "",
 			};
 		}
-		return { kind: "content" as const, content: entry?.content ?? entry };
+		return { kind: "content" as const, content: entryRecord?.content ?? entry };
 	});
+}
+
+function textContent(text: string): ClassifiedToolCallContent {
+	return { kind: "content", content: { type: "text", text } };
+}
+
+function genericRawOutputContent(
+	output: Record<string, unknown>,
+): ClassifiedToolCallContent[] {
+	const details = record(output.details);
+	const stdout =
+		stringField(output, "stdout") ?? stringField(details, "stdout");
+	const stderr =
+		stringField(output, "stderr") ?? stringField(details, "stderr");
+	if (stdout || stderr) {
+		return [
+			textContent(
+				[
+					stdout ? `stdout\n${stdout}` : null,
+					stderr ? `stderr\n${stderr}` : null,
+				]
+					.filter(Boolean)
+					.join("\n\n"),
+			),
+		];
+	}
+	const text =
+		stringField(output, "content") ??
+		stringField(output, "output") ??
+		stringField(output, "text") ??
+		stringField(output, "result") ??
+		stringField(details, "content") ??
+		stringField(details, "output") ??
+		stringField(details, "text") ??
+		stringField(details, "result");
+	return text ? [textContent(text)] : [];
+}
+
+function classifyRawToolOutput(
+	rawOutput: unknown,
+	title?: string,
+): ClassifiedToolCallContent[] {
+	const output = parseJsonRecord(rawOutput);
+	if (!output) return [];
+	const details = record(output.details);
+	const mcpResult = record(details?.mcpResult);
+	const direct = [
+		...classifyEntries(output.content),
+		...classifyEntries(mcpResult?.content),
+	];
+	const structured =
+		direct.length > 0 ? direct : genericRawOutputContent(output);
+	if (structured.some((entry) => entry.kind === "diff")) return structured;
+	const diff = stringField(details, "diff");
+	if (!diff) return structured;
+	return [
+		...structured,
+		{
+			kind: "diff" as const,
+			path: pathFromToolOutput(output, title),
+			oldText: null,
+			newText: diff,
+		},
+	];
+}
+
+export function classifyToolCallContent(
+	content: unknown,
+	rawOutput?: unknown,
+	title?: string,
+): ClassifiedToolCallContent[] {
+	const direct = classifyEntries(content);
+	if (direct.some((entry) => entry.kind === "diff")) return direct;
+	const structuredRaw = classifyRawToolOutput(rawOutput, title);
+	if (structuredRaw.length === 0) return direct;
+	const meaningfulDirect = direct.filter(
+		(entry) => !isRawOutputEcho(entry, rawOutput),
+	);
+	return [...meaningfulDirect, ...structuredRaw];
 }
 
 export function toolCallStatusText(
@@ -101,7 +261,11 @@ export function AcpToolCallItem({
 		}
 	}, [hasUnresolvedPermission]);
 
-	const classified = classifyToolCallContent(call.content);
+	const classified = classifyToolCallContent(
+		call.content,
+		call.rawOutput,
+		call.title,
+	);
 	const { kind, locations, status, title } = call;
 
 	return (

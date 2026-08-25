@@ -391,7 +391,7 @@ describe("older history", () => {
 });
 
 describe("plan dock", () => {
-	test("renders a successful final ACP plan update", () => {
+	test("hides a successful final ACP plan update", () => {
 		const folded = foldEnvelope(emptyTimeline(), {
 			sessionId: "session-1",
 			epoch: "epoch-1",
@@ -414,12 +414,12 @@ describe("plan dock", () => {
 
 		const result = renderTimeline(folded);
 
-		expect(result.container.querySelector(".acp-plan-dock")).toBeTruthy();
-		expect(screen.getByText("Plan complete")).toBeTruthy();
-		expect(screen.getByText("1/1")).toBeTruthy();
+		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
+		expect(screen.queryByText("Plan complete")).toBeNull();
+		expect(screen.queryByText("1/1")).toBeNull();
 	});
 
-	test("keeps a completed plan visible in the collapsed dock", () => {
+	test("hides a completed plan from the collapsed dock", () => {
 		const completedPlan = plan(2);
 		completedPlan.entries = completedPlan.entries.map((entry) => ({
 			...entry,
@@ -430,10 +430,22 @@ describe("plan dock", () => {
 			items: [message(1), completedPlan, message(3)],
 		});
 
-		expect(result.container.querySelector(".acp-plan-dock")).toBeTruthy();
+		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
 		expect(result.container.querySelector(".acp-plan")).toBeNull();
-		expect(screen.getByText("Plan complete")).toBeTruthy();
-		expect(screen.getByText("3/3")).toBeTruthy();
+		expect(screen.queryByText("Plan complete")).toBeNull();
+		expect(screen.queryByText("3/3")).toBeNull();
+	});
+
+	test("does not show a removed plan in the dock or transcript", () => {
+		const removedPlan = { ...plan(2), removed: true };
+		const result = renderTimeline({
+			...timeline(0),
+			items: [message(1), removedPlan, message(3)],
+		});
+
+		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
+		expect(result.container.querySelector(".acp-plan")).toBeNull();
+		expect(screen.queryByText("Keep plan docked")).toBeNull();
 	});
 
 	test("keeps the active plan collapsed above the composer", () => {
@@ -468,7 +480,7 @@ describe("plan dock", () => {
 		expect(screen.getByText("2/3")).toBeTruthy();
 	});
 
-	test("keeps the dock when the latest plan update completes", () => {
+	test("removes the dock when the latest plan update completes", () => {
 		const activePlan = plan(2);
 		const completedPlan: PlanItem = {
 			...plan(3),
@@ -493,9 +505,9 @@ describe("plan dock", () => {
 			}),
 		);
 
-		expect(result.container.querySelector(".acp-plan-dock")).toBeTruthy();
+		expect(result.container.querySelector(".acp-plan-dock")).toBeNull();
 		expect(result.container.querySelector(".acp-plan")).toBeNull();
-		expect(screen.getByText("Plan complete")).toBeTruthy();
+		expect(screen.queryByText("Plan complete")).toBeNull();
 	});
 
 	test("reveals the existing plan card when clicked", () => {
@@ -891,44 +903,68 @@ describe("AcpTimeline scrolling", () => {
 		}
 	});
 
-	test("keeps a manual reading position when a hidden tab is shown", async () => {
+	test("returns to the latest item after a manual reading position is hidden", () => {
 		const onRespond = async () => {};
 		const hiddenTimeline = timeline(3);
-		const result = render(
-			createElement(AcpTimeline, {
-				timeline: timeline(2),
-				onRespond,
-				isFocused: true,
-			}),
-		);
-		const body = result.container.querySelector(
-			".acp-pane__scroll",
-		) as HTMLDivElement;
-		setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_000 });
+		let pendingFrame: FrameRequestCallback | undefined;
+		const originalRequestAnimationFrame = window.requestAnimationFrame;
+		const originalCancelAnimationFrame = window.cancelAnimationFrame;
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			pendingFrame = callback;
+			return 1;
+		}) as typeof window.requestAnimationFrame;
+		window.cancelAnimationFrame =
+			(() => {}) as typeof window.cancelAnimationFrame;
 
-		await act(async () => {
+		try {
+			const result = render(
+				createElement(AcpTimeline, {
+					timeline: timeline(2),
+					onRespond,
+					isFocused: true,
+				}),
+			);
+			const body = result.container.querySelector(
+				".acp-pane__scroll",
+			) as HTMLDivElement;
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_000 });
+			act(() => pendingFrame?.(0));
+			pendingFrame = undefined;
+
 			body.scrollTop = 200;
 			fireEvent.scroll(body);
-		});
+			expect(
+				screen.getByRole("button", { name: "Jump to latest" }),
+			).toBeTruthy();
 
-		setScrollMetrics(body, { clientHeight: 0, scrollHeight: 0 });
-		result.rerender(
-			createElement(AcpTimeline, {
-				timeline: hiddenTimeline,
-				onRespond,
-				isFocused: false,
-			}),
-		);
-		setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
-		result.rerender(
-			createElement(AcpTimeline, {
-				timeline: hiddenTimeline,
-				onRespond,
-				isFocused: true,
-			}),
-		);
+			// Switching away while a stream update arrives can temporarily make the
+			// hidden pane's scroll metrics zero-sized.
+			setScrollMetrics(body, { clientHeight: 0, scrollHeight: 0 });
+			result.rerender(
+				createElement(AcpTimeline, {
+					timeline: hiddenTimeline,
+					onRespond,
+					isFocused: false,
+				}),
+			);
 
-		expect(body.scrollTop).toBe(200);
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
+			result.rerender(
+				createElement(AcpTimeline, {
+					timeline: hiddenTimeline,
+					onRespond,
+					isFocused: true,
+				}),
+			);
+
+			expect(body.scrollTop).toBe(200);
+			expect(pendingFrame).toBeTruthy();
+			act(() => pendingFrame?.(0));
+			expect(body.scrollTop).toBe(1_300);
+		} finally {
+			window.requestAnimationFrame = originalRequestAnimationFrame;
+			window.cancelAnimationFrame = originalCancelAnimationFrame;
+		}
 	});
 });
 

@@ -14,6 +14,7 @@ import {
 	resolveDelegationProfileTargets,
 	toDelegationProfileSummary,
 } from "../../trpc/router/settings/delegated-execution-target";
+import { canonicalizeHostPath } from "../../workspace-catalog";
 import {
 	assertProjectConfigIsEditable,
 	resolveScript,
@@ -167,6 +168,49 @@ async function main(): Promise<void> {
 				profiles,
 				profilesConfigured: false,
 			};
+		},
+		resolveTargetWorkspace: ({
+			sourceWorkspaceId,
+			workspaceId,
+			projectId,
+			projectPath,
+		}) => {
+			if (workspaceId) {
+				const workspace = db.query.workspaces
+					.findFirst({ where: eq(workspaces.id, workspaceId) })
+					.sync();
+				if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`);
+				return workspace.id;
+			}
+			let resolvedProjectId = projectId;
+			if (projectPath) {
+				const canonicalProjectPath = canonicalizeHostPath(projectPath);
+				const project = db.query.projects
+					.findFirst({
+						where: eq(projects.canonicalRepoPath, canonicalProjectPath),
+					})
+					.sync();
+				if (!project) throw new Error(`Project not found: ${projectPath}`);
+				resolvedProjectId = project.id;
+			}
+			if (!resolvedProjectId) return sourceWorkspaceId;
+			const candidates = db
+				.select({
+					id: workspaces.id,
+					type: workspaces.type,
+					createdAt: workspaces.createdAt,
+				})
+				.from(workspaces)
+				.where(eq(workspaces.projectId, resolvedProjectId))
+				.all();
+			const target =
+				candidates.find((workspace) => workspace.type === "main") ??
+				candidates.sort((a, b) => b.createdAt - a.createdAt)[0];
+			if (!target)
+				throw new Error(
+					`Workspace not found for project: ${resolvedProjectId}`,
+				);
+			return target.id;
 		},
 		setProjectRunCommand: ({ workspaceId, commands }) => {
 			const project = db

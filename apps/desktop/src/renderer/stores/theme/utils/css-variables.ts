@@ -46,6 +46,16 @@ const UI_COLOR_TO_CSS_VAR: Record<keyof UIColors, string> = {
 };
 
 /**
+ * Mix neutral theme colors in sRGB instead of OKLCH. Near-achromatic OKLCH
+ * interpolation can lose its hue or take a surprising hue path, which Chromium
+ * renders as muddy brown on Dracula's dark surfaces. Chromatic accents/status
+ * tints below intentionally stay in OKLCH.
+ */
+function mixNeutral(color: string, percentage: number): string {
+	return `color-mix(in srgb, ${color} ${percentage}%, transparent)`;
+}
+
+/**
  * DS extended palette derived from the active theme.
  *
  * The base pre-hydration values in `globals.css` are Dracula-frozen, so
@@ -54,7 +64,7 @@ const UI_COLOR_TO_CSS_VAR: Record<keyof UIColors, string> = {
  * whichever theme is now active so every semantic utility (text-success,
  * bg-accent-tint, border-line, ...) follows the theme's palette.
  */
-function computeDSExtendedTokens(theme: Theme): Record<string, string> {
+export function computeDSExtendedTokens(theme: Theme): Record<string, string> {
 	const ui = theme.ui;
 	const terminal = getTerminalColors(theme);
 	const fg = ui.foreground;
@@ -63,18 +73,18 @@ function computeDSExtendedTokens(theme: Theme): Record<string, string> {
 	return {
 		"--ds-page-bg": bg,
 		"--ds-surface": ui.card,
-		"--ds-surface-elev": `color-mix(in oklch, ${bg} 92%, ${fg} 8%)`,
+		"--ds-surface-elev": `color-mix(in srgb, ${bg} 92%, ${fg} 8%)`,
 		"--ds-surface-sunk": ui.popover,
 
 		"--fg": fg,
-		"--fg-mute": `color-mix(in oklch, ${fg} 55%, transparent)`,
-		"--fg-faint": `color-mix(in oklch, ${fg} 38%, transparent)`,
+		"--fg-mute": mixNeutral(fg, 55),
+		"--fg-faint": mixNeutral(fg, 38),
 		"--fg-inverse": bg,
 
-		"--line": `color-mix(in oklch, ${fg} 10%, transparent)`,
-		"--line-strong": `color-mix(in oklch, ${fg} 18%, transparent)`,
-		"--hover": `color-mix(in oklch, ${fg} 6%, transparent)`,
-		"--selected": `color-mix(in oklch, ${fg} 10%, transparent)`,
+		"--line": mixNeutral(fg, 10),
+		"--line-strong": mixNeutral(fg, 18),
+		"--hover": mixNeutral(fg, 6),
+		"--selected": mixNeutral(fg, 10),
 
 		"--accent-solid": ui.accentForeground,
 		"--accent-2": ui.chart2,

@@ -71,6 +71,99 @@ describe("classifyToolCallContent", () => {
 		expect(result[1]?.kind).toBe("diff");
 		expect(result[2]?.kind).toBe("terminal");
 	});
+
+	test("classifies Pi edit raw JSON details diff without echoing JSON", () => {
+		const output = {
+			content: [
+				{
+					type: "text",
+					text: "Successfully replaced 4 block(s) in src/agent_fabric/infra/agent_runtime_tokens.py.",
+				},
+			],
+			details: {
+				diff: "@@\n- old\n+ new",
+			},
+		};
+		const rawOutput = JSON.stringify(output);
+
+		const result = classifyToolCallContent(
+			[{ type: "content", content: { type: "text", text: rawOutput } }],
+			rawOutput,
+			"Edit fallback.py",
+		);
+
+		expect(result).toHaveLength(2);
+		expect(result[0]?.kind).toBe("content");
+		const diff = result[1];
+		expect(diff?.kind).toBe("diff");
+		if (diff?.kind === "diff") {
+			expect(diff.path).toBe("src/agent_fabric/infra/agent_runtime_tokens.py");
+			expect(diff.newText).toBe("@@\n- old\n+ new");
+		}
+	});
+
+	test("classifies nested MCP result content from raw output details", () => {
+		const output = {
+			details: {
+				mcpResult: {
+					content: [
+						{ type: "text", text: "browser result" },
+						{ type: "image", mimeType: "image/png", data: "aW1hZ2U=" },
+					],
+				},
+			},
+		};
+		const rawOutput = JSON.stringify(output);
+
+		const result = classifyToolCallContent(
+			[{ type: "content", content: { type: "text", text: rawOutput } }],
+			rawOutput,
+		);
+
+		expect(result).toEqual([
+			{ kind: "content", content: { type: "text", text: "browser result" } },
+			{
+				kind: "content",
+				content: { type: "image", mimeType: "image/png", data: "aW1hZ2U=" },
+			},
+		]);
+	});
+
+	test("classifies bash stdout and stderr raw JSON", () => {
+		const output = { stdout: "42 passed", stderr: "warning" };
+		const rawOutput = JSON.stringify(output);
+
+		const result = classifyToolCallContent(
+			[{ type: "content", content: { type: "text", text: rawOutput } }],
+			rawOutput,
+			"bash",
+		);
+
+		expect(result).toEqual([
+			{
+				kind: "content",
+				content: { type: "text", text: "stdout\n42 passed\n\nstderr\nwarning" },
+			},
+		]);
+	});
+
+	test("classifies read-style raw JSON content strings", () => {
+		const output = {
+			content: "file contents",
+			details: { path: "src/index.ts" },
+		};
+		const rawOutput = JSON.stringify(output);
+
+		const result = classifyToolCallContent(
+			[{ type: "content", content: { type: "text", text: rawOutput } }],
+			rawOutput,
+			"Read src/index.ts",
+		);
+
+		expect(result).toEqual([
+			{ kind: "content", content: { type: "text", text: "file contents" } },
+		]);
+	});
 });
 
 describe("formatRawToolCallContent", () => {

@@ -89,6 +89,8 @@ class MissingUpstreamSessionError extends Error {
 }
 
 const CLIENT_INFO = { name: "superset-host", version: "1" };
+const SKIP_TRANSCRIPT_REPLAY_META_KEY =
+	"sh.superset/skipTranscriptReplay" as const;
 const STDERR_TAIL_LIMIT = 8_192;
 /** JSON-RPC resource-not-found, used by ACP adapters for a missing session. */
 const RESOURCE_NOT_FOUND_ERROR_CODE = -32_002;
@@ -590,6 +592,8 @@ export interface AcpSessionManagerOptions {
 	codexAdapterEntry?: string;
 	/** Test/build override for the Pi-to-ACP bridge entry point. */
 	piAdapterEntry?: string;
+	/** Executable override for Electron-as-Node ACP adapters, primarily for tests. */
+	adapterExecPath?: string;
 	/** Per-manager adapter environment overrides, primarily for isolated tests. */
 	adapterEnv?: Record<string, string | undefined>;
 	/** Executable override for MyFlicker's native ACP server. */
@@ -679,6 +683,7 @@ export class AcpSessionManager {
 	private readonly adapterEntry: string | undefined;
 	private readonly codexAdapterEntry: string | undefined;
 	private readonly piAdapterEntry: string | undefined;
+	private readonly adapterExecPath: string | undefined;
 	private readonly adapterEnv: Record<string, string | undefined>;
 	private readonly myflickerAdapterCommand: string | undefined;
 	private readonly deepseekAdapterCommand: string | undefined;
@@ -728,6 +733,7 @@ export class AcpSessionManager {
 		this.adapterEntry = options.adapterEntry;
 		this.codexAdapterEntry = options.codexAdapterEntry;
 		this.piAdapterEntry = options.piAdapterEntry;
+		this.adapterExecPath = options.adapterExecPath;
 		this.adapterEnv = options.adapterEnv ?? {};
 		this.myflickerAdapterCommand = options.myflickerAdapterCommand;
 		this.deepseekAdapterCommand = options.deepseekAdapterCommand;
@@ -1973,14 +1979,18 @@ export class AcpSessionManager {
 		// shell profile) must never reach the agent child: they silently
 		// override the user's own Claude login for the whole session. Scrubbed
 		// here — the spawn site — so every launch path is covered, not just dev.
-		const adapterProcess = resolveAdapterProcess(harness, {
-			adapterEntry: this.adapterEntry,
-			codexAdapterEntry: this.codexAdapterEntry,
-			piAdapterEntry: this.piAdapterEntry,
-			myflickerAdapterCommand: this.myflickerAdapterCommand,
-			deepseekAdapterCommand: this.deepseekAdapterCommand,
-			deepseekAdapterConfig: this.deepseekAdapterConfig,
-		});
+		const adapterProcess = resolveAdapterProcess(
+			harness,
+			{
+				adapterEntry: this.adapterEntry,
+				codexAdapterEntry: this.codexAdapterEntry,
+				piAdapterEntry: this.piAdapterEntry,
+				myflickerAdapterCommand: this.myflickerAdapterCommand,
+				deepseekAdapterCommand: this.deepseekAdapterCommand,
+				deepseekAdapterConfig: this.deepseekAdapterConfig,
+			},
+			this.adapterExecPath,
+		);
 		const env: Record<string, string | undefined> = {
 			...process.env,
 			...this.adapterEnv,
@@ -2034,6 +2044,7 @@ export class AcpSessionManager {
 		// spawn reports ENOENT/EACCES asynchronously. Always consume this event
 		// before any ACP request so a bad adapter can reject this create without
 		// becoming an uncaught exception in the long-lived daemon process.
+		let runtime: AcpSessionRuntime | null = null;
 		let spawnError: Error | null = null;
 		let resolveSpawnError!: () => void;
 		const spawnErrorSettled = new Promise<void>((resolve) => {
@@ -2047,21 +2058,23 @@ export class AcpSessionManager {
 		// The promise is intentionally shared by startup requests and remains
 		// handled after a successful startup in case a later child error arrives.
 		void spawnErrorPromise.catch(() => {});
-		child.once("error", (error) => {
-			spawnError = error;
+		child.on("error", (error) => {
+			spawnError ??= error;
 			resolveSpawnError();
 			rejectSpawnError?.(error);
 			closeConnectionWithSpawnError?.(error);
+			if (runtime) {
+				this.markDead(runtime, `adapter process error: ${error.message}`);
+			}
 		});
 		if (!child.stdin || !child.stdout) {
 			child.kill();
 			throw new Error("adapter child process is missing stdio pipes");
 		}
 
-		// Handlers are registered before session/new, so they close over a
-		// mutable slot; updates that race construction are buffered and folded
-		// once the runtime exists.
-		let runtime: AcpSessionRuntime | null = null;
+		// Handlers are registered before session/new, so they close over the
+		// mutable runtime slot; updates that race construction are buffered and
+		// folded once the runtime exists.
 		// session/load can replay an arbitrarily long native transcript before its
 		// response resolves. This fixed-size ring retains only the same recent
 		// window the journal can serve, with O(1) eviction even for huge sessions.
@@ -2152,16 +2165,24 @@ export class AcpSessionManager {
 			let configOptions: SessionConfigOption[];
 			let piStartupInfo: string | null = null;
 			if (resume && !startFreshAfterMissingUpstream) {
-				// session/load replays the harness-stored transcript as ordinary
-				// session/update notifications before the response resolves — they
-				// buffer in earlyUpdates and land in the fresh journal from seq 1.
+				// Superset's durable journal is authoritative. Pi can skip its native
+				// transcript replay entirely; other adapters may still replay during
+				// session/load, and those early notifications are discarded below.
 				try {
+					const skipTranscriptReplay =
+						harness === "pi-acp" && durableEntries.length > 0;
+					const loadMeta = {
+						...(sessionMeta ?? {}),
+						...(skipTranscriptReplay
+							? { [SKIP_TRANSCRIPT_REPLAY_META_KEY]: true }
+							: {}),
+					};
 					const loaded = await requestDuringStartup(
 						connection.agent.request("session/load", {
 							sessionId: resume.acpSessionId,
 							cwd,
 							mcpServers,
-							...(sessionMeta ? { _meta: sessionMeta } : {}),
+							...(Object.keys(loadMeta).length > 0 ? { _meta: loadMeta } : {}),
 						}),
 					);
 					acpSessionId = resume.acpSessionId;
@@ -2396,6 +2417,7 @@ export class AcpSessionManager {
 					new Promise<void>((resolve) => setTimeout(resolve, 0)),
 				]);
 			}
+			const startupError = spawnError ?? error;
 			try {
 				connection.close();
 			} catch {
@@ -2407,7 +2429,7 @@ export class AcpSessionManager {
 			// an individual JSON-RPC request. One retry only: a new adapter cannot
 			// legitimately report the same missing native id because we create one.
 			if (
-				error instanceof MissingUpstreamSessionError &&
+				startupError instanceof MissingUpstreamSessionError &&
 				resume &&
 				!startFreshAfterMissingUpstream
 			) {
@@ -2426,7 +2448,7 @@ export class AcpSessionManager {
 					{ cause: startupSpawnError },
 				);
 			}
-			throw error;
+			throw startupError;
 		}
 	}
 

@@ -34,6 +34,7 @@ interface LogViewProps {
 	worktreePath: string;
 	workspaceId: string;
 	projectId?: string;
+	isActive?: boolean;
 	onFileOpen?: (file: ChangedFile, commitHash: string) => void;
 	onRefresh?: () => void;
 }
@@ -42,6 +43,7 @@ export function LogView({
 	worktreePath,
 	workspaceId,
 	projectId,
+	isActive = true,
 	onFileOpen,
 	onRefresh,
 }: LogViewProps) {
@@ -78,7 +80,7 @@ export function LogView({
 	] as const;
 	const { data, isLoading, isFetching } = useQuery({
 		queryKey: logQueryKey,
-		enabled: Boolean(activeHostUrl && workspaceId),
+		enabled: isActive && Boolean(activeHostUrl && workspaceId),
 		queryFn: async () => {
 			if (!activeHostUrl) throw new Error("Workspace host is unavailable");
 			return getHostServiceClientByUrl(activeHostUrl).git.listLog.query({
@@ -90,7 +92,9 @@ export function LogView({
 				all: allBranches,
 			});
 		},
-		staleTime: 5_000,
+		staleTime: 0,
+		refetchInterval: isActive ? 2500 : false,
+		refetchOnWindowFocus: isActive,
 	});
 
 	const commits = useMemo<GitHistoryEntry[]>(

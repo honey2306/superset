@@ -71,7 +71,7 @@ function fixture() {
 			},
 		},
 	}));
-	const getMessages = mock(() => ({
+	const getMessages = mock((): unknown => ({
 		items: [{ seq: 12, frame: { kind: "agent_message_chunk", text: "done" } }],
 		nextCursor: "s8",
 	}));
@@ -352,6 +352,120 @@ describe("SupersetToolController", () => {
 		});
 	});
 
+	test("bounds and sanitizes model-facing history pages", async () => {
+		const { manager, getMessages } = fixture();
+		const controller = new SupersetToolController({ manager });
+		const screenshot = "A".repeat(2 * 1024 * 1024);
+		const nestedToolResult = JSON.stringify({
+			items: [
+				{
+					seq: 7,
+					frame: {
+						kind: "update",
+						update: {
+							sessionUpdate: "agent_message_chunk",
+							content: {
+								type: "image",
+								data: screenshot,
+								mimeType: "image/png",
+							},
+						},
+					},
+				},
+			],
+			nextCursor: "s1",
+		});
+		getMessages.mockReturnValue({
+			items: [
+				{
+					seq: 11,
+					epoch: "epoch-1",
+					sessionId: "sibling",
+					ts: 1,
+					frame: {
+						kind: "update",
+						update: {
+							sessionUpdate: "tool_call_update",
+							toolCallId: "screenshot-tool",
+							title: "raw screenshot payload",
+							status: "completed",
+							rawOutput: screenshot,
+						},
+					},
+				},
+				{
+					seq: 12,
+					epoch: "epoch-1",
+					sessionId: "sibling",
+					ts: 1,
+					frame: {
+						kind: "update",
+						update: {
+							sessionUpdate: "agent_message_chunk",
+							content: {
+								type: "text",
+								text: `Useful context before nested result: ${nestedToolResult}`,
+							},
+						},
+					},
+				},
+			],
+			nextCursor: "s8",
+		});
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "get_session_messages",
+			arguments: { sessionId: "sibling", limit: 50 },
+		});
+		const serialized = JSON.stringify(result);
+
+		expect(Buffer.byteLength(serialized)).toBeLessThanOrEqual(512 * 1024);
+		expect(serialized).toContain("Useful context before nested result");
+		expect(serialized).toContain("omitted");
+		expect(serialized).not.toContain("A".repeat(1_024));
+		expect(serialized).not.toContain("raw screenshot payload");
+		expect(result).toMatchObject({ nextCursor: "s8" });
+	});
+
+	test("keeps the total model history page within budget and advances its cursor", async () => {
+		const { manager, getMessages } = fixture();
+		const controller = new SupersetToolController({ manager });
+		getMessages.mockReturnValue({
+			items: Array.from({ length: 40 }, (_, index) => ({
+				seq: index + 1,
+				epoch: "epoch-1",
+				sessionId: "sibling",
+				ts: index + 1,
+				frame: {
+					kind: "update",
+					update: {
+						sessionUpdate: "agent_message_chunk",
+						content: {
+							type: "text",
+							text: `${index}: ${"word ".repeat(30_000)}`,
+						},
+					},
+				},
+			})),
+			nextCursor: "s1",
+		});
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "get_session_messages",
+			arguments: { sessionId: "sibling", limit: 50 },
+		});
+		const serialized = JSON.stringify(result);
+		const items = result.items as unknown[];
+
+		expect(Buffer.byteLength(serialized)).toBeLessThanOrEqual(512 * 1024);
+		expect(items.length).toBeGreaterThan(0);
+		expect(items.length).toBeLessThan(40);
+		expect(result.nextCursor).toMatch(/^s[1-9][0-9]*$/);
+		expect(result.nextCursor).not.toBe("s1");
+	});
+
 	test("rejects cross-workspace persisted message reads", async () => {
 		const { manager, getMessages } = fixture();
 		const controller = new SupersetToolController({ manager });
@@ -402,7 +516,67 @@ describe("SupersetToolController", () => {
 			arguments: { handoff: "Continue with the current tab" },
 		});
 		expect(create.mock.calls[1]?.[0]).toMatchObject({
-			harness: "claude-agent-acp",
+			harness: "pi-acp",
+		});
+	});
+
+	test("can start a continuation in another workspace", async () => {
+		const { manager, create } = fixture();
+		const events: AcpSessionOpenRequest[] = [];
+		const controller = new SupersetToolController({
+			manager,
+			resolveTargetWorkspace: ({ workspaceId }) => {
+				expect(workspaceId).toBe("workspace-2");
+				return "workspace-2";
+			},
+			onOpenRequested: (event) => events.push(event),
+		});
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "continue_in_new_session",
+			arguments: {
+				handoff: "Start in the other project",
+				workspaceId: "workspace-2",
+			},
+		});
+
+		expect(create.mock.calls[0]?.[0]).toMatchObject({
+			workspaceId: "workspace-2",
+			harness: "pi-acp",
+			role: "root-coordinator",
+		});
+		expect(result).toMatchObject({ workspaceId: "workspace-2" });
+		expect(events[0]).toMatchObject({
+			workspaceId: "workspace-2",
+			sessionId: result.sessionId,
+			sourceSessionId: "source",
+		});
+	});
+
+	test("resolves project targets for continuations", async () => {
+		const { manager, create } = fixture();
+		const controller = new SupersetToolController({
+			manager,
+			resolveTargetWorkspace: ({ sourceWorkspaceId, projectPath }) => {
+				expect(sourceWorkspaceId).toBe("workspace-1");
+				expect(projectPath).toBe("/tmp/agent-fabric");
+				return "workspace-2";
+			},
+		});
+
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "continue_in_new_session",
+			arguments: {
+				handoff: "Start in agent-fabric",
+				projectPath: "/tmp/agent-fabric",
+			},
+		});
+
+		expect(create.mock.calls[0]?.[0]).toMatchObject({
+			workspaceId: "workspace-2",
+			harness: "pi-acp",
 		});
 	});
 

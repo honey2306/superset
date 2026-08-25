@@ -511,30 +511,37 @@ export const AcpTimeline = memo(
 		useEffect(() => {
 			const becameFocused = isFocused && !wasFocusedRef.current;
 			wasFocusedRef.current = isFocused;
-			if (!becameFocused || !autoFollow) return;
+			if (!becameFocused) return;
 
 			// Kept-alive panes are display:none while inactive, causing their
 			// scrollHeight to read as zero during streaming updates. Wait until the
-			// browser has restored layout before returning an auto-following reader
-			// to the latest item. A deliberate manual reading position is untouched.
+			// browser has restored layout before returning to the latest item.
 			const frame = window.requestAnimationFrame(() => {
 				const el = scrollRef.current;
-				if (el) el.scrollTop = el.scrollHeight;
+				if (!el) return;
+				el.scrollTop = el.scrollHeight;
+				setAutoFollow(true);
+				setShowJumpButton(false);
 			});
 			return () => window.cancelAnimationFrame(frame);
-		}, [isFocused, autoFollow]);
+		}, [isFocused]);
 
 		const showWorkingIndicator = shouldShowWorkingIndicator(
 			timeline.items,
 			status,
 		);
 		// ACP plan updates are snapshots. The latest non-removed snapshot owns the
-		// dock, including its completed state, so a successful final update remains
-		// visible instead of disappearing without a transcript fallback.
-		const dockedPlan =
+		// dock, but only while it still has pending or in-progress entries.
+		const latestPlan =
 			timeline.items.findLast(
 				(item): item is PlanItem => item.kind === "plan" && !item.removed,
 			) ?? null;
+		const dockedPlan =
+			latestPlan?.entries.some(
+				(entry) => entry.status === "pending" || entry.status === "in_progress",
+			) === true
+				? latestPlan
+				: null;
 		// Plans are represented by the dock, never as ordinary transcript content.
 		const visibleItems = timeline.items.filter((item) => item.kind !== "plan");
 		const reviewablePlan =

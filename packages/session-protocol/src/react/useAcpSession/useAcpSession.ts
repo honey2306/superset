@@ -115,6 +115,157 @@ export interface UseAcpSessionResult {
 const MAX_RESYNC_RETRIES = 3;
 const RESYNC_RETRY_BASE_DELAY_MS = 250;
 export const INITIAL_LAUNCH_NOT_FOUND_RETRY_WINDOW_MS = 30_000;
+/**
+ * Keep the last durable renderer snapshot long enough to make a pane remount
+ * (for example after the app route is recreated) paint immediately. The
+ * snapshot is only a fallback: every remount still starts the normal host
+ * resync in the effect below.
+ */
+export const ACP_SESSION_SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1_000;
+
+interface AcpSessionSnapshot {
+	savedAt: number;
+	sessionId: string;
+	connectionKey?: string;
+	timeline: FoldedTimeline;
+	state: SessionScopedState | null;
+	envelopes: SessionUpdateEnvelope[];
+	transcriptTurns: TranscriptTurn[];
+	transcriptIndex: TranscriptTurnSummary[];
+	totalTurns: number;
+	loadedTurnNumbers: number[];
+	hasOlder: boolean;
+	olderCursor: string | null;
+}
+
+const acpSessionSnapshots = new Map<string, AcpSessionSnapshot>();
+
+function pruneExpiredAcpSessionSnapshots(now: number): void {
+	for (const [key, snapshot] of acpSessionSnapshots) {
+		if (now - snapshot.savedAt >= ACP_SESSION_SNAPSHOT_TTL_MS) {
+			acpSessionSnapshots.delete(key);
+		}
+	}
+}
+
+function acpSessionSnapshotKey(
+	sessionId: string,
+	connectionKey?: string,
+): string {
+	return `${connectionKey ?? ""}\u0000${sessionId}`;
+}
+
+/**
+ * Permission requests and queued prompts are live control-plane state. They
+ * must never be restored as answerable UI from a renderer-only snapshot.
+ * Starting also keeps the composer disabled until the authoritative `get`
+ * response arrives, while leaving the durable transcript visible.
+ */
+function snapshotState(
+	state: SessionScopedState | null,
+): SessionScopedState | null {
+	if (state === null) return null;
+	return {
+		...state,
+		status: "starting",
+		pendingPermissions: [],
+		queuedPrompts: [],
+	};
+}
+
+function snapshotTimeline(
+	timeline: FoldedTimeline,
+	state: SessionScopedState | null,
+): FoldedTimeline {
+	const cachedState = snapshotState(state ?? timeline.state);
+	return {
+		...timeline,
+		items: [...timeline.items],
+		meta: {
+			...timeline.meta,
+			currentMode: timeline.meta.currentMode
+				? {
+						...timeline.meta.currentMode,
+						availableModes: [...timeline.meta.currentMode.availableModes],
+					}
+				: null,
+			configOptions: timeline.meta.configOptions
+				? [...timeline.meta.configOptions]
+				: null,
+			availableCommands: timeline.meta.availableCommands
+				? [...timeline.meta.availableCommands]
+				: null,
+		},
+		state: cachedState,
+	};
+}
+
+function readAcpSessionSnapshot(
+	sessionId: string,
+	connectionKey?: string,
+): AcpSessionSnapshot | null {
+	const now = Date.now();
+	pruneExpiredAcpSessionSnapshots(now);
+	const key = acpSessionSnapshotKey(sessionId, connectionKey);
+	const snapshot = acpSessionSnapshots.get(key);
+	if (!snapshot) return null;
+	return {
+		...snapshot,
+		timeline: snapshotTimeline(snapshot.timeline, snapshot.state),
+		state: snapshotState(snapshot.state),
+		envelopes: [...snapshot.envelopes],
+		transcriptTurns: snapshot.transcriptTurns.map((turn) => ({
+			...turn,
+			items: [...turn.items],
+		})),
+		transcriptIndex: snapshot.transcriptIndex.map((summary) => ({
+			...summary,
+		})),
+		loadedTurnNumbers: [...snapshot.loadedTurnNumbers],
+	};
+}
+
+export function clearAcpSessionSnapshotCache(): void {
+	acpSessionSnapshots.clear();
+}
+
+function writeAcpSessionSnapshot(input: {
+	sessionId: string;
+	connectionKey?: string;
+	timeline: FoldedTimeline;
+	state: SessionScopedState | null;
+	envelopes: SessionUpdateEnvelope[];
+	transcriptTurns: Map<number, TranscriptTurn>;
+	transcriptIndex: TranscriptTurnSummary[];
+	totalTurns: number;
+	loadedTurnNumbers: number[];
+	hasOlder: boolean;
+	olderCursor: string | null;
+}): void {
+	const now = Date.now();
+	pruneExpiredAcpSessionSnapshots(now);
+	const state = snapshotState(input.state ?? input.timeline.state);
+	acpSessionSnapshots.set(
+		acpSessionSnapshotKey(input.sessionId, input.connectionKey),
+		{
+			savedAt: now,
+			sessionId: input.sessionId,
+			connectionKey: input.connectionKey,
+			timeline: snapshotTimeline(input.timeline, state),
+			state,
+			envelopes: [...input.envelopes],
+			transcriptTurns: [...input.transcriptTurns.values()].map((turn) => ({
+				...turn,
+				items: [...turn.items],
+			})),
+			transcriptIndex: input.transcriptIndex.map((summary) => ({ ...summary })),
+			totalTurns: input.totalTurns,
+			loadedTurnNumbers: [...input.loadedTurnNumbers],
+			hasOlder: input.hasOlder,
+			olderCursor: input.olderCursor,
+		},
+	);
+}
 
 class InitialLaunchOfflineError extends Error {
 	constructor() {
@@ -313,6 +464,12 @@ export function useAcpSession(
 	options: UseAcpSessionOptions,
 ): UseAcpSessionResult {
 	const { sessionId, pageSize = 200, connectionKey, enabled = true } = options;
+	// Read once for the hook's initial render. This is deliberately keyed by the
+	// transport too: a renderer snapshot from a different host must not be
+	// presented as this host's session.
+	const [initialSnapshot] = useState(() =>
+		readAcpSessionSnapshot(sessionId, connectionKey),
+	);
 	const initiallyLaunchingRef = useRef(options.initiallyLaunching ?? false);
 	initiallyLaunchingRef.current = options.initiallyLaunching ?? false;
 
@@ -329,18 +486,26 @@ export function useAcpSession(
 	enabledRef.current = enabled;
 
 	const [fetchedState, setFetchedState] = useState<SessionScopedState | null>(
-		null,
+		() => initialSnapshot?.state ?? null,
 	);
-	const [timeline, setTimeline] = useState<FoldedTimeline>(emptyTimeline);
+	const [timeline, setTimeline] = useState<FoldedTimeline>(
+		() => initialSnapshot?.timeline ?? emptyTimeline(),
+	);
 	const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
-	const [isLoading, setIsLoading] = useState(true);
+	const [isLoading, setIsLoading] = useState(initialSnapshot === null);
 	const [error, setError] = useState<Error | null>(null);
-	const [hasOlder, setHasOlder] = useState(false);
+	const [hasOlder, setHasOlder] = useState(initialSnapshot?.hasOlder ?? false);
 	const [isLoadingOlder, setIsLoadingOlder] = useState(false);
 	const [historyError, setHistoryError] = useState<Error | null>(null);
-	const [totalTurns, setTotalTurns] = useState(0);
-	const [turnIndex, setTurnIndex] = useState<TranscriptTurnSummary[]>([]);
-	const [loadedTurnNumbers, setLoadedTurnNumbers] = useState<number[]>([]);
+	const [totalTurns, setTotalTurns] = useState(
+		initialSnapshot?.totalTurns ?? 0,
+	);
+	const [turnIndex, setTurnIndex] = useState<TranscriptTurnSummary[]>(
+		() => initialSnapshot?.transcriptIndex ?? [],
+	);
+	const [loadedTurnNumbers, setLoadedTurnNumbers] = useState<number[]>(
+		() => initialSnapshot?.loadedTurnNumbers ?? [],
+	);
 	const [availability, setAvailability] = useState<
 		"live" | "retrying" | "unavailable"
 	>("live");
@@ -348,19 +513,34 @@ export function useAcpSession(
 	// Fold target between renders; epoch guards resync races (a stale resync
 	// or a stale subscription's callbacks must not clobber a newer one).
 	const timelineRef = useRef<FoldedTimeline>(timeline);
-	const authoritativeStateRef = useRef<SessionScopedState | null>(null);
+	const authoritativeStateRef = useRef<SessionScopedState | null>(
+		initialSnapshot?.state ?? null,
+	);
 	// Every historical and live envelope folded so far, in sequence order.
-	const envelopesRef = useRef<SessionUpdateEnvelope[]>([]);
+	const envelopesRef = useRef<SessionUpdateEnvelope[]>(
+		initialSnapshot?.envelopes ?? [],
+	);
 	const epochRef = useRef(0);
 	const subscriptionRef = useRef<SessionSubscription | null>(null);
 	const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const pendingEnvelopeBatchRef = useRef<PendingEnvelopeBatch | null>(null);
-	const olderCursorRef = useRef<string | null>(null);
+	const olderCursorRef = useRef<string | null>(
+		initialSnapshot?.olderCursor ?? null,
+	);
 	const seenOlderCursorsRef = useRef(new Set<string>());
 	const olderLoadPromiseRef = useRef<Promise<void> | null>(null);
-	const transcriptTurnsRef = useRef(new Map<number, TranscriptTurn>());
-	const transcriptIndexRef = useRef<TranscriptTurnSummary[]>([]);
-	const totalTurnsRef = useRef(0);
+	const transcriptTurnsRef = useRef(
+		new Map(
+			initialSnapshot?.transcriptTurns.map((turn) => [turn.turnNumber, turn]) ??
+				[],
+		),
+	);
+	const transcriptIndexRef = useRef<TranscriptTurnSummary[]>(
+		initialSnapshot?.transcriptIndex ?? [],
+	);
+	const totalTurnsRef = useRef(initialSnapshot?.totalTurns ?? 0);
+	const hasOlderRef = useRef(initialSnapshot?.hasOlder ?? false);
+	const loadedTurnNumbersRef = useRef(initialSnapshot?.loadedTurnNumbers ?? []);
 	const turnLoadPromisesRef = useRef(new Map<number, Promise<void>>());
 	const launchStartedAtRef = useRef<number | null>(
 		options.initiallyLaunching ? Date.now() : null,
@@ -368,6 +548,22 @@ export function useAcpSession(
 	const previousInitiallyLaunchingRef = useRef(
 		options.initiallyLaunching ?? false,
 	);
+
+	const cacheSnapshot = useCallback(() => {
+		writeAcpSessionSnapshot({
+			sessionId,
+			connectionKey,
+			timeline: timelineRef.current,
+			state: authoritativeStateRef.current,
+			envelopes: envelopesRef.current,
+			transcriptTurns: transcriptTurnsRef.current,
+			transcriptIndex: transcriptIndexRef.current,
+			totalTurns: totalTurnsRef.current,
+			loadedTurnNumbers: loadedTurnNumbersRef.current,
+			hasOlder: hasOlderRef.current,
+			olderCursor: olderCursorRef.current,
+		});
+	}, [connectionKey, sessionId]);
 
 	const clearRetryTimer = useCallback(() => {
 		if (retryTimerRef.current !== null) {
@@ -450,12 +646,16 @@ export function useAcpSession(
 				setTurnIndex([...transcriptIndexRef.current]);
 				setTotalTurns(totalTurnsRef.current);
 				if (newlyLoadedTurnNumbers.length > 0) {
-					setLoadedTurnNumbers((current) =>
-						[...new Set([...current, ...newlyLoadedTurnNumbers])].sort(
-							(a, b) => a - b,
-						),
-					);
+					const nextLoadedTurnNumbers = [
+						...new Set([
+							...loadedTurnNumbersRef.current,
+							...newlyLoadedTurnNumbers,
+						]),
+					].sort((a, b) => a - b);
+					loadedTurnNumbersRef.current = nextLoadedTurnNumbers;
+					setLoadedTurnNumbers(nextLoadedTurnNumbers);
 				}
+				cacheSnapshot();
 			};
 			if (
 				typeof requestAnimationFrame === "function" &&
@@ -475,7 +675,7 @@ export function useAcpSession(
 			}
 			pendingEnvelopeBatchRef.current = batch;
 		},
-		[cancelPendingEnvelopeBatch],
+		[cancelPendingEnvelopeBatch, cacheSnapshot],
 	);
 
 	const resync = useCallback(
@@ -490,6 +690,7 @@ export function useAcpSession(
 			seenOlderCursorsRef.current = new Set();
 			olderLoadPromiseRef.current = null;
 			setIsLoading(true);
+			hasOlderRef.current = false;
 			setHasOlder(false);
 			setIsLoadingOlder(false);
 			setHistoryError(null);
@@ -558,12 +759,16 @@ export function useAcpSession(
 					setLoadedTurnNumbers(
 						transcriptPage.turns.map((turn) => turn.turnNumber),
 					);
+					loadedTurnNumbersRef.current = transcriptPage.turns.map(
+						(turn) => turn.turnNumber,
+					);
 				} else if (page) {
 					envelopesRef.current = mergeEnvelopesInSequence(page.items);
 					transcriptIndexRef.current = [];
 					totalTurnsRef.current = 0;
 					setTurnIndex([]);
 					setTotalTurns(0);
+					loadedTurnNumbersRef.current = [];
 					setLoadedTurnNumbers([]);
 				}
 				const nextCursor =
@@ -571,6 +776,7 @@ export function useAcpSession(
 				olderCursorRef.current = nextCursor;
 				seenOlderCursorsRef.current = new Set();
 				olderLoadPromiseRef.current = null;
+				hasOlderRef.current = nextCursor !== null;
 				setHasOlder(nextCursor !== null);
 				setHistoryError(null);
 				// Historical pages can carry a stale available_commands_update. The
@@ -589,6 +795,7 @@ export function useAcpSession(
 				setIsLoading(false);
 				setError(null);
 				setAvailability("live");
+				cacheSnapshot();
 
 				// Empty journal page but a non-zero server cursor (e.g. evicted
 				// journal): subscribe from the server's seq to avoid a reset loop.
@@ -657,6 +864,7 @@ export function useAcpSession(
 			clearRetryTimer,
 			cancelPendingEnvelopeBatch,
 			enqueueLiveEnvelope,
+			cacheSnapshot,
 		],
 	);
 
@@ -671,6 +879,7 @@ export function useAcpSession(
 				`getMessages returned a repeated cursor: ${cursor}`,
 			);
 			olderCursorRef.current = null;
+			hasOlderRef.current = false;
 			setHasOlder(false);
 			setHistoryError(repeatedCursorError);
 			return;
@@ -709,6 +918,7 @@ export function useAcpSession(
 					)
 				) {
 					olderCursorRef.current = null;
+					hasOlderRef.current = false;
 					setHasOlder(false);
 					setHistoryError(
 						new Error(
@@ -731,9 +941,10 @@ export function useAcpSession(
 					totalTurnsRef.current = transcriptPage.totalTurns;
 					setTurnIndex([...transcriptPage.index]);
 					setTotalTurns(transcriptPage.totalTurns);
-					setLoadedTurnNumbers(
-						[...transcriptTurnsRef.current.keys()].sort((a, b) => a - b),
-					);
+					loadedTurnNumbersRef.current = [
+						...transcriptTurnsRef.current.keys(),
+					].sort((a, b) => a - b);
+					setLoadedTurnNumbers(loadedTurnNumbersRef.current);
 				} else if (page) {
 					envelopesRef.current = mergeEnvelopesInSequence(
 						page.items,
@@ -755,8 +966,10 @@ export function useAcpSession(
 				const nextCursor =
 					transcriptPage?.nextCursor ?? page?.nextCursor ?? null;
 				olderCursorRef.current = nextCursor;
+				hasOlderRef.current = nextCursor !== null;
 				setHasOlder(nextCursor !== null);
 				setHistoryError(null);
+				cacheSnapshot();
 			} catch (cause) {
 				if (!enabledRef.current || epoch !== epochRef.current) return;
 				// The request did not yield a page, so this cursor is safe to retry.
@@ -776,7 +989,7 @@ export function useAcpSession(
 		if (request === undefined) return;
 		olderLoadPromiseRef.current = request;
 		return request;
-	}, [pageSize, sessionId]);
+	}, [cacheSnapshot, pageSize, sessionId]);
 
 	const loadTurn = useCallback(
 		async (turnNumber: number): Promise<void> => {
@@ -807,6 +1020,9 @@ export function useAcpSession(
 					setLoadedTurnNumbers(
 						[...transcriptTurnsRef.current.keys()].sort((a, b) => a - b),
 					);
+					loadedTurnNumbersRef.current = [
+						...transcriptTurnsRef.current.keys(),
+					].sort((a, b) => a - b);
 					envelopesRef.current = mergeEnvelopesInSequence(
 						loadedItems,
 						envelopesRef.current,
@@ -823,6 +1039,7 @@ export function useAcpSession(
 					);
 					timelineRef.current = nextTimeline;
 					setTimeline(nextTimeline);
+					cacheSnapshot();
 				} catch (cause) {
 					if (!enabledRef.current || epoch !== epochRef.current) return;
 					setHistoryError(
@@ -835,14 +1052,14 @@ export function useAcpSession(
 			turnLoadPromisesRef.current.set(turnNumber, request);
 			return request;
 		},
-		[sessionId],
+		[cacheSnapshot, sessionId],
 	);
 
 	// The session currently reflected by the rendered state/timeline. When the
 	// route swaps sessionIds in place, the old session's thread (and its still-
-	// answerable permissions) must not stay visible while the new one loads —
-	// clear before resyncing. Same-session resyncs (refresh, reset) keep the
-	// existing data rendered during the round trip.
+	// answerable permissions) must not stay visible. Restore only the target's
+	// own snapshot, if one exists; otherwise render the empty loading boundary.
+	// Same-session resyncs (refresh, reset) keep existing data rendered.
 	const renderedSessionIdRef = useRef(sessionId);
 	const renderedConnectionKeyRef = useRef(connectionKey);
 
@@ -850,27 +1067,34 @@ export function useAcpSession(
 		if (renderedSessionIdRef.current !== sessionId) {
 			renderedSessionIdRef.current = sessionId;
 			renderedConnectionKeyRef.current = connectionKey;
-			envelopesRef.current = [];
-			transcriptTurnsRef.current = new Map();
-			transcriptIndexRef.current = [];
-			totalTurnsRef.current = 0;
+			const snapshot = readAcpSessionSnapshot(sessionId, connectionKey);
+			envelopesRef.current = snapshot?.envelopes ?? [];
+			transcriptTurnsRef.current = new Map(
+				snapshot?.transcriptTurns.map((turn) => [turn.turnNumber, turn]) ?? [],
+			);
+			transcriptIndexRef.current = snapshot?.transcriptIndex ?? [];
+			totalTurnsRef.current = snapshot?.totalTurns ?? 0;
 			turnLoadPromisesRef.current = new Map();
-			timelineRef.current = emptyTimeline();
-			authoritativeStateRef.current = null;
-			olderCursorRef.current = null;
+			timelineRef.current = snapshot?.timeline ?? emptyTimeline();
+			authoritativeStateRef.current = snapshot?.state ?? null;
+			olderCursorRef.current = snapshot?.olderCursor ?? null;
 			seenOlderCursorsRef.current = new Set();
 			olderLoadPromiseRef.current = null;
+			hasOlderRef.current = snapshot?.hasOlder ?? false;
+			loadedTurnNumbersRef.current = snapshot?.loadedTurnNumbers ?? [];
 			clearRetryTimer();
-			setFetchedState(null);
+			setFetchedState(snapshot?.state ?? null);
 			setTimeline(timelineRef.current);
 			setStreamStatus("connecting");
 			setAvailability("live");
-			setHasOlder(false);
+			setError(null);
+			setHasOlder(hasOlderRef.current);
 			setIsLoadingOlder(false);
 			setHistoryError(null);
-			setTotalTurns(0);
-			setTurnIndex([]);
-			setLoadedTurnNumbers([]);
+			setTotalTurns(totalTurnsRef.current);
+			setTurnIndex(transcriptIndexRef.current);
+			setLoadedTurnNumbers(loadedTurnNumbersRef.current);
+			setIsLoading(snapshot === null);
 			launchStartedAtRef.current = initiallyLaunchingRef.current
 				? Date.now()
 				: null;
@@ -955,30 +1179,44 @@ export function useAcpSession(
 		[sessionId, resync],
 	);
 
-	// React renders once with the new props before the sessionId effect can clear
-	// the old session's refs/state. Do not expose that stale snapshot to the pane:
-	// an offline old session would otherwise make the new session's composer show
-	// "Session unavailable" until a later refresh. The effect still performs the
-	// durable reset and starts the new resync; this guard only makes that boundary
-	// synchronous from the renderer's point of view.
+	// React renders once with the new props before the sessionId effect can swap
+	// refs/state. Do not expose the old session during that boundary; synchronously
+	// select the target snapshot (or an empty loading state) instead. The effect
+	// then restores refs and starts the authoritative resync.
 	const switchingSession = renderedSessionIdRef.current !== sessionId;
-	const renderedTimeline = switchingSession ? emptyTimeline() : timeline;
+	const switchingSnapshot = switchingSession
+		? readAcpSessionSnapshot(sessionId, connectionKey)
+		: null;
+	const renderedTimeline = switchingSession
+		? (switchingSnapshot?.timeline ?? emptyTimeline())
+		: timeline;
+	const renderedState = renderedTimeline.state ?? fetchedState;
 
 	return {
 		// State frames folded from the stream supersede the initial fetch.
-		state: switchingSession ? null : (renderedTimeline.state ?? fetchedState),
+		state: switchingSession
+			? (switchingSnapshot?.state ?? null)
+			: renderedState,
 		timeline: renderedTimeline,
 		streamStatus: switchingSession ? "connecting" : streamStatus,
-		isLoading: switchingSession || isLoading,
+		isLoading: switchingSession ? switchingSnapshot === null : isLoading,
 		availability: switchingSession ? "live" : availability,
 		error: switchingSession ? null : error,
-		hasOlder: switchingSession ? false : hasOlder,
+		hasOlder: switchingSession
+			? (switchingSnapshot?.hasOlder ?? false)
+			: hasOlder,
 		isLoadingOlder: switchingSession ? false : isLoadingOlder,
 		historyError: switchingSession ? null : historyError,
 		loadOlder,
-		totalTurns: switchingSession ? 0 : totalTurns,
-		turnIndex: switchingSession ? [] : turnIndex,
-		loadedTurnNumbers: switchingSession ? [] : loadedTurnNumbers,
+		totalTurns: switchingSession
+			? (switchingSnapshot?.totalTurns ?? 0)
+			: totalTurns,
+		turnIndex: switchingSession
+			? (switchingSnapshot?.transcriptIndex ?? [])
+			: turnIndex,
+		loadedTurnNumbers: switchingSession
+			? (switchingSnapshot?.loadedTurnNumbers ?? [])
+			: loadedTurnNumbers,
 		loadTurn,
 		actions,
 	};

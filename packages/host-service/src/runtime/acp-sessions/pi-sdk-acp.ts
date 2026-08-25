@@ -385,6 +385,7 @@ class StdioMcpClient {
 }
 
 const CUSTOM_RESPONSE_META_KEY = "sh.superset/customResponse";
+const SKIP_TRANSCRIPT_REPLAY_META_KEY = "sh.superset/skipTranscriptReplay";
 type ExtensionUiMethod = "select" | "confirm" | "input" | "editor";
 
 function cancelledPermissionResponse(): RequestPermissionResponse {
@@ -812,6 +813,10 @@ function promptImages(
 	});
 }
 
+export function shouldReplayTranscript(meta: unknown): boolean {
+	return asRecord(meta)?.[SKIP_TRANSCRIPT_REPLAY_META_KEY] !== true;
+}
+
 export function extractSystemInstructions(meta: unknown): string | undefined {
 	const record = asRecord(meta);
 	const value = record?.[SUPERSET_DELEGATION_META_KEY];
@@ -1105,7 +1110,7 @@ export class PiSdkAcpAgent implements Agent {
 			sessionId: params.sessionId,
 		});
 		this.lastSessionCwd = params.cwd;
-		await this.replay(runtime);
+		if (shouldReplayTranscript(params._meta)) await this.replay(runtime);
 		const response = sessionResponse(
 			runtime.sessionId,
 			configOptionsFromRuntime(runtime),

@@ -4,7 +4,11 @@ import type {
 	SessionUpdateEnvelope,
 } from "@superset/session-protocol";
 import type { WebSocketLike } from "@superset/session-protocol/client";
-import { useAcpSession } from "@superset/session-protocol/react";
+import {
+	clearAcpSessionSnapshotCache,
+	type UseAcpSessionResult,
+	useAcpSession,
+} from "@superset/session-protocol/react";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 
 let act: typeof import("@testing-library/react/pure").act;
@@ -18,6 +22,7 @@ beforeAll(async () => {
 
 afterEach(() => {
 	cleanup();
+	clearAcpSessionSnapshotCache();
 });
 
 const state: SessionScopedState = {
@@ -93,6 +98,202 @@ async function waitFor(predicate: () => boolean, timeoutMs = 3_000) {
 }
 
 describe("useAcpSession lifecycle recovery", () => {
+	test("restores an unexpired session snapshot without mixing sessions", async () => {
+		const sessionA: SessionScopedState = {
+			...state,
+			sessionId: "snapshot-session-a",
+			epoch: "snapshot-epoch-a",
+			status: "awaiting_permission",
+			pendingPermissions: [
+				{
+					requestId: "stale-permission",
+					toolCall: { toolCallId: "tool-a", status: "pending" },
+					options: [
+						{ optionId: "allow", name: "Allow", kind: "allow_once" },
+						{ optionId: "reject", name: "Reject", kind: "reject_once" },
+					],
+					requestedAt: 1,
+				},
+			],
+		};
+		const sessionB: SessionScopedState = {
+			...state,
+			sessionId: "snapshot-session-b",
+			epoch: "snapshot-epoch-b",
+		};
+		const historyFor = (session: SessionScopedState, text: string) => [
+			{
+				...history[0],
+				epoch: session.epoch,
+				sessionId: session.sessionId,
+				frame: {
+					kind: "update" as const,
+					update: {
+						sessionUpdate: "agent_message_chunk" as const,
+						content: { type: "text" as const, text },
+					},
+				},
+			},
+		];
+		const api = {
+			get: async ({ sessionId }: { sessionId: string }) =>
+				sessionId === sessionA.sessionId ? sessionA : sessionB,
+			getMessages: async ({ sessionId }: { sessionId: string }) => ({
+				items: historyFor(
+					sessionId === sessionA.sessionId ? sessionA : sessionB,
+					sessionId === sessionA.sessionId ? "history A" : "history B",
+				),
+				nextCursor: null,
+			}),
+			prompt: async () => ({ accepted: true as const }),
+			cancel: async () => {},
+			close: async () => {},
+			respondToPermission: async () => ({ status: "resolved" as const }),
+			setMode: async () => {},
+			setConfigOption: async () => {},
+			enqueuePrompt: async () => ({ queueId: "q-1" }),
+			sendNow: async () => ({ accepted: true as const }),
+			removeQueuedPrompt: async () => {},
+			reorderQueue: async () => {},
+			editQueuedPrompt: async () => {},
+			clearQueue: async () => {},
+		};
+		const renders: Array<{
+			sessionId: string;
+			state: SessionScopedState | null;
+			timelineText: string | undefined;
+			isLoading: boolean;
+		}> = [];
+		const { result, rerender, unmount } = renderHook(
+			({ sessionId }: { sessionId: string }) => {
+				const snapshot = useAcpSession({
+					sessionId,
+					api,
+					streamUrl: "ws://test",
+					createWebSocket: idleSocket,
+				});
+				renders.push({
+					sessionId,
+					state: snapshot.state,
+					timelineText:
+						snapshot.timeline.items[0]?.kind === "message"
+							? snapshot.timeline.items[0].blocks[0]?.type === "text"
+								? snapshot.timeline.items[0].blocks[0].text
+								: undefined
+							: undefined,
+					isLoading: snapshot.isLoading,
+				});
+				return snapshot;
+			},
+			{ initialProps: { sessionId: sessionA.sessionId } },
+		);
+
+		await waitFor(() => result.current.isLoading === false);
+		expect(result.current.timeline.items[0]).toMatchObject({
+			kind: "message",
+			blocks: [{ type: "text", text: "history A" }],
+		});
+
+		rerender({ sessionId: sessionB.sessionId });
+		expect(result.current.state).toBeNull();
+		expect(result.current.timeline.items).toHaveLength(0);
+		expect(result.current.isLoading).toBe(true);
+		await waitFor(() => result.current.isLoading === false);
+		expect(result.current.timeline.items[0]).toMatchObject({
+			kind: "message",
+			blocks: [{ type: "text", text: "history B" }],
+		});
+
+		const rendersBeforeA = renders.length;
+		rerender({ sessionId: sessionA.sessionId });
+		// The first render after switching is the A snapshot, never B's state.
+		const firstA = renders
+			.slice(rendersBeforeA)
+			.find((render) => render.sessionId === sessionA.sessionId);
+		expect(firstA).toMatchObject({
+			sessionId: sessionA.sessionId,
+			timelineText: "history A",
+			isLoading: false,
+		});
+		expect(firstA?.state?.sessionId).toBe(sessionA.sessionId);
+		expect(firstA?.state?.status).toBe("starting");
+		expect(firstA?.state?.pendingPermissions).toHaveLength(0);
+		expect(result.current.state?.sessionId).toBe(sessionA.sessionId);
+		expect(result.current.timeline.items[0]).toMatchObject({
+			kind: "message",
+			blocks: [{ type: "text", text: "history A" }],
+		});
+
+		// The pane key can remount this hook. The process cache still restores A.
+		unmount();
+		const remounts: UseAcpSessionResult[] = [];
+		const remounted = renderHook(() => {
+			const snapshot = useAcpSession({
+				sessionId: sessionA.sessionId,
+				api,
+				streamUrl: "ws://test",
+				createWebSocket: idleSocket,
+			});
+			remounts.push(snapshot);
+			return snapshot;
+		});
+		expect(remounts[0]?.isLoading).toBe(false);
+		expect(remounted.result.current.state?.sessionId).toBe(sessionA.sessionId);
+		expect(remounted.result.current.timeline.items[0]).toMatchObject({
+			kind: "message",
+			blocks: [{ type: "text", text: "history A" }],
+		});
+	});
+
+	test("does not use an expired session snapshot", async () => {
+		const originalNow = Date.now;
+		let now = originalNow();
+		Date.now = () => now;
+		try {
+			const api = {
+				get: async () => state,
+				getMessages: async () => ({ items: history, nextCursor: null }),
+				prompt: async () => ({ accepted: true as const }),
+				cancel: async () => {},
+				close: async () => {},
+				respondToPermission: async () => ({ status: "resolved" as const }),
+				setMode: async () => {},
+				setConfigOption: async () => {},
+				enqueuePrompt: async () => ({ queueId: "q-1" }),
+				sendNow: async () => ({ accepted: true as const }),
+				removeQueuedPrompt: async () => {},
+				reorderQueue: async () => {},
+				editQueuedPrompt: async () => {},
+				clearQueue: async () => {},
+			};
+			const first = renderHook(() =>
+				useAcpSession({
+					sessionId: state.sessionId,
+					api,
+					streamUrl: "ws://test",
+					createWebSocket: idleSocket,
+				}),
+			);
+			await waitFor(() => first.result.current.isLoading === false);
+			first.unmount();
+
+			now += 24 * 60 * 60 * 1_000 + 1;
+			const expired = renderHook(() =>
+				useAcpSession({
+					sessionId: state.sessionId,
+					api,
+					streamUrl: "ws://test",
+					createWebSocket: idleSocket,
+				}),
+			);
+			expect(expired.result.current.state).toBeNull();
+			expect(expired.result.current.timeline.items).toHaveLength(0);
+			expect(expired.result.current.isLoading).toBe(true);
+		} finally {
+			Date.now = originalNow;
+		}
+	});
+
 	test("does not render the previous session while switching ids", async () => {
 		const oldSession: SessionScopedState = {
 			...state,
