@@ -30,6 +30,13 @@ export function useRetainedAcpConnection({
 		}, retentionMs);
 	}, [clearRetentionTimeout, retentionMs]);
 
+	// A pane that has been opened is an active conversation even before its
+	// first prompt. Keep its live ACP subscription while its workspace is
+	// visited so switching back does not tear down and resync the session.
+	useEffect(() => {
+		if (isWorkspaceActive) recordActivity();
+	}, [isWorkspaceActive, recordActivity]);
+
 	useEffect(() => clearRetentionTimeout, [clearRetentionTimeout]);
 
 	return {

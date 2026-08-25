@@ -23,7 +23,7 @@
 ## Visual Foundations
 
 ### Colors
-- **调色板** 基于 Dracula:`#282a36` 深底、`#f8f8f2` 文字、`#ff79c6` 品牌粉、`#bd93f9` 强调紫。语义 token 全部走 `color-mix(in oklch, ...)` 派生。
+- **调色板** 基于 Dracula:`#282a36` 深底、`#f8f8f2` 文字、`#ff79c6` 品牌粉、`#bd93f9` 强调紫。彩色语义 token 走 `color-mix(in oklch, ...)`；中性层级与透明叠色走 `color-mix(in srgb, ...)`，避免低色度混色发生色相漂移。
 - **粉色是 tint、不是 fill**:唯一"填充粉色"的地方是 pill primary button 的 `background: color-mix(#fff 90%, --accent)` 那一层文字,以及 focus ring。其他所有粉色都是 12–15% 的 `--accent-tint`。
 - **状态**:success/warning/danger 只在 tag / badge / dot / danger button 上出现,永远不做大面积色块。
 

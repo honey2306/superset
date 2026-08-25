@@ -86,7 +86,7 @@
 	--ds-page-bg: #1e1f29;
 	--ds-surface: #282a36;
 	--ds-surface-elev: color-mix(
-		in oklch,
+		in srgb,
 		var(--background) 92%,
 		var(--foreground) 8%
 	);
@@ -95,14 +95,14 @@
 	--overlay-scrim: var(--ds-overlay-scrim);
 
 	--fg: #f8f8f2;
-	--fg-mute: color-mix(in oklch, #f8f8f2 55%, transparent);
-	--fg-faint: color-mix(in oklch, #f8f8f2 38%, transparent);
+	--fg-mute: color-mix(in srgb, #f8f8f2 55%, transparent);
+	--fg-faint: color-mix(in srgb, #f8f8f2 38%, transparent);
 	--fg-inverse: #1e1f29;
 
-	--line: color-mix(in oklch, #f8f8f2 10%, transparent);
-	--line-strong: color-mix(in oklch, #f8f8f2 18%, transparent);
-	--hover: color-mix(in oklch, #f8f8f2 6%, transparent);
-	--selected: color-mix(in oklch, #f8f8f2 10%, transparent);
+	--line: color-mix(in srgb, #f8f8f2 10%, transparent);
+	--line-strong: color-mix(in srgb, #f8f8f2 18%, transparent);
+	--hover: color-mix(in srgb, #f8f8f2 6%, transparent);
+	--selected: color-mix(in srgb, #f8f8f2 10%, transparent);
 
 	--accent-solid: #ff79c6;
 	--accent-2: #bd93f9;
@@ -268,14 +268,14 @@
 	--overlay-scrim: var(--ds-overlay-scrim);
 
 	--fg: oklch(0.145 0 0);
-	--fg-mute: color-mix(in oklch, oklch(0.145 0 0) 62%, transparent);
-	--fg-faint: color-mix(in oklch, oklch(0.145 0 0) 42%, transparent);
+	--fg-mute: color-mix(in srgb, oklch(0.145 0 0) 62%, transparent);
+	--fg-faint: color-mix(in srgb, oklch(0.145 0 0) 42%, transparent);
 	--fg-inverse: #ffffff;
 
-	--line: color-mix(in oklch, oklch(0.145 0 0) 10%, transparent);
-	--line-strong: color-mix(in oklch, oklch(0.145 0 0) 18%, transparent);
-	--hover: color-mix(in oklch, oklch(0.145 0 0) 5%, transparent);
-	--selected: color-mix(in oklch, oklch(0.145 0 0) 8%, transparent);
+	--line: color-mix(in srgb, oklch(0.145 0 0) 10%, transparent);
+	--line-strong: color-mix(in srgb, oklch(0.145 0 0) 18%, transparent);
+	--hover: color-mix(in srgb, oklch(0.145 0 0) 5%, transparent);
+	--selected: color-mix(in srgb, oklch(0.145 0 0) 8%, transparent);
 
 	/* DS extended palette — light-canvas remap for accent + status tokens.
 	 * Keeps semantic utilities (text-success, bg-danger-tint, text-accent-2,

@@ -117,6 +117,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 	function newManager(options?: {
 		journalCapacity?: number;
 		piAdapterEntry?: string;
+		adapterExecPath?: string;
 		adapterEnv?: Record<string, string>;
 		modelFacingInstructions?: () => string | undefined;
 		generateTitle?: (input: {
@@ -1085,6 +1086,20 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		}
 		expect(hangTool.call.status).toBe("failed");
 	}, 30_000);
+
+	test("adapter spawn ENOENT rejects creation without crashing the shared runtime", async () => {
+		const manager = newManager({
+			adapterExecPath: path.join(workspaceDir, "missing-electron-executable"),
+		});
+
+		await expect(
+			manager.create({
+				sessionId: "spawn-enoent",
+				workspaceId: WORKSPACE_ID,
+			}),
+		).rejects.toThrow(/ENOENT/);
+		expect(manager.list({}).items).toEqual([]);
+	});
 
 	test("adapter crash: session reports dead but stays readable; siblings are untouched", async () => {
 		const manager = newManager();

@@ -99,10 +99,12 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		idleHibernateMs?: number | null;
 		mcpServers?: McpServer[];
 		adapterEnv?: Record<string, string>;
+		piAdapterEntry?: string;
 	}) {
 		const manager = new AcpSessionManager({
 			resolveWorkspaceCwd: () => workspaceDir,
 			adapterEntry: FAKE_ADAPTER,
+			piAdapterEntry: options?.piAdapterEntry,
 			persistence,
 			journalCapacity: options?.journalCapacity,
 			idleHibernateMs: options?.idleHibernateMs,
@@ -367,6 +369,34 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 			{ phase: "new", mcpServers },
 			{ phase: "load", mcpServers },
 		]);
+	}, 30_000);
+
+	test("asks Pi to skip native replay when durable history already exists", async () => {
+		const sessionId = "persist-pi-skip-replay";
+		const requestLog = path.join(workspaceDir, "pi-load-requests.jsonl");
+		const options = {
+			piAdapterEntry: FAKE_ADAPTER,
+			adapterEnv: { FAKE_ACP_MCP_REQUEST_LOG: requestLog },
+		};
+		const before = newManager(options);
+		await before.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			harness: "pi-acp",
+		});
+		await runTurn(before, sessionId, "say persisted Pi history");
+		await before.dispose();
+
+		const after = newManager(options);
+		await after.ensureLive(sessionId);
+
+		const requests = readFileSync(requestLog, "utf8")
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as { phase: string; meta?: unknown });
+		expect(requests.find((request) => request.phase === "load")?.meta).toEqual({
+			"sh.superset/skipTranscriptReplay": true,
+		});
 	}, 30_000);
 
 	test("session/load bounds its pre-runtime replay to the configured catch-up window", async () => {

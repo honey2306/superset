@@ -5,6 +5,35 @@ import {
 } from "./superset-tools";
 
 describe("Superset delegation protocol", () => {
+	test("accepts target workspace for new sessions", () => {
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "parent",
+				name: "continue_in_new_session",
+				arguments: {
+					handoff: "Start this in another project",
+					workspaceId: "workspace-2",
+				},
+			}),
+		).toMatchObject({
+			name: "continue_in_new_session",
+			arguments: { workspaceId: "workspace-2" },
+		});
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "parent",
+				name: "delegate",
+				arguments: {
+					task: "Run the isolated check",
+					projectPath: "/Users/me/Code/agent-fabric",
+				},
+			}),
+		).toMatchObject({
+			name: "delegate",
+			arguments: { projectPath: "/Users/me/Code/agent-fabric" },
+		});
+	});
+
 	test("accepts a finite context snapshot and structured child result", () => {
 		expect(
 			supersetToolRequestSchema.parse({
