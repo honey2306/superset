@@ -22,8 +22,11 @@ mock.module("renderer/lib/acp-session-client", () => ({
 	createDesktopAcpSessionClient: createClientMock,
 }));
 mock.module("renderer/lib/acp-session-launch", () => ({
-	ACP_SUPPORTED_AGENT_IDS: ["claude"],
-	isAcpSupportedAgentId: (value: string) => value === "claude",
+	// Bun module mocks persist for the full test process. Keep the production
+	// catalog intact so this focused launch mock cannot narrow later consumers.
+	ACP_SUPPORTED_AGENT_IDS: ["claude", "codex", "pi", "myflicker", "deepseek"],
+	isAcpSupportedAgentId: (value: string) =>
+		["claude", "codex", "pi", "myflicker", "deepseek"].includes(value),
 	launchAcpSession: launchAcpSessionMock,
 }));
 mock.module("renderer/hooks/useAgentModelPreference", () => ({
