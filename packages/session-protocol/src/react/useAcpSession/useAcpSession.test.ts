@@ -4,6 +4,7 @@ import { emptyTimeline, foldEnvelopes } from "../../fold";
 import type { SessionScopedState } from "../../state";
 import {
 	fetchCompleteMessageHistory,
+	observeSessionVisibility,
 	overlayAuthoritativeState,
 	shouldRetryInitialLaunchNotFound,
 } from "./useAcpSession";
@@ -184,4 +185,45 @@ test("keeps retrying a launching session after the normal retry window", () => {
 			elapsedMs: 10_000,
 		}),
 	).toBe(false);
+});
+
+test("resyncs once on hidden to visible and removes the listener", () => {
+	let visibilityState: "hidden" | "visible" = "hidden";
+	const listeners = new Set<() => void>();
+	const documentLike = {
+		get visibilityState() {
+			return visibilityState;
+		},
+		addEventListener: (_type: string, listener: () => void) => {
+			listeners.add(listener);
+		},
+		removeEventListener: (_type: string, listener: () => void) => {
+			listeners.delete(listener);
+		},
+	};
+	let resumes = 0;
+	const remove = observeSessionVisibility(documentLike, () => {
+		resumes += 1;
+	});
+
+	for (const listener of listeners) listener();
+	expect(resumes).toBe(0);
+	visibilityState = "visible";
+	for (const listener of listeners) listener();
+	expect(resumes).toBe(1);
+	for (const listener of listeners) listener();
+	expect(resumes).toBe(1);
+	remove();
+	expect(listeners).toHaveLength(0);
+	visibilityState = "hidden";
+	visibilityState = "visible";
+	for (const listener of listeners) listener();
+	expect(resumes).toBe(1);
+});
+
+test("is SSR-safe when no document is available", () => {
+	const remove = observeSessionVisibility(undefined, () => {
+		throw new Error("must not resume without a document");
+	});
+	expect(() => remove()).not.toThrow();
 });

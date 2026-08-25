@@ -652,6 +652,24 @@ describe("state and reset frames", () => {
 		);
 		expect(timeline.resetReason).toBe("journal_evicted");
 	});
+
+	test("remote command frames advance the cursor without rendering", () => {
+		seqCounter = 0;
+		const timeline = foldEnvelopes(emptyTimeline(), [
+			envelope({
+				kind: "remote_command",
+				commandId: "command-1",
+				operation: "enqueuePrompt",
+				status: "queued",
+				prompt: [{ type: "text", text: "queued" }],
+				queueId: "command-1",
+			}),
+			textChunk("user_message_chunk", "visible user message"),
+		]);
+		expect(timeline.items).toHaveLength(1);
+		expect(timeline.items[0]?.kind).toBe("message");
+		expect(timeline.lastSeq).toBe(2);
+	});
 });
 
 describe("purity", () => {

@@ -10,10 +10,12 @@ import { getTrpc, isUnauthorized, resetTrpc } from "~/lib/trpc-client";
 import { ProjectTree } from "./components/ProjectTree";
 import {
 	buildProjectTree,
-	type TerminalAgentRecord,
-	type TerminalSessionRecord,
 	type WorkspaceContents,
 } from "./workspaces/utils/buildProjectTree/buildProjectTree";
+import {
+	createPhoneRouteCache,
+	getPhonePairingCacheKey,
+} from "./workspaces/utils/phoneRouteCache/phoneRouteCache";
 import { createWorkspaceCatalogRefresher } from "./workspaces/utils/workspaceCatalogRefresher/workspaceCatalogRefresher";
 import { resolveWorkspaceContents } from "./workspaces/utils/workspaceContentsLoader/resolveWorkspaceContents";
 import {
@@ -26,6 +28,10 @@ type Snapshot = Awaited<
 		ReturnType<typeof getTrpc>["workspaceCatalog"]["snapshot"]["query"]
 	>
 >;
+
+const CATALOG_CACHE_SCOPE = "catalog";
+const workspaceCatalogCache = createPhoneRouteCache<Snapshot>();
+const workspaceContentsCache = createPhoneRouteCache<WorkspaceContents>();
 
 function snapshotProjects(snapshot: Snapshot): Snapshot["projects"] {
 	return Array.isArray(snapshot.projects) ? snapshot.projects : [];
@@ -49,60 +55,77 @@ function agentLabel(agentId: string): string {
 	);
 }
 
-function toTerminalAgentRecord(agent: {
-	terminalId: string;
-	agentId: string;
-	lastEventAt: number;
-	lastEventType: string;
-}): TerminalAgentRecord {
-	return agent;
-}
-
-function toTerminalSessionRecord(session: {
-	terminalId: string;
-	createdAt: number;
-	exited: boolean;
-	title: string | null;
-}): TerminalSessionRecord {
-	return session;
-}
-
 export function WorkspacesRoute() {
 	const navigate = useNavigate();
 	const session = getStoredSession();
-	const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+	const pairingCacheKey = getPhonePairingCacheKey(session);
+	workspaceCatalogCache.activate(pairingCacheKey);
+	workspaceContentsCache.activate(pairingCacheKey);
+	const cachedSnapshot = workspaceCatalogCache.get(CATALOG_CACHE_SCOPE);
+	const initialWorkspaceTabs = new Map<string, WorkspaceContents>();
+	if (cachedSnapshot) {
+		for (const workspace of snapshotWorkspaces(cachedSnapshot)) {
+			const contents = workspaceContentsCache.get(workspace.id);
+			if (contents) initialWorkspaceTabs.set(workspace.id, contents);
+		}
+	}
+	const cachedFirstWorkspace = cachedSnapshot
+		? snapshotWorkspaces(cachedSnapshot)[0]
+		: undefined;
+	const cachedFirstProject = cachedSnapshot
+		? (snapshotProjects(cachedSnapshot).find(
+				(project) => project.id === cachedFirstWorkspace?.projectId,
+			) ?? snapshotProjects(cachedSnapshot)[0])
+		: undefined;
+	const initialCachedSnapshotRef = useRef(cachedSnapshot);
+	const initialCachedFirstWorkspaceRef = useRef(cachedFirstWorkspace);
+	const [snapshot, setSnapshot] = useState<Snapshot | null>(
+		() => cachedSnapshot ?? null,
+	);
 	const [workspaceTabs, setWorkspaceTabs] = useState<
 		ReadonlyMap<string, WorkspaceContents>
-	>(new Map());
+	>(() => initialWorkspaceTabs);
 	const [workspaceLoadStates, setWorkspaceLoadStates] = useState<
 		ReadonlyMap<string, WorkspaceContentsLoadState>
-	>(new Map());
+	>(
+		() =>
+			new Map(
+				Array.from(initialWorkspaceTabs.keys(), (workspaceId) => [
+					workspaceId,
+					"loaded" as const,
+				]),
+			),
+	);
 	const [workspaceLoadErrors, setWorkspaceLoadErrors] = useState<
 		ReadonlyMap<string, string>
 	>(new Map());
 	const [workspaceLoadWarnings, setWorkspaceLoadWarnings] = useState<
 		ReadonlyMap<string, readonly string[]>
-	>(new Map());
+	>(
+		() =>
+			new Map(
+				Array.from(initialWorkspaceTabs.entries())
+					.filter(([, contents]) => (contents.warnings?.length ?? 0) > 0)
+					.map(([workspaceId, contents]) => [
+						workspaceId,
+						contents.warnings ?? [],
+					]),
+			),
+	);
 	const [error, setError] = useState<string | null>(null);
 	const [expandedProjectIds, setExpandedProjectIds] = useState<
 		ReadonlySet<string>
-	>(new Set());
+	>(() => (cachedFirstProject ? new Set([cachedFirstProject.id]) : new Set()));
 	const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<
 		ReadonlySet<string>
-	>(new Set());
+	>(() =>
+		cachedFirstWorkspace ? new Set([cachedFirstWorkspace.id]) : new Set(),
+	);
 	const mountedRef = useRef(true);
 	const workspaceContentsLoader = useRef(
 		createWorkspaceContentsLoader(async (workspaceId) => {
 			const result = await resolveWorkspaceContents({
 				acp: getTrpc().acpSessions.list.query({ workspaceId, limit: 50 }),
-				terminalSessions: getTrpc()
-					.terminal.listSessions.query({ workspaceId })
-					.then((response) => ({
-						sessions: response.sessions.map(toTerminalSessionRecord),
-					})),
-				terminalAgents: getTrpc()
-					.terminalAgents.listByWorkspace.query({ workspaceId })
-					.then((agents) => agents.map(toTerminalAgentRecord)),
 			});
 			return result.contents;
 		}),
@@ -119,27 +142,53 @@ export function WorkspacesRoute() {
 		(workspaceId: string): void => {
 			const existingState = workspaceContentsLoader.getState(workspaceId);
 			if (existingState === "loaded" || existingState === "loading") return;
-
-			setWorkspaceLoadStates((current) => {
-				const next = new Map(current);
-				next.set(workspaceId, "loading");
-				return next;
-			});
-			setWorkspaceLoadErrors((current) => {
-				if (!current.has(workspaceId)) return current;
-				const next = new Map(current);
-				next.delete(workspaceId);
-				return next;
-			});
-			setWorkspaceLoadWarnings((current) => {
-				if (!current.has(workspaceId)) return current;
-				const next = new Map(current);
-				next.delete(workspaceId);
-				return next;
-			});
+			const cachedContents = workspaceContentsCache.get(workspaceId);
+			if (cachedContents) {
+				setWorkspaceTabs((current) => {
+					if (current.get(workspaceId) === cachedContents) return current;
+					const next = new Map(current);
+					next.set(workspaceId, cachedContents);
+					return next;
+				});
+				setWorkspaceLoadStates((current) => {
+					if (current.get(workspaceId) === "loaded") return current;
+					const next = new Map(current);
+					next.set(workspaceId, "loaded");
+					return next;
+				});
+				setWorkspaceLoadWarnings((current) => {
+					const warnings = cachedContents.warnings ?? [];
+					if (warnings.length === 0 && !current.has(workspaceId))
+						return current;
+					const next = new Map(current);
+					if (warnings.length > 0) next.set(workspaceId, warnings);
+					else next.delete(workspaceId);
+					return next;
+				});
+			} else {
+				setWorkspaceLoadStates((current) => {
+					const next = new Map(current);
+					next.set(workspaceId, "loading");
+					return next;
+				});
+				setWorkspaceLoadErrors((current) => {
+					if (!current.has(workspaceId)) return current;
+					const next = new Map(current);
+					next.delete(workspaceId);
+					return next;
+				});
+				setWorkspaceLoadWarnings((current) => {
+					if (!current.has(workspaceId)) return current;
+					const next = new Map(current);
+					next.delete(workspaceId);
+					return next;
+				});
+			}
 
 			void workspaceContentsLoader.load(workspaceId).then(
 				(contents) => {
+					if (workspaceContentsCache.activeKey() !== pairingCacheKey) return;
+					workspaceContentsCache.set(workspaceId, contents);
 					if (!mountedRef.current) return;
 					setWorkspaceTabs((current) => {
 						const next = new Map(current);
@@ -161,6 +210,17 @@ export function WorkspacesRoute() {
 				},
 				(caught: unknown) => {
 					if (!mountedRef.current) return;
+					if (workspaceContentsCache.get(workspaceId)) {
+						// Keep the last successful tab list visible while a foreground
+						// refresh retries. A transient relay error must not turn a
+						// rendered workspace back into a blank/error-only panel.
+						setWorkspaceLoadStates((current) => {
+							const next = new Map(current);
+							next.set(workspaceId, "loaded");
+							return next;
+						});
+						return;
+					}
 					const message =
 						caught instanceof Error
 							? caught.message
@@ -184,17 +244,19 @@ export function WorkspacesRoute() {
 				},
 			);
 		},
-		[workspaceContentsLoader],
+		[workspaceContentsLoader, pairingCacheKey],
 	);
 
 	useEffect(() => {
 		mountedRef.current = true;
-		let initialSnapshotLoaded = false;
+		if (pairingCacheKey === null) return;
+		let initialSnapshotLoaded = initialCachedSnapshotRef.current !== undefined;
 		const refresher = createWorkspaceCatalogRefresher(
 			() => getTrpc().workspaceCatalog.snapshot.query(),
 			{
 				onSnapshot: (nextSnapshot) => {
 					if (!mountedRef.current) return;
+					workspaceCatalogCache.set(CATALOG_CACHE_SCOPE, nextSnapshot);
 					setSnapshot(nextSnapshot);
 					setError(null);
 					if (initialSnapshotLoaded) return;
@@ -233,9 +295,12 @@ export function WorkspacesRoute() {
 			},
 		);
 		refresher.start();
+		if (initialCachedFirstWorkspaceRef.current) {
+			loadWorkspaceContents(initialCachedFirstWorkspaceRef.current.id);
+		}
 		void refresher.refresh();
 		return () => refresher.stop();
-	}, [navigate, loadWorkspaceContents]);
+	}, [navigate, loadWorkspaceContents, pairingCacheKey]);
 
 	const projects = useMemo(
 		() =>
@@ -266,6 +331,8 @@ export function WorkspacesRoute() {
 				<button
 					type="button"
 					onClick={() => {
+						workspaceCatalogCache.clear();
+						workspaceContentsCache.clear();
 						clearStoredSession();
 						resetTrpc();
 						if (isAutoMateWebAppPath(location.pathname)) {

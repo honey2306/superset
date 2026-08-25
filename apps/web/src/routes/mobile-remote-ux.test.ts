@@ -45,3 +45,15 @@ test("does not show a doomed AutoMate pairing form without relay context", () =>
 	expect(pair).toContain("if (initialCode && canRedeem)");
 	expect(pair).toContain("AUTOMATE_PAIRING_LINK_REQUIRED_MESSAGE");
 });
+
+test("phone app exposes ACP routes only and does not fetch terminal tabs", () => {
+	const app = source("../app.tsx");
+	const workspace = source("workspace.tsx");
+	const workspaces = source("workspaces.tsx");
+	expect(app).not.toContain("TerminalRoute");
+	expect(app).not.toContain("w/:workspaceId/t/:terminalId");
+	expect(workspace).not.toContain("terminalAgents");
+	expect(workspace).not.toContain("terminalSessions");
+	expect(workspaces).not.toContain("terminalAgents.listByWorkspace");
+	expect(workspaces).not.toContain("terminal.listSessions");
+});

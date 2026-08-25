@@ -246,6 +246,93 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		);
 	}, 30_000);
 
+	test("replays one durable queued command after a Host restart", async () => {
+		const sessionId = "persist-durable-queue";
+		const commandId = "phone-queued-after-restart";
+		const before = newManager({ idleHibernateMs: null });
+		await before.create({ sessionId, workspaceId: WORKSPACE_ID });
+		const hanging = before.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		hanging.turn.catch(() => {});
+		await waitFor(
+			() => before.get(sessionId).status === "running",
+			5_000,
+			"the pre-restart turn to run",
+		);
+
+		const accepted = before.enqueuePrompt({
+			sessionId,
+			commandId,
+			prompt: [{ type: "text", text: "say durable queue replay" }],
+		});
+		expect(accepted).toEqual({ queueId: commandId });
+		expect(before.get(sessionId).queuedPrompts).toHaveLength(1);
+		await before.dispose();
+
+		const after = newManager({ idleHibernateMs: null });
+		await Promise.all([
+			after.ensureLive(sessionId),
+			after.ensureLive(sessionId),
+		]);
+		await waitFor(
+			() =>
+				after
+					.getMessages({ sessionId, limit: 500 })
+					.items.some(
+						(envelope) =>
+							envelope.frame.kind === "update" &&
+							envelope.frame.commandId === commandId &&
+							envelope.frame.update.sessionUpdate === "user_message_chunk",
+					),
+			5_000,
+			"the replayed command admission",
+		);
+		await waitFor(
+			() =>
+				after.get(sessionId).status === "idle" &&
+				after.get(sessionId).lastStopReason === "end_turn",
+			5_000,
+			"the replayed command to finish",
+		);
+
+		const journal = persistence.loadJournal(
+			sessionId,
+			after.get(sessionId).epoch,
+		);
+		const commandUpdates = journal.filter(
+			(envelope) =>
+				envelope.frame.kind === "update" &&
+				envelope.frame.commandId === commandId,
+		);
+		expect(commandUpdates).toHaveLength(1);
+		expect(
+			journal.filter(
+				(envelope) =>
+					envelope.frame.kind === "remote_command" &&
+					envelope.frame.commandId === commandId,
+			),
+		).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					frame: expect.objectContaining({ status: "queued" }),
+				}),
+				expect.objectContaining({
+					frame: expect.objectContaining({ status: "started" }),
+				}),
+				expect.objectContaining({
+					frame: expect.objectContaining({
+						status: "finished",
+						outcome: "admitted",
+					}),
+				}),
+			]),
+		);
+		const timeline = foldedMessages(after, sessionId);
+		expect(messageText(timeline, "agent")).toContain("durable queue replay");
+	}, 30_000);
+
 	test("hibernates only an unsubscribed, quiescent runtime and resumes it through session/load", async () => {
 		const manager = newManager({ idleHibernateMs: 40 });
 		const sessionId = "persist-idle-hibernate";

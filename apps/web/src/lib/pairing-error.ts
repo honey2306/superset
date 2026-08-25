@@ -7,6 +7,9 @@ const INVALID_CODE_MESSAGE =
 const RATE_LIMITED_MESSAGE =
 	"Too many pairing attempts. Wait a minute and try again.";
 
+const TIMEOUT_MESSAGE =
+	"The pairing request timed out. You can retry with the same code.";
+
 export const AUTOMATE_PAIRING_LINK_REQUIRED_MESSAGE =
 	"This AutoMate page needs the pairing link generated in desktop Settings → Phone access.";
 
@@ -25,6 +28,13 @@ export function getPairingErrorMessage(error: unknown): string {
 		message.includes("rate_limit")
 	) {
 		return RATE_LIMITED_MESSAGE;
+	}
+
+	if (
+		message.includes("pairing request timed out") ||
+		message.includes("pairing attempt timed out")
+	) {
+		return TIMEOUT_MESSAGE;
 	}
 
 	if (

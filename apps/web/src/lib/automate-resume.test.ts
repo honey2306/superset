@@ -18,10 +18,11 @@ const session: StoredSession = {
 };
 
 describe("AutoMate resume routes", () => {
-	test("encodes a paired session into a fragment-only refresh URL", () => {
+	test("encodes a paired session into a versioned fragment refresh URL", () => {
 		const url = new URL(getAutoMateResumeUrl(session), "https://example.test");
 		expect(url.pathname).toBe("/webapp/16740");
-		expect(url.search).toBe("");
+		expect(url.searchParams.get("v")).toBe("acp3");
+		expect(url.search).toBe("?v=acp3");
 		expect(url.hash).toStartWith("#/r/");
 		expect(url.toString()).not.toContain(session.token);
 		expect(decodeAutoMateResumeSession(url.hash)).toEqual(session);
@@ -31,7 +32,8 @@ describe("AutoMate resume routes", () => {
 		const url = new URL(getAutoMateResumeUrl(session), "https://example.test");
 		url.hash = `${url.hash}/w/workspace/s/session`;
 		expect(url.pathname).toBe("/webapp/16740");
-		expect(url.search).toBe("");
+		expect(url.searchParams.get("v")).toBe("acp3");
+		expect(url.search).toBe("?v=acp3");
 		expect(url.hash).toMatch(/^#\/r\/.+\/w\/workspace\/s\/session$/);
 	});
 
@@ -51,7 +53,7 @@ describe("AutoMate resume routes", () => {
 
 	test("returns a clean fragment pair route that removes the bearer", () => {
 		expect(getAutoMateCleanPairPath("/webapp/16740")).toBe(
-			"/webapp/16740#/pair",
+			"/webapp/16740?v=acp3#/pair",
 		);
 		expect(getAutoMateCleanPairPath("/app/w/workspace")).toBe("/app/pair");
 	});

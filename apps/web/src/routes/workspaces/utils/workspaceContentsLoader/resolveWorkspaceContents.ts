@@ -18,8 +18,9 @@ export type WorkspaceContentsSources<
 	TSession extends AcpSessionRecord = AcpSessionRecord,
 > = {
 	acp: Promise<AcpSource<TSession>>;
-	terminalSessions: Promise<TerminalSessionsSource>;
-	terminalAgents: Promise<TerminalAgentRecord[]>;
+	/** Legacy desktop/terminal sources; omitted by the ACP-only phone surface. */
+	terminalSessions?: Promise<TerminalSessionsSource>;
+	terminalAgents?: Promise<TerminalAgentRecord[]>;
 };
 
 export type ResolvedWorkspaceContents<
@@ -49,8 +50,15 @@ export async function resolveWorkspaceContents<
 }: WorkspaceContentsSources<TSession>): Promise<
 	ResolvedWorkspaceContents<TSession>
 > {
+	const terminalSessionsSource =
+		terminalSessions ?? Promise.resolve({ sessions: [] });
+	const terminalAgentsSource = terminalAgents ?? Promise.resolve([]);
 	const [acpResult, terminalSessionsResult, terminalAgentsResult] =
-		await Promise.allSettled([acp, terminalSessions, terminalAgents]);
+		await Promise.allSettled([
+			acp,
+			terminalSessionsSource,
+			terminalAgentsSource,
+		]);
 
 	if (
 		acpResult.status === "rejected" &&
@@ -62,10 +70,10 @@ export async function resolveWorkspaceContents<
 
 	const warnings: string[] = [];
 	if (acpResult.status === "rejected") warnings.push(SOURCE_WARNINGS.acp);
-	if (terminalSessionsResult.status === "rejected") {
+	if (terminalSessions && terminalSessionsResult.status === "rejected") {
 		warnings.push(SOURCE_WARNINGS.terminalSessions);
 	}
-	if (terminalAgentsResult.status === "rejected") {
+	if (terminalAgents && terminalAgentsResult.status === "rejected") {
 		warnings.push(SOURCE_WARNINGS.terminalAgents);
 	}
 

@@ -225,6 +225,32 @@ export function shouldRetryInitialLaunchNotFound({
 	);
 }
 
+export type SessionVisibilityDocument = Pick<
+	Document,
+	"visibilityState" | "addEventListener" | "removeEventListener"
+>;
+
+/**
+ * Install the one lifecycle listener needed for mobile resume recovery.
+ * Keeping this small and injectable makes the hook SSR-safe and lets tests
+ * exercise hidden → visible without mounting React in a browser.
+ */
+export function observeSessionVisibility(
+	documentLike: SessionVisibilityDocument | undefined,
+	onResume: () => void,
+): () => void {
+	if (documentLike === undefined) return () => {};
+	let wasHidden = documentLike.visibilityState === "hidden";
+	const onVisibilityChange = () => {
+		const isHidden = documentLike.visibilityState === "hidden";
+		if (wasHidden && !isHidden) onResume();
+		wasHidden = isHidden;
+	};
+	documentLike.addEventListener("visibilitychange", onVisibilityChange);
+	return () =>
+		documentLike.removeEventListener("visibilitychange", onVisibilityChange);
+}
+
 /**
  * Message pages contain historical update frames, while state is a current
  * snapshot. Re-applying the snapshot after every page refold prevents an old
@@ -889,6 +915,16 @@ export function useAcpSession(
 		// therefore a lifecycle boundary even when the initial read did not 404.
 		if (wasLaunching && !isLaunching && enabled) void resync();
 	}, [enabled, options.initiallyLaunching, resync]);
+
+	useEffect(() => {
+		if (!enabled || typeof document === "undefined") return;
+		return observeSessionVisibility(document, () => {
+			// A backgrounded phone can miss both relay frames and the host's
+			// short-lived stream token. Fetch the authoritative state/history first;
+			// resync then creates a fresh subscription from the snapshot cursor.
+			void resync();
+		});
+	}, [enabled, resync]);
 
 	const actions = useMemo<AcpSessionActions>(
 		() => ({

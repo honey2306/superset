@@ -1,7 +1,22 @@
-export function WorkingIndicator({
+export function getWorkingIndicatorLabel({
 	awaitingPermission,
+	awaitingResponse,
 }: {
 	awaitingPermission: boolean;
+	awaitingResponse: boolean;
+}): string {
+	if (!awaitingPermission) return "Working…";
+	return awaitingResponse
+		? "Waiting for your response"
+		: "Waiting for your approval";
+}
+
+export function WorkingIndicator({
+	awaitingPermission,
+	awaitingResponse,
+}: {
+	awaitingPermission: boolean;
+	awaitingResponse: boolean;
 }) {
 	return (
 		<output
@@ -13,7 +28,7 @@ export function WorkingIndicator({
 				aria-hidden="true"
 			/>
 			<span>
-				{awaitingPermission ? "Waiting for your approval" : "Working…"}
+				{getWorkingIndicatorLabel({ awaitingPermission, awaitingResponse })}
 			</span>
 		</output>
 	);

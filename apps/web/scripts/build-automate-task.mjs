@@ -80,11 +80,12 @@ if (html.includes(assetBase)) {
 }
 
 const taskSource = `const wire=$0||{};
+if(wire.type==="api"&&wire.relay){const invocation=await am.runTask(16739,wire.relay);const wrapped=invocation&&typeof invocation==="object"&&"status" in invocation;if(wrapped&&invocation.status!==0&&invocation.status!=="0"){am.return({ok:false,code:"RELAY_INVOCATION_FAILED",message:"AutoMate relay invocation failed"})}else{am.return(wrapped?invocation.result:invocation)}}else{
 const route=typeof wire.route==="string"?wire.route:"";
 const match=/^\\/pair\\/([^/?#]+)\\/([^/?#]+)$/.exec(route);
 let pairingPath="/webapp/16740#/pair";
 if(match){try{const code=decodeURIComponent(match[1]);const mailboxId=decodeURIComponent(match[2]);if(code&&mailboxId){pairingPath="/webapp/16740#/pair/"+encodeURIComponent(code)+"/"+encodeURIComponent(mailboxId)}}catch{}}
 const html=${JSON.stringify(html)}.replace(${JSON.stringify(pairingPathPlaceholder)},pairingPath);
 am.return({command:"html",data:{html}});
-`;
+}`;
 await writeFile(new URL("task.js", outputDirectory), taskSource);

@@ -7,7 +7,11 @@ import {
 	getPairingCredentials,
 } from "../automate-pairing";
 import { AUTOMATE_PAIRING_LINK_REQUIRED_MESSAGE } from "../pairing-error";
-import { createDefaultAutoMateTaskClient } from "./http-task-client";
+import {
+	AUTOMATE_BROWSER_RELAY_PATH,
+	createDefaultAutoMateBrowserRelayClient,
+	toAutoMateBrowserRelayUrl,
+} from "./browser-relay-client";
 
 export interface PhoneTransport {
 	fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
@@ -62,12 +66,46 @@ type TaskClientOptions = {
 	maxConcurrentRequests?: number;
 };
 
+type RelayTransportOptions = {
+	scheduler?: TaskScheduler;
+	responseTimeoutMs?: number;
+};
+
+export type RelayVisibilitySource = {
+	visibilityState: "visible" | "hidden";
+	addEventListener: (type: "visibilitychange", listener: () => void) => void;
+	removeEventListener: (type: "visibilitychange", listener: () => void) => void;
+};
+
+/** Keep relay mailbox pulls asleep while a phone tab is backgrounded. */
+export function observeRelayVisibility(
+	source: RelayVisibilitySource | undefined,
+	onHidden: () => void,
+	onVisible: () => void,
+): () => void {
+	if (!source) return () => {};
+	const onVisibilityChange = () => {
+		if (source.visibilityState === "hidden") onHidden();
+		else onVisible();
+	};
+	source.addEventListener("visibilitychange", onVisibilityChange);
+	return () =>
+		source.removeEventListener("visibilitychange", onVisibilityChange);
+}
+
+function getRelayVisibilitySource(): RelayVisibilitySource | undefined {
+	if (typeof document === "undefined") return undefined;
+	return document as unknown as RelayVisibilitySource;
+}
+
 export const AUTOMATE_RELAY_ORIGIN = "https://automate.corp.kuaishou.com";
 export const AUTOMATE_RELAY_WEBAPP_PATH = "/webapp/16740";
 // Keep host + phone idle mailbox polling near 4 requests/sec combined, leaving
 // headroom below the task QPS=10 limit for pushes and acknowledgements while
 // keeping streaming responsive.
 export const EMPTY_RELAY_PULL_DELAY_MS = 500;
+export const AUTOMATE_RELAY_OPERATION_TIMEOUT_MS = 20_000;
+export const AUTOMATE_RELAY_RESPONSE_TIMEOUT_MS = 20_000;
 const DEFAULT_MAX_CONCURRENT_TASK_REQUESTS = 4;
 function unwrapRelayResult(payload: unknown): unknown {
 	if (typeof payload !== "object" || payload === null) return payload;
@@ -292,20 +330,11 @@ function heartbeatInterval(message: {
 		.heartbeat_interval_ms;
 }
 
-function getAutoMateRelayUrl(): string {
-	const url = import.meta.env.VITE_AUTOMATE_RELAY_URL;
-	if (!url) {
-		throw new Error(
-			"AutoMate relay requires VITE_AUTOMATE_RELAY_URL at build time",
-		);
-	}
-	try {
-		const parsed = new URL(url);
-		if (parsed.protocol !== "wss:") throw new Error("invalid protocol");
-	} catch {
-		throw new Error("VITE_AUTOMATE_RELAY_URL must be a valid wss:// URL");
-	}
-	return url;
+function getAutoMateRelayProxyUrl(): string {
+	return toAutoMateBrowserRelayUrl(
+		AUTOMATE_BROWSER_RELAY_PATH,
+		location.origin,
+	);
 }
 
 export function isAutoMateRelayLocation(
@@ -333,6 +362,11 @@ export function getAutoMateRelayMailboxId(
 	return mailboxId ?? storedMailboxId;
 }
 type RelayMessage = { seq: number; messageId: string; body: RelayEnvelope };
+type PendingResponse = {
+	resolve: (response: Response) => void;
+	reject: (error: Error) => void;
+	timer: unknown;
+};
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 function bytesToBase64(data: ArrayBuffer): string {
 	const bytes = new Uint8Array(data);
@@ -350,23 +384,45 @@ const base64ToBytes = (data?: string) =>
 
 /** One ordered s2c puller per mailbox. It does not know or possess a host PSK. */
 export class AutoMateRelayTransport implements PhoneTransport {
-	private readonly pending = new Map<
-		string,
-		{ resolve: (response: Response) => void; reject: (error: Error) => void }
-	>();
+	private readonly pending = new Map<string, PendingResponse>();
 	private readonly channels = new Map<string, RelayPollingSocket>();
+	private readonly scheduler: TaskScheduler;
+	private readonly responseTimeoutMs: number;
 	private pushTail = Promise.resolve();
 	private pumping = false;
+	private pumpPromise: Promise<void> | undefined;
+	private foreground = true;
+	private readonly removeVisibilityListener: () => void;
 	constructor(
 		readonly mailboxId: string,
 		private readonly taskClient: {
 			run: RelayTask;
 			close?: () => void;
-		} = createDefaultAutoMateTaskClient(getAutoMateRelayUrl()),
-	) {}
+		} = createDefaultAutoMateBrowserRelayClient(getAutoMateRelayProxyUrl()),
+		options: RelayTransportOptions = {},
+	) {
+		this.scheduler = options.scheduler ?? defaultTaskScheduler;
+		this.responseTimeoutMs =
+			options.responseTimeoutMs ?? AUTOMATE_RELAY_RESPONSE_TIMEOUT_MS;
+		const visibility = getRelayVisibilitySource();
+		this.foreground = visibility?.visibilityState !== "hidden";
+		this.removeVisibilityListener = observeRelayVisibility(
+			visibility,
+			() => {
+				this.foreground = false;
+				this.pumping = false;
+			},
+			() => {
+				this.foreground = true;
+				this.startPump();
+			},
+		);
+	}
 	stop(): void {
 		this.pumping = false;
+		this.removeVisibilityListener();
 		for (const pending of this.pending.values()) {
+			this.scheduler.clearTimeout(pending.timer);
 			pending.reject(new Error("AutoMate relay transport stopped"));
 		}
 		this.pending.clear();
@@ -408,13 +464,25 @@ export class AutoMateRelayTransport implements PhoneTransport {
 		});
 	}
 	private startPump(): void {
-		if (!this.pumping) {
-			this.pumping = true;
-			void this.pump();
-		}
+		this.pumping = true;
+		if (this.pumpPromise) return;
+		const pending = this.pump();
+		this.pumpPromise = pending;
+		void pending.then(
+			() => {
+				if (this.pumpPromise !== pending) return;
+				this.pumpPromise = undefined;
+				if (this.pumping && this.foreground) this.startPump();
+			},
+			() => {
+				if (this.pumpPromise !== pending) return;
+				this.pumpPromise = undefined;
+				if (this.pumping && this.foreground) this.startPump();
+			},
+		);
 	}
 	private async pump(): Promise<void> {
-		while (this.pumping) {
+		while (this.pumping && this.foreground) {
 			try {
 				const result = (await this.task({
 					op: "pull",
@@ -431,6 +499,7 @@ export class AutoMateRelayTransport implements PhoneTransport {
 					const pending = this.pending.get(body.requestId);
 					if (pending) {
 						this.pending.delete(body.requestId);
+						this.scheduler.clearTimeout(pending.timer);
 						pending.resolve(
 							new Response(base64ToBytes(body.body), {
 								status: body.status,
@@ -475,6 +544,17 @@ export class AutoMateRelayTransport implements PhoneTransport {
 					await this.ack(message.seq);
 					continue;
 				}
+				if (body.kind === "host.reset") {
+					// Host process crashes do not give the Host relay a chance to
+					// emit stream.close for its local sockets. Close every phone-side
+					// channel so ACP subscribers receive onclose and recreate them.
+					const staleChannels = [...this.channels.values()];
+					this.channels.clear();
+					for (const channel of staleChannels)
+						channel.receiveClose(1012, "Host restarted");
+					await this.ack(message.seq);
+					continue;
+				}
 				// Unknown/invalid correlation is a poison message: ack to avoid blocking the ordered mailbox.
 				await this.ack(message.seq);
 			} catch (error) {
@@ -494,9 +574,13 @@ export class AutoMateRelayTransport implements PhoneTransport {
 			? bytesToBase64(await request.arrayBuffer())
 			: undefined;
 		this.startPump();
-		const result = new Promise<Response>((resolve, reject) =>
-			this.pending.set(requestId, { resolve, reject }),
-		);
+		const result = new Promise<Response>((resolve, reject) => {
+			const timer = this.scheduler.setTimeout(() => {
+				if (!this.pending.delete(requestId)) return;
+				reject(new Error("AutoMate relay response timed out"));
+			}, this.responseTimeoutMs);
+			this.pending.set(requestId, { resolve, reject, timer });
+		});
 		try {
 			await this.push({
 				kind: "http.request",
@@ -507,7 +591,11 @@ export class AutoMateRelayTransport implements PhoneTransport {
 				body,
 			});
 		} catch (error) {
-			this.pending.delete(requestId);
+			const pending = this.pending.get(requestId);
+			if (pending) {
+				this.pending.delete(requestId);
+				this.scheduler.clearTimeout(pending.timer);
+			}
 			throw error;
 		}
 		return result;

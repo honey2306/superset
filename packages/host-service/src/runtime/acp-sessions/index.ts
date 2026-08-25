@@ -10,7 +10,14 @@ export {
 	acpDaemonSocketPath,
 	resolveAcpDaemonScriptPath,
 } from "./daemon";
-export { type JournalPage, SessionJournal } from "./journal";
+export {
+	type JournalPage,
+	orderReplayedRemoteQueue,
+	type ReplayedRemoteCommand,
+	type ReplayedRemoteCommands,
+	replayRemoteCommands,
+	SessionJournal,
+} from "./journal";
 export {
 	type AcpSessionPersistence,
 	type AcpSessionRecord,

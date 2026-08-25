@@ -68,6 +68,44 @@ describe("AutoMateRelay", () => {
 		expect(sleptFor).toBe(500);
 	});
 
+	test("announces a new host incarnation when starting", async () => {
+		const pushes: unknown[] = [];
+		let relay: AutoMateRelay;
+		relay = new AutoMateRelay("box", {
+			client: {
+				request: async (input) => {
+					const operation = input as { op: string; body?: RelayEnvelope };
+					if (operation.op === "push") pushes.push(input);
+					return operation.op === "pull"
+						? { message: undefined }
+						: { ok: true };
+				},
+			},
+			fetch: async () => new Response(),
+			baseUrl: "http://127.0.0.1:4879",
+			sleep: async () => {
+				relay.stop();
+			},
+		});
+
+		relay.start();
+		for (let attempt = 0; attempt < 20 && pushes.length === 0; attempt += 1)
+			await nextTurn();
+		relay.stop();
+
+		expect(pushes).toContainEqual(
+			expect.objectContaining({
+				op: "push",
+				mailboxId: "box",
+				direction: "s2c",
+				body: expect.objectContaining({
+					kind: "host.reset",
+					hostInstanceId: expect.any(String),
+				}),
+			}),
+		);
+	});
+
 	test("rejects paths outside tRPC and ACP streams", () => {
 		expect(isAllowedPath("/trpc/phone.pairing.redeem")).toBe(true);
 		expect(isAllowedPath("/trpc/acpSessions.get?input=encoded")).toBe(true);
@@ -364,14 +402,14 @@ describe("AutoMateRelay", () => {
 		relay = new AutoMateRelay("box", {
 			client: {
 				request: async (input) => {
-					const operation = input as { op: string };
+					const operation = input as { op: string; body?: RelayEnvelope };
 					if (operation.op === "pull") {
 						return {
 							message: { seq: 17, messageId: "message-1", body: request },
 						};
 					}
 					if (operation.op === "push") {
-						pushCount += 1;
+						if (operation.body?.kind !== "host.reset") pushCount += 1;
 						return { ok: true };
 					}
 					ackCount += 1;
@@ -427,6 +465,7 @@ describe("AutoMateRelay", () => {
 							},
 						};
 					}
+					if (operation.op !== "ack") return { ok: true };
 					relay.stop();
 					resolveDone?.();
 					return { ok: true };

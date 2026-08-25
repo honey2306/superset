@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import type { SessionUpdateFrame } from "@superset/session-protocol";
-import { SessionJournal } from "./journal";
+import type {
+	RemoteCommandFrame,
+	SessionUpdateEnvelope,
+	SessionUpdateFrame,
+} from "@superset/session-protocol";
+import {
+	orderReplayedRemoteQueue,
+	replayRemoteCommands,
+	SessionJournal,
+} from "./journal";
 
 function stateFrame(): SessionUpdateFrame {
 	return {
@@ -33,6 +41,51 @@ function updateFrame(text: string): SessionUpdateFrame {
 		update: {
 			sessionUpdate: "agent_message_chunk",
 			content: { type: "text", text },
+		},
+	};
+}
+
+function commandFrame(
+	seq: number,
+	commandId: string,
+	status: RemoteCommandFrame["status"],
+	operation: RemoteCommandFrame["operation"] = "enqueuePrompt",
+	text = commandId,
+): SessionUpdateEnvelope {
+	return {
+		sessionId: "s",
+		epoch: "legacy",
+		seq,
+		ts: seq,
+		frame: {
+			kind: "remote_command",
+			commandId,
+			operation,
+			status,
+			prompt: [{ type: "text", text }],
+			queueId: commandId,
+			enqueuedAt: seq,
+		},
+	};
+}
+
+function commandUserUpdate(
+	seq: number,
+	commandId: string,
+	text = commandId,
+): SessionUpdateEnvelope {
+	return {
+		sessionId: "s",
+		epoch: "legacy",
+		seq,
+		ts: seq,
+		frame: {
+			kind: "update",
+			commandId,
+			update: {
+				sessionUpdate: "user_message_chunk",
+				content: { type: "text", text },
+			},
 		},
 	};
 }
@@ -212,5 +265,104 @@ describe("SessionJournal", () => {
 			measure,
 		});
 		expect(singleOversized.items.map((entry) => entry.seq)).toEqual([5]);
+	});
+
+	test("replays queued commands in FIFO order", () => {
+		const replayed = replayRemoteCommands([
+			commandFrame(1, "first", "queued", "enqueuePrompt", "alpha"),
+			commandFrame(2, "second", "queued", "enqueuePrompt", "beta"),
+		]);
+		expect(replayed.queued.map((command) => command.commandId)).toEqual([
+			"first",
+			"second",
+		]);
+		expect(replayed.queued.map((command) => command.prompt)).toEqual([
+			[{ type: "text", text: "alpha" }],
+			[{ type: "text", text: "beta" }],
+		]);
+	});
+
+	test("does not restore finished or removed commands", () => {
+		const replayed = replayRemoteCommands([
+			commandFrame(1, "finished", "queued"),
+			commandFrame(2, "finished", "finished"),
+			commandFrame(3, "removed", "queued"),
+			commandFrame(4, "removed", "finished"),
+		]);
+		expect(replayed).toEqual({ queued: [], sendNow: [] });
+	});
+
+	test("restores started command only when its user update is missing", () => {
+		const replayed = replayRemoteCommands([
+			commandFrame(1, "missing-user", "queued"),
+			commandFrame(2, "missing-user", "started"),
+			commandFrame(3, "admitted", "queued"),
+			commandFrame(4, "admitted", "started"),
+			commandUserUpdate(5, "admitted"),
+		]);
+		expect(replayed.queued.map((command) => command.commandId)).toEqual([
+			"missing-user",
+		]);
+	});
+
+	test("keeps direct and sendNow prompts ahead of the ordered queue", () => {
+		const replayed = replayRemoteCommands([
+			commandFrame(1, "tail", "queued", "enqueuePrompt"),
+			commandFrame(2, "direct", "queued", "prompt"),
+			commandFrame(3, "cut-in", "queued", "sendNow"),
+		]);
+		expect(replayed.sendNow.map((command) => command.commandId)).toEqual([
+			"direct",
+			"cut-in",
+		]);
+		expect(replayed.queued.map((command) => command.commandId)).toEqual([
+			"tail",
+		]);
+	});
+
+	test("applies queue edits from the latest state snapshot", () => {
+		const state: SessionUpdateFrame = {
+			kind: "state",
+			state: {
+				sessionId: "s",
+				epoch: "legacy",
+				workspaceId: "w",
+				harness: "claude-agent-acp",
+				status: "running",
+				title: null,
+				currentMode: null,
+				configOptions: [],
+				availableCommands: null,
+				pendingPermissions: [],
+				queuedPrompts: [
+					{
+						queueId: "second",
+						prompt: [{ type: "text", text: "edited beta" }],
+						enqueuedAt: 20,
+					},
+				],
+				cwd: "/tmp",
+				lastSeq: 0,
+				lastStopReason: null,
+				lastError: null,
+				createdAt: 0,
+				updatedAt: 0,
+			},
+		};
+		const entries = [
+			commandFrame(1, "first", "queued", "enqueuePrompt", "alpha"),
+			commandFrame(2, "second", "queued", "enqueuePrompt", "beta"),
+			{
+				...commandFrame(3, "second", "queued", "enqueuePrompt", "beta"),
+				frame: state,
+			},
+		];
+		const replayed = replayRemoteCommands(entries);
+		const ordered = orderReplayedRemoteQueue(replayed.queued, entries);
+		expect(ordered.map((command) => command.commandId)).toEqual([
+			"second",
+			"first",
+		]);
+		expect(ordered[0]?.prompt).toEqual([{ type: "text", text: "edited beta" }]);
 	});
 });

@@ -27,6 +27,23 @@ describe("websocket route auth", () => {
 		expect(res.status).toBe(401);
 	});
 
+	test("phone pairing accepts a stable redeem nonce for response-loss retries", async () => {
+		const { code } = await host.trpc.phone.pairing.mint.mutate();
+		const input = {
+			code,
+			deviceLabel: "integration test phone",
+			redeemNonce: "integration-redeem-nonce-012345",
+		};
+		const first =
+			await host.unauthenticatedTrpc.phone.pairing.redeem.mutate(input);
+		const retry =
+			await host.unauthenticatedTrpc.phone.pairing.redeem.mutate(input);
+
+		expect(retry.token).toBe(first.token);
+		expect(retry.sessionId).toBe(first.sessionId);
+		expect(retry.expiresAt).toBe(first.expiresAt);
+	});
+
 	test("/events rejects requests with a wrong token query param", async () => {
 		const res = await host.fetch("http://host-service.test/events?token=wrong");
 		expect(res.status).toBe(401);

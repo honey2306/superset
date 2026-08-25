@@ -1,4 +1,5 @@
 import {
+	isAskUserPermission,
 	makeCustomResponseOutcome,
 	makeSelectedOutcome,
 	type PendingPermission,
@@ -20,8 +21,14 @@ export function isMultiSelectPermission(pending: PendingPermission): boolean {
 	return pending.multiSelect === true;
 }
 
-export function PermissionCard({ pending, onRespond }: Props) {
+export function getPermissionRequestLabel(pending: PendingPermission): string {
 	const tool = pending.toolCall.title ?? pending.toolCall.kind ?? "tool";
+	return isAskUserPermission(pending, pending.toolCall)
+		? `Question: ${tool}`
+		: `Permission requested: ${tool}`;
+}
+
+export function PermissionCard({ pending, onRespond }: Props) {
 	const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
 	const [customText, setCustomText] = useState("");
 	const multiSelect = isMultiSelectPermission(pending);
@@ -37,7 +44,7 @@ export function PermissionCard({ pending, onRespond }: Props) {
 	return (
 		<div className="mobile-permission-card mt-2 rounded-2xl p-3 text-sm">
 			<div className="mb-2 text-[var(--phone-text)]">
-				Permission requested: <span className="font-mono">{tool}</span>
+				{getPermissionRequestLabel(pending)}
 			</div>
 			<div className="flex flex-wrap gap-2">
 				{pending.options.map((option) => (

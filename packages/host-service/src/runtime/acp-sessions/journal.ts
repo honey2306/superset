@@ -1,4 +1,7 @@
 import type {
+	ContentBlock,
+	RemoteCommandOperation,
+	SessionScopedState,
 	SessionUpdateEnvelope,
 	SessionUpdateFrame,
 } from "@superset/session-protocol";
@@ -23,6 +26,152 @@ export function unresolvedPermissionRequestIds(
 		}
 	}
 	return [...unresolved];
+}
+
+/**
+ * A command which was admitted by the phone but has not yet crossed the ACP
+ * prompt boundary. This is deliberately host-local: it is only used while
+ * rebuilding a runtime from the durable session journal.
+ */
+export interface ReplayedRemoteCommand {
+	commandId: string;
+	operation: RemoteCommandOperation;
+	queueId: string;
+	prompt: ContentBlock[];
+	enqueuedAt: number;
+}
+
+export interface ReplayedRemoteCommands {
+	/** Ordered tail prompts which should be restored to queuedPrompts. */
+	queued: ReplayedRemoteCommand[];
+	/** sendNow commands are restored ahead of the ordered tail. */
+	sendNow: ReplayedRemoteCommand[];
+}
+
+interface RemoteCommandRecord extends ReplayedRemoteCommand {
+	status: "queued" | "started";
+	queuedSeq: number;
+	matchedUserMessage: boolean;
+}
+
+/**
+ * Rebuild outstanding remote commands from a complete journal replay.
+ *
+ * A `started` frame is intentionally recoverable: the host may have crashed
+ * between reserving the command and journaling its user message. Once a
+ * matching command-tagged user update exists, Host admission crossed its
+ * durable boundary and the command must not normally be replayed. (ACP itself
+ * has no command-id acknowledgement, so provider exactly-once is not claimed.)
+ * Finished/removed/superseded commands are deleted from the replay set.
+ * Unknown future frames are ignored.
+ */
+export function replayRemoteCommands(
+	entries: readonly SessionUpdateEnvelope[],
+): ReplayedRemoteCommands {
+	const records = new Map<string, RemoteCommandRecord>();
+	const ordered = [...entries].sort((a, b) => a.seq - b.seq);
+
+	for (const envelope of ordered) {
+		const frame = envelope.frame;
+		if (frame.kind === "remote_command") {
+			if (frame.status === "finished") {
+				records.delete(frame.commandId);
+				continue;
+			}
+			const existing = records.get(frame.commandId);
+			const queueId = frame.queueId ?? existing?.queueId ?? frame.commandId;
+			const prompt = frame.prompt ?? existing?.prompt;
+			// A recoverable command must carry its payload. A malformed/legacy
+			// frame is ignored rather than resurrecting an empty agent turn.
+			if (!prompt) continue;
+			const enqueuedAt =
+				frame.enqueuedAt ?? existing?.enqueuedAt ?? envelope.ts;
+			records.set(frame.commandId, {
+				commandId: frame.commandId,
+				operation: frame.operation,
+				queueId,
+				prompt: [...prompt],
+				enqueuedAt,
+				status: frame.status,
+				queuedSeq: existing?.queuedSeq ?? envelope.seq,
+				matchedUserMessage: existing?.matchedUserMessage ?? false,
+			});
+			continue;
+		}
+		if (
+			frame.kind === "update" &&
+			frame.commandId !== undefined &&
+			frame.update.sessionUpdate === "user_message_chunk"
+		) {
+			const command = records.get(frame.commandId);
+			if (command) command.matchedUserMessage = true;
+		}
+	}
+
+	const outstanding = [...records.values()].filter(
+		(command) => command.status === "queued" || !command.matchedUserMessage,
+	);
+	// The latest sendNow wins if a crash occurred before its supersede frame
+	// landed. Older commands remain reserved for idempotency but must not be
+	// replayed after the newer cut-in command.
+	const sendNow = outstanding
+		.filter((command) => command.operation !== "enqueuePrompt")
+		.sort((a, b) => a.queuedSeq - b.queuedSeq);
+	const queued = outstanding
+		.filter((command) => command.operation === "enqueuePrompt")
+		.sort((a, b) => a.queuedSeq - b.queuedSeq);
+	return {
+		queued: queued.map(cloneReplayedCommand),
+		sendNow: sendNow.map(cloneReplayedCommand),
+	};
+}
+
+/**
+ * Apply the latest authoritative state queue ordering/edit over command
+ * payloads recovered from remote_command frames. The command frames remain
+ * the crash boundary; state is only an ordering/content refinement for queue
+ * editing operations.
+ */
+export function orderReplayedRemoteQueue(
+	commands: ReplayedRemoteCommand[],
+	entries: readonly SessionUpdateEnvelope[],
+): ReplayedRemoteCommand[] {
+	const latestState = [...entries].reverse().find(
+		(
+			envelope,
+		): envelope is SessionUpdateEnvelope & {
+			frame: { kind: "state"; state: SessionScopedState };
+		} => envelope.frame.kind === "state",
+	)?.frame.state;
+	if (!latestState || latestState.queuedPrompts.length === 0) {
+		return commands.map(cloneReplayedCommand);
+	}
+	const byQueueId = new Map(
+		commands.map((command) => [command.queueId, command]),
+	);
+	const ordered: ReplayedRemoteCommand[] = [];
+	const seen = new Set<string>();
+	for (const queued of latestState.queuedPrompts) {
+		const command = byQueueId.get(queued.queueId);
+		if (!command || seen.has(command.commandId)) continue;
+		seen.add(command.commandId);
+		ordered.push({
+			...cloneReplayedCommand(command),
+			prompt: [...queued.prompt],
+			enqueuedAt: queued.enqueuedAt,
+		});
+	}
+	for (const command of commands) {
+		if (!seen.has(command.commandId))
+			ordered.push(cloneReplayedCommand(command));
+	}
+	return ordered;
+}
+
+function cloneReplayedCommand(
+	command: ReplayedRemoteCommand,
+): ReplayedRemoteCommand {
+	return { ...command, prompt: [...command.prompt] };
 }
 
 /**
@@ -82,24 +231,25 @@ export class SessionJournal {
 	}
 
 	append(sessionId: string, frame: SessionUpdateFrame): SessionUpdateEnvelope {
-		const envelope: SessionUpdateEnvelope = {
+		const envelope = this.prepare(sessionId, frame);
+		this.commitPrepared(envelope);
+		return envelope;
+	}
+
+	/** Build the next envelope without advancing the in-memory journal. */
+	prepare(sessionId: string, frame: SessionUpdateFrame): SessionUpdateEnvelope {
+		return {
 			seq: this.nextSeq,
 			epoch: this.epoch,
 			sessionId,
 			ts: Date.now(),
 			frame,
 		};
-		this.nextSeq += 1;
-		if (this.size < this.capacity) {
-			this.entries[(this.startIndex + this.size) % this.capacity] = envelope;
-			this.size += 1;
-		} else {
-			// Replace the oldest slot and advance the logical head. Eviction stays
-			// O(1) regardless of capacity; readers address entries logically below.
-			this.entries[this.startIndex] = envelope;
-			this.startIndex = (this.startIndex + 1) % this.capacity;
-		}
-		return envelope;
+	}
+
+	/** Commit an envelope previously returned by prepare after durable storage. */
+	commitPrepared(envelope: SessionUpdateEnvelope): void {
+		this.restore(envelope);
 	}
 
 	/** Restore a durable row. Never silently skip an invalid row: doing so could

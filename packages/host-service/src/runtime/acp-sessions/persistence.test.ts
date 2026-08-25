@@ -6,6 +6,67 @@ import * as schema from "../../db/schema";
 import { SqliteAcpSessionPersistence } from "./persistence";
 
 describe("SqliteAcpSessionPersistence delegation runs", () => {
+	test("atomically reserves a command with its recovery envelope", () => {
+		const sqlite = new Database(":memory:");
+		sqlite.exec(`
+			CREATE TABLE acp_session_commands (
+				session_id TEXT NOT NULL,
+				command_id TEXT NOT NULL,
+				created_at INTEGER NOT NULL,
+				PRIMARY KEY (session_id, command_id)
+			);
+			CREATE TABLE acp_session_journal (
+				session_id TEXT NOT NULL,
+				epoch TEXT NOT NULL,
+				seq INTEGER NOT NULL,
+				ts INTEGER NOT NULL,
+				frame_json TEXT NOT NULL,
+				PRIMARY KEY (session_id, epoch, seq)
+			);
+		`);
+		const db = drizzle(sqlite, { schema }) as unknown as HostDb;
+		const persistence = new SqliteAcpSessionPersistence(db);
+		const envelope = {
+			sessionId: "session-1",
+			epoch: "epoch-1",
+			seq: 1,
+			ts: 10,
+			frame: {
+				kind: "remote_command" as const,
+				commandId: "command-1",
+				operation: "enqueuePrompt" as const,
+				status: "queued" as const,
+				prompt: [{ type: "text" as const, text: "hello" }],
+			},
+		};
+
+		expect(
+			persistence.reserveCommandAndAppendEnvelope(
+				"session-1",
+				"command-1",
+				envelope,
+			),
+		).toBe(true);
+		expect(
+			persistence.reserveCommandAndAppendEnvelope("session-1", "command-1", {
+				...envelope,
+				seq: 2,
+			}),
+		).toBe(false);
+		expect(persistence.loadJournal("session-1", "epoch-1")).toEqual([envelope]);
+
+		// A journal constraint failure rolls back the reservation in the same
+		// SQLite transaction, so a later retry is not permanently suppressed.
+		expect(() =>
+			persistence.reserveCommandAndAppendEnvelope("session-1", "command-2", {
+				...envelope,
+				frame: { ...envelope.frame, commandId: "command-2" },
+			}),
+		).toThrow();
+		expect(persistence.reserveCommand("session-1", "command-2")).toBe(true);
+		sqlite.close();
+	});
+
 	test("creates, queries, lists, and updates durable handoffs", () => {
 		const sqlite = new Database(":memory:");
 		sqlite.exec(`

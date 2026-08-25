@@ -47,8 +47,27 @@ async function verifyAutoMateTask() {
 		);
 	}
 
-	if (!task.includes("wss:")) {
-		throw new Error("AutoMate task does not include the relay URL");
+	if (task.includes("/res/task/16739/") || task.includes("x-am-task-token")) {
+		throw new Error(
+			"AutoMate task must not expose task 16739 credentials to the browser",
+		);
+	}
+
+	if (task.includes("VITE_AUTOMATE_RELAY_URL")) {
+		throw new Error(
+			"AutoMate task must not contain the legacy credentialed relay configuration",
+		);
+	}
+
+	if (
+		!task.includes('wire.type==="api"') ||
+		!task.includes("am.runTask(16739,wire.relay)") ||
+		!task.includes("wrapped?invocation.result:invocation") ||
+		!task.includes("RELAY_INVOCATION_FAILED")
+	) {
+		throw new Error(
+			"AutoMate task does not include the sanitized server-side task 16739 proxy branch",
+		);
 	}
 
 	if (!task.includes("react.transitional.element")) {
