@@ -216,5 +216,53 @@ function buildStartupInfo(`,
 	if (withExtensionNotify === withExtensionInput) {
 		throw new Error("Unsupported pi-acp bundle: extension notify hook changed");
 	}
-	return withExtensionNotify;
+	const withPromptFrontmatter = withExtensionNotify.replace(
+		"    const match = line.match(/^(\\w+):\\s*(.*)$/);",
+		"    const match = line.match(/^([\\w-]+):\\s*(.*)$/);",
+	);
+	if (withPromptFrontmatter === withExtensionNotify) {
+		throw new Error(
+			"Unsupported pi-acp bundle: prompt frontmatter parser hook changed",
+		);
+	}
+	if (!withPromptFrontmatter.includes("readFileSync2")) {
+		throw new Error(
+			"Unsupported pi-acp bundle: prompt file reader hook changed",
+		);
+	}
+	const withArgumentHints = withPromptFrontmatter.replace(
+		`    out.push({
+      name,
+      description: desc || describeFallback(c)
+    });`,
+		`    const normalizeArgumentHint = (value) => {
+      if (typeof value !== "string") return "";
+      const trimmed = value.trim();
+      const quote = trimmed[0];
+      return trimmed.length >= 2 && (quote === '"' || quote === "'") && trimmed.endsWith(quote)
+        ? trimmed.slice(1, -1).trim()
+        : trimmed;
+    };
+    const argumentHint = normalizeArgumentHint(c?.argumentHint) ||
+      (c?.source === "prompt" && typeof c?.sourceInfo?.path === "string"
+        ? (() => {
+            try {
+              const raw = readFileSync2(c.sourceInfo.path, "utf-8");
+              const { frontmatter } = parseFrontmatter(raw);
+              return normalizeArgumentHint(frontmatter["argument-hint"]);
+            } catch {
+              return "";
+            }
+          })()
+        : "");
+    out.push({
+      name,
+      description: desc || describeFallback(c),
+      ...(argumentHint ? { input: { hint: argumentHint } } : {})
+    });`,
+	);
+	if (withArgumentHints === withPromptFrontmatter) {
+		throw new Error("Unsupported pi-acp bundle: argument hint hook changed");
+	}
+	return withArgumentHints;
 }

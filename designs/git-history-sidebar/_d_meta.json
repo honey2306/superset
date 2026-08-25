@@ -1,0 +1,53 @@
+{
+  "type": "design",
+  "title": "Superset Git History Sidebar",
+  "prompt": "Optimize the Git commit history experience in the Superset Desktop workspace right sidebar with a polished interactive design.",
+  "designSystems": [
+    {
+      "name": "Superset Design System",
+      "slug": "superset-design-system",
+      "namespace": "SupersetDesignSystem_91a6da",
+      "dsFolder": "_ds/superset-design-system",
+      "sourcePath": "designs/superset-design-system"
+    }
+  ],
+  "primaryDesignSystem": "superset-design-system",
+  "createdAt": "2026-08-23T13:19:15.030Z",
+  "updatedAt": "2026-08-23T15:39:53.001Z",
+  "assets": {
+    "Git History Sidebar Prototype": {
+      "versions": [
+        {
+          "path": "Git History Sidebar Prototype.html",
+          "createdAt": "2026-08-23T13:37:33.107Z",
+          "status": "changes-requested",
+          "subtitle": "Rejected first exploration",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "path": "Git History Sidebar v2.html",
+          "createdAt": "2026-08-23T13:56:33.625Z",
+          "status": "needs-review",
+          "subtitle": "Focused review page · quiet list / split detail / refs",
+          "viewport": {
+            "width": 1360,
+            "height": 900
+          }
+        },
+        {
+          "path": "Git History Sidebar v3.html",
+          "createdAt": "2026-08-23T14:11:49.793Z",
+          "status": "changes-requested",
+          "subtitle": "Approved layout · remove Git graph",
+          "viewport": {
+            "width": 1360,
+            "height": 900
+          }
+        }
+      ]
+    }
+  }
+}
