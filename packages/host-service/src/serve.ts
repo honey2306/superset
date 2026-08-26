@@ -50,7 +50,11 @@ async function main(): Promise<void> {
 	startDaemonBootstrap(env.ORGANIZATION_ID);
 
 	const relayMailboxId = env.AUTOMATE_RELAY_URL
-		? mailboxId(env.ORGANIZATION_ID, getHostId())
+		? mailboxId(
+				env.ORGANIZATION_ID,
+				getHostId(),
+				env.AUTOMATE_RELAY_MAILBOX_NAMESPACE,
+			)
 		: undefined;
 	const { app, injectWebSocket, db, dispose } = createApp({
 		config: {

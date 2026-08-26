@@ -44,11 +44,15 @@ describe("AutoMate resume routes", () => {
 			"https://example.test",
 		);
 		expect(decodeAutoMateResumeSession(`${valid.hash}/../../pair`)).toBeNull();
-		const expired = encodeAutoMateResumeSession({
+		const expiredSession = {
 			...session,
 			expiresAt: Date.now() - 1,
-		});
+		};
+		const expired = encodeAutoMateResumeSession(expiredSession);
 		expect(decodeAutoMateResumeSession(`#/r/${expired}`)).toBeNull();
+		expect(
+			decodeAutoMateResumeSession(`#/r/${expired}`, { allowExpired: true }),
+		).toEqual(expiredSession);
 	});
 
 	test("returns a clean fragment pair route that removes the bearer", () => {

@@ -39,6 +39,7 @@ function withFixture(
 		| "exit"
 		| "plan"
 		| "dynamic-tool"
+		| "dynamic-tool-image"
 		| "mcp-elicitation",
 ) {
 	const previousCommand = process.env.CODEX_APP_SERVER_COMMAND;
@@ -227,6 +228,51 @@ describe("Codex app-server MCP forwarding", () => {
 			if (previousLog === undefined)
 				delete process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
 			else process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = previousLog;
+			restore();
+		}
+	});
+
+	test("projects dynamic MCP images into an ACP tool update", async () => {
+		const restore = withFixture("dynamic-tool-image");
+		const updates: SessionUpdate[] = [];
+		const bridge = new CodexBridge({
+			notify: async (_method, params) => {
+				updates.push(params.update);
+			},
+			request: async () =>
+				({ outcome: { outcome: "cancelled" } }) as RequestPermissionResponse,
+		});
+		try {
+			await bridge.newSession(process.cwd());
+			await expect(
+				bridge.prompt([{ type: "text", text: "run the image fixture" }]),
+			).resolves.toEqual({ stopReason: "end_turn" });
+
+			expect(updates).toContainEqual({
+				sessionUpdate: "tool_call",
+				toolCallId: "dynamic-call-1",
+				title: "superset/delegate",
+				kind: "other",
+				status: "in_progress",
+				rawInput: { task: "fixture delegated task" },
+			});
+			expect(updates).toContainEqual({
+				sessionUpdate: "tool_call_update",
+				toolCallId: "dynamic-call-1",
+				status: "completed",
+				rawOutput: {
+					content: [
+						{ type: "text", text: "fixture delegated result" },
+						{
+							type: "image",
+							data: Buffer.from("fake-codex-image").toString("base64"),
+							mimeType: "image/png",
+						},
+					],
+					isError: false,
+				},
+			});
+		} finally {
 			restore();
 		}
 	});

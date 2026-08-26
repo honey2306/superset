@@ -10,9 +10,10 @@ import { createTRPCClient, httpLink } from "@trpc/client";
 import { app, dialog } from "electron";
 import log from "electron-log/main";
 import { LOCAL_HOST_SCOPE_ID } from "shared/constants";
-import { env as sharedEnv } from "shared/env.shared";
+import { getRelayMailboxNamespace, env as sharedEnv } from "shared/env.shared";
 import superjson from "superjson";
 import { SUPERSET_HOME_DIR } from "./app-environment";
+import { resolveDevWorkspaceName } from "./dev-workspace-name";
 import { acquireSpawnLock } from "./host-service-lock";
 import {
 	isProcessAlive,
@@ -746,6 +747,12 @@ export class HostServiceCoordinator extends EventEmitter {
 			// Embedded at build time by electron.vite.config.ts so a packaged app
 			// does not depend on Finder inheriting the repository's .env file.
 			AUTOMATE_RELAY_URL: process.env.AUTOMATE_RELAY_URL ?? "",
+			AUTOMATE_RELAY_MAILBOX_NAMESPACE:
+				getRelayMailboxNamespace({
+					isPackaged: app.isPackaged,
+					workspaceName: resolveDevWorkspaceName(),
+					buildChannel: sharedEnv.SUPERSET_BUILD_CHANNEL,
+				}) ?? "",
 			HOST_SERVICE_PORT: String(port),
 			// Phone access is served through the AutoMate relay; never expose the
 			// authenticated embedded host directly on the LAN.

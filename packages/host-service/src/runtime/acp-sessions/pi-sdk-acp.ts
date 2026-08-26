@@ -62,6 +62,11 @@ import {
 	type WorkingIndicatorOptions,
 } from "@earendil-works/pi-coding-agent";
 import { SUPERSET_DELEGATION_META_KEY } from "@superset/session-protocol";
+import {
+	acpImageKey,
+	extractAcpImageBlocks,
+	type ImageContentBlock,
+} from "./image-promotion";
 
 const MODEL_CONFIG_ID = "model";
 const THINKING_CONFIG_ID = "thought_level";
@@ -779,6 +784,20 @@ function contentText(content: unknown): string {
 		})
 		.filter(Boolean)
 		.join("\n");
+}
+
+/**
+ * Pi/MCP tool results may contain image blocks directly, nested in MCP
+ * metadata, or serialized inside a text content block. Normalize all of those
+ * forms before projecting them into assistant message content, and collapse
+ * repeated references to the same image from one tool result.
+ */
+export function piToolResultImageBlocks(value: unknown): ImageContentBlock[] {
+	const images = new Map<string, ImageContentBlock>();
+	for (const image of extractAcpImageBlocks(value)) {
+		images.set(acpImageKey(image), image);
+	}
+	return [...images.values()];
 }
 
 export function promptText(prompt: PromptRequest["prompt"]): string {
@@ -1562,6 +1581,7 @@ export class PiSdkAcpAgent implements Agent {
 			const toolCallId = stringValue(eventRecord.toolCallId);
 			if (!toolCallId) return;
 			const text = contentText(eventRecord.result);
+			const images = piToolResultImageBlocks(eventRecord.result);
 			await this.conn.sessionUpdate({
 				sessionId: runtime.sessionId,
 				update: {
@@ -1576,6 +1596,16 @@ export class PiSdkAcpAgent implements Agent {
 						: {}),
 				},
 			});
+			for (const image of images) {
+				await this.conn.sessionUpdate({
+					sessionId: runtime.sessionId,
+					update: {
+						sessionUpdate: "agent_message_chunk",
+						messageId: runtime.assistantMessageId,
+						content: image,
+					},
+				});
+			}
 			return;
 		}
 		if (eventRecord.type === "message_end") {

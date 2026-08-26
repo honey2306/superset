@@ -11,6 +11,9 @@
  *   tool <name>           tool_call pending → in_progress → completed + chunk
  *   large <count> <bytes> deterministic tool updates with large rawOutput
  *   large-image <bytes>  deterministic tool update with an inline base64 image
+ *   image                completed tool output with a nested, repeated image
+ *   image-direct         tool output plus the same image as an assistant block
+ *   late-image           response-first tool update with a JSON-stringified image
  *   diff <path>           completed edit tool_call containing a deterministic
  *                         ACP Diff content block (no filesystem mutation)
  *   permission <name>     tool_call + session/request_permission
@@ -474,6 +477,74 @@ const app = agent({ name: "fake-acp-adapter" })
 						},
 					},
 				});
+				return { stopReason: "end_turn" as const };
+			}
+
+			case "image":
+			case "image-direct": {
+				const image = {
+					type: "image" as const,
+					data: Buffer.from("fake-acp-image").toString("base64"),
+					mimeType: "image/png",
+				};
+				toolCallCounter += 1;
+				const toolCallId = `image-${toolCallCounter}`;
+				await notifyUpdate({
+					sessionUpdate: "tool_call",
+					toolCallId,
+					title: command,
+					kind: "execute",
+					status: "completed",
+					content: [{ type: "content", content: image }],
+					rawOutput: {
+						content: [image],
+						details: {
+							mcpResult: {
+								content: [{ type: "content", content: image }, image],
+							},
+						},
+					},
+				});
+				if (command === "image-direct") {
+					await notifyUpdate({
+						sessionUpdate: "agent_message_chunk",
+						content: image,
+					});
+				}
+				await say(`image ${command} done`);
+				return { stopReason: "end_turn" as const };
+			}
+
+			case "late-image": {
+				const image = {
+					type: "image" as const,
+					data: "a".repeat(426_616),
+					mimeType: "image/png",
+				};
+				const lateUpdate: schema.SessionUpdate = {
+					sessionUpdate: "tool_call_update",
+					toolCallId: "late-image-tool",
+					status: "completed",
+					// Pi's MCP bridge can put a serialized image inside a text
+					// content block. Schedule it after the prompt response to model
+					// the response-first ordering seen in local development.
+					content: [
+						{
+							type: "content",
+							content: {
+								type: "text",
+								text: JSON.stringify(image),
+							},
+						},
+					],
+					rawOutput: {
+						artifactPath: "/tmp/fake-late-image.png",
+					},
+				};
+				setTimeout(() => {
+					void notifyUpdate(lateUpdate);
+					void notifyUpdate(lateUpdate);
+				}, 0);
 				return { stopReason: "end_turn" as const };
 			}
 

@@ -500,6 +500,17 @@ export class CodexBridge {
 			this.write?.({ jsonrpc: "2.0", id, method, params });
 		});
 	}
+	private async notifyUpdate(
+		sessionId: string,
+		update: SessionUpdate,
+	): Promise<void> {
+		try {
+			await this.client.notify("session/update", { sessionId, update });
+		} catch {
+			// A closed ACP host must not leave Codex waiting for the dynamic tool
+			// response merely because its final timeline update was unavailable.
+		}
+	}
 	async boot(): Promise<void> {
 		const command = process.env.CODEX_APP_SERVER_COMMAND ?? "codex";
 		const child = spawn(command, ["app-server", "--stdio"], {
@@ -797,6 +808,23 @@ export class CodexBridge {
 			});
 			return;
 		}
+		const rawCallId = params.callId ?? params.itemId;
+		const toolCallId =
+			typeof rawCallId === "string" && rawCallId.trim()
+				? rawCallId
+				: `codex-dynamic-${String(id)}`;
+		const title = `${server}/${tool}`;
+		// Codex's dynamic-tool request is an app-server callback rather than a
+		// normal item/started event. Project it into ACP before waiting for the
+		// host-side MCP call so the result has a tool card to attach to.
+		await this.notifyUpdate(threadId, {
+			sessionUpdate: "tool_call",
+			toolCallId,
+			title,
+			kind: "other",
+			status: "in_progress",
+			rawInput: params.arguments ?? {},
+		});
 		try {
 			const result = await this.request("mcpServer/tool/call", {
 				threadId,
@@ -805,12 +833,23 @@ export class CodexBridge {
 				arguments: params.arguments ?? {},
 				...(params._meta !== undefined ? { _meta: params._meta } : {}),
 			});
+			await this.notifyUpdate(threadId, {
+				sessionUpdate: "tool_call_update",
+				toolCallId,
+				status: "completed",
+				rawOutput: result,
+			});
 			this.write?.({
 				jsonrpc: "2.0",
 				id,
 				result: codexDynamicToolCallResponse(result),
 			});
 		} catch (error) {
+			await this.notifyUpdate(threadId, {
+				sessionUpdate: "tool_call_update",
+				toolCallId,
+				status: "failed",
+			});
 			this.write?.({
 				jsonrpc: "2.0",
 				id,

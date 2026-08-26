@@ -77,6 +77,7 @@ export function getAutoMateResumeUrl(session: StoredSession): string {
 
 export function decodeAutoMateResumeSession(
 	hash: string,
+	options: { allowExpired?: boolean } = {},
 ): StoredSession | null {
 	const match = new RegExp(
 		`^#${resumeRoutePrefix}([A-Za-z0-9_-]+)(?:/w/[^/?#]+(?:/(?:s|t)/[^/?#]+)?)?$`,
@@ -86,7 +87,8 @@ export function decodeAutoMateResumeSession(
 	if (!decoded) return null;
 	try {
 		const parsed: unknown = JSON.parse(decoded);
-		return isStoredSession(parsed) ? parsed : null;
+		if (!hasStoredSessionShape(parsed)) return null;
+		return options.allowExpired || isStoredSession(parsed) ? parsed : null;
 	} catch {
 		return null;
 	}

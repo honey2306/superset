@@ -53,6 +53,13 @@ const app = agent({ name: "fake-pi-acp-adapter" })
 	.onRequest("session/prompt", async (context) => {
 		const notify = (update: schema.SessionUpdate) =>
 			context.client.notify("session/update", { sessionId, update });
+		const promptText = context.params.prompt
+			.filter(
+				(block): block is schema.TextContent & { type: "text" } =>
+					block.type === "text",
+			)
+			.map((block) => block.text)
+			.join("\n");
 		await notify({
 			sessionUpdate: "agent_thought_chunk",
 			content: { type: "text", text: "actual thought" },
@@ -92,6 +99,25 @@ const app = agent({ name: "fake-pi-acp-adapter" })
 						terminal_id: "pi-opaque-terminal",
 						exit_code: 0,
 						signal: null,
+					},
+				},
+			});
+		}
+		if (promptText.includes("image")) {
+			const image = {
+				type: "image" as const,
+				data: Buffer.from("fake-pi-image").toString("base64"),
+				mimeType: "image/png",
+			};
+			await notify({
+				sessionUpdate: "tool_call_update",
+				toolCallId: "pi-image-tool",
+				status: "completed",
+				content: [{ type: "content", content: image }],
+				rawOutput: {
+					content: [image],
+					details: {
+						mcpResult: { content: [{ type: "content", content: image }] },
 					},
 				},
 			});

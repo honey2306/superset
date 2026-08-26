@@ -55,3 +55,35 @@ export function getWorkspaceName(): string | undefined {
 export function getBuildChannel(): BuildChannel {
 	return env.SUPERSET_BUILD_CHANNEL;
 }
+
+function normalizeRelayWorkspaceName(name: string | undefined): string {
+	const normalized = name
+		?.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9-]/g, "-")
+		.slice(0, 32);
+	return normalized || "default";
+}
+
+/**
+ * Select the opaque relay namespace for this desktop runtime.
+ *
+ * Packaged stable builds intentionally return undefined so their mailbox id
+ * remains compatible with phones paired before environment isolation was
+ * added. Every development run is scoped by its workspace, while packaged
+ * canary/personal artifacts are scoped by build channel.
+ */
+export function getRelayMailboxNamespace(options: {
+	isPackaged: boolean;
+	workspaceName?: string;
+	buildChannel?: BuildChannel;
+}): string | undefined {
+	if (!options.isPackaged) {
+		const workspaceName =
+			options.workspaceName ?? getWorkspaceName() ?? undefined;
+		return `development:${normalizeRelayWorkspaceName(workspaceName)}`;
+	}
+
+	const buildChannel = options.buildChannel ?? getBuildChannel();
+	return buildChannel === "stable" ? undefined : `build:${buildChannel}`;
+}

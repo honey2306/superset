@@ -17,6 +17,7 @@ import {
 	modelRuntimeCreateOptions,
 	PiSdkAcpAgent,
 	persistNewSessionMarker,
+	piToolResultImageBlocks,
 	promptFailure,
 	promptText,
 	sessionResponse,
@@ -167,6 +168,81 @@ describe("Pi SDK ACP mappings", () => {
 		expect(toolKind("read")).toBe("read");
 		expect(toolKind("edit")).toBe("edit");
 		expect(toolKind("wait_delegation")).toBe("other");
+	});
+
+	test("normalizes and deduplicates images in a serialized MCP tool result", () => {
+		const image = {
+			type: "image" as const,
+			data: "a".repeat(4_096),
+			mimeType: "image/png",
+		};
+		const serialized = JSON.stringify({
+			content: [image],
+			isError: false,
+		});
+		const result = {
+			content: [{ type: "text", text: serialized }],
+			details: {
+				mcpResult: { content: [{ type: "text", text: serialized }] },
+			},
+			artifactPath: "/tmp/pi-tool-result.png",
+		};
+
+		const images = piToolResultImageBlocks(result);
+		expect(images).toHaveLength(1);
+		expect(images[0]).toMatchObject({
+			type: "image",
+			mimeType: "image/png",
+		});
+		expect(images[0]?.data).toHaveLength(4_096);
+	});
+
+	test("projects tool result images into assistant message chunks", async () => {
+		const { agent, updates } = testAgent();
+		const image = {
+			type: "image" as const,
+			data: "b".repeat(4_096),
+			mimeType: "image/png",
+		};
+		const serialized = JSON.stringify({ content: [image], isError: false });
+		const result = {
+			content: [{ type: "text", text: serialized }],
+			details: { mcpResult: { content: [image] } },
+		};
+
+		await (
+			agent as unknown as {
+				handleEvent: (runtime: unknown, event: unknown) => Promise<void>;
+			}
+		).handleEvent(
+			{ sessionId: "session-1", assistantMessageId: "assistant-1" },
+			{
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "mcp_screenshot",
+				result,
+				isError: false,
+			},
+		);
+
+		expect(updates).toHaveLength(2);
+		expect(updates[0]).toMatchObject({
+			sessionId: "session-1",
+			update: {
+				sessionUpdate: "tool_call_update",
+				toolCallId: "tool-1",
+				status: "completed",
+				rawOutput: result,
+			},
+		});
+		expect(updates[1]).toEqual({
+			sessionId: "session-1",
+			update: {
+				sessionUpdate: "agent_message_chunk",
+				messageId: "assistant-1",
+				content: image,
+			},
+		});
 	});
 
 	test("maps Pi assistant usage to ACP cumulative usage", () => {

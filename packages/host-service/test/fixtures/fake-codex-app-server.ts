@@ -130,7 +130,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 			});
 			return;
 		}
-		if (scenario === "dynamic-tool") {
+		if (scenario === "dynamic-tool" || scenario === "dynamic-tool-image") {
 			send({
 				method: "item/tool/call",
 				id: 70,
@@ -263,7 +263,17 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 		send({
 			id: frame.id,
 			result: {
-				content: [{ type: "text", text: "fixture delegated result" }],
+				content:
+					scenario === "dynamic-tool-image"
+						? [
+								{ type: "text", text: "fixture delegated result" },
+								{
+									type: "image",
+									data: Buffer.from("fake-codex-image").toString("base64"),
+									mimeType: "image/png",
+								},
+							]
+						: [{ type: "text", text: "fixture delegated result" }],
 				isError: false,
 			},
 		});

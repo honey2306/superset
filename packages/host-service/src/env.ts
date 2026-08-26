@@ -22,6 +22,8 @@ export const env = createEnv({
 		// `serve.ts` when unset.
 		SUPERSET_WEB_APP_DIR: z.string().min(1).optional(),
 		AUTOMATE_RELAY_URL: z.string().url().optional(),
+		/** Opaque namespace used to isolate non-stable desktop builds/workspaces. */
+		AUTOMATE_RELAY_MAILBOX_NAMESPACE: z.string().min(1).optional(),
 	},
 	runtimeEnv: process.env,
 	emptyStringAsUndefined: true,
