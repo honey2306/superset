@@ -3,11 +3,13 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { HostDb } from "../../../db";
 import { hostSettings } from "../../../db/schema";
+import type { HostServiceContext } from "../../../types";
 import { protectedProcedure, router } from "../../index";
 import { getAcpHarnessForPreset } from "../agents/agents";
 import {
 	type DelegatedExecutionModel,
 	getCachedDynamicDelegatedExecutionModels,
+	parseAcpModelOptions,
 } from "./delegated-execution-models";
 import {
 	readDelegatedExecutionSettings,
@@ -66,6 +68,46 @@ type DynamicModelDiscovery = (
 	presetId: string,
 ) => Promise<DelegatedExecutionModel[]>;
 
+function createModelDiscovery(
+	ctx: Pick<HostServiceContext, "db" | "runtime">,
+	fallback: DynamicModelDiscovery,
+): DynamicModelDiscovery {
+	const pending = new Map<string, Promise<DelegatedExecutionModel[]>>();
+	return (presetId) => {
+		const existing = pending.get(presetId);
+		if (existing) return existing;
+
+		const discovery = (async () => {
+			const acpSessions = ctx.runtime?.acpSessions;
+			if (presetId === "claude" && acpSessions?.discoverModels) {
+				const configOptions = await acpSessions.discoverModels({
+					harness: "claude-agent-acp",
+				});
+				return parseAcpModelOptions(configOptions);
+			}
+			return fallback(presetId);
+		})();
+		pending.set(presetId, discovery);
+		// A failed discovery should not poison this request-scoped cache or prevent
+		// a later mutation from retrying the live ACP catalog.
+		void discovery.catch(() => {
+			if (pending.get(presetId) === discovery) pending.delete(presetId);
+		});
+		return discovery;
+	};
+}
+
+async function getSupportedModels(
+	presetId: string,
+	discoverModels: DynamicModelDiscovery,
+): Promise<DelegatedExecutionModel[]> {
+	// Claude's static catalog is intentionally not used: its ACP adapter
+	// filters the live account/settings catalog during session/new.
+	if (presetId === "claude") return discoverModels(presetId);
+	const modelSupport = getAgentModelSupport(presetId);
+	return modelSupport?.models ?? discoverModels(presetId);
+}
+
 async function assertValidTarget(
 	db: HostDb,
 	input: z.infer<typeof settingsInputSchema>,
@@ -94,16 +136,16 @@ async function assertValidTarget(
 			message: `Agent '${config.label}' does not support ACP delegated execution.`,
 		});
 	}
-	const modelSupport = getAgentModelSupport(config.presetId);
 	if (!input.executorModelId) {
 		throw new TRPCError({
 			code: "BAD_REQUEST",
 			message: "Delegated execution requires a concrete model.",
 		});
 	}
-	const supportedModels = modelSupport
-		? modelSupport.models
-		: await discoverDynamicModels(config.presetId);
+	const supportedModels = await getSupportedModels(
+		config.presetId,
+		discoverDynamicModels,
+	);
 	if (!supportedModels.some((model) => model.id === input.executorModelId)) {
 		throw new TRPCError({
 			code: "BAD_REQUEST",
@@ -127,6 +169,7 @@ export function createDelegatedExecutionRouter(
 		models: protectedProcedure
 			.input(z.object({ executorAgentConfigId: z.string().min(1) }))
 			.query(async ({ ctx, input }) => {
+				const discoverModels = createModelDiscovery(ctx, discoverDynamicModels);
 				const config = resolveDelegatedExecutionConfig(
 					ctx.db,
 					input.executorAgentConfigId,
@@ -143,18 +186,19 @@ export function createDelegatedExecutionRouter(
 						message: `Agent '${config.label}' does not support ACP delegated execution.`,
 					});
 				}
-				const staticSupport = getAgentModelSupport(config.presetId);
 				return {
-					models: staticSupport
-						? staticSupport.models
-						: await discoverDynamicModels(config.presetId),
+					models: await getSupportedModels(config.presetId, discoverModels),
 				};
 			}),
 
 		set: protectedProcedure
 			.input(settingsInputSchema)
 			.mutation(async ({ ctx, input }) => {
-				await assertValidTarget(ctx.db, input, discoverDynamicModels);
+				await assertValidTarget(
+					ctx.db,
+					input,
+					createModelDiscovery(ctx, discoverDynamicModels),
+				);
 				ctx.db
 					.insert(hostSettings)
 					.values({
@@ -179,6 +223,7 @@ export function createDelegatedExecutionRouter(
 		setProfiles: protectedProcedure
 			.input(profilesInputSchema)
 			.mutation(async ({ ctx, input }) => {
+				const discoverModels = createModelDiscovery(ctx, discoverDynamicModels);
 				for (const profile of input) {
 					await assertValidTarget(
 						ctx.db,
@@ -187,7 +232,7 @@ export function createDelegatedExecutionRouter(
 							executorAgentConfigId: profile.executorAgentConfigId,
 							executorModelId: profile.executorModelId,
 						},
-						discoverDynamicModels,
+						discoverModels,
 					);
 				}
 				const profiles = input.map((profile, order) => ({

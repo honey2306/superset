@@ -1,8 +1,32 @@
 import { spawn } from "node:child_process";
+import type { SessionConfigOption } from "@superset/session-protocol";
 
 export interface DelegatedExecutionModel {
 	id: string;
 	label: string;
+}
+
+/**
+ * Convert ACP's live `model` selector into the small catalog consumed by the
+ * settings picker. ACP permits either a flat option list or grouped options;
+ * preserve the adapter's value as the id because that is what
+ * `session/set_config_option` accepts later.
+ */
+export function parseAcpModelOptions(
+	configOptions: readonly SessionConfigOption[],
+): DelegatedExecutionModel[] {
+	const modelOption = configOptions.find(
+		(option) =>
+			option.type === "select" &&
+			(option.id === "model" || option.category === "model"),
+	);
+	if (!modelOption || modelOption.type !== "select") return [];
+
+	return uniqueModels(
+		modelOption.options
+			.flatMap((option) => ("options" in option ? option.options : [option]))
+			.map((option) => ({ id: option.value, label: option.name })),
+	);
 }
 
 const LIST_MODELS_TIMEOUT_MS = 10_000;

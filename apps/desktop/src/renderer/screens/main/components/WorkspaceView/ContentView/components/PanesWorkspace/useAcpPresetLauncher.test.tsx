@@ -57,6 +57,11 @@ beforeAll(async () => {
 
 beforeEach(() => {
 	listQueryMock.mockClear();
+	listQueryMock.mockImplementation(async (_input: unknown) => ({
+		items: [],
+		nextCursor: null,
+		enabled: true,
+	}));
 	launchAcpSessionMock.mockClear();
 	createClientMock.mockClear();
 	openPaneMock.mockClear();
@@ -85,12 +90,50 @@ describe("useAcpPresetLauncher", () => {
 		expect(result.current[1]).toBeUndefined();
 		expect(listQueryMock).toHaveBeenCalledTimes(1);
 
-		expect(result.current[0]?.launchByPresetName("claude")).toBe(true);
+		expect(await result.current[0]?.launchByPresetName("claude")).toBe(true);
 		expect(launchAcpSessionMock).toHaveBeenCalledWith(
 			expect.objectContaining({ workspaceId: "workspace-active" }),
 		);
 		expect(launchAcpSessionMock).not.toHaveBeenCalledWith(
 			expect.objectContaining({ workspaceId: "workspace-background" }),
 		);
+	});
+
+	test("waits for pending ACP detection instead of falling through to Terminal", async () => {
+		let resolveDetection:
+			| ((value: { items: []; nextCursor: null; enabled: true }) => void)
+			| undefined;
+		listQueryMock.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveDetection = resolve;
+				}),
+		);
+
+		const { result } = renderHook(() =>
+			useAcpPresetLauncher({
+				store,
+				hostUrl: "http://host-service",
+				hostWorkspaceId: "workspace-active",
+				isWorkspaceActive: true,
+			}),
+		);
+
+		// The launcher must be available while capability detection is pending;
+		// otherwise openPanesPreset immediately falls through to Terminal.
+		expect(result.current).toBeDefined();
+		const launch = result.current?.launchByPresetName("pi");
+		expect(launchAcpSessionMock).not.toHaveBeenCalled();
+		expect(listQueryMock).toHaveBeenCalledTimes(1);
+
+		resolveDetection?.({ items: [], nextCursor: null, enabled: true });
+		expect(await launch).toBe(true);
+		expect(launchAcpSessionMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				agentDefinitionId: "pi",
+				workspaceId: "workspace-active",
+			}),
+		);
+		expect(listQueryMock).toHaveBeenCalledTimes(1);
 	});
 });

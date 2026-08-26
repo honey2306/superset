@@ -15,7 +15,7 @@ import type { PanesPaneData } from "./types";
  * caller should not fall through to the terminal launcher.
  */
 export interface AcpPresetLauncher {
-	launchByPresetName(normalizedName: string): boolean;
+	launchByPresetName(normalizedName: string): Promise<boolean>;
 }
 
 /**
@@ -44,7 +44,7 @@ export async function openPanesPreset(
 	// don't map to an ACP agent (e.g. `amp`, `gemini`) fall through to terminal.
 	if (options.acpLauncher) {
 		const normalizedName = preset.name.trim().toLowerCase();
-		if (options.acpLauncher.launchByPresetName(normalizedName)) {
+		if (await options.acpLauncher.launchByPresetName(normalizedName)) {
 			return;
 		}
 	}

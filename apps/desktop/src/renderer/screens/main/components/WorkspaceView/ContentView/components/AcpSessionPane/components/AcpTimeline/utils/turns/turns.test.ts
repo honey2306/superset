@@ -188,12 +188,12 @@ describe("isTurnAutoCollapsible", () => {
 		);
 	});
 
-	test("latest turn stays expanded while the session is still active", () => {
+	test("latest turn collapses once its final reply starts while running", () => {
 		const items: TimelineItem[] = [userMsg(1), tool(2), agentMsg(3), tool(4)];
 		const [turn] = groupTurns(items);
 		expect(
 			isTurnAutoCollapsible(turn as NonNullable<typeof turn>, true, "running"),
-		).toBe(false);
+		).toBe(true);
 	});
 
 	test("earlier complete turn is auto-collapsible", () => {

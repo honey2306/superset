@@ -43,6 +43,9 @@ const targetWorkspaceIdSchema = z.string().trim().min(1).max(256);
 const targetProjectIdSchema = z.string().trim().min(1).max(256);
 const targetProjectPathSchema = z.string().trim().min(1).max(2_000);
 
+// Keep the historical reason accepted by the runtime request parser. It is
+// intentionally omitted from the model-facing definition below so a model
+// cannot mistake a continuation for a delegation primitive.
 const continueInNewSessionArgsSchema = z
 	.object({
 		reason: z
@@ -304,6 +307,26 @@ export type SupersetSessionRole =
 	| typeof SUPERSET_ROOT_COORDINATOR_ROLE
 	| typeof SUPERSET_DELEGATED_EXECUTOR_ROLE;
 
+/**
+ * Model-facing guidance for Superset's user-visible execution plan.
+ *
+ * Keep this separate from delegation guidance so every coordinator session
+ * receives it, including workspaces where delegation is disabled. The
+ * session manager composes it with the role-specific instructions below.
+ */
+export const SUPERSET_PLAN_INSTRUCTIONS =
+	"Use Superset's `update_plan` tool for user-visible planning. For multi-step or complex tasks, before implementation or tool execution, publish the complete current plan. Simple tasks do not require a plan. Submit every step on each update, keeping at most one step `in_progress`; immediately call `update_plan` again whenever a step starts or completes, or whenever the plan changes. Before the final response, update the plan so it accurately reflects the final state, including any incomplete work. Do not use provider-specific or private todo/task tools for user-visible plans.";
+
+/** Compose non-empty model-facing instruction sections without extra spacing. */
+export function composeSupersetModelFacingInstructions(
+	instructions: readonly (string | undefined)[],
+): string | undefined {
+	const sections = instructions
+		.map((instruction) => instruction?.trim())
+		.filter((instruction): instruction is string => Boolean(instruction));
+	return sections.length > 0 ? sections.join("\n\n") : undefined;
+}
+
 /** The model-facing subset of a configurable delegation profile. */
 export interface SupersetDelegationProfileSummary {
 	id: string;
@@ -487,13 +510,13 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "continue_in_new_session",
 		description:
-			"Continue work in a fresh ACP conversation. Provide a self-contained handoff with goal, completed work, decisions, changed files, and next steps. Defaults to a Pi session unless agent is explicitly specified. Optionally pass workspaceId, projectId, or projectPath to start the conversation in another workspace/project. Superset can open the child session in a new tab.",
+			"Continue work in a fresh ACP conversation. This tool is only for handing off continuation context or opening a new conversation; do not use it to delegate independent work or run parallel background tasks. When provider-native subagent tools (such as pi-subagents) are available, use them for scoped subagent work; otherwise use Superset `delegate` for tracked independent execution. Provide a self-contained handoff with goal, completed work, decisions, changed files, and next steps. Defaults to a Pi session unless agent is explicitly specified. Optionally pass workspaceId, projectId, or projectPath to start the conversation in another workspace/project. Superset can open the child session in a new tab.",
 		inputSchema: {
 			type: "object",
 			properties: {
 				reason: {
 					type: "string",
-					enum: ["context_limit", "parallel_task", "fresh_start"],
+					enum: ["context_limit", "fresh_start"],
 					default: "context_limit",
 				},
 				handoff: { type: "string", minLength: 1, maxLength: 100_000 },
@@ -639,7 +662,7 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "update_plan",
 		description:
-			"Publish the complete current execution plan for this session in Superset's ACP timeline. Use this Superset tool for user-visible multi-step planning and update it when a step starts or finishes; do not rely on provider-specific or private task/todo tools. Submit every step on each call; each step must be pending, in_progress, or completed, with at most one in_progress step.",
+			"Publish the complete current execution plan for this session in Superset's ACP timeline. Use this Superset tool before implementation or tool execution for multi-step or complex tasks; simple tasks do not require a plan. Update it immediately when a step starts or completes, or when the plan changes. Submit every step on each call; each step must be pending, in_progress, or completed, with at most one in_progress step. Update the plan before the final response so it reflects the final state. Do not rely on provider-specific or private task/todo tools for user-visible plans.",
 		inputSchema: {
 			type: "object",
 			properties: {

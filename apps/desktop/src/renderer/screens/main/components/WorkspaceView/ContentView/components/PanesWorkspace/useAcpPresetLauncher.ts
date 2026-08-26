@@ -1,5 +1,5 @@
 import type { WorkspaceStore } from "@superset/panes";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { readAgentModelPreference } from "renderer/hooks/useAgentModelPreference";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
 import {
@@ -24,16 +24,22 @@ interface UseAcpPresetLauncherInput {
 	isWorkspaceActive: boolean;
 }
 
+interface AcpCapabilityDetection {
+	key: string;
+	promise: Promise<boolean>;
+}
+
 /**
  * Assembles the ACP preset launcher. Returns `undefined` — meaning "no ACP
  * takeover, fall through to the terminal path" — unless:
  * - the `useAcpForAgentPresets` setting is on,
- * - the host has ACP support (feature-detected via `acpSessions.list`),
  * - and workspace/host coordinates are known.
  *
  * `launchByPresetName` matches the normalized preset name against
  * `ACP_SUPPORTED_AGENT_IDS`. Unsupported names (e.g. `amp`, `gemini`) return
- * `false` so the caller falls back to the terminal preset path.
+ * `false` so the caller falls back to the terminal preset path. For supported
+ * names, the caller waits for the in-flight ACP capability check before
+ * deciding whether to fall back.
  */
 export function useAcpPresetLauncher({
 	store,
@@ -42,33 +48,42 @@ export function useAcpPresetLauncher({
 	isWorkspaceActive,
 }: UseAcpPresetLauncherInput): AcpPresetLauncher | undefined {
 	const { useAcpForAgentPresets: settingEnabled } = useAcpForAgentPresets();
+	const capabilityKey =
+		settingEnabled && isWorkspaceActive && hostUrl && hostWorkspaceId
+			? `${hostUrl}\u0000${hostWorkspaceId}`
+			: null;
+	const currentCapabilityKeyRef = useRef<string | null>(capabilityKey);
+	currentCapabilityKeyRef.current = capabilityKey;
 
 	// Piggy-back on `acpSessions.list` for feature detection; the router returns
 	// `enabled: false` when the host-side ACP flag is off. Skipping the call when
 	// the setting itself is off avoids paying the RPC cost for the default path.
-	const [hostSupportsAcp, setHostSupportsAcp] = useState(false);
+	const capabilityDetectionRef = useRef<AcpCapabilityDetection | null>(null);
+	const detectHostSupport = useCallback((): Promise<boolean> => {
+		if (!capabilityKey || !hostUrl || !hostWorkspaceId) {
+			return Promise.resolve(false);
+		}
+		const existing = capabilityDetectionRef.current;
+		if (existing?.key === capabilityKey) return existing.promise;
+
+		const client = getHostServiceClientByUrl(hostUrl);
+		const promise = client.acpSessions.list
+			.query({ workspaceId: hostWorkspaceId, limit: 1 })
+			.then((page) => page.enabled)
+			.catch((err) => {
+				console.warn("[useAcpPresetLauncher] ACP feature-detect failed", err);
+				return false;
+			});
+		capabilityDetectionRef.current = { key: capabilityKey, promise };
+		return promise;
+	}, [capabilityKey, hostUrl, hostWorkspaceId]);
 	useEffect(() => {
-		if (!settingEnabled || !isWorkspaceActive || !hostUrl || !hostWorkspaceId) {
-			setHostSupportsAcp(false);
+		if (!capabilityKey) {
+			capabilityDetectionRef.current = null;
 			return;
 		}
-		setHostSupportsAcp(false);
-		let disposed = false;
-		const client = getHostServiceClientByUrl(hostUrl);
-		client.acpSessions.list
-			.query({ workspaceId: hostWorkspaceId, limit: 1 })
-			.then((page) => {
-				if (disposed) return;
-				setHostSupportsAcp(page.enabled);
-			})
-			.catch((err) => {
-				if (disposed) return;
-				console.warn("[useAcpPresetLauncher] ACP feature-detect failed", err);
-			});
-		return () => {
-			disposed = true;
-		};
-	}, [settingEnabled, isWorkspaceActive, hostUrl, hostWorkspaceId]);
+		void detectHostSupport();
+	}, [capabilityKey, detectHostSupport]);
 
 	const launchAgent = useCallback(
 		(agentDefinitionId: AcpAgentDefinitionId) => {
@@ -130,15 +145,20 @@ export function useAcpPresetLauncher({
 		if (
 			!settingEnabled ||
 			!isWorkspaceActive ||
-			!hostSupportsAcp ||
 			!hostUrl ||
-			!hostWorkspaceId
+			!hostWorkspaceId ||
+			!capabilityKey
 		) {
 			return undefined;
 		}
 		return {
-			launchByPresetName(normalizedName: string): boolean {
+			async launchByPresetName(normalizedName: string): Promise<boolean> {
 				if (!isAcpSupportedAgentId(normalizedName)) return false;
+				const supported = await detectHostSupport();
+				// The user may switch workspaces while detection is pending. Consume
+				// that stale click without launching either an ACP or terminal pane.
+				if (currentCapabilityKeyRef.current !== capabilityKey) return true;
+				if (!supported) return false;
 				launchAgent(normalizedName);
 				return true;
 			},
@@ -146,9 +166,10 @@ export function useAcpPresetLauncher({
 	}, [
 		settingEnabled,
 		isWorkspaceActive,
-		hostSupportsAcp,
 		hostUrl,
 		hostWorkspaceId,
+		capabilityKey,
+		detectHostSupport,
 		launchAgent,
 	]);
 }

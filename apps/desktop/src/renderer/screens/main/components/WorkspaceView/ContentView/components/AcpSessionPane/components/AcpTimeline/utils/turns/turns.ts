@@ -19,10 +19,10 @@ import type { SessionStatus, TimelineItem } from "@superset/session-protocol";
  *   - `trailingItems`: anything after the final agent message but still in
  *     this turn (rare; e.g. a late tool_call that fires after the last text
  *     message). Kept inline so it never disappears from the transcript.
- *   - `isComplete`: true when the turn has a final agent message. Only
- *     complete turns should be shown as collapsed; an in-flight turn (agent
- *     still working, no final message yet) renders everything inline so the
- *     user sees live progress.
+ *   - `isComplete`: true when the turn has a final agent message. Once that
+ *     final response starts streaming, the process can collapse even if
+ *     trailing work keeps the session active; an in-flight turn with no final
+ *     message renders everything inline so the user sees live progress.
  *
  * Plan items live outside the turn model — they are separated by the pane's
  * dock renderer before we get here, so this function only sees message +
@@ -186,12 +186,11 @@ export function groupTurns(items: readonly TimelineItem[]): Turn[] {
 }
 
 /**
- * A completed turn folds by default. Earlier turns are settled once a later
- * user message starts. The latest turn additionally requires the authoritative
- * session status to leave its active states: agent text can be an intermediate
- * update followed by more tool calls, so message presence alone is not a
- * completion signal. User-driven expansion remains local to AcpTimeline; this
- * predicate only chooses the initial default.
+ * A turn folds by default once it has a final agent message and process items.
+ * The latest turn can fold while the authoritative session status is still
+ * active: the final message is the user's answer, while trailing tool calls
+ * remain visible separately. User-driven expansion remains local to
+ * AcpTimeline; this predicate only chooses the initial default.
  */
 export function isTurnSettled(
 	turn: Turn,
@@ -212,9 +211,13 @@ export function isTurnAutoCollapsible(
 	isLastTurn: boolean,
 	status?: SessionStatus,
 ): boolean {
-	if (!isTurnSettled(turn, isLastTurn, status)) return false;
+	if (!turn.isComplete) return false;
 	if (turn.processItems.length === 0) return false;
-	return true;
+	// A final agent message is the user's answer even while the session is still
+	// streaming trailing work. Collapse the process as soon as that answer starts
+	// rendering; trailingItems stay outside this decision and remain visible.
+	if (isLastTurn) return true;
+	return isTurnSettled(turn, isLastTurn, status);
 }
 
 /** Human-readable summary text. Format: `执行过程：N 次工具调用，M 条消息`. */

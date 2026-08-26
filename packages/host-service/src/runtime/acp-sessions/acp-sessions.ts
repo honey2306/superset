@@ -49,12 +49,14 @@ import type {
 	TranscriptTurn,
 } from "@superset/session-protocol";
 import {
+	composeSupersetModelFacingInstructions,
 	customResponse,
 	encodeMessagesCursor,
 	groupTranscriptTurns,
 	SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DELEGATION_META_KEY,
+	SUPERSET_PLAN_INSTRUCTIONS,
 	SUPERSET_ROOT_COORDINATOR_ROLE,
 	selectedOptionIds,
 } from "@superset/session-protocol";
@@ -569,6 +571,11 @@ interface AcpSessionRuntime {
 	/** True once explicitly closed; late adapter events must not re-persist it. */
 	closed: boolean;
 	/**
+	 * Model discovery owns a short-lived ACP session only to read config options.
+	 * It must never become visible to the session registry, journal, or listeners.
+	 */
+	discovery: boolean;
+	/**
 	 * True once a title-generation request has been kicked off for this
 	 * session — prevents the first prompt from starting more than one job even
 	 * if the caller emits several prompts back-to-back before the first result
@@ -824,6 +831,35 @@ export class AcpSessionManager {
 			input.role,
 		);
 		return this.snapshotState(runtime);
+	}
+
+	/**
+	 * Ask a fresh adapter session for its model catalog without starting a turn.
+	 * The temporary session is closed in all cases so discovery never leaves a
+	 * persisted or live ACP session behind for the settings screen.
+	 */
+	async discoverModels(input: {
+		harness: HarnessKind;
+		cwd?: string;
+	}): Promise<SessionConfigOption[]> {
+		const sessionId = `model-discovery-${randomUUID()}`;
+		const runtime = await this.createRuntime(
+			sessionId,
+			sessionId,
+			undefined,
+			input.harness,
+			false,
+			undefined,
+			false,
+			SUPERSET_ROOT_COORDINATOR_ROLE,
+			input.cwd ?? process.cwd(),
+			true,
+		);
+		try {
+			return [...runtime.state.configOptions];
+		} finally {
+			await this.close({ sessionId });
+		}
 	}
 
 	get(sessionId: string): SessionScopedState {
@@ -1639,11 +1675,12 @@ export class AcpSessionManager {
 			throw new AcpSessionNotFoundError(`Unknown ACP session: ${sessionId}`);
 		}
 		const workspaceId = runtime?.state.workspaceId ?? offline?.workspaceId;
+		const discovery = runtime?.discovery === true;
 		// Deleting durable state is the commit point for a permanent close. It is
 		// synchronous (SQLite transaction), so if it fails we have not yet marked
 		// the runtime closed, killed its child, or removed it from memory. The
 		// renderer can keep the pane visible and safely offer the user a retry.
-		this.persistence?.deleteSession(sessionId);
+		if (!discovery) this.persistence?.deleteSession(sessionId);
 
 		if (runtime) {
 			this.clearIdleHibernate(runtime);
@@ -1684,8 +1721,8 @@ export class AcpSessionManager {
 		}
 
 		this.offline.delete(sessionId);
-		this.artifactStore?.removeSession(sessionId);
-		if (workspaceId) {
+		if (!discovery) this.artifactStore?.removeSession(sessionId);
+		if (workspaceId && !discovery) {
 			this.notifySessionChange({
 				sessionId,
 				workspaceId,
@@ -1951,6 +1988,8 @@ export class AcpSessionManager {
 		/** Fail creation unless the adapter confirms the requested model. */
 		strictModel = false,
 		role: SupersetSessionRole = resume?.role ?? SUPERSET_ROOT_COORDINATOR_ROLE,
+		cwdOverride?: string,
+		discovery = false,
 	): Promise<AcpSessionRuntime> {
 		let epoch = resume?.epoch ?? randomUUID();
 		let durableEntries: SessionUpdateEnvelope[] = [];
@@ -1985,17 +2024,29 @@ export class AcpSessionManager {
 				sendNow: replayed.sendNow,
 			};
 		}
-		const cwd = await this.resolveWorkspaceCwd(workspaceId);
+		const cwd = cwdOverride ?? (await this.resolveWorkspaceCwd(workspaceId));
 		assertWorkspaceCwd(cwd, workspaceId);
-		const mcpServers = [
-			...this.mcpServers,
-			...(this.mcpServerFactory?.({ sessionId, workspaceId, cwd, role }) ?? []),
-		];
-		const modelFacingInstructions = (
+		const mcpServers = discovery
+			? []
+			: [
+					...this.mcpServers,
+					...(this.mcpServerFactory?.({
+						sessionId,
+						workspaceId,
+						cwd,
+						role,
+					}) ?? []),
+				];
+		const roleInstructions =
 			role === SUPERSET_DELEGATED_EXECUTOR_ROLE
 				? SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS
-				: this.modelFacingInstructions?.({ role })
-		)?.trim();
+				: this.modelFacingInstructions?.({ role });
+		const modelFacingInstructions = discovery
+			? undefined
+			: composeSupersetModelFacingInstructions([
+					SUPERSET_PLAN_INSTRUCTIONS,
+					roleInstructions,
+				]);
 		const sessionMeta = modelFacingInstructions
 			? ({
 					[SUPERSET_DELEGATION_META_KEY]: modelFacingInstructions,
@@ -2385,6 +2436,7 @@ export class AcpSessionManager {
 				stderrTail,
 				dead: false,
 				closed: false,
+				discovery,
 				// A resumed session already carries whatever title was in the
 				// registry — no need to regenerate. A fresh session starts
 				// title-less and the first prompt kicks off the generator.
@@ -2482,6 +2534,11 @@ export class AcpSessionManager {
 					resume,
 					harness,
 					true,
+					model,
+					strictModel,
+					role,
+					cwdOverride,
+					discovery,
 				);
 			}
 			const startupSpawnError = spawnError as Error | null;
@@ -2518,6 +2575,7 @@ export class AcpSessionManager {
 
 	private canHibernate(runtime: AcpSessionRuntime): boolean {
 		return (
+			!runtime.discovery &&
 			this.persistence !== undefined &&
 			this.runtimes.get(runtime.state.sessionId) === runtime &&
 			!runtime.dead &&
@@ -2537,6 +2595,7 @@ export class AcpSessionManager {
 
 	private scheduleIdleHibernate(runtime: AcpSessionRuntime): void {
 		this.clearIdleHibernate(runtime);
+		if (runtime.discovery) return;
 		if (this.idleHibernateMs === null || !this.canHibernate(runtime)) return;
 		const timer = setTimeout(() => {
 			runtime.idleHibernateTimer = null;
@@ -3173,6 +3232,12 @@ export class AcpSessionManager {
 		runtime: AcpSessionRuntime,
 		frame: SessionUpdateFrame,
 	): SessionUpdateEnvelope {
+		if (runtime.discovery) {
+			// Discovery sessions exist only long enough to receive session/new's
+			// configOptions. Keep the normal return shape for internal callers, but
+			// do not mutate artifacts/journal state or fan the frame out.
+			return runtime.journal.prepare(runtime.state.sessionId, frame);
+		}
 		if (frame.kind === "update" && "rawOutput" in frame.update) {
 			const update = frame.update;
 			if (update.rawOutput !== undefined) {
@@ -3311,7 +3376,7 @@ export class AcpSessionManager {
 	}
 
 	private emitState(runtime: AcpSessionRuntime): void {
-		if (runtime.closed) return;
+		if (runtime.closed || runtime.discovery) return;
 		runtime.state.updatedAt = Date.now();
 		this.journalFrame(runtime, {
 			kind: "state",
@@ -3372,7 +3437,7 @@ export class AcpSessionManager {
 	}
 
 	private persistState(runtime: AcpSessionRuntime): void {
-		if (!this.persistence) return;
+		if (!this.persistence || runtime.discovery) return;
 		try {
 			this.persistence.upsert({
 				sessionId: runtime.state.sessionId,

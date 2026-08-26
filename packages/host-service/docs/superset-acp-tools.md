@@ -15,7 +15,7 @@ requesting that Desktop present the new conversation.
 | `get_session_status` | Read one same-workspace session's status and summary. |
 | `open_session` | Ask Desktop to focus an existing same-workspace conversation, restoring its tab when necessary. It never restarts the session. |
 | `send_message` | Send or queue a message to a same-workspace session. |
-| `continue_in_new_session` | Create a child conversation, seed it with a structured handoff, and open it in Desktop by default. |
+| `continue_in_new_session` | Continue work in a fresh conversation with a structured handoff. This is not a delegation or parallel-background-work primitive; use provider-native subagent tools when available, or `delegate` for tracked independent execution. |
 | `open_merge_request` | Open KDev's prefilled create-MR page for the current session's checked-out branch. It never pushes or creates an MR. |
 | `delegate` | Create an independent child session and seed it with a task. It remains in the background by default. |
 
@@ -72,6 +72,13 @@ JSON-RPC and translates tool calls to the daemon's local request protocol.
 4. Submit the handoff/task as the child's first prompt.
 5. Optionally emit a best-effort Desktop open request.
 6. Return the child `sessionId` immediately after prompt admission.
+
+The model-facing `continue_in_new_session` contract advertises only
+`context_limit` and `fresh_start`. Use it for context handoff or a deliberate
+fresh conversation, not for independent or parallel work. The runtime parser
+continues to accept the historical `parallel_task` reason for older clients;
+new callers should use provider-native subagent tools when available, or
+Superset `delegate` for tracked independent execution.
 
 Callers should provide `idempotencyKey` when retrying creation. Keys are scoped
 to the source session and tool name. Dedupe is daemon-memory-backed; it prevents

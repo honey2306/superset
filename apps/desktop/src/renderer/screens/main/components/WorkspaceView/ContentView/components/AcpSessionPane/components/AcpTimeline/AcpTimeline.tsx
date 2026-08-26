@@ -54,6 +54,38 @@ const VIRTUALIZER_INITIAL_RECT: Rect = {
 	height: VIRTUALIZER_FALLBACK_VIEWPORT_HEIGHT,
 };
 
+function isActiveSessionStatus(status?: SessionStatus): boolean {
+	return (
+		status === "starting" ||
+		status === "running" ||
+		status === "awaiting_permission"
+	);
+}
+
+/**
+ * Find the final response in the latest mounted turn. The turn author row is
+ * also marked as an agent for styling, so it must not be treated as the reply
+ * anchor when restoring a hidden pane.
+ */
+function findLatestFinalAgentMessage(
+	scroll: HTMLElement,
+	latestTurnId: string | null,
+): HTMLElement | null {
+	const finalMessageSelector =
+		'.acp-msg[data-role="agent"]:not(.acp-msg--author-only)';
+	const lastAgentMessage = (root: ParentNode) => {
+		const messages = root.querySelectorAll<HTMLElement>(finalMessageSelector);
+		return messages.item(messages.length - 1);
+	};
+	if (latestTurnId) {
+		const latestTurn = Array.from(
+			scroll.querySelectorAll<HTMLElement>("[data-turn-id]"),
+		).find((turn) => turn.dataset.turnId === latestTurnId);
+		return latestTurn ? lastAgentMessage(latestTurn) : null;
+	}
+	return lastAgentMessage(scroll);
+}
+
 /**
  * A hidden kept-alive pane has a zero-sized scroll element until it is shown.
  * Keep a small estimated window mounted in that state so the first focused
@@ -256,8 +288,13 @@ export const AcpTimeline = memo(
 		const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
 		const activeTurnFrameRef = useRef<number | null>(null);
 		const initialScrollFrameRef = useRef<number | null>(null);
+		const focusScrollFrameRef = useRef<number | null>(null);
+		const focusScrollRetryRef = useRef(0);
+		const isRestoringFocusRef = useRef(false);
 		const hasInitiallyScrolledRef = useRef(false);
-		const wasFocusedRef = useRef(isFocused);
+		const isInitialFocusRef = useRef(true);
+		const wasFocusedRef = useRef(false);
+		const previousStatusRef = useRef<SessionStatus | undefined>(status);
 		const isFocusedRef = useRef(isFocused);
 		isFocusedRef.current = isFocused;
 		const lastUserMessageIdRef = useRef<string | null>(null);
@@ -310,6 +347,13 @@ export const AcpTimeline = memo(
 		const handleScroll = useCallback(
 			(e: UIEvent<HTMLDivElement>) => {
 				if (isJumpingToUserRef.current) return;
+				// Programmatic restore writes can emit scroll events. Ignore those
+				// without cancelling the retry frame that finishes the restore.
+				if (isRestoringFocusRef.current) return;
+				if (focusScrollFrameRef.current !== null) {
+					window.cancelAnimationFrame(focusScrollFrameRef.current);
+					focusScrollFrameRef.current = null;
+				}
 				if (initialScrollFrameRef.current !== null) {
 					window.cancelAnimationFrame(initialScrollFrameRef.current);
 					initialScrollFrameRef.current = null;
@@ -470,6 +514,7 @@ export const AcpTimeline = memo(
 				delete el.dataset.jumpingToUser;
 				el.querySelector(".acp-msg.is-flashed")?.classList.remove("is-flashed");
 			}
+			if (isRestoringFocusRef.current) return;
 			if (skipAutoFollowAfterPrependRef.current) {
 				skipAutoFollowAfterPrependRef.current = false;
 				return;
@@ -507,24 +552,6 @@ export const AcpTimeline = memo(
 				setShowJumpButton(false);
 			}
 		}, [timeline.items, autoFollow]);
-
-		useEffect(() => {
-			const becameFocused = isFocused && !wasFocusedRef.current;
-			wasFocusedRef.current = isFocused;
-			if (!becameFocused) return;
-
-			// Kept-alive panes are display:none while inactive, causing their
-			// scrollHeight to read as zero during streaming updates. Wait until the
-			// browser has restored layout before returning to the latest item.
-			const frame = window.requestAnimationFrame(() => {
-				const el = scrollRef.current;
-				if (!el) return;
-				el.scrollTop = el.scrollHeight;
-				setAutoFollow(true);
-				setShowJumpButton(false);
-			});
-			return () => window.cancelAnimationFrame(frame);
-		}, [isFocused]);
 
 		const showWorkingIndicator = shouldShowWorkingIndicator(
 			timeline.items,
@@ -609,6 +636,128 @@ export const AcpTimeline = memo(
 					? `turn:${latestLoadedTurnNumber}`
 					: null
 				: latestLoadedTurnId;
+		const latestFinalAgentMessage = turns.at(-1)?.finalAgentMessage ?? null;
+		useEffect(() => {
+			const becameFocused = isFocused && !wasFocusedRef.current;
+			const isInitialFocus = isInitialFocusRef.current;
+			const becameSettled =
+				isFocused &&
+				latestFinalAgentMessage !== null &&
+				isActiveSessionStatus(previousStatusRef.current) &&
+				!isActiveSessionStatus(status);
+			previousStatusRef.current = status;
+			isInitialFocusRef.current = false;
+			wasFocusedRef.current = isFocused;
+			if (!becameFocused && !becameSettled) return;
+			if (
+				isInitialFocus &&
+				(latestFinalAgentMessage === null || isActiveSessionStatus(status)) &&
+				!becameSettled
+			)
+				return;
+
+			// A kept-alive pane is display:none while inactive. The virtualizer can
+			// therefore still have the old window (or zero-sized measurements) when
+			// focus returns. Keep the restore alive for a few frames: first bring the
+			// latest turn into the virtual window, then align the actual final reply.
+			focusScrollRetryRef.current = 0;
+			const scheduleRetry = (callback: () => void): boolean => {
+				if (focusScrollRetryRef.current >= 12) return false;
+				focusScrollRetryRef.current += 1;
+				focusScrollFrameRef.current = window.requestAnimationFrame(callback);
+				return true;
+			};
+			const alignFinalResponse = () => {
+				focusScrollFrameRef.current = null;
+				isRestoringFocusRef.current = true;
+				const el = scrollRef.current;
+				if (!el) {
+					isRestoringFocusRef.current = false;
+					return;
+				}
+
+				const finalMessage = findLatestFinalAgentMessage(el, latestTurnId);
+				if (!finalMessage) {
+					if (scheduleRetry(alignFinalResponse)) return;
+					// The final item exists in the folded timeline, but could not be
+					// mounted after the virtualizer settled. Bottom is the safe fallback.
+					isRestoringFocusRef.current = false;
+					setAutoFollow(true);
+					setShowJumpButton(false);
+					return;
+				}
+
+				const scrollBounds = el.getBoundingClientRect();
+				const finalMessageBounds = finalMessage.getBoundingClientRect();
+				el.scrollTop = Math.max(
+					0,
+					el.scrollTop + finalMessageBounds.top - scrollBounds.top,
+				);
+				// Keep the virtualizer's internal offset in sync with the manual
+				// alignment. Otherwise a delayed ResizeObserver measurement of a long
+				// Markdown reply can restore the stale bottom offset on the next frame.
+				el.dispatchEvent(new Event("scroll"));
+				isRestoringFocusRef.current = false;
+				const near = isNearBottom(el);
+				setAutoFollow(near);
+				setShowJumpButton(!near);
+			};
+			const restoreFocusPosition = () => {
+				focusScrollFrameRef.current = null;
+				isRestoringFocusRef.current = true;
+				const el = scrollRef.current;
+				if (!el) {
+					isRestoringFocusRef.current = false;
+					return;
+				}
+
+				el.scrollTop = el.scrollHeight;
+				// Direct assignment does not notify the virtualizer. Dispatch a real
+				// scroll event so it mounts the latest turn without leaving a pending
+				// scrollToIndex reconciliation that could snap back to the bottom after
+				// the final reply is aligned.
+				el.dispatchEvent(new Event("scroll"));
+
+				const shouldFollowBottom =
+					isActiveSessionStatus(status) || latestFinalAgentMessage === null;
+				const hasLayout = el.clientHeight > 0 || el.scrollHeight > 0;
+				if (!hasLayout && timeline.items.length > 0) {
+					if (scheduleRetry(restoreFocusPosition)) return;
+				}
+
+				if (shouldFollowBottom) {
+					isRestoringFocusRef.current = false;
+					setAutoFollow(true);
+					setShowJumpButton(false);
+					return;
+				}
+
+				// Let the virtualizer's scroll listener commit its latest mounted
+				// window before querying the final message's real geometry.
+				if (!scheduleRetry(alignFinalResponse)) {
+					isRestoringFocusRef.current = false;
+					setAutoFollow(true);
+					setShowJumpButton(false);
+				}
+			};
+
+			focusScrollFrameRef.current =
+				window.requestAnimationFrame(restoreFocusPosition);
+			return () => {
+				isRestoringFocusRef.current = false;
+				if (focusScrollFrameRef.current !== null) {
+					window.cancelAnimationFrame(focusScrollFrameRef.current);
+					focusScrollFrameRef.current = null;
+				}
+			};
+		}, [
+			isFocused,
+			isNearBottom,
+			latestFinalAgentMessage,
+			latestTurnId,
+			status,
+			timeline.items.length,
+		]);
 		const resolvedActiveTurnId =
 			activeTurnId &&
 			(turnIndex.length > 0

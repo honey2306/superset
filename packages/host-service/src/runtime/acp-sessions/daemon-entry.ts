@@ -482,6 +482,11 @@ async function dispatch(
 					request.params as Parameters<AcpSessionManager["create"]>[0],
 				);
 				break;
+			case "discoverModels":
+				result = await manager.discoverModels(
+					request.params as Parameters<AcpSessionManager["discoverModels"]>[0],
+				);
+				break;
 			case "get":
 				result = manager.get(
 					(request.params as { sessionId: string }).sessionId,

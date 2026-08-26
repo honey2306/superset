@@ -1,10 +1,36 @@
 import { describe, expect, test } from "bun:test";
 import {
+	composeSupersetModelFacingInstructions,
+	SUPERSET_PLAN_INSTRUCTIONS,
 	SUPERSET_TOOL_DEFINITIONS,
 	supersetToolRequestSchema,
 } from "./superset-tools";
 
 describe("Superset delegation protocol", () => {
+	test("composes model-facing plan and role instructions", () => {
+		expect(
+			composeSupersetModelFacingInstructions([
+				SUPERSET_PLAN_INSTRUCTIONS,
+				"  Role-specific guidance.  ",
+			]),
+		).toBe(`${SUPERSET_PLAN_INSTRUCTIONS}\n\nRole-specific guidance.`);
+		expect(
+			composeSupersetModelFacingInstructions([undefined, "  ", undefined]),
+		).toBeUndefined();
+	});
+
+	test("advertises timely user-visible plan updates", () => {
+		const tool = SUPERSET_TOOL_DEFINITIONS.find(
+			(entry) => entry.name === "update_plan",
+		);
+		expect(tool?.description).toContain(
+			"before implementation or tool execution",
+		);
+		expect(tool?.description).toContain("when a step starts or completes");
+		expect(tool?.description).toContain("before the final response");
+		expect(tool?.description).toContain("simple tasks do not require a plan");
+	});
+
 	test("accepts target workspace for new sessions", () => {
 		expect(
 			supersetToolRequestSchema.parse({
@@ -157,6 +183,43 @@ describe("Superset delegation protocol", () => {
 		expect(report?.description).toContain("Child-only");
 		expect(report?.inputSchema).toMatchObject({
 			required: ["delegationRunId", "result"],
+		});
+	});
+
+	test("keeps continuation separate from delegation in its model contract", () => {
+		const continuation = SUPERSET_TOOL_DEFINITIONS.find(
+			(tool) => tool.name === "continue_in_new_session",
+		);
+		const reason = (
+			continuation?.inputSchema as {
+				properties?: { reason?: { enum?: string[] } };
+			}
+		).properties?.reason;
+
+		expect(reason?.enum).toEqual(["context_limit", "fresh_start"]);
+		expect(continuation?.description).toContain(
+			"only for handing off continuation context or opening a new conversation",
+		);
+		expect(continuation?.description).toContain(
+			"do not use it to delegate independent work or run parallel background tasks",
+		);
+		expect(continuation?.description).toContain("provider-native subagent");
+		expect(continuation?.description).toContain("Superset `delegate`");
+	});
+
+	test("keeps parsing the historical parallel-task reason at runtime", () => {
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "parent",
+				name: "continue_in_new_session",
+				arguments: {
+					reason: "parallel_task",
+					handoff: "Continue the existing work",
+				},
+			}),
+		).toMatchObject({
+			name: "continue_in_new_session",
+			arguments: { reason: "parallel_task" },
 		});
 	});
 });

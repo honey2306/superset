@@ -10,6 +10,7 @@ import type {
 	MessagesPage,
 	PromptAccepted,
 	RespondToPermissionResult,
+	SessionConfigOption,
 	SessionScopedState,
 	SessionStatus,
 	SessionsPage,
@@ -70,6 +71,7 @@ const MAX_LINE_BYTES = 16 * 1024 * 1024;
 export type RequestOperation =
 	| "hello"
 	| "create"
+	| "discoverModels"
 	| "get"
 	| "list"
 	| "ensureLive"
@@ -306,6 +308,14 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		await this.connect();
 		await this.ensureCompatibleDaemon();
 		return this.sendRequest<SessionScopedState>("create", input);
+	}
+
+	async discoverModels(
+		input: Parameters<NonNullable<AcpSessionRuntime["discoverModels"]>>[0],
+	): Promise<SessionConfigOption[]> {
+		await this.connect();
+		await this.ensureCompatibleDaemon();
+		return this.sendRequest<SessionConfigOption[]>("discoverModels", input);
 	}
 
 	async get(sessionId: string) {

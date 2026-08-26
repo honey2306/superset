@@ -254,6 +254,10 @@ function resolveTargetValues(
 		};
 	}
 	if (
+		// Claude's model ids are account/settings scoped. The async settings
+		// mutations validate them against a fresh ACP session; this synchronous
+		// resolver must not reapply the stale curated catalog.
+		config.presetId !== "claude" &&
 		modelSupport &&
 		!modelSupport.models.some((model) => model.id === settings.executorModelId)
 	) {

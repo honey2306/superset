@@ -35,12 +35,12 @@ afterEach(() => {
 	window.localStorage.clear();
 });
 
-function message(sequence: number): MessageItem {
+function message(sequence: number, text = `message ${sequence}`): MessageItem {
 	return {
 		kind: "message",
 		id: `agent:${sequence}`,
 		role: "agent",
-		blocks: [{ type: "text", text: `message ${sequence}` }],
+		blocks: [{ type: "text", text }],
 		failed: false,
 		startSeq: sequence,
 		endSeq: sequence,
@@ -692,6 +692,7 @@ describe("AcpTimeline scrolling", () => {
 					timeline: timeline(2),
 					onRespond: async () => {},
 					isFocused: true,
+					status: "running",
 				}),
 			);
 			const body = result.container.querySelector(
@@ -856,6 +857,7 @@ describe("AcpTimeline scrolling", () => {
 					timeline: initialTimeline,
 					onRespond,
 					isFocused: true,
+					status: "running",
 				}),
 			);
 			const body = result.container.querySelector(
@@ -869,6 +871,7 @@ describe("AcpTimeline scrolling", () => {
 					timeline: initialTimeline,
 					onRespond,
 					isFocused: false,
+					status: "running",
 				}),
 			);
 			setScrollMetrics(body, { clientHeight: 0, scrollHeight: 0 });
@@ -879,6 +882,7 @@ describe("AcpTimeline scrolling", () => {
 					timeline: hiddenTimeline,
 					onRespond,
 					isFocused: false,
+					status: "running",
 				}),
 			);
 			expect(body.scrollTop).toBe(0);
@@ -891,6 +895,7 @@ describe("AcpTimeline scrolling", () => {
 					timeline: hiddenTimeline,
 					onRespond,
 					isFocused: true,
+					status: "running",
 				}),
 			);
 			expect(body.scrollTop).toBe(0);
@@ -922,6 +927,7 @@ describe("AcpTimeline scrolling", () => {
 					timeline: timeline(2),
 					onRespond,
 					isFocused: true,
+					status: "running",
 				}),
 			);
 			const body = result.container.querySelector(
@@ -945,6 +951,7 @@ describe("AcpTimeline scrolling", () => {
 					timeline: hiddenTimeline,
 					onRespond,
 					isFocused: false,
+					status: "running",
 				}),
 			);
 
@@ -954,6 +961,7 @@ describe("AcpTimeline scrolling", () => {
 					timeline: hiddenTimeline,
 					onRespond,
 					isFocused: true,
+					status: "running",
 				}),
 			);
 
@@ -966,24 +974,202 @@ describe("AcpTimeline scrolling", () => {
 			window.cancelAnimationFrame = originalCancelAnimationFrame;
 		}
 	});
+
+	test("shows the top of the settled final response after a hidden tab is shown", () => {
+		const onRespond = async () => {};
+		const processTool = tool(2, "completed");
+		const initialTimeline = {
+			...timeline(0),
+			items: [userMessage(1), processTool],
+			lastSeq: 2,
+		};
+		const settledTimeline = {
+			...initialTimeline,
+			items: [...initialTimeline.items, message(3, "final markdown response")],
+			lastSeq: 3,
+		};
+		const pendingFrames: FrameRequestCallback[] = [];
+		const originalRequestAnimationFrame = window.requestAnimationFrame;
+		const originalCancelAnimationFrame = window.cancelAnimationFrame;
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			pendingFrames.push(callback);
+			return pendingFrames.length;
+		}) as typeof window.requestAnimationFrame;
+		window.cancelAnimationFrame =
+			(() => {}) as typeof window.cancelAnimationFrame;
+
+		try {
+			const result = render(
+				createElement(AcpTimeline, {
+					timeline: initialTimeline,
+					onRespond,
+					isFocused: true,
+					status: "running",
+				}),
+			);
+			const body = result.container.querySelector(
+				".acp-pane__scroll",
+			) as HTMLDivElement;
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_000 });
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame(0);
+				}
+			});
+
+			result.rerender(
+				createElement(AcpTimeline, {
+					timeline: initialTimeline,
+					onRespond,
+					isFocused: false,
+					status: "running",
+				}),
+			);
+			setScrollMetrics(body, { clientHeight: 0, scrollHeight: 0 });
+			result.rerender(
+				createElement(AcpTimeline, {
+					timeline: settledTimeline,
+					onRespond,
+					isFocused: false,
+					status: "idle",
+				}),
+			);
+
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
+			Object.defineProperty(body, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({ top: 100 }),
+			});
+			const finalMessage = body.querySelector<HTMLElement>(
+				'.acp-msg[data-role="agent"]:not(.acp-msg--author-only)',
+			);
+			if (!finalMessage) throw new Error("expected the final agent message");
+			const authorRow = body.querySelector<HTMLElement>(
+				".acp-msg--author-only",
+			);
+			if (!authorRow) throw new Error("expected the agent author row");
+			Object.defineProperty(authorRow, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 100 + 80 - body.scrollTop,
+					bottom: 140 + 80 - body.scrollTop,
+				}),
+			});
+			Object.defineProperty(finalMessage, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 100 + 240 - body.scrollTop,
+					bottom: 160 + 240 - body.scrollTop,
+				}),
+			});
+
+			result.rerender(
+				createElement(AcpTimeline, {
+					timeline: settledTimeline,
+					onRespond,
+					isFocused: true,
+					status: "idle",
+				}),
+			);
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame(0);
+				}
+			});
+
+			expect(body.scrollTop).toBe(240);
+			expect(
+				screen.getByRole("button", { name: "Jump to latest" }),
+			).toBeTruthy();
+		} finally {
+			window.requestAnimationFrame = originalRequestAnimationFrame;
+			window.cancelAnimationFrame = originalCancelAnimationFrame;
+		}
+	});
+
+	test("opens an initially focused settled conversation at the final response", () => {
+		const settledTimeline = {
+			...timeline(0),
+			items: [userMessage(1), tool(2, "completed"), message(3, "final")],
+			lastSeq: 3,
+		};
+		const pendingFrames: FrameRequestCallback[] = [];
+		const originalRequestAnimationFrame = window.requestAnimationFrame;
+		const originalCancelAnimationFrame = window.cancelAnimationFrame;
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			pendingFrames.push(callback);
+			return pendingFrames.length;
+		}) as typeof window.requestAnimationFrame;
+		window.cancelAnimationFrame =
+			(() => {}) as typeof window.cancelAnimationFrame;
+
+		try {
+			const result = render(
+				createElement(AcpTimeline, {
+					timeline: settledTimeline,
+					onRespond: async () => {},
+					isFocused: true,
+					status: "idle",
+				}),
+			);
+			const body = result.container.querySelector(
+				".acp-pane__scroll",
+			) as HTMLDivElement;
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
+			Object.defineProperty(body, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({ top: 100 }),
+			});
+			const finalMessage = body.querySelector<HTMLElement>(
+				'.acp-msg[data-role="agent"]:not(.acp-msg--author-only)',
+			);
+			if (!finalMessage) throw new Error("expected the final agent message");
+			Object.defineProperty(finalMessage, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 100 + 240 - body.scrollTop,
+					bottom: 160 + 240 - body.scrollTop,
+				}),
+			});
+
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame(0);
+				}
+			});
+
+			expect(body.scrollTop).toBe(240);
+			expect(
+				screen.getByRole("button", { name: "Jump to latest" }),
+			).toBeTruthy();
+		} finally {
+			window.requestAnimationFrame = originalRequestAnimationFrame;
+			window.cancelAnimationFrame = originalCancelAnimationFrame;
+		}
+	});
 });
 
 describe("turn collapsing", () => {
-	test("does not collapse the latest turn while the session is still running", async () => {
+	test("collapses the latest process while running and keeps trailing tools visible", async () => {
 		window.localStorage.setItem(
 			"acp-turn-durations:session-running",
 			JSON.stringify({ "user:1": { s: Date.now() - 4_000 } }),
 		);
+		const processTool = tool(2, "completed");
+		processTool.call = { ...processTool.call, title: "Process tool" };
+		const trailingTool = tool(4, "completed");
+		trailingTool.call = { ...trailingTool.call, title: "Trailing tool" };
 		render(
 			createElement(AcpTimeline, {
 				timeline: {
 					...timeline(0),
-					items: [
-						userMessage(1),
-						tool(2, "completed"),
-						message(3),
-						tool(4, "completed"),
-					],
+					items: [userMessage(1), processTool, message(3), trailingTool],
 				},
 				onRespond: async () => {},
 				sessionId: "session-running",
@@ -992,8 +1178,9 @@ describe("turn collapsing", () => {
 		);
 		await act(async () => {});
 
-		expect(screen.queryByText(/执行过程/)).toBeNull();
-		expect(screen.getAllByText("Bash")).toHaveLength(2);
+		expect(screen.getByText(/执行过程/)).toBeTruthy();
+		expect(screen.queryByText("Process tool")).toBeNull();
+		expect(screen.getByText("Trailing tool")).toBeTruthy();
 		const working = screen.getByText("Working…").closest("output");
 		expect(working?.textContent).toContain("4s");
 		expect(screen.queryByLabelText("Turn duration 4s")).toBeNull();

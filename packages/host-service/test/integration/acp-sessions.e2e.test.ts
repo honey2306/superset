@@ -26,6 +26,7 @@ import path from "node:path";
 import { type ServerType, serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
 import {
+	composeSupersetModelFacingInstructions,
 	decodeMessagesCursor,
 	emptyTimeline,
 	foldEnvelopes,
@@ -33,7 +34,9 @@ import {
 	makeSelectedOutcome,
 	type SessionScopedState,
 	type SessionUpdateEnvelope,
+	SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS,
 	SUPERSET_DELEGATION_META_KEY,
+	SUPERSET_PLAN_INSTRUCTIONS,
 	type Timeline,
 } from "@superset/session-protocol";
 import {
@@ -157,11 +160,17 @@ describe("acp-sessions e2e (fake adapter)", () => {
 					},
 			);
 		expect(requests[0]?.meta).toEqual({
-			[SUPERSET_DELEGATION_META_KEY]: instructions,
+			[SUPERSET_DELEGATION_META_KEY]: composeSupersetModelFacingInstructions([
+				SUPERSET_PLAN_INSTRUCTIONS,
+				instructions,
+			]),
 			systemPrompt: {
 				type: "preset",
 				preset: "claude_code",
-				append: instructions,
+				append: composeSupersetModelFacingInstructions([
+					SUPERSET_PLAN_INSTRUCTIONS,
+					instructions,
+				]),
 			},
 		});
 	}, 30_000);
@@ -232,7 +241,62 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		const request = JSON.parse(
 			(await Bun.file(mcpRequestLog).text()).trim(),
 		) as { piAppendSystemPrompt?: string };
-		expect(request.piAppendSystemPrompt).toBe(instructions);
+		expect(request.piAppendSystemPrompt).toBe(
+			composeSupersetModelFacingInstructions([
+				SUPERSET_PLAN_INSTRUCTIONS,
+				instructions,
+			]),
+		);
+	}, 30_000);
+
+	test("injects plan instructions into a Pi root session without delegation", async () => {
+		const sessionId = "pi-model-context-plan-only";
+		const mcpRequestLog = path.join(workspaceDir, "pi-plan-context.jsonl");
+		const manager = newManager({
+			adapterEnv: { FAKE_ACP_MCP_REQUEST_LOG: mcpRequestLog },
+			piAdapterEntry: FAKE_ADAPTER,
+		});
+
+		await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			harness: "pi-acp",
+		});
+
+		const request = JSON.parse(
+			(await Bun.file(mcpRequestLog).text()).trim(),
+		) as { piAppendSystemPrompt?: string };
+		expect(request.piAppendSystemPrompt).toBe(SUPERSET_PLAN_INSTRUCTIONS);
+	}, 30_000);
+
+	test("composes plan instructions with the delegated executor role", async () => {
+		const sessionId = "pi-model-context-executor";
+		const mcpRequestLog = path.join(workspaceDir, "pi-executor-context.jsonl");
+		const delegationInstructions =
+			"Use Superset delegate when an independent task is worth handing off.";
+		const manager = newManager({
+			adapterEnv: { FAKE_ACP_MCP_REQUEST_LOG: mcpRequestLog },
+			modelFacingInstructions: () => delegationInstructions,
+			piAdapterEntry: FAKE_ADAPTER,
+		});
+
+		await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			harness: "pi-acp",
+			role: "delegated-executor",
+		});
+
+		const request = JSON.parse(
+			(await Bun.file(mcpRequestLog).text()).trim(),
+		) as { piAppendSystemPrompt?: string };
+		expect(request.piAppendSystemPrompt).toBe(
+			composeSupersetModelFacingInstructions([
+				SUPERSET_PLAN_INSTRUCTIONS,
+				SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS,
+			]),
+		);
+		expect(request.piAppendSystemPrompt).not.toContain(delegationInstructions);
 	}, 30_000);
 
 	test("strict model creation requires the adapter to expose a model option", async () => {
@@ -284,6 +348,49 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		});
 		expect(configValue(created, "model")).toBe("claude-sonnet-4-5");
 	});
+
+	test("model discovery is ephemeral and does not persist or notify", async () => {
+		let upserts = 0;
+		let journalAppends = 0;
+		let deletes = 0;
+		const persistence: AcpSessionPersistence = {
+			loadAll: () => [],
+			upsert: () => {
+				upserts += 1;
+			},
+			loadJournal: () => [],
+			appendEnvelope: () => {
+				journalAppends += 1;
+			},
+			reserveCommand: () => true,
+			releaseCommand: () => {},
+			deleteSession: () => {
+				deletes += 1;
+			},
+		};
+		const manager = new AcpSessionManager({
+			resolveWorkspaceCwd: () => workspaceDir,
+			adapterEntry: FAKE_ADAPTER,
+			persistence,
+		});
+		managers.push(manager);
+		const changes: unknown[] = [];
+		const unsubscribe = manager.onSessionChanged((change) => {
+			changes.push(change);
+		});
+
+		const configOptions = await manager.discoverModels({
+			harness: "claude-agent-acp",
+			cwd: workspaceDir,
+		});
+		unsubscribe();
+
+		expect(configOptions.some((option) => option.id === "model")).toBe(true);
+		expect(upserts).toBe(0);
+		expect(journalAppends).toBe(0);
+		expect(deletes).toBe(0);
+		expect(changes).toEqual([]);
+	}, 30_000);
 
 	test("reports an unavailable workspace cwd before spawn and remains usable", async () => {
 		const missingCwd = path.join(workspaceDir, "missing-workspace-cwd");

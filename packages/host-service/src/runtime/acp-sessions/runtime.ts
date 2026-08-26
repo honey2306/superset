@@ -5,6 +5,7 @@ import type {
 	PromptAccepted,
 	RequestPermissionOutcome,
 	RespondToPermissionResult,
+	SessionConfigOption,
 	SessionScopedState,
 	SessionStatus,
 	SessionsPage,
@@ -70,6 +71,15 @@ export type AcpMergeRequestOpenRequestHandler = (
  * switching ownership across the process boundary is transparent.
  */
 export interface AcpSessionRuntime {
+	/**
+	 * Discover the config options exposed by a fresh ACP session without
+	 * sending a prompt. This is optional so older in-process test/runtime
+	 * implementations can continue to satisfy the host control surface.
+	 */
+	discoverModels?(input: {
+		harness: SessionScopedState["harness"];
+		cwd?: string;
+	}): MaybePromise<SessionConfigOption[]>;
 	create(input: {
 		sessionId: string;
 		workspaceId: string;

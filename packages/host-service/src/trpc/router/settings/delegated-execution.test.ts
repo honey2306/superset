@@ -11,6 +11,7 @@ import {
 } from "./delegated-execution";
 import {
 	type DelegatedExecutionModel,
+	parseAcpModelOptions,
 	parseMyFlickerModelList,
 	parsePiModelList,
 } from "./delegated-execution-models";
@@ -19,6 +20,7 @@ function createCaller(
 	discoverModels: (
 		presetId: string,
 	) => Promise<DelegatedExecutionModel[]> = async () => [],
+	runtime?: HostServiceContext["runtime"],
 ) {
 	const sqlite = new Database(":memory:");
 	// Schema-direct fixture keeps this router test focused on its Drizzle
@@ -53,6 +55,7 @@ function createCaller(
 	const caller = createDelegatedExecutionRouter(discoverModels).createCaller({
 		db,
 		isAuthenticated: true,
+		runtime,
 	} as unknown as HostServiceContext);
 	return { caller, db };
 }
@@ -119,6 +122,96 @@ describe("delegatedExecutionRouter", () => {
 				executorModelId: "openai-codex/gpt-5.6-sol",
 			}),
 		).toMatchObject({ executorModelId: "openai-codex/gpt-5.6-sol" });
+	});
+
+	it("uses Claude's live ACP model options instead of the static catalog", async () => {
+		const liveModels = [
+			{
+				id: "opus",
+				label: "claude-opus-4-7",
+			},
+			{
+				id: "claude-sonnet-4-5",
+				label: "Sonnet",
+			},
+		];
+		let discoveries = 0;
+		const { caller, db } = createCaller(async () => [], {
+			acpSessions: {
+				discoverModels: async () => {
+					discoveries += 1;
+					return [
+						{
+							type: "select",
+							id: "model",
+							name: "Model",
+							category: "model",
+							currentValue: "opus",
+							options: liveModels.map(({ id, label }) => ({
+								value: id,
+								name: label,
+							})),
+						},
+					];
+				},
+			},
+		} as unknown as HostServiceContext["runtime"]);
+		seedAgentConfig(db, "claude-config", "claude");
+
+		expect(
+			await caller.models({ executorAgentConfigId: "claude-config" }),
+		).toEqual({ models: liveModels });
+		await expect(
+			caller.set({
+				enabled: true,
+				executorAgentConfigId: "claude-config",
+				executorModelId: "fable",
+			}),
+		).rejects.toThrow("does not support model");
+		expect(
+			await caller.set({
+				enabled: true,
+				executorAgentConfigId: "claude-config",
+				executorModelId: "opus",
+			}),
+		).toMatchObject({ executorModelId: "opus" });
+		expect(
+			resolveDelegatedExecutionTarget(db as unknown as HostDb),
+		).toMatchObject({
+			enabled: true,
+			valid: true,
+			agent: "claude",
+			model: "opus",
+		});
+		expect(discoveries).toBe(3);
+
+		const savedProfiles = await caller.setProfiles([
+			{
+				id: "design-live",
+				name: "Design",
+				description: "Design with the live Claude catalog",
+				instructions: null,
+				enabled: true,
+				order: 0,
+				executorAgentConfigId: "claude-config",
+				executorModelId: "opus",
+			},
+			{
+				id: "review-live",
+				name: "Review",
+				description: "Review with the live Claude catalog",
+				instructions: null,
+				enabled: true,
+				order: 1,
+				executorAgentConfigId: "claude-config",
+				executorModelId: "claude-sonnet-4-5",
+			},
+		]);
+		expect(
+			savedProfiles.profiles.map((profile) => profile.executorModelId),
+		).toEqual(["opus", "claude-sonnet-4-5"]);
+		// The two Claude profiles share one request-scoped discovery promise.
+		expect(discoveries).toBe(4);
 	});
 
 	it("accepts the bundled MyFlicker ACP preset without a config row", async () => {
@@ -250,6 +343,32 @@ describe("delegatedExecutionRouter", () => {
 });
 
 describe("dynamic delegated execution model parsing", () => {
+	it("parses live ACP model config options", () => {
+		expect(
+			parseAcpModelOptions([
+				{
+					type: "select",
+					id: "model",
+					name: "Model",
+					category: "model",
+					currentValue: "opus",
+					options: [
+						{
+							group: "Anthropic",
+							name: "Anthropic",
+							options: [
+								{
+									value: "opus",
+									name: "claude-opus-4-7",
+								},
+							],
+						},
+					],
+				},
+			]),
+		).toEqual([{ id: "opus", label: "claude-opus-4-7" }]);
+	});
+
 	it("parses Pi provider/model columns", () => {
 		expect(
 			parsePiModelList(
