@@ -26,6 +26,23 @@ export function getStatusColor(status: FileStatus): string {
 	}
 }
 
+export function getStatusLabel(status: FileStatus): string {
+	switch (status) {
+		case "added":
+			return "A";
+		case "untracked":
+			return "U";
+		case "modified":
+			return "M";
+		case "deleted":
+			return "D";
+		case "renamed":
+			return "R";
+		case "copied":
+			return "C";
+	}
+}
+
 export function getStatusIndicator(status: FileStatus): ReactNode {
 	const iconClass = "w-3 h-3";
 	switch (status) {

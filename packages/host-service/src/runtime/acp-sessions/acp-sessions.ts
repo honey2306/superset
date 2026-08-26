@@ -117,6 +117,9 @@ const MESSAGE_FRAME_KINDS = new Set<SessionUpdateFrame["kind"]>([
 const MAX_MESSAGES_PAGE_BYTES = 8 * 1024 * 1024;
 /** Release an unseen, quiescent adapter after two minutes by default. */
 const DEFAULT_IDLE_HIBERNATE_MS = 2 * 60 * 1_000;
+/** Bound adapter initialization so create/session-load can never hang forever. */
+const DEFAULT_ADAPTER_STARTUP_TIMEOUT_MS = 60_000;
+const DEFAULT_PI_ADAPTER_STARTUP_TIMEOUT_MS = 30_000;
 /**
  * ACP notifications do not carry a turn id. Keep a short post-response grace
  * period so a response-first tool update can still be attached to its turn.
@@ -651,6 +654,13 @@ export interface AcpSessionManagerOptions {
 		role: SupersetSessionRole;
 	}) => string | undefined;
 	/**
+	 * Total time allowed for adapter initialize + session setup. A single
+	 * deadline covers every startup request so sequential phases cannot each
+	 * consume the full timeout. Defaults to 30 seconds for Pi and 60 seconds
+	 * for other harnesses.
+	 */
+	startupTimeoutMs?: number;
+	/**
 	 * Durable session registry. When set, every session's binding row
 	 * (workspace, adapter session id, title, stop reason) is upserted on each
 	 * state emit, and rows found at construction are exposed as `offline`
@@ -718,6 +728,7 @@ export class AcpSessionManager {
 	private readonly modelFacingInstructions:
 		| AcpSessionManagerOptions["modelFacingInstructions"]
 		| undefined;
+	private readonly startupTimeoutMs: number | undefined;
 	private readonly persistence: AcpSessionPersistence | undefined;
 	private readonly artifactStore: AcpArtifactStore | undefined;
 	private readonly generateTitle:
@@ -766,6 +777,16 @@ export class AcpSessionManager {
 		this.mcpServers = options.mcpServers ?? [];
 		this.mcpServerFactory = options.mcpServerFactory;
 		this.modelFacingInstructions = options.modelFacingInstructions;
+		const startupTimeoutMs = options.startupTimeoutMs;
+		if (
+			startupTimeoutMs !== undefined &&
+			(!Number.isFinite(startupTimeoutMs) || startupTimeoutMs <= 0)
+		) {
+			throw new Error(
+				`adapter startup timeout must be a positive finite number: ${startupTimeoutMs}`,
+			);
+		}
+		this.startupTimeoutMs = startupTimeoutMs;
 		this.persistence = options.persistence;
 		this.artifactStore = options.artifactStore;
 		this.generateTitle = options.generateTitle;
@@ -2231,11 +2252,45 @@ export class AcpSessionManager {
 		);
 		const connection = app.connect(stream);
 		closeConnectionWithSpawnError = (error) => connection.close(error);
-		const requestDuringStartup = <T>(request: Promise<T>): Promise<T> =>
-			Promise.race([request, spawnErrorPromise]);
+		const startupTimeoutMs =
+			this.startupTimeoutMs ??
+			(harness === "pi-acp"
+				? DEFAULT_PI_ADAPTER_STARTUP_TIMEOUT_MS
+				: DEFAULT_ADAPTER_STARTUP_TIMEOUT_MS);
+		const startupDeadline = Date.now() + startupTimeoutMs;
+		const requestDuringStartup = async <T>(
+			phase: string,
+			request: Promise<T>,
+		): Promise<T> => {
+			const remainingMs = startupDeadline - Date.now();
+			if (remainingMs <= 0) {
+				throw new Error(
+					`${harness} ACP adapter startup timed out during ${phase} after ${startupTimeoutMs}ms`,
+				);
+			}
+			let timeout: ReturnType<typeof setTimeout> | undefined;
+			const timeoutPromise = new Promise<never>((_resolve, reject) => {
+				timeout = setTimeout(
+					() =>
+						reject(
+							new Error(
+								`${harness} ACP adapter startup timed out during ${phase} after ${startupTimeoutMs}ms`,
+							),
+						),
+					remainingMs,
+				);
+				timeout.unref();
+			});
+			try {
+				return await Promise.race([request, spawnErrorPromise, timeoutPromise]);
+			} finally {
+				if (timeout) clearTimeout(timeout);
+			}
+		};
 
 		try {
 			await requestDuringStartup(
+				"initialize",
 				connection.agent.request("initialize", {
 					protocolVersion: PROTOCOL_VERSION,
 					clientInfo: CLIENT_INFO,
@@ -2268,6 +2323,7 @@ export class AcpSessionManager {
 							: {}),
 					};
 					const loaded = await requestDuringStartup(
+						"session/load",
 						connection.agent.request("session/load", {
 							sessionId: resume.acpSessionId,
 							cwd,
@@ -2287,6 +2343,7 @@ export class AcpSessionManager {
 				}
 			} else {
 				const session = await requestDuringStartup(
+					"session/new",
 					connection.agent.request("session/new", {
 						cwd,
 						mcpServers,
@@ -2326,6 +2383,7 @@ export class AcpSessionManager {
 						model;
 					try {
 						const response = await requestDuringStartup(
+							"session/set_config_option",
 							connection.agent.request("session/set_config_option", {
 								sessionId: acpSessionId,
 								configId: modelOption.id,
@@ -2370,6 +2428,7 @@ export class AcpSessionManager {
 				: modes !== null && modes.currentModeId !== "bypassPermissions";
 			if (modes && hasBypassMode && forceBypassMode) {
 				await requestDuringStartup(
+					"session/set_mode",
 					connection.agent.request("session/set_mode", {
 						sessionId: acpSessionId,
 						modeId: "bypassPermissions",

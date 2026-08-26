@@ -1,4 +1,6 @@
-const BOTTOM_TOLERANCE_PX = 48;
+// Keep a small allowance for fractional layout pixels without treating an
+// intentional upward swipe as permission to snap back on the next stream chunk.
+const BOTTOM_TOLERANCE_PX = 8;
 
 export interface ScrollMetrics {
 	scrollTop: number;

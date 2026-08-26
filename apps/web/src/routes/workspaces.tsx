@@ -7,7 +7,8 @@ import {
 	isAutoMateWebAppPath,
 } from "~/lib/automate-resume";
 import { getTrpc, isUnauthorized, resetTrpc } from "~/lib/trpc-client";
-import { ProjectTree } from "./components/ProjectTree";
+import { ConversationList } from "./components/ConversationList";
+import { buildConversationList } from "./workspaces/utils/buildConversationList/buildConversationList";
 import {
 	buildProjectTree,
 	type WorkspaceContents,
@@ -41,13 +42,6 @@ function snapshotWorkspaces(snapshot: Snapshot): Snapshot["workspaces"] {
 	return Array.isArray(snapshot.workspaces) ? snapshot.workspaces : [];
 }
 
-function toggleId(current: ReadonlySet<string>, id: string): Set<string> {
-	const next = new Set(current);
-	if (next.has(id)) next.delete(id);
-	else next.add(id);
-	return next;
-}
-
 function agentLabel(agentId: string): string {
 	return (
 		BUILTIN_AGENT_LABELS[agentId as keyof typeof BUILTIN_AGENT_LABELS] ??
@@ -69,16 +63,7 @@ export function WorkspacesRoute() {
 			if (contents) initialWorkspaceTabs.set(workspace.id, contents);
 		}
 	}
-	const cachedFirstWorkspace = cachedSnapshot
-		? snapshotWorkspaces(cachedSnapshot)[0]
-		: undefined;
-	const cachedFirstProject = cachedSnapshot
-		? (snapshotProjects(cachedSnapshot).find(
-				(project) => project.id === cachedFirstWorkspace?.projectId,
-			) ?? snapshotProjects(cachedSnapshot)[0])
-		: undefined;
 	const initialCachedSnapshotRef = useRef(cachedSnapshot);
-	const initialCachedFirstWorkspaceRef = useRef(cachedFirstWorkspace);
 	const [snapshot, setSnapshot] = useState<Snapshot | null>(
 		() => cachedSnapshot ?? null,
 	);
@@ -113,14 +98,6 @@ export function WorkspacesRoute() {
 			),
 	);
 	const [error, setError] = useState<string | null>(null);
-	const [expandedProjectIds, setExpandedProjectIds] = useState<
-		ReadonlySet<string>
-	>(() => (cachedFirstProject ? new Set([cachedFirstProject.id]) : new Set()));
-	const [expandedWorkspaceIds, setExpandedWorkspaceIds] = useState<
-		ReadonlySet<string>
-	>(() =>
-		cachedFirstWorkspace ? new Set([cachedFirstWorkspace.id]) : new Set(),
-	);
 	const mountedRef = useRef(true);
 	const workspaceContentsLoader = useRef(
 		createWorkspaceContentsLoader(async (workspaceId) => {
@@ -250,7 +227,6 @@ export function WorkspacesRoute() {
 	useEffect(() => {
 		mountedRef.current = true;
 		if (pairingCacheKey === null) return;
-		let initialSnapshotLoaded = initialCachedSnapshotRef.current !== undefined;
 		const refresher = createWorkspaceCatalogRefresher(
 			() => getTrpc().workspaceCatalog.snapshot.query(),
 			{
@@ -259,19 +235,8 @@ export function WorkspacesRoute() {
 					workspaceCatalogCache.set(CATALOG_CACHE_SCOPE, nextSnapshot);
 					setSnapshot(nextSnapshot);
 					setError(null);
-					if (initialSnapshotLoaded) return;
-					initialSnapshotLoaded = true;
-					const nextProjects = snapshotProjects(nextSnapshot);
-					const nextWorkspaces = snapshotWorkspaces(nextSnapshot);
-					const firstWorkspace = nextWorkspaces[0];
-					const firstProject =
-						nextProjects.find(
-							(project) => project.id === firstWorkspace?.projectId,
-						) ?? nextProjects[0];
-					if (firstProject) setExpandedProjectIds(new Set([firstProject.id]));
-					if (firstWorkspace) {
-						setExpandedWorkspaceIds(new Set([firstWorkspace.id]));
-						loadWorkspaceContents(firstWorkspace.id);
+					for (const workspace of snapshotWorkspaces(nextSnapshot)) {
+						loadWorkspaceContents(workspace.id);
 					}
 				},
 				onError: (caught) => {
@@ -295,8 +260,12 @@ export function WorkspacesRoute() {
 			},
 		);
 		refresher.start();
-		if (initialCachedFirstWorkspaceRef.current) {
-			loadWorkspaceContents(initialCachedFirstWorkspaceRef.current.id);
+		if (initialCachedSnapshotRef.current) {
+			for (const workspace of snapshotWorkspaces(
+				initialCachedSnapshotRef.current,
+			)) {
+				loadWorkspaceContents(workspace.id);
+			}
 		}
 		void refresher.refresh();
 		return () => refresher.stop();
@@ -314,12 +283,25 @@ export function WorkspacesRoute() {
 				: [],
 		[snapshot, workspaceTabs],
 	);
+	const conversations = useMemo(
+		() => buildConversationList(projects),
+		[projects],
+	);
+	const workspaceIds = snapshot
+		? snapshotWorkspaces(snapshot).map((workspace) => workspace.id)
+		: [];
+	const conversationsLoading =
+		snapshot === null ||
+		workspaceIds.some((workspaceId) => {
+			const state = workspaceLoadStates.get(workspaceId) ?? "idle";
+			return state === "idle" || state === "loading";
+		});
 
 	return (
 		<main className="mobile-projects-page">
 			<header className="mobile-projects-header">
 				<div className="mobile-projects-header-copy">
-					<h1>Projects</h1>
+					<h1>Conversations</h1>
 					<p>
 						<span
 							className={`mobile-host-dot ${snapshot ? "is-connected" : ""}`}
@@ -349,45 +331,14 @@ export function WorkspacesRoute() {
 				</button>
 			</header>
 
-			<section className="mobile-projects-tree" aria-label="Projects and tabs">
-				<p className="mobile-projects-eyebrow">
-					{snapshot ? `${projects.length} projects` : "Loading projects"}
-				</p>
+			<section className="mobile-projects-tree">
 				{error ? <div className="mobile-page-error">{error}</div> : null}
-				{snapshot === null && !error ? (
-					<p className="mobile-tree-helper">Loading your projects…</p>
-				) : null}
-				{projects.map((project) => (
-					<ProjectTree
-						key={project.id}
-						project={project}
-						expanded={expandedProjectIds.has(project.id)}
-						expandedWorkspaceIds={expandedWorkspaceIds}
-						workspaceLoadStates={workspaceLoadStates}
-						workspaceLoadErrors={workspaceLoadErrors}
-						workspaceLoadWarnings={workspaceLoadWarnings}
-						onToggle={() =>
-							setExpandedProjectIds((current) => toggleId(current, project.id))
-						}
-						onWorkspaceToggle={(workspaceId) => {
-							if (workspaceLoadStates.get(workspaceId) === "error") {
-								loadWorkspaceContents(workspaceId);
-								setExpandedWorkspaceIds((current) => {
-									const next = new Set(current);
-									next.add(workspaceId);
-									return next;
-								});
-								return;
-							}
-							if (!expandedWorkspaceIds.has(workspaceId)) {
-								loadWorkspaceContents(workspaceId);
-							}
-							setExpandedWorkspaceIds((current) =>
-								toggleId(current, workspaceId),
-							);
-						}}
-					/>
-				))}
+				<ConversationList
+					conversations={conversations}
+					loading={conversationsLoading}
+					loadErrorCount={workspaceLoadErrors.size}
+					loadWarningCount={workspaceLoadWarnings.size}
+				/>
 			</section>
 		</main>
 	);

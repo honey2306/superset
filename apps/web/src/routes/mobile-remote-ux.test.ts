@@ -23,6 +23,15 @@ test("session and workspace back links expose a full mobile touch target", () =>
 	expect(styles).toContain("height: 44px;");
 });
 
+test("session timeline is the bounded scroll region on small screens", () => {
+	const session = source("session.tsx");
+	expect(session).toContain("overflow-hidden px-3");
+	expect(session).toContain(
+		"mobile-session-scroll no-scrollbar min-h-0 flex-1 overflow-y-auto",
+	);
+	expect(session).not.toContain('style={{ scrollBehavior: "smooth" }}');
+});
+
 test("terminal back navigation returns to the current workspace", () => {
 	const terminal = source("terminal.tsx");
 	expect(terminal).toContain("workspaceId");
@@ -36,6 +45,14 @@ test("phone forget action states that it only clears this phone", () => {
 	const workspaces = source("workspaces.tsx");
 	expect(workspaces).toContain("Forget on this phone");
 	expect(workspaces).toContain("The desktop session stays active.");
+});
+
+test("phone home renders one chronological conversation list instead of a tree", () => {
+	const workspaces = source("workspaces.tsx");
+	expect(workspaces).toContain("buildConversationList(projects)");
+	expect(workspaces).toContain("<ConversationList");
+	expect(workspaces).toContain("<h1>Conversations</h1>");
+	expect(workspaces).not.toContain("<ProjectTree");
 });
 
 test("does not show a doomed AutoMate pairing form without relay context", () => {

@@ -68,6 +68,8 @@ function run() {
 	// Since Electron has no languageId system, fold languageIds where the
 	// language name matches a common file extension so they resolve at runtime.
 	const languageIdExtensionMap: Record<string, string> = {
+		html: "html",
+		htm: "html",
 		ts: "typescript",
 		js: "javascript",
 		php: "php",

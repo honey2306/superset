@@ -123,8 +123,8 @@ export function FolderRow({
 	const triggerContent = (
 		<CollapsibleTrigger
 			className={cn(
-				"flex-1 min-w-0 flex gap-1.5 text-left overflow-hidden",
-				"text-xs items-stretch",
+				"flex min-w-0 flex-1 items-stretch gap-2 overflow-hidden text-left",
+				"text-sm",
 				isGrouped && "text-fg-mute",
 			)}
 		>
@@ -200,7 +200,7 @@ export function FolderRow({
 					<ContextMenuTrigger asChild>
 						<div
 							className={cn(
-								"group relative flex items-center min-w-0 rounded-sm px-1.5",
+								"group relative flex items-center min-w-0 rounded-sm px-2",
 								"hover:bg-hover cursor-pointer transition-colors",
 							)}
 						>

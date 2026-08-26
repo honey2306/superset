@@ -23,23 +23,25 @@ export function FolderRowHeader({
 			{!isGrouped && (
 				<VscChevronRight
 					className={cn(
-						"size-2.5 self-center text-fg-mute shrink-0 transition-transform duration-150",
+						"size-3.5 self-center text-fg-mute shrink-0 transition-transform duration-150",
 						isExpanded && "rotate-90",
 					)}
 				/>
 			)}
-			<div className="flex items-center gap-1 flex-1 min-w-0 py-0.5">
+			<div className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5">
 				<span
 					className={cn(
 						"truncate",
-						isGrouped ? "w-0 grow text-left" : "flex-1 min-w-0 text-xs text-fg",
+						isGrouped
+							? "w-0 grow text-left text-sm"
+							: "min-w-0 flex-1 text-sm text-fg",
 					)}
 					dir={isGrouped ? "rtl" : undefined}
 				>
 					{name}
 				</span>
 				{fileCount !== undefined && (
-					<span className="text-[10px] text-fg-mute shrink-0 tabular-nums">
+					<span className="shrink-0 text-xs text-fg-mute tabular-nums">
 						{fileCount}
 					</span>
 				)}

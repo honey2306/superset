@@ -38,9 +38,7 @@ const components = {
 		);
 	},
 	pre: ({ children }: { children?: ReactNode }) => (
-		<pre className="my-2 overflow-x-auto rounded-lg bg-black/35 p-2 text-xs leading-5">
-			{children}
-		</pre>
+		<pre className="overflow-x-auto rounded-lg bg-black/35">{children}</pre>
 	),
 	code: ({
 		children,
@@ -59,7 +57,7 @@ const components = {
 
 export function MessageMarkdown({ children }: { children: string }) {
 	return (
-		<div className="mobile-message-markdown break-words leading-6 [&_h1]:mb-2 [&_h1]:mt-3 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-3 [&_h2]:text-lg [&_h2]:font-semibold [&_li]:ml-5 [&_ol]:my-2 [&_ol]:list-decimal [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-2 [&_ul]:list-disc">
+		<div className="mobile-message-markdown">
 			<ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
 				{children}
 			</ReactMarkdown>

@@ -19,7 +19,7 @@ export function MessageBubble({ item }: Props) {
 						? "mobile-user-message max-w-[85%] rounded-2xl px-3 py-2 text-sm"
 						: isThought
 							? "mobile-thought-message max-w-full whitespace-pre-wrap rounded-2xl px-3 py-2 text-xs"
-							: "max-w-full whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm text-[var(--phone-text)]"
+							: "mobile-assistant-message max-w-full rounded-2xl text-sm text-[var(--phone-text)]"
 				}
 			>
 				{isUser || isThought ? (

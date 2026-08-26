@@ -73,7 +73,7 @@ const THINKING_CONFIG_ID = "thought_level";
 const PI_DISABLE_EXTENSIONS_ENV = "SUPERSET_PI_ACP_DISABLE_EXTENSIONS";
 const PI_APPEND_SYSTEM_PROMPT_ENV = "SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT";
 const MCP_PROTOCOL_VERSION = "2025-06-18";
-const MCP_REQUEST_TIMEOUT_MS = 90_000;
+const MCP_STARTUP_REQUEST_TIMEOUT_MS = 15_000;
 const MCP_TOOL_CALL_TIMEOUT_MS = 120_000;
 const LONG_RUNNING_TOOL_NAMES = new Set(["ask_user", "wait_delegation"]);
 const MAX_SESSION_PAGE_SIZE = 50;
@@ -209,7 +209,7 @@ class StdioMcpClient {
 				clientInfo: { name: "superset-pi-sdk-acp", version: "1" },
 			},
 			undefined,
-			MCP_REQUEST_TIMEOUT_MS,
+			MCP_STARTUP_REQUEST_TIMEOUT_MS,
 		);
 		this.notify("notifications/initialized", {});
 	}
@@ -223,7 +223,7 @@ class StdioMcpClient {
 					"tools/list",
 					cursor ? { cursor } : {},
 					undefined,
-					MCP_REQUEST_TIMEOUT_MS,
+					MCP_STARTUP_REQUEST_TIMEOUT_MS,
 				),
 			);
 			if (!result || !Array.isArray(result.tools)) {
@@ -723,23 +723,34 @@ function mcpContent(value: unknown): Array<Record<string, unknown>> {
 	});
 }
 
-async function mcpTools(
+export async function initializeMcpTools(
 	servers: readonly McpServer[],
 ): Promise<{ clients: StdioMcpClient[]; tools: ToolDefinition[] }> {
-	const clients: StdioMcpClient[] = [];
+	const processServers = servers.map((server) => {
+		if (!isMcpServerProcess(server)) {
+			throw new Error(
+				`Unsupported ACP MCP transport for ${server.name}: ${server.type ?? "unknown"}`,
+			);
+		}
+		return server;
+	});
+	const clients = processServers.map((server) => new StdioMcpClient(server));
 	const tools: ToolDefinition[] = [];
 	const registeredNames = new Set<string>();
 	try {
-		for (const server of servers) {
-			if (!isMcpServerProcess(server)) {
-				throw new Error(
-					`Unsupported ACP MCP transport for ${server.name}: ${server.type ?? "unknown"}`,
-				);
-			}
-			const client = new StdioMcpClient(server);
-			clients.push(client);
-			await client.initialize();
-			for (const tool of await client.listTools()) {
+		// MCP servers are independent processes. Starting them serially made Pi's
+		// cold-start latency the sum of every server's initialize/tools-list time.
+		const toolCatalogs = await Promise.all(
+			clients.map(async (client) => {
+				await client.initialize();
+				return client.listTools();
+			}),
+		);
+		for (const [index, catalog] of toolCatalogs.entries()) {
+			const client = clients[index];
+			const server = processServers[index];
+			if (!client || !server) continue;
+			for (const tool of catalog) {
 				if (registeredNames.has(tool.name)) {
 					throw new Error(`Duplicate ACP MCP tool name: ${tool.name}`);
 				}
@@ -1328,7 +1339,7 @@ export class PiSdkAcpAgent implements Agent {
 		sessionManager?: SessionManager;
 		sessionId?: string;
 	}): Promise<SessionRuntime> {
-		const { clients, tools } = await mcpTools(options.mcpServers);
+		const { clients, tools } = await initializeMcpTools(options.mcpServers);
 		const agentDir = getAgentDir();
 		const settingsManager = SettingsManager.create(options.cwd, agentDir);
 		const resourceLoader = new DefaultResourceLoader({

@@ -20,13 +20,14 @@ import {
 	VscRemove,
 	VscTrash,
 } from "react-icons/vsc";
+import { FileIcon } from "renderer/lib/fileIcons";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useChangesStore } from "renderer/stores/changes";
 import { toAbsoluteWorkspacePath } from "shared/absolute-paths";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { createFileKey, useScrollContext } from "../../../../ChangesContent";
 import { useFileDrag, usePathActions } from "../../hooks";
-import { getStatusColor, getStatusIndicator } from "../../utils";
+import { getStatusColor, getStatusLabel } from "../../utils";
 import { DiscardConfirmDialog } from "../DiscardConfirmDialog";
 import { FileHistoryDialog } from "../FileHistoryDialog";
 import type { RowHoverAction } from "../RowHoverActions";
@@ -85,7 +86,7 @@ export function FileItem({
 
 	const fileName = getFileName(file.path);
 	const statusBadgeColor = getStatusColor(file.status);
-	const statusIndicator = getStatusIndicator(file.status);
+	const statusLabel = getStatusLabel(file.status);
 	const showStatsDisplay =
 		showStats && (file.additions > 0 || file.deletions > 0);
 	const hasIndent = level > 0;
@@ -217,7 +218,7 @@ export function FileItem({
 		<div
 			{...fileDragProps}
 			className={cn(
-				"group relative w-full flex items-stretch gap-1 px-1.5 text-left rounded-sm",
+				"group relative w-full flex items-stretch gap-1 px-2 text-left rounded-sm",
 				"hover:bg-hover cursor-pointer transition-colors",
 				isHighlighted && "bg-accent-tint",
 			)}
@@ -227,27 +228,20 @@ export function FileItem({
 				type="button"
 				onClick={handleClick}
 				onDoubleClick={handleDoubleClick}
-				className={cn(
-					"flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden",
-					hasIndent ? "py-0.5" : "py-1",
-				)}
+				className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden py-1.5"
 			>
-				<span
-					className={cn("shrink-0 flex items-center text-xs", statusBadgeColor)}
-				>
-					{statusIndicator}
-				</span>
-				<span className="flex-1 min-w-0 flex items-center gap-1">
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<span className="text-xs text-start truncate overflow-hidden text-ellipsis">
-								{fileName}
-							</span>
-						</TooltipTrigger>
-						<TooltipContent side="right">{file.path}</TooltipContent>
-					</Tooltip>
+				<FileIcon fileName={fileName} className="size-4 shrink-0" />
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<span className="min-w-0 flex-1 truncate text-start text-sm">
+							{fileName}
+						</span>
+					</TooltipTrigger>
+					<TooltipContent side="right">{file.path}</TooltipContent>
+				</Tooltip>
+				<span className="ml-auto flex shrink-0 items-center gap-2.5 whitespace-nowrap font-mono text-xs tabular-nums">
 					{showStatsDisplay && (
-						<span className="flex items-center gap-0.5 text-[10px] font-mono shrink-0 whitespace-nowrap opacity-60">
+						<span className="flex items-center gap-1">
 							{file.additions > 0 && (
 								<span className="text-success">+{file.additions}</span>
 							)}
@@ -256,6 +250,11 @@ export function FileItem({
 							)}
 						</span>
 					)}
+					<span
+						className={cn("w-4 text-center font-semibold", statusBadgeColor)}
+					>
+						{statusLabel}
+					</span>
 				</span>
 			</button>
 

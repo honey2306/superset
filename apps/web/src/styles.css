@@ -366,6 +366,292 @@ textarea {
 	color: #e7c779;
 }
 
+.mobile-projects-page {
+	display: flex;
+	flex-direction: column;
+}
+
+.mobile-projects-tree {
+	min-height: 0;
+	flex: 1;
+	overflow-y: auto;
+	overscroll-behavior-y: contain;
+	-webkit-overflow-scrolling: touch;
+}
+
+.mobile-conversations {
+	padding-bottom: max(8px, var(--safe-area-bottom));
+}
+
+.mobile-continue-conversation {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 72px;
+	padding: 14px;
+	border: 1px solid rgb(244 114 182 / 20%);
+	border-radius: 15px;
+	background: linear-gradient(
+		135deg,
+		rgb(244 114 182 / 12%),
+		rgb(121 167 242 / 5%)
+	);
+	color: var(--phone-text);
+	text-decoration: none;
+}
+
+.mobile-continue-conversation:active {
+	background: linear-gradient(
+		135deg,
+		rgb(244 114 182 / 17%),
+		rgb(121 167 242 / 8%)
+	);
+}
+
+.mobile-continue-copy {
+	display: block;
+	min-width: 0;
+	flex: 1;
+}
+
+.mobile-continue-copy strong,
+.mobile-continue-copy > span {
+	display: block;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.mobile-continue-copy strong {
+	font-size: 13px;
+	font-weight: 650;
+}
+
+.mobile-continue-copy > span {
+	margin-top: 5px;
+	color: var(--phone-caption);
+	font-size: 10px;
+}
+
+.mobile-running-summary {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 6px;
+	color: #65c488;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 9px;
+	white-space: nowrap;
+}
+
+.mobile-running-summary > span {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: currentColor;
+	box-shadow: 0 0 0 4px rgb(101 196 136 / 12%);
+}
+
+.mobile-continue-arrow {
+	color: var(--phone-caption);
+	font-size: 22px;
+	line-height: 1;
+}
+
+.mobile-conversation-notice {
+	display: block;
+	margin: 10px 3px 0;
+	color: var(--phone-caption);
+	font-size: 10px;
+	line-height: 1.4;
+}
+
+.mobile-conversation-notice.is-warning {
+	color: #e7c779;
+}
+
+.mobile-conversation-group {
+	margin-top: 18px;
+}
+
+.mobile-conversation-group h2 {
+	margin: 0 3px 8px;
+	color: var(--phone-caption);
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+.mobile-conversation-group-list {
+	display: grid;
+	gap: 9px;
+}
+
+.mobile-conversation-card {
+	--project-tone: #f49ac2;
+	--project-tone-bg: rgb(244 154 194 / 9%);
+	--project-tone-line: rgb(244 154 194 / 22%);
+	position: relative;
+	display: block;
+	overflow: hidden;
+	min-height: 70px;
+	padding: 13px 12px 12px 15px;
+	border: 1px solid var(--phone-border);
+	border-radius: 13px;
+	background: var(--phone-surface);
+	color: var(--phone-text);
+	text-decoration: none;
+}
+
+.mobile-conversation-card:active {
+	background: var(--phone-surface-raised);
+}
+
+.mobile-project-tone-1 {
+	--project-tone: #89adf1;
+	--project-tone-bg: rgb(137 173 241 / 9%);
+	--project-tone-line: rgb(137 173 241 / 22%);
+}
+
+.mobile-project-tone-2 {
+	--project-tone: #bea8ee;
+	--project-tone-bg: rgb(190 168 238 / 9%);
+	--project-tone-line: rgb(190 168 238 / 22%);
+}
+
+.mobile-project-tone-3 {
+	--project-tone: #ecaa7d;
+	--project-tone-bg: rgb(236 170 125 / 9%);
+	--project-tone-line: rgb(236 170 125 / 22%);
+}
+
+.mobile-conversation-card-accent {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 3px;
+	background: var(--project-tone);
+	opacity: 0.78;
+}
+
+.mobile-conversation-card-topline,
+.mobile-conversation-card-meta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.mobile-project-tag {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: 5px;
+	max-width: 104px;
+	padding: 3px 7px;
+	overflow: hidden;
+	border: 1px solid var(--project-tone-line);
+	border-radius: 999px;
+	background: var(--project-tone-bg);
+	color: var(--project-tone);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 9px;
+	line-height: 1.25;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.mobile-project-tag::before {
+	width: 4px;
+	height: 4px;
+	border-radius: 50%;
+	background: currentColor;
+	content: "";
+}
+
+.mobile-conversation-title,
+.mobile-conversation-workspace {
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.mobile-conversation-title {
+	flex: 1;
+	font-size: 13px;
+	font-weight: 620;
+	line-height: 1.35;
+}
+
+.mobile-conversation-time {
+	flex: none;
+	color: var(--phone-caption);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 9px;
+}
+
+.mobile-conversation-card-meta {
+	margin-top: 9px;
+}
+
+.mobile-conversation-workspace {
+	flex: 1;
+	color: var(--phone-caption);
+	font-size: 10px;
+}
+
+.mobile-conversation-state {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 5px;
+	color: var(--phone-caption);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 9px;
+}
+
+.mobile-conversation-state::before {
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: currentColor;
+	content: "";
+}
+
+.mobile-conversation-state.is-running {
+	color: #65c488;
+}
+
+.mobile-conversation-empty {
+	display: grid;
+	gap: 7px;
+	margin-top: 36px;
+	padding: 22px 18px;
+	border: 1px solid var(--phone-border);
+	border-radius: 14px;
+	background: var(--phone-surface);
+	text-align: center;
+}
+
+.mobile-conversation-empty strong {
+	font-size: 13px;
+}
+
+.mobile-conversation-empty span {
+	color: var(--phone-caption);
+	font-size: 11px;
+	line-height: 1.5;
+}
+
+.mobile-continue-conversation:focus-visible,
+.mobile-conversation-card:focus-visible {
+	outline: 2px solid var(--phone-focus);
+	outline-offset: 2px;
+}
+
 .mobile-new-tab-action {
 	display: flex;
 	align-items: center;
@@ -556,10 +842,134 @@ body {
 .mobile-caption-text {
 	color: var(--phone-caption);
 }
+.mobile-session-scroll {
+	overscroll-behavior-y: contain;
+	-webkit-overflow-scrolling: touch;
+	scroll-padding-block: 8px;
+}
+
 .mobile-user-message {
 	background: #242936;
 	color: var(--phone-text);
 }
+
+.mobile-assistant-message {
+	padding: 5px 4px 7px;
+}
+
+.mobile-message-markdown {
+	font-size: 14px;
+	line-height: 1.55;
+	overflow-wrap: anywhere;
+}
+
+.mobile-message-markdown > :first-child {
+	margin-top: 0;
+}
+
+.mobile-message-markdown > :last-child {
+	margin-bottom: 0;
+}
+
+.mobile-message-markdown p,
+.mobile-message-markdown ul,
+.mobile-message-markdown ol,
+.mobile-message-markdown blockquote,
+.mobile-message-markdown pre,
+.mobile-message-markdown table,
+.mobile-message-markdown hr {
+	margin: 0.45em 0;
+}
+
+.mobile-message-markdown h1,
+.mobile-message-markdown h2,
+.mobile-message-markdown h3,
+.mobile-message-markdown h4 {
+	margin: 0.85em 0 0.3em;
+	font-weight: 650;
+	line-height: 1.25;
+	letter-spacing: -0.01em;
+}
+
+.mobile-message-markdown h1 {
+	font-size: 1.3em;
+}
+
+.mobile-message-markdown h2 {
+	font-size: 1.16em;
+}
+
+.mobile-message-markdown h3,
+.mobile-message-markdown h4 {
+	font-size: 1em;
+}
+
+.mobile-message-markdown ul,
+.mobile-message-markdown ol {
+	padding-left: 1.3rem;
+}
+
+.mobile-message-markdown ul {
+	list-style: disc;
+}
+
+.mobile-message-markdown ol {
+	list-style: decimal;
+}
+
+.mobile-message-markdown li + li {
+	margin-top: 0.18em;
+}
+
+.mobile-message-markdown li > p {
+	margin: 0.18em 0;
+}
+
+.mobile-message-markdown blockquote {
+	padding-left: 0.75rem;
+	border-left: 2px solid var(--phone-border);
+	color: var(--phone-muted);
+}
+
+.mobile-message-markdown pre {
+	padding: 0.65rem 0.75rem;
+	font-size: 12px;
+	line-height: 1.5;
+	white-space: pre;
+}
+
+.mobile-message-markdown pre code {
+	padding: 0;
+	background: transparent;
+	font-size: inherit;
+}
+
+.mobile-message-markdown table {
+	display: block;
+	max-width: 100%;
+	overflow-x: auto;
+	border-collapse: collapse;
+	font-size: 12px;
+}
+
+.mobile-message-markdown th,
+.mobile-message-markdown td {
+	padding: 0.35rem 0.5rem;
+	border: 1px solid var(--phone-border);
+	text-align: left;
+	white-space: nowrap;
+}
+
+.mobile-message-markdown th {
+	background: var(--phone-surface-raised);
+	font-weight: 600;
+}
+
+.mobile-message-markdown hr {
+	border: 0;
+	border-top: 1px solid var(--phone-border);
+}
+
 .mobile-thought-message {
 	background: var(--phone-surface-raised);
 	color: var(--phone-muted);

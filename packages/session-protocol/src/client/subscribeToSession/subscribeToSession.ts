@@ -44,6 +44,8 @@ export interface SubscribeToSessionOptions {
 	createWebSocket?: (url: string) => WebSocketLike;
 	/** Base reconnect delay; doubles per consecutive failure, capped at 10s. */
 	reconnectDelayMs?: number;
+	/** Maximum time to establish one connection before retrying. */
+	connectTimeoutMs?: number;
 }
 
 export interface SessionSubscription {
@@ -53,6 +55,7 @@ export interface SessionSubscription {
 }
 
 const MAX_RECONNECT_DELAY_MS = 10_000;
+const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
 
 /**
  * Structural check on a parsed frame. JSON.parse only proves syntax; a
@@ -80,6 +83,7 @@ export function subscribeToSession(
 		onStatus,
 		onGap,
 		reconnectDelayMs = 250,
+		connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
 	} = options;
 	const createWebSocket =
 		options.createWebSocket ??
@@ -94,6 +98,14 @@ export function subscribeToSession(
 	let attempts = 0;
 	let socket: WebSocketLike | null = null;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	let connectTimer: ReturnType<typeof setTimeout> | null = null;
+	let attemptId = 0;
+
+	function clearConnectTimer(): void {
+		if (connectTimer === null) return;
+		clearTimeout(connectTimer);
+		connectTimer = null;
+	}
 
 	function withCursor(base: string): string {
 		if (!hasCursor) return base;
@@ -105,7 +117,9 @@ export function subscribeToSession(
 	function stop(status: StreamStatus = "stopped"): void {
 		if (stopped) return;
 		stopped = true;
+		attemptId += 1;
 		if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+		clearConnectTimer();
 		const current = socket;
 		socket = null;
 		if (current) {
@@ -121,6 +135,8 @@ export function subscribeToSession(
 
 	function scheduleReconnect(): void {
 		if (stopped) return;
+		attemptId += 1;
+		clearConnectTimer();
 		onStatus?.("reconnecting");
 		const delay = Math.min(
 			reconnectDelayMs * 2 ** attempts,
@@ -177,7 +193,21 @@ export function subscribeToSession(
 	function connect(): void {
 		if (stopped) return;
 		reconnectTimer = null;
+		const currentAttemptId = ++attemptId;
 		onStatus?.(attempts === 0 ? "connecting" : "reconnecting");
+		connectTimer = setTimeout(() => {
+			if (stopped || currentAttemptId !== attemptId) return;
+			const current = socket;
+			socket = null;
+			if (current) {
+				current.onclose = null;
+				current.onmessage = null;
+				current.onerror = null;
+				current.onopen = null;
+				current.close();
+			}
+			scheduleReconnect();
+		}, connectTimeoutMs);
 		// Static URLs (and sync factories) connect synchronously — only a
 		// promise-returning factory (token minting) defers the socket.
 		let base: string | Promise<string>;
@@ -188,15 +218,16 @@ export function subscribeToSession(
 			return;
 		}
 		if (typeof base === "string") {
-			openSocket(withCursor(base));
+			openSocket(withCursor(base), currentAttemptId);
 			return;
 		}
 		base.then(
 			(url) => {
-				if (stopped) return;
-				openSocket(withCursor(url));
+				if (stopped || currentAttemptId !== attemptId) return;
+				openSocket(withCursor(url), currentAttemptId);
 			},
 			() => {
+				if (stopped || currentAttemptId !== attemptId) return;
 				// URL/token minting failed (offline, auth hiccup) — retry with the
 				// same backoff as a dropped socket.
 				scheduleReconnect();
@@ -204,8 +235,8 @@ export function subscribeToSession(
 		);
 	}
 
-	function openSocket(url: string): void {
-		if (stopped) return;
+	function openSocket(url: string, currentAttemptId: number): void {
+		if (stopped || currentAttemptId !== attemptId) return;
 		let ws: WebSocketLike;
 		try {
 			ws = createWebSocket(url);
@@ -218,6 +249,8 @@ export function subscribeToSession(
 		}
 		socket = ws;
 		ws.onopen = () => {
+			if (currentAttemptId !== attemptId) return;
+			clearConnectTimer();
 			attempts = 0;
 			onStatus?.("open");
 		};
@@ -240,7 +273,7 @@ export function subscribeToSession(
 			// The close event follows; reconnect is handled there.
 		};
 		ws.onclose = () => {
-			if (socket !== ws) return;
+			if (socket !== ws || currentAttemptId !== attemptId) return;
 			socket = null;
 			scheduleReconnect();
 		};

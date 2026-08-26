@@ -21,3 +21,14 @@ describe("ACP pane overflow containment", () => {
 		expect(userBubble).toContain("word-break: break-word");
 	});
 });
+
+describe("ACP pane vertical rhythm", () => {
+	test("reduces only the space above the floating toolbar", () => {
+		expect(rule(".acp-pane__toolbar")).toContain("min-height: 64px");
+		expect(rule(".acp-pane__toolbar")).toContain("padding: 16px 28px 6px");
+		expect(rule(".acp-pane__toolbar::before")).toContain(
+			"inset: 16px 12px 6px 12px",
+		);
+		expect(rule(".acp-pane__body-inner")).toContain("padding: 32px 56px 24px");
+	});
+});

@@ -176,6 +176,30 @@ describe("subscribeToSession", () => {
 		h.subscription.close();
 	});
 
+	test("a socket stuck connecting times out and retries", async () => {
+		const sockets: FakeWebSocket[] = [];
+		const statuses: StreamStatus[] = [];
+		const subscription = subscribeToSession({
+			streamUrl: "ws://test/stream",
+			since: 0,
+			onEnvelope: () => {},
+			onStatus: (status) => statuses.push(status),
+			createWebSocket: (url) => {
+				const ws = new FakeWebSocket(url);
+				sockets.push(ws);
+				return ws;
+			},
+			reconnectDelayMs: 1,
+			connectTimeoutMs: 2,
+		});
+
+		await tick(10);
+		expect(sockets[0]?.closedByClient).toBe(true);
+		expect(sockets.length).toBeGreaterThanOrEqual(2);
+		expect(statuses).toContain("reconnecting");
+		subscription.close();
+	});
+
 	test("reset frame stops the stream and reports the reason; no reconnect", async () => {
 		const h = harness({ since: 0 });
 		h.sockets[0]?.open();

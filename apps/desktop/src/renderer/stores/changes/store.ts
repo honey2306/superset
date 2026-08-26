@@ -67,7 +67,7 @@ const initialState = {
 	selectedFiles: {} as Record<string, SelectedFileState | null>,
 	activeTab: "diffs" as ChangesSidebarTab,
 	viewMode: "side-by-side" as DiffViewMode,
-	fileListViewMode: "grouped" as FileListViewMode,
+	fileListViewMode: "tree" as FileListViewMode,
 	expandedSections: {
 		"against-base": true,
 		committed: true,
@@ -231,7 +231,7 @@ export const useChangesStore = create<ChangesState>()(
 			}),
 			{
 				name: "changes-store",
-				version: 5,
+				version: 6,
 				migrate: (persisted, version) => {
 					const state = persisted as Record<string, unknown>;
 					if (version < 2) {
@@ -245,6 +245,9 @@ export const useChangesStore = create<ChangesState>()(
 					}
 					if (version < 5) {
 						state.activeTab = "diffs";
+					}
+					if (version < 6) {
+						state.fileListViewMode = "tree";
 					}
 					state.sectionOrder = normalizeChangeSectionOrder(
 						state.sectionOrder as ChangeCategory[] | undefined,

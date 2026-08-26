@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { isNearTimelineBottom } from "./autoFollow";
 
-test("treats the bottom and a small distance from it as following", () => {
+test("treats the bottom and layout rounding near it as following", () => {
 	expect(
 		isNearTimelineBottom({
 			scrollTop: 900,
@@ -11,17 +11,17 @@ test("treats the bottom and a small distance from it as following", () => {
 	).toBe(true);
 	expect(
 		isNearTimelineBottom({
-			scrollTop: 860,
+			scrollTop: 893,
 			clientHeight: 100,
 			scrollHeight: 1_000,
 		}),
 	).toBe(true);
 });
 
-test("stops following once the reader scrolls away from the latest message", () => {
+test("stops following after a small intentional upward swipe", () => {
 	expect(
 		isNearTimelineBottom({
-			scrollTop: 800,
+			scrollTop: 888,
 			clientHeight: 100,
 			scrollHeight: 1_000,
 		}),

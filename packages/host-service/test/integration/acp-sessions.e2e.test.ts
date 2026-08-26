@@ -122,6 +122,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		piAdapterEntry?: string;
 		adapterExecPath?: string;
 		adapterEnv?: Record<string, string>;
+		startupTimeoutMs?: number;
 		modelFacingInstructions?: () => string | undefined;
 		generateTitle?: (input: {
 			sessionId: string;
@@ -415,6 +416,34 @@ describe("acp-sessions e2e (fake adapter)", () => {
 				workspaceId: WORKSPACE_ID,
 			}),
 		).resolves.toMatchObject({ cwd: workspaceDir, status: "idle" });
+	});
+
+	test("times out a stalled adapter startup and clears the in-flight creation", async () => {
+		const manager = newManager({
+			adapterEnv: { FAKE_ACP_INITIALIZE_DELAY_MS: "200" },
+			startupTimeoutMs: 25,
+		});
+
+		await expect(
+			manager.create({
+				sessionId: "e2e-stalled-adapter",
+				workspaceId: WORKSPACE_ID,
+			}),
+		).rejects.toThrow(
+			"claude-agent-acp ACP adapter startup timed out during initialize after 25ms",
+		);
+		expect(
+			manager
+				.list({ workspaceId: WORKSPACE_ID })
+				.items.some((session) => session.sessionId === "e2e-stalled-adapter"),
+		).toBe(false);
+
+		await expect(
+			manager.create({
+				sessionId: "e2e-stalled-adapter",
+				workspaceId: WORKSPACE_ID,
+			}),
+		).rejects.toThrow(/startup timed out during initialize/);
 	});
 
 	test("contains an asynchronous adapter spawn error and remains usable", async () => {

@@ -70,13 +70,13 @@ export function SessionRoute() {
 
 	return (
 		<main
-			className="mobile-session-page mx-auto flex h-[100dvh] w-full max-w-md flex-col px-3"
+			className="mobile-session-page mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-hidden px-3"
 			style={{
 				paddingTop: "max(var(--safe-area-top), 8px)",
 				paddingBottom: "max(var(--safe-area-bottom), 8px)",
 			}}
 		>
-			<header className="mb-2 flex items-center gap-2 py-1">
+			<header className="mb-2 flex shrink-0 items-center gap-2 py-1">
 				<Link
 					to={getPhoneRoute(`/w/${encodeURIComponent(workspaceId)}`)}
 					className="mobile-session-back"
@@ -116,8 +116,7 @@ export function SessionRoute() {
 			<div
 				ref={containerRef}
 				onScroll={onScroll}
-				className="no-scrollbar flex-1 overflow-y-auto"
-				style={{ scrollBehavior: "smooth" }}
+				className="mobile-session-scroll no-scrollbar min-h-0 flex-1 overflow-y-auto"
 			>
 				<TimelineView timeline={session.timeline} />
 				{running || awaitingPermission ? (

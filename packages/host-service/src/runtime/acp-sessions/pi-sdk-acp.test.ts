@@ -14,6 +14,7 @@ import {
 	extensionUiCustomResponse,
 	extensionUiPermissionOptions,
 	extractSystemInstructions,
+	initializeMcpTools,
 	modelRuntimeCreateOptions,
 	PiSdkAcpAgent,
 	persistNewSessionMarker,
@@ -97,6 +98,49 @@ describe("Pi SDK ACP mappings", () => {
 				.getAvailableSnapshot()
 				.some((model) => model.provider === "openai"),
 		).toBe(true);
+	});
+
+	test("initializes independent MCP servers in parallel", async () => {
+		const root = mkdtempSync(join(tmpdir(), "pi-sdk-acp-mcp-startup-"));
+		const serverPath = join(root, "delayed-mcp.ts");
+		writeFileSync(
+			serverPath,
+			`import readline from "node:readline";
+const delayMs = Number(process.argv[2]);
+const lines = readline.createInterface({ input: process.stdin });
+lines.on("line", (line) => {
+  const request = JSON.parse(line);
+  if (request.method === "initialize") {
+    setTimeout(() => console.log(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: {} })), delayMs);
+  } else if (request.method === "tools/list") {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: { tools: [] } }));
+  }
+});
+`,
+		);
+		const startedAt = performance.now();
+		const result = await initializeMcpTools([
+			{
+				name: "first",
+				command: process.execPath,
+				args: [serverPath, "600"],
+				env: [],
+			},
+			{
+				name: "second",
+				command: process.execPath,
+				args: [serverPath, "600"],
+				env: [],
+			},
+		] as never);
+		const elapsedMs = performance.now() - startedAt;
+		try {
+			expect(result.tools).toHaveLength(0);
+			expect(elapsedMs).toBeLessThan(950);
+		} finally {
+			await Promise.all(result.clients.map((client) => client.close()));
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 
 	test("persists a new session before an immediate list/load", async () => {

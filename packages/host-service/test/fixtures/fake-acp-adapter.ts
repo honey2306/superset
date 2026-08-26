@@ -285,10 +285,17 @@ function parseAskSpec(spec: string, multiSelect: boolean): AskQuestion {
 	};
 }
 
+async function delayFromEnvironment(name: string): Promise<void> {
+	const delayMs = Number(process.env[name] ?? 0);
+	if (!Number.isFinite(delayMs) || delayMs <= 0) return;
+	await new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
 const app = agent({ name: "fake-acp-adapter" })
-	.onRequest("initialize", () => ({
-		protocolVersion: PROTOCOL_VERSION,
-	}))
+	.onRequest("initialize", async () => {
+		await delayFromEnvironment("FAKE_ACP_INITIALIZE_DELAY_MS");
+		return { protocolVersion: PROTOCOL_VERSION };
+	})
 	.onRequest("session/new", (context) => {
 		recordSessionSetup("new", context.params.mcpServers, context.params._meta);
 		sessionId = `fake-acp-${randomUUID()}`;

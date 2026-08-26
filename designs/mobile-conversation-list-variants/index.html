@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Superset Mobile · 对话列表三版预览</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0c0f;
+      --surface: #111319;
+      --surface-2: #171a21;
+      --surface-3: #1d2028;
+      --line: rgba(255,255,255,.09);
+      --line-strong: rgba(255,255,255,.15);
+      --text: #f1f2f4;
+      --muted: #9499a5;
+      --faint: #626874;
+      --pink: #f07db4;
+      --pink-soft: rgba(240,125,180,.12);
+      --green: #58d68d;
+      --yellow: #e7c779;
+      --blue: #79a7f2;
+      --purple: #a98bec;
+      --orange: #ed9d69;
+      --radius: 14px;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #07080a; color: var(--text); }
+    body { padding: 28px 22px 48px; }
+    button { color: inherit; font: inherit; }
+    .stage { max-width: 1260px; margin: 0 auto; }
+    .stage-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin: 0 0 22px; }
+    .stage-head h1 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
+    .stage-head p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+    .principle { max-width: 430px; text-align: right; color: var(--faint); font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .switcher { display: none; grid-template-columns: repeat(3,1fr); gap: 4px; margin-bottom: 14px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+    .switcher button { min-height: 38px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 650; }
+    .switcher button.active { background: var(--surface-3); color: var(--text); box-shadow: 0 1px 5px rgba(0,0,0,.3); }
+    .variants { display: grid; grid-template-columns: repeat(3, minmax(0, 390px)); justify-content: space-between; gap: 28px; }
+    .variant-wrap { min-width: 0; }
+    .variant-label { display: flex; align-items: baseline; justify-content: space-between; min-height: 42px; padding: 0 4px; }
+    .variant-label strong { font-size: 13px; }
+    .variant-label span { color: var(--faint); font-size: 11px; }
+    .phone { position: relative; width: 100%; height: 780px; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 28px; background: var(--bg); box-shadow: 0 22px 70px rgba(0,0,0,.42); }
+    .statusbar { height: 30px; padding: 10px 18px 0; display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 10px; font-weight: 650; }
+    .status-icons { display: flex; gap: 5px; align-items: center; }
+    .signal { display: flex; gap: 2px; align-items: end; height: 9px; }
+    .signal i { width: 2px; border-radius: 2px; background: var(--muted); }
+    .signal i:nth-child(1){height:3px}.signal i:nth-child(2){height:5px}.signal i:nth-child(3){height:7px}.signal i:nth-child(4){height:9px}
+    .battery { width: 15px; height: 8px; border: 1px solid var(--muted); border-radius: 2px; padding: 1px; }
+    .battery::after { content:""; display:block; width: 82%; height:100%; border-radius:1px; background:var(--muted); }
+    .appbar { height: 67px; padding: 8px 16px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
+    .appbar-copy { flex: 1; min-width: 0; }
+    .appbar h2 { margin: 0; font-size: 19px; line-height: 1.2; letter-spacing: -.025em; }
+    .connection { display: flex; align-items: center; gap: 6px; margin: 5px 0 0; color: var(--muted); font: 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .connection::before { content:""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px rgba(88,214,141,.09); }
+    .icon-btn { width: 40px; height: 40px; display:grid; place-items:center; padding:0; border:0; border-radius:50%; background:transparent; color:var(--muted); }
+    .icon-btn:active { background: var(--surface-2); color: var(--text); }
+    .icon-btn svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .content { height: calc(100% - 97px); overflow: hidden; }
+    .scroll { height: 100%; overflow-y: auto; scrollbar-width: none; padding-bottom: 32px; }
+    .scroll::-webkit-scrollbar { display:none; }
+    .search { height: 40px; display:flex; align-items:center; gap:8px; margin: 14px 16px 10px; padding: 0 12px; border:1px solid var(--line); border-radius:11px; background:var(--surface); color:var(--faint); font-size:12px; }
+    .search svg { width:15px; height:15px; stroke: currentColor; fill:none; stroke-width:1.8; }
+    .section-title { display:flex; align-items:center; justify-content:space-between; margin: 19px 17px 7px; color:var(--faint); font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+    .section-title em { font-style:normal; letter-spacing:0; }
+    .avatar { position:relative; flex:none; display:grid; place-items:center; color:var(--muted); background:var(--surface-3); }
+    .avatar svg { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.6; }
+    .avatar.running::after { content:""; position:absolute; right:-1px; bottom:-1px; width:7px; height:7px; border:2px solid var(--bg); border-radius:50%; background:var(--green); }
+    .tag { display:inline-flex; align-items:center; gap:5px; min-width:0; padding:3px 7px; border:1px solid var(--tag-line); border-radius:999px; background:var(--tag-bg); color:var(--tag-color); font: 9px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace; white-space:nowrap; }
+    .tag::before { content:""; width:4px; height:4px; flex:none; border-radius:50%; background:currentColor; opacity:.8; }
+    .superset { --tag-color:#ef9bc4; --tag-bg:rgba(240,125,180,.09); --tag-line:rgba(240,125,180,.19); }
+    .proma { --tag-color:#89adf1; --tag-bg:rgba(121,167,242,.09); --tag-line:rgba(121,167,242,.19); }
+    .infra { --tag-color:#bea8ee; --tag-bg:rgba(169,139,236,.09); --tag-line:rgba(169,139,236,.19); }
+    .scripts { --tag-color:#ecaa7d; --tag-bg:rgba(237,157,105,.09); --tag-line:rgba(237,157,105,.19); }
+    .time { flex:none; color:var(--faint); font:10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .title { min-width:0; overflow:hidden; color:var(--text); font-size:13px; font-weight:600; line-height:1.35; white-space:nowrap; text-overflow:ellipsis; }
+    .preview { min-width:0; overflow:hidden; color:var(--muted); font-size:11px; line-height:1.35; white-space:nowrap; text-overflow:ellipsis; }
+    .kind { color:var(--faint); font:9px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.02em; }
+
+    /* A — calm timeline */
+    .a .search { margin-bottom: 14px; }
+    .a-list { margin: 0 10px; border:1px solid var(--line); border-radius:14px; background:var(--surface); overflow:hidden; }
+    .a-row { min-height:74px; padding: 12px 11px; display:flex; align-items:center; gap:11px; border-bottom:1px solid var(--line); }
+    .a-row:last-child { border-bottom:0; }
+    .a-row:active { background:var(--surface-2); }
+    .a .avatar { width:36px; height:36px; border-radius:10px; }
+    .a-main { flex:1; min-width:0; }
+    .a-top { display:flex; align-items:baseline; gap:8px; }
+    .a-top .title { flex:1; }
+    .a-bottom { display:flex; align-items:center; gap:7px; margin-top:6px; }
+    .a-bottom .preview { flex:1; }
+    .a .tag { max-width:96px; }
+
+    /* B — dense inbox */
+    .b .appbar { border-bottom:0; }
+    .b .content { height:calc(100% - 97px); }
+    .filter-row { display:flex; gap:7px; overflow:hidden; padding: 2px 16px 12px; border-bottom:1px solid var(--line); }
+    .filter { min-height:29px; padding:0 10px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--muted); font-size:10px; white-space:nowrap; }
+    .filter.active { border-color:rgba(240,125,180,.24); background:var(--pink-soft); color:#ef9bc4; }
+    .b-date { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; height:34px; padding:0 16px; border-bottom:1px solid var(--line); background:rgba(11,12,15,.94); backdrop-filter:blur(10px); color:var(--faint); font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
+    .b-row { min-height:66px; display:grid; grid-template-columns:3px 1fr auto; column-gap:11px; padding:11px 15px 10px 10px; border-bottom:1px solid var(--line); }
+    .project-bar { width:3px; height:34px; align-self:center; border-radius:3px; background:var(--tag-color); opacity:.7; }
+    .b-main { min-width:0; }
+    .b-top { display:flex; align-items:center; gap:7px; }
+    .b-top .title { flex:1; }
+    .b-meta { display:flex; align-items:center; gap:7px; margin-top:5px; }
+    .b-meta .preview { flex:1; }
+    .b-side { display:flex; flex-direction:column; align-items:end; justify-content:space-between; padding:1px 0; }
+    .activity { display:flex; align-items:center; gap:5px; color:var(--green); font:9px/1 ui-monospace,Menlo,monospace; }
+    .activity::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; }
+    .b .tag { border:0; background:transparent; padding:0; font-size:9px; }
+    .b .tag::before { display:none; }
+
+    /* C — project-forward cards */
+    .c .content { background:linear-gradient(180deg, rgba(240,125,180,.025), transparent 180px); }
+    .c-summary { display:grid; grid-template-columns:1fr auto; gap:12px; margin:15px 14px 10px; padding:14px; border:1px solid rgba(240,125,180,.14); border-radius:15px; background:linear-gradient(135deg,rgba(240,125,180,.1),rgba(121,167,242,.04)); }
+    .c-summary strong { display:block; font-size:13px; }
+    .c-summary p { margin:5px 0 0; color:var(--muted); font-size:10px; line-height:1.4; }
+    .pulse { align-self:center; display:flex; align-items:center; gap:6px; color:var(--green); font:9px/1 ui-monospace,Menlo,monospace; }
+    .pulse i { width:7px; height:7px; border-radius:50%; background:currentColor; box-shadow:0 0 0 4px rgba(88,214,141,.1); }
+    .c-section { margin:16px 14px 0; }
+    .c-date { margin:0 3px 8px; color:var(--faint); font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+    .c-card { position:relative; overflow:hidden; margin-bottom:9px; padding:13px 12px 12px 15px; border:1px solid var(--line); border-radius:13px; background:var(--surface); }
+    .c-card::before { content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--tag-color); opacity:.75; }
+    .c-card:active { background:var(--surface-2); }
+    .c-top { display:flex; align-items:center; gap:8px; }
+    .c-top .title { flex:1; }
+    .c-meta { display:flex; align-items:center; gap:8px; margin-top:8px; }
+    .c-meta .preview { flex:1; }
+    .c .tag { max-width:108px; }
+    .state { flex:none; display:flex; align-items:center; gap:5px; color:var(--green); font:9px/1 ui-monospace,Menlo,monospace; }
+    .state::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; }
+    .state.idle { color:var(--faint); }
+
+    .home-indicator { position:absolute; left:50%; bottom:7px; z-index:5; width:112px; height:4px; border-radius:99px; background:rgba(255,255,255,.62); transform:translateX(-50%); }
+    .annotation { margin:13px 5px 0; color:var(--faint); font-size:11px; line-height:1.55; }
+    .annotation b { color:var(--muted); font-weight:650; }
+    @media (max-width: 900px) {
+      body { padding: 12px 0 28px; }
+      .stage { max-width:430px; }
+      .stage-head { padding:0 16px; margin-bottom:14px; }
+      .stage-head h1 { font-size:17px; }
+      .stage-head p { font-size:11px; }
+      .principle { display:none; }
+      .switcher { display:grid; margin:0 12px 12px; }
+      .variants { display:block; }
+      .variant-wrap { display:none; }
+      .variant-wrap.active { display:block; }
+      .variant-label { padding:0 16px; }
+      .phone { height: min(780px, calc(100dvh - 137px)); min-height:620px; border-left:0; border-right:0; border-radius:0; }
+      .annotation { padding:0 13px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <header class="stage-head">
+      <div><h1>移动端对话列表 · 三版预览</h1><p>同一批数据，只改变移动端展示层；按最近活动时间排序。</p></div>
+      <div class="principle">Workspace / Project / Conversation 关系保持不变<br/>列表项仍携带 workspaceId 与原始跳转路径</div>
+    </header>
+    <nav class="switcher" aria-label="切换方案">
+      <button class="active" data-target="a">A 时间分组</button>
+      <button data-target="b">B 紧凑收件箱</button>
+      <button data-target="c">C 项目强调</button>
+    </nav>
+    <section class="variants">
+      <div class="variant-wrap active" data-variant="a">
+        <div class="variant-label"><strong>A · 时间分组</strong><span>平衡、稳妥、最接近原视觉</span></div>
+        <article class="phone a">
+          <div class="statusbar"><span>23:39</span><span class="status-icons"><span class="signal"><i></i><i></i><i></i><i></i></span><span>5G</span><span class="battery"></span></span></div>
+          <header class="appbar">
+            <div class="appbar-copy"><h2>对话</h2><p class="connection">Preview Mac · 已连接</p></div>
+            <button class="icon-btn" aria-label="搜索"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
+            <button class="icon-btn" aria-label="新建"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+          </header>
+          <div class="content"><div class="scroll">
+            <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>搜索对话或项目</div>
+            <div class="section-title"><span>今天</span><em>5</em></div>
+            <div class="a-list">
+              <div class="a-row"><span class="avatar running"><svg viewBox="0 0 24 24"><path d="M8 9h8M8 13h5"/><path d="M5 5h14v12H9l-4 3z"/></svg></span><div class="a-main"><div class="a-top"><span class="title">移动端对话列表方案</span><span class="time">刚刚</span></div><div class="a-bottom"><span class="tag superset">superset</span><span class="preview">正在生成 3 版移动端预览…</span></div></div></div>
+              <div class="a-row"><span class="avatar running"><svg viewBox="0 0 24 24"><path d="M8 9h8M8 13h5"/><path d="M5 5h14v12H9l-4 3z"/></svg></span><div class="a-main"><div class="a-top"><span class="title">完善 Agent 权限确认流程</span><span class="time">22:18</span></div><div class="a-bottom"><span class="tag proma">proma-app</span><span class="preview">已完成交互状态和错误恢复</span></div></div></div>
+              <div class="a-row"><span class="avatar"><svg viewBox="0 0 24 24"><path d="M8 9h8M8 13h5"/><path d="M5 5h14v12H9l-4 3z"/></svg></span><div class="a-main"><div class="a-top"><span class="title">排查 relay 断线重连</span><span class="time">19:42</span></div><div class="a-bottom"><span class="tag infra">infra-tools</span><span class="preview">最后一次测试全部通过</span></div></div></div>
+            </div>
+            <div class="section-title"><span>昨天</span><em>3</em></div>
+            <div class="a-list">
+              <div class="a-row"><span class="avatar"><svg viewBox="0 0 24 24"><path d="M8 9h8M8 13h5"/><path d="M5 5h14v12H9l-4 3z"/></svg></span><div class="a-main"><div class="a-top"><span class="title">重构 Timeline 自动跟随</span><span class="time">昨天</span></div><div class="a-bottom"><span class="tag superset">superset</span><span class="preview">保留用户主动滚动的位置</span></div></div></div>
+              <div class="a-row"><span class="avatar"><svg viewBox="0 0 24 24"><path d="M8 9h8M8 13h5"/><path d="M5 5h14v12H9l-4 3z"/></svg></span><div class="a-main"><div class="a-top"><span class="title">整理发布脚本</span><span class="time">昨天</span></div><div class="a-bottom"><span class="tag scripts">scripts</span><span class="preview">等待确认版本号</span></div></div></div>
+            </div>
+          </div></div><div class="home-indicator"></div>
+        </article>
+        <p class="annotation"><b>特点：</b>按日期分组，卡片承载标题、项目 Tag、摘要和时间，阅读节奏最清晰。</p>
+      </div>
+
+      <div class="variant-wrap" data-variant="b">
+        <div class="variant-label"><strong>B · 紧凑收件箱</strong><span>高密度、扫描效率最高</span></div>
+        <article class="phone b">
+          <div class="statusbar"><span>23:39</span><span class="status-icons"><span class="signal"><i></i><i></i><i></i><i></i></span><span>5G</span><span class="battery"></span></span></div>
+          <header class="appbar">
+            <div class="appbar-copy"><h2>最近</h2><p class="connection">12 个对话 · 2 个进行中</p></div>
+            <button class="icon-btn" aria-label="搜索"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
+            <button class="icon-btn" aria-label="新建"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+          </header>
+          <div class="content">
+            <div class="filter-row"><button class="filter active">全部</button><button class="filter">进行中 2</button><button class="filter">superset</button><button class="filter">proma-app</button></div>
+            <div class="scroll">
+              <div class="b-date"><span>今天</span><span>5</span></div>
+              <div class="b-row superset"><i class="project-bar"></i><div class="b-main"><div class="b-top"><span class="tag superset">superset</span><span class="title">移动端对话列表方案</span></div><div class="b-meta"><span class="kind">ACP</span><span class="preview">正在生成 3 版移动端预览…</span></div></div><div class="b-side"><span class="time">刚刚</span><span class="activity">运行中</span></div></div>
+              <div class="b-row proma"><i class="project-bar"></i><div class="b-main"><div class="b-top"><span class="tag proma">proma-app</span><span class="title">完善 Agent 权限确认流程</span></div><div class="b-meta"><span class="kind">ACP</span><span class="preview">已完成交互状态和错误恢复</span></div></div><div class="b-side"><span class="time">22:18</span><span class="activity">运行中</span></div></div>
+              <div class="b-row infra"><i class="project-bar"></i><div class="b-main"><div class="b-top"><span class="tag infra">infra-tools</span><span class="title">排查 relay 断线重连</span></div><div class="b-meta"><span class="kind">ACP</span><span class="preview">最后一次测试全部通过</span></div></div><div class="b-side"><span class="time">19:42</span><span class="kind">完成</span></div></div>
+              <div class="b-row superset"><i class="project-bar"></i><div class="b-main"><div class="b-top"><span class="tag superset">superset</span><span class="title">修复 Markdown 代码块滚动</span></div><div class="b-meta"><span class="kind">ACP</span><span class="preview">iPhone 小屏宽度已验证</span></div></div><div class="b-side"><span class="time">17:06</span><span class="kind">完成</span></div></div>
+              <div class="b-date"><span>昨天</span><span>3</span></div>
+              <div class="b-row superset"><i class="project-bar"></i><div class="b-main"><div class="b-top"><span class="tag superset">superset</span><span class="title">重构 Timeline 自动跟随</span></div><div class="b-meta"><span class="kind">ACP</span><span class="preview">保留用户主动滚动的位置</span></div></div><div class="b-side"><span class="time">昨天</span><span class="kind">完成</span></div></div>
+              <div class="b-row scripts"><i class="project-bar"></i><div class="b-main"><div class="b-top"><span class="tag scripts">scripts</span><span class="title">整理发布脚本</span></div><div class="b-meta"><span class="kind">ACP</span><span class="preview">等待确认版本号</span></div></div><div class="b-side"><span class="time">昨天</span><span class="kind">待确认</span></div></div>
+            </div>
+          </div><div class="home-indicator"></div>
+        </article>
+        <p class="annotation"><b>特点：</b>项目色条 + 行内 Tag，单屏显示更多对话；适合项目和会话数量较多的用户。</p>
+      </div>
+
+      <div class="variant-wrap" data-variant="c">
+        <div class="variant-label"><strong>C · 项目强调</strong><span>状态更强、视觉识别最快</span></div>
+        <article class="phone c">
+          <div class="statusbar"><span>23:39</span><span class="status-icons"><span class="signal"><i></i><i></i><i></i><i></i></span><span>5G</span><span class="battery"></span></span></div>
+          <header class="appbar">
+            <div class="appbar-copy"><h2>对话</h2><p class="connection">Preview Mac · 已连接</p></div>
+            <button class="icon-btn" aria-label="筛选"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
+            <button class="icon-btn" aria-label="新建"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+          </header>
+          <div class="content"><div class="scroll">
+            <div class="c-summary"><div><strong>继续上次工作</strong><p>最近活跃于 superset · main</p></div><span class="pulse"><i></i>2 运行中</span></div>
+            <section class="c-section"><h3 class="c-date">今天</h3>
+              <div class="c-card superset"><div class="c-top"><span class="tag superset">superset</span><span class="title">移动端对话列表方案</span><span class="time">刚刚</span></div><div class="c-meta"><span class="preview">正在生成 3 版移动端预览…</span><span class="state">运行中</span></div></div>
+              <div class="c-card proma"><div class="c-top"><span class="tag proma">proma-app</span><span class="title">完善 Agent 权限确认流程</span><span class="time">22:18</span></div><div class="c-meta"><span class="preview">已完成交互状态和错误恢复</span><span class="state">运行中</span></div></div>
+              <div class="c-card infra"><div class="c-top"><span class="tag infra">infra-tools</span><span class="title">排查 relay 断线重连</span><span class="time">19:42</span></div><div class="c-meta"><span class="preview">最后一次测试全部通过</span><span class="state idle">完成</span></div></div>
+              <div class="c-card superset"><div class="c-top"><span class="tag superset">superset</span><span class="title">修复 Markdown 代码块滚动</span><span class="time">17:06</span></div><div class="c-meta"><span class="preview">iPhone 小屏宽度已验证</span><span class="state idle">完成</span></div></div>
+            </section>
+            <section class="c-section"><h3 class="c-date">昨天</h3>
+              <div class="c-card superset"><div class="c-top"><span class="tag superset">superset</span><span class="title">重构 Timeline 自动跟随</span><span class="time">昨天</span></div><div class="c-meta"><span class="preview">保留用户主动滚动的位置</span><span class="state idle">完成</span></div></div>
+              <div class="c-card scripts"><div class="c-top"><span class="tag scripts">scripts</span><span class="title">整理发布脚本</span><span class="time">昨天</span></div><div class="c-meta"><span class="preview">等待确认版本号</span><span class="state idle">待确认</span></div></div>
+            </section>
+          </div></div><div class="home-indicator"></div>
+        </article>
+        <p class="annotation"><b>特点：</b>项目标签和运行状态最突出，并提供“继续上次工作”入口，视觉层级最强。</p>
+      </div>
+    </section>
+  </main>
+  <script>
+    const buttons = document.querySelectorAll('.switcher button');
+    const variants = document.querySelectorAll('.variant-wrap');
+    buttons.forEach((button) => button.addEventListener('click', () => {
+      buttons.forEach((item) => item.classList.toggle('active', item === button));
+      variants.forEach((variant) => variant.classList.toggle('active', variant.dataset.variant === button.dataset.target));
+    }));
+  </script>
+</body>
+</html>

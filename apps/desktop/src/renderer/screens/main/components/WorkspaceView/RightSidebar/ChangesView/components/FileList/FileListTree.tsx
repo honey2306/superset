@@ -3,15 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { FileItem } from "../FileItem";
 import { FolderRow } from "../FolderRow";
-
-interface FileTreeNode {
-	id: string;
-	name: string;
-	type: "file" | "folder";
-	path: string;
-	file?: ChangedFile;
-	children?: FileTreeNode[];
-}
+import { buildFileTree, type FileTreeNode } from "./utils/buildFileTree";
 
 function collectFilesFromNode(node: FileTreeNode): ChangedFile[] {
 	const files: ChangedFile[] = [];
@@ -47,58 +39,6 @@ interface FileListTreeProps {
 	isExpandedView?: boolean;
 	projectId?: string;
 	defaultApp?: ExternalApp | null;
-}
-
-function buildFileTree(files: ChangedFile[]): FileTreeNode[] {
-	type TreeNodeInternal = Omit<FileTreeNode, "children"> & {
-		children?: Record<string, TreeNodeInternal>;
-	};
-
-	const root: Record<string, TreeNodeInternal> = {};
-
-	for (const file of files) {
-		const parts = file.path.split("/");
-		let current = root;
-
-		for (let i = 0; i < parts.length; i++) {
-			const part = parts[i];
-			const isLast = i === parts.length - 1;
-			const pathSoFar = parts.slice(0, i + 1).join("/");
-
-			if (!current[part]) {
-				current[part] = {
-					id: pathSoFar,
-					name: part,
-					type: isLast ? "file" : "folder",
-					path: pathSoFar,
-					file: isLast ? file : undefined,
-					children: isLast ? undefined : {},
-				};
-			}
-
-			if (!isLast && current[part].children) {
-				current = current[part].children;
-			}
-		}
-	}
-
-	function convertToArray(
-		nodes: Record<string, TreeNodeInternal>,
-	): FileTreeNode[] {
-		return Object.values(nodes)
-			.map((node) => ({
-				...node,
-				children: node.children ? convertToArray(node.children) : undefined,
-			}))
-			.sort((a, b) => {
-				if (a.type !== b.type) {
-					return a.type === "folder" ? -1 : 1;
-				}
-				return a.name.localeCompare(b.name);
-			});
-	}
-
-	return convertToArray(root);
 }
 
 interface TreeNodeComponentProps {
