@@ -108,6 +108,11 @@ export default defineConfig({
 					"superset-mcp": resolve(
 						"../../packages/host-service/src/runtime/acp-sessions/superset-mcp.ts",
 					),
+					// Shared manifest-backed MCP proxy used by every ACP harness to keep
+					// expensive upstream servers off the session startup path.
+					"lazy-mcp-proxy": resolve(
+						"../../packages/host-service/src/runtime/acp-sessions/lazy-mcp-proxy.ts",
+					),
 					// ACP protocol bridges are subprocesses, so emit standalone entries
 					// beside acp-daemon.js where AcpSessionManager resolves them.
 					"codex-app-server-acp": resolve(

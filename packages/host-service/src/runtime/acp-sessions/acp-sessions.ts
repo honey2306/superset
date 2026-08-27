@@ -61,11 +61,7 @@ import {
 	selectedOptionIds,
 } from "@superset/session-protocol";
 import type { AcpArtifactStore } from "./artifact-store";
-import {
-	acpImageKey,
-	extractAcpImageBlocks,
-	type ImageContentBlock,
-} from "./image-promotion";
+import { prepareSharedMcpServers } from "./browser-use-mcp";
 import {
 	orderReplayedRemoteQueue,
 	replayRemoteCommands,
@@ -120,11 +116,6 @@ const DEFAULT_IDLE_HIBERNATE_MS = 2 * 60 * 1_000;
 /** Bound adapter initialization so create/session-load can never hang forever. */
 const DEFAULT_ADAPTER_STARTUP_TIMEOUT_MS = 60_000;
 const DEFAULT_PI_ADAPTER_STARTUP_TIMEOUT_MS = 30_000;
-/**
- * ACP notifications do not carry a turn id. Keep a short post-response grace
- * period so a response-first tool update can still be attached to its turn.
- */
-const LATE_IMAGE_PROMOTION_WINDOW_MS = 2_000;
 
 function isMissingUpstreamResourceError(error: unknown): boolean {
 	return (
@@ -552,14 +543,6 @@ interface AcpSessionRuntime {
 	piStartupInfo: string | null;
 	/** The first host-journaled user block, used to suppress legacy Pi preludes. */
 	piFirstUserMessageSeq: number | null;
-	/** Tool images collected during the active turn, keyed by content hash. */
-	pendingToolImages: Map<string, ImageContentBlock>;
-	/** Images already surfaced during the active turn (tool or assistant). */
-	seenTurnImages: Set<string>;
-	/** Grace-period timer for response-first tool image notifications. */
-	lateImagePromotionTimer: ReturnType<typeof setTimeout> | null;
-	/** Epoch deadline for accepting response-first tool image notifications. */
-	lateImagePromotionUntil: number;
 	activePromptCount: number;
 	/**
 	 * A `sendNow` request parked while the current turn drains. When
@@ -1125,13 +1108,6 @@ export class AcpSessionManager {
 				turn: Promise.resolve({ stopReason: "end_turn" }),
 			};
 		}
-		// Image updates do not carry a turn id in ACP. Keep one bounded buffer per
-		// runtime; it is reset when the first prompt of an idle runtime starts and
-		// drained by the prompt completion boundary below. This still handles
-		// concurrent prompts without emitting the same image more than once.
-		if (runtime.activePromptCount === 0) {
-			this.clearLateImagePromotionWindow(runtime);
-		}
 		// The adapter does not echo the prompt back as user_message_chunk
 		// updates, so journal the user's message here — otherwise it is
 		// invisible to every subscriber and to history replay. Journaled
@@ -1167,10 +1143,6 @@ export class AcpSessionManager {
 				prompt: input.prompt,
 			})
 			.then((response) => {
-				// Keep promoted images in the final assistant message, after any text
-				// emitted by the adapter for this turn. The original tool update remains
-				// in the timeline for inspection; this is an additional message block.
-				this.flushPendingToolImages(runtime);
 				runtime.state.lastStopReason = response.stopReason;
 				runtime.state.lastCompletedAt = Date.now();
 				return { stopReason: response.stopReason };
@@ -1183,9 +1155,6 @@ export class AcpSessionManager {
 				}
 				const reason = error instanceof Error ? error.message : String(error);
 				if (!runtime.dead && !runtime.closed) {
-					// A tool can produce a useful screenshot before its provider reports a
-					// turn error. Preserve it in the same assistant-message projection.
-					this.flushPendingToolImages(runtime);
 					runtime.state.lastError = reason;
 					// The user's message is already journaled and looks delivered —
 					// this frame lets fold mark it failed on every client. A permanent
@@ -1202,13 +1171,6 @@ export class AcpSessionManager {
 			.finally(() => {
 				runtime.activePromptCount -= 1;
 				if (runtime.closed) return;
-				if (runtime.activePromptCount === 0) {
-					// A notification can be delivered after the ACP request response.
-					// Drain anything captured before this boundary, then keep the
-					// dedup state alive for the short response-first grace period.
-					this.flushPendingToolImages(runtime);
-					this.openLateImagePromotionWindow(runtime);
-				}
 				// Whatever never reached a terminal status this turn (cancelled,
 				// errored) must not keep rendering as running on every client.
 				if (runtime.activePromptCount === 0) {
@@ -2047,17 +2009,19 @@ export class AcpSessionManager {
 		}
 		const cwd = cwdOverride ?? (await this.resolveWorkspaceCwd(workspaceId));
 		assertWorkspaceCwd(cwd, workspaceId);
-		const mcpServers = discovery
-			? []
-			: [
-					...this.mcpServers,
-					...(this.mcpServerFactory?.({
-						sessionId,
-						workspaceId,
-						cwd,
-						role,
-					}) ?? []),
-				];
+		const mcpServers = prepareSharedMcpServers(
+			discovery
+				? []
+				: [
+						...this.mcpServers,
+						...(this.mcpServerFactory?.({
+							sessionId,
+							workspaceId,
+							cwd,
+							role,
+						}) ?? []),
+					],
+		);
 		const roleInstructions =
 			role === SUPERSET_DELEGATED_EXECUTOR_ROLE
 				? SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS
@@ -2480,10 +2444,6 @@ export class AcpSessionManager {
 				piStartupInfo,
 				piFirstUserMessageSeq:
 					harness === "pi-acp" ? persistedPiFirstUserMessageSeq : null,
-				pendingToolImages: new Map(),
-				seenTurnImages: new Set(),
-				lateImagePromotionTimer: null,
-				lateImagePromotionUntil: 0,
 				activePromptCount: 0,
 				pendingSendNow: restoredSendNow
 					? {
@@ -2647,7 +2607,6 @@ export class AcpSessionManager {
 			runtime.state.pendingPermissions.length === 0 &&
 			runtime.pendingResolvers.size === 0 &&
 			runtime.openToolCalls.size === 0 &&
-			runtime.lateImagePromotionTimer === null &&
 			!runtime.titleGenerationInFlight
 		);
 	}
@@ -2862,9 +2821,7 @@ export class AcpSessionManager {
 		if (notification.sessionId !== runtime.acpSessionId) return;
 		const update = notification.update;
 		if (this.shouldSuppressPiBootstrapUpdate(runtime, update)) return;
-		const lateImagesCaptured = this.captureTurnImages(runtime, update);
 		this.journalFrame(runtime, { kind: "update", update });
-		if (lateImagesCaptured) this.flushPendingToolImages(runtime);
 		// Most variants are timeline-only; these few also live in scoped state.
 		switch (update.sessionUpdate) {
 			case "tool_call":
@@ -2912,96 +2869,6 @@ export class AcpSessionManager {
 				break;
 			default:
 				break;
-		}
-	}
-
-	private clearLateImagePromotionWindow(runtime: AcpSessionRuntime): void {
-		if (runtime.lateImagePromotionTimer !== null) {
-			clearTimeout(runtime.lateImagePromotionTimer);
-			runtime.lateImagePromotionTimer = null;
-		}
-		runtime.lateImagePromotionUntil = 0;
-		runtime.pendingToolImages.clear();
-		runtime.seenTurnImages.clear();
-	}
-
-	private openLateImagePromotionWindow(runtime: AcpSessionRuntime): void {
-		if (runtime.lateImagePromotionTimer !== null) {
-			clearTimeout(runtime.lateImagePromotionTimer);
-		}
-		runtime.lateImagePromotionUntil =
-			Date.now() + LATE_IMAGE_PROMOTION_WINDOW_MS;
-		const timer = setTimeout(() => {
-			runtime.lateImagePromotionTimer = null;
-			if (runtime.activePromptCount === 0) {
-				runtime.lateImagePromotionUntil = 0;
-				runtime.pendingToolImages.clear();
-				runtime.seenTurnImages.clear();
-				this.scheduleIdleHibernate(runtime);
-			}
-		}, LATE_IMAGE_PROMOTION_WINDOW_MS);
-		(timer as unknown as { unref?: () => void }).unref?.();
-		runtime.lateImagePromotionTimer = timer;
-	}
-
-	/**
-	 * Tool results are not assistant messages in ACP, so renderers normally keep
-	 * their images inside the collapsible tool card. Collect them during a live
-	 * turn and let the prompt completion boundary append them to the assistant
-	 * message as ordinary ACP image blocks. Direct assistant images are marked as
-	 * seen too, which prevents an adapter that exposes the same image both in its
-	 * tool result and final message from rendering it twice.
-	 */
-	private captureTurnImages(
-		runtime: AcpSessionRuntime,
-		update: SessionNotification["update"],
-	): boolean {
-		const acceptingLateImage =
-			runtime.activePromptCount === 0 &&
-			runtime.lateImagePromotionUntil > Date.now();
-		if (runtime.activePromptCount === 0 && !acceptingLateImage) return false;
-
-		if (update.sessionUpdate === "agent_message_chunk") {
-			for (const image of extractAcpImageBlocks(update.content)) {
-				const key = acpImageKey(image);
-				runtime.seenTurnImages.add(key);
-				runtime.pendingToolImages.delete(key);
-			}
-			return false;
-		}
-		if (
-			update.sessionUpdate !== "tool_call" &&
-			update.sessionUpdate !== "tool_call_update"
-		)
-			return false;
-
-		const images = [
-			...extractAcpImageBlocks(update.content),
-			...extractAcpImageBlocks(update.rawOutput),
-		];
-		let captured = false;
-		for (const image of images) {
-			const key = acpImageKey(image);
-			if (runtime.seenTurnImages.has(key)) continue;
-			runtime.seenTurnImages.add(key);
-			runtime.pendingToolImages.set(key, image);
-			captured = true;
-		}
-		return acceptingLateImage && captured;
-	}
-
-	private flushPendingToolImages(runtime: AcpSessionRuntime): void {
-		if (runtime.closed || runtime.pendingToolImages.size === 0) return;
-		const images = [...runtime.pendingToolImages.values()];
-		runtime.pendingToolImages.clear();
-		for (const image of images) {
-			this.journalFrame(runtime, {
-				kind: "update",
-				update: {
-					sessionUpdate: "agent_message_chunk",
-					content: image,
-				},
-			});
 		}
 	}
 

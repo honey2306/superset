@@ -18,7 +18,6 @@ import {
 	modelRuntimeCreateOptions,
 	PiSdkAcpAgent,
 	persistNewSessionMarker,
-	piToolResultImageBlocks,
 	promptFailure,
 	promptText,
 	sessionResponse,
@@ -214,43 +213,15 @@ lines.on("line", (line) => {
 		expect(toolKind("wait_delegation")).toBe("other");
 	});
 
-	test("normalizes and deduplicates images in a serialized MCP tool result", () => {
-		const image = {
-			type: "image" as const,
-			data: "a".repeat(4_096),
-			mimeType: "image/png",
-		};
-		const serialized = JSON.stringify({
-			content: [image],
-			isError: false,
-		});
-		const result = {
-			content: [{ type: "text", text: serialized }],
-			details: {
-				mcpResult: { content: [{ type: "text", text: serialized }] },
-			},
-			artifactPath: "/tmp/pi-tool-result.png",
-		};
-
-		const images = piToolResultImageBlocks(result);
-		expect(images).toHaveLength(1);
-		expect(images[0]).toMatchObject({
-			type: "image",
-			mimeType: "image/png",
-		});
-		expect(images[0]?.data).toHaveLength(4_096);
-	});
-
-	test("projects tool result images into assistant message chunks", async () => {
+	test("keeps tool result images scoped to the tool update", async () => {
 		const { agent, updates } = testAgent();
 		const image = {
 			type: "image" as const,
 			data: "b".repeat(4_096),
 			mimeType: "image/png",
 		};
-		const serialized = JSON.stringify({ content: [image], isError: false });
 		const result = {
-			content: [{ type: "text", text: serialized }],
+			content: [image],
 			details: { mcpResult: { content: [image] } },
 		};
 
@@ -269,7 +240,7 @@ lines.on("line", (line) => {
 			},
 		);
 
-		expect(updates).toHaveLength(2);
+		expect(updates).toHaveLength(1);
 		expect(updates[0]).toMatchObject({
 			sessionId: "session-1",
 			update: {
@@ -277,14 +248,6 @@ lines.on("line", (line) => {
 				toolCallId: "tool-1",
 				status: "completed",
 				rawOutput: result,
-			},
-		});
-		expect(updates[1]).toEqual({
-			sessionId: "session-1",
-			update: {
-				sessionUpdate: "agent_message_chunk",
-				messageId: "assistant-1",
-				content: image,
 			},
 		});
 	});

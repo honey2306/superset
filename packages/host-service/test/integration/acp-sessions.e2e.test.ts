@@ -584,9 +584,9 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expect(text).not.toContain("pi v0.84.0");
 	});
 
-	test("promotes Pi tool images into the assistant message", async () => {
+	test("keeps Pi tool screenshots out of assistant messages", async () => {
 		const manager = newManager({ piAdapterEntry: FAKE_PI_ADAPTER });
-		const sessionId = "e2e-pi-tool-image-promotion";
+		const sessionId = "e2e-pi-tool-image-scoping";
 		await manager.create({
 			sessionId,
 			workspaceId: WORKSPACE_ID,
@@ -603,18 +603,58 @@ describe("acp-sessions e2e (fake adapter)", () => {
 			emptyTimeline(),
 			manager.getMessages({ sessionId, limit: 200 }).items,
 		);
-		const messages = timeline.items.filter(
-			(item) => item.kind === "message" && item.role === "agent",
-		);
-		const blocks = messages.flatMap((item) =>
-			item.kind === "message" ? item.blocks : [],
-		);
-		expect(blocks.filter((block) => block.type === "image")).toHaveLength(1);
-		expect(blocks).toContainEqual({
-			type: "image",
-			data: Buffer.from("fake-pi-image").toString("base64"),
-			mimeType: "image/png",
+		const assistantImages = timeline.items
+			.filter((item) => item.kind === "message" && item.role === "agent")
+			.flatMap((item) => (item.kind === "message" ? item.blocks : []))
+			.filter((block) => block.type === "image");
+		expect(assistantImages).toHaveLength(0);
+		expect(timeline.items.some((item) => item.kind === "tool_call")).toBe(true);
+	});
+
+	test("renders only native assistant images as message content", async () => {
+		const manager = newManager();
+
+		const toolOnlySessionId = "e2e-tool-image-scoping";
+		await manager.create({
+			sessionId: toolOnlySessionId,
+			workspaceId: WORKSPACE_ID,
 		});
+		const toolOnlyTurn = manager.prompt({
+			sessionId: toolOnlySessionId,
+			prompt: [{ type: "text", text: "image" }],
+		});
+		await expect(toolOnlyTurn.turn).resolves.toEqual({
+			stopReason: "end_turn",
+		});
+
+		const directSessionId = "e2e-native-assistant-image";
+		await manager.create({
+			sessionId: directSessionId,
+			workspaceId: WORKSPACE_ID,
+		});
+		const directTurn = manager.prompt({
+			sessionId: directSessionId,
+			prompt: [{ type: "text", text: "image-direct" }],
+		});
+		await expect(directTurn.turn).resolves.toEqual({ stopReason: "end_turn" });
+
+		const assistantImages = (sessionId: string) =>
+			foldEnvelopes(
+				emptyTimeline(),
+				manager.getMessages({ sessionId, limit: 200 }).items,
+			).items.flatMap((item) =>
+				item.kind === "message" && item.role === "agent"
+					? item.blocks.filter((block) => block.type === "image")
+					: [],
+			);
+		expect(assistantImages(toolOnlySessionId)).toHaveLength(0);
+		expect(assistantImages(directSessionId)).toEqual([
+			{
+				type: "image",
+				data: Buffer.from("fake-acp-image").toString("base64"),
+				mimeType: "image/png",
+			},
+		]);
 	});
 
 	test("advertises terminal output and preserves Pi terminal metadata through the host", async () => {
@@ -679,101 +719,6 @@ describe("acp-sessions e2e (fake adapter)", () => {
 			},
 		]);
 	});
-
-	test("promotes nested tool images into one assistant message block", async () => {
-		const manager = newManager();
-		const sessionId = "e2e-tool-image-promotion";
-		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
-
-		const { turn } = manager.prompt({
-			sessionId,
-			prompt: [{ type: "text", text: "image" }],
-		});
-		await expect(turn).resolves.toEqual({ stopReason: "end_turn" });
-
-		const timeline = foldEnvelopes(
-			emptyTimeline(),
-			manager.getMessages({ sessionId, limit: 200 }).items,
-		);
-		const messages = timeline.items.filter(
-			(item) => item.kind === "message" && item.role === "agent",
-		);
-		const blocks = messages.flatMap((item) =>
-			item.kind === "message" ? item.blocks : [],
-		);
-		expect(blocks.filter((block) => block.type === "image")).toHaveLength(1);
-		expect(blocks.at(-1)).toEqual({
-			type: "image",
-			data: Buffer.from("fake-acp-image").toString("base64"),
-			mimeType: "image/png",
-		});
-		expect(
-			blocks.some(
-				(block) => block.type === "text" && block.text === "image image done",
-			),
-		).toBe(true);
-	});
-
-	test("does not re-promote an image already emitted as an assistant block", async () => {
-		const manager = newManager();
-		const sessionId = "e2e-tool-image-direct";
-		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
-
-		const { turn } = manager.prompt({
-			sessionId,
-			prompt: [{ type: "text", text: "image-direct" }],
-		});
-		await expect(turn).resolves.toEqual({ stopReason: "end_turn" });
-
-		const timeline = foldEnvelopes(
-			emptyTimeline(),
-			manager.getMessages({ sessionId, limit: 200 }).items,
-		);
-		const blocks = timeline.items
-			.filter((item) => item.kind === "message" && item.role === "agent")
-			.flatMap((item) => (item.kind === "message" ? item.blocks : []));
-		expect(blocks.filter((block) => block.type === "image")).toHaveLength(1);
-	});
-
-	test("promotes a response-first late tool image from serialized content", async () => {
-		const manager = newManager();
-		const sessionId = "e2e-tool-image-late-notification";
-		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
-
-		const { turn } = manager.prompt({
-			sessionId,
-			prompt: [{ type: "text", text: "late-image" }],
-		});
-		await expect(turn).resolves.toEqual({ stopReason: "end_turn" });
-		await waitFor(
-			() =>
-				manager
-					.getMessages({ sessionId, limit: 200 })
-					.items.some(
-						(item) =>
-							item.frame.kind === "update" &&
-							item.frame.update.sessionUpdate === "tool_call_update" &&
-							item.frame.update.toolCallId === "late-image-tool",
-					),
-			"late image tool update",
-		);
-
-		const timeline = foldEnvelopes(
-			emptyTimeline(),
-			manager.getMessages({ sessionId, limit: 200 }).items,
-		);
-		const image = timeline.items
-			.filter((item) => item.kind === "message" && item.role === "agent")
-			.flatMap((item) => (item.kind === "message" ? item.blocks : []))
-			.filter((block) => block.type === "image");
-		expect(image).toHaveLength(1);
-		const promoted = image[0];
-		if (!promoted || promoted.type !== "image") {
-			throw new Error("late tool image was not promoted to an agent message");
-		}
-		expect(promoted.mimeType).toBe("image/png");
-		expect(promoted.data).toHaveLength(426_616);
-	}, 30_000);
 
 	test("Pi historical startup frames stay hidden without creating stream gaps", async () => {
 		const sessionId = "e2e-pi-legacy-bootstrap";
@@ -1728,53 +1673,6 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expect(configValue(manager.get(state.sessionId), "reasoning_effort")).toBe(
 			"medium",
 		);
-	}, 30_000);
-
-	test("promotes Codex dynamic tool images into the assistant message", async () => {
-		const manager = new AcpSessionManager({
-			resolveWorkspaceCwd: () => workspaceDir,
-			adapterEntry: FAKE_ADAPTER,
-			codexAdapterEntry: CODEX_ACP_BRIDGE,
-			adapterEnv: {
-				CODEX_APP_SERVER_COMMAND: FAKE_CODEX_APP_SERVER,
-				CODEX_BRIDGE_SCENARIO: "dynamic-tool-image",
-			},
-		});
-		managers.push(manager);
-		const sessionId = "e2e-codex-tool-image-promotion";
-		await manager.create({
-			sessionId,
-			workspaceId: WORKSPACE_ID,
-			harness: "codex-app-server",
-		});
-
-		const { turn } = manager.prompt({
-			sessionId,
-			prompt: [{ type: "text", text: "run the image fixture" }],
-		});
-		await expect(turn).resolves.toEqual({ stopReason: "end_turn" });
-
-		const timeline = foldEnvelopes(
-			emptyTimeline(),
-			manager.getMessages({ sessionId, limit: 200 }).items,
-		);
-		const messages = timeline.items.filter(
-			(item) => item.kind === "message" && item.role === "agent",
-		);
-		const blocks = messages.flatMap((item) =>
-			item.kind === "message" ? item.blocks : [],
-		);
-		expect(blocks.filter((block) => block.type === "image")).toHaveLength(1);
-		expect(blocks.at(-1)).toEqual({
-			type: "image",
-			data: Buffer.from("fake-codex-image").toString("base64"),
-			mimeType: "image/png",
-		});
-		const tool = timeline.items.find((item) => item.kind === "tool_call");
-		if (!tool || tool.kind !== "tool_call") {
-			throw new Error("Codex dynamic tool call missing from timeline");
-		}
-		expect(tool.call.status).toBe("completed");
 	}, 30_000);
 
 	test("setMode and setConfigOption round-trip through the adapter", async () => {

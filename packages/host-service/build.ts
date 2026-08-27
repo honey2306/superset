@@ -111,6 +111,25 @@ if (!supersetMcpResult.success) {
 	process.exit(1);
 }
 
+// Harness-neutral MCP proxy that advertises a checked-in tool manifest and
+// defers expensive upstream startup until the first tools/call request.
+const lazyMcpProxyResult = await Bun.build({
+	entrypoints: ["src/runtime/acp-sessions/lazy-mcp-proxy.ts"],
+	target: "node",
+	outdir,
+	naming: "lazy-mcp-proxy.js",
+	format: "esm",
+	define: {
+		"process.env.NODE_ENV": JSON.stringify("production"),
+	},
+});
+
+if (!lazyMcpProxyResult.success) {
+	console.error("[host-service] Lazy MCP proxy build failed:");
+	for (const log of lazyMcpProxyResult.logs) console.error(log);
+	process.exit(1);
+}
+
 // This is launched as an ACP subprocess by acp-sessions.ts, so it must be
 // emitted beside host-service.js rather than relying on a source-tree .ts file.
 const codexBridgeResult = await Bun.build({
@@ -155,5 +174,5 @@ if (!piBridgeResult.success) {
 }
 
 console.log(
-	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/superset-mcp.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js`,
+	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/superset-mcp.js + ${outdir}/lazy-mcp-proxy.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js`,
 );

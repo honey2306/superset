@@ -594,6 +594,7 @@ function validateAcpRuntimePrepared(): void {
 	const requiredPaths = [
 		hostServicePath,
 		join(projectRoot, "dist", "main", "acp-daemon.js"),
+		join(projectRoot, "dist", "main", "lazy-mcp-proxy.js"),
 		join(projectRoot, "dist", "main", "codex-app-server-acp.js"),
 		join(projectRoot, "dist", "main", "pi-acp.js"),
 		claudeBridgePath,

@@ -5,10 +5,8 @@
  * this side of the ACP boundary: the host daemon only speaks ACP and never
  * loads Pi's runtime into its own process.
  */
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
-import readline from "node:readline";
 import { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import {
@@ -63,51 +61,26 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { SUPERSET_DELEGATION_META_KEY } from "@superset/session-protocol";
 import {
-	acpImageKey,
-	extractAcpImageBlocks,
-	type ImageContentBlock,
-} from "./image-promotion";
+	isMcpServerProcess,
+	type McpClient,
+	StdioMcpClient,
+} from "./stdio-mcp-client";
 
 const MODEL_CONFIG_ID = "model";
 const THINKING_CONFIG_ID = "thought_level";
 const PI_DISABLE_EXTENSIONS_ENV = "SUPERSET_PI_ACP_DISABLE_EXTENSIONS";
 const PI_APPEND_SYSTEM_PROMPT_ENV = "SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT";
-const MCP_PROTOCOL_VERSION = "2025-06-18";
-const MCP_STARTUP_REQUEST_TIMEOUT_MS = 15_000;
-const MCP_TOOL_CALL_TIMEOUT_MS = 120_000;
 const LONG_RUNNING_TOOL_NAMES = new Set(["ask_user", "wait_delegation"]);
 const MAX_SESSION_PAGE_SIZE = 50;
 const ACP_SESSION_MARKER_TYPE = "superset/acp-session";
 
 type JsonRecord = Record<string, unknown>;
 
-type McpTool = {
-	name: string;
-	title?: string;
-	description?: string;
-	inputSchema: object;
-};
-
-type McpToolResult = {
-	content?: unknown;
-	isError?: boolean;
-	[key: string]: unknown;
-};
-
-type PendingMcpRequest = {
-	resolve: (value: unknown) => void;
-	reject: (reason: Error) => void;
-	removeAbortListener?: () => void;
-	timeout?: ReturnType<typeof setTimeout>;
-};
-
-type McpServerProcess = Extract<McpServer, { command: string }>;
-
 type SessionRuntime = {
 	sessionId: string;
 	cwd: string;
 	additionalDirectories: string[];
-	mcpClients: StdioMcpClient[];
+	mcpClients: McpClient[];
 	session: AgentSession;
 	sessionManager: SessionManager;
 	modelRuntime: ModelRuntime;
@@ -143,249 +116,6 @@ function jsonText(value: unknown): string {
 		return JSON.stringify(value);
 	} catch {
 		return String(value);
-	}
-}
-
-function environmentFor(
-	overrides: Record<string, string>,
-): Record<string, string> {
-	const inherited = Object.fromEntries(
-		Object.entries(process.env).filter(
-			(entry): entry is [string, string] => entry[1] !== undefined,
-		),
-	);
-	return { ...inherited, ...overrides };
-}
-
-function serverEnvironment(server: McpServerProcess): Record<string, string> {
-	return Object.fromEntries(
-		(server.env ?? []).map(({ name, value }) => [name, value]),
-	);
-}
-
-function isMcpServerProcess(server: McpServer): server is McpServerProcess {
-	return "command" in server && typeof server.command === "string";
-}
-
-/** Minimal JSON-RPC-over-stdio MCP client used by SDK custom tools. */
-class StdioMcpClient {
-	private readonly child: ChildProcessWithoutNullStreams;
-	private readonly pending = new Map<number, PendingMcpRequest>();
-	private nextId = 1;
-	private closed = false;
-
-	constructor(server: McpServerProcess) {
-		this.child = spawn(server.command, server.args, {
-			env: environmentFor(serverEnvironment(server)),
-			stdio: ["pipe", "pipe", "pipe"],
-		});
-		this.child.stderr.on("data", () => {
-			// Drain diagnostics; MCP stderr must never corrupt the ACP stream.
-		});
-		readline
-			.createInterface({
-				input: this.child.stdout,
-				crlfDelay: Number.POSITIVE_INFINITY,
-			})
-			.on("line", (line) => this.handleLine(line));
-		this.child.on("error", (error) => {
-			this.closed = true;
-			this.failPending(error);
-		});
-		this.child.on("exit", (code, signal) => {
-			this.closed = true;
-			this.failPending(
-				new Error(`MCP server exited (code=${code}, signal=${signal})`),
-			);
-		});
-	}
-
-	async initialize(): Promise<void> {
-		await this.request(
-			"initialize",
-			{
-				protocolVersion: MCP_PROTOCOL_VERSION,
-				capabilities: {},
-				clientInfo: { name: "superset-pi-sdk-acp", version: "1" },
-			},
-			undefined,
-			MCP_STARTUP_REQUEST_TIMEOUT_MS,
-		);
-		this.notify("notifications/initialized", {});
-	}
-
-	async listTools(): Promise<McpTool[]> {
-		const tools: McpTool[] = [];
-		let cursor: string | undefined;
-		do {
-			const result = asRecord(
-				await this.request(
-					"tools/list",
-					cursor ? { cursor } : {},
-					undefined,
-					MCP_STARTUP_REQUEST_TIMEOUT_MS,
-				),
-			);
-			if (!result || !Array.isArray(result.tools)) {
-				throw new Error("MCP tools/list returned an invalid result");
-			}
-			tools.push(
-				...result.tools.filter(
-					(tool): tool is McpTool =>
-						asRecord(tool) !== null && typeof tool.name === "string",
-				),
-			);
-			cursor = stringValue(result.nextCursor);
-		} while (cursor);
-		return tools;
-	}
-
-	async callTool(
-		name: string,
-		args: Record<string, unknown>,
-		signal?: AbortSignal,
-	): Promise<McpToolResult> {
-		const result = await this.request(
-			"tools/call",
-			{ name, arguments: args },
-			signal,
-			LONG_RUNNING_TOOL_NAMES.has(name) ? undefined : MCP_TOOL_CALL_TIMEOUT_MS,
-		);
-		return asRecord(result) ?? { content: result };
-	}
-
-	async close(): Promise<void> {
-		if (this.child.exitCode !== null || this.child.signalCode !== null) return;
-		this.closed = true;
-		this.failPending(new Error("MCP client closed"));
-		await new Promise<void>((resolve) => {
-			let settled = false;
-			let forceKill: ReturnType<typeof setTimeout> | undefined;
-			let giveUp: ReturnType<typeof setTimeout> | undefined;
-			const finish = () => {
-				if (settled) return;
-				settled = true;
-				if (forceKill) clearTimeout(forceKill);
-				if (giveUp) clearTimeout(giveUp);
-				this.child.off("exit", finish);
-				resolve();
-			};
-			this.child.once("exit", finish);
-			this.child.kill();
-			forceKill = setTimeout(() => this.child.kill("SIGKILL"), 2_000);
-			giveUp = setTimeout(finish, 4_000);
-			forceKill.unref();
-			giveUp.unref();
-		});
-	}
-
-	private request(
-		method: string,
-		params: Record<string, unknown>,
-		signal: AbortSignal | undefined,
-		timeoutMs: number | undefined,
-	): Promise<unknown> {
-		if (this.closed) return Promise.reject(new Error("MCP client is closed"));
-		const id = this.nextId++;
-		return new Promise((resolve, reject) => {
-			const pending: PendingMcpRequest = { resolve, reject };
-			if (timeoutMs !== undefined) {
-				pending.timeout = setTimeout(() => {
-					if (!this.pending.delete(id)) return;
-					pending.removeAbortListener?.();
-					this.notify("notifications/cancelled", {
-						requestId: id,
-						reason: `MCP request timed out: ${method}`,
-					});
-					reject(new Error(`MCP request timed out: ${method}`));
-				}, timeoutMs);
-				pending.timeout.unref();
-			}
-			if (signal) {
-				const onAbort = () => {
-					this.pending.delete(id);
-					if (pending.timeout) clearTimeout(pending.timeout);
-					this.notify("notifications/cancelled", {
-						requestId: id,
-						reason: "Pi tool call cancelled",
-					});
-					reject(new Error("MCP request cancelled"));
-				};
-				if (signal.aborted) {
-					onAbort();
-					return;
-				}
-				signal.addEventListener("abort", onAbort, { once: true });
-				pending.removeAbortListener = () =>
-					signal.removeEventListener("abort", onAbort);
-			}
-			this.pending.set(id, pending);
-			this.write({ jsonrpc: "2.0", id, method, params });
-		});
-	}
-
-	private notify(method: string, params: Record<string, unknown>): void {
-		if (this.closed) return;
-		this.write({ jsonrpc: "2.0", method, params });
-	}
-
-	private write(message: Record<string, unknown>): void {
-		if (!this.child.stdin.destroyed)
-			this.child.stdin.write(`${JSON.stringify(message)}\n`);
-	}
-
-	private handleLine(line: string): void {
-		let value: unknown;
-		try {
-			value = JSON.parse(line);
-		} catch {
-			return;
-		}
-		const message = asRecord(value);
-		if (
-			!message ||
-			(typeof message.id !== "number" && typeof message.id !== "string")
-		)
-			return;
-		if (
-			typeof message.method === "string" &&
-			!Object.hasOwn(message, "result") &&
-			!Object.hasOwn(message, "error")
-		) {
-			this.write(
-				message.method === "ping"
-					? { jsonrpc: "2.0", id: message.id, result: {} }
-					: {
-							jsonrpc: "2.0",
-							id: message.id,
-							error: { code: -32601, message: "Method not found" },
-						},
-			);
-			return;
-		}
-		if (typeof message.id !== "number") return;
-		const pending = this.pending.get(message.id);
-		if (!pending) return;
-		this.pending.delete(message.id);
-		if (pending.timeout) clearTimeout(pending.timeout);
-		pending.removeAbortListener?.();
-		const error = asRecord(message.error);
-		if (error) {
-			pending.reject(
-				new Error(`MCP error ${String(error.code)}: ${String(error.message)}`),
-			);
-		} else {
-			pending.resolve(message.result);
-		}
-	}
-
-	private failPending(error: Error): void {
-		for (const pending of this.pending.values()) {
-			if (pending.timeout) clearTimeout(pending.timeout);
-			pending.removeAbortListener?.();
-			pending.reject(error);
-		}
-		this.pending.clear();
 	}
 }
 
@@ -725,7 +455,7 @@ function mcpContent(value: unknown): Array<Record<string, unknown>> {
 
 export async function initializeMcpTools(
 	servers: readonly McpServer[],
-): Promise<{ clients: StdioMcpClient[]; tools: ToolDefinition[] }> {
+): Promise<{ clients: McpClient[]; tools: ToolDefinition[] }> {
 	const processServers = servers.map((server) => {
 		if (!isMcpServerProcess(server)) {
 			throw new Error(
@@ -734,17 +464,28 @@ export async function initializeMcpTools(
 		}
 		return server;
 	});
-	const clients = processServers.map((server) => new StdioMcpClient(server));
+	const registrations = processServers.map((server) => {
+		const client = new StdioMcpClient(server, {
+			clientInfo: { name: "superset-pi-sdk-acp", version: "1" },
+			longRunningToolNames: LONG_RUNNING_TOOL_NAMES,
+			cancellationReason: "Pi tool call cancelled",
+		});
+		return {
+			client,
+			catalog: (async () => {
+				await client.initialize();
+				return client.listTools();
+			})(),
+		};
+	});
+	const clients = registrations.map(({ client }) => client);
 	const tools: ToolDefinition[] = [];
 	const registeredNames = new Set<string>();
 	try {
-		// MCP servers are independent processes. Starting them serially made Pi's
-		// cold-start latency the sum of every server's initialize/tools-list time.
+		// Independent MCP servers initialize in parallel. Slow shared servers are
+		// wrapped by the manager's harness-neutral lazy MCP proxy before this point.
 		const toolCatalogs = await Promise.all(
-			clients.map(async (client) => {
-				await client.initialize();
-				return client.listTools();
-			}),
+			registrations.map(({ catalog }) => catalog),
 		);
 		for (const [index, catalog] of toolCatalogs.entries()) {
 			const client = clients[index];
@@ -795,20 +536,6 @@ function contentText(content: unknown): string {
 		})
 		.filter(Boolean)
 		.join("\n");
-}
-
-/**
- * Pi/MCP tool results may contain image blocks directly, nested in MCP
- * metadata, or serialized inside a text content block. Normalize all of those
- * forms before projecting them into assistant message content, and collapse
- * repeated references to the same image from one tool result.
- */
-export function piToolResultImageBlocks(value: unknown): ImageContentBlock[] {
-	const images = new Map<string, ImageContentBlock>();
-	for (const image of extractAcpImageBlocks(value)) {
-		images.set(acpImageKey(image), image);
-	}
-	return [...images.values()];
 }
 
 export function promptText(prompt: PromptRequest["prompt"]): string {
@@ -1592,7 +1319,6 @@ export class PiSdkAcpAgent implements Agent {
 			const toolCallId = stringValue(eventRecord.toolCallId);
 			if (!toolCallId) return;
 			const text = contentText(eventRecord.result);
-			const images = piToolResultImageBlocks(eventRecord.result);
 			await this.conn.sessionUpdate({
 				sessionId: runtime.sessionId,
 				update: {
@@ -1607,16 +1333,6 @@ export class PiSdkAcpAgent implements Agent {
 						: {}),
 				},
 			});
-			for (const image of images) {
-				await this.conn.sessionUpdate({
-					sessionId: runtime.sessionId,
-					update: {
-						sessionUpdate: "agent_message_chunk",
-						messageId: runtime.assistantMessageId,
-						content: image,
-					},
-				});
-			}
 			return;
 		}
 		if (eventRecord.type === "message_end") {

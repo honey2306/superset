@@ -38,6 +38,7 @@ import {
 	registerAcpSessionStreamRoute,
 	SqliteAcpSessionPersistence,
 } from "../../src/runtime/acp-sessions";
+import { LAZY_MCP_CONFIG_ENV } from "../../src/runtime/acp-sessions/lazy-mcp";
 import { createTestHost, type TestHost } from "../helpers/createTestHost";
 
 const FAKE_ADAPTER = path.join(
@@ -450,12 +451,32 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 			.trim()
 			.split("\n")
 			.map(
-				(line) => JSON.parse(line) as { phase: string; mcpServers: unknown },
+				(line) =>
+					JSON.parse(line) as { phase: string; mcpServers: McpServer[] },
 			);
-		expect(requests).toEqual([
-			{ phase: "new", mcpServers },
-			{ phase: "load", mcpServers },
-		]);
+		expect(requests.map(({ phase }) => phase)).toEqual(["new", "load"]);
+		for (const request of requests) {
+			const server = request.mcpServers[0];
+			if (!server || !("command" in server))
+				throw new Error("Expected wrapped stdio MCP server");
+			expect(server).toMatchObject({
+				name: "browser-use",
+				command: process.execPath,
+			});
+			expect(server.args[0]?.endsWith("lazy-mcp-proxy.ts")).toBe(true);
+			const serialized = server.env.find(
+				({ name }) => name === LAZY_MCP_CONFIG_ENV,
+			)?.value;
+			const config = JSON.parse(serialized ?? "null") as {
+				upstream?: McpServer;
+				tools?: Array<{ name?: string }>;
+			};
+			expect(config.upstream).toEqual(mcpServers[0]);
+			expect(config.tools?.map(({ name }) => name)).toEqual([
+				"browser_exec",
+				"browser_screenshot",
+			]);
+		}
 	}, 30_000);
 
 	test("asks Pi to skip native replay when durable history already exists", async () => {
