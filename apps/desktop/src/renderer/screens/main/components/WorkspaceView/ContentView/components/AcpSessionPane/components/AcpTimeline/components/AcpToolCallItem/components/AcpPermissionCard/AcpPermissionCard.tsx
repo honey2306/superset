@@ -1,6 +1,7 @@
 import type {
 	PermissionView,
 	RequestPermissionOutcome,
+	RespondToPermissionResult,
 	ToolCallUpdate,
 } from "@superset/session-protocol";
 import {
@@ -151,7 +152,7 @@ interface AcpPermissionCardProps {
 	onRespond(
 		requestId: string,
 		outcome: RequestPermissionOutcome,
-	): Promise<void>;
+	): Promise<RespondToPermissionResult> | Promise<void>;
 	/**
 	 * Visual variant — permission (pink) is the default, askuser (cyan) is used
 	 * for synthetic elicitation cards (Claude Code's AskUserQuestion tool).
@@ -169,12 +170,21 @@ export function AcpPermissionCard({
 	const [pickedIds, setPickedIds] = useState<string[]>([]);
 	const [customText, setCustomText] = useState("");
 	const [responding, setResponding] = useState(false);
+	const [optimisticResolution, setOptimisticResolution] = useState<{
+		outcome: RequestPermissionOutcome;
+		status: RespondToPermissionResult["status"];
+	} | null>(null);
 	const toolCall = mergePermissionToolCall(permission.toolCall, sourceToolCall);
 	const toolTitle = toolCall?.title;
 	const plan = approvalPlan(toolCall);
 	const detail = plan ? null : approvalDetail(toolCall);
 	const isMulti = !!permission.multiSelect;
-	const isResolved = permission.resolution !== null;
+	const resolution =
+		permission.resolution ?? optimisticResolution?.outcome ?? null;
+	const isResolved = resolution !== null;
+	const wasAlreadyResolved =
+		permission.resolution === null &&
+		optimisticResolution?.status === "already_resolved";
 	const selectableOptions = isMulti
 		? permission.options.filter((option) => !option.kind.startsWith("reject"))
 		: permission.options;
@@ -185,7 +195,18 @@ export function AcpPermissionCard({
 	async function submit(outcome: RequestPermissionOutcome) {
 		setResponding(true);
 		try {
-			await onRespond(permission.requestId, outcome);
+			const response = await onRespond(permission.requestId, outcome);
+			// Both statuses are terminal from the card's perspective. A response
+			// that was already settled elsewhere must not leave this card stuck in
+			// "Submitting…" while the authoritative stream catches up. Keep its
+			// label generic until that stream supplies the actual outcome.
+			const status = response === undefined ? "resolved" : response.status;
+			if (status !== "resolved" && status !== "already_resolved") {
+				setResponding(false);
+				return;
+			}
+			setOptimisticResolution({ outcome, status });
+			setResponding(false);
 		} catch {
 			setResponding(false);
 		}
@@ -221,13 +242,16 @@ export function AcpPermissionCard({
 	}
 
 	if (isResolved) {
-		const res = permission.resolution;
+		const res = resolution;
 		if (!res) return null;
 		const opt = permission.options.find(
 			(o) => "optionId" in res && o.optionId === res.optionId,
 		);
-		const label =
-			variant === "askuser"
+		const label = wasAlreadyResolved
+			? variant === "askuser"
+				? "Answer already submitted"
+				: "Response already submitted"
+			: variant === "askuser"
 				? selectedResolutionLabel(res, permission.options)
 				: (opt?.name ?? resolutionLabel(res));
 		return (
@@ -236,9 +260,13 @@ export function AcpPermissionCard({
 				<span>{variant === "askuser" ? "AskUser ·" : "Permission ·"}</span>
 				<span
 					className="acp-perm__resolved-decision"
-					data-tone={decisionTone(res, opt?.kind)}
+					data-tone={
+						wasAlreadyResolved ? undefined : decisionTone(res, opt?.kind)
+					}
 				>
-					{variant === "askuser" && res.outcome === "selected"
+					{variant === "askuser" &&
+					!wasAlreadyResolved &&
+					res.outcome === "selected"
 						? `Answered: ${label}`
 						: label}
 				</span>

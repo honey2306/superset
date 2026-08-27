@@ -1,5 +1,6 @@
 import type {
 	RequestPermissionOutcome,
+	RespondToPermissionResult,
 	TimelineItem,
 	ToolCallItem,
 	ToolCallUpdate,
@@ -20,7 +21,7 @@ interface AcpToolCallItemProps {
 	onRespond(
 		requestId: string,
 		outcome: RequestPermissionOutcome,
-	): Promise<void>;
+	): Promise<RespondToPermissionResult> | Promise<void>;
 	renderChild(child: TimelineItem): React.ReactNode;
 }
 

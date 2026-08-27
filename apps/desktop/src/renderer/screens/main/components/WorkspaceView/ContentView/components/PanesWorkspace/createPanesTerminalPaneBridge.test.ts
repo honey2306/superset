@@ -4,6 +4,7 @@ import {
 	acpSessionStatusToPaneStatus,
 	createPanesTerminalPaneBridge,
 	getPanesTabStatus,
+	resolveAcpPaneStatus,
 	syncPanesAcpStatuses,
 	syncPanesTerminalStatuses,
 } from "./createPanesTerminalPaneBridge";
@@ -212,6 +213,29 @@ describe("createPanesTerminalPaneBridge", () => {
 		expect(acpSessionStatusToPaneStatus("idle")).toBe("idle");
 	});
 
+	test("prioritizes lifecycle status over stale notification status", () => {
+		expect(resolveAcpPaneStatus("running", "idle")).toBe("working");
+		expect(resolveAcpPaneStatus("running", "review")).toBe("working");
+		expect(resolveAcpPaneStatus("idle", "working")).toBe("idle");
+		expect(resolveAcpPaneStatus("idle", "permission")).toBe("idle");
+		expect(resolveAcpPaneStatus("idle", "review")).toBe("review");
+		expect(resolveAcpPaneStatus("offline", "review")).toBe("review");
+		expect(resolveAcpPaneStatus("offline", "working")).toBe("idle");
+		expect(resolveAcpPaneStatus("awaiting_permission", "askuser")).toBe(
+			"askuser",
+		);
+		expect(resolveAcpPaneStatus("awaiting_permission", "review")).toBe(
+			"permission",
+		);
+		expect(resolveAcpPaneStatus("dead", "working")).toBe("failed");
+	});
+
+	test("falls back to notification status only without lifecycle status", () => {
+		expect(resolveAcpPaneStatus(undefined, "working")).toBe("working");
+		expect(resolveAcpPaneStatus(undefined, "review")).toBe("review");
+		expect(resolveAcpPaneStatus(undefined)).toBeUndefined();
+	});
+
 	test("prefers AskUser when aggregating user-actionable pane statuses", () => {
 		const context = makeContext();
 		const tab = context.store.getState().getTab("tab-1");
@@ -287,5 +311,44 @@ describe("createPanesTerminalPaneBridge", () => {
 		expect(
 			context.store.getState().getPane("acp-pane")?.pane.data.acp?.status,
 		).toBe("idle");
+	});
+
+	test("keeps stale notification status from masking lifecycle status in tabs", () => {
+		const context = makeContext();
+		context.store.getState().addTab({
+			id: "tab-2",
+			panes: [
+				{
+					id: "acp-pane",
+					kind: "acp",
+					data: {
+						acp: {
+							sessionId: "session-a",
+							agentDefinitionId: "codex",
+							status: "idle",
+							notificationStatus: "idle",
+						},
+					},
+				},
+			],
+		});
+
+		syncPanesAcpStatuses(
+			context.store,
+			new Map([["session-a", "running"]]),
+			new Map([["session-a", "idle"]]),
+		);
+		const runningTab = context.store.getState().getTab("tab-2");
+		if (!runningTab) throw new Error("fixture setup failed");
+		expect(getPanesTabStatus(runningTab)).toBe("working");
+
+		syncPanesAcpStatuses(
+			context.store,
+			new Map([["session-a", "idle"]]),
+			new Map([["session-a", "working"]]),
+		);
+		const idleTab = context.store.getState().getTab("tab-2");
+		if (!idleTab) throw new Error("fixture setup failed");
+		expect(getPanesTabStatus(idleTab)).toBeNull();
 	});
 });

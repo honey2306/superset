@@ -80,6 +80,25 @@ export function syncPanesAcpStatuses(
 	}
 }
 
+/**
+ * Resolve the status shown by an ACP tab. Session lifecycle state is the
+ * active projection; notification status only carries details the lifecycle
+ * state does not encode (AskUser and unseen completion review).
+ */
+export function resolveAcpPaneStatus(
+	status: SessionStatus | undefined,
+	notificationStatus?: PaneStatus,
+): PaneStatus | undefined {
+	if (status === undefined) return notificationStatus;
+	if (status === "awaiting_permission") {
+		return notificationStatus === "askuser" ? "askuser" : "permission";
+	}
+	if (status === "idle" || status === "offline") {
+		return notificationStatus === "review" ? "review" : "idle";
+	}
+	return acpSessionStatusToPaneStatus(status);
+}
+
 export function getPanesTabStatus(
 	tab: Tab<PanesPaneData>,
 ): ReturnType<typeof getHighestPriorityStatus> {
@@ -88,8 +107,10 @@ export function getPanesTabStatus(
 			pane.kind === "terminal"
 				? pane.data.status
 				: pane.kind === "acp"
-					? (pane.data.acp?.notificationStatus ??
-						acpSessionStatusToPaneStatus(pane.data.acp?.status))
+					? resolveAcpPaneStatus(
+							pane.data.acp?.status,
+							pane.data.acp?.notificationStatus,
+						)
 					: undefined,
 		),
 	);

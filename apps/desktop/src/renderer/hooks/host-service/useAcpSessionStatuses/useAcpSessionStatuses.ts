@@ -1,5 +1,8 @@
-import type { SessionStatus } from "@superset/session-protocol";
-import { getEventBus } from "@superset/workspace-client";
+import type { SessionStatus, SessionsPage } from "@superset/session-protocol";
+import {
+	type AcpSessionChangedPayload,
+	getEventBus,
+} from "@superset/workspace-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
@@ -16,6 +19,39 @@ export interface AcpSessionStatusMaps {
 	sessionStatuses: Map<string, SessionStatus>;
 	notificationStatuses: Map<string, PaneStatus>;
 	sessionTitles: Map<string, string | null>;
+}
+
+/**
+ * Apply the status carried by an ACP lifecycle event to the list cache.
+ *
+ * The event bus is a fast projection channel, while the list query remains
+ * authoritative for the rest of the session row. Only an existing row with a
+ * concrete status is patched here; deletion and cache misses are deliberately
+ * left to the refetch below so this projection cannot invent or remove rows.
+ */
+export function patchAcpSessionStatusCache(
+	page: SessionsPage | undefined,
+	payload: AcpSessionChangedPayload,
+): SessionsPage | undefined {
+	if (
+		page === undefined ||
+		payload.eventType === "deleted" ||
+		payload.status === undefined
+	)
+		return page;
+	const nextStatus = payload.status;
+
+	let found = false;
+	let statusChanged = false;
+	const items = page.items.map((item) => {
+		if (item.sessionId !== payload.sessionId) return item;
+		found = true;
+		if (item.status === nextStatus) return item;
+		statusChanged = true;
+		return { ...item, status: nextStatus };
+	});
+
+	return found && statusChanged ? { ...page, items } : page;
 }
 
 /**
@@ -54,10 +90,24 @@ export function useAcpSessionStatusMapsAtHost(
 	useEffect(() => {
 		if (!hostUrl || !hostWorkspaceId) return;
 		const bus = getEventBus(hostUrl, () => getHostServiceWsToken(hostUrl));
-		const invalidate = () => {
+		const handleSessionChanged = (
+			_workspaceId: string,
+			payload: AcpSessionChangedPayload,
+		) => {
+			// Patch the projection synchronously so tabs/status bars do not wait for
+			// the list request. The subsequent invalidation fills in fields that are
+			// not carried by the lightweight event (pending permissions, stop reason,
+			// title, and timestamps).
+			queryClient.setQueryData<SessionsPage>(queryKey, (current) =>
+				patchAcpSessionStatusCache(current, payload),
+			);
 			void queryClient.invalidateQueries({ queryKey });
 		};
-		const off = bus.on("acp-session:changed", hostWorkspaceId, invalidate);
+		const off = bus.on(
+			"acp-session:changed",
+			hostWorkspaceId,
+			handleSessionChanged,
+		);
 		const release = bus.retain();
 		return () => {
 			off();

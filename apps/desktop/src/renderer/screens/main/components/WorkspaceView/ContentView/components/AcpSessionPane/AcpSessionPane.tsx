@@ -1,5 +1,6 @@
 import type {
 	RequestPermissionOutcome,
+	RespondToPermissionResult,
 	SessionConfigOption,
 	SessionModeState,
 	SessionStatus,
@@ -318,10 +319,13 @@ export function AcpSessionPane({
 	);
 
 	const handleRespond = useCallback(
-		async (requestId: string, outcome: RequestPermissionOutcome) => {
+		async (
+			requestId: string,
+			outcome: RequestPermissionOutcome,
+		): Promise<RespondToPermissionResult> => {
 			setMutationError(null);
 			try {
-				await permissions.respond(requestId, outcome);
+				return await permissions.respond(requestId, outcome);
 			} catch (err) {
 				setMutationError(
 					err instanceof Error

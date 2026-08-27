@@ -2,6 +2,7 @@ import type {
 	FoldedTimeline,
 	PlanItem,
 	RequestPermissionOutcome,
+	RespondToPermissionResult,
 	SessionStatus,
 	TimelineItem,
 	TranscriptTurnSummary,
@@ -119,7 +120,7 @@ interface AcpTimelineProps {
 	onRespond(
 		requestId: string,
 		outcome: RequestPermissionOutcome,
-	): Promise<void>;
+	): Promise<RespondToPermissionResult> | Promise<void>;
 	className?: string;
 	onOpenFile?(path: string): void;
 	onOpenMarkdownFile?(
@@ -170,7 +171,7 @@ function renderItem(
 	onRespond: (
 		requestId: string,
 		outcome: RequestPermissionOutcome,
-	) => Promise<void>,
+	) => Promise<RespondToPermissionResult> | Promise<void>,
 	agentLabel?: string,
 	onOpenFile?: (path: string) => void,
 	onOpenMarkdownFile?: (
