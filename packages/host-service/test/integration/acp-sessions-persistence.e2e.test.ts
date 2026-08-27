@@ -149,12 +149,20 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		expect(stopReason).toBe("end_turn");
 	}
 
-	function foldedMessages(
+	/**
+	 * Compacted turns are intentionally no longer exposed through the raw
+	 * getMessages journal. Fold the semantic transcript when a test is checking
+	 * user-visible history across a compaction/restart boundary.
+	 */
+	function foldedTranscript(
 		manager: AcpSessionManager,
 		sessionId: string,
 	): Timeline {
-		const page = manager.getMessages({ sessionId, limit: 500 });
-		return foldEnvelopes(emptyTimeline(), page.items);
+		const page = manager.getTranscript({ sessionId, limit: 50 });
+		return foldEnvelopes(
+			emptyTimeline(),
+			page.turns.flatMap((turn) => turn.items),
+		);
 	}
 
 	afterAll(async () => {
@@ -202,8 +210,9 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		expect(listed.lastStopReason).toBe("end_turn");
 		expect(listed.createdAt).toBe(stateBefore.createdAt);
 		expect(after.get(sessionId).status).toBe("offline");
-		// Durable history is readable without waking a native adapter.
-		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
+		// Compacted history is readable without waking a native adapter through
+		// the semantic transcript endpoint.
+		expect(messageText(foldedTranscript(after, sessionId), "agent")).toContain(
 			"hello before restart",
 		);
 		expect(after.get(sessionId).status).toBe("offline");
@@ -227,9 +236,9 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		await after.ensureLive(sessionId);
 		expect(after.adapterPid(sessionId)).toBe(pid);
 
-		// session/load replayed the stored transcript — both sides of the
-		// pre-restart conversation fold out of the fresh journal…
-		const timeline = foldedMessages(after, sessionId);
+		// session/load restores the native adapter, while compact history remains
+		// available through the semantic transcript projection.
+		const timeline = foldedTranscript(after, sessionId);
 		expect(messageText(timeline, "user")).toContain("say hello before restart");
 		expect(messageText(timeline, "agent")).toContain("hello before restart");
 		// …and the journal is a fresh gapless incarnation from seq 1.
@@ -244,7 +253,7 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 
 		// The resurrected session takes new turns.
 		await runTurn(after, sessionId, "say hello after restart");
-		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
+		expect(messageText(foldedTranscript(after, sessionId), "agent")).toContain(
 			"hello after restart",
 		);
 	}, 30_000);
@@ -281,59 +290,39 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		]);
 		await waitFor(
 			() =>
-				after
-					.getMessages({ sessionId, limit: 500 })
-					.items.some(
-						(envelope) =>
-							envelope.frame.kind === "update" &&
-							envelope.frame.commandId === commandId &&
-							envelope.frame.update.sessionUpdate === "user_message_chunk",
-					),
-			5_000,
-			"the replayed command admission",
-		);
-		await waitFor(
-			() =>
 				after.get(sessionId).status === "idle" &&
 				after.get(sessionId).lastStopReason === "end_turn",
 			5_000,
 			"the replayed command to finish",
 		);
 
+		// The command's raw lifecycle frames are intentionally removed together
+		// with the completed turn; its reservation remains the idempotency boundary.
 		const journal = persistence.loadJournal(
 			sessionId,
 			after.get(sessionId).epoch,
 		);
-		const commandUpdates = journal.filter(
-			(envelope) =>
-				envelope.frame.kind === "update" &&
-				envelope.frame.commandId === commandId,
-		);
-		expect(commandUpdates).toHaveLength(1);
 		expect(
-			journal.filter(
+			journal.some(
 				(envelope) =>
 					envelope.frame.kind === "remote_command" &&
 					envelope.frame.commandId === commandId,
 			),
-		).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					frame: expect.objectContaining({ status: "queued" }),
-				}),
-				expect.objectContaining({
-					frame: expect.objectContaining({ status: "started" }),
-				}),
-				expect.objectContaining({
-					frame: expect.objectContaining({
-						status: "finished",
-						outcome: "admitted",
-					}),
-				}),
-			]),
-		);
-		const timeline = foldedMessages(after, sessionId);
+		).toBe(false);
+		const timeline = foldedTranscript(after, sessionId);
 		expect(messageText(timeline, "agent")).toContain("durable queue replay");
+		// Re-delivery is acknowledged without scheduling a duplicate turn because
+		// the command reservation survives raw-journal compaction.
+		expect(
+			after.enqueuePrompt({
+				sessionId,
+				commandId,
+				prompt: [{ type: "text", text: "say duplicate must not run" }],
+			}),
+		).toEqual({ queueId: commandId });
+		expect(
+			messageText(foldedTranscript(after, sessionId), "agent"),
+		).not.toContain("duplicate must not run");
 	}, 30_000);
 
 	test("hibernates only an unsubscribed, quiescent runtime and resumes it through session/load", async () => {
@@ -368,9 +357,9 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		await manager.ensureLive(sessionId);
 		expect(manager.get(sessionId).status).toBe("idle");
 		await runTurn(manager, sessionId, "say resumed after hibernation");
-		expect(messageText(foldedMessages(manager, sessionId), "agent")).toContain(
-			"resumed after hibernation",
-		);
+		expect(
+			messageText(foldedTranscript(manager, sessionId), "agent"),
+		).toContain("resumed after hibernation");
 	}, 30_000);
 
 	test("does not hibernate a running or permission-blocked session", async () => {
@@ -502,9 +491,13 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 			.trim()
 			.split("\n")
 			.map((line) => JSON.parse(line) as { phase: string; meta?: unknown });
-		expect(requests.find((request) => request.phase === "load")?.meta).toEqual({
-			"sh.superset/skipTranscriptReplay": true,
-		});
+		const loadMeta = requests.find((request) => request.phase === "load")?.meta;
+		expect(loadMeta).toEqual(
+			expect.objectContaining({
+				"sh.superset/skipTranscriptReplay": true,
+				"sh.superset/delegationInstructions": expect.any(String),
+			}),
+		);
 	}, 30_000);
 
 	test("session/load bounds its pre-runtime replay to the configured catch-up window", async () => {
@@ -520,12 +513,17 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		await after.ensureLive(sessionId);
 		const page = after.getMessages({ sessionId, limit: 100 });
 		expect(page.items.length).toBeLessThanOrEqual(4);
-		const text = messageText(
+		const rawText = messageText(
 			foldEnvelopes(emptyTimeline(), page.items),
 			"agent",
 		);
+		expect(rawText).not.toContain("replay-marker-1");
+		expect(rawText).not.toContain("replay-marker-6");
+		// The compact transcript is complete even though the raw journal is only
+		// a bounded live/catch-up tail.
+		const text = messageText(foldedTranscript(after, sessionId), "agent");
 		expect(text).toContain("replay-marker-6");
-		expect(text).not.toContain("replay-marker-1");
+		expect(text).toContain("replay-marker-1");
 	}, 30_000);
 
 	test("semantic transcript indexing uses the durable journal beyond the live ring", async () => {
@@ -596,7 +594,7 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 			workspaceId: WORKSPACE_ID,
 		});
 		expect(created.status).toBe("idle");
-		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
+		expect(messageText(foldedTranscript(after, sessionId), "agent")).toContain(
 			"marker-one",
 		);
 	}, 30_000);
@@ -630,11 +628,11 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 		// The adapter's native session was gone, but Superset's own journal stays
 		// authoritative for the visible transcript.
 		expect(after.get(sessionId).status).toBe("idle");
-		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
+		expect(messageText(foldedTranscript(after, sessionId), "agent")).toContain(
 			"doomed",
 		);
 		await runTurn(after, sessionId, "say fresh-after-missing-upstream");
-		expect(messageText(foldedMessages(after, sessionId), "agent")).toContain(
+		expect(messageText(foldedTranscript(after, sessionId), "agent")).toContain(
 			"fresh-after-missing-upstream",
 		);
 		const replacementRecord = persistence
@@ -677,21 +675,16 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 			}),
 		);
 		await waitFor(
-			() =>
-				received.some(
-					(envelope) =>
-						envelope.frame.kind === "update" &&
-						envelope.frame.update.sessionUpdate === "agent_message_chunk",
-				),
+			() => received.length > 0,
 			10_000,
-			"the replayed transcript over the stream",
+			"the current journal state over the stream",
 		);
 		expectGapless(received);
-		const timeline = foldEnvelopes(
-			emptyTimeline(),
-			received.filter((envelope) => envelope.frame.kind !== "state"),
+		// Historical assistant content is compacted out of the raw stream; the
+		// semantic transcript remains the source for a full offline history read.
+		expect(messageText(foldedTranscript(after, sessionId), "agent")).toContain(
+			"stream-marker",
 		);
-		expect(messageText(timeline, "agent")).toContain("stream-marker");
 		expect(after.get(sessionId).status).toBe("idle");
 	}, 30_000);
 
@@ -730,11 +723,11 @@ describe("acp-sessions persistence e2e (fake adapter)", () => {
 
 		// A history fetch is passive: opening a tab must not spawn a native agent
 		// or fail because its upstream history has gone away.
-		const page = await hostAfter.trpc.acpSessions.getMessages.query({
+		await hostAfter.trpc.acpSessions.getMessages.query({
 			sessionId,
 			limit: 200,
 		});
-		const timeline = foldEnvelopes(emptyTimeline(), page.items);
+		const timeline = foldedTranscript(managerAfter, sessionId);
 		expect(messageText(timeline, "agent")).toContain("router-marker");
 		expect(
 			(await hostAfter.trpc.acpSessions.get.query({ sessionId })).status,
