@@ -38,10 +38,17 @@ agent presets launch through ACP; it does not enable or disable the runtime.
 **Detach and close semantics**: renderer teardown, workspace switching, and a
 temporary pane-view detach only release the UI subscription. They do not stop
 the daemon-owned adapter or active interaction. The user-facing **Close agent
-session** action is explicit and permanent: `Panes` calls `acpSessions.close`,
-the Host removes the recoverable session rows, and the daemon tears down the
-adapter. Closing a whole `Panes` tab applies the same close operation to its ACP
-panes. A failed close leaves the pane visible so the user can retry.
+session** action is explicit: `Panes` calls `acpSessions.close`, the Host tears
+down the adapter and removes runtime journal/command rows, while compact turn
+records remain available to render the conversation later. Closing a whole
+`Panes` tab applies the same close operation to its ACP panes. A failed close
+leaves the pane visible so the user can retry.
+
+The current close API deliberately removes the registry row, so a future
+Recent/reopen surface still needs a separate archived-session index (workspace,
+title, and session id). Until that seam is added, callers that already know the
+session id can read its compact transcript, but reopening it never starts an
+ACP adapter implicitly.
 
 ## Session Identity And Persistence
 
@@ -60,12 +67,15 @@ created_at
 updated_at
 ```
 
-The row is registry metadata only. Host SQLite does not store message bodies,
-tool payloads, permission payloads, or journal frames. Conversation content
-remains in the selected agent's native session store; the adapter owns its
-session-id mapping and load behavior. Explicit close removes the registry row
-and associated recoverable Host metadata, but does not promise deletion of an
-agent vendor's independent native transcript store.
+The row is registry metadata only. Host SQLite does not store raw tool payloads,
+permission payloads, or streaming journal frames after turn compaction.
+Completed turns are projected into `acp_session_turns` with the user message,
+final assistant message, terminal status, timing/count metadata, and minimal
+tool summaries (`name`, `title`, `status`, and locations). Explicit close
+removes the registry, journal, and command rows but intentionally keeps those
+compact turn records so a later history read does not need to start an ACP
+adapter. The adapter still owns its native session-id mapping and independent
+vendor transcript store.
 
 Every state emission best-effort upserts the registry row. A registry write
 failure is logged and does not stop a live turn, so restart recovery is not
@@ -83,6 +93,9 @@ guaranteed if the write failed.
    `bypassPermissions` mode.
 5. The initial state frame enters the in-memory journal and the registry row is
    written.
+6. After each prompt settles, the Host writes its compact turn projection in a
+   transaction, rotates the journal epoch, and clears the raw process journal.
+   A failed or cancelled prompt is compacted with that terminal status too.
 
 Create is idempotent for the same public session and workspace. Reusing a
 session id with a different workspace is a conflict.
@@ -111,9 +124,10 @@ an `offline` map. `list`, `get`, and `getMessages` are passive durable reads:
 they never spawn an adapter. A command or stream attach calls `ensureLive`,
 which starts the correct adapter and invokes `session/load` with the persisted
 native id and cwd.
-Completed transcript content is recovered, but a turn or permission callback
-that was live when the daemon died cannot be reconstructed. Open replayed tool
-calls are terminalized.
+Completed compact transcript content is recovered without replaying its raw
+process journal. A turn or permission callback that was live when the daemon
+died cannot be reconstructed; open replayed tool calls are terminalized and the
+incomplete turn is marked failed at the next terminal boundary.
 
 If `session/load` reports the protocol-defined resource-not-found error, the
 manager discards the entire failed adapter process and ACP connection before
@@ -133,8 +147,9 @@ registry rows remain. A dead runtime is not restarted in the same daemon process
 after a daemon restart its registry row is offline and can be loaded again.
 
 The dead runtime and registry row remain available until the user explicitly
-closes the ACP session. Explicit close removes the durable row and prevents
-later resurrection.
+closes the ACP session. Explicit close removes the runtime/recovery rows and
+prevents later resurrection, while compact turns remain readable by
+`getTranscript` for the known session id.
 
 ## Memory And History
 
@@ -145,6 +160,13 @@ Each active runtime holds:
 - pending permission resolvers and open tool ids;
 - subscribers;
 - a ring journal capped at 5,000 envelopes.
+
+The ring is process state, not the durable conversation archive. Once a turn
+reaches `completed`, `failed`, or `cancelled`, the Host stores its compact
+projection in `acp_session_turns` and replaces the raw journal with a new epoch
+containing only fresh runtime state. `getTranscript` merges compact turns with
+any still-running raw tail, so the process row can show persisted tool/message
+counts and duration after a restart or close.
 
 The host does not hold a separate folded message list. Clients fold ACP frames
 through `@superset/session-protocol`; that fold also creates the Tool Call
@@ -170,7 +192,8 @@ do not rescan the complete journal. Restoring an older host database into the
 same data directory requires deleting that marker before starting the daemon,
 which safely reruns the idempotent pass.
 
-However, the current design still gives the ring two jobs:
+Before compact-turn storage is migrated, the current design still gives the
+ring two jobs:
 
 1. recent WebSocket catch-up with `?since=<seq>`;
 2. `getMessages` history pagination.
@@ -179,7 +202,9 @@ That second job is the remaining design problem. ACP `session/load` replays the
 entire native transcript but exposes no paginated history API. The ring retains
 only its newest 5,000 frames, so history older than the retained window cannot
 be fetched. Shrinking the ring now would reduce available history rather than
-move older pages to disk.
+move older pages to disk. Hosts with the compact-turn table no longer need raw
+envelopes for completed-turn history; the ring remains necessary for live
+catch-up and the currently running turn.
 
 The target design is explicit in the follow-up plan: `getMessages` pages a
 disk-backed history source, while the in-memory ring keeps only a small recent
@@ -405,3 +430,13 @@ Still required before treating the boundary as production-hardened:
 - Host DB table: `packages/host-service/src/db/schema.ts`
 - Shared contracts/sync/hooks: `packages/session-protocol/`
 - All remaining work: `plans/acp-session-follow-ups.md`
+
+The `acp_session_turns` table is defined in the Host schema but its generated
+Drizzle migration is intentionally not part of this change. Generate it from
+the schema before rollout with:
+
+```bash
+bun run --cwd packages/host-service generate
+```
+
+Do not hand-author files under `packages/host-service/drizzle/`.

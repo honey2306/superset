@@ -1290,6 +1290,41 @@ describe("turn durations", () => {
 		await act(async () => {});
 		expect(screen.getByText("耗时 3s")).toBeTruthy();
 	});
+
+	test("keeps the persisted process summary after raw process items are compacted", async () => {
+		render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [userMessage(10), message(20)],
+				},
+				onRespond: async () => {},
+				sessionId: "session-compacted",
+				status: "idle",
+				turnIndex: [
+					{
+						turnNumber: 1,
+						startSeq: 10,
+						endSeq: 20,
+						userPreview: "message 10",
+						agentPreview: "message 20",
+						isComplete: true,
+						status: "completed",
+						startedAt: 1_000,
+						completedAt: 15_000,
+						durationMs: 14_000,
+						toolCallCount: 2,
+						messageCount: 1,
+						toolSummaries: [],
+					},
+				],
+			}),
+		);
+
+		await act(async () => {});
+		expect(screen.getByText("执行过程：2 次工具调用，1 条消息")).toBeTruthy();
+		expect(screen.getByText("耗时 14s")).toBeTruthy();
+	});
 });
 
 describe("subagent rendering", () => {

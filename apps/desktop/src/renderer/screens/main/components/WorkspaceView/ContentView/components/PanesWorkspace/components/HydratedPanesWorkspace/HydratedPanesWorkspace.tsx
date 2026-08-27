@@ -1,4 +1,4 @@
-import { Workspace } from "@superset/panes";
+import { type Tab, Workspace } from "@superset/panes";
 import { useEffect } from "react";
 import { useAcpSessionStatusMapsAtHost } from "renderer/hooks/host-service/useAcpSessionStatuses";
 import { useTerminalAgentStatusesAtHost } from "renderer/hooks/host-service/useTerminalAgentStatuses";
@@ -14,6 +14,8 @@ import {
 	syncPanesTerminalStatuses,
 } from "../../createPanesTerminalPaneBridge";
 import { PanesPresetBar } from "../../PanesPresetBar";
+import { runPanesBeforeCloseTab } from "../../runPanesBeforeCloseTab";
+import type { PanesPaneData } from "../../types";
 import { useAcpSessionOpenRequests } from "../../useAcpSessionOpenRequests";
 import { useMergeRequestOpenRequests } from "../../useMergeRequestOpenRequests";
 import { usePanesDeepLinkConsumer } from "../../usePanesDeepLinkConsumer";
@@ -82,6 +84,9 @@ export function HydratedPanesWorkspace({
 		return () => unregisterPanesStore(workspaceId, store);
 	}, [workspaceId, store]);
 
+	const onBeforeCloseTab = (tab: Tab<PanesPaneData>) =>
+		runPanesBeforeCloseTab(tab, registry);
+
 	return (
 		<div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
 			<Workspace
@@ -91,6 +96,7 @@ export function HydratedPanesWorkspace({
 				registry={registry}
 				paneActions={paneActions}
 				contextMenuActions={contextMenuActions}
+				onBeforeCloseTab={onBeforeCloseTab}
 				onAddTab={openers.addTerminalTab}
 				renderTabAccessory={(tab) => {
 					const status = getPanesTabStatus(tab);

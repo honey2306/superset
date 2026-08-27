@@ -21,6 +21,7 @@ export {
 export {
 	type AcpSessionPersistence,
 	type AcpSessionRecord,
+	type AcpSessionTurnRecord,
 	type DelegationRunPersistence,
 	type DelegationRunRecord,
 	SqliteAcpSessionPersistence,
@@ -31,3 +32,7 @@ export {
 	type AcpSessionStreamSource,
 	registerAcpSessionStreamRoute,
 } from "./stream";
+export {
+	compactTranscriptTurns,
+	type TurnCompletion,
+} from "./turn-compaction";

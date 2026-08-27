@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import type { SessionUpdateEnvelope } from "@superset/session-protocol";
 import { encodeTranscriptCursor } from "@superset/session-protocol";
-import { buildTranscriptPage } from "./transcript";
+import {
+	buildTranscriptPage,
+	transcriptTurnFromCompactRecord,
+} from "./transcript";
 
 function envelope(
 	seq: number,
@@ -84,4 +87,48 @@ test("defaults to the latest eight turns and pages one older turn at a time", ()
 	});
 	expect(older.turns.map(({ turnNumber }) => turnNumber)).toEqual([2]);
 	expect(older.nextCursor).toBe(encodeTranscriptCursor(2));
+});
+
+test("rehydrates only compact messages and tool summaries", () => {
+	const turn = transcriptTurnFromCompactRecord(
+		{
+			sessionId: "session-1",
+			turnNumber: 1,
+			epoch: "epoch-1",
+			startSeq: 10,
+			endSeq: 20,
+			userMessage: [{ type: "text", text: "Inspect it" }],
+			assistantMessage: [{ type: "text", text: "Done" }],
+			status: "completed",
+			startedAt: 100,
+			completedAt: 250,
+			durationMs: 150,
+			messageCount: 1,
+			toolCallCount: 1,
+			toolSummaries: [
+				{
+					toolCallId: "tool-1",
+					name: "read",
+					title: "Read file",
+					status: "completed",
+					locations: [{ path: "/tmp/example.ts", line: 7 }],
+				},
+			],
+		},
+		-3,
+	);
+
+	expect(
+		turn.items.map((item) =>
+			item.frame.kind === "update" ? item.frame.update.sessionUpdate : null,
+		),
+	).toEqual(["user_message_chunk", "tool_call", "agent_message_chunk"]);
+	expect(JSON.stringify(turn.items)).not.toContain("rawInput");
+	expect(JSON.stringify(turn.items)).not.toContain("rawOutput");
+	expect(turn.startSeq).toBe(-3);
+	expect(turn.endSeq).toBe(-1);
+	expect(turn.items[1]?.frame).toMatchObject({
+		kind: "update",
+		update: { toolCallId: "compact:1:tool-1" },
+	});
 });

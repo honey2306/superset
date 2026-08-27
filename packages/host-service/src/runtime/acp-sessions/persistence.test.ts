@@ -67,6 +67,134 @@ describe("SqliteAcpSessionPersistence delegation runs", () => {
 		sqlite.close();
 	});
 
+	test("writes compact turns and removes raw journal atomically", () => {
+		const sqlite = new Database(":memory:");
+		sqlite.exec(`
+			CREATE TABLE acp_sessions (
+				session_id TEXT PRIMARY KEY,
+				epoch TEXT NOT NULL,
+				updated_at INTEGER NOT NULL
+			);
+			CREATE TABLE acp_session_commands (
+				session_id TEXT NOT NULL,
+				command_id TEXT NOT NULL,
+				created_at INTEGER NOT NULL,
+				PRIMARY KEY (session_id, command_id)
+			);
+			CREATE TABLE acp_session_journal (
+				session_id TEXT NOT NULL,
+				epoch TEXT NOT NULL,
+				seq INTEGER NOT NULL,
+				ts INTEGER NOT NULL,
+				frame_json TEXT NOT NULL,
+				PRIMARY KEY (session_id, epoch, seq)
+			);
+			CREATE TABLE acp_session_turns (
+				session_id TEXT NOT NULL,
+				turn_number INTEGER NOT NULL,
+				epoch TEXT NOT NULL,
+				start_seq INTEGER NOT NULL,
+				end_seq INTEGER NOT NULL,
+				user_message_json TEXT NOT NULL,
+				assistant_message_json TEXT,
+				status TEXT NOT NULL,
+				started_at INTEGER NOT NULL,
+				completed_at INTEGER NOT NULL,
+				duration_ms INTEGER NOT NULL,
+				message_count INTEGER NOT NULL,
+				tool_call_count INTEGER NOT NULL,
+				tool_summaries_json TEXT NOT NULL DEFAULT '[]',
+				PRIMARY KEY (session_id, turn_number)
+			);
+		`);
+		const db = drizzle(sqlite, { schema }) as unknown as HostDb;
+		const persistence = new SqliteAcpSessionPersistence(db);
+		const sessionId = "session-compact";
+		sqlite
+			.query(
+				"INSERT INTO acp_sessions (session_id, epoch, updated_at) VALUES (?, ?, ?)",
+			)
+			.run(sessionId, "epoch-1", 10);
+		sqlite
+			.query(
+				"INSERT INTO acp_session_commands (session_id, command_id, created_at) VALUES (?, ?, ?)",
+			)
+			.run(sessionId, "command-1", 10);
+		sqlite
+			.query(
+				"INSERT INTO acp_session_journal (session_id, epoch, seq, ts, frame_json) VALUES (?, ?, ?, ?, ?)",
+			)
+			.run(sessionId, "epoch-1", 1, 10, '{"kind":"state"}');
+
+		persistence.compactTurns({
+			sessionId,
+			nextEpoch: "epoch-2",
+			turns: [
+				{
+					sessionId,
+					turnNumber: 1,
+					epoch: "epoch-1",
+					startSeq: 1,
+					endSeq: 4,
+					userMessage: [{ type: "text", text: "hello" }],
+					assistantMessage: [{ type: "text", text: "world" }],
+					status: "completed",
+					startedAt: 10,
+					completedAt: 40,
+					durationMs: 30,
+					messageCount: 1,
+					toolCallCount: 1,
+					toolSummaries: [
+						{
+							toolCallId: "tool-1",
+							name: "read",
+							title: "/tmp/example.ts",
+							status: "completed",
+							locations: [{ path: "/tmp/example.ts", line: 3 }],
+						},
+					],
+				},
+			],
+		});
+
+		expect(persistence.loadTurns(sessionId)).toEqual([
+			{
+				sessionId,
+				turnNumber: 1,
+				epoch: "epoch-1",
+				startSeq: 1,
+				endSeq: 4,
+				userMessage: [{ type: "text", text: "hello" }],
+				assistantMessage: [{ type: "text", text: "world" }],
+				status: "completed",
+				startedAt: 10,
+				completedAt: 40,
+				durationMs: 30,
+				messageCount: 1,
+				toolCallCount: 1,
+				toolSummaries: [
+					{
+						toolCallId: "tool-1",
+						name: "read",
+						title: "/tmp/example.ts",
+						status: "completed",
+						locations: [{ path: "/tmp/example.ts", line: 3 }],
+					},
+				],
+			},
+		]);
+		expect(
+			sqlite
+				.query("SELECT epoch FROM acp_sessions WHERE session_id = ?")
+				.get(sessionId),
+		).toEqual({ epoch: "epoch-2" });
+		expect(persistence.loadJournal(sessionId, "epoch-1")).toEqual([]);
+		expect(
+			sqlite.query("SELECT COUNT(*) AS count FROM acp_session_commands").get(),
+		).toEqual({ count: 1 });
+		sqlite.close();
+	});
+
 	test("creates, queries, lists, and updates durable handoffs", () => {
 		const sqlite = new Database(":memory:");
 		sqlite.exec(`

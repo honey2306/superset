@@ -1,9 +1,13 @@
 import type {
+	ContentBlock,
 	HarnessKind,
 	SessionUpdateEnvelope,
 	SessionUpdateFrame,
 	StopReason,
 	SupersetSessionRole,
+	ToolCallStatus,
+	TranscriptToolSummary,
+	TranscriptTurnStatus,
 } from "@superset/session-protocol";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { HostDb } from "../../db";
@@ -11,6 +15,7 @@ import {
 	acpSessionCommands,
 	acpSessionJournal,
 	acpSessions,
+	acpSessionTurns,
 	type DelegationRunStatus,
 	delegationRuns,
 } from "../../db/schema";
@@ -42,6 +47,28 @@ export interface AcpSessionRecord {
 	lastCompletedAt?: number | null;
 	createdAt: number;
 	updatedAt: number;
+}
+
+/**
+ * The durable projection of one terminal turn. It is intentionally independent
+ * from the raw journal so closing a tab can remove runtime data while keeping
+ * the conversation users may reopen later.
+ */
+export interface AcpSessionTurnRecord {
+	sessionId: string;
+	turnNumber: number;
+	epoch: string;
+	startSeq: number;
+	endSeq: number;
+	userMessage: ContentBlock[];
+	assistantMessage: ContentBlock[] | null;
+	status: TranscriptTurnStatus;
+	startedAt: number;
+	completedAt: number;
+	durationMs: number;
+	messageCount: number;
+	toolCallCount: number;
+	toolSummaries: TranscriptToolSummary[];
 }
 
 /** A durable, queryable record of a parent session's delegated handoff. */
@@ -99,6 +126,15 @@ export interface AcpSessionPersistence {
 	loadAll(): AcpSessionRecord[];
 	upsert(record: AcpSessionRecord): void;
 	loadJournal(sessionId: string, epoch: string): SessionUpdateEnvelope[];
+	/** Read compact turns; optional for legacy/in-memory persistence adapters. */
+	loadTurns?(sessionId: string): AcpSessionTurnRecord[];
+	/** Atomically write compact turns and remove their raw runtime journal. */
+	compactTurns?(input: {
+		sessionId: string;
+		/** New journal incarnation to publish with the compacted boundary. */
+		nextEpoch: string;
+		turns: AcpSessionTurnRecord[];
+	}): void;
 	appendEnvelope(envelope: SessionUpdateEnvelope): void;
 	/** True only for the first delivery of a client-generated command id. */
 	reserveCommand(sessionId: string, commandId: string): boolean;
@@ -114,6 +150,104 @@ export interface AcpSessionPersistence {
 	): boolean;
 	releaseCommand(sessionId: string, commandId: string): void;
 	deleteSession(sessionId: string): void;
+}
+
+function parseJson(raw: string, field: string): unknown {
+	try {
+		return JSON.parse(raw) as unknown;
+	} catch (error) {
+		throw new Error(`Invalid ACP compact turn ${field} JSON`, { cause: error });
+	}
+}
+
+function parseContentBlocks(raw: string, field: string): ContentBlock[] {
+	const value = parseJson(raw, field);
+	if (!Array.isArray(value)) {
+		throw new Error(`Invalid ACP compact turn ${field}: expected an array`);
+	}
+	return value as ContentBlock[];
+}
+
+function parseTranscriptTurnStatus(value: string): TranscriptTurnStatus {
+	if (value === "completed" || value === "failed" || value === "cancelled") {
+		return value;
+	}
+	throw new Error(`Invalid ACP compact turn status: ${value}`);
+}
+
+function parseToolSummaries(raw: string): TranscriptToolSummary[] {
+	const value = parseJson(raw, "toolSummaries");
+	if (!Array.isArray(value)) {
+		throw new Error(
+			"Invalid ACP compact turn toolSummaries: expected an array",
+		);
+	}
+	return value.map((candidate, index) => {
+		if (!isRecord(candidate)) {
+			throw new Error(`Invalid ACP compact tool summary at index ${index}`);
+		}
+		const toolCallId = candidate.toolCallId;
+		const name = candidate.name;
+		const title = candidate.title;
+		const status = candidate.status;
+		const locations = candidate.locations;
+		if (
+			typeof toolCallId !== "string" ||
+			typeof name !== "string" ||
+			typeof title !== "string" ||
+			!isToolCallStatus(status) ||
+			!Array.isArray(locations)
+		) {
+			throw new Error(`Invalid ACP compact tool summary at index ${index}`);
+		}
+		return {
+			toolCallId,
+			name,
+			title,
+			status,
+			locations: locations.map((location, locationIndex) =>
+				parseToolLocation(location, index, locationIndex),
+			),
+		};
+	});
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isToolCallStatus(value: unknown): value is ToolCallStatus {
+	return (
+		value === "pending" ||
+		value === "in_progress" ||
+		value === "completed" ||
+		value === "failed"
+	);
+}
+
+function parseToolLocation(
+	value: unknown,
+	summaryIndex: number,
+	locationIndex: number,
+): { path: string; line?: number | null } {
+	if (!isRecord(value) || typeof value.path !== "string") {
+		throw new Error(
+			`Invalid ACP compact tool location at ${summaryIndex}:${locationIndex}`,
+		);
+	}
+	if (
+		value.line !== undefined &&
+		value.line !== null &&
+		(typeof value.line !== "number" || !Number.isFinite(value.line))
+	) {
+		throw new Error(
+			`Invalid ACP compact tool location line at ${summaryIndex}:${locationIndex}`,
+		);
+	}
+	return {
+		path: value.path,
+		...(value.line !== undefined ? { line: value.line as number | null } : {}),
+	};
 }
 
 export class SqliteAcpSessionPersistence
@@ -187,6 +321,93 @@ export class SqliteAcpSessionPersistence
 			}
 		}
 		return envelopes;
+	}
+
+	loadTurns(sessionId: string): AcpSessionTurnRecord[] {
+		return this.db
+			.select()
+			.from(acpSessionTurns)
+			.where(eq(acpSessionTurns.sessionId, sessionId))
+			.orderBy(asc(acpSessionTurns.turnNumber))
+			.all()
+			.map((row) => ({
+				sessionId: row.sessionId,
+				turnNumber: row.turnNumber,
+				epoch: row.epoch,
+				startSeq: row.startSeq,
+				endSeq: row.endSeq,
+				userMessage: parseContentBlocks(row.userMessageJson, "userMessage"),
+				assistantMessage: row.assistantMessageJson
+					? parseContentBlocks(row.assistantMessageJson, "assistantMessage")
+					: null,
+				status: parseTranscriptTurnStatus(row.status),
+				startedAt: row.startedAt,
+				completedAt: row.completedAt,
+				durationMs: row.durationMs,
+				messageCount: row.messageCount,
+				toolCallCount: row.toolCallCount,
+				toolSummaries: parseToolSummaries(row.toolSummariesJson),
+			}));
+	}
+
+	compactTurns(input: {
+		sessionId: string;
+		nextEpoch: string;
+		turns: AcpSessionTurnRecord[];
+	}): void {
+		this.db.transaction((tx) => {
+			for (const turn of input.turns) {
+				tx.insert(acpSessionTurns)
+					.values({
+						sessionId: turn.sessionId,
+						turnNumber: turn.turnNumber,
+						epoch: turn.epoch,
+						startSeq: turn.startSeq,
+						endSeq: turn.endSeq,
+						userMessageJson: JSON.stringify(turn.userMessage),
+						assistantMessageJson: turn.assistantMessage
+							? JSON.stringify(turn.assistantMessage)
+							: null,
+						status: turn.status,
+						startedAt: turn.startedAt,
+						completedAt: turn.completedAt,
+						durationMs: turn.durationMs,
+						messageCount: turn.messageCount,
+						toolCallCount: turn.toolCallCount,
+						toolSummariesJson: JSON.stringify(turn.toolSummaries),
+					})
+					.onConflictDoUpdate({
+						target: [acpSessionTurns.sessionId, acpSessionTurns.turnNumber],
+						set: {
+							epoch: turn.epoch,
+							startSeq: turn.startSeq,
+							endSeq: turn.endSeq,
+							userMessageJson: JSON.stringify(turn.userMessage),
+							assistantMessageJson: turn.assistantMessage
+								? JSON.stringify(turn.assistantMessage)
+								: null,
+							status: turn.status,
+							startedAt: turn.startedAt,
+							completedAt: turn.completedAt,
+							durationMs: turn.durationMs,
+							messageCount: turn.messageCount,
+							toolCallCount: turn.toolCallCount,
+							toolSummariesJson: JSON.stringify(turn.toolSummaries),
+						},
+					})
+					.run();
+			}
+			// Keep command reservations until the session is explicitly closed.
+			// They are the idempotency boundary for retried remote commands; deleting
+			// one during ordinary turn compaction could execute a retry twice.
+			tx.delete(acpSessionJournal)
+				.where(eq(acpSessionJournal.sessionId, input.sessionId))
+				.run();
+			tx.update(acpSessions)
+				.set({ epoch: input.nextEpoch, updatedAt: Date.now() })
+				.where(eq(acpSessions.sessionId, input.sessionId))
+				.run();
+		});
 	}
 
 	appendEnvelope(envelope: SessionUpdateEnvelope): void {

@@ -607,6 +607,18 @@ export const AcpTimeline = memo(
 			}
 			return numbers;
 		}, [turnIndex, turns]);
+		const turnSummaryById = useMemo(() => {
+			const summaries = new Map<string, TranscriptTurnSummary>();
+			for (const turn of turns) {
+				const userMessage = getTurnUserMessage(turn);
+				if (!userMessage) continue;
+				const summary = turnIndex.find(
+					(candidate) => candidate.startSeq === userMessage.startSeq,
+				);
+				if (summary) summaries.set(turn.id, summary);
+			}
+			return summaries;
+		}, [turnIndex, turns]);
 		// Async rail navigation can span a transcript fetch and a React commit.
 		// Keep the latest grouped turns available to that callback while retaining
 		// stable virtualizer/item keys across prepends.
@@ -990,13 +1002,36 @@ export const AcpTimeline = memo(
 										status,
 									);
 									const turnSettled = isTurnSettled(turn, isLast, status);
+									const persistedSummary = turnSummaryById.get(turn.id);
+									const summaryToolCallCount =
+										persistedSummary?.toolCallCount ?? turn.toolCallCount;
+									const summaryMessageCount =
+										persistedSummary?.messageCount ?? turn.messageCount;
+									const hasProcessSummary =
+										autoCollapse ||
+										summaryToolCallCount > 0 ||
+										summaryMessageCount > 0;
 									const override = expandedOverrides[turn.id];
 									const expanded =
-										override !== undefined ? override : !autoCollapse;
+										override !== undefined ? override : !hasProcessSummary;
 									const turnNumber = turnNumberById.get(turn.id);
 									const duration = formatTurnDuration(
-										turnDurations.get(turn.id) ?? 0,
+										persistedSummary?.durationMs ??
+											turnDurations.get(turn.id) ??
+											0,
 									);
+									const processSummaryText = (() => {
+										const parts: string[] = [];
+										if (summaryToolCallCount > 0) {
+											parts.push(`${summaryToolCallCount} 次工具调用`);
+										}
+										if (summaryMessageCount > 0) {
+											parts.push(`${summaryMessageCount} 条消息`);
+										}
+										return parts.length > 0
+											? `执行过程：${parts.join("，")}`
+											: turnSummaryText(turn);
+									})();
 									return (
 										<div
 											key={virtualTurn.key}
@@ -1040,9 +1075,9 @@ export const AcpTimeline = memo(
 													turn.finalAgentMessage) && (
 													<AcpAgentAuthorRow agentLabel={agentLabel} />
 												)}
-												{autoCollapse && (
+												{hasProcessSummary && (
 													<AcpTurnSummary
-														text={turnSummaryText(turn)}
+														text={processSummaryText}
 														expanded={expanded}
 														onToggle={() => toggleTurnExpanded(turn.id)}
 														duration={duration}

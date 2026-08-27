@@ -49,6 +49,7 @@ import {
 	AcpSessionNotFoundError,
 	type AcpSessionPersistence,
 	type AcpSessionRecord,
+	type AcpSessionTurnRecord,
 	AcpWorkspaceMismatchError,
 	registerAcpSessionStreamRoute,
 } from "../../src/runtime/acp-sessions";
@@ -122,6 +123,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		piAdapterEntry?: string;
 		adapterExecPath?: string;
 		adapterEnv?: Record<string, string>;
+		persistence?: AcpSessionPersistence;
 		startupTimeoutMs?: number;
 		modelFacingInstructions?: () => string | undefined;
 		generateTitle?: (input: {
@@ -2299,6 +2301,102 @@ describe("acp-sessions e2e (fake adapter)", () => {
 			prompt: [{ type: "text", text: "title-clear" }],
 		}).turn;
 		expect(manager.get(sessionId).title).toBeNull();
+	}, 30_000);
+
+	test("compacts a completed turn and keeps its transcript after close", async () => {
+		const sessionId = "e2e-compact-after-close";
+		const registry = new Map<string, AcpSessionRecord>();
+		const journal: SessionUpdateEnvelope[] = [];
+		const commands = new Set<string>();
+		const turns: AcpSessionTurnRecord[] = [];
+		const persistence: AcpSessionPersistence = {
+			loadAll: () => [...registry.values()],
+			upsert: (record) => registry.set(record.sessionId, record),
+			loadJournal: (id) =>
+				journal.filter((envelope) => envelope.sessionId === id),
+			appendEnvelope: (envelope) => journal.push(envelope),
+			loadTurns: (id) => turns.filter((turn) => turn.sessionId === id),
+			compactTurns: ({ sessionId: id, turns: compacted }) => {
+				for (const turn of compacted) {
+					const existing = turns.findIndex(
+						(candidate) =>
+							candidate.sessionId === turn.sessionId &&
+							candidate.turnNumber === turn.turnNumber,
+					);
+					if (existing >= 0) turns[existing] = turn;
+					else turns.push(turn);
+				}
+				for (let index = journal.length - 1; index >= 0; index -= 1) {
+					if (journal[index]?.sessionId === id) journal.splice(index, 1);
+				}
+			},
+			reserveCommand: (_id, commandId) => {
+				if (commands.has(commandId)) return false;
+				commands.add(commandId);
+				return true;
+			},
+			releaseCommand: (_id, commandId) => commands.delete(commandId),
+			deleteSession: (id) => {
+				registry.delete(id);
+				for (let index = journal.length - 1; index >= 0; index -= 1) {
+					if (journal[index]?.sessionId === id) journal.splice(index, 1);
+				}
+			},
+		};
+		const manager = newManager({ persistence });
+		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+		const { turn } = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "say compacted response" }],
+		});
+		expect((await turn).stopReason).toBe("end_turn");
+
+		expect(turns).toHaveLength(1);
+		expect(turns[0]?.assistantMessage).toEqual([
+			{ type: "text", text: "compacted response" },
+		]);
+		expect(turns[0]?.status).toBe("completed");
+		expect(turns[0]?.durationMs).toBeGreaterThanOrEqual(0);
+		expect(
+			manager.getMessages({ sessionId }).items,
+			"raw process frames are gone after compaction",
+		).toEqual([]);
+		expect(manager.getTranscript({ sessionId }).totalTurns).toBe(1);
+		expect(
+			(
+				await manager.prompt({
+					sessionId,
+					prompt: [{ type: "text", text: "say second response" }],
+				}).turn
+			).stopReason,
+		).toBe("end_turn");
+		const twoTurnTranscript = manager.getTranscript({ sessionId });
+		expect(twoTurnTranscript.index.map((turn) => turn.agentPreview)).toEqual([
+			"compacted response",
+			"second response",
+		]);
+		const projectedSeqs = twoTurnTranscript.turns.flatMap((item) =>
+			item.items.map((envelope) => envelope.seq),
+		);
+		expect(new Set(projectedSeqs).size).toBe(projectedSeqs.length);
+		expect(projectedSeqs.every((seq) => seq < 0)).toBe(true);
+
+		const pending = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		await waitFor(
+			() => manager.get(sessionId).status === "running",
+			5_000,
+			"the second turn to run",
+		);
+		await manager.close({ sessionId });
+		expect(turns).toHaveLength(3);
+		expect(turns[2]?.status).toBe("cancelled");
+		expect(manager.getTranscript({ sessionId }).turns[0]?.agentPreview).toBe(
+			"compacted response",
+		);
+		await pending.turn.catch(() => undefined);
 	}, 30_000);
 
 	test("a throwing subscriber does not break the turn or its siblings", async () => {

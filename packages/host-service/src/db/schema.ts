@@ -2,6 +2,7 @@ import type {
 	HarnessKind,
 	StopReason,
 	SupersetSessionRole,
+	TranscriptTurnStatus,
 } from "@superset/session-protocol";
 import type {
 	AgentDefinitionId,
@@ -639,6 +640,32 @@ export const acpSessionJournal = sqliteTable(
 	(table) => [
 		primaryKey({ columns: [table.sessionId, table.epoch, table.seq] }),
 	],
+);
+
+/**
+ * Compact, user-visible transcript projections. Raw ACP process frames are
+ * intentionally not retained here: the manager replaces the journal with a
+ * fresh epoch after writing these rows, while this table survives tab close.
+ */
+export const acpSessionTurns = sqliteTable(
+	"acp_session_turns",
+	{
+		sessionId: text("session_id").notNull(),
+		turnNumber: integer("turn_number").notNull(),
+		epoch: text().notNull(),
+		startSeq: integer("start_seq").notNull(),
+		endSeq: integer("end_seq").notNull(),
+		userMessageJson: text("user_message_json").notNull(),
+		assistantMessageJson: text("assistant_message_json"),
+		status: text().notNull().$type<TranscriptTurnStatus>(),
+		startedAt: integer("started_at").notNull(),
+		completedAt: integer("completed_at").notNull(),
+		durationMs: integer("duration_ms").notNull(),
+		messageCount: integer("message_count").notNull(),
+		toolCallCount: integer("tool_call_count").notNull(),
+		toolSummariesJson: text("tool_summaries_json").notNull().default("[]"),
+	},
+	(table) => [primaryKey({ columns: [table.sessionId, table.turnNumber] })],
 );
 
 export const acpSessionCommands = sqliteTable(

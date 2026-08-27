@@ -1,5 +1,22 @@
-import type { ContentBlock } from "./acp";
+import type { ContentBlock, ToolCallLocation, ToolCallStatus } from "./acp";
 import type { SessionUpdateEnvelope } from "./envelope";
+
+/** Terminal status persisted for a completed Superset turn. */
+export type TranscriptTurnStatus = "completed" | "failed" | "cancelled";
+
+/**
+ * The durable projection of one tool call.  Raw input/output and streaming
+ * deltas intentionally do not cross this boundary; locations are retained so
+ * the collapsed process row can still link to the files it touched.
+ */
+export interface TranscriptToolSummary {
+	toolCallId: string;
+	/** Stable, provider-neutral tool kind (for example `execute` or `edit`). */
+	name: string;
+	title: string;
+	status: ToolCallStatus;
+	locations: ToolCallLocation[];
+}
 
 /**
  * A semantic transcript turn starts at a user message and ends immediately
@@ -13,9 +30,26 @@ export interface TranscriptTurnSummary {
 	userPreview: string;
 	agentPreview: string | null;
 	isComplete: boolean;
+	/** Present for turns written by the host turn compactor. */
+	status?: TranscriptTurnStatus;
+	/** Host timestamps, persisted so duration survives pane remount/restart. */
+	startedAt?: number;
+	completedAt?: number;
+	durationMs?: number;
+	/** Counts used by the collapsed `执行过程` row. */
+	messageCount?: number;
+	toolCallCount?: number;
+	toolSummaries?: TranscriptToolSummary[];
 }
 
 export interface TranscriptTurn extends TranscriptTurnSummary {
+	/**
+	 * Complete user/final-assistant blocks retained by the compact turn store.
+	 * These are optional for compatibility with pages produced by older hosts;
+	 * newly compacted turns always include them.
+	 */
+	userMessage?: ContentBlock[];
+	assistantMessage?: ContentBlock[] | null;
 	items: SessionUpdateEnvelope[];
 }
 
@@ -96,6 +130,8 @@ export function groupTranscriptTurns(
 				? preview(agentText, "No text response")
 				: null,
 			isComplete: hasAgentMessage,
+			...(hasAgentMessage ? { status: "completed" as const } : {}),
+			startedAt: first.ts,
 			items: current,
 		});
 	};

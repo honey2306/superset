@@ -47,6 +47,7 @@ import type {
 	SupersetSessionRole,
 	TranscriptPage,
 	TranscriptTurn,
+	TranscriptTurnStatus,
 } from "@superset/session-protocol";
 import {
 	composeSupersetModelFacingInstructions,
@@ -67,14 +68,22 @@ import {
 	replayRemoteCommands,
 	SessionJournal,
 } from "./journal";
-import type { AcpSessionPersistence, AcpSessionRecord } from "./persistence";
+import type {
+	AcpSessionPersistence,
+	AcpSessionRecord,
+	AcpSessionTurnRecord,
+} from "./persistence";
 import { piExtensionUiPermissionPresentation } from "./pi-extension-ui";
 import type {
 	AcpMergeRequestOpenRequestHandler,
 	AcpSessionChangeHandler,
 	AcpSessionOpenRequestHandler,
 } from "./runtime";
-import { buildTranscriptPageFromTurns } from "./transcript";
+import {
+	buildTranscriptPageFromTurns,
+	transcriptTurnFromCompactRecord,
+} from "./transcript";
+import { compactTranscriptTurns, type TurnCompletion } from "./turn-compaction";
 
 export class AcpSessionNotFoundError extends Error {}
 export class AcpSessionDeadError extends Error {}
@@ -124,6 +133,11 @@ function isMissingUpstreamResourceError(error: unknown): boolean {
 		"code" in error &&
 		error.code === RESOURCE_NOT_FOUND_ERROR_CODE
 	);
+}
+
+function isMissingCompactTurnStoreError(error: unknown): boolean {
+	if (!(error instanceof Error)) return false;
+	return /no such table/i.test(error.message);
 }
 
 function resolveAdapterEntry(): string {
@@ -523,6 +537,8 @@ interface AcpSessionRuntime {
 	child: ChildProcess;
 	connection: ClientConnection;
 	journal: SessionJournal;
+	/** Host-owned terminal facts used to compact the current raw journal. */
+	activeTurns: Map<number, ActiveTurn>;
 	subscribers: Set<(envelope: SessionUpdateEnvelope) => void>;
 	/** Parked session/request_permission responses, keyed by requestId. */
 	pendingResolvers: Map<string, (outcome: RequestPermissionOutcome) => void>;
@@ -556,6 +572,8 @@ interface AcpSessionRuntime {
 	dead: boolean;
 	/** True once explicitly closed; late adapter events must not re-persist it. */
 	closed: boolean;
+	/** Close is preparing its durable commit; live operations are rejected. */
+	closing: boolean;
 	/**
 	 * Model discovery owns a short-lived ACP session only to read config options.
 	 * It must never become visible to the session registry, journal, or listeners.
@@ -574,6 +592,12 @@ interface AcpSessionRuntime {
 	idleHibernateTimer: ReturnType<typeof setTimeout> | null;
 }
 
+interface ActiveTurn {
+	startedAt: number;
+	status?: TranscriptTurnStatus;
+	completedAt?: number;
+}
+
 interface InflightCreation {
 	workspaceId: string;
 	promise: Promise<AcpSessionRuntime>;
@@ -582,6 +606,7 @@ interface InflightCreation {
 interface TranscriptCacheEntry {
 	epoch: string;
 	latestSeq: number;
+	compactTurnCount: number;
 	turns: TranscriptTurn[];
 }
 
@@ -721,6 +746,8 @@ export class AcpSessionManager {
 	private readonly runtimes = new Map<string, AcpSessionRuntime>();
 	private readonly creations = new Map<string, InflightCreation>();
 	private readonly transcriptCache = new Map<string, TranscriptCacheEntry>();
+	/** Set after an older database is observed without the compact-turn table. */
+	private compactTurnStoreUnavailable = false;
 	/** Command ids for queued prompts are carried into the eventual prompt. */
 	private readonly queuedCommandIds = new Map<string, string>();
 	/** Command ids parked by sendNow until the current turn settles. */
@@ -992,6 +1019,7 @@ export class AcpSessionManager {
 		limit?: number;
 	}): TranscriptPage {
 		const runtime = this.runtimes.get(input.sessionId);
+		const compactRecords = this.loadCompactTurns(input.sessionId);
 		const cached = this.transcriptCache.get(input.sessionId);
 		let entries: SessionUpdateEnvelope[];
 		let epoch: string;
@@ -999,7 +1027,8 @@ export class AcpSessionManager {
 			epoch = runtime.journal.epoch;
 			if (
 				cached?.epoch === epoch &&
-				cached.latestSeq === runtime.journal.latestSeq
+				cached.latestSeq === runtime.journal.latestSeq &&
+				cached.compactTurnCount === compactRecords.length
 			) {
 				return buildTranscriptPageFromTurns(cached.turns, input);
 			}
@@ -1009,25 +1038,199 @@ export class AcpSessionManager {
 		} else {
 			const record = this.offline.get(input.sessionId);
 			if (!record) {
-				throw new AcpSessionNotFoundError(
-					`Unknown ACP session: ${input.sessionId}`,
-				);
+				if (compactRecords.length === 0) {
+					throw new AcpSessionNotFoundError(
+						`Unknown ACP session: ${input.sessionId}`,
+					);
+				}
+				epoch = compactRecords.at(-1)?.epoch ?? "compact";
+				entries = [];
+			} else {
+				epoch = record.epoch;
+				if (
+					cached?.epoch === epoch &&
+					cached.compactTurnCount === compactRecords.length
+				) {
+					return buildTranscriptPageFromTurns(cached.turns, input);
+				}
+				entries =
+					this.persistence?.loadJournal(input.sessionId, epoch) ??
+					this.offlineJournal(input.sessionId).snapshot();
 			}
-			epoch = record.epoch;
-			if (cached?.epoch === epoch) {
-				return buildTranscriptPageFromTurns(cached.turns, input);
-			}
-			entries =
-				this.persistence?.loadJournal(input.sessionId, epoch) ??
-				this.offlineJournal(input.sessionId).snapshot();
 		}
 		const latestSeq = entries.at(-1)?.seq ?? 0;
-		if (cached?.epoch === epoch && cached.latestSeq === latestSeq) {
+		if (
+			cached?.epoch === epoch &&
+			cached.latestSeq === latestSeq &&
+			cached.compactTurnCount === compactRecords.length
+		) {
 			return buildTranscriptPageFromTurns(cached.turns, input);
 		}
-		const turns = groupTranscriptTurns(entries);
-		this.transcriptCache.set(input.sessionId, { epoch, latestSeq, turns });
+		// Every journal epoch starts at seq 1, while the renderer merges transcript
+		// envelopes by seq alone. Place compact history in one contiguous negative
+		// range; the current raw/live epoch remains in its normal positive range.
+		let nextCompactSeq = -compactRecords.reduce(
+			(total, record) =>
+				total +
+				Math.max(
+					1,
+					record.userMessage.length +
+						record.toolSummaries.length +
+						(record.assistantMessage?.length ?? 0),
+				),
+			0,
+		);
+		const compactTurns = compactRecords.map((record) => {
+			const turn = transcriptTurnFromCompactRecord(record, nextCompactSeq);
+			nextCompactSeq = turn.endSeq + 1;
+			return turn;
+		});
+		const rawTurns = groupTranscriptTurns(entries).map((turn, index) => ({
+			...turn,
+			turnNumber: compactTurns.length + index + 1,
+		}));
+		const turns = [...compactTurns, ...rawTurns];
+		this.transcriptCache.set(input.sessionId, {
+			epoch,
+			latestSeq,
+			compactTurnCount: compactRecords.length,
+			turns,
+		});
 		return buildTranscriptPageFromTurns(turns, input);
+	}
+
+	private loadCompactTurns(sessionId: string): AcpSessionTurnRecord[] {
+		const persistence = this.persistence;
+		if (!persistence?.loadTurns || this.compactTurnStoreUnavailable) return [];
+		try {
+			return persistence.loadTurns(sessionId);
+		} catch (error) {
+			// The table is intentionally added through a later generated migration.
+			// Keep older hosts fully functional until that migration is applied.
+			if (isMissingCompactTurnStoreError(error)) {
+				this.compactTurnStoreUnavailable = true;
+				return [];
+			}
+			throw error;
+		}
+	}
+
+	private compactCompletedTurns(
+		runtime: AcpSessionRuntime,
+		options: { force?: boolean; throwOnFailure?: boolean } = {},
+	): void {
+		const persistence = this.persistence;
+		const force = options.force === true;
+		const throwOnFailure = options.throwOnFailure === true;
+		if (
+			!persistence?.compactTurns ||
+			this.compactTurnStoreUnavailable ||
+			runtime.discovery ||
+			(!force && runtime.closed) ||
+			(!force && runtime.activePromptCount > 0) ||
+			(!force && runtime.state.queuedPrompts.length > 0) ||
+			(!force && runtime.pendingSendNow !== null) ||
+			(!force && runtime.activeTurns.size === 0)
+		) {
+			return;
+		}
+		let entries: SessionUpdateEnvelope[];
+		try {
+			// The live ring is only a catch-up window. Before deleting durable raw
+			// frames, read the complete epoch so a first compaction cannot discard
+			// older turns that have already fallen out of the ring.
+			entries =
+				this.persistence?.loadJournal(
+					runtime.state.sessionId,
+					runtime.journal.epoch,
+				) ?? runtime.journal.snapshot();
+		} catch (error) {
+			if (throwOnFailure) throw error;
+			console.error(
+				"[acp-sessions] failed to load journal for turn compaction",
+				error,
+			);
+			return;
+		}
+		const rawTurns = groupTranscriptTurns(entries);
+		if (rawTurns.length === 0) return;
+		if (!force) {
+			const replayedCommands = replayRemoteCommands(entries);
+			if (
+				replayedCommands.queued.length > 0 ||
+				replayedCommands.sendNow.length > 0
+			) {
+				// Keep the raw command boundary until every queued command has either
+				// started or been explicitly cleared. Its idempotency reservation must
+				// survive compaction so a crash cannot replay a duplicate prompt.
+				return;
+			}
+		}
+		const persistedTurns = this.loadCompactTurns(runtime.state.sessionId);
+		if (this.compactTurnStoreUnavailable) return;
+		const completions = new Map<number, TurnCompletion>();
+		for (const turn of rawTurns) {
+			const active = runtime.activeTurns.get(turn.startSeq);
+			const completedAt =
+				active?.completedAt ?? turn.items.at(-1)?.ts ?? Date.now();
+			completions.set(turn.startSeq, {
+				status: active?.status ?? (turn.isComplete ? "completed" : "failed"),
+				completedAt,
+				...(active?.startedAt !== undefined
+					? { startedAt: active.startedAt }
+					: {}),
+			});
+		}
+		const compacted = compactTranscriptTurns(
+			entries,
+			completions,
+			(persistedTurns.at(-1)?.turnNumber ?? 0) + 1,
+		);
+		if (compacted.length === 0) return;
+		const epoch = randomUUID();
+		try {
+			persistence.compactTurns({
+				sessionId: runtime.state.sessionId,
+				nextEpoch: epoch,
+				turns: compacted,
+			});
+		} catch (error) {
+			if (isMissingCompactTurnStoreError(error)) {
+				this.compactTurnStoreUnavailable = true;
+			}
+			if (throwOnFailure) throw error;
+			console.error(
+				"[acp-sessions] failed to compact terminal turn journal",
+				error,
+			);
+			return;
+		}
+
+		const previousEpoch = runtime.journal.epoch;
+		const previousLatestSeq = runtime.journal.latestSeq;
+		runtime.journal = new SessionJournal({
+			epoch,
+			capacity: this.journalCapacity,
+		});
+		runtime.state.epoch = epoch;
+		runtime.activeTurns.clear();
+		this.transcriptCache.delete(runtime.state.sessionId);
+		if (runtime.closed || runtime.closing) return;
+		const reset: SessionUpdateEnvelope = {
+			sessionId: runtime.state.sessionId,
+			epoch: previousEpoch,
+			seq: previousLatestSeq,
+			ts: Date.now(),
+			frame: { kind: "reset", reason: "turn_compacted" },
+		};
+		for (const subscriber of runtime.subscribers) {
+			try {
+				subscriber(reset);
+			} catch (error) {
+				console.warn("[acp-sessions] subscriber threw on turn reset", error);
+			}
+		}
+		this.emitState(runtime);
 	}
 
 	/**
@@ -1114,6 +1317,7 @@ export class AcpSessionManager {
 		// synchronously before session/prompt so it always precedes the
 		// agent's output in seq order.
 		let promptStartSeq = 0;
+		const startedAt = Date.now();
 		for (const block of input.prompt) {
 			const envelope = this.journalFrame(runtime, {
 				kind: "update",
@@ -1130,6 +1334,9 @@ export class AcpSessionManager {
 				}
 			}
 		}
+		if (promptStartSeq > 0) {
+			runtime.activeTurns.set(promptStartSeq, { startedAt });
+		}
 		this.maybeStartTitleGeneration(runtime, input.prompt);
 		// A fresh turn starts with a clean terminal-state slate. A rejected turn
 		// must not inherit the previous successful turn's stop reason.
@@ -1143,18 +1350,36 @@ export class AcpSessionManager {
 				prompt: input.prompt,
 			})
 			.then((response) => {
+				const completedAt = Date.now();
 				runtime.state.lastStopReason = response.stopReason;
-				runtime.state.lastCompletedAt = Date.now();
+				runtime.state.lastCompletedAt = completedAt;
+				const turn = runtime.activeTurns.get(promptStartSeq);
+				if (turn) {
+					turn.status =
+						response.stopReason === "cancelled" ? "cancelled" : "completed";
+					turn.completedAt = completedAt;
+				}
 				return { stopReason: response.stopReason };
 			})
 			.catch((error: unknown) => {
-				if (input.commandId && !runtime.closed && !commandAlreadyReserved) {
+				const completedAt = Date.now();
+				const turn = runtime.activeTurns.get(promptStartSeq);
+				if (turn) {
+					turn.status = "failed";
+					turn.completedAt = completedAt;
+				}
+				if (
+					input.commandId &&
+					!runtime.closed &&
+					!runtime.closing &&
+					!commandAlreadyReserved
+				) {
 					// Admission failed, so a later retry must be allowed to try again.
 					// While the turn is live the durable reservation suppresses dupes.
 					this.persistence?.releaseCommand(input.sessionId, input.commandId);
 				}
 				const reason = error instanceof Error ? error.message : String(error);
-				if (!runtime.dead && !runtime.closed) {
+				if (!runtime.dead && !runtime.closed && !runtime.closing) {
 					runtime.state.lastError = reason;
 					// The user's message is already journaled and looks delivered —
 					// this frame lets fold mark it failed on every client. A permanent
@@ -1170,7 +1395,7 @@ export class AcpSessionManager {
 			})
 			.finally(() => {
 				runtime.activePromptCount -= 1;
-				if (runtime.closed) return;
+				if (runtime.closed || runtime.closing) return;
 				// Whatever never reached a terminal status this turn (cancelled,
 				// errored) must not keep rendering as running on every client.
 				if (runtime.activePromptCount === 0) {
@@ -1179,6 +1404,9 @@ export class AcpSessionManager {
 				// Force an emit so every turn end lands a state frame with the
 				// final lastStopReason / lastError even if the status is unchanged.
 				this.syncStatus(runtime, { force: true });
+				if (runtime.activePromptCount === 0) {
+					this.compactCompletedTurns(runtime);
+				}
 				// Drain the follow-up queue: whichever prompt is next (a pending
 				// sendNow beats the ordered tail) fires as if the user had just
 				// typed it. Its own finally hook keeps the chain going.
@@ -1514,7 +1742,7 @@ export class AcpSessionManager {
 	 * session was already idle.
 	 */
 	private drainQueue(runtime: AcpSessionRuntime): void {
-		if (runtime.closed || runtime.dead) return;
+		if (runtime.closed || runtime.closing || runtime.dead) return;
 		if (runtime.activePromptCount > 0) return;
 		const pending = runtime.pendingSendNow;
 		let next: QueuedPrompt | null = null;
@@ -1603,7 +1831,7 @@ export class AcpSessionManager {
 			})),
 			{ toolCallId, signal: input.signal },
 		);
-		if (!runtime.closed) {
+		if (!runtime.closed && !runtime.closing) {
 			this.journalFrame(runtime, {
 				kind: "update",
 				update: {
@@ -1644,8 +1872,9 @@ export class AcpSessionManager {
 
 	/**
 	 * Permanently close a session. Unlike `cancel`, this tears down the adapter
-	 * and removes every durable row, so the session cannot appear in Recent or
-	 * be resurrected after a host restart.
+	 * and removes its registry, raw journal, and command rows. Compact turn rows
+	 * intentionally survive so a known session id can still render history, but
+	 * the session cannot be resurrected after a host restart.
 	 */
 	async close(input: { sessionId: string }): Promise<void> {
 		const { sessionId } = input;
@@ -1659,11 +1888,45 @@ export class AcpSessionManager {
 		}
 		const workspaceId = runtime?.state.workspaceId ?? offline?.workspaceId;
 		const discovery = runtime?.discovery === true;
+		if (runtime && !discovery) {
+			this.clearIdleHibernate(runtime);
+			// Close is also a terminal boundary for an in-flight turn. Stop accepting
+			// late adapter frames, mark the turn cancelled, and compact before the raw
+			// journal is deleted below so the user's last prompt remains visible.
+			this.terminalizeOpenToolCalls(runtime);
+			const completedAt = Date.now();
+			for (const turn of runtime.activeTurns.values()) {
+				if (turn.status !== undefined) continue;
+				turn.status = "cancelled";
+				turn.completedAt = completedAt;
+			}
+			for (const queued of runtime.state.queuedPrompts) {
+				this.queuedCommandIds.delete(`${sessionId}:${queued.queueId}`);
+			}
+			this.pendingSendNowCommandIds.delete(sessionId);
+			runtime.state.queuedPrompts = [];
+			runtime.pendingSendNow = null;
+			runtime.closing = true;
+			try {
+				this.compactCompletedTurns(runtime, {
+					force: true,
+					throwOnFailure: true,
+				});
+			} catch (error) {
+				runtime.closing = false;
+				throw error;
+			}
+		}
 		// Deleting durable state is the commit point for a permanent close. It is
-		// synchronous (SQLite transaction), so if it fails we have not yet marked
-		// the runtime closed, killed its child, or removed it from memory. The
+		// synchronous (SQLite transaction), so if it fails we have not yet killed
+		// the adapter child or removed the runtime from memory. The
 		// renderer can keep the pane visible and safely offer the user a retry.
-		if (!discovery) this.persistence?.deleteSession(sessionId);
+		try {
+			if (!discovery) this.persistence?.deleteSession(sessionId);
+		} catch (error) {
+			if (runtime) runtime.closing = false;
+			throw error;
+		}
 
 		if (runtime) {
 			this.clearIdleHibernate(runtime);
@@ -1671,6 +1934,7 @@ export class AcpSessionManager {
 			// `abort`/`exit` handlers otherwise mark the runtime dead and re-upsert
 			// the registry row after persistence has deleted it.
 			runtime.closed = true;
+			runtime.closing = false;
 			for (const resolver of runtime.pendingResolvers.values()) {
 				resolver({ outcome: "cancelled" });
 			}
@@ -2437,6 +2701,7 @@ export class AcpSessionManager {
 					capacity: this.journalCapacity,
 					entries: durableEntries,
 				}),
+				activeTurns: new Map(),
 				subscribers: new Set(),
 				pendingResolvers: new Map(),
 				openToolCalls: new Set(),
@@ -2455,6 +2720,7 @@ export class AcpSessionManager {
 				stderrTail,
 				dead: false,
 				closed: false,
+				closing: false,
 				discovery,
 				// A resumed session already carries whatever title was in the
 				// registry — no need to regenerate. A fresh session starts
@@ -2682,7 +2948,7 @@ export class AcpSessionManager {
 	}
 
 	private markDead(runtime: AcpSessionRuntime, reason: string): void {
-		if (runtime.dead || runtime.closed) return;
+		if (runtime.dead || runtime.closed || runtime.closing) return;
 		this.clearIdleHibernate(runtime);
 		runtime.dead = true;
 		for (const requestId of [...runtime.pendingResolvers.keys()]) {
@@ -2691,6 +2957,12 @@ export class AcpSessionManager {
 		this.terminalizeOpenToolCalls(runtime);
 		const stderr = runtime.stderrTail.trim();
 		runtime.state.lastError = stderr ? `${reason}\n${stderr}` : reason;
+		const completedAt = Date.now();
+		for (const turn of runtime.activeTurns.values()) {
+			if (turn.status !== undefined) continue;
+			turn.status = "failed";
+			turn.completedAt = completedAt;
+		}
 		this.syncStatus(runtime, { force: true });
 		this.evictDeadRuntimes();
 	}
@@ -2741,7 +3013,7 @@ export class AcpSessionManager {
 		const acpSessionId = runtime.acpSessionId;
 		void generate({ sessionId, workspaceId, message })
 			.then((raw) => {
-				if (runtime.closed || runtime.dead) {
+				if (runtime.closed || runtime.closing || runtime.dead) {
 					console.log(
 						`[acp-title] drop ${sessionId}: session closed/dead before title landed`,
 					);
@@ -2817,7 +3089,7 @@ export class AcpSessionManager {
 		runtime: AcpSessionRuntime,
 		notification: SessionNotification,
 	): void {
-		if (runtime.closed) return;
+		if (runtime.closed || runtime.closing) return;
 		if (notification.sessionId !== runtime.acpSessionId) return;
 		const update = notification.update;
 		if (this.shouldSuppressPiBootstrapUpdate(runtime, update)) return;
@@ -3302,7 +3574,7 @@ export class AcpSessionManager {
 	}
 
 	private emitState(runtime: AcpSessionRuntime): void {
-		if (runtime.closed || runtime.discovery) return;
+		if (runtime.closed || runtime.closing || runtime.discovery) return;
 		runtime.state.updatedAt = Date.now();
 		this.journalFrame(runtime, {
 			kind: "state",
