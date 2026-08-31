@@ -67,6 +67,8 @@ export const gitCommitFilesTask = defineWorkerTask<
 });
 
 /** Potentially large history reads stay off the host-service event loop. */
+const GIT_LOG_SEARCH_SCAN_LIMIT = 5_000;
+
 export const gitLogTask = defineWorkerTask<
 	{
 		worktreePath: string;
@@ -75,6 +77,7 @@ export const gitLogTask = defineWorkerTask<
 		skip?: number;
 		grep?: string;
 		author?: string;
+		search?: string;
 		all?: boolean;
 		filePath?: string;
 	},
@@ -88,14 +91,16 @@ export const gitLogTask = defineWorkerTask<
 		skip,
 		grep,
 		author,
+		search,
 		all,
 		filePath,
 	}) => {
 		const git = createUserSimpleGit(worktreePath).env(gitEnv);
+		const normalizedSearch = search?.trim().toLocaleLowerCase();
 		const args = [
 			"log",
 			"--topo-order",
-			`--max-count=${limit}`,
+			`--max-count=${normalizedSearch ? GIT_LOG_SEARCH_SCAN_LIMIT : limit}`,
 			"--no-color",
 			"--decorate=short",
 			// Use a separator that Git ref names cannot contain. `%D`'s default
@@ -105,11 +110,20 @@ export const gitLogTask = defineWorkerTask<
 		// File history is intentionally scoped to the path's reachable history;
 		// `--all` is reserved for the repository-wide History tab.
 		if (all && !filePath) args.push("--all");
-		if (skip !== undefined) args.push(`--skip=${skip}`);
+		if (!normalizedSearch && skip !== undefined) args.push(`--skip=${skip}`);
 		if (grep) args.push("--fixed-strings", `--grep=${grep}`);
 		if (author) args.push("--fixed-strings", `--author=${author}`);
 		if (filePath) args.push("--follow", "--", filePath);
-		return parseGitLog(await git.raw(args));
+		const entries = parseGitLog(await git.raw(args));
+		if (!normalizedSearch) return entries;
+
+		const filtered = entries.filter(
+			(entry) =>
+				entry.message.toLocaleLowerCase().includes(normalizedSearch) ||
+				entry.author.toLocaleLowerCase().includes(normalizedSearch),
+		);
+		const start = skip ?? 0;
+		return filtered.slice(start, start + limit);
 	},
 });
 

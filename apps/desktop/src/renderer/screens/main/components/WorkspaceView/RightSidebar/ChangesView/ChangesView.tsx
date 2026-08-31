@@ -1,6 +1,6 @@
 import { toast } from "@superset/ui/sonner";
 import { workspaceTrpc } from "@superset/workspace-client";
-import { useMutation, useQueries } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
@@ -79,17 +79,16 @@ export function ChangesView({
 	const { workspace } = useCatalogWorkspace(workspaceId);
 	const worktreePath = workspace?.worktreePath;
 	const projectId = workspace?.projectId;
-	const { status, isLoading, effectiveBaseBranch, branchData, refetch } =
-		useGitChangesStatus({
-			workspaceId,
-			worktreePath,
-			refetchInterval: isActive ? 2500 : undefined,
-			refetchOnWindowFocus: isActive,
-			branchRefetchInterval: isActive
-				? undefined
-				: INACTIVE_BRANCH_REFETCH_INTERVAL_MS,
-			branchRefetchOnWindowFocus: true,
-		});
+	const { status, isLoading, branchData, refetch } = useGitChangesStatus({
+		workspaceId,
+		worktreePath,
+		refetchInterval: isActive ? 2500 : undefined,
+		refetchOnWindowFocus: isActive,
+		branchRefetchInterval: isActive
+			? undefined
+			: INACTIVE_BRANCH_REFETCH_INTERVAL_MS,
+		branchRefetchOnWindowFocus: true,
+	});
 
 	const getHostGit = () => {
 		if (!activeHostUrl || !workspaceId) {
@@ -304,15 +303,6 @@ export function ChangesView({
 	const selectedFile = selectedFileState?.file ?? null;
 	const selectedCommitHash = selectedFileState?.commitHash ?? null;
 
-	const [expandedCommits, setExpandedCommits] = useState<Set<string>>(
-		new Set(),
-	);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset on workspace change
-	useEffect(() => {
-		setExpandedCommits(new Set());
-	}, [worktreePath]);
-
 	useEffect(() => {
 		return () => {
 			if (refreshTimerRef.current) {
@@ -371,43 +361,6 @@ export function ChangesView({
 		Boolean(workspaceId && worktreePath),
 	);
 
-	const expandedCommitHashes = useMemo(
-		() =>
-			isActive && expandedSections.committed
-				? Array.from(expandedCommits)
-				: ([] as string[]),
-		[isActive, expandedSections.committed, expandedCommits],
-	);
-
-	const commitFilesQueries = useQueries({
-		queries: expandedCommitHashes.map((hash) => ({
-			queryKey: ["git-commit-files", activeHostUrl, workspaceId, hash],
-			enabled: Boolean(activeHostUrl && workspaceId),
-			queryFn: async () => {
-				if (!activeHostUrl || !workspaceId) return [];
-				const result = await getHostServiceClientByUrl(
-					activeHostUrl,
-				).git.getCommitFiles.query({ workspaceId, commitHash: hash });
-				return result.files.map((file) => ({
-					...file,
-					status: file.status === "changed" ? "modified" : file.status,
-				}));
-			},
-			staleTime: 60_000,
-		})),
-	});
-
-	const commitFilesMap = useMemo(() => {
-		const map = new Map<string, ChangedFile[]>();
-		expandedCommitHashes.forEach((hash, index) => {
-			const query = commitFilesQueries[index];
-			if (query?.data) {
-				map.set(hash, query.data);
-			}
-		});
-		return map;
-	}, [expandedCommitHashes, commitFilesQueries]);
-
 	const combinedUnstaged = useMemo(
 		() =>
 			status?.unstaged && status?.untracked
@@ -428,47 +381,14 @@ export function ChangesView({
 		onFileOpen?.(file, category);
 	};
 
-	const handleCommitFileSelect = (file: ChangedFile, commitHash: string) => {
-		if (!workspaceId || !worktreePath) return;
-		selectFile(
-			workspaceId,
-			toAbsoluteWorkspacePath(worktreePath, file.path),
-			file,
-			"committed",
-			commitHash,
-		);
-		onFileOpen?.(file, "committed", commitHash);
-	};
-
-	const handleCommitToggle = (hash: string) => {
-		setExpandedCommits((prev) => {
-			const next = new Set(prev);
-			if (next.has(hash)) {
-				next.delete(hash);
-			} else {
-				next.add(hash);
-			}
-			return next;
-		});
-	};
-
-	const againstBaseFiles = status?.againstBase ?? [];
-	const commits = status?.commits ?? [];
 	const stagedFiles = status?.staged ?? [];
 	const unstagedFiles = status?.unstaged ?? [];
 	const untrackedFiles = status?.untracked ?? [];
 
 	const hasChanges =
-		againstBaseFiles.length > 0 ||
-		commits.length > 0 ||
 		stagedFiles.length > 0 ||
 		unstagedFiles.length > 0 ||
 		untrackedFiles.length > 0;
-
-	const commitsWithFiles = commits.map((commit) => ({
-		...commit,
-		files: commitFilesMap.get(commit.hash) || commit.files,
-	}));
 
 	useEffect(() => {
 		if (!workspaceId || !worktreePath || !selectedFileState) {
@@ -476,34 +396,26 @@ export function ChangesView({
 		}
 
 		const existsInSelection =
-			selectedFileState.category === "against-base"
-				? againstBaseFiles.some((file) =>
+			selectedFileState.category === "staged"
+				? stagedFiles.some((file) =>
 						pathsMatch(
 							toAbsoluteWorkspacePath(worktreePath, file.path),
 							selectedFileState.absolutePath,
 						),
 					)
-				: selectedFileState.category === "staged"
-					? stagedFiles.some((file) =>
+				: selectedFileState.category === "unstaged"
+					? combinedUnstaged.some((file) =>
 							pathsMatch(
 								toAbsoluteWorkspacePath(worktreePath, file.path),
 								selectedFileState.absolutePath,
 							),
 						)
-					: selectedFileState.category === "unstaged"
-						? combinedUnstaged.some((file) =>
-								pathsMatch(
-									toAbsoluteWorkspacePath(worktreePath, file.path),
-									selectedFileState.absolutePath,
-								),
-							)
-						: selectedFileState.category === "committed";
+					: false;
 
 		if (!existsInSelection) {
 			selectFile(workspaceId, null, null);
 		}
 	}, [
-		againstBaseFiles,
 		combinedUnstaged,
 		selectFile,
 		selectedFileState,
@@ -515,7 +427,6 @@ export function ChangesView({
 	const hasStagedChanges = stagedFiles.length > 0;
 	const orderedSections = useOrderedSections({
 		sectionOrder,
-		effectiveBaseBranch: effectiveBaseBranch ?? "",
 		expandedSections,
 		toggleSection,
 		fileListViewMode,
@@ -524,13 +435,6 @@ export function ChangesView({
 		worktreePath: worktreePath ?? "",
 		projectId,
 		isExpandedView,
-		againstBaseFiles,
-		onAgainstBaseFileSelect: (file) => handleFileSelect(file, "against-base"),
-		commitsWithFiles,
-		totalCommitCount: status?.totalCommitCount ?? commits.length,
-		expandedCommits,
-		onCommitToggle: handleCommitToggle,
-		onCommitFileSelect: handleCommitFileSelect,
 		stagedFiles,
 		onStagedFileSelect: (file) => handleFileSelect(file, "staged"),
 		onUnstageFile: (file) =>

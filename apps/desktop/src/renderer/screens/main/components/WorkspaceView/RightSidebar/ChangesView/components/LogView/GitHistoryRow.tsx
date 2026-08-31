@@ -4,10 +4,19 @@ import {
 	ContextMenuItem,
 	ContextMenuTrigger,
 } from "@superset/ui/context-menu";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@superset/ui/dropdown-menu";
 import { cn } from "@superset/ui/utils";
+import type { ReactNode } from "react";
+import { LuCopy, LuEllipsis } from "react-icons/lu";
 import { VscHistory } from "react-icons/vsc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { formatRelativeDate } from "../../utils";
+import { GitGraphCommitNode } from "./GitGraphCommitNode";
 
 export interface GitHistoryEntry {
 	hash: string;
@@ -25,7 +34,9 @@ interface GitHistoryRowProps {
 	selected: boolean;
 	compact: boolean;
 	currentBranch: string;
-	stats?: CommitDiffStats;
+	isFirst: boolean;
+	isLast: boolean;
+	details?: ReactNode;
 	onSelect: () => void;
 	onCopyHash: () => void;
 	onReset: () => void;
@@ -159,26 +170,14 @@ export function RefBadges({
 	);
 }
 
-function DiffStats({ stats }: { stats?: CommitDiffStats }) {
-	const { t } = useTranslation();
-	if (!stats) return null;
-	return (
-		<span className="inline-flex shrink-0 items-center gap-1 text-[9px] tabular-nums">
-			<span className="text-success">+{stats.additions}</span>
-			<span className="text-danger">-{stats.deletions}</span>
-			<span className="text-fg-faint">
-				{t("changes.log.fileCount", { count: stats.files })}
-			</span>
-		</span>
-	);
-}
-
 export function GitHistoryRow({
 	commit,
 	selected,
 	compact,
 	currentBranch,
-	stats,
+	isFirst,
+	isLast,
+	details,
 	onSelect,
 	onCopyHash,
 	onReset,
@@ -186,13 +185,13 @@ export function GitHistoryRow({
 	const { t } = useTranslation();
 	const author = commit.author.trim();
 	const date = commit.date;
-	const shortHash = commit.shortHash;
 
 	return (
 		<div
 			className={cn(
-				"group/commit w-full min-w-0 border-b border-line/50 text-fg transition-colors",
-				selected && "border-l-2 border-l-accent-solid text-fg",
+				"group/commit relative w-full min-w-0 border-b border-line/50 text-fg transition-colors",
+				selected &&
+					"bg-accent-tint/40 shadow-[inset_2px_0_var(--accent-solid)]",
 			)}
 		>
 			<ContextMenu>
@@ -201,63 +200,78 @@ export function GitHistoryRow({
 						type="button"
 						onClick={onSelect}
 						className={cn(
-							"flex min-h-[47px] w-full min-w-0 items-center border-0 bg-transparent px-2 py-1 text-left text-inherit transition-colors hover:bg-hover/60",
-							selected && "bg-hover/70 hover:bg-hover",
+							"flex min-h-[52px] w-full min-w-0 border-0 bg-transparent px-2 py-2 pr-8 text-left text-inherit transition-colors hover:bg-hover/60",
+							selected && "hover:bg-accent-tint/50",
 						)}
 					>
+						<GitGraphCommitNode
+							isFirst={isFirst}
+							isLast={isLast}
+							isMerge={commit.parents.length > 1}
+							selected={selected}
+						/>
 						<div className="min-w-0 flex-1">
-							<div className="flex min-w-0 items-center gap-1.5">
-								<div
-									className="min-w-0 flex-1 truncate text-xs font-medium leading-4"
-									title={commit.message}
-								>
-									{commit.message}
-								</div>
-								{!compact ? (
-									<span className="shrink-0 text-[10px] text-fg-mute">
-										{formatRelativeDate(new Date(date), t)}
-									</span>
-								) : null}
+							<div
+								className="truncate text-xs font-medium leading-4"
+								title={commit.message}
+							>
+								{commit.message}
 							</div>
-							<div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
-								<div
-									className="inline-flex min-w-0 max-w-[116px] shrink items-center rounded-full border border-[color:color-mix(in_oklch,var(--accent-2)_30%,transparent)] bg-[color:color-mix(in_oklch,var(--accent-2)_10%,transparent)] px-1.5 py-px text-[9px] font-medium leading-3 text-[color:var(--accent-2)]"
+							<div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] text-fg-faint">
+								<span
+									className="min-w-0 max-w-28 truncate text-fg-mute"
 									title={author || t("changes.log.author")}
 								>
-									<span className="min-w-0 truncate">
-										{author || t("changes.log.author")}
-									</span>
-								</div>
+									{author || t("changes.log.author")}
+								</span>
+								<span aria-hidden="true">·</span>
+								<span className="shrink-0">
+									{formatRelativeDate(new Date(date), t)}
+								</span>
 								<RefBadges
 									original={commit}
 									currentBranch={currentBranch}
 									compact={compact}
 								/>
-								{stats ? <DiffStats stats={stats} /> : null}
-								<span
-									className={cn(
-										"ml-auto shrink-0 font-mono text-[9px] tabular-nums text-fg-faint transition-colors",
-										!compact && "group-hover/commit:text-fg-mute",
-										selected && "text-fg-mute",
-									)}
-									title={commit.hash}
-								>
-									{shortHash}
-								</span>
 							</div>
 						</div>
 					</button>
 				</ContextMenuTrigger>
 				<ContextMenuContent className="w-56">
 					<ContextMenuItem onClick={onCopyHash}>
+						<LuCopy className="size-3.5" />
 						{t("changes.log.copyHash")}
 					</ContextMenuItem>
-					<ContextMenuItem onClick={onReset}>
-						<VscHistory className="mr-2 size-4" />
+					<ContextMenuItem variant="destructive" onClick={onReset}>
+						<VscHistory className="size-4" />
 						{t("changes.log.resetHere")}
 					</ContextMenuItem>
 				</ContextMenuContent>
 			</ContextMenu>
+
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<button
+						type="button"
+						className="absolute right-1.5 top-2 flex size-6 items-center justify-center rounded-ds-3 text-fg-faint opacity-0 transition-opacity hover:bg-hover hover:text-fg group-hover/commit:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+						aria-label={t("changes.log.commitActions")}
+					>
+						<LuEllipsis className="size-3.5" />
+					</button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" className="w-56">
+					<DropdownMenuItem onClick={onCopyHash}>
+						<LuCopy className="size-3.5" />
+						{t("changes.log.copyHash")}
+					</DropdownMenuItem>
+					<DropdownMenuItem variant="destructive" onClick={onReset}>
+						<VscHistory className="size-4" />
+						{t("changes.log.resetHere")}
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+
+			{details ? <div className="ml-8 mr-2 pb-2">{details}</div> : null}
 		</div>
 	);
 }

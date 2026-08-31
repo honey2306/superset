@@ -271,6 +271,7 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 						<LogView
 							workspaceId={workspaceId}
 							worktreePath={worktreePath}
+							branch={workspace?.branch}
 							projectId={workspace?.projectId}
 							isActive={rightSidebarTab === RightSidebarTab.History}
 							onFileOpen={(file, commitHash) =>

@@ -109,6 +109,29 @@ describe("workspace-scoped git changes capabilities", () => {
 		expect(log[0]?.message).toBe("second file revision");
 		expect(log[0]?.date).toBeGreaterThan(0);
 
+		const messageSearch = await scenario.host.trpc.git.listLog.query({
+			workspaceId: scenario.workspaceId,
+			limit: 20,
+			search: "SECOND FILE",
+		});
+		expect(messageSearch.map((entry) => entry.message)).toContain(
+			"second file revision",
+		);
+
+		const authorTerm = log[0]?.author.toLocaleUpperCase();
+		expect(authorTerm).toBeTruthy();
+		const authorSearch = await scenario.host.trpc.git.listLog.query({
+			workspaceId: scenario.workspaceId,
+			limit: 20,
+			search: authorTerm,
+		});
+		expect(authorSearch.length).toBeGreaterThan(0);
+		expect(
+			authorSearch.every((entry) =>
+				entry.author.toLocaleUpperCase().includes(authorTerm ?? ""),
+			),
+		).toBe(true);
+
 		const history = await scenario.host.trpc.git.getFileHistory.query({
 			workspaceId: scenario.workspaceId,
 			filePath: "history.txt",

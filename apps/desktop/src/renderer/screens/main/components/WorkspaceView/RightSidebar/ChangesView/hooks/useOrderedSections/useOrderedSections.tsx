@@ -4,12 +4,7 @@ import type { ReactNode } from "react";
 import { VscAdd, VscDiscard, VscRemove } from "react-icons/vsc";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { getOrderedChangeSectionIds } from "renderer/stores/changes/section-order";
-import type {
-	ChangeCategory,
-	ChangedFile,
-	CommitInfo,
-} from "shared/changes-types";
-import { CommitListVirtualized } from "../../components/CommitListVirtualized";
+import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { FileList } from "../../components/FileList";
 import type { ChangesViewMode } from "../../types";
 
@@ -25,7 +20,6 @@ export interface OrderedSection {
 
 interface UseOrderedSectionsInput {
 	sectionOrder: ChangeCategory[];
-	effectiveBaseBranch: string;
 	expandedSections: Record<ChangeCategory, boolean>;
 	toggleSection: (section: ChangeCategory) => void;
 	fileListViewMode: ChangesViewMode;
@@ -34,13 +28,6 @@ interface UseOrderedSectionsInput {
 	worktreePath: string;
 	projectId?: string;
 	isExpandedView?: boolean;
-	againstBaseFiles: ChangedFile[];
-	onAgainstBaseFileSelect: (file: ChangedFile) => void;
-	commitsWithFiles: CommitInfo[];
-	totalCommitCount: number;
-	expandedCommits: Set<string>;
-	onCommitToggle: (commitHash: string) => void;
-	onCommitFileSelect: (file: ChangedFile, commitHash: string) => void;
 	stagedFiles: ChangedFile[];
 	onStagedFileSelect: (file: ChangedFile) => void;
 	onUnstageFile: (file: ChangedFile) => void;
@@ -64,7 +51,6 @@ interface UseOrderedSectionsInput {
 
 export function useOrderedSections({
 	sectionOrder,
-	effectiveBaseBranch,
 	expandedSections,
 	toggleSection,
 	fileListViewMode,
@@ -73,13 +59,6 @@ export function useOrderedSections({
 	worktreePath,
 	projectId,
 	isExpandedView,
-	againstBaseFiles,
-	onAgainstBaseFileSelect,
-	commitsWithFiles,
-	totalCommitCount,
-	expandedCommits,
-	onCommitToggle,
-	onCommitFileSelect,
 	stagedFiles,
 	onStagedFileSelect,
 	onUnstageFile,
@@ -101,50 +80,7 @@ export function useOrderedSections({
 	isUnstagedActioning,
 }: UseOrderedSectionsInput) {
 	const { t } = useTranslation();
-	const sectionDefinitions: Record<ChangeCategory, OrderedSection> = {
-		"against-base": {
-			id: "against-base",
-			title: t("changes.section.againstBranch", {
-				branch: effectiveBaseBranch,
-			}),
-			count: againstBaseFiles.length,
-			isExpanded: expandedSections["against-base"],
-			onToggle: () => toggleSection("against-base"),
-			content: expandedSections["against-base"] ? (
-				<FileList
-					files={againstBaseFiles}
-					viewMode={fileListViewMode}
-					selectedFile={selectedFile}
-					selectedCommitHash={selectedCommitHash}
-					onFileSelect={onAgainstBaseFileSelect}
-					worktreePath={worktreePath}
-					projectId={projectId}
-					category="against-base"
-					isExpandedView={isExpandedView}
-				/>
-			) : null,
-		},
-		committed: {
-			id: "committed",
-			title: t("changes.section.commits"),
-			count: totalCommitCount,
-			isExpanded: expandedSections.committed,
-			onToggle: () => toggleSection("committed"),
-			content: expandedSections.committed ? (
-				<CommitListVirtualized
-					commits={commitsWithFiles}
-					expandedCommits={expandedCommits}
-					onCommitToggle={onCommitToggle}
-					selectedFile={selectedFile}
-					selectedCommitHash={selectedCommitHash}
-					onFileSelect={onCommitFileSelect}
-					viewMode={fileListViewMode}
-					worktreePath={worktreePath}
-					projectId={projectId}
-					isExpandedView={isExpandedView}
-				/>
-			) : null,
-		},
+	const sectionDefinitions: Record<"staged" | "unstaged", OrderedSection> = {
 		staged: {
 			id: "staged",
 			title: t("changes.section.staged"),
@@ -266,7 +202,10 @@ export function useOrderedSections({
 		},
 	};
 
-	return getOrderedChangeSectionIds(sectionOrder).map(
-		(section) => sectionDefinitions[section],
-	);
+	return getOrderedChangeSectionIds(sectionOrder)
+		.filter(
+			(section): section is "staged" | "unstaged" =>
+				section === "staged" || section === "unstaged",
+		)
+		.map((section) => sectionDefinitions[section]);
 }
