@@ -32,6 +32,37 @@ test("session timeline is the bounded scroll region on small screens", () => {
 	expect(session).not.toContain('style={{ scrollBehavior: "smooth" }}');
 });
 
+test("session progressively loads every retained conversation page", () => {
+	const session = source("session.tsx");
+	expect(session).toContain("session.hasOlder");
+	expect(session).toContain("session.isLoadingOlder");
+	expect(session).toContain("session.historyError");
+	expect(session).toContain("void session.loadOlder()");
+});
+
+test("session collapses execution details and shows Working duration", () => {
+	const timeline = source("../components/Timeline/TimelineView.tsx");
+	const turn = source(
+		"../components/Timeline/components/TimelineTurn/TimelineTurn.tsx",
+	);
+	const working = source("../components/Timeline/WorkingIndicator.tsx");
+	expect(timeline).toContain("groupTimelineTurns(timeline.items)");
+	expect(turn).toContain('item.kind === "tool_call" && !expanded');
+	expect(turn).toContain("<ExecutionSummary");
+	expect(working).toContain("getWorkingIndicatorDuration");
+	expect(working).toContain("setInterval");
+});
+
+test("new conversation uses touch-friendly agent cards and one primary action", () => {
+	const workspace = source("workspace.tsx");
+	expect(workspace).toContain("Choose your agent");
+	expect(workspace).toContain('type="radio"');
+	expect(workspace).toContain("mobile-agent-option");
+	expect(workspace).toContain("mobile-start-conversation");
+	expect(workspace).toContain("Start with");
+	expect(workspace).not.toContain("<select");
+});
+
 test("terminal back navigation returns to the current workspace", () => {
 	const terminal = source("terminal.tsx");
 	expect(terminal).toContain("workspaceId");
@@ -53,6 +84,19 @@ test("phone home renders one chronological conversation list instead of a tree",
 	expect(workspaces).toContain("<ConversationList");
 	expect(workspaces).toContain("<h1>Conversations</h1>");
 	expect(workspaces).not.toContain("<ProjectTree");
+});
+
+test("phone home bounds the page so the conversation list owns scrolling", () => {
+	const styles = readFileSync(
+		fileURLToPath(new URL("../styles.css", import.meta.url)),
+		"utf8",
+	);
+	expect(styles).toMatch(
+		/\.mobile-projects-page\s*\{[^}]*?min-height:\s*100dvh;[^}]*?height:\s*100dvh;/,
+	);
+	expect(styles).toMatch(
+		/\.mobile-projects-tree\s*\{[^}]*?min-height:\s*0;[^}]*?flex:\s*1;[^}]*?overflow-y:\s*auto;/,
+	);
 });
 
 test("does not show a doomed AutoMate pairing form without relay context", () => {

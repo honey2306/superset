@@ -1,5 +1,4 @@
 import type { SessionScopedState } from "@superset/session-protocol";
-import { BUILTIN_AGENT_LABELS } from "@superset/shared/agent-catalog";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getStoredSession } from "~/lib/auth-store";
@@ -90,12 +89,13 @@ export function WorkspaceRoute() {
 		};
 	}, [workspaceId, pairingCacheKey]);
 
+	const selectedAgent = acpAgentLaunchOptions.find(
+		(option) => option.agentId === selectedAcpAgentId,
+	);
+
 	async function startAcpSession(): Promise<void> {
-		if (!workspaceId || creating) return;
-		const selectedAgent = acpAgentLaunchOptions.find(
-			(option) => option.agentId === selectedAcpAgentId,
-		);
-		if (!selectedAgent) return;
+		if (!workspaceId || creating || !selectedAgent) return;
+		setError(null);
 		setCreating(true);
 		try {
 			const sessionId = randomSessionId();
@@ -117,98 +117,153 @@ export function WorkspaceRoute() {
 
 	return (
 		<main
-			className="mobile-workspace-page mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-4"
+			className="mobile-workspace-page mx-auto flex min-h-[100dvh] w-full max-w-md flex-col"
 			style={{
-				paddingTop: "max(var(--safe-area-top), 16px)",
-				paddingBottom: "max(var(--safe-area-bottom), 16px)",
+				paddingTop: "max(var(--safe-area-top), 12px)",
+				paddingBottom: "max(var(--safe-area-bottom), 20px)",
 			}}
 		>
-			<header className="mb-4 flex items-center gap-2">
+			<header className="mobile-new-session-header">
 				<Link
 					to={getPhoneRoute("/")}
 					className="mobile-workspace-back"
-					aria-label="Back to projects"
+					aria-label="Back to conversations"
 				>
 					←
 				</Link>
-				<h1 className="text-lg font-semibold">Workspace</h1>
+				<div className="mobile-new-session-heading">
+					<p>NEW CONVERSATION</p>
+					<h1>Choose your agent</h1>
+				</div>
 			</header>
 
-			{!enabled ? (
-				<div className="rounded-md bg-yellow-500/10 p-3 text-sm text-yellow-200 ring-1 ring-yellow-500/20">
-					ACP sessions are disabled on this Host.
-				</div>
-			) : null}
+			<div className="mobile-new-session-body">
+				<p className="mobile-new-session-intro">
+					Pick the agent you want to work with. You can start chatting as soon
+					as the session opens.
+				</p>
 
-			{error ? (
-				<div className="mb-3 rounded-md bg-red-500/10 p-3 text-sm text-red-300 ring-1 ring-red-500/20">
-					{error}
-				</div>
-			) : null}
-			{warning ? (
-				<div className="mb-3 rounded-md bg-yellow-500/10 p-3 text-sm text-yellow-200 ring-1 ring-yellow-500/20">
-					{warning}
-				</div>
-			) : null}
-
-			{enabled ? (
-				<section className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-					<div className="mb-2">
-						<h2 className="text-sm font-medium">New ACP session</h2>
-						<p className="text-xs text-white/50">
-							Rich chat with streaming, permissions, and session history.
-						</p>
+				{!enabled ? (
+					<div className="mobile-workspace-notice is-warning">
+						ACP sessions are disabled on this Host.
 					</div>
-					<div className="flex gap-2">
-						<select
-							value={selectedAcpAgentId}
-							onChange={(event) => setSelectedAcpAgentId(event.target.value)}
-							className="min-w-0 flex-1 rounded-lg border border-white/20 bg-neutral-900 px-3 py-3 text-sm"
-						>
-							{acpAgentLaunchOptions.map((option) => (
-								<option key={option.agentId} value={option.agentId}>
-									{
-										BUILTIN_AGENT_LABELS[
-											option.agentId as keyof typeof BUILTIN_AGENT_LABELS
-										]
-									}
-								</option>
-							))}
-						</select>
+				) : null}
+				{error ? (
+					<div className="mobile-workspace-notice is-error" role="alert">
+						{error}
+					</div>
+				) : null}
+				{warning ? (
+					<div className="mobile-workspace-notice is-warning">{warning}</div>
+				) : null}
+
+				{enabled ? (
+					<section className="mobile-new-session-card">
+						<fieldset disabled={creating}>
+							<legend>Choose an agent</legend>
+							<div className="mobile-agent-options">
+								{acpAgentLaunchOptions.map((option) => {
+									const selected = option.agentId === selectedAcpAgentId;
+									return (
+										<label
+											key={option.agentId}
+											className={`mobile-agent-option ${selected ? "is-selected" : ""}`}
+											data-agent={option.agentId}
+										>
+											<input
+												type="radio"
+												name="agent"
+												value={option.agentId}
+												checked={selected}
+												onChange={() => setSelectedAcpAgentId(option.agentId)}
+											/>
+											<span className="mobile-agent-avatar" aria-hidden="true">
+												{option.label.slice(0, 2).toUpperCase()}
+											</span>
+											<span className="mobile-agent-option-copy">
+												<strong>{option.label}</strong>
+												<span>{option.description}</span>
+											</span>
+											<span className="mobile-agent-check" aria-hidden="true">
+												✓
+											</span>
+										</label>
+									);
+								})}
+							</div>
+						</fieldset>
+
 						<button
 							type="button"
-							disabled={creating}
+							disabled={creating || !selectedAgent}
 							onClick={() => void startAcpSession()}
-							className="mobile-primary-button px-4 py-3 text-sm font-medium disabled:opacity-50"
+							className="mobile-start-conversation"
 						>
-							{creating ? "Starting…" : "Start"}
+							<span>
+								{creating
+									? `Starting ${selectedAgent?.label ?? "session"}…`
+									: `Start with ${selectedAgent?.label ?? "agent"}`}
+							</span>
+							<span aria-hidden="true">→</span>
 						</button>
-					</div>
-				</section>
-			) : null}
-
-			<ul className="flex flex-col gap-1">
-				{loading && sessions.length === 0 ? (
-					<li className="text-sm text-white/60">Loading…</li>
+					</section>
 				) : null}
-				{sessions.map((s) => (
-					<li key={s.sessionId}>
-						<Link
-							to={getPhoneRoute(
-								`/w/${encodeURIComponent(workspaceId ?? "")}/s/${encodeURIComponent(s.sessionId)}`,
-							)}
-							className="block rounded-lg px-3 py-3 hover:bg-white/5 active:bg-white/10"
-						>
-							<div className="truncate text-sm">
-								{s.title ?? "Untitled session"}
-							</div>
-							<div className="text-xs text-white/50">
-								{s.status} · {new Date(s.updatedAt).toLocaleString()}
-							</div>
-						</Link>
-					</li>
-				))}
-			</ul>
+
+				{loading || sessions.length > 0 ? (
+					<section
+						className="mobile-recent-sessions"
+						aria-labelledby="recent-title"
+					>
+						<header>
+							<h2 id="recent-title">Recent in this workspace</h2>
+							{sessions.length > 0 ? <span>{sessions.length}</span> : null}
+						</header>
+						{loading && sessions.length === 0 ? (
+							<output
+								className="mobile-recent-session-skeleton"
+								aria-label="Loading conversations"
+							/>
+						) : null}
+						<ul>
+							{sessions.map((session) => (
+								<li key={session.sessionId}>
+									<Link
+										to={getPhoneRoute(
+											`/w/${encodeURIComponent(workspaceId ?? "")}/s/${encodeURIComponent(session.sessionId)}`,
+										)}
+										className="mobile-recent-session"
+									>
+										<span
+											className={`mobile-recent-session-dot is-${session.status}`}
+											aria-hidden="true"
+										/>
+										<span className="mobile-recent-session-copy">
+											<strong>
+												{session.title ?? "Untitled conversation"}
+											</strong>
+											<span>
+												{session.status.replaceAll("_", " ")} ·{" "}
+												{new Date(session.updatedAt).toLocaleString(undefined, {
+													month: "short",
+													day: "numeric",
+													hour: "2-digit",
+													minute: "2-digit",
+												})}
+											</span>
+										</span>
+										<span
+											className="mobile-recent-session-arrow"
+											aria-hidden="true"
+										>
+											›
+										</span>
+									</Link>
+								</li>
+							))}
+						</ul>
+					</section>
+				) : null}
+			</div>
 		</main>
 	);
 }

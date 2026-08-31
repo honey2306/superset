@@ -1,17 +1,28 @@
 import { expect, test } from "bun:test";
-import { ACP_AGENT_HARNESS_BY_AGENT_ID } from "@superset/shared/agent-catalog";
+import {
+	ACP_AGENT_HARNESS_BY_AGENT_ID,
+	BUILTIN_AGENT_DEFINITIONS,
+} from "@superset/shared/agent-catalog";
 import { BUILTIN_TERMINAL_AGENTS } from "@superset/shared/builtin-terminal-agents";
 import {
 	acpAgentLaunchOptions,
 	terminalAgentLaunchOptions,
 } from "./agentLaunchOptions";
 
-test("offers every catalog-backed ACP agent with its host harness", () => {
+test("offers every catalog-backed ACP agent with launch metadata", () => {
 	expect(acpAgentLaunchOptions).toEqual(
-		Object.entries(ACP_AGENT_HARNESS_BY_AGENT_ID).map(([agentId, harness]) => ({
-			agentId,
-			harness,
-		})),
+		Object.entries(ACP_AGENT_HARNESS_BY_AGENT_ID).map(([agentId, harness]) => {
+			const definition = BUILTIN_AGENT_DEFINITIONS.find(
+				(agent) => agent.id === agentId,
+			);
+			if (!definition) throw new Error(`missing agent definition: ${agentId}`);
+			return {
+				agentId,
+				harness,
+				label: definition.label,
+				description: definition.description,
+			};
+		}),
 	);
 });
 

@@ -6,13 +6,14 @@ import {
 	useAcpPermissions,
 	useAcpSession,
 } from "@superset/session-protocol/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { Composer } from "~/components/Composer";
 import { useTimelineAutoFollow } from "~/components/Timeline/hooks/useTimelineAutoFollow";
 import { PermissionCard } from "~/components/Timeline/PermissionCard";
 import { PromptQueue } from "~/components/Timeline/PromptQueue";
 import { TimelineView } from "~/components/Timeline/TimelineView";
+import { getLatestUserMessageStartedAt } from "~/components/Timeline/utils/timelineTurns";
 import { WorkingIndicator } from "~/components/Timeline/WorkingIndicator";
 import { createPhoneAcpClient } from "~/lib/acp-client";
 import { getPhoneRoute } from "~/lib/phone-route";
@@ -38,6 +39,28 @@ export function SessionRoute() {
 	const [sendError, setSendError] = useState<string | null>(null);
 	const timelineUpdateKey = `${session.timeline.lastSeq}:${session.timeline.items.length}:${session.state?.status}`;
 	const { containerRef, onScroll } = useTimelineAutoFollow(timelineUpdateKey);
+	const activeTurnStartedAt = useMemo(
+		() => getLatestUserMessageStartedAt(session.timeline.items),
+		[session.timeline.items],
+	);
+
+	useEffect(() => {
+		if (
+			session.isLoading ||
+			session.isLoadingOlder ||
+			!session.hasOlder ||
+			session.historyError
+		) {
+			return;
+		}
+		void session.loadOlder();
+	}, [
+		session.hasOlder,
+		session.historyError,
+		session.isLoading,
+		session.isLoadingOlder,
+		session.loadOlder,
+	]);
 
 	if (!sessionId || !workspaceId)
 		return <Navigate to={getPhoneRoute("/")} replace />;
@@ -118,11 +141,32 @@ export function SessionRoute() {
 				onScroll={onScroll}
 				className="mobile-session-scroll no-scrollbar min-h-0 flex-1 overflow-y-auto"
 			>
-				<TimelineView timeline={session.timeline} />
+				{session.isLoadingOlder ? (
+					<div className="mobile-caption-text py-2 text-center text-xs">
+						Loading earlier conversation…
+					</div>
+				) : null}
+				{session.historyError && session.hasOlder ? (
+					<div className="flex items-center justify-center gap-2 py-2 text-xs text-red-300">
+						<span>Couldn’t load earlier conversation.</span>
+						<button
+							type="button"
+							className="underline underline-offset-2"
+							onClick={() => void session.loadOlder()}
+						>
+							Retry
+						</button>
+					</div>
+				) : null}
+				<TimelineView
+					timeline={session.timeline}
+					status={session.state?.status}
+				/>
 				{running || awaitingPermission ? (
 					<WorkingIndicator
 						awaitingPermission={awaitingPermission}
 						awaitingResponse={awaitingResponse}
+						startedAt={activeTurnStartedAt}
 					/>
 				) : null}
 			</div>
