@@ -12,7 +12,6 @@ import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useState } from "react";
 import { HiChevronRight, HiMiniPlus } from "react-icons/hi2";
 import {
 	LuFolderOpen,
@@ -41,6 +40,7 @@ import { RenameInput } from "../RenameInput";
 import { CloseProjectDialog } from "./CloseProjectDialog";
 import { useProjectCloseDialog } from "./hooks/useProjectCloseDialog";
 import { ProjectThumbnail } from "./ProjectThumbnail";
+import { closeProjectImmediately } from "./projectCloseOrchestration";
 
 interface ProjectHeaderProps {
 	projectId: string;
@@ -82,7 +82,6 @@ export function ProjectHeader({
 	const params = useParams({ strict: false }) as { workspaceId?: string };
 	const { isCloseDialogOpen, setIsCloseDialogOpen, closeDialogCoordinator } =
 		useProjectCloseDialog();
-	const [isClosing, setIsClosing] = useState(false);
 	const rename = useProjectRename(projectId, projectName);
 
 	const openInFinder = electronTrpc.external.openInFinder.useMutation({
@@ -90,9 +89,7 @@ export function ProjectHeader({
 			toast.error(t("workspace.failedOpen", { message: error.message })),
 	});
 
-	const handleConfirmClose = async () => {
-		if (isClosing) return;
-		setIsClosing(true);
+	const handleConfirmClose = () => {
 		const shouldNavigate = hostWorkspaces.some(
 			(workspace) =>
 				workspace.id === params.workspaceId &&
@@ -103,35 +100,39 @@ export function ProjectHeader({
 		);
 
 		try {
-			await Promise.all(
-				projectWorkspaces.map(async (workspace) => {
-					const dispose = () =>
-						disposeHostSessionsForWorkspace(electronUtils, workspace.id);
-					const result = await dispose();
-					toastDisposeFailures(result, dispose);
-				}),
-			);
-			removeProjectFromSidebar(projectId);
-			setIsCloseDialogOpen(false);
-
-			if (shouldNavigate) {
-				const otherWorkspace = hostWorkspaces.find(
-					(workspace) => workspace.projectId !== projectId,
-				);
-				if (otherWorkspace) {
-					navigateToWorkspace(otherWorkspace.id, navigate);
-				} else {
-					navigate({ to: "/workspace" });
-				}
-			}
+			closeProjectImmediately({
+				projectId,
+				projectWorkspaces,
+				shouldNavigate,
+				removeProjectFromSidebar,
+				closeDialog: () => setIsCloseDialogOpen(false),
+				navigate: () => {
+					const otherWorkspace = hostWorkspaces.find(
+						(workspace) => workspace.projectId !== projectId,
+					);
+					if (otherWorkspace) {
+						navigateToWorkspace(otherWorkspace.id, navigate);
+					} else {
+						navigate({ to: "/workspace" });
+					}
+				},
+				disposeWorkspaceSessions: (workspaceId) =>
+					disposeHostSessionsForWorkspace(electronUtils, workspaceId),
+				onDisposeResult: toastDisposeFailures,
+				onDisposeError: (error) => {
+					toast.error(
+						t("workspace.failedCloseProject", {
+							message: error instanceof Error ? error.message : String(error),
+						}),
+					);
+				},
+			});
 		} catch (error) {
 			toast.error(
 				t("workspace.failedCloseProject", {
 					message: error instanceof Error ? error.message : String(error),
 				}),
 			);
-		} finally {
-			setIsClosing(false);
 		}
 	};
 
@@ -244,14 +245,13 @@ export function ProjectHeader({
 						<ContextMenuSeparator />
 						<ContextMenuItem
 							onSelect={closeDialogCoordinator.requestOpenDeleteDialog}
-							disabled={isClosing}
 							className="text-destructive focus:text-destructive"
 						>
 							<LuX
 								className="size-4 mr-2 text-destructive"
 								strokeWidth={STROKE_WIDTH}
 							/>
-							{isClosing ? t("workspace.closing") : t("workspace.closeProject")}
+							{t("workspace.closeProject")}
 						</ContextMenuItem>
 					</ContextMenuContent>
 				</ContextMenu>
@@ -384,14 +384,13 @@ export function ProjectHeader({
 					<ContextMenuSeparator />
 					<ContextMenuItem
 						onSelect={closeDialogCoordinator.requestOpenDeleteDialog}
-						disabled={isClosing}
 						className="text-destructive focus:text-destructive"
 					>
 						<LuX
 							className="size-4 mr-2 text-destructive"
 							strokeWidth={STROKE_WIDTH}
 						/>
-						{isClosing ? t("workspace.closing") : t("workspace.closeProject")}
+						{t("workspace.closeProject")}
 					</ContextMenuItem>
 				</ContextMenuContent>
 			</ContextMenu>

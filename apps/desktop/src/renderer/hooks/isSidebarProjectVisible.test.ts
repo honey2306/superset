@@ -2,13 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { isSidebarProjectVisible } from "./isSidebarProjectVisible";
 
 describe("isSidebarProjectVisible", () => {
-	test("shows current temporary projects so active conversation workspaces remain discoverable", () => {
+	test("hides current temporary projects from the regular sidebar", () => {
 		expect(
 			isSidebarProjectVisible({
 				kind: "temporary",
 				repoPath: "/tmp/arbitrary",
 			}),
-		).toBe(true);
+		).toBe(false);
 	});
 
 	test("hides legacy temporary repositories from the regular sidebar", () => {
