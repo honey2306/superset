@@ -1,14 +1,20 @@
 import {
 	type ContentBlock,
 	isAskUserPermission,
+	type TimelineItem,
+	type ToolCallUpdate,
 } from "@superset/session-protocol";
 import {
 	useAcpPermissions,
 	useAcpSession,
 } from "@superset/session-protocol/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { Composer } from "~/components/Composer";
+import {
+	getLatestActivePlan,
+	MobilePlanPanel,
+} from "~/components/Timeline/components/MobilePlanPanel";
 import { useTimelineAutoFollow } from "~/components/Timeline/hooks/useTimelineAutoFollow";
 import { PermissionCard } from "~/components/Timeline/PermissionCard";
 import { PromptQueue } from "~/components/Timeline/PromptQueue";
@@ -17,6 +23,19 @@ import { getLatestUserMessageStartedAt } from "~/components/Timeline/utils/timel
 import { WorkingIndicator } from "~/components/Timeline/WorkingIndicator";
 import { createPhoneAcpClient } from "~/lib/acp-client";
 import { getPhoneRoute } from "~/lib/phone-route";
+
+function findToolCall(
+	items: readonly TimelineItem[],
+	toolCallId: string,
+): ToolCallUpdate | undefined {
+	for (const item of items) {
+		if (item.kind !== "tool_call") continue;
+		if (item.id === toolCallId) return item.call;
+		const child = findToolCall(item.children, toolCallId);
+		if (child) return child;
+	}
+	return undefined;
+}
 
 export function SessionRoute() {
 	const { workspaceId, sessionId } = useParams<{
@@ -35,6 +54,8 @@ export function SessionRoute() {
 		createWebSocket: client.createWebSocket,
 	});
 	const permissions = useAcpPermissions(session);
+	const refreshSession = session.actions.refresh;
+	const [listedTitle, setListedTitle] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [sendError, setSendError] = useState<string | null>(null);
 	const timelineUpdateKey = `${session.timeline.lastSeq}:${session.timeline.items.length}:${session.state?.status}`;
@@ -43,6 +64,22 @@ export function SessionRoute() {
 		() => getLatestUserMessageStartedAt(session.timeline.items),
 		[session.timeline.items],
 	);
+	const activePlan = useMemo(
+		() => getLatestActivePlan(session.timeline.items),
+		[session.timeline.items],
+	);
+	const refreshListedTitle = useCallback(async () => {
+		if (!workspaceId || !sessionId) return;
+		const page = await client.list({ workspaceId, limit: 100 });
+		const title = page.items
+			.find((item) => item.sessionId === sessionId)
+			?.title?.trim();
+		setListedTitle(title || null);
+	}, [client, sessionId, workspaceId]);
+
+	useEffect(() => {
+		void refreshListedTitle().catch(() => undefined);
+	}, [refreshListedTitle]);
 
 	useEffect(() => {
 		if (
@@ -61,6 +98,18 @@ export function SessionRoute() {
 		session.isLoadingOlder,
 		session.loadOlder,
 	]);
+
+	// A newly created phone session can miss events emitted between prompt
+	// admission and stream cursor establishment. Keep an authoritative snapshot
+	// close behind while work is active so pending approvals never require reload.
+	useEffect(() => {
+		if (!busy && session.state?.status !== "running") return;
+		const intervalId = window.setInterval(() => {
+			void refreshSession();
+			void refreshListedTitle().catch(() => undefined);
+		}, 1_000);
+		return () => window.clearInterval(intervalId);
+	}, [busy, refreshListedTitle, refreshSession, session.state?.status]);
 
 	if (!sessionId || !workspaceId)
 		return <Navigate to={getPhoneRoute("/")} replace />;
@@ -81,6 +130,10 @@ export function SessionRoute() {
 			const blocks: ContentBlock[] = [{ type: "text", text: trimmed }];
 			if (canQueue) await session.actions.enqueue(blocks);
 			else await session.actions.prompt(blocks);
+			await Promise.all([
+				refreshSession().catch(() => undefined),
+				refreshListedTitle().catch(() => undefined),
+			]);
 		} catch (error) {
 			setSendError("Couldn’t send message. Try again.");
 			throw error;
@@ -90,6 +143,11 @@ export function SessionRoute() {
 	}
 
 	const disconnected = session.availability === "unavailable";
+	const title =
+		listedTitle ||
+		session.state?.title?.trim() ||
+		session.timeline.meta.title?.trim() ||
+		"Untitled";
 
 	return (
 		<main
@@ -108,9 +166,7 @@ export function SessionRoute() {
 					←
 				</Link>
 				<div className="min-w-0 flex-1">
-					<div className="truncate text-sm font-medium">
-						{session.timeline.meta.title ?? "Untitled"}
-					</div>
+					<div className="truncate text-sm font-medium">{title}</div>
 					<div className="text-xs text-white/50">
 						{session.streamStatus} · {session.state?.status ?? "…"}
 					</div>
@@ -176,15 +232,25 @@ export function SessionRoute() {
 				onRemove={(queueId) => void session.actions.removeQueued(queueId)}
 			/>
 
-			{permissions.pending.map((p) => (
-				<PermissionCard
-					key={p.requestId}
-					pending={p}
-					onRespond={(outcome) =>
-						void permissions.respond(p.requestId, outcome)
-					}
-				/>
-			))}
+			{permissions.pending.length > 0 || activePlan ? (
+				<div className="mobile-action-stack">
+					{permissions.pending.map((pending) => (
+						<PermissionCard
+							key={pending.requestId}
+							pending={pending}
+							pendingCount={permissions.pending.length}
+							sourceToolCall={findToolCall(
+								session.timeline.items,
+								pending.toolCall.toolCallId,
+							)}
+							onRespond={async (outcome) => {
+								await permissions.respond(pending.requestId, outcome);
+							}}
+						/>
+					))}
+					{activePlan ? <MobilePlanPanel plan={activePlan} /> : null}
+				</div>
+			) : null}
 
 			<Composer
 				disabled={disconnected}

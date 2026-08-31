@@ -34,10 +34,49 @@ test("session timeline is the bounded scroll region on small screens", () => {
 
 test("session progressively loads every retained conversation page", () => {
 	const session = source("session.tsx");
+	const client = source("../lib/acp-client.ts");
+	expect(client).toContain(
+		"getTranscript: (input) => trpc().getTranscript.query(input)",
+	);
 	expect(session).toContain("session.hasOlder");
 	expect(session).toContain("session.isLoadingOlder");
 	expect(session).toContain("session.historyError");
 	expect(session).toContain("void session.loadOlder()");
+});
+
+test("session header uses the same listed title projection as desktop", () => {
+	const session = source("session.tsx");
+	expect(session).toContain("client.list({ workspaceId, limit: 100 })");
+	expect(session).toContain("item.sessionId === sessionId");
+	expect(session).toContain("listedTitle ||");
+	expect(session).toContain("session.state?.title?.trim()");
+});
+
+test("session docks the live numbered plan and pending responses above the composer", () => {
+	const session = source("session.tsx");
+	expect(session).toContain("getLatestActivePlan(session.timeline.items)");
+	expect(session).toContain('className="mobile-action-stack"');
+	expect(session).toContain("<MobilePlanPanel plan={activePlan}");
+	expect(session).toContain("pendingCount={permissions.pending.length}");
+});
+
+test("composer auto-grows and uses compact accessible action buttons", () => {
+	const composer = source("../components/Composer.tsx");
+	const styles = source("../styles.css");
+	expect(composer).toContain("Math.min(textarea.scrollHeight, 160)");
+	expect(composer).toContain('aria-label="Stop response"');
+	expect(composer).toContain('className="mobile-composer-submit"');
+	expect(composer).toContain('data-queueing={queueing ? "true" : undefined}');
+	expect(styles).toContain(".mobile-composer:focus-within");
+	expect(styles).toContain(".mobile-composer-queue-mark");
+});
+
+test("session refreshes active phone work so approvals never require reload", () => {
+	const session = source("session.tsx");
+	expect(session).toContain("refreshSession().catch(() => undefined)");
+	expect(session).toContain("refreshListedTitle().catch(() => undefined)");
+	expect(session).toContain('session.state?.status !== "running"');
+	expect(session).toContain("window.setInterval");
 });
 
 test("session collapses execution details and shows Working duration", () => {
@@ -47,7 +86,7 @@ test("session collapses execution details and shows Working duration", () => {
 	);
 	const working = source("../components/Timeline/WorkingIndicator.tsx");
 	expect(timeline).toContain("groupTimelineTurns(timeline.items)");
-	expect(turn).toContain('item.kind === "tool_call" && !expanded');
+	expect(turn).toContain("if (!expanded) return null");
 	expect(turn).toContain("<ExecutionSummary");
 	expect(working).toContain("getWorkingIndicatorDuration");
 	expect(working).toContain("setInterval");

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { draftToRestore } from "./composerDraft";
 
 interface Props {
@@ -19,6 +19,16 @@ export function Composer({
 	const [value, setValue] = useState("");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const draftVersionRef = useRef(0);
+
+	useLayoutEffect(() => {
+		const textarea = textareaRef.current;
+		if (!textarea) return;
+		textarea.style.height = value.length === 0 ? "44px" : "0px";
+		const nextHeight = Math.min(textarea.scrollHeight, 160);
+		textarea.style.height = `${nextHeight}px`;
+		textarea.style.overflowY =
+			textarea.scrollHeight > nextHeight ? "auto" : "hidden";
+	}, [value]);
 
 	function handleSubmit(): void {
 		if (disabled || (busy && !queueing)) return;
@@ -41,8 +51,10 @@ export function Composer({
 		}
 	}
 
+	const submitLabel = queueing ? "Queue message" : "Send message";
+
 	return (
-		<div className="mobile-composer mt-2 flex items-end gap-2 rounded-2xl p-2">
+		<div className="mobile-composer mt-2">
 			<textarea
 				ref={textareaRef}
 				value={value}
@@ -57,42 +69,46 @@ export function Composer({
 					}
 				}}
 				disabled={disabled}
-				placeholder={disabled ? "Reconnecting…" : "Send a message"}
+				placeholder={disabled ? "Reconnecting…" : "Message"}
+				aria-label="Send a message"
 				inputMode="text"
 				enterKeyHint="send"
 				autoCapitalize="sentences"
 				autoCorrect="on"
 				rows={1}
-				className="max-h-40 min-h-[44px] w-full resize-none bg-transparent px-2 py-2 text-base text-[var(--phone-text)] outline-none placeholder:text-[var(--phone-caption)] disabled:opacity-50"
+				className="mobile-composer-input"
 			/>
-			{busy && onCancel ? (
-				<>
-					<button
-						type="button"
-						disabled={disabled || (busy && !queueing) || !value.trim()}
-						onClick={handleSubmit}
-						className="mobile-primary-button px-3 py-2 text-sm font-medium disabled:opacity-40"
-					>
-						{queueing ? "Queue" : "Send"}
-					</button>
+			<div className="mobile-composer-actions">
+				{busy && onCancel ? (
 					<button
 						type="button"
 						onClick={onCancel}
-						className="rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-200 ring-1 ring-red-500/30"
+						className="mobile-composer-stop"
+						aria-label="Stop response"
+						title="Stop response"
 					>
-						Stop
+						<span aria-hidden="true" />
 					</button>
-				</>
-			) : (
+				) : null}
 				<button
 					type="button"
 					disabled={disabled || (busy && !queueing) || !value.trim()}
 					onClick={handleSubmit}
-					className="mobile-primary-button px-3 py-2 text-sm font-medium disabled:opacity-40"
+					className="mobile-composer-submit"
+					aria-label={submitLabel}
+					title={submitLabel}
+					data-queueing={queueing ? "true" : undefined}
 				>
-					{queueing ? "Queue" : "Send"}
+					<svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+						<path d="M10 15V5m0 0L6.5 8.5M10 5l3.5 3.5" />
+					</svg>
+					{queueing ? (
+						<span className="mobile-composer-queue-mark" aria-hidden="true">
+							+
+						</span>
+					) : null}
 				</button>
-			)}
+			</div>
 		</div>
 	);
 }

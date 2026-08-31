@@ -109,6 +109,7 @@ export function createPhoneAcpClient(sessionId?: string): PhoneAcpClient {
 			return trpc().get.query(input);
 		},
 		getMessages: (input) => trpc().getMessages.query(input),
+		getTranscript: (input) => trpc().getTranscript.query(input),
 		prompt: (input) => sendCommand<PromptAccepted>("prompt", input),
 		respondToPermission: (input) => trpc().respondToPermission.mutate(input),
 		cancel: (input) => trpc().cancel.mutate(input),

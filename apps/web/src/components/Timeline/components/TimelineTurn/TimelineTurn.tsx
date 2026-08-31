@@ -44,9 +44,13 @@ function renderItem(item: TimelineItem) {
 	}
 }
 
-function renderProcessItem(item: TimelineItem, expanded: boolean) {
-	if (item.kind === "tool_call" && !expanded) return null;
+function renderVisibleItem(item: TimelineItem) {
 	return <div key={itemKey(item)}>{renderItem(item)}</div>;
+}
+
+function renderProcessItem(item: TimelineItem, expanded: boolean) {
+	if (!expanded) return null;
+	return renderVisibleItem(item);
 }
 
 export function TimelineTurn({
@@ -57,7 +61,7 @@ export function TimelineTurn({
 }: TimelineTurnProps) {
 	return (
 		<li className="flex flex-col gap-2" data-turn-id={turn.id}>
-			{turn.preItems.map((item) => renderProcessItem(item, expanded))}
+			{turn.preItems.map(renderVisibleItem)}
 			{turn.toolCallCount > 0 || turn.messageCount > 0 ? (
 				<ExecutionSummary
 					toolCallCount={turn.toolCallCount}

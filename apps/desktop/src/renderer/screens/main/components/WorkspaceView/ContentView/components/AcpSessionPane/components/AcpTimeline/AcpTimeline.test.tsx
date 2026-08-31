@@ -55,6 +55,14 @@ function userMessage(sequence: number): MessageItem {
 	};
 }
 
+function thoughtMessage(sequence: number, text: string): MessageItem {
+	return {
+		...message(sequence, text),
+		id: `thought:${sequence}`,
+		role: "thought",
+	};
+}
+
 function timeline(count: number): FoldedTimeline {
 	return {
 		items: Array.from({ length: count }, (_, index) => message(index + 1)),
@@ -975,7 +983,7 @@ describe("AcpTimeline scrolling", () => {
 		}
 	});
 
-	test("shows the latest user message after a hidden tab is shown", () => {
+	test("shows the final Agent response after a settled hidden tab is shown", () => {
 		const onRespond = async () => {};
 		const processTool = tool(2, "completed");
 		const initialTimeline = {
@@ -988,15 +996,27 @@ describe("AcpTimeline scrolling", () => {
 			items: [...initialTimeline.items, message(3, "final markdown response")],
 			lastSeq: 3,
 		};
-		const pendingFrames: FrameRequestCallback[] = [];
+		const hydratedTimeline = {
+			...settledTimeline,
+			items: [...settledTimeline.items, tool(4, "completed")],
+			lastSeq: 4,
+		};
+		const pendingFrames: Array<{
+			id: number;
+			callback: FrameRequestCallback;
+		}> = [];
+		let nextFrameId = 0;
 		const originalRequestAnimationFrame = window.requestAnimationFrame;
 		const originalCancelAnimationFrame = window.cancelAnimationFrame;
 		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
-			pendingFrames.push(callback);
-			return pendingFrames.length;
+			nextFrameId += 1;
+			pendingFrames.push({ id: nextFrameId, callback });
+			return nextFrameId;
 		}) as typeof window.requestAnimationFrame;
-		window.cancelAnimationFrame =
-			(() => {}) as typeof window.cancelAnimationFrame;
+		window.cancelAnimationFrame = ((id: number) => {
+			const index = pendingFrames.findIndex((frame) => frame.id === id);
+			if (index >= 0) pendingFrames.splice(index, 1);
+		}) as typeof window.cancelAnimationFrame;
 
 		try {
 			const result = render(
@@ -1015,7 +1035,7 @@ describe("AcpTimeline scrolling", () => {
 				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
 					const frame = pendingFrames.shift();
 					if (!frame) break;
-					frame(0);
+					frame.callback(0);
 				}
 			});
 
@@ -1087,21 +1107,42 @@ describe("AcpTimeline scrolling", () => {
 			act(() => {
 				const restoreFrame = pendingFrames.shift();
 				if (!restoreFrame) throw new Error("expected a focus restore frame");
-				restoreFrame(0);
+				restoreFrame.callback(0);
+				// Hydration can add timeline items between mounting the latest turn and
+				// aligning its response. This must not cancel the in-flight restore.
+				result.rerender(
+					createElement(AcpTimeline, {
+						timeline: hydratedTimeline,
+						onRespond,
+						isFocused: true,
+						status: "idle",
+					}),
+				);
 				const alignFrame = pendingFrames.shift();
 				if (!alignFrame) throw new Error("expected an anchor alignment frame");
-				alignFrame(0);
-				expect(body.scrollTop).toBe(80);
+				alignFrame.callback(0);
+				expect(body.scrollTop).toBe(240);
 
-				// A delayed virtualizer measurement can briefly restore the stale bottom
-				// offset after the first alignment. The focus restore must hold the same
-				// semantic anchor through that frame.
-				body.scrollTop = 1_300;
-				const delayedMeasurementFrame = pendingFrames.shift();
-				delayedMeasurementFrame?.(0);
+				// Multiple delayed virtualizer measurements can restore different stale
+				// offsets on consecutive frames. The restore must keep pinning the same
+				// final-response anchor until the layout remains stable.
+				for (const staleOffset of [1_300, 900, 1_100]) {
+					body.scrollTop = staleOffset;
+					const delayedMeasurementFrame = pendingFrames.shift();
+					if (!delayedMeasurementFrame) {
+						throw new Error("expected a delayed measurement frame");
+					}
+					delayedMeasurementFrame.callback(0);
+					expect(body.scrollTop).toBe(240);
+				}
+				for (let frameCount = 0; frameCount < 12; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame.callback(0);
+				}
 			});
 
-			expect(body.scrollTop).toBe(80);
+			expect(body.scrollTop).toBe(240);
 			expect(
 				screen.getByRole("button", { name: "Jump to latest" }),
 			).toBeTruthy();
@@ -1183,9 +1224,9 @@ describe("turn collapsing", () => {
 		);
 		const processTool = tool(2, "completed");
 		processTool.call = { ...processTool.call, title: "Process tool" };
-		const middleTool = tool(4, "completed");
+		const middleTool = tool(5, "completed");
 		middleTool.call = { ...middleTool.call, title: "Middle tool" };
-		const trailingTool = tool(6, "completed");
+		const trailingTool = tool(8, "completed");
 		trailingTool.call = { ...trailingTool.call, title: "Trailing tool" };
 		render(
 			createElement(AcpTimeline, {
@@ -1194,9 +1235,11 @@ describe("turn collapsing", () => {
 					items: [
 						userMessage(1),
 						processTool,
-						message(3, "First progress update"),
+						thoughtMessage(3, "Investigating the implementation"),
+						message(4, "First progress update"),
 						middleTool,
-						message(5, "Second progress update"),
+						thoughtMessage(6, "Planning the next change"),
+						message(7, "Second progress update"),
 						trailingTool,
 					],
 				},
@@ -1211,11 +1254,15 @@ describe("turn collapsing", () => {
 		expect(summary.textContent).toContain("3 次工具调用");
 		expect(screen.getByText("First progress update")).toBeTruthy();
 		expect(screen.getByText("Second progress update")).toBeTruthy();
+		expect(screen.queryByText("Investigating the implementation")).toBeNull();
+		expect(screen.queryByText("Planning the next change")).toBeNull();
 		expect(screen.queryByText("Process tool")).toBeNull();
 		expect(screen.queryByText("Middle tool")).toBeNull();
 		expect(screen.queryByText("Trailing tool")).toBeNull();
 
 		fireEvent.click(summary);
+		expect(screen.getByText("Investigating the implementation")).toBeTruthy();
+		expect(screen.getByText("Planning the next change")).toBeTruthy();
 		expect(screen.getByText("Process tool")).toBeTruthy();
 		expect(screen.getByText("Middle tool")).toBeTruthy();
 		expect(screen.getByText("Trailing tool")).toBeTruthy();

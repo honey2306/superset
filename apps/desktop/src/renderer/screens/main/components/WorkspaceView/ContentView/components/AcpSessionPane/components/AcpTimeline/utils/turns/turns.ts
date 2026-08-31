@@ -13,12 +13,13 @@ import type { SessionStatus, TimelineItem } from "@superset/session-protocol";
  *   - `preItems`: items that always render inline (the user message, and any
  *     leading items before the very first user message).
  *   - `processItems`: process entries before the last agent message. Tool
- *     calls collapse behind the summary; agent messages remain readable.
+ *     calls and thought messages collapse; ordinary agent messages remain readable.
  *   - `finalAgentMessage`: the last agent message in this turn (if any). This
  *     is the "assistant reply" the user actually reads; it always renders.
  *   - `trailingItems`: working items emitted after the latest agent message.
  *     They retain their chronological position when expanded, but share the
- *     same process summary; text messages remain visible while tools fold.
+ *     same process summary; ordinary agent messages remain visible while tools
+ *     and thought messages fold.
  *   - `isComplete`: true when the turn has a final agent message. Once that
  *     response starts streaming, all surrounding process items can collapse;
  *     an in-flight turn with no agent message renders everything inline so the

@@ -71,6 +71,27 @@ function findLatestUserMessage(scroll: HTMLElement): HTMLElement | null {
 	return messages.item(messages.length - 1);
 }
 
+/**
+ * Find the final Agent response in the latest mounted turn. The author-only row
+ * also uses the Agent role for styling, so it must not become the restore anchor.
+ */
+function findLatestFinalAgentMessage(
+	scroll: HTMLElement,
+	latestTurnId: string | null,
+): HTMLElement | null {
+	const selector = '.acp-msg[data-role="agent"]:not(.acp-msg--author-only)';
+	const findLast = (root: ParentNode) => {
+		const messages = root.querySelectorAll<HTMLElement>(selector);
+		return messages.item(messages.length - 1);
+	};
+	if (!latestTurnId) return findLast(scroll);
+
+	const latestTurn = Array.from(
+		scroll.querySelectorAll<HTMLElement>("[data-turn-id]"),
+	).find((turn) => turn.dataset.turnId === latestTurnId);
+	return latestTurn ? findLast(latestTurn) : null;
+}
+
 /** Align a timeline element's top edge with the scroll viewport without animation. */
 function alignTimelineElementToTop(
 	scroll: HTMLElement,
@@ -161,6 +182,17 @@ export function shouldShowWorkingIndicator(
 	status?: SessionStatus,
 ): boolean {
 	return status === "running";
+}
+
+function shouldRenderProcessItem(
+	item: TimelineItem,
+	expanded: boolean,
+): boolean {
+	return (
+		expanded ||
+		item.kind === "plan" ||
+		(item.kind === "message" && item.role === "agent")
+	);
 }
 
 function renderItem(
@@ -288,7 +320,6 @@ export const AcpTimeline = memo(
 		const initialScrollFrameRef = useRef<number | null>(null);
 		const focusScrollFrameRef = useRef<number | null>(null);
 		const focusScrollRetryRef = useRef(0);
-		const focusScrollVerificationRef = useRef(false);
 		const isRestoringFocusRef = useRef(false);
 		const hasInitiallyScrolledRef = useRef(false);
 		const isInitialFocusRef = useRef(true);
@@ -644,6 +675,10 @@ export const AcpTimeline = memo(
 					? `turn:${latestLoadedTurnNumber}`
 					: null
 				: latestLoadedTurnId;
+		const latestTurnIdRef = useRef(latestTurnId);
+		latestTurnIdRef.current = latestTurnId;
+		const timelineItemCountRef = useRef(timeline.items.length);
+		timelineItemCountRef.current = timeline.items.length;
 		useEffect(() => {
 			const becameFocused = isFocused && !wasFocusedRef.current;
 			const isInitialFocus = isInitialFocusRef.current;
@@ -661,16 +696,16 @@ export const AcpTimeline = memo(
 			// A kept-alive pane is display:none while inactive. The virtualizer can
 			// therefore still have the old window (or zero-sized measurements) when
 			// focus returns. Keep the restore alive for a few frames: first bring the
-			// latest turn into the virtual window, then align the latest user message.
+			// latest turn into the virtual window, then align its final Agent response.
 			focusScrollRetryRef.current = 0;
-			focusScrollVerificationRef.current = false;
+			let stableAlignmentFrames = 0;
 			const scheduleRetry = (callback: () => void): boolean => {
 				if (focusScrollRetryRef.current >= 12) return false;
 				focusScrollRetryRef.current += 1;
 				focusScrollFrameRef.current = window.requestAnimationFrame(callback);
 				return true;
 			};
-			const alignLastUserMessage = () => {
+			const alignSettledAnchor = () => {
 				focusScrollFrameRef.current = null;
 				isRestoringFocusRef.current = true;
 				const el = scrollRef.current;
@@ -679,10 +714,12 @@ export const AcpTimeline = memo(
 					return;
 				}
 
-				const target = findLatestUserMessage(el);
+				const target =
+					findLatestFinalAgentMessage(el, latestTurnIdRef.current) ??
+					findLatestUserMessage(el);
 				if (!target) {
-					if (scheduleRetry(alignLastUserMessage)) return;
-					// The latest user message exists in the folded timeline, but could not be
+					if (scheduleRetry(alignSettledAnchor)) return;
+					// The semantic anchor exists in the folded timeline, but could not be
 					// mounted after the virtualizer settled. Bottom is the safe fallback.
 					isRestoringFocusRef.current = false;
 					setAutoFollow(true);
@@ -690,18 +727,21 @@ export const AcpTimeline = memo(
 					return;
 				}
 
+				const targetOffset =
+					target.getBoundingClientRect().top - el.getBoundingClientRect().top;
 				alignTimelineElementToTop(el, target);
 				// Keep the virtualizer's internal offset in sync with the manual
-				// alignment. Otherwise a delayed ResizeObserver measurement can restore
-				// the stale bottom offset on the next frame.
+				// alignment. Otherwise delayed ResizeObserver measurements can restore
+				// a stale offset over several frames.
 				el.dispatchEvent(new Event("scroll"));
-				// Give the virtualizer one frame to deliver delayed measurements before
-				// releasing the restore guard. If that measurement moves the scroll
-				// offset, the second pass reapplies the same semantic anchor.
-				if (!focusScrollVerificationRef.current) {
-					focusScrollVerificationRef.current = true;
-					if (scheduleRetry(alignLastUserMessage)) return;
-				}
+				stableAlignmentFrames =
+					Math.abs(targetOffset) < 0.5 ? stableAlignmentFrames + 1 : 0;
+				// Do not release the guard after a single frame: long Markdown and the
+				// virtualizer can report several consecutive measurements after a hidden
+				// tab becomes visible. Require three unchanged frames, bounded by the
+				// shared retry limit, so every return lands on the same semantic anchor.
+				if (stableAlignmentFrames < 3 && scheduleRetry(alignSettledAnchor))
+					return;
 				isRestoringFocusRef.current = false;
 				const near = isNearBottom(el);
 				setAutoFollow(near);
@@ -720,12 +760,12 @@ export const AcpTimeline = memo(
 				// Direct assignment does not notify the virtualizer. Dispatch a real
 				// scroll event so it mounts the latest turn without leaving a pending
 				// scrollToIndex reconciliation that could snap back to the bottom after
-				// the user message is aligned.
+				// the settled anchor is aligned.
 				el.dispatchEvent(new Event("scroll"));
 
 				const shouldFollowBottom = isActiveSessionStatus(status);
 				const hasLayout = el.clientHeight > 0 || el.scrollHeight > 0;
-				if (!hasLayout && timeline.items.length > 0) {
+				if (!hasLayout && timelineItemCountRef.current > 0) {
 					if (scheduleRetry(restoreFocusPosition)) return;
 				}
 
@@ -737,8 +777,8 @@ export const AcpTimeline = memo(
 				}
 
 				// Let the virtualizer's scroll listener commit its latest mounted
-				// window before querying the latest user's real geometry.
-				if (!scheduleRetry(alignLastUserMessage)) {
+				// window before querying the settled anchor's real geometry.
+				if (!scheduleRetry(alignSettledAnchor)) {
 					isRestoringFocusRef.current = false;
 					setAutoFollow(true);
 					setShowJumpButton(false);
@@ -754,7 +794,7 @@ export const AcpTimeline = memo(
 					focusScrollFrameRef.current = null;
 				}
 			};
-		}, [isFocused, isNearBottom, status, timeline.items.length]);
+		}, [isFocused, isNearBottom, status]);
 		const resolvedActiveTurnId =
 			activeTurnId &&
 			(turnIndex.length > 0
@@ -1068,9 +1108,7 @@ export const AcpTimeline = memo(
 													/>
 												)}
 												{turn.processItems.map((item) =>
-													item.kind === "message" ||
-													item.kind === "plan" ||
-													expanded
+													shouldRenderProcessItem(item, expanded)
 														? renderItem(
 																item,
 																onRespond,
@@ -1097,9 +1135,7 @@ export const AcpTimeline = memo(
 														reviewForItem(turn.finalAgentMessage),
 													)}
 												{turn.trailingItems.map((item) =>
-													item.kind === "message" ||
-													item.kind === "plan" ||
-													expanded
+													shouldRenderProcessItem(item, expanded)
 														? renderItem(
 																item,
 																onRespond,
