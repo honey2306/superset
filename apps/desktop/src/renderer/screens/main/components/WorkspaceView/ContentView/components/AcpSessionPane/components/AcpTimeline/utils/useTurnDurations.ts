@@ -1,13 +1,14 @@
 import type { SessionStatus } from "@superset/session-protocol";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { isTurnSettled, type Turn } from "./turns/turns";
+import { getTurnUserMessage, isTurnSettled, type Turn } from "./turns/turns";
 
 /**
  * Per-turn duration tracker.
  *
- * Server timeline items don't yet carry usable timestamps, so this hook
- * observes each turn's arrival in the client:
- *   • startAt  — first render tick where the user message appears.
+ * The user message timestamp is the authoritative start of each turn. The
+ * hook only falls back to the first client observation for legacy timeline
+ * items that do not carry a timestamp:
+ *   • startAt  — the user message's timestamp (or first observed render).
  *   • endAt    — first render tick where the turn is settled. For the latest
  *                turn, this requires both agent output and an inactive session.
  *
@@ -103,10 +104,24 @@ export function useTurnDurations(
 			) {
 				continue;
 			}
+			const userMessage = getTurnUserMessage(turn);
+			const messageStartedAt = userMessage?.startedAt ?? userMessage?.updatedAt;
+			const authoritativeStart =
+				typeof messageStartedAt === "number" &&
+				Number.isFinite(messageStartedAt) &&
+				messageStartedAt >= 0
+					? messageStartedAt
+					: null;
 			let rec = records.get(turn.id);
 			if (!rec) {
-				rec = { s: now };
+				rec = { s: authoritativeStart ?? now };
 				records.set(turn.id, rec);
+				mutated = true;
+			} else if (authoritativeStart !== null && rec.s !== authoritativeStart) {
+				// Older clients could persist the tab/session anchor for every turn,
+				// making summary and Working durations mirror the toolbar total. Repair
+				// those records from the turn's own user-message timestamp.
+				rec.s = authoritativeStart;
 				mutated = true;
 			}
 			const settled = isTurnSettled(turn, index === turns.length - 1, status);

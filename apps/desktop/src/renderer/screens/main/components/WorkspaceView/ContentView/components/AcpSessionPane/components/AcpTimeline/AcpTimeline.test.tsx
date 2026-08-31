@@ -975,7 +975,7 @@ describe("AcpTimeline scrolling", () => {
 		}
 	});
 
-	test("shows the top of the settled final response after a hidden tab is shown", () => {
+	test("shows the latest user message after a hidden tab is shown", () => {
 		const onRespond = async () => {};
 		const processTool = tool(2, "completed");
 		const initialTimeline = {
@@ -1046,6 +1046,10 @@ describe("AcpTimeline scrolling", () => {
 				'.acp-msg[data-role="agent"]:not(.acp-msg--author-only)',
 			);
 			if (!finalMessage) throw new Error("expected the final agent message");
+			const lastUserMessage = body.querySelector<HTMLElement>(
+				'.acp-msg[data-role="user"]',
+			);
+			if (!lastUserMessage) throw new Error("expected the latest user message");
 			const authorRow = body.querySelector<HTMLElement>(
 				".acp-msg--author-only",
 			);
@@ -1064,6 +1068,13 @@ describe("AcpTimeline scrolling", () => {
 					bottom: 160 + 240 - body.scrollTop,
 				}),
 			});
+			Object.defineProperty(lastUserMessage, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 100 + 80 - body.scrollTop,
+					bottom: 160 + 80 - body.scrollTop,
+				}),
+			});
 
 			result.rerender(
 				createElement(AcpTimeline, {
@@ -1074,14 +1085,23 @@ describe("AcpTimeline scrolling", () => {
 				}),
 			);
 			act(() => {
-				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
-					const frame = pendingFrames.shift();
-					if (!frame) break;
-					frame(0);
-				}
+				const restoreFrame = pendingFrames.shift();
+				if (!restoreFrame) throw new Error("expected a focus restore frame");
+				restoreFrame(0);
+				const alignFrame = pendingFrames.shift();
+				if (!alignFrame) throw new Error("expected an anchor alignment frame");
+				alignFrame(0);
+				expect(body.scrollTop).toBe(80);
+
+				// A delayed virtualizer measurement can briefly restore the stale bottom
+				// offset after the first alignment. The focus restore must hold the same
+				// semantic anchor through that frame.
+				body.scrollTop = 1_300;
+				const delayedMeasurementFrame = pendingFrames.shift();
+				delayedMeasurementFrame?.(0);
 			});
 
-			expect(body.scrollTop).toBe(240);
+			expect(body.scrollTop).toBe(80);
 			expect(
 				screen.getByRole("button", { name: "Jump to latest" }),
 			).toBeTruthy();
@@ -1091,11 +1111,11 @@ describe("AcpTimeline scrolling", () => {
 		}
 	});
 
-	test("opens an initially focused settled conversation at the final response", () => {
+	test("opens a settled conversation without a final response at the latest user message", () => {
 		const settledTimeline = {
 			...timeline(0),
-			items: [userMessage(1), tool(2, "completed"), message(3, "final")],
-			lastSeq: 3,
+			items: [userMessage(1), tool(2, "completed")],
+			lastSeq: 2,
 		};
 		const pendingFrames: FrameRequestCallback[] = [];
 		const originalRequestAnimationFrame = window.requestAnimationFrame;
@@ -1124,15 +1144,15 @@ describe("AcpTimeline scrolling", () => {
 				configurable: true,
 				value: () => ({ top: 100 }),
 			});
-			const finalMessage = body.querySelector<HTMLElement>(
-				'.acp-msg[data-role="agent"]:not(.acp-msg--author-only)',
+			const lastUserMessage = body.querySelector<HTMLElement>(
+				'.acp-msg[data-role="user"]',
 			);
-			if (!finalMessage) throw new Error("expected the final agent message");
-			Object.defineProperty(finalMessage, "getBoundingClientRect", {
+			if (!lastUserMessage) throw new Error("expected the latest user message");
+			Object.defineProperty(lastUserMessage, "getBoundingClientRect", {
 				configurable: true,
 				value: () => ({
-					top: 100 + 240 - body.scrollTop,
-					bottom: 160 + 240 - body.scrollTop,
+					top: 100 + 80 - body.scrollTop,
+					bottom: 160 + 80 - body.scrollTop,
 				}),
 			});
 
@@ -1144,7 +1164,7 @@ describe("AcpTimeline scrolling", () => {
 				}
 			});
 
-			expect(body.scrollTop).toBe(240);
+			expect(body.scrollTop).toBe(80);
 			expect(
 				screen.getByRole("button", { name: "Jump to latest" }),
 			).toBeTruthy();
@@ -1156,20 +1176,29 @@ describe("AcpTimeline scrolling", () => {
 });
 
 describe("turn collapsing", () => {
-	test("collapses the latest process while running and keeps trailing tools visible", async () => {
+	test("keeps process items folded after an agent message while running", async () => {
 		window.localStorage.setItem(
 			"acp-turn-durations:session-running",
 			JSON.stringify({ "user:1": { s: Date.now() - 4_000 } }),
 		);
 		const processTool = tool(2, "completed");
 		processTool.call = { ...processTool.call, title: "Process tool" };
-		const trailingTool = tool(4, "completed");
+		const middleTool = tool(4, "completed");
+		middleTool.call = { ...middleTool.call, title: "Middle tool" };
+		const trailingTool = tool(6, "completed");
 		trailingTool.call = { ...trailingTool.call, title: "Trailing tool" };
 		render(
 			createElement(AcpTimeline, {
 				timeline: {
 					...timeline(0),
-					items: [userMessage(1), processTool, message(3), trailingTool],
+					items: [
+						userMessage(1),
+						processTool,
+						message(3, "First progress update"),
+						middleTool,
+						message(5, "Second progress update"),
+						trailingTool,
+					],
 				},
 				onRespond: async () => {},
 				sessionId: "session-running",
@@ -1178,9 +1207,19 @@ describe("turn collapsing", () => {
 		);
 		await act(async () => {});
 
-		expect(screen.getByText(/执行过程/)).toBeTruthy();
+		const summary = screen.getByRole("button", { name: /执行过程/ });
+		expect(summary.textContent).toContain("3 次工具调用");
+		expect(screen.getByText("First progress update")).toBeTruthy();
+		expect(screen.getByText("Second progress update")).toBeTruthy();
 		expect(screen.queryByText("Process tool")).toBeNull();
+		expect(screen.queryByText("Middle tool")).toBeNull();
+		expect(screen.queryByText("Trailing tool")).toBeNull();
+
+		fireEvent.click(summary);
+		expect(screen.getByText("Process tool")).toBeTruthy();
+		expect(screen.getByText("Middle tool")).toBeTruthy();
 		expect(screen.getByText("Trailing tool")).toBeTruthy();
+
 		const working = screen.getByText("Working…").closest("output");
 		expect(working?.textContent).toContain("4s");
 		expect(screen.queryByLabelText("Turn duration 4s")).toBeNull();
@@ -1289,6 +1328,54 @@ describe("turn durations", () => {
 
 		await act(async () => {});
 		expect(screen.getByText("耗时 3s")).toBeTruthy();
+	});
+
+	test("keeps each turn duration separate from the tab total", async () => {
+		const now = Date.now();
+		window.localStorage.setItem(
+			"acp-turn-durations:session-multiple-turns",
+			JSON.stringify({
+				"user:1": { s: now - 120_000, e: now - 60_000 },
+				"user:4": { s: now - 120_000 },
+			}),
+		);
+
+		render(
+			createElement(AcpTimeline, {
+				timeline: {
+					...timeline(0),
+					items: [
+						{
+							...userMessage(1),
+							startedAt: now - 100_000,
+							updatedAt: now - 100_000,
+						},
+						tool(2, "completed"),
+						{
+							...message(3),
+							startedAt: now - 60_000,
+							updatedAt: now - 60_000,
+						},
+						{
+							...userMessage(4),
+							startedAt: now - 10_000,
+							updatedAt: now - 10_000,
+						},
+						tool(5, "in_progress"),
+					],
+				},
+				onRespond: async () => {},
+				sessionId: "session-multiple-turns",
+				status: "running",
+			}),
+		);
+
+		await act(async () => {});
+		expect(screen.getByText("耗时 40s")).toBeTruthy();
+		expect(screen.getByText("耗时 10s")).toBeTruthy();
+		const working = screen.getByText("Working…").closest("output");
+		expect(working?.textContent).toContain("10s");
+		expect(working?.textContent).not.toContain("2m");
 	});
 
 	test("keeps the persisted process summary after raw process items are compacted", async () => {

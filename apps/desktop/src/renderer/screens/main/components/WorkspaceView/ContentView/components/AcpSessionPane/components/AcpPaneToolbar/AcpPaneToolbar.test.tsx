@@ -167,6 +167,51 @@ describe("AcpPaneToolbar elapsed display", () => {
 		expect(screen.getByText("用时 3s")).toBeTruthy();
 	});
 
+	test("keeps the toolbar counter as the total across multiple turns", async () => {
+		let now = 10_000;
+		Date.now = () => now;
+		const result = renderToolbar("running");
+		await act(async () => {});
+
+		now = 13_000;
+		result.rerender(
+			createElement(AcpPaneToolbar, {
+				title: "Test task",
+				agentLabel: "Agent",
+				status: "idle",
+				sessionId: "session-1",
+				paneActions: null,
+			}),
+		);
+		await act(async () => {});
+
+		now = 20_000;
+		result.rerender(
+			createElement(AcpPaneToolbar, {
+				title: "Test task",
+				agentLabel: "Agent",
+				status: "running",
+				sessionId: "session-1",
+				paneActions: null,
+			}),
+		);
+		await act(async () => {});
+
+		now = 24_000;
+		result.rerender(
+			createElement(AcpPaneToolbar, {
+				title: "Test task",
+				agentLabel: "Agent",
+				status: "idle",
+				sessionId: "session-1",
+				paneActions: null,
+			}),
+		);
+		await act(async () => {});
+
+		expect(screen.getByText("用时 7s")).toBeTruthy();
+	});
+
 	test("finalizes a detached run only through its last observation", async () => {
 		const now = 20_000;
 		Date.now = () => now;

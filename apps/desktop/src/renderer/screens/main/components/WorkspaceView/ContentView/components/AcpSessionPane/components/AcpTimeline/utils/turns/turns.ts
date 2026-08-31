@@ -12,17 +12,17 @@ import type { SessionStatus, TimelineItem } from "@superset/session-protocol";
  * `groupTurns` walks the timeline and returns, per turn:
  *   - `preItems`: items that always render inline (the user message, and any
  *     leading items before the very first user message).
- *   - `processItems`: candidates to collapse — every item strictly *before*
- *     the last agent message in this turn.
+ *   - `processItems`: process entries before the last agent message. Tool
+ *     calls collapse behind the summary; agent messages remain readable.
  *   - `finalAgentMessage`: the last agent message in this turn (if any). This
  *     is the "assistant reply" the user actually reads; it always renders.
- *   - `trailingItems`: anything after the final agent message but still in
- *     this turn (rare; e.g. a late tool_call that fires after the last text
- *     message). Kept inline so it never disappears from the transcript.
+ *   - `trailingItems`: working items emitted after the latest agent message.
+ *     They retain their chronological position when expanded, but share the
+ *     same process summary; text messages remain visible while tools fold.
  *   - `isComplete`: true when the turn has a final agent message. Once that
- *     final response starts streaming, the process can collapse even if
- *     trailing work keeps the session active; an in-flight turn with no final
- *     message renders everything inline so the user sees live progress.
+ *     response starts streaming, all surrounding process items can collapse;
+ *     an in-flight turn with no agent message renders everything inline so the
+ *     user sees live progress.
  *
  * Plan items live outside the turn model — they are separated by the pane's
  * dock renderer before we get here, so this function only sees message +
@@ -165,8 +165,9 @@ export function groupTurns(items: readonly TimelineItem[]): Turn[] {
 		const trailingItems =
 			finalAgentIdx >= 0 ? body.slice(finalAgentIdx + 1) : [];
 
-		const toolCallCount = countToolCallsDeep(processItems);
-		const messageCount = processItems.filter(
+		const collapsibleItems = [...processItems, ...trailingItems];
+		const toolCallCount = countToolCallsDeep(collapsibleItems);
+		const messageCount = collapsibleItems.filter(
 			(item) => item.kind === "message",
 		).length;
 
@@ -188,8 +189,8 @@ export function groupTurns(items: readonly TimelineItem[]): Turn[] {
 /**
  * A turn folds by default once it has a final agent message and process items.
  * The latest turn can fold while the authoritative session status is still
- * active: the final message is the user's answer, while trailing tool calls
- * remain visible separately. User-driven expansion remains local to
+ * active: the latest message stays readable while process items on either
+ * side remain under the same summary. User-driven expansion remains local to
  * AcpTimeline; this predicate only chooses the initial default.
  */
 export function isTurnSettled(
@@ -212,10 +213,11 @@ export function isTurnAutoCollapsible(
 	status?: SessionStatus,
 ): boolean {
 	if (!turn.isComplete) return false;
-	if (turn.processItems.length === 0) return false;
-	// A final agent message is the user's answer even while the session is still
-	// streaming trailing work. Collapse the process as soon as that answer starts
-	// rendering; trailingItems stay outside this decision and remain visible.
+	if (turn.processItems.length === 0 && turn.trailingItems.length === 0)
+		return false;
+	// A final agent message remains readable even while the session is still
+	// streaming work. Collapse all surrounding process items as soon as that
+	// answer starts rendering.
 	if (isLastTurn) return true;
 	return isTurnSettled(turn, isLastTurn, status);
 }

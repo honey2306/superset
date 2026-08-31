@@ -114,7 +114,7 @@ describe("groupTurns", () => {
 		expect(turn?.processItems).toHaveLength(2);
 	});
 
-	test("intermediate agent messages fold, only the last agent message is final", () => {
+	test("only the last agent message is classified as the final response", () => {
 		const items: TimelineItem[] = [
 			userMsg(1),
 			agentMsg(2, "thinking about this"),
@@ -128,12 +128,13 @@ describe("groupTurns", () => {
 		expect(turn?.toolCallCount).toBe(1);
 	});
 
-	test("trailing tool after last agent message stays inline", () => {
+	test("trailing work stays chronological and counts toward the process summary", () => {
 		const items: TimelineItem[] = [userMsg(1), tool(2), agentMsg(3), tool(4)];
 		const [turn] = groupTurns(items);
 		expect(turn?.finalAgentMessage?.id).toBe("agent:3");
 		expect(turn?.processItems.map((i) => i.id)).toEqual(["t2"]);
 		expect(turn?.trailingItems.map((i) => i.id)).toEqual(["t4"]);
+		expect(turn?.toolCallCount).toBe(2);
 	});
 
 	test("leading agent items (before any user message) form a pre-turn", () => {
