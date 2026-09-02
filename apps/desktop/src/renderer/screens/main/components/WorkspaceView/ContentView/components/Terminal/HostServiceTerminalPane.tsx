@@ -19,6 +19,7 @@ import { useTerminalCallbacksStore } from "renderer/lib/terminal/terminal-callba
 import { registerTerminalCleanup } from "renderer/lib/terminal/terminal-cleanup";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import type { ConnectionState } from "renderer/lib/terminal/terminal-ws-transport";
+import { watchWorkspaceRunCompletion } from "renderer/lib/terminal/workspace-run-completion";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useProjectDefaultApp } from "renderer/routes/_local/hooks/useProjectDefaultApp";
@@ -181,6 +182,37 @@ export function HostServiceTerminalPane({
 	);
 	const agentBinding = agentBindings.get(terminalId);
 	const wasAgentTerminalRef = useRef(false);
+	const workspaceRunCompletionMarker =
+		paneSnapshot?.workspaceRun?.completionMarker;
+
+	// A workspace run executes inside a persistent interactive shell. The PTY
+	// stays alive when the command returns, so track the command's OSC marker
+	// rather than waiting for terminal exit. The registry-owned watch survives
+	// inactive-tab unmounts while the transport remains parked.
+	useEffect(() => {
+		if (!workspaceRunCompletionMarker) return;
+		const marker = workspaceRunCompletionMarker;
+		watchWorkspaceRunCompletion({
+			terminalId,
+			instanceId,
+			marker,
+			onComplete: () => {
+				const liveRun = getPaneSnapshot()?.workspaceRun;
+				if (
+					liveRun?.state === "running" &&
+					liveRun.completionMarker === marker
+				) {
+					setWorkspaceRunState("stopped-by-exit");
+				}
+			},
+		});
+	}, [
+		getPaneSnapshot,
+		instanceId,
+		setWorkspaceRunState,
+		terminalId,
+		workspaceRunCompletionMarker,
+	]);
 
 	useEffect(() => {
 		if (!hostUrl || !hostWorkspaceId) return;

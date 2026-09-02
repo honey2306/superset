@@ -11,6 +11,10 @@ import {
 } from "renderer/lib/panes";
 import { useHostTerminalLauncher } from "renderer/lib/terminal/host-terminal-launcher";
 import { buildTerminalCommand } from "renderer/lib/terminal/launch-command";
+import {
+	buildTrackedWorkspaceRunCommand,
+	watchWorkspaceRunCompletion,
+} from "renderer/lib/terminal/workspace-run-completion";
 import { createWorkspaceRunStartPlan } from "./workspace-run-start-plan";
 
 interface UseWorkspaceRunCommandOptions {
@@ -72,6 +76,32 @@ export function useWorkspaceRunCommand({
 			),
 		[workspaceId],
 	);
+	const watchRunCompletion = useCallback(
+		(paneId: string, marker: string) => {
+			watchWorkspaceRunCompletion({
+				terminalId: paneId,
+				marker,
+				onComplete: () => {
+					updatePaneData(workspaceId, paneId, (data) => {
+						if (
+							data.workspaceRun?.state !== "running" ||
+							data.workspaceRun.completionMarker !== marker
+						) {
+							return data;
+						}
+						return {
+							...data,
+							workspaceRun: {
+								...data.workspaceRun,
+								state: "stopped-by-exit",
+							},
+						};
+					});
+				},
+			});
+		},
+		[workspaceId],
+	);
 
 	const toggleWorkspaceRun = useCallback(async () => {
 		if (singleFlightRef.current.isActive()) return;
@@ -128,8 +158,13 @@ export function useWorkspaceRunCommand({
 					data.workspaceRun?.workspaceId === workspaceId &&
 					data.workspaceRun.state === "stopped-by-user",
 			);
-			const plan = createWorkspaceRunStartPlan({
+			const completionMarker = crypto.randomUUID();
+			const trackedCommand = buildTrackedWorkspaceRunCommand(
 				command,
+				completionMarker,
+			);
+			const plan = createWorkspaceRunStartPlan({
+				command: trackedCommand,
 				initialCwd,
 				existingPane: existingStoppedByUser
 					? {
@@ -144,8 +179,14 @@ export function useWorkspaceRunCommand({
 				focusPane(workspaceId, plan.paneId);
 				updatePaneData(workspaceId, plan.paneId, (data) => ({
 					...data,
-					workspaceRun: { workspaceId, state: "running", command },
+					workspaceRun: {
+						workspaceId,
+						state: "running",
+						command,
+						completionMarker,
+					},
 				}));
+				watchRunCompletion(plan.paneId, completionMarker);
 				try {
 					await terminalLauncher.write({
 						terminalId: plan.paneId,
@@ -180,11 +221,18 @@ export function useWorkspaceRunCommand({
 				initialCommand: newPanePlan.initialCommand,
 				title: "Workspace Run",
 				data: {
-					workspaceRun: { workspaceId, state: "running", command },
+					workspaceRun: {
+						workspaceId,
+						state: "running",
+						command,
+						completionMarker,
+					},
 				},
 				dedupeKey: `workspace-run:${workspaceId}`,
 			});
-			if (result.status === "rejected") {
+			if (result.status === "applied") {
+				watchRunCompletion(result.value.paneId, completionMarker);
+			} else if (result.status === "rejected") {
 				toast.error("Workspace panes are not available yet");
 			}
 		} catch (error) {
@@ -199,6 +247,7 @@ export function useWorkspaceRunCommand({
 		refetchRunDefinition,
 		setRunState,
 		terminalLauncher,
+		watchRunCompletion,
 		workspaceId,
 		worktreePath,
 	]);
