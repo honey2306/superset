@@ -11,6 +11,7 @@ import {
 } from "shared/env.shared";
 import { createIPCHandler } from "trpc-electron/main";
 import { productName } from "~/package.json";
+import { getAgentBrowserManager } from "../lib/agent-browser/browser-manager";
 import { attachEditContextMenu } from "../lib/edit-context-menu";
 import { createApplicationMenu } from "../lib/menu";
 import {
@@ -264,7 +265,7 @@ export async function MainWindow() {
 		});
 		persistedZoomLevel = zoomLevel;
 
-		// browserManager removed with internal browser feature
+		getAgentBrowserManager().hideAll();
 		server.close();
 		notificationsEmitter.removeAllListeners();
 		ipcHandler?.detachWindow(window);

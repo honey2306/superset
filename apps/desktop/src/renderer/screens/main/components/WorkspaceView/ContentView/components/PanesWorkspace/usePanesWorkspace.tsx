@@ -6,7 +6,13 @@ import type {
 	WorkspaceStore,
 } from "@superset/panes";
 import { BUILTIN_AGENT_LABELS } from "@superset/shared/agent-catalog";
-import { Bot, FileText, MessageSquare, TerminalSquare } from "lucide-react";
+import {
+	Bot,
+	FileText,
+	Globe2,
+	MessageSquare,
+	TerminalSquare,
+} from "lucide-react";
 import { useCallback, useMemo } from "react";
 import {
 	LuArrowDownToLine,
@@ -35,6 +41,7 @@ import type { FileViewerMode } from "shared/tabs-types";
 import type { StoreApi } from "zustand/vanilla";
 import { AcpSessionPane, acpSessionPaneKey } from "../AcpSessionPane";
 import { AcpPaneToolbar } from "../AcpSessionPane/components/AcpPaneToolbar";
+import { AcpBrowserToolbarButton } from "../AcpSessionPane/components/AcpPaneToolbar/components/AcpBrowserToolbarButton";
 import { mergeAcpPaneTitles } from "./acpPaneTitles";
 import {
 	buildPanesAcpLifecycleRegistry,
@@ -42,11 +49,16 @@ import {
 } from "./buildPanesLifecycleRegistry";
 import { commentPaneTitle } from "./buildPanesNonTerminalRegistry";
 import { buildTerminalContextMenu } from "./buildTerminalContextMenu";
+import { AgentBrowserPane } from "./components/AgentBrowserPane";
 import { createPanesTerminalPaneBridge } from "./createPanesTerminalPaneBridge";
 import { FileViewerPaneHeaderExtras } from "./FileViewerPaneHeaderExtras";
 import { FileViewerPaneTitle } from "./FileViewerPaneTitle";
 import { PanesCommentContent } from "./PanesCommentContent";
 import { PanesFileViewerContent } from "./PanesFileViewerContent";
+import {
+	findAgentBrowserPane,
+	toggleAgentBrowserPane,
+} from "./toggleAgentBrowserPane";
 import type { PanesPaneData } from "./types";
 import { useAcpPresetLauncher } from "./useAcpPresetLauncher";
 import {
@@ -370,7 +382,30 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 				),
 		};
 
-		// devtools and webview removed with internal browser feature
+		// --- Agent Browser ------------------------------------------------------
+		const agentBrowser: PaneDefinition<PanesPaneData> = {
+			getIcon: () => <Globe2 className="size-3.5" />,
+			getTitle: () => "Agent Browser",
+			renderPane: (ctx) => {
+				const sessionId = ctx.pane.data.agentBrowser?.sessionId;
+				if (!sessionId || !hostUrl) {
+					return (
+						<div className="flex h-full items-center justify-center text-sm text-fg-mute">
+							{!hostUrl ? "Host unavailable" : "Browser session missing"}
+						</div>
+					);
+				}
+				return (
+					<AgentBrowserPane sessionId={sessionId} isVisible={ctx.isVisible} />
+				);
+			},
+			contextMenuActions: (_ctx, defaults) =>
+				defaults.map((action) =>
+					action.key === "close-pane"
+						? { ...action, label: "Hide Agent Browser" }
+						: action,
+				),
+		};
 
 		// --- acp agent pane ----------------------------------------------------
 		const acpLifecycle = buildPanesAcpLifecycleRegistry({
@@ -397,6 +432,9 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 			),
 			renderToolbar: (ctx) => {
 				const acpData = ctx.pane.data.acp;
+				const browserPane = acpData
+					? findAgentBrowserPane(ctx.store, acpData.sessionId)
+					: null;
 				return (
 					<AcpPaneToolbar
 						title={acpData?.latestUserMessage ?? acpData?.title ?? null}
@@ -407,6 +445,23 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 						}
 						sessionId={acpData?.sessionId}
 						status={acpData?.status}
+						browserAction={
+							acpData && hostUrl ? (
+								<AcpBrowserToolbarButton
+									hostUrl={hostUrl}
+									sessionId={acpData.sessionId}
+									isOpen={browserPane !== null}
+									onToggle={() =>
+										toggleAgentBrowserPane({
+											store: ctx.store,
+											acpTabId: ctx.tab.id,
+											acpPaneId: ctx.pane.id,
+											sessionId: acpData.sessionId,
+										})
+									}
+								/>
+							) : undefined
+						}
 						paneActions={<ctx.components.PaneHeaderActions />}
 					/>
 				);
@@ -518,6 +573,7 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 			terminal,
 			"file-viewer": fileViewer,
 			comment,
+			"agent-browser": agentBrowser,
 			acp,
 		};
 	}, [

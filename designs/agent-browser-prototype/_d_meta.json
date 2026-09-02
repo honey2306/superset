@@ -1,0 +1,33 @@
+{
+  "type": "design",
+  "title": "Superset Agent Browser Prototype",
+  "prompt": "为 Superset 设计一个以 Agent 为主、与 ACP 对话绑定、支持多页面但不污染顶层 tabs 的内置浏览器原型。",
+  "designSystems": [
+    {
+      "name": "Superset Design System",
+      "slug": "superset-design-system",
+      "namespace": "SupersetDesignSystem_91a6da",
+      "dsFolder": "_ds/superset-design-system",
+      "sourcePath": "designs/superset-design-system"
+    }
+  ],
+  "primaryDesignSystem": "superset-design-system",
+  "createdAt": "2026-09-01T07:34:32.127Z",
+  "updatedAt": "2026-09-01T07:55:59.886Z",
+  "assets": {
+    "Agent Browser · 三种结构原型": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-09-01T07:39:40.768Z",
+          "status": "approved",
+          "subtitle": "固定 toolbar 入口 + 点击展开/收起 Browser",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        }
+      ]
+    }
+  }
+}

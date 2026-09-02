@@ -1,4 +1,6 @@
 import {
+	agentBrowserViewInput,
+	agentBrowserViewportInput,
 	cancelInput,
 	clearQueueInput,
 	closeSessionInput,
@@ -22,6 +24,7 @@ import {
 } from "@superset/session-protocol";
 import { TRPCError } from "@trpc/server";
 import { desc, eq, or } from "drizzle-orm";
+import { z } from "zod";
 import { delegationRuns } from "../../../db/schema";
 import {
 	AcpSessionDeadError,
@@ -210,6 +213,56 @@ export const acpSessionsRouter = router({
 			} catch (error) {
 				rethrowMapped(error);
 			}
+		}),
+
+	browserView: gatedProcedure
+		.input(agentBrowserViewInput)
+		.query(async ({ ctx, input }) => {
+			const getView = ctx.runtime.acpSessions.getAgentBrowserView;
+			if (!getView) {
+				return {
+					enabled: false,
+					active: false,
+					pages: [],
+					activePageIndex: null,
+				};
+			}
+			return getView.call(ctx.runtime.acpSessions, input);
+		}),
+
+	setBrowserViewport: gatedProcedure
+		.input(agentBrowserViewportInput)
+		.mutation(async ({ ctx, input }) => {
+			const setViewport = ctx.runtime.acpSessions.setAgentBrowserViewport;
+			if (!setViewport) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Agent Browser is disabled on this host",
+				});
+			}
+			await setViewport.call(ctx.runtime.acpSessions, input);
+		}),
+
+	selectBrowserPage: gatedProcedure
+		.input(
+			z.object({
+				sessionId: z.string().min(1),
+				index: z.number().int().min(0),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const execute = ctx.runtime.acpSessions.agentBrowserTool;
+			if (!execute) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "Agent Browser is disabled on this host",
+				});
+			}
+			return execute.call(ctx.runtime.acpSessions, {
+				sessionId: input.sessionId,
+				name: "browser_tabs",
+				arguments: { action: "switch", index: input.index },
+			});
 		}),
 
 	// Acks admission only — turn progress and completion ride the WS stream.

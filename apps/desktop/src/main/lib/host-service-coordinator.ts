@@ -776,6 +776,9 @@ export class HostServiceCoordinator extends EventEmitter {
 			// distribution. The agent-preset setting above only selects its launch
 			// path; it must not control ACP availability.
 			SUPERSET_ACP_SESSIONS: "1",
+			// The embedded local host can present the same headless browser that ACP
+			// tools control. Standalone/remote hosts omit this and retain Browser Use.
+			SUPERSET_AGENT_BROWSER: "1",
 			// Read by the child's parent watchdog so it can self-exit if
 			// Electron crashes without sending SIGTERM (orphan reparenting).
 			HOST_PARENT_PID: String(process.pid),

@@ -36,6 +36,7 @@ export interface PanesPaneData {
 		workspaceId: string;
 		state: "running" | "stopped-by-user" | "stopped-by-exit";
 		command?: string;
+		completionMarker?: string;
 	};
 	lifecycleScript?: {
 		kind: "setup" | "teardown";
@@ -44,6 +45,10 @@ export interface PanesPaneData {
 	};
 	fileViewer?: FileViewerState;
 	comment?: CommentPaneState;
+	agentBrowser?: {
+		/** ACP conversation that owns the background browser runtime. */
+		sessionId: string;
+	};
 	acp?: {
 		sessionId: string;
 		agentDefinitionId: AcpAgentDefinitionId;

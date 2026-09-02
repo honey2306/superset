@@ -1,4 +1,7 @@
 import type {
+	AgentBrowserToolInput,
+	AgentBrowserView,
+	AgentBrowserViewportInput,
 	ContentBlock,
 	EnqueuePromptResult,
 	MessagesPage,
@@ -156,6 +159,16 @@ export interface AcpSessionRuntime {
 		prompt: ContentBlock[];
 	}): MaybePromise<void>;
 	clearQueue(input: { sessionId: string }): MaybePromise<void>;
+
+	/** Optional local-host Agent Browser capability. */
+	agentBrowserTool?(input: AgentBrowserToolInput): MaybePromise<unknown>;
+	getAgentBrowserView?(input: {
+		sessionId: string;
+		includeScreenshot?: boolean;
+	}): MaybePromise<AgentBrowserView>;
+	setAgentBrowserViewport?(
+		input: AgentBrowserViewportInput,
+	): MaybePromise<void>;
 
 	subscribe(input: {
 		sessionId: string;

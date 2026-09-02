@@ -236,3 +236,25 @@ describe("AcpPaneToolbar elapsed display", () => {
 		).toMatchObject({ accumulatedMs: 5_000, runningSince: null });
 	});
 });
+
+describe("AcpPaneToolbar actions", () => {
+	test("renders the Browser entry before the pane-system actions", () => {
+		render(
+			createElement(AcpPaneToolbar, {
+				title: "Test task",
+				agentLabel: "Agent",
+				status: "idle",
+				sessionId: "session-1",
+				browserAction: createElement("button", { type: "button" }, "Browser 3"),
+				paneActions: createElement(
+					"button",
+					{ type: "button" },
+					"Pane actions",
+				),
+			}),
+		);
+
+		const actions = screen.getByText("Browser 3").parentElement;
+		expect(actions?.textContent).toBe("Browser 3Pane actions");
+	});
+});

@@ -48,6 +48,13 @@ export const RESOURCES_TO_COPY = [
 		src: resolve(__dirname, "../src/main/lib/agent-setup/templates"),
 		dest: resolve(__dirname, "..", devPath, "main/templates"),
 	},
+	{
+		src: resolve(
+			__dirname,
+			"../../../packages/host-service/src/runtime/acp-sessions/sidecar",
+		),
+		dest: resolve(__dirname, "..", devPath, "main/sidecar"),
+	},
 ];
 
 /**
@@ -56,12 +63,20 @@ export const RESOURCES_TO_COPY = [
  * need to be copied there for the main process to access them.
  */
 export function copyResourcesPlugin(): Plugin {
+	const copyAllResources = () => {
+		for (const resource of RESOURCES_TO_COPY) copyDir(resource);
+	};
 	return {
 		name: "copy-resources",
-		writeBundle() {
+		buildStart() {
+			// Electron-vite watch does not run writeBundle again when only a copied
+			// non-JS sidecar changes. Materialize it before every watch build so the
+			// daemon never points at a source-only Python file.
 			for (const resource of RESOURCES_TO_COPY) {
+				if (!resource.dest.endsWith("main/sidecar")) continue;
 				copyDir(resource);
 			}
 		},
+		writeBundle: copyAllResources,
 	};
 }

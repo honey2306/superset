@@ -289,24 +289,33 @@ supported agent preset is opened.
 - `list` returns `{ items: [], nextCursor: null, enabled: false }`, which is the
   phone capability probe.
 
-## Browser Use MCP
+## Agent Browser and Browser Use fallback
 
-The ACP daemon discovers the local Browser Use CLI once at startup and passes
-the same stdio MCP declaration to both `session/new` and `session/load`. This
-keeps the browser tool surface consistent across fresh and resumed sessions.
-Claude and MyFlicker consume the ACP declaration directly, and the bundled
-Codex bridge translates it to app-server's per-thread `config.mcp_servers`
-shape. The pinned Pi ACP bridge does not natively forward MCP declarations, so
-Superset materializes an owner-only per-session config and loads a bundled Pi
-extension that exposes the same stdio MCP tools directly. The temporary config
-is removed after extension startup and never mutates user or project MCP files.
+Embedded Desktop hosts set `SUPERSET_AGENT_BROWSER=1`. Electron main owns one
+conversation-partitioned `WebContentsView` session per ACP conversation and is
+the only process allowed to create, select, or close its pages. The detached
+ACP daemon injects a thin session-scoped MCP; structured actions are executed by
+a conversation-scoped Browser Use Python SDK sidecar after it focuses the exact
+Electron target id and verifies the conversation target allowlist. New/close
+page operations bridge back to Electron rather than using CDP
+`Target.createTarget`. Hiding the Desktop companion pane only hides the native
+view and never destroys its pages or login state. No screenshot polling is used
+for Desktop presentation.
 
-By default, Browser Use is enabled only when an executable `browser-use` is
-already present on `PATH`; startup never downloads it implicitly. Set
+Standalone and remote hosts currently retain the Browser Use fallback. The ACP
+daemon discovers the local Browser Use CLI once at startup and passes the same
+stdio MCP declaration to both `session/new` and `session/load`. Claude and
+MyFlicker consume the ACP declaration directly, Codex translates it to
+app-server's per-thread `config.mcp_servers`, and Pi loads the bundled MCP
+extension without mutating user or project config.
+
+Browser Use is enabled only when an executable `browser-use` is already present
+on `PATH`; startup never downloads it implicitly. Set
 `SUPERSET_BROWSER_USE_MCP=0` to disable it, `=1` to allow `uvx` as a fallback,
-or `=uvx` to force `uvx browser-use@latest --cli-mcp`. Browser Use currently
-exposes `browser_exec` and `browser_screenshot` through this MCP server and
-connects to the user's local Chrome/CDP session unless configured otherwise.
+or `=uvx` to force `uvx browser-use@latest --cli-mcp`. Browser Use exposes
+`browser_exec` and `browser_screenshot` and connects to the host's Chrome/CDP
+session. Embedded Agent Browser and Browser Use are mutually exclusive, so an
+Agent never sees two competing browser tool surfaces.
 
 Superset also injects a bundled, session-scoped MCP server for conversation
 handoff and multi-agent coordination. Its contract and security boundaries are

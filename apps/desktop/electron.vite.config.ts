@@ -108,6 +108,11 @@ export default defineConfig({
 					"superset-mcp": resolve(
 						"../../packages/host-service/src/runtime/acp-sessions/superset-mcp.ts",
 					),
+					// Session-scoped Agent Browser MCP. The subprocess proxies tool calls
+					// through the daemon to Electron-owned pages and Browser Use SDK.
+					"agent-browser-mcp": resolve(
+						"../../packages/host-service/src/runtime/acp-sessions/agent-browser-mcp.ts",
+					),
 					// Shared manifest-backed MCP proxy used by every ACP harness to keep
 					// expensive upstream servers off the session startup path.
 					"lazy-mcp-proxy": resolve(
@@ -131,11 +136,6 @@ export default defineConfig({
 				output: {
 					dir: resolve(devPath, "main"),
 				},
-				// @mastra/agent-browser reaches Playwright's optional MongoDB
-				// authentication module through a dynamic import. It is not used by
-				// desktop's agent-browser lane, and preserving it as external retains
-				// Playwright's optional-runtime behavior instead of bundling a missing
-				// dependency.
 				external: ["electron", "kerberos", ...mainExternalizedDependencies],
 			},
 		},
