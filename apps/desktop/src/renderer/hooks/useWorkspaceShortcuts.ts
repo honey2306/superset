@@ -11,7 +11,7 @@ import type {
 	SidebarWorkspace,
 } from "renderer/screens/main/components/WorkspaceSidebar/types";
 
-type SidebarGroup = {
+export type SidebarProject = {
 	project: {
 		id: string;
 		name: string;
@@ -20,6 +20,7 @@ type SidebarGroup = {
 		mainRepoPath: string;
 		hideImage: boolean;
 		iconUrl: string | null;
+		projectGroupId: string | null;
 	};
 	workspaces: SidebarWorkspace[];
 	sections: SidebarSection[];
@@ -60,6 +61,47 @@ export function getSidebarProjects<T extends { id: string }>(
 	);
 }
 
+export function groupSidebarProjects(
+	sidebarProjects: SidebarProject[],
+	projectGroupRows: ReadonlyArray<{
+		groupId: string;
+		name: string;
+		isCollapsed: boolean;
+		tabOrder: number;
+	}>,
+) {
+	const orderedProjectGroups = [...projectGroupRows].sort(
+		(left, right) => left.tabOrder - right.tabOrder,
+	);
+	const validProjectGroupIds = new Set(
+		orderedProjectGroups.map((group) => group.groupId),
+	);
+	const projectGroups = orderedProjectGroups.map((group) => ({
+		group: {
+			id: group.groupId,
+			name: group.name,
+			isCollapsed: group.isCollapsed,
+			tabOrder: group.tabOrder,
+		},
+		projects: sidebarProjects.filter(
+			(project) => project.project.projectGroupId === group.groupId,
+		),
+	}));
+	const ungroupedProjects = sidebarProjects.filter(
+		(project) =>
+			project.project.projectGroupId === null ||
+			!validProjectGroupIds.has(project.project.projectGroupId),
+	);
+	return {
+		projectGroups,
+		ungroupedProjects,
+		groups: [
+			...projectGroups.flatMap((group) => group.projects),
+			...ungroupedProjects,
+		],
+	};
+}
+
 /**
  * Shared hook for workspace keyboard shortcuts.
  * Used by WorkspaceSidebar for navigation between workspaces.
@@ -81,9 +123,13 @@ export function useWorkspaceShortcuts() {
 		(q) => q.from({ rows: collections.sidebarSections }),
 		[collections],
 	);
+	const { data: projectGroupRows = [] } = useLiveQuery(
+		(q) => q.from({ rows: collections.sidebarProjectGroups }),
+		[collections],
+	);
 	const navigate = useNavigate();
 
-	const groups = useMemo<SidebarGroup[]>(() => {
+	const sidebarProjects = useMemo<SidebarProject[]>(() => {
 		const localByWorkspaceId = new Map(
 			localWorkspaceRows.map((row) => [row.workspaceId, row]),
 		);
@@ -164,6 +210,7 @@ export function useWorkspaceShortcuts() {
 						mainRepoPath: project.repoPath,
 						hideImage: localProject?.hideImage ?? false,
 						iconUrl: null,
+						projectGroupId: localProject?.groupId ?? null,
 					},
 					workspaces: projectWorkspaces,
 					sections: projectSections,
@@ -172,6 +219,11 @@ export function useWorkspaceShortcuts() {
 			];
 		});
 	}, [localProjectRows, localWorkspaceRows, projects, sectionRows, workspaces]);
+
+	const { projectGroups, ungroupedProjects, groups } = useMemo(
+		() => groupSidebarProjects(sidebarProjects, projectGroupRows),
+		[projectGroupRows, sidebarProjects],
+	);
 
 	const allWorkspaces = groups.flatMap((group) => {
 		const topLevelWorkspacesById = new Map(
@@ -213,6 +265,8 @@ export function useWorkspaceShortcuts() {
 
 	return {
 		groups,
+		projectGroups,
+		ungroupedProjects,
 		allWorkspaces,
 	};
 }

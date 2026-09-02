@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Superset · 当前侧边栏融合方案</title>
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/colors.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/typography.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/spacing.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/radius.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/shadow.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/motion.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/z-index.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/opacity.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/border-width.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/focus.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/tokens/reset.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/styles.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/components.css" />
+  <link rel="stylesheet" href="_ds/superset-design-system/app.css" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body, #root { width: 100%; height: 100%; min-width: 1080px; min-height: 720px; margin: 0; }
+    body { overflow: hidden; background: var(--page-bg); color: var(--fg); font-family: var(--font-ui); }
+    button { font: inherit; }
+    .preview-app { width: 100%; height: 100%; display: grid; grid-template-rows: 34px 1fr 24px; background: var(--page-bg); }
+    .preview-titlebar { display: grid; grid-template-columns: 210px 1fr 260px; align-items: center; padding: 0 12px; border-bottom: 1px solid var(--line); background: color-mix(in oklch, var(--page-bg) 90%, #000 10%); }
+    .lights { display: flex; gap: 8px; }
+    .lights span { width: 11px; height: 11px; border-radius: var(--r-pill); background: var(--line-strong); }
+    .window-title { text-align: center; color: var(--fg-faint); font-size: var(--fs-10); font-family: var(--font-mono); }
+    .current-label { justify-self: end; color: var(--fg-faint); font-size: var(--fs-10); }
+    .preview-body { min-height: 0; display: grid; grid-template-columns: 300px minmax(500px, 1fr) 300px; }
+    .preview-body .wsb { width: 300px; height: 100%; background: color-mix(in oklch, var(--surface) 55%, var(--page-bg) 45%); }
+    .preview-body .wsb-body { padding-top: 6px; gap: 3px; }
+    .preview-body .wsb-head { padding-top: 8px; padding-bottom: 8px; }
+    .preview-body .wsb-nav { padding-top: 6px; padding-bottom: 6px; }
+    .preview-body .wsb-project-head { padding-left: 8px; }
+    .preview-body .wsb-row { padding-left: 11px; padding-right: 8px; }
+    .preview-body .wsb-section-head { padding-left: 10px; }
+    .preview-main { min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--surface); }
+    .tabs { height: 36px; display: flex; align-items: end; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--line); background: var(--surface-sunk); }
+    .tab { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: var(--r-3) var(--r-3) 0 0; color: var(--fg-faint); background: transparent; font-size: var(--fs-11); }
+    .tab.active { color: var(--fg); background: var(--surface); }
+    .chat-area { min-height: 0; flex: 1; display: flex; flex-direction: column; align-items: center; padding: 82px 28px 18px; }
+    .messages { width: min(720px, 100%); display: flex; flex-direction: column; gap: 18px; }
+    .user-msg { align-self: flex-end; max-width: 74%; padding: 10px 13px; border-radius: var(--r-6) var(--r-6) var(--r-2) var(--r-6); background: var(--selected); font-size: var(--fs-13); line-height: var(--lh-body); }
+    .assistant-msg { max-width: 88%; color: var(--fg-mute); font-size: var(--fs-13); line-height: var(--lh-body); }
+    .assistant-msg strong { display: block; margin-bottom: 6px; color: var(--fg); }
+    .composer-v2 { width: min(760px, 100%); margin-top: auto; border: 1px solid var(--line-strong); border-radius: var(--r-7); background: var(--surface-elev); box-shadow: var(--shadow-2); }
+    .composer-v2 textarea { width: 100%; height: 72px; padding: 12px; border: 0; outline: 0; resize: none; color: var(--fg); background: transparent; font: inherit; }
+    .composer-actions { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-top: 1px solid var(--line); color: var(--fg-faint); font-size: var(--fs-10); }
+    .spacer { flex: 1; }
+    .changes-panel { min-width: 0; background: var(--surface-sunk); }
+    .changes-head { height: 42px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid var(--line); font-size: var(--fs-12); font-weight: var(--fw-semibold); }
+    .files { display: flex; flex-direction: column; gap: 2px; padding: 8px; }
+    .file { display: flex; gap: 8px; padding: 6px; border-radius: var(--r-3); color: var(--fg-mute); font: var(--fs-10) var(--font-mono); }
+    .file:hover { background: var(--hover); }
+    .file .m { color: var(--warning); }
+    .preview-status { display: flex; align-items: center; gap: 10px; padding: 0 10px; border-top: 1px solid var(--line); background: var(--surface-sunk); color: var(--fg-faint); font-size: var(--fs-10); }
+    .variant-panel { position: fixed; z-index: var(--z-overlay); top: 45px; left: 312px; display: flex; align-items: center; gap: 4px; padding: 5px; border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface-elev); box-shadow: var(--shadow-2); }
+    .variant-panel span { padding: 0 5px; color: var(--fg-faint); font-size: var(--fs-9); letter-spacing: var(--ls-caps); text-transform: uppercase; }
+    .variant-button { border: 0; border-radius: var(--r-pill); padding: 5px 9px; color: var(--fg-mute); background: transparent; font-size: var(--fs-10); cursor: pointer; }
+    .variant-button:hover { background: var(--hover); color: var(--fg); }
+    .variant-button.active { background: var(--accent-tint); color: var(--accent); }
+    .project-group { border-radius: var(--r-3); transition: background var(--dur-quick); }
+    .project-group.drop-over { background: var(--accent-tint); box-shadow: inset 0 0 0 1px var(--accent-line); }
+    .group-head { min-height: 28px; display: flex; align-items: center; gap: 6px; padding: 5px 8px; color: var(--fg-faint); cursor: pointer; }
+    .group-head:hover { color: var(--fg-mute); background: var(--hover); }
+    .group-head .chev { transition: transform var(--dur-quick); }
+    .group-head.closed .chev { transform: rotate(-90deg); }
+    .group-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: var(--fw-medium); letter-spacing: var(--ls-eyebrow); text-transform: uppercase; }
+    .group-count { color: var(--fg-faint); font: 10px var(--font-mono); }
+    .group-more { width: 20px; height: 20px; display: grid; place-items: center; border: 0; border-radius: var(--r-2); color: var(--fg-faint); background: transparent; cursor: pointer; opacity: 0; }
+    .group-head:hover .group-more, .group-more.open { opacity: 1; }
+    .group-menu-anchor { position: relative; }
+    .group-menu { position: absolute; z-index: var(--z-dropdown); top: 22px; right: 0; width: 220px; }
+    .variant-section .project-group + .project-group { margin-top: 3px; }
+    .variant-section .group-head { border-top: 1px solid var(--line); }
+    .variant-section .project-group:first-child .group-head { border-top: 0; }
+    .variant-section .group-projects { padding-left: 4px; }
+    .variant-rail .project-group { margin: 4px 2px; border-left: 2px solid var(--group-color); }
+    .variant-rail .group-head { padding-left: 9px; }
+    .variant-rail .group-projects { padding-left: 5px; }
+    .variant-switcher .group-switcher { display: flex; gap: 4px; overflow-x: auto; padding: 1px 2px 8px; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+    .group-chip { flex: 0 0 auto; display: flex; align-items: center; gap: 5px; padding: 5px 8px; border: 0; border-radius: var(--r-pill); color: var(--fg-mute); background: var(--hover); font-size: var(--fs-10); cursor: pointer; }
+    .group-chip.active { color: var(--fg); background: var(--accent-tint); }
+    .group-color { width: 6px; height: 6px; border-radius: var(--r-pill); background: var(--chip-color); }
+    .group-summary { display: flex; align-items: center; gap: 6px; padding: 8px 7px 5px; color: var(--fg-faint); font-size: var(--fs-10); }
+    .group-summary strong { color: var(--fg-mute); font-size: var(--fs-11); }
+    .repo-meta { margin-left: auto; padding: 1px 5px; border-radius: var(--r-pill); color: var(--fg-faint); background: var(--hover); font: 9px var(--font-mono); }
+    .drop-message { margin: 0 7px 5px; padding: 6px; border: 1px dashed var(--accent-line); border-radius: var(--r-3); color: var(--accent); background: var(--accent-tint); text-align: center; font-size: var(--fs-10); }
+    .wsb-project.dragging { opacity: .35; }
+    .design-explainer { position: fixed; z-index: var(--z-overlay); left: 312px; bottom: 36px; width: 410px; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--r-5); color: var(--fg-mute); background: var(--surface-elev); box-shadow: var(--shadow-2); font-size: var(--fs-10); line-height: var(--lh-body); }
+    .design-explainer strong { color: var(--fg); }
+    .toast-host { position: fixed; right: 18px; bottom: 38px; z-index: var(--z-toast); }
+    @media (prefers-reduced-motion: reduce) { * { transition-duration: 0ms !important; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="_ds/superset-design-system/_ds_bundle.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" src="prototype-v2.jsx"></script>
+</body>
+</html>

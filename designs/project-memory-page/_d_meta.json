@@ -1,0 +1,47 @@
+{
+  "type": "design",
+  "title": "项目记忆页面",
+  "prompt": "为 Superset Desktop 设计独立的项目记忆页面，统一入口位于临时工作区下方，页面内按项目区分，探索三个高保真方向。",
+  "designSystems": [
+    {
+      "name": "Superset Design System",
+      "slug": "superset-design-system",
+      "namespace": "SupersetDesignSystem_91a6da",
+      "dsFolder": "_ds/superset-design-system",
+      "sourcePath": "designs/superset-design-system"
+    }
+  ],
+  "primaryDesignSystem": "superset-design-system",
+  "createdAt": "2026-09-01T04:05:11.672Z",
+  "updatedAt": "2026-09-01T06:39:38.903Z",
+  "assets": {
+    "项目记忆页面 · 3 个方向": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-09-01T04:10:12.564Z",
+          "status": "changes-requested",
+          "subtitle": "克制列表 / 知识卡片 / Agent 时间线",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        }
+      ]
+    },
+    "项目记忆 · 克制列表": {
+      "versions": [
+        {
+          "path": "preview-single.html",
+          "createdAt": "2026-09-01T04:16:04.970Z",
+          "status": "approved",
+          "subtitle": "A 方向 · 冷调蓝灰交互态 · 无搜索快捷键",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        }
+      ]
+    }
+  }
+}

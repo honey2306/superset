@@ -152,6 +152,7 @@ export interface Pane {
 		workspaceId: string;
 		state: "running" | "stopped-by-user" | "stopped-by-exit";
 		command?: string;
+		completionMarker?: string;
 	};
 	lifecycleScript?: {
 		kind: "setup" | "teardown";

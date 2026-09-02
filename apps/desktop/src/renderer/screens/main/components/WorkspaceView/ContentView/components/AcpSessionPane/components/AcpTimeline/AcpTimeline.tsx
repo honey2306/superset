@@ -54,6 +54,19 @@ const VIRTUALIZER_INITIAL_RECT: Rect = {
 	width: 0,
 	height: VIRTUALIZER_FALLBACK_VIEWPORT_HEIGHT,
 };
+const MAX_CACHED_READING_POSITIONS = 100;
+const settledReadingPositions = new Map<string, number>();
+
+function cacheSettledReadingPosition(
+	sessionId: string,
+	scrollTop: number,
+): void {
+	settledReadingPositions.delete(sessionId);
+	settledReadingPositions.set(sessionId, scrollTop);
+	if (settledReadingPositions.size <= MAX_CACHED_READING_POSITIONS) return;
+	const oldestSessionId = settledReadingPositions.keys().next().value;
+	if (oldestSessionId) settledReadingPositions.delete(oldestSessionId);
+}
 
 function isActiveSessionStatus(status?: SessionStatus): boolean {
 	return (
@@ -64,7 +77,7 @@ function isActiveSessionStatus(status?: SessionStatus): boolean {
 }
 
 /** Find the latest mounted user message, matching the composer jump target. */
-function findLatestUserMessage(scroll: HTMLElement): HTMLElement | null {
+function findLatestUserMessage(scroll: ParentNode): HTMLElement | null {
 	const messages = scroll.querySelectorAll<HTMLElement>(
 		'.acp-msg[data-role="user"]',
 	);
@@ -92,17 +105,43 @@ function findLatestFinalAgentMessage(
 	return latestTurn ? findLast(latestTurn) : null;
 }
 
-/** Align a timeline element's top edge with the scroll viewport without animation. */
-function alignTimelineElementToTop(
+/**
+ * Resolve only within the latest semantic turn. A virtualized latest turn may
+ * not be mounted yet; in that case return null so focus restoration retries
+ * instead of accidentally anchoring to an older mounted turn.
+ */
+export function findSettledTimelineAnchor(
 	scroll: HTMLElement,
-	element: HTMLElement,
-): void {
-	const scrollBounds = scroll.getBoundingClientRect();
-	const elementBounds = element.getBoundingClientRect();
-	scroll.scrollTop = Math.max(
-		0,
-		scroll.scrollTop + elementBounds.top - scrollBounds.top,
+	latestTurnId: string | null,
+): HTMLElement | null {
+	if (!latestTurnId) {
+		return (
+			findLatestFinalAgentMessage(scroll, null) ?? findLatestUserMessage(scroll)
+		);
+	}
+
+	const latestTurn = Array.from(
+		scroll.querySelectorAll<HTMLElement>("[data-turn-id]"),
+	).find((turn) => turn.dataset.turnId === latestTurnId);
+	if (!latestTurn) return null;
+	return (
+		findLatestFinalAgentMessage(scroll, latestTurnId) ??
+		findLatestUserMessage(latestTurn)
 	);
+}
+
+/**
+ * Resolve a settled conversation's semantic anchor using normal scroll bounds.
+ * A short final response naturally clamps to the bottom; a non-scrollable
+ * timeline remains at the top.
+ */
+export function resolveSettledScrollTop(
+	anchorContentTop: number,
+	scrollHeight: number,
+	clientHeight: number,
+): number {
+	const maxScrollTop = Math.max(0, scrollHeight - clientHeight);
+	return Math.min(maxScrollTop, Math.max(0, anchorContentTop));
 }
 
 /**
@@ -327,6 +366,24 @@ export const AcpTimeline = memo(
 		const previousStatusRef = useRef<SessionStatus | undefined>(status);
 		const isFocusedRef = useRef(isFocused);
 		isFocusedRef.current = isFocused;
+		const statusRef = useRef<SessionStatus | undefined>(status);
+		statusRef.current = status;
+		const transientScrollIntentRef = useRef(false);
+		const pointerScrollIntentRef = useRef(false);
+		const scrollIntentTimeoutRef = useRef<number | null>(null);
+		const manualReadingScrollTopRef = useRef<number | null>(
+			sessionId ? (settledReadingPositions.get(sessionId) ?? null) : null,
+		);
+		if (isActiveSessionStatus(status)) {
+			transientScrollIntentRef.current = false;
+			pointerScrollIntentRef.current = false;
+			manualReadingScrollTopRef.current = null;
+		}
+		useEffect(() => {
+			if (sessionId && isActiveSessionStatus(status)) {
+				settledReadingPositions.delete(sessionId);
+			}
+		}, [sessionId, status]);
 		const lastUserMessageIdRef = useRef<string | null>(null);
 		// Guarded while a programmatic smooth-scroll to a user message is running.
 		// Without it, the first onScroll frames still read as "near bottom" (the
@@ -343,6 +400,74 @@ export const AcpTimeline = memo(
 		const skipAutoFollowAfterPrependRef = useRef(false);
 		const topLoadTriggeredRef = useRef(false);
 		const loadOlderRef = useRef<(() => Promise<void>) | null>(null);
+
+		const markTransientScrollIntent = useCallback(() => {
+			transientScrollIntentRef.current = true;
+			if (scrollIntentTimeoutRef.current !== null) {
+				window.clearTimeout(scrollIntentTimeoutRef.current);
+			}
+			scrollIntentTimeoutRef.current = window.setTimeout(() => {
+				transientScrollIntentRef.current = false;
+				scrollIntentTimeoutRef.current = null;
+			}, 500);
+		}, []);
+		const endPointerScrollIntent = useCallback(() => {
+			pointerScrollIntentRef.current = false;
+		}, []);
+		const markPointerScrollIntent = useCallback(() => {
+			pointerScrollIntentRef.current = true;
+			window.addEventListener("pointerup", endPointerScrollIntent, {
+				once: true,
+			});
+		}, [endPointerScrollIntent]);
+		const markKeyboardScrollIntent = useCallback(
+			(event: KeyboardEvent) => {
+				if (
+					[
+						"ArrowDown",
+						"ArrowUp",
+						"End",
+						"Home",
+						"PageDown",
+						"PageUp",
+						" ",
+					].includes(event.key)
+				) {
+					markTransientScrollIntent();
+				}
+			},
+			[markTransientScrollIntent],
+		);
+		const setScrollElementRef = useCallback(
+			(element: HTMLDivElement | null) => {
+				const previous = scrollRef.current;
+				previous?.removeEventListener("keydown", markKeyboardScrollIntent);
+				previous?.removeEventListener("pointerdown", markPointerScrollIntent);
+				previous?.removeEventListener("wheel", markTransientScrollIntent);
+				scrollRef.current = element;
+				if (!element) {
+					window.removeEventListener("pointerup", endPointerScrollIntent);
+					if (scrollIntentTimeoutRef.current !== null) {
+						window.clearTimeout(scrollIntentTimeoutRef.current);
+						scrollIntentTimeoutRef.current = null;
+					}
+					return;
+				}
+				element.addEventListener("keydown", markKeyboardScrollIntent);
+				element.addEventListener("pointerdown", markPointerScrollIntent, {
+					passive: true,
+				});
+				element.addEventListener("wheel", markTransientScrollIntent, {
+					passive: true,
+				});
+			},
+			[
+				endPointerScrollIntent,
+				markKeyboardScrollIntent,
+				markPointerScrollIntent,
+				markTransientScrollIntent,
+			],
+		);
 
 		const isNearBottom = useCallback((el: HTMLElement): boolean => {
 			return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -389,6 +514,13 @@ export const AcpTimeline = memo(
 					initialScrollFrameRef.current = null;
 				}
 				const el = e.currentTarget;
+				if (
+					!isActiveSessionStatus(statusRef.current) &&
+					(transientScrollIntentRef.current || pointerScrollIntentRef.current)
+				) {
+					manualReadingScrollTopRef.current = el.scrollTop;
+					if (sessionId) cacheSettledReadingPosition(sessionId, el.scrollTop);
+				}
 				const near = isNearBottom(el);
 				setAutoFollow(near);
 				setShowJumpButton(!near);
@@ -416,7 +548,7 @@ export const AcpTimeline = memo(
 					activeTurnFrameRef.current = null;
 				});
 			},
-			[hasOlder, isLoadingOlder, isNearBottom, updateActiveTurn],
+			[hasOlder, isLoadingOlder, isNearBottom, sessionId, updateActiveTurn],
 		);
 
 		const scrollToBottom = useCallback(() => {
@@ -575,10 +707,14 @@ export const AcpTimeline = memo(
 				el.scrollTop = el.scrollHeight;
 			}
 			if (hasNewUserMessage) {
+				transientScrollIntentRef.current = false;
+				pointerScrollIntentRef.current = false;
+				manualReadingScrollTopRef.current = null;
+				if (sessionId) settledReadingPositions.delete(sessionId);
 				setAutoFollow(true);
 				setShowJumpButton(false);
 			}
-		}, [timeline.items, autoFollow]);
+		}, [timeline.items, autoFollow, sessionId]);
 
 		const showWorkingIndicator = shouldShowWorkingIndicator(
 			timeline.items,
@@ -698,14 +834,19 @@ export const AcpTimeline = memo(
 			// focus returns. Keep the restore alive for a few frames: first bring the
 			// latest turn into the virtual window, then align its final Agent response.
 			focusScrollRetryRef.current = 0;
-			let stableAlignmentFrames = 0;
+			let previousSettledScrollTop: number | null = null;
+			let stableSettledFrames = 0;
+			let previousBottomScrollTop: number | null = null;
+			let stableBottomFrames = 0;
+			let previousReadingScrollTop: number | null = null;
+			let stableReadingFrames = 0;
 			const scheduleRetry = (callback: () => void): boolean => {
 				if (focusScrollRetryRef.current >= 12) return false;
 				focusScrollRetryRef.current += 1;
 				focusScrollFrameRef.current = window.requestAnimationFrame(callback);
 				return true;
 			};
-			const alignSettledAnchor = () => {
+			const settleThenFollowBottom = () => {
 				focusScrollFrameRef.current = null;
 				isRestoringFocusRef.current = true;
 				const el = scrollRef.current;
@@ -714,11 +855,76 @@ export const AcpTimeline = memo(
 					return;
 				}
 
-				const target =
-					findLatestFinalAgentMessage(el, latestTurnIdRef.current) ??
-					findLatestUserMessage(el);
+				const desiredScrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+				// Active conversations intentionally pin to the physical bottom while
+				// virtualizer measurements and new activity extend the transcript.
+				el.scrollTop = desiredScrollTop;
+				el.dispatchEvent(new Event("scroll"));
+				if (
+					previousBottomScrollTop !== null &&
+					Math.abs(desiredScrollTop - previousBottomScrollTop) < 0.5
+				) {
+					stableBottomFrames += 1;
+				} else {
+					stableBottomFrames = 0;
+				}
+				previousBottomScrollTop = desiredScrollTop;
+				if (stableBottomFrames < 2 && scheduleRetry(settleThenFollowBottom))
+					return;
+
+				isRestoringFocusRef.current = false;
+				setAutoFollow(true);
+				setShowJumpButton(false);
+			};
+			const settleThenRestoreReadingPosition = () => {
+				focusScrollFrameRef.current = null;
+				isRestoringFocusRef.current = true;
+				const el = scrollRef.current;
+				const savedScrollTop = manualReadingScrollTopRef.current;
+				if (!el || savedScrollTop === null) {
+					isRestoringFocusRef.current = false;
+					return;
+				}
+
+				const desiredScrollTop = resolveSettledScrollTop(
+					savedScrollTop,
+					el.scrollHeight,
+					el.clientHeight,
+				);
+				el.scrollTop = desiredScrollTop;
+				el.dispatchEvent(new Event("scroll"));
+				if (
+					previousReadingScrollTop !== null &&
+					Math.abs(desiredScrollTop - previousReadingScrollTop) < 0.5
+				) {
+					stableReadingFrames += 1;
+				} else {
+					stableReadingFrames = 0;
+				}
+				previousReadingScrollTop = desiredScrollTop;
+				if (
+					stableReadingFrames < 2 &&
+					scheduleRetry(settleThenRestoreReadingPosition)
+				)
+					return;
+
+				isRestoringFocusRef.current = false;
+				const near = isNearBottom(el);
+				setAutoFollow(near);
+				setShowJumpButton(!near);
+			};
+			const settleThenAlignAnchor = () => {
+				focusScrollFrameRef.current = null;
+				isRestoringFocusRef.current = true;
+				const el = scrollRef.current;
+				if (!el) {
+					isRestoringFocusRef.current = false;
+					return;
+				}
+
+				const target = findSettledTimelineAnchor(el, latestTurnIdRef.current);
 				if (!target) {
-					if (scheduleRetry(alignSettledAnchor)) return;
+					if (scheduleRetry(settleThenAlignAnchor)) return;
 					// The semantic anchor exists in the folded timeline, but could not be
 					// mounted after the virtualizer settled. Bottom is the safe fallback.
 					isRestoringFocusRef.current = false;
@@ -727,21 +933,33 @@ export const AcpTimeline = memo(
 					return;
 				}
 
-				const targetOffset =
-					target.getBoundingClientRect().top - el.getBoundingClientRect().top;
-				alignTimelineElementToTop(el, target);
-				// Keep the virtualizer's internal offset in sync with the manual
-				// alignment. Otherwise delayed ResizeObserver measurements can restore
-				// a stale offset over several frames.
-				el.dispatchEvent(new Event("scroll"));
-				stableAlignmentFrames =
-					Math.abs(targetOffset) < 0.5 ? stableAlignmentFrames + 1 : 0;
-				// Do not release the guard after a single frame: long Markdown and the
-				// virtualizer can report several consecutive measurements after a hidden
-				// tab becomes visible. Require three unchanged frames, bounded by the
-				// shared retry limit, so every return lands on the same semantic anchor.
-				if (stableAlignmentFrames < 3 && scheduleRetry(alignSettledAnchor))
+				const scrollBounds = el.getBoundingClientRect();
+				const targetBounds = target.getBoundingClientRect();
+				const anchorContentTop =
+					el.scrollTop + targetBounds.top - scrollBounds.top;
+				const desiredScrollTop = resolveSettledScrollTop(
+					anchorContentTop,
+					el.scrollHeight,
+					el.clientHeight,
+				);
+				if (
+					previousSettledScrollTop !== null &&
+					Math.abs(desiredScrollTop - previousSettledScrollTop) < 0.5
+				) {
+					stableSettledFrames += 1;
+				} else {
+					stableSettledFrames = 0;
+				}
+				previousSettledScrollTop = desiredScrollTop;
+
+				// Observe the semantic target without writing scrollTop while Markdown
+				// and the virtualizer finish measuring. Once three frames agree, perform
+				// exactly one final alignment instead of fighting layout on every frame.
+				if (stableSettledFrames < 2 && scheduleRetry(settleThenAlignAnchor))
 					return;
+
+				el.scrollTop = desiredScrollTop;
+				el.dispatchEvent(new Event("scroll"));
 				isRestoringFocusRef.current = false;
 				const near = isNearBottom(el);
 				setAutoFollow(near);
@@ -756,29 +974,36 @@ export const AcpTimeline = memo(
 					return;
 				}
 
-				el.scrollTop = el.scrollHeight;
+				const shouldFollowBottom = isActiveSessionStatus(status);
+				const savedReadingScrollTop = shouldFollowBottom
+					? null
+					: manualReadingScrollTopRef.current;
+				el.scrollTop = savedReadingScrollTop ?? el.scrollHeight;
 				// Direct assignment does not notify the virtualizer. Dispatch a real
-				// scroll event so it mounts the latest turn without leaving a pending
-				// scrollToIndex reconciliation that could snap back to the bottom after
-				// the settled anchor is aligned.
+				// scroll event so it mounts the relevant window before final alignment.
 				el.dispatchEvent(new Event("scroll"));
 
-				const shouldFollowBottom = isActiveSessionStatus(status);
 				const hasLayout = el.clientHeight > 0 || el.scrollHeight > 0;
 				if (!hasLayout && timelineItemCountRef.current > 0) {
 					if (scheduleRetry(restoreFocusPosition)) return;
 				}
 
 				if (shouldFollowBottom) {
+					if (scheduleRetry(settleThenFollowBottom)) return;
 					isRestoringFocusRef.current = false;
 					setAutoFollow(true);
 					setShowJumpButton(false);
 					return;
 				}
+				if (savedReadingScrollTop !== null) {
+					if (scheduleRetry(settleThenRestoreReadingPosition)) return;
+					isRestoringFocusRef.current = false;
+					return;
+				}
 
 				// Let the virtualizer's scroll listener commit its latest mounted
-				// window before querying the settled anchor's real geometry.
-				if (!scheduleRetry(alignSettledAnchor)) {
+				// window before observing the settled anchor's real geometry.
+				if (!scheduleRetry(settleThenAlignAnchor)) {
 					isRestoringFocusRef.current = false;
 					setAutoFollow(true);
 					setShowJumpButton(false);
@@ -1006,7 +1231,7 @@ export const AcpTimeline = memo(
 				/>
 				<div
 					className={cn("acp-pane__scroll", className)}
-					ref={scrollRef}
+					ref={setScrollElementRef}
 					onScroll={handleScroll}
 				>
 					<div className="acp-pane__body-inner">

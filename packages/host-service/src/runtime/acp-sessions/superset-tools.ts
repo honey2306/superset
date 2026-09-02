@@ -83,6 +83,25 @@ export interface SupersetToolControllerOptions {
 		workspaceId: string;
 		commands: string[];
 	}) => Promise<SetProjectRunCommandResult> | SetProjectRunCommandResult;
+	rememberProjectMemory?: (input: {
+		workspaceId: string;
+		sourceSessionId: string;
+		title: string;
+		content: string;
+		category:
+			| "debugging"
+			| "architecture"
+			| "workflow"
+			| "environment"
+			| "preference"
+			| "other";
+		pinned: boolean;
+	}) => Record<string, unknown>;
+	searchProjectMemories?: (input: {
+		workspaceId: string;
+		query: string;
+		limit: number;
+	}) => Record<string, unknown>;
 	resolveTargetWorkspace?: (input: {
 		sourceWorkspaceId: string;
 		workspaceId?: string;
@@ -448,6 +467,8 @@ export class SupersetToolController {
 	private readonly openMergeRequest: SupersetToolControllerOptions["openMergeRequest"];
 	private readonly onMergeRequestOpenRequested: SupersetToolControllerOptions["onMergeRequestOpenRequested"];
 	private readonly setProjectRunCommand: SupersetToolControllerOptions["setProjectRunCommand"];
+	private readonly rememberProjectMemory: SupersetToolControllerOptions["rememberProjectMemory"];
+	private readonly searchProjectMemories: SupersetToolControllerOptions["searchProjectMemories"];
 	private readonly resolveTargetWorkspace: SupersetToolControllerOptions["resolveTargetWorkspace"];
 	private readonly resolveDelegatedExecution: SupersetToolControllerOptions["resolveDelegatedExecution"];
 	private readonly delegationRuns: SupersetToolControllerOptions["delegationRuns"];
@@ -461,6 +482,8 @@ export class SupersetToolController {
 		this.openMergeRequest = options.openMergeRequest;
 		this.onMergeRequestOpenRequested = options.onMergeRequestOpenRequested;
 		this.setProjectRunCommand = options.setProjectRunCommand;
+		this.rememberProjectMemory = options.rememberProjectMemory;
+		this.searchProjectMemories = options.searchProjectMemories;
 		this.resolveTargetWorkspace = options.resolveTargetWorkspace;
 		this.resolveDelegatedExecution = options.resolveDelegatedExecution;
 		this.delegationRuns = options.delegationRuns;
@@ -639,6 +662,25 @@ export class SupersetToolController {
 					questions: request.arguments.questions,
 					signal,
 				});
+			case "remember_project_memory": {
+				if (!this.rememberProjectMemory) {
+					throw new Error("Project memory is unavailable");
+				}
+				return this.rememberProjectMemory({
+					workspaceId: source.workspaceId,
+					sourceSessionId: source.sessionId,
+					...request.arguments,
+				});
+			}
+			case "search_project_memories": {
+				if (!this.searchProjectMemories) {
+					throw new Error("Project memory is unavailable");
+				}
+				return this.searchProjectMemories({
+					workspaceId: source.workspaceId,
+					...request.arguments,
+				});
+			}
 			case "set_project_run_command": {
 				if (!this.setProjectRunCommand) {
 					throw new Error("Project run command configuration is unavailable");

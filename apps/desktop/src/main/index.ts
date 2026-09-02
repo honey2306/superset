@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { settings } from "@superset/local-db";
@@ -18,7 +19,10 @@ import {
 	PLATFORM,
 	PROTOCOL_SCHEME,
 } from "shared/constants";
+import { startAgentBrowserBridge } from "./lib/agent-browser/browser-bridge-server";
+import { getAgentBrowserManager } from "./lib/agent-browser/browser-manager";
 import { setupAgentHooks } from "./lib/agent-setup";
+import { SUPERSET_HOME_DIR } from "./lib/app-environment";
 import { initAppState } from "./lib/app-state";
 import { requestAppleEventsAccess } from "./lib/apple-events-permission";
 import { setupAutoUpdater } from "./lib/auto-updater";
@@ -34,6 +38,25 @@ import { MainWindow } from "./windows/main";
 
 console.log("[main] Local database ready:", !!localDb);
 const IS_DEV = process.env.NODE_ENV === "development";
+const stableAgentBrowserPort =
+	49_000 +
+	(Number.parseInt(
+		createHash("sha256").update(SUPERSET_HOME_DIR).digest("hex").slice(0, 8),
+		16,
+	) %
+		1_000);
+const AGENT_BROWSER_CDP_PORT = Number(
+	process.env.SUPERSET_AGENT_BROWSER_CDP_PORT ??
+		process.env.RENDERER_REMOTE_DEBUG_PORT ??
+		stableAgentBrowserPort,
+);
+if (Number.isInteger(AGENT_BROWSER_CDP_PORT) && AGENT_BROWSER_CDP_PORT > 0) {
+	app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
+	app.commandLine.appendSwitch(
+		"remote-debugging-port",
+		String(AGENT_BROWSER_CDP_PORT),
+	);
+}
 
 void applyShellEnvToProcess().catch((error) => {
 	console.error("[main] Failed to apply shell environment:", error);
@@ -135,6 +158,7 @@ app.on("open-url", async (event, url) => {
 let isQuitting = false;
 let skipQuitConfirmation = false;
 let forceFullCleanup = false;
+let closeAgentBrowserBridge: (() => Promise<void>) | null = null;
 
 export function setSkipQuitConfirmation(): void {
 	skipQuitConfirmation = true;
@@ -197,6 +221,8 @@ app.on("before-quit", async (event) => {
 			await getHostServiceCoordinator().shutdownPtyDaemon();
 		}
 		await getHostServiceCoordinator().stop();
+		await closeAgentBrowserBridge?.();
+		closeAgentBrowserBridge = null;
 		disposeTray();
 	} catch (error) {
 		console.error("[main] Cleanup during quit failed:", error);
@@ -349,9 +375,19 @@ if (!gotTheLock) {
 			console.error("[main] Failed to start network logger:", error);
 		}
 
-		// Must happen before renderer restore runs
-		// The embedded host is a single local runtime. Start it without waiting
-		// for a renderer, network session, or cloud credential.
+		// Start the authenticated lifecycle bridge before the embedded host so its
+		// detached ACP daemon inherits the exact socket, token, and CDP endpoint.
+		const agentBrowserBridge = await startAgentBrowserBridge(
+			getAgentBrowserManager(() => BrowserWindow.getAllWindows()[0] ?? null),
+		);
+		closeAgentBrowserBridge = agentBrowserBridge.close;
+		process.env.SUPERSET_AGENT_BROWSER_BRIDGE_SOCKET =
+			agentBrowserBridge.socketPath;
+		process.env.SUPERSET_AGENT_BROWSER_BRIDGE_TOKEN = agentBrowserBridge.token;
+		process.env.SUPERSET_AGENT_BROWSER_CDP_URL = `http://127.0.0.1:${AGENT_BROWSER_CDP_PORT}`;
+
+		// Must happen before renderer restore runs. The embedded host is a single
+		// local runtime and starts without cloud credentials.
 		const localHostConfig = getHostServiceSpawnConfig();
 		void getHostServiceCoordinator()
 			.start(localHostConfig)

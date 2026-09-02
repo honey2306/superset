@@ -1,0 +1,10 @@
+/* Superset DS — Border widths.
+   The DS is a hairline system — 99% of borders are 1px. Anything thicker
+   is deliberate: focus rings, active-tab underlines, active-row markers. */
+
+:root {
+	--bw-hairline: 1px; /* @kind other · default border (--line) */
+	--bw-active: 1.5px; /* @kind other · checkbox/radio outline when interactive */
+	--bw-emphasis: 2px; /* @kind other · active tab underline, active-row left-bar, focus outer */
+	--bw-strong: 3px; /* @kind other · focus glow ring width */
+}

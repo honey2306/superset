@@ -5,6 +5,13 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { projects, workspaces } from "../../../db/schema";
 import {
+	createProjectMemory,
+	deleteProjectMemory,
+	listProjectMemories,
+	PROJECT_MEMORY_CATEGORIES,
+	updateProjectMemory,
+} from "../../../project-memories";
+import {
 	emitProjectChanged,
 	toProjectSnapshot,
 	updateLocalProject,
@@ -90,6 +97,74 @@ export const projectRouter = router({
 				sparseCheckoutPaths: parseSparseCheckoutPaths(row.sparseCheckoutPaths),
 			};
 		}),
+
+	listMemories: protectedProcedure
+		.input(
+			z.object({
+				projectId: z.string().uuid(),
+				query: z.string().max(500).optional(),
+				includeDisabled: z.boolean().default(true),
+				limit: z.number().int().min(1).max(500).default(200),
+			}),
+		)
+		.query(({ ctx, input }) => listProjectMemories(ctx.db, input)),
+
+	createMemory: protectedProcedure
+		.input(
+			z.object({
+				projectId: z.string().uuid(),
+				title: z.string().trim().min(1).max(200),
+				content: z.string().trim().min(1).max(20_000),
+				category: z.enum(PROJECT_MEMORY_CATEGORIES).default("other"),
+				pinned: z.boolean().default(false),
+			}),
+		)
+		.mutation(({ ctx, input }) =>
+			createProjectMemory(ctx.db, { ...input, source: "manual" }),
+		),
+
+	updateMemory: protectedProcedure
+		.input(
+			z.object({
+				projectId: z.string().uuid(),
+				memoryId: z.string().uuid(),
+				patch: z
+					.object({
+						title: z.string().trim().min(1).max(200).optional(),
+						content: z.string().trim().min(1).max(20_000).optional(),
+						category: z.enum(PROJECT_MEMORY_CATEGORIES).optional(),
+						pinned: z.boolean().optional(),
+						enabled: z.boolean().optional(),
+					})
+					.refine((patch) => Object.keys(patch).length > 0, "Empty patch"),
+			}),
+		)
+		.mutation(({ ctx, input }) => {
+			const memory = updateProjectMemory(
+				ctx.db,
+				input.projectId,
+				input.memoryId,
+				input.patch,
+			);
+			if (!memory) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Project memory not found",
+				});
+			}
+			return memory;
+		}),
+
+	deleteMemory: protectedProcedure
+		.input(
+			z.object({
+				projectId: z.string().uuid(),
+				memoryId: z.string().uuid(),
+			}),
+		)
+		.mutation(({ ctx, input }) => ({
+			deleted: deleteProjectMemory(ctx.db, input.projectId, input.memoryId),
+		})),
 
 	setSparseCheckoutPaths: protectedProcedure
 		.input(

@@ -342,6 +342,33 @@
 	stroke: currentColor;
 	fill: none;
 }
+.acp-pane__toolbar-actions .acp-browser-trigger {
+	width: auto;
+	min-width: 26px;
+	padding: 0 8px;
+	gap: 5px;
+	border-color: color-mix(in oklch, var(--acp-fg) 10%, transparent);
+	font-family: var(--acp-font-sans);
+	font-size: 10.5px;
+	font-weight: 500;
+}
+.acp-pane__toolbar-actions .acp-browser-trigger[data-open="true"] {
+	color: var(--acp-fg);
+	background: var(--accent-tint);
+	border-color: var(--accent-line);
+}
+.acp-browser-trigger__dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--accent-solid);
+	box-shadow: 0 0 0 3px var(--accent-tint);
+}
+.acp-browser-trigger__count {
+	color: var(--acp-dim);
+	font-family: var(--acp-font-mono);
+	font-variant-numeric: tabular-nums;
+}
 .acp-pane__toolbar-actions button:hover {
 	color: var(--acp-fg);
 	background: color-mix(in oklch, var(--acp-fg) 6%, transparent);

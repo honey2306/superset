@@ -1,5 +1,6 @@
 import type { BrowserWindow } from "electron";
 import { router } from "..";
+import { createAgentBrowserRouter } from "./agent-browser";
 import { createAutoUpdateRouter } from "./auto-update";
 import { createDeviceRouter } from "./device";
 import { createExternalRouter } from "./external";
@@ -17,6 +18,7 @@ import { createWindowRouter } from "./window";
 
 export const createAppRouter = (getWindow: () => BrowserWindow | null) => {
 	return router({
+		agentBrowser: createAgentBrowserRouter(getWindow),
 		autoUpdate: createAutoUpdateRouter(),
 		window: createWindowRouter(getWindow),
 		notifications: createNotificationsRouter(getWindow),

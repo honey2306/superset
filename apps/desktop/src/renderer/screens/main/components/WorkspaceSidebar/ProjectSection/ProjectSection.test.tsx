@@ -5,12 +5,13 @@ import type { TestBackendImpl } from "react-dnd-test-backend";
 import { TestBackend } from "react-dnd-test-backend";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 
-const reorderProjectsByIndex = mock(
-	(_fromIndex: number, _toIndex: number) => {},
+const reorderProjects = mock((_projectIds: string[]) => {});
+const moveProjectToGroup = mock(
+	(_projectId: string, _projectGroupId: string | null, _index?: number) => {},
 );
 
 mock.module("renderer/routes/_local/hooks/useDashboardSidebarState", () => ({
-	useDashboardSidebarState: () => ({ reorderProjectsByIndex }),
+	useDashboardSidebarState: () => ({ moveProjectToGroup, reorderProjects }),
 }));
 mock.module("renderer/stores", () => ({
 	useWorkspaceSidebarStore: () => ({
@@ -55,12 +56,14 @@ beforeAll(async () => {
 
 afterEach(() => {
 	cleanup();
-	reorderProjectsByIndex.mockClear();
+	reorderProjects.mockClear();
+	moveProjectToGroup.mockClear();
 });
 
 describe("ProjectSection project ordering drag", () => {
-	test("persists the dragged project index after a real DnD hover/drop sequence", () => {
+	test("persists the visible project order as soon as a drag hovers its target", () => {
 		const manager = createDragDropManager(TestBackend);
+		const orderedProjectIds = ["project-a", "project-b"];
 		const renderProject = (projectId: string, index: number) =>
 			createElement(ProjectSection, {
 				projectId,
@@ -75,6 +78,9 @@ describe("ProjectSection project ordering drag", () => {
 				topLevelItems: [],
 				shortcutBaseIndex: 0,
 				index,
+				orderedProjectIds,
+				projectGroupId: null,
+				availableProjectGroups: [],
 			});
 
 		const result = render(
@@ -85,11 +91,14 @@ describe("ProjectSection project ordering drag", () => {
 				renderProject("project-b", 1),
 			),
 		);
-		const projects = result.container.querySelectorAll<HTMLElement>(
-			"[data-dnd-source-id][data-dnd-target-id]",
+		const sources = result.container.querySelectorAll<HTMLElement>(
+			"[data-dnd-source-id]",
 		);
-		const sourceId = projects[0]?.dataset.dndSourceId;
-		const targetId = projects[1]?.dataset.dndTargetId;
+		const targets = result.container.querySelectorAll<HTMLElement>(
+			"[data-dnd-target-id]",
+		);
+		const sourceId = sources[0]?.dataset.dndSourceId;
+		const targetId = targets[1]?.dataset.dndTargetId;
 		if (!sourceId || !targetId) {
 			throw new Error("Project DnD handler IDs were not exposed");
 		}
@@ -98,12 +107,16 @@ describe("ProjectSection project ordering drag", () => {
 		act(() => {
 			backend.simulateBeginDrag([sourceId], {});
 			backend.simulateHover([targetId], {});
+		});
+
+		expect(reorderProjects).toHaveBeenCalledTimes(1);
+		expect(reorderProjects).toHaveBeenCalledWith(["project-b", "project-a"]);
+
+		act(() => {
 			backend.simulateDrop();
 			backend.simulateEndDrag();
 		});
-
-		expect(reorderProjectsByIndex).toHaveBeenCalledTimes(1);
-		expect(reorderProjectsByIndex).toHaveBeenCalledWith(0, 1);
+		expect(reorderProjects).toHaveBeenCalledTimes(1);
 	});
 
 	test("supports a second drag after the first drag rerenders the ordered projects", () => {
@@ -125,22 +138,28 @@ describe("ProjectSection project ordering drag", () => {
 					topLevelItems: [],
 					shortcutBaseIndex: 0,
 					index,
+					orderedProjectIds: order,
+					projectGroupId: null,
+					availableProjectGroups: [],
 				}),
 			);
 		const result = render(
 			createElement(DndProvider, { manager }, ...renderProjects()),
 		);
 		const backend = manager.getBackend() as TestBackendImpl;
-		const getHandlerIds = () =>
-			Array.from(
-				result.container.querySelectorAll<HTMLElement>(
-					"[data-dnd-source-id][data-dnd-target-id]",
-				),
-			).map((node) => ({
+		const getHandlerIds = () => {
+			const sources = Array.from(
+				result.container.querySelectorAll<HTMLElement>("[data-dnd-source-id]"),
+			);
+			const targets = Array.from(
+				result.container.querySelectorAll<HTMLElement>("[data-dnd-target-id]"),
+			);
+			return sources.map((node, index) => ({
 				name: node.textContent,
 				sourceId: node.dataset.dndSourceId,
-				targetId: node.dataset.dndTargetId,
+				targetId: targets[index]?.dataset.dndTargetId,
 			}));
+		};
 		const first = getHandlerIds();
 		const firstSource = first.find((item) => item.name === "project-a");
 		const firstTarget = first.find((item) => item.name === "project-b");
@@ -156,7 +175,11 @@ describe("ProjectSection project ordering drag", () => {
 			backend.simulateDrop();
 			backend.simulateEndDrag();
 		});
-		expect(reorderProjectsByIndex).toHaveBeenNthCalledWith(1, 0, 1);
+		expect(reorderProjects).toHaveBeenNthCalledWith(1, [
+			"project-b",
+			"project-a",
+			"project-c",
+		]);
 		order = ["project-b", "project-a", "project-c"];
 		act(() => {
 			result.rerender(
@@ -179,7 +202,67 @@ describe("ProjectSection project ordering drag", () => {
 			backend.simulateEndDrag();
 		});
 
-		expect(reorderProjectsByIndex).toHaveBeenCalledTimes(2);
-		expect(reorderProjectsByIndex).toHaveBeenNthCalledWith(2, 1, 2);
+		expect(reorderProjects).toHaveBeenCalledTimes(2);
+		expect(reorderProjects).toHaveBeenNthCalledWith(2, [
+			"project-b",
+			"project-c",
+			"project-a",
+		]);
+	});
+
+	test("moves a project when dropped onto a project in another group", () => {
+		const manager = createDragDropManager(TestBackend);
+		const renderProject = (
+			projectId: string,
+			projectGroupId: string,
+			index: number,
+		) =>
+			createElement(ProjectSection, {
+				projectId,
+				projectName: projectId,
+				projectColor: "#000",
+				githubOwner: null,
+				mainRepoPath: "/repo",
+				hideImage: false,
+				iconUrl: null,
+				workspaces: [],
+				sections: [],
+				topLevelItems: [],
+				shortcutBaseIndex: 0,
+				index,
+				orderedProjectIds: [projectId],
+				projectGroupId,
+				availableProjectGroups: [],
+			});
+		const result = render(
+			createElement(
+				DndProvider,
+				{ manager },
+				renderProject("project-a", "group-a", 0),
+				renderProject("project-b", "group-b", 0),
+			),
+		);
+		const sources = result.container.querySelectorAll<HTMLElement>(
+			"[data-dnd-source-id]",
+		);
+		const targets = result.container.querySelectorAll<HTMLElement>(
+			"[data-dnd-target-id]",
+		);
+		const sourceId = sources[0]?.dataset.dndSourceId;
+		const targetId = targets[1]?.dataset.dndTargetId;
+		if (!sourceId || !targetId) {
+			throw new Error("Project DnD handler IDs were not exposed");
+		}
+
+		const backend = manager.getBackend() as TestBackendImpl;
+		act(() => {
+			backend.simulateBeginDrag([sourceId], {});
+			backend.simulateHover([targetId], {});
+			backend.simulateDrop();
+			backend.simulateEndDrag();
+		});
+
+		expect(moveProjectToGroup).toHaveBeenCalledWith("project-a", "group-b", 0);
+		expect(reorderProjects).not.toHaveBeenCalled();
 	});
 });

@@ -25,6 +25,8 @@ interface AcpPaneToolbarProps {
 	 * the composer.
 	 */
 	sessionId?: string;
+	/** Conversation-scoped Browser entry, rendered before pane actions. */
+	browserAction?: ReactNode;
 	/** The pane system's own actions (split, close, ...) — placed on the right. */
 	paneActions: ReactNode;
 }
@@ -289,6 +291,7 @@ export function AcpPaneToolbar({
 	agentLabel,
 	status,
 	sessionId,
+	browserAction,
 	paneActions,
 }: AcpPaneToolbarProps) {
 	const elapsed = useRunElapsed(sessionId, status);
@@ -351,6 +354,7 @@ export function AcpPaneToolbar({
 				onClick={(e) => e.stopPropagation()}
 				onKeyDown={(e) => e.stopPropagation()}
 			>
+				{browserAction}
 				{paneActions}
 			</div>
 		</div>

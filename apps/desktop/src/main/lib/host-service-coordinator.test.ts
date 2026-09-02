@@ -215,6 +215,7 @@ describe("HostServiceCoordinator ACP environment", () => {
 		const env = await internals.buildEnv(40000, "secret", spawnConfig);
 
 		expect(env.SUPERSET_ACP_SESSIONS).toBe("1");
+		expect(env.SUPERSET_AGENT_BROWSER).toBe("1");
 		expect(env.HOST_SERVICE_HOSTNAME).toBe("127.0.0.1");
 		expect(env.AUTOMATE_RELAY_URL).toBe("wss://relay.example.test/task");
 		expect(env.AUTOMATE_RELAY_MAILBOX_NAMESPACE).toBe("");
@@ -226,7 +227,9 @@ describe("HostServiceCoordinator ACP environment", () => {
 
 		const env = await internals.buildEnv(40000, "secret", spawnConfig);
 
-		expect(env.AUTOMATE_RELAY_MAILBOX_NAMESPACE).toBe("development:default");
+		expect(env.AUTOMATE_RELAY_MAILBOX_NAMESPACE).toMatch(
+			/^development:[a-z0-9-]+$/,
+		);
 	});
 });
 

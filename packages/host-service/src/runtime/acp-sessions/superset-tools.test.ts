@@ -1550,6 +1550,46 @@ describe("SupersetToolController", () => {
 		});
 	});
 
+	test("records and searches memory for the project owning the source workspace", async () => {
+		const { manager } = fixture();
+		const rememberProjectMemory = mock(() => ({ created: true, id: "m1" }));
+		const searchProjectMemories = mock(() => ({ memories: [{ id: "m1" }] }));
+		const controller = new SupersetToolController({
+			manager,
+			rememberProjectMemory,
+			searchProjectMemories,
+		});
+
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "remember_project_memory",
+			arguments: {
+				title: "CDP workflow",
+				content: "Match the renderer to the worktree.",
+				category: "debugging",
+			},
+		});
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "search_project_memories",
+			arguments: { query: "renderer", limit: 5 },
+		});
+
+		expect(rememberProjectMemory).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			sourceSessionId: "source",
+			title: "CDP workflow",
+			content: "Match the renderer to the worktree.",
+			category: "debugging",
+			pinned: false,
+		});
+		expect(searchProjectMemories).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			query: "renderer",
+			limit: 5,
+		});
+	});
+
 	test("sets the run command for the project owning the source workspace", async () => {
 		const { manager } = fixture();
 		const setProjectRunCommand = mock(

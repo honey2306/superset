@@ -2,12 +2,20 @@ import { existsSync, unlinkSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import {
+	composeSupersetModelFacingInstructions,
+	formatProjectMemoryInstructions,
 	formatSupersetDelegationInstructions,
 	SUPERSET_ROOT_COORDINATOR_ROLE,
 } from "@superset/session-protocol";
 import { eq } from "drizzle-orm";
 import { createDb } from "../../db";
 import { projects, workspaces } from "../../db/schema";
+import {
+	createProjectMemory,
+	listProjectMemories,
+	markProjectMemoriesUsed,
+	resolveProjectIdForWorkspace,
+} from "../../project-memories";
 import {
 	readDelegationProfiles,
 	resolveDelegatedExecutionTarget,
@@ -27,6 +35,8 @@ import {
 } from "./acp-cli-auto-updater";
 import { AcpSessionManager } from "./acp-sessions";
 import { generateAcpSessionTitle } from "./acp-title-generation";
+import { agentBrowserMcpServer } from "./agent-browser-local-mcp";
+import { AgentBrowserRuntime } from "./agent-browser-runtime";
 import { AcpArtifactStore } from "./artifact-store";
 import {
 	ACP_DAEMON_BUILD_VERSION,
@@ -78,6 +88,10 @@ async function main(): Promise<void> {
 	const artifactStore = new AcpArtifactStore(
 		path.join(path.dirname(dbPath), "acp-artifacts"),
 	);
+	const agentBrowserEnabled = process.env.SUPERSET_AGENT_BROWSER === "1";
+	const agentBrowserRuntime = new AgentBrowserRuntime({
+		enabled: agentBrowserEnabled,
+	});
 	const compaction = persistence.compactHistoricalJournal(artifactStore);
 	if (!compaction.skipped) {
 		console.error(
@@ -100,19 +114,62 @@ async function main(): Promise<void> {
 		myflickerAdapterCommand: mfcliCommand,
 		deepseekAdapterCommand: deepseekCommand,
 		deepseekAdapterConfig: deepseekConfig,
-		mcpServers: [browserUseMcpServerFromEnvironment()].filter(
-			(server): server is NonNullable<typeof server> => server !== null,
-		),
+		mcpServers: agentBrowserEnabled
+			? []
+			: [browserUseMcpServerFromEnvironment()].filter(
+					(server): server is NonNullable<typeof server> => server !== null,
+				),
 		mcpServerFactory: ({ sessionId, role }) => [
 			supersetMcpServer({ sessionId, daemonSocketPath: socketPath, role }),
+			...(agentBrowserEnabled
+				? [
+						agentBrowserMcpServer({
+							sessionId,
+							daemonSocketPath: socketPath,
+						}),
+					]
+				: []),
 		],
-		modelFacingInstructions: ({ role }) => {
-			if (role !== SUPERSET_ROOT_COORDINATOR_ROLE) return undefined;
+		modelFacingInstructions: ({ role, workspaceId }) => {
+			const embeddedBrowserInstructions = agentBrowserEnabled
+				? [
+						"## Embedded Agent Browser",
+						"For every request to browse, open, inspect, or interact with a website, use the agent-browser MCP tools so the page appears in the conversation's Agent Browser pane.",
+						"Never use shell commands such as `open`, `xdg-open`, or `start`, and never fall back to the OS/system browser. If an agent-browser tool fails, report the failure instead of claiming the page was opened.",
+					].join("\n\n")
+				: undefined;
+			if (role !== SUPERSET_ROOT_COORDINATOR_ROLE) {
+				return embeddedBrowserInstructions;
+			}
 			const profiles = resolveDelegationProfileTargets(db);
 			const summaries = profiles.map(toDelegationProfileSummary);
-			return summaries.some((profile) => profile.enabled && profile.valid)
+			const delegationInstructions = summaries.some(
+				(profile) => profile.enabled && profile.valid,
+			)
 				? formatSupersetDelegationInstructions(summaries)
 				: undefined;
+			const projectId = resolveProjectIdForWorkspace(db, workspaceId);
+			const memories = projectId
+				? listProjectMemories(db, {
+						projectId,
+						includeDisabled: false,
+						limit: 12,
+					})
+				: [];
+			markProjectMemoriesUsed(
+				db,
+				memories.map((memory) => memory.id),
+			);
+			return composeSupersetModelFacingInstructions([
+				embeddedBrowserInstructions,
+				delegationInstructions,
+				formatProjectMemoryInstructions(
+					memories.map((memory) => ({
+						title: memory.title,
+						category: memory.category,
+					})),
+				),
+			]);
 		},
 		generateTitle: ({ message }) => generateAcpSessionTitle(message),
 	});
@@ -212,6 +269,42 @@ async function main(): Promise<void> {
 				);
 			return target.id;
 		},
+		rememberProjectMemory: ({
+			workspaceId,
+			sourceSessionId,
+			title,
+			content,
+			category,
+			pinned,
+		}) => {
+			const projectId = resolveProjectIdForWorkspace(db, workspaceId);
+			if (!projectId) throw new Error(`Workspace not found: ${workspaceId}`);
+			const result = createProjectMemory(db, {
+				projectId,
+				title,
+				content,
+				category,
+				source: "agent",
+				sourceSessionId,
+				pinned,
+			});
+			return { ...result, projectId };
+		},
+		searchProjectMemories: ({ workspaceId, query, limit }) => {
+			const projectId = resolveProjectIdForWorkspace(db, workspaceId);
+			if (!projectId) throw new Error(`Workspace not found: ${workspaceId}`);
+			const memories = listProjectMemories(db, {
+				projectId,
+				query,
+				includeDisabled: false,
+				limit,
+			});
+			markProjectMemoriesUsed(
+				db,
+				memories.map((memory) => memory.id),
+			);
+			return { projectId, memories };
+		},
 		setProjectRunCommand: ({ workspaceId, commands }) => {
 			const project = db
 				.select({ id: projects.id, repoPath: projects.repoPath })
@@ -259,6 +352,7 @@ async function main(): Promise<void> {
 		closing = true;
 		server.close();
 		cliAutoUpdater.dispose();
+		await agentBrowserRuntime.dispose();
 		await manager.dispose();
 		if (process.platform !== "win32") {
 			try {
@@ -324,6 +418,7 @@ async function main(): Promise<void> {
 				requestControllers.add(controller);
 				void dispatch(
 					manager,
+					agentBrowserRuntime,
 					toolController,
 					request,
 					subscriptions,
@@ -455,6 +550,7 @@ function subscribeWithBackpressure(input: {
 
 async function dispatch(
 	manager: AcpSessionManager,
+	agentBrowserRuntime: AgentBrowserRuntime,
 	toolController: SupersetToolController,
 	request: AcpDaemonRequest,
 	subscriptions: Map<string, () => void>,
@@ -529,11 +625,14 @@ async function dispatch(
 					request.params as Parameters<AcpSessionManager["cancel"]>[0],
 				);
 				break;
-			case "close":
-				await manager.close(
-					request.params as Parameters<AcpSessionManager["close"]>[0],
-				);
+			case "close": {
+				const input = request.params as Parameters<
+					AcpSessionManager["close"]
+				>[0];
+				await manager.close(input);
+				await agentBrowserRuntime.closeSession(input.sessionId);
 				break;
+			}
 			case "setMode":
 				await manager.setMode(
 					request.params as Parameters<AcpSessionManager["setMode"]>[0],
@@ -576,6 +675,21 @@ async function dispatch(
 			case "clearQueue":
 				manager.clearQueue(
 					request.params as Parameters<AcpSessionManager["clearQueue"]>[0],
+				);
+				break;
+			case "agentBrowserTool":
+				result = await agentBrowserRuntime.execute(
+					request.params as Parameters<AgentBrowserRuntime["execute"]>[0],
+				);
+				break;
+			case "getAgentBrowserView":
+				result = await agentBrowserRuntime.getView(
+					request.params as Parameters<AgentBrowserRuntime["getView"]>[0],
+				);
+				break;
+			case "setAgentBrowserViewport":
+				await agentBrowserRuntime.setViewport(
+					request.params as Parameters<AgentBrowserRuntime["setViewport"]>[0],
 				);
 				break;
 			case "supersetTool":

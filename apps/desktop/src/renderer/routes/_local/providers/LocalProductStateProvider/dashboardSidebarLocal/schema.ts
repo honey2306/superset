@@ -13,6 +13,15 @@ export const dashboardSidebarProjectSchema = z.object({
 	defaultOpenInApp: z.string().nullable().default(null),
 	color: z.string().nullable().default(null),
 	hideImage: z.boolean().default(false),
+	groupId: z.string().uuid().nullable().default(null),
+});
+
+export const dashboardSidebarProjectGroupSchema = z.object({
+	groupId: z.string().uuid(),
+	name: z.string().trim().min(1),
+	createdAt: persistedDateSchema,
+	tabOrder: z.number().int().default(0),
+	isCollapsed: z.boolean().default(false),
 });
 
 const paneWorkspaceStateSchema = z.custom<WorkspaceState<unknown>>();
@@ -220,6 +229,9 @@ export const terminalPresetSchema = z.object({
 
 export type DashboardSidebarProjectRow = z.infer<
 	typeof dashboardSidebarProjectSchema
+>;
+export type DashboardSidebarProjectGroupRow = z.infer<
+	typeof dashboardSidebarProjectGroupSchema
 >;
 export type WorkspaceLocalStateRow = z.infer<typeof workspaceLocalStateSchema>;
 export type WorkspaceRunState = z.infer<typeof workspaceRunStateSchema>;

@@ -1035,10 +1035,37 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expect(statuses).toEqual(["completed", "failed"]);
 	}, 30_000);
 
-	test("Claude AskUserQuestion permission correlates its annotated tool call", async () => {
+	test("delegated executors auto-approve ordinary tool permissions", async () => {
+		const manager = newManager();
+		const sessionId = "e2e-delegated-permission";
+		await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			role: "delegated-executor",
+		});
+
+		const result = manager.prompt({
+			sessionId,
+			prompt: [{ type: "text", text: "permission background-write" }],
+		});
+		expect((await result.turn).stopReason).toBe("end_turn");
+		expect(manager.get(sessionId).pendingPermissions).toEqual([]);
+
+		const timeline = foldEnvelopes(
+			emptyTimeline(),
+			manager.getMessages({ sessionId, limit: 100 }).items,
+		);
+		expect(agentText(timeline)).toContain("allowed background-write");
+	}, 30_000);
+
+	test("delegated executors keep Claude AskUserQuestion interactive", async () => {
 		const manager = newManager();
 		const sessionId = "e2e-claude-ask-permission";
-		await manager.create({ sessionId, workspaceId: WORKSPACE_ID });
+		await manager.create({
+			sessionId,
+			workspaceId: WORKSPACE_ID,
+			role: "delegated-executor",
+		});
 		const { turn } = manager.prompt({
 			sessionId,
 			prompt: [{ type: "text", text: "claude-ask-permission" }],

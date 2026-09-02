@@ -42,7 +42,10 @@ export async function makeAppSetup(
 	});
 
 	app.on("web-contents-created", (_, contents) => {
-		if (contents.getType() === "webview") return;
+		// Apply renderer navigation protection only to a BrowserWindow. Embedded
+		// Agent Browser WebContentsViews must be able to navigate normally and
+		// enforce their own scheme policy in BrowserManager.
+		if (!BrowserWindow.fromWebContents(contents)) return;
 		contents.on("will-navigate", (event, url) => {
 			// Always prevent in-app navigation for external URLs
 			if (url.startsWith("http://") || url.startsWith("https://")) {

@@ -1,0 +1,13 @@
+/* Superset DS — Focus.
+   Focus is always the DS pink glow, never the browser blue.
+   `--focus-ring` is the composite value you can drop into `box-shadow`. */
+
+:root {
+	--focus-ring-width: 3px; /* @kind other */
+	--focus-ring-inset: 0px; /* @kind other · used when the ring must not extend past the element (dense rows) */
+	--focus-ring-offset: 0px; /* @kind other · used when the ring should sit outside the element (buttons) */
+
+	--focus-ring: 0 0 0 var(--focus-ring-width) var(--accent-tint); /* @kind other · standard outer glow */
+	--focus-ring-strong: 0 0 0 var(--focus-ring-width) var(--accent-line); /* @kind other · high-contrast focus (danger buttons) */
+	--focus-ring-inner: inset 0 0 0 var(--focus-ring-width) var(--accent-tint); /* @kind other · inset ring for rows with overflow:hidden */
+}

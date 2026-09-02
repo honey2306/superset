@@ -6,6 +6,9 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
+	AgentBrowserToolInput,
+	AgentBrowserView,
+	AgentBrowserViewportInput,
 	EnqueuePromptResult,
 	MessagesPage,
 	PromptAccepted,
@@ -89,6 +92,9 @@ export type RequestOperation =
 	| "reorderQueue"
 	| "editQueuedPrompt"
 	| "clearQueue"
+	| "agentBrowserTool"
+	| "getAgentBrowserView"
+	| "setAgentBrowserViewport"
 	| "supersetTool"
 	| "getDelegatedExecution"
 	| "subscribe"
@@ -102,6 +108,7 @@ const RETRYABLE_AFTER_DISCONNECT: ReadonlySet<RequestOperation> = new Set([
 	"ensureLive",
 	"getMessages",
 	"getTranscript",
+	"getAgentBrowserView",
 ]);
 
 export interface AcpDaemonHello {
@@ -403,6 +410,23 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		input: Parameters<AcpSessionRuntime["clearQueue"]>[0],
 	): Promise<void> {
 		await this.request("clearQueue", input);
+	}
+
+	async agentBrowserTool(input: AgentBrowserToolInput): Promise<unknown> {
+		return this.request("agentBrowserTool", input);
+	}
+
+	async getAgentBrowserView(input: {
+		sessionId: string;
+		includeScreenshot?: boolean;
+	}): Promise<AgentBrowserView> {
+		return this.request<AgentBrowserView>("getAgentBrowserView", input);
+	}
+
+	async setAgentBrowserViewport(
+		input: AgentBrowserViewportInput,
+	): Promise<void> {
+		await this.request("setAgentBrowserViewport", input);
 	}
 
 	async subscribe(

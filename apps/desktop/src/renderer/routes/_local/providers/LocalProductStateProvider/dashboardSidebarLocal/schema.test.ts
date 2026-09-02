@@ -2,12 +2,71 @@ import { describe, expect, it } from "bun:test";
 import type { WorkspaceState } from "@superset/panes";
 import {
 	DEFAULT_USER_PREFERENCES,
+	dashboardSidebarProjectGroupSchema,
+	dashboardSidebarProjectSchema,
 	healUserPreferences,
 	healWorkspaceLocalState,
 	sanitizePaneLayout,
 } from "./schema";
 
 type PaneLayout = WorkspaceState<unknown>;
+
+describe("dashboardSidebarProjectSchema groupId", () => {
+	it("parses an old row without groupId as groupId: null", () => {
+		const oldRow = {
+			projectId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+			createdAt: new Date("2026-01-01"),
+			isCollapsed: false,
+			tabOrder: 1,
+			defaultOpenInApp: null,
+			color: null,
+			hideImage: false,
+		};
+		const parsed = dashboardSidebarProjectSchema.parse(oldRow);
+		expect(parsed.groupId).toBeNull();
+	});
+
+	it("parses a new row with a valid groupId uuid", () => {
+		const row = {
+			projectId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+			createdAt: new Date("2026-01-01"),
+			groupId: "b1ffcd00-0d1c-4fa9-8b6e-7cc0ce491b22",
+		};
+		const parsed = dashboardSidebarProjectSchema.parse(row);
+		expect(parsed.groupId).toBe("b1ffcd00-0d1c-4fa9-8b6e-7cc0ce491b22");
+	});
+});
+
+describe("dashboardSidebarProjectGroupSchema", () => {
+	it("parses a valid group row", () => {
+		const row = {
+			groupId: "c2aadd11-1e2d-4fb8-9d8f-8dd1df502c33",
+			name: "My Group",
+			createdAt: new Date("2026-01-01"),
+		};
+		const parsed = dashboardSidebarProjectGroupSchema.parse(row);
+		expect(parsed.groupId).toBe(row.groupId);
+		expect(parsed.name).toBe("My Group");
+		expect(parsed.tabOrder).toBe(0);
+		expect(parsed.isCollapsed).toBe(false);
+	});
+
+	it("trims whitespace from name and rejects empty name", () => {
+		const base = {
+			groupId: "c2aadd11-1e2d-4fb8-9d8f-8dd1df502c33",
+			createdAt: new Date(),
+		};
+		const trimmed = dashboardSidebarProjectGroupSchema.parse({
+			...base,
+			name: "  hello  ",
+		});
+		expect(trimmed.name).toBe("hello");
+
+		expect(() =>
+			dashboardSidebarProjectGroupSchema.parse({ ...base, name: "   " }),
+		).toThrow();
+	});
+});
 
 describe("healUserPreferences", () => {
 	it("returns full defaults for empty/non-object input", () => {

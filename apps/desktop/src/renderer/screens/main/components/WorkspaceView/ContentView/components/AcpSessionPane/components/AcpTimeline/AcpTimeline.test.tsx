@@ -12,6 +12,8 @@ import { type ComponentProps, createElement, Profiler } from "react";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 import {
 	type AcpTimeline as AcpTimelineComponent,
+	findSettledTimelineAnchor,
+	resolveSettledScrollTop,
 	shouldShowWorkingIndicator,
 } from "./AcpTimeline";
 
@@ -682,6 +684,50 @@ describe("turn navigation", () => {
 	});
 });
 
+describe("findSettledTimelineAnchor", () => {
+	test("does not fall back to an older turn while the latest turn is unmounted", () => {
+		const scroll = document.createElement("div");
+		scroll.innerHTML = `
+			<section data-turn-id="turn:1">
+				<div class="acp-msg" data-role="user">old user</div>
+				<div class="acp-msg" data-role="agent">old response</div>
+			</section>
+		`;
+
+		expect(findSettledTimelineAnchor(scroll, "turn:2")).toBeNull();
+	});
+
+	test("falls back to the latest turn's user message when it has no response", () => {
+		const scroll = document.createElement("div");
+		scroll.innerHTML = `
+			<section data-turn-id="turn:1">
+				<div class="acp-msg" data-role="agent">old response</div>
+			</section>
+			<section data-turn-id="turn:2">
+				<div class="acp-msg" data-role="user">latest user</div>
+			</section>
+		`;
+
+		expect(findSettledTimelineAnchor(scroll, "turn:2")?.textContent).toBe(
+			"latest user",
+		);
+	});
+});
+
+describe("resolveSettledScrollTop", () => {
+	test("keeps a non-scrollable timeline at the top", () => {
+		expect(resolveSettledScrollTop(200, 300, 500)).toBe(0);
+	});
+
+	test("clamps a short final response to the normal bottom", () => {
+		expect(resolveSettledScrollTop(658, 725, 330)).toBe(395);
+	});
+
+	test("aligns a final response when enough content follows it", () => {
+		expect(resolveSettledScrollTop(240, 1_300, 100)).toBe(240);
+	});
+});
+
 describe("AcpTimeline scrolling", () => {
 	test("opens an initially focused conversation at the bottom after layout", () => {
 		const pendingFrames: FrameRequestCallback[] = [];
@@ -983,6 +1029,108 @@ describe("AcpTimeline scrolling", () => {
 		}
 	});
 
+	test("restores a settled conversation's manual reading position", () => {
+		const settledTimeline = {
+			...timeline(0),
+			items: [userMessage(1), message(2, "final response")],
+			lastSeq: 2,
+		};
+		const pendingFrames: Array<{
+			id: number;
+			callback: FrameRequestCallback;
+		}> = [];
+		let nextFrameId = 0;
+		const originalRequestAnimationFrame = window.requestAnimationFrame;
+		const originalCancelAnimationFrame = window.cancelAnimationFrame;
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			nextFrameId += 1;
+			pendingFrames.push({ id: nextFrameId, callback });
+			return nextFrameId;
+		}) as typeof window.requestAnimationFrame;
+		window.cancelAnimationFrame = ((id: number) => {
+			const index = pendingFrames.findIndex((frame) => frame.id === id);
+			if (index >= 0) pendingFrames.splice(index, 1);
+		}) as typeof window.cancelAnimationFrame;
+
+		try {
+			const props = {
+				timeline: settledTimeline,
+				onRespond: async () => {},
+				sessionId: "settled-reading-position-session",
+				status: "idle" as const,
+			};
+			const result = render(
+				createElement(AcpTimeline, { ...props, isFocused: true }),
+			);
+			const body = result.container.querySelector(
+				".acp-pane__scroll",
+			) as HTMLDivElement;
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame.callback(0);
+				}
+			});
+
+			act(() => {
+				fireEvent.wheel(body);
+				body.scrollTop = 420;
+				fireEvent.scroll(body);
+			});
+			result.rerender(
+				createElement(AcpTimeline, { ...props, isFocused: false }),
+			);
+			setScrollMetrics(body, { clientHeight: 0, scrollHeight: 0 });
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
+			result.rerender(
+				createElement(AcpTimeline, { ...props, isFocused: true }),
+			);
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame.callback(0);
+				}
+			});
+
+			expect(body.scrollTop).toBe(420);
+
+			act(() => {
+				fireEvent.wheel(body);
+				body.scrollTop = 300;
+				fireEvent.scroll(body);
+			});
+			result.unmount();
+			const remounted = render(
+				createElement(AcpTimeline, { ...props, isFocused: false }),
+			);
+			const remountedBody = remounted.container.querySelector(
+				".acp-pane__scroll",
+			) as HTMLDivElement;
+			setScrollMetrics(remountedBody, { clientHeight: 0, scrollHeight: 0 });
+			setScrollMetrics(remountedBody, {
+				clientHeight: 100,
+				scrollHeight: 1_300,
+			});
+			remounted.rerender(
+				createElement(AcpTimeline, { ...props, isFocused: true }),
+			);
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame.callback(0);
+				}
+			});
+			expect(remountedBody.scrollTop).toBe(300);
+		} finally {
+			window.requestAnimationFrame = originalRequestAnimationFrame;
+			window.cancelAnimationFrame = originalCancelAnimationFrame;
+		}
+	});
+
 	test("shows the final Agent response after a settled hidden tab is shown", () => {
 		const onRespond = async () => {};
 		const processTool = tool(2, "completed");
@@ -1118,28 +1266,33 @@ describe("AcpTimeline scrolling", () => {
 						status: "idle",
 					}),
 				);
-				const alignFrame = pendingFrames.shift();
-				if (!alignFrame) throw new Error("expected an anchor alignment frame");
-				alignFrame.callback(0);
-				expect(body.scrollTop).toBe(240);
+				expect(body.scrollTop).toBe(1_300);
+				const firstSettlingFrame = pendingFrames.shift();
+				if (!firstSettlingFrame) {
+					throw new Error("expected the first settling frame");
+				}
+				firstSettlingFrame.callback(0);
+				// Measuring the target must not write a competing intermediate offset.
+				expect(body.scrollTop).toBe(1_300);
 
-				// Multiple delayed virtualizer measurements can restore different stale
-				// offsets on consecutive frames. The restore must keep pinning the same
-				// final-response anchor until the layout remains stable.
-				for (const staleOffset of [1_300, 900, 1_100]) {
-					body.scrollTop = staleOffset;
-					const delayedMeasurementFrame = pendingFrames.shift();
-					if (!delayedMeasurementFrame) {
-						throw new Error("expected a delayed measurement frame");
-					}
-					delayedMeasurementFrame.callback(0);
-					expect(body.scrollTop).toBe(240);
+				// Simulate consecutive stale offsets from delayed virtualizer
+				// measurements. The restore observes them without fighting scrollTop,
+				// then performs one alignment after the semantic target is stable.
+				body.scrollTop = 900;
+				const secondSettlingFrame = pendingFrames.shift();
+				if (!secondSettlingFrame) {
+					throw new Error("expected the second settling frame");
 				}
-				for (let frameCount = 0; frameCount < 12; frameCount += 1) {
-					const frame = pendingFrames.shift();
-					if (!frame) break;
-					frame.callback(0);
+				secondSettlingFrame.callback(0);
+				expect(body.scrollTop).toBe(900);
+
+				body.scrollTop = 1_100;
+				const finalAlignmentFrame = pendingFrames.shift();
+				if (!finalAlignmentFrame) {
+					throw new Error("expected the final alignment frame");
 				}
+				finalAlignmentFrame.callback(0);
+				expect(body.scrollTop).toBe(240);
 			});
 
 			expect(body.scrollTop).toBe(240);
