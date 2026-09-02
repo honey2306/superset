@@ -22,7 +22,7 @@ describe("resolveBrowserUseSidecarPath", () => {
 	});
 
 	test("resolves source when the detached daemon cwd is apps/desktop", () => {
-		const repositoryRoot = process.cwd();
+		const repositoryRoot = path.resolve(process.cwd(), "../..");
 		const desktopCwd = path.join(repositoryRoot, "apps/desktop");
 		const moduleUrl = pathToFileURL(
 			path.join(desktopCwd, "dist/main/acp-daemon.js"),
