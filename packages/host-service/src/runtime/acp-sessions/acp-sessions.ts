@@ -660,6 +660,8 @@ export interface AcpSessionManagerOptions {
 	 */
 	modelFacingInstructions?: (input: {
 		role: SupersetSessionRole;
+		workspaceId: string;
+		cwd: string;
 	}) => string | undefined;
 	/**
 	 * Total time allowed for adapter initialize + session setup. A single
@@ -2289,7 +2291,7 @@ export class AcpSessionManager {
 		const roleInstructions =
 			role === SUPERSET_DELEGATED_EXECUTOR_ROLE
 				? SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS
-				: this.modelFacingInstructions?.({ role });
+				: this.modelFacingInstructions?.({ role, workspaceId, cwd });
 		const modelFacingInstructions = discovery
 			? undefined
 			: composeSupersetModelFacingInstructions([
@@ -3184,15 +3186,29 @@ export class AcpSessionManager {
 			runtime.state.harness,
 			context.params.toolCall,
 		);
+		const isElicitation =
+			runtime.askUserToolCalls.has(context.params.toolCall.toolCallId) ||
+			extensionUi !== null;
+		if (runtime.role === SUPERSET_DELEGATED_EXECUTOR_ROLE && !isElicitation) {
+			// Delegated executors run unattended. Prefer a session-persistent grant,
+			// while keeping genuine AskUser/extension UI requests interactive.
+			const allow =
+				context.params.options.find(
+					(option) => option.kind === "allow_always",
+				) ??
+				context.params.options.find((option) => option.kind === "allow_once");
+			return allow
+				? {
+						outcome: { outcome: "selected", optionId: allow.optionId },
+					}
+				: { outcome: { outcome: "cancelled" } };
+		}
 		const pending: PendingPermission = {
 			requestId,
 			toolCall: context.params.toolCall,
 			options: context.params.options,
 			requestedAt: Date.now(),
-			...(runtime.askUserToolCalls.has(context.params.toolCall.toolCallId) ||
-			extensionUi
-				? { isElicitation: true }
-				: {}),
+			...(isElicitation ? { isElicitation: true } : {}),
 			...(extensionUi?.allowsCustomResponse
 				? { allowsCustomResponse: true }
 				: {}),

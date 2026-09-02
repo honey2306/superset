@@ -15,6 +15,7 @@ import {
 	codexMcpConfig,
 	codexPlanUpdate,
 	codexThreadConfig,
+	codexThreadExecutionPolicy,
 	codexToolUpdate,
 	isCodexBridgeMain,
 	selectedCodexDecision,
@@ -24,6 +25,22 @@ const FIXTURE = path.join(
 	import.meta.dir,
 	"../../../test/fixtures/fake-codex-app-server.ts",
 );
+
+describe("codexThreadExecutionPolicy", () => {
+	test("gives delegated executors unattended full access", () => {
+		expect(codexThreadExecutionPolicy("delegated-executor")).toEqual({
+			approvalPolicy: "never",
+			sandbox: "danger-full-access",
+		});
+	});
+
+	test("keeps ordinary sessions approval-gated and workspace-scoped", () => {
+		expect(codexThreadExecutionPolicy("root-coordinator")).toEqual({
+			approvalPolicy: "on-request",
+			sandbox: "workspace-write",
+		});
+	});
+});
 
 const BROWSER_USE_MCP: McpServer = {
 	name: "browser-use",
@@ -320,14 +337,16 @@ describe("Codex app-server MCP forwarding", () => {
 		});
 	});
 
-	test("forwards config to new and resumed Codex threads", async () => {
+	test("forwards config and delegated execution policy to new and resumed Codex threads", async () => {
 		const restore = withFixture("accept");
 		const logPath = path.join(
 			mkdtempSync(path.join(os.tmpdir(), "codex-mcp-")),
 			"requests.jsonl",
 		);
 		const previousLog = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
+		const previousRole = process.env.SUPERSET_ACP_SESSION_ROLE;
 		process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = logPath;
+		process.env.SUPERSET_ACP_SESSION_ROLE = "delegated-executor";
 		try {
 			const client = {
 				notify: async () => {},
@@ -352,13 +371,17 @@ describe("Codex app-server MCP forwarding", () => {
 				{
 					method: "thread/start",
 					params: expect.objectContaining({
+						approvalPolicy: "never",
 						config: codexMcpConfig([BROWSER_USE_MCP]),
+						sandbox: "danger-full-access",
 					}),
 				},
 				{
 					method: "thread/resume",
 					params: expect.objectContaining({
+						approvalPolicy: "never",
 						config: codexMcpConfig([BROWSER_USE_MCP]),
+						sandbox: "danger-full-access",
 					}),
 				},
 			]);
@@ -366,6 +389,9 @@ describe("Codex app-server MCP forwarding", () => {
 			if (previousLog === undefined)
 				delete process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
 			else process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = previousLog;
+			if (previousRole === undefined)
+				delete process.env.SUPERSET_ACP_SESSION_ROLE;
+			else process.env.SUPERSET_ACP_SESSION_ROLE = previousRole;
 			restore();
 		}
 	});

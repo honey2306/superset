@@ -16,6 +16,7 @@ import {
 	type SessionConfigOption,
 	type SessionUpdate,
 	type StopReason,
+	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DELEGATION_META_KEY,
 	TOOL_SEMANTIC_META_KEY,
 	type ToolKind,
@@ -26,6 +27,15 @@ const APPROVAL_METHODS = new Set([
 	"item/commandExecution/requestApproval",
 	"item/fileChange/requestApproval",
 ]);
+export function codexThreadExecutionPolicy(role: string | undefined): {
+	approvalPolicy: "never" | "on-request";
+	sandbox: "danger-full-access" | "workspace-write";
+} {
+	return role === SUPERSET_DELEGATED_EXECUTOR_ROLE
+		? { approvalPolicy: "never", sandbox: "danger-full-access" }
+		: { approvalPolicy: "on-request", sandbox: "workspace-write" };
+}
+
 const QUIET_NOTIFICATIONS = new Set([
 	"thread/started",
 	"thread/status/changed",
@@ -967,8 +977,7 @@ export class CodexBridge {
 			await this.loadModels();
 			const response = (await this.request("thread/start", {
 				cwd,
-				approvalPolicy: "on-request",
-				sandbox: "workspace-write",
+				...codexThreadExecutionPolicy(process.env.SUPERSET_ACP_SESSION_ROLE),
 				...(requestedModel ? { model: requestedModel } : {}),
 				...(developerInstructions ? { developerInstructions } : {}),
 				config: codexThreadConfig(mcpServers, Boolean(developerInstructions)),
@@ -1098,6 +1107,7 @@ export class CodexBridge {
 			const response = (await this.request("thread/resume", {
 				threadId: sessionId,
 				cwd,
+				...codexThreadExecutionPolicy(process.env.SUPERSET_ACP_SESSION_ROLE),
 				...(developerInstructions ? { developerInstructions } : {}),
 				config: codexThreadConfig(mcpServers, Boolean(developerInstructions)),
 			})) as {
