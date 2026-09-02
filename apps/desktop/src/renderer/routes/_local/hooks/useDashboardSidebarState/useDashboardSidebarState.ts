@@ -599,28 +599,142 @@ export function useDashboardSidebarState() {
 		[collections, hostWorkspaces],
 	);
 
+	const createProjectGroup = useCallback(
+		(options: { name?: string; projectIds?: string[] } = {}) => {
+			const { name = "New Group", projectIds = [] } = options;
+			const groupId = crypto.randomUUID();
+			const tabOrder = getNextTabOrder(
+				Array.from(collections.sidebarProjectGroups.state.values()),
+			);
+			collections.sidebarProjectGroups.insert({
+				groupId,
+				name,
+				createdAt: new Date(),
+				tabOrder,
+				isCollapsed: false,
+			});
+			for (const projectId of projectIds) {
+				if (!collections.sidebarProjects.get(projectId)) continue;
+				collections.sidebarProjects.update(projectId, (draft) => {
+					draft.groupId = groupId;
+				});
+			}
+			return groupId;
+		},
+		[collections],
+	);
+
+	const renameProjectGroup = useCallback(
+		(groupId: string, name: string) => {
+			const trimmedName = name.trim();
+			if (!trimmedName || !collections.sidebarProjectGroups.get(groupId))
+				return;
+			collections.sidebarProjectGroups.update(groupId, (draft) => {
+				draft.name = trimmedName;
+			});
+		},
+		[collections],
+	);
+
+	const toggleProjectGroupCollapsed = useCallback(
+		(groupId: string) => {
+			if (!collections.sidebarProjectGroups.get(groupId)) return;
+			collections.sidebarProjectGroups.update(groupId, (draft) => {
+				draft.isCollapsed = !draft.isCollapsed;
+			});
+		},
+		[collections],
+	);
+
+	const deleteProjectGroup = useCallback(
+		(groupId: string) => {
+			if (!collections.sidebarProjectGroups.get(groupId)) return;
+			const ungroupedProjects = Array.from(
+				collections.sidebarProjects.state.values(),
+			)
+				.filter((project) => project.groupId === null)
+				.sort((left, right) => left.tabOrder - right.tabOrder);
+			const groupedProjects = Array.from(
+				collections.sidebarProjects.state.values(),
+			)
+				.filter((project) => project.groupId === groupId)
+				.sort((left, right) => left.tabOrder - right.tabOrder);
+			for (const [index, project] of [
+				...ungroupedProjects,
+				...groupedProjects,
+			].entries()) {
+				collections.sidebarProjects.update(project.projectId, (draft) => {
+					draft.groupId = null;
+					draft.tabOrder = index + 1;
+				});
+			}
+			collections.sidebarProjectGroups.delete(groupId);
+		},
+		[collections],
+	);
+
+	const moveProjectToGroup = useCallback(
+		(projectId: string, groupId: string | null, toIndex?: number) => {
+			const project = collections.sidebarProjects.get(projectId);
+			if (!project) return;
+			const siblings = Array.from(collections.sidebarProjects.state.values())
+				.filter((p) => p.groupId === groupId && p.projectId !== projectId)
+				.sort((a, b) => a.tabOrder - b.tabOrder);
+			const insertAt =
+				toIndex !== undefined
+					? Math.max(0, Math.min(toIndex, siblings.length))
+					: siblings.length;
+			siblings.splice(insertAt, 0, { ...project, groupId });
+			siblings.forEach((p, i) => {
+				collections.sidebarProjects.update(p.projectId, (draft) => {
+					draft.groupId = groupId;
+					draft.tabOrder = i + 1;
+				});
+			});
+		},
+		[collections],
+	);
+
+	const reorderProjectGroups = useCallback(
+		(groupIds: string[]) => {
+			groupIds.forEach((groupId, index) => {
+				if (!collections.sidebarProjectGroups.get(groupId)) return;
+				collections.sidebarProjectGroups.update(groupId, (draft) => {
+					draft.tabOrder = index + 1;
+				});
+			});
+		},
+		[collections],
+	);
+
 	return {
+		createProjectGroup,
 		createSection,
 		createSectionFromWorkspaces,
+		deleteProjectGroup,
 		deleteSection,
 		ensureProjectInSidebar,
 		ensureWorkspaceInSidebar,
 		hideWorkspaceInSidebar,
+		moveProjectToGroup,
 		moveWorkspaceToSection,
 		moveWorkspaceToSectionAtIndex,
 		moveWorkspacesToSection,
 		removeProjectFromSidebar,
 		reorderProjectChildren,
 		reorderProjectChildrenByIndex,
+		reorderProjectGroups,
 		removeWorkspaceFromSidebar,
 		reorderProjects,
 		reorderProjectsByIndex,
 		reorderWorkspaces,
 		reorderWorkspacesInSectionByIndex,
+		renameProjectGroup,
 		renameSection,
 		setSectionColor,
 		setWorkspaceUnread,
 		toggleProjectCollapsed,
+		toggleProjectGroupCollapsed,
 		toggleSectionCollapsed,
 	};
 }

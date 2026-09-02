@@ -31,6 +31,23 @@ export interface SectionDragItem {
 	originalIndex: number;
 }
 
+export interface ProjectDragItem {
+	kind: "project";
+	projectId: string;
+	projectGroupId: string | null;
+	index: number;
+	originalIndex: number;
+	/** Set once a hover/drop has persisted the current position. */
+	handled?: boolean;
+}
+
+export interface ProjectGroupDragItem {
+	kind: "project-group";
+	projectGroupId: string;
+	index: number;
+	originalIndex: number;
+}
+
 export interface SidebarSection {
 	id: string;
 	projectId?: string;

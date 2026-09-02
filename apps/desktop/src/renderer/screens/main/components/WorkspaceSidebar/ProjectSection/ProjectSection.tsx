@@ -1,18 +1,21 @@
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useDrag, useDrop } from "react-dnd";
 import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
 import { useWorkspaceSidebarStore } from "renderer/stores";
 import { useOpenNewWorkspaceModal } from "renderer/stores/new-workspace-modal";
+import { PROJECT_DND_TYPE } from "../constants";
 import { useSectionDropZone } from "../hooks";
-import type { SidebarSection, SidebarWorkspace } from "../types";
+import type {
+	ProjectDragItem,
+	SidebarSection,
+	SidebarWorkspace,
+} from "../types";
 import { WorkspaceListItem } from "../WorkspaceListItem";
 import { WorkspaceSection } from "../WorkspaceSection";
 import { ProjectHeader } from "./ProjectHeader";
-
-const PROJECT_TYPE = "PROJECT";
 
 type TopLevelChild =
 	| {
@@ -45,8 +48,12 @@ interface ProjectSectionProps {
 	}[];
 	/** Base index for keyboard shortcuts (0-based) */
 	shortcutBaseIndex: number;
-	/** Index for drag-and-drop reordering */
+	/** Index within the currently visible project list */
 	index: number;
+	/** IDs in the same visible order represented by index */
+	orderedProjectIds: string[];
+	projectGroupId: string | null;
+	availableProjectGroups: Array<{ id: string; name: string }>;
 	/** Whether the sidebar is in collapsed mode */
 	isCollapsed?: boolean;
 }
@@ -64,11 +71,14 @@ export function ProjectSection({
 	topLevelItems,
 	shortcutBaseIndex,
 	index,
+	orderedProjectIds,
+	projectGroupId,
+	availableProjectGroups,
 	isCollapsed: isSidebarCollapsed = false,
 }: ProjectSectionProps) {
 	const { isProjectCollapsed, toggleProjectCollapsed } =
 		useWorkspaceSidebarStore();
-	const { reorderProjectsByIndex } = useDashboardSidebarState();
+	const { moveProjectToGroup, reorderProjects } = useDashboardSidebarState();
 	const openModal = useOpenNewWorkspaceModal();
 
 	const isCollapsed = isProjectCollapsed(projectId);
@@ -155,82 +165,120 @@ export function ProjectSection({
 		openModal(projectId);
 	};
 
+	const commitProjectReorder = useCallback(
+		(item: ProjectDragItem) => {
+			if (item.projectGroupId !== projectGroupId) {
+				try {
+					moveProjectToGroup(item.projectId, projectGroupId, item.index);
+					return true;
+				} catch (error) {
+					toast.error(
+						`Failed to move project: ${error instanceof Error ? error.message : String(error)}`,
+					);
+					return false;
+				}
+			}
+
+			const fromIndex = orderedProjectIds.indexOf(item.projectId);
+			if (
+				fromIndex === -1 ||
+				item.index < 0 ||
+				item.index >= orderedProjectIds.length ||
+				fromIndex === item.index
+			) {
+				return false;
+			}
+
+			const nextProjectIds = [...orderedProjectIds];
+			const [movedProjectId] = nextProjectIds.splice(fromIndex, 1);
+			if (!movedProjectId) return false;
+			nextProjectIds.splice(item.index, 0, movedProjectId);
+
+			try {
+				reorderProjects(nextProjectIds);
+				return true;
+			} catch (error) {
+				toast.error(
+					`Failed to reorder: ${error instanceof Error ? error.message : String(error)}`,
+				);
+				return false;
+			}
+		},
+		[moveProjectToGroup, orderedProjectIds, projectGroupId, reorderProjects],
+	);
+
 	const [{ isDragging, sourceHandlerId }, drag] = useDrag(
 		() => ({
-			type: PROJECT_TYPE,
-			item: { projectId, index, originalIndex: index },
+			type: PROJECT_DND_TYPE,
+			item: (): ProjectDragItem => ({
+				kind: "project",
+				projectId,
+				projectGroupId,
+				index,
+				originalIndex: index,
+			}),
 			end: (item, monitor) => {
-				if (!item) return;
-				if (monitor.didDrop()) return;
-				if (item.originalIndex !== item.index) {
-					try {
-						reorderProjectsByIndex(item.originalIndex, item.index);
-					} catch (error) {
-						toast.error(
-							`Failed to reorder: ${error instanceof Error ? error.message : String(error)}`,
-						);
-					}
-				}
+				if (!item || item.handled || monitor.didDrop()) return;
+				commitProjectReorder(item);
 			},
 			collect: (monitor) => ({
 				isDragging: monitor.isDragging(),
 				sourceHandlerId: monitor.getHandlerId(),
 			}),
 		}),
-		[projectId, index, reorderProjectsByIndex],
+		[projectId, projectGroupId, index, commitProjectReorder],
 	);
 
-	const [{ targetHandlerId }, drop] = useDrop({
-		accept: PROJECT_TYPE,
-		hover: (item: {
-			projectId: string;
-			index: number;
-			originalIndex: number;
-		}) => {
-			if (item.index !== index) {
-				item.index = index;
-			}
-		},
-		drop: (item: {
-			projectId: string;
-			index: number;
-			originalIndex: number;
-		}) => {
-			if (item.originalIndex !== item.index) {
-				try {
-					reorderProjectsByIndex(item.originalIndex, item.index);
-				} catch (error) {
-					toast.error(
-						`Failed to reorder: ${error instanceof Error ? error.message : String(error)}`,
-					);
+	const [{ targetHandlerId }, drop] = useDrop(
+		() => ({
+			accept: PROJECT_DND_TYPE,
+			hover: (item: ProjectDragItem) => {
+				if (item.projectGroupId !== projectGroupId || item.index === index) {
+					return;
 				}
-				return { reordered: true };
-			}
-		},
-		collect: (monitor) => ({ targetHandlerId: monitor.getHandlerId() }),
-	});
+				item.index = index;
+				item.handled = commitProjectReorder(item);
+			},
+			drop: (item: ProjectDragItem) => {
+				if (item.handled || commitProjectReorder(item)) {
+					return { reordered: true };
+				}
+			},
+			collect: (monitor) => ({ targetHandlerId: monitor.getHandlerId() }),
+		}),
+		[index, projectGroupId, commitProjectReorder],
+	);
 
-	const projectHeaderRef = useRef<HTMLDivElement>(null);
+	const projectDropRef = useRef<HTMLDivElement>(null);
+	const projectDragRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		drag(drop(projectHeaderRef));
+		drop(projectDropRef);
+		drag(projectDragRef);
 	}, [drag, drop]);
 
 	if (isSidebarCollapsed) {
 		return (
 			<div
-				ref={projectHeaderRef}
-				data-dnd-source-id={sourceHandlerId ?? undefined}
+				ref={projectDropRef}
 				data-dnd-target-id={targetHandlerId ?? undefined}
 				className={cn(
 					"flex flex-col items-center py-2 border-b border-line last:border-b-0",
 					isDragging && "opacity-30",
-					isDragging && "cursor-grabbing",
 				)}
 			>
-				<div className="flex w-full justify-center">
+				<div
+					ref={projectDragRef}
+					data-dnd-source-id={sourceHandlerId ?? undefined}
+					className={cn(
+						"flex w-full cursor-grab justify-center",
+						isDragging && "cursor-grabbing",
+					)}
+				>
 					<ProjectHeader
 						projectId={projectId}
+						projectGroupId={projectGroupId}
+						availableProjectGroups={availableProjectGroups}
 						projectName={projectName}
 						projectColor={projectColor}
 						githubOwner={githubOwner}
@@ -323,18 +371,22 @@ export function ProjectSection({
 
 	return (
 		<div
-			ref={projectHeaderRef}
-			data-dnd-source-id={sourceHandlerId ?? undefined}
+			ref={projectDropRef}
 			data-dnd-target-id={targetHandlerId ?? undefined}
 			className={cn(
 				"border-b border-line last:border-b-0",
 				isDragging && "opacity-30",
-				isDragging && "cursor-grabbing",
 			)}
 		>
-			<div className="w-full">
+			<div
+				ref={projectDragRef}
+				data-dnd-source-id={sourceHandlerId ?? undefined}
+				className={cn("w-full cursor-grab", isDragging && "cursor-grabbing")}
+			>
 				<ProjectHeader
 					projectId={projectId}
+					projectGroupId={projectGroupId}
+					availableProjectGroups={availableProjectGroups}
 					projectName={projectName}
 					projectColor={projectColor}
 					githubOwner={githubOwner}

@@ -5,8 +5,10 @@ import {
 } from "@tanstack/react-db";
 import { reclaimTerminalStateForQuota } from "renderer/lib/terminal/terminal-buffer-gc";
 import {
+	type DashboardSidebarProjectGroupRow,
 	type DashboardSidebarProjectRow,
 	type DashboardSidebarSectionRow,
+	dashboardSidebarProjectGroupSchema,
 	dashboardSidebarProjectSchema,
 	dashboardSidebarSectionSchema,
 	healUserPreferences,
@@ -45,6 +47,7 @@ export interface LocalProductStateCollections {
 	sidebarSections: ReturnType<typeof createSidebarSectionsCollection>;
 	terminalPresets: ReturnType<typeof createTerminalPresetsCollection>;
 	userPreferences: ReturnType<typeof createUserPreferencesCollection>;
+	sidebarProjectGroups: ReturnType<typeof createSidebarProjectGroupsCollection>;
 }
 
 // Compatibility boundary: these physical collection IDs and storage keys keep
@@ -145,12 +148,28 @@ function createUserPreferencesCollection(scopeId: string) {
 	);
 }
 
+function createSidebarProjectGroupsCollection(scopeId: string) {
+	const collection = createIndexedCollection(
+		localStorageCollectionOptions(
+			guardQuota({
+				id: `v2_sidebar_project_groups-${scopeId}`,
+				storageKey: `v2-sidebar-project-groups-${scopeId}`,
+				schema: dashboardSidebarProjectGroupSchema,
+				getKey: (item: DashboardSidebarProjectGroupRow) => item.groupId,
+			}),
+		),
+	);
+	collection.createIndex((group) => group.tabOrder, basicIndexConfig);
+	return collection;
+}
+
 export const LOCAL_PRODUCT_STATE_COLLECTION_NAMES = [
 	"sidebarProjects",
 	"workspaceLocalState",
 	"sidebarSections",
 	"terminalPresets",
 	"userPreferences",
+	"sidebarProjectGroups",
 ] as const satisfies ReadonlyArray<keyof LocalProductStateCollections>;
 
 const collectionsByScope = new Map<string, LocalProductStateCollections>();
@@ -167,6 +186,7 @@ export function getLocalProductStateCollections(
 		sidebarSections: createSidebarSectionsCollection(scopeId),
 		terminalPresets: createTerminalPresetsCollection(scopeId),
 		userPreferences: createUserPreferencesCollection(scopeId),
+		sidebarProjectGroups: createSidebarProjectGroupsCollection(scopeId),
 	};
 	collectionsByScope.set(scopeId, collections);
 	return collections;

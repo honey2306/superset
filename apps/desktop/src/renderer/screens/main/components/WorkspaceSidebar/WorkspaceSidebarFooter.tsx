@@ -7,9 +7,11 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
+import { useState } from "react";
 import {
 	LuFolderOpen,
 	LuFolderPlus,
+	LuFolderTree,
 	LuGitBranch,
 	LuLayoutTemplate,
 } from "react-icons/lu";
@@ -22,6 +24,7 @@ import {
 	useOpenTemplateGalleryModal,
 } from "renderer/stores/add-repository-modal";
 import { SettingsButton } from "../SettingsButton";
+import { CreateProjectGroupDialog } from "./CreateProjectGroupDialog";
 import { STROKE_WIDTH } from "./constants";
 
 interface WorkspaceSidebarFooterProps {
@@ -43,6 +46,8 @@ export function WorkspaceSidebarFooter({
 	});
 	const openNewProject = useOpenNewProjectModal();
 	const openTemplateGallery = useOpenTemplateGalleryModal();
+	const [isCreateProjectGroupOpen, setIsCreateProjectGroupOpen] =
+		useState(false);
 
 	const handleOpenProject = async () => {
 		const result = await folderImport.start();
@@ -76,6 +81,21 @@ export function WorkspaceSidebarFooter({
 		return (
 			<div className="border-t border-line p-2 flex flex-col items-center gap-1">
 				<UpdatesPill isCollapsed />
+				<Tooltip delayDuration={300}>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="size-8 text-fg-mute hover:text-fg"
+							onClick={() => setIsCreateProjectGroupOpen(true)}
+						>
+							<LuFolderTree className="size-4" strokeWidth={STROKE_WIDTH} />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent side="right">
+						{t("workspace.createProjectGroup")}
+					</TooltipContent>
+				</Tooltip>
 				<DropdownMenu>
 					<Tooltip delayDuration={300}>
 						<TooltipTrigger asChild>
@@ -110,6 +130,10 @@ export function WorkspaceSidebarFooter({
 					</DropdownMenuContent>
 				</DropdownMenu>
 				<SettingsButton />
+				<CreateProjectGroupDialog
+					open={isCreateProjectGroupOpen}
+					onOpenChange={setIsCreateProjectGroupOpen}
+				/>
 			</div>
 		);
 	}
@@ -143,8 +167,27 @@ export function WorkspaceSidebarFooter({
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+			<Tooltip delayDuration={300}>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-8 shrink-0 text-fg-mute hover:text-fg"
+						onClick={() => setIsCreateProjectGroupOpen(true)}
+					>
+						<LuFolderTree className="size-4" strokeWidth={STROKE_WIDTH} />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent side="top">
+					{t("workspace.createProjectGroup")}
+				</TooltipContent>
+			</Tooltip>
 			<UpdatesPill />
 			<SettingsButton />
+			<CreateProjectGroupDialog
+				open={isCreateProjectGroupOpen}
+				onOpenChange={setIsCreateProjectGroupOpen}
+			/>
 		</div>
 	);
 }

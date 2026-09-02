@@ -1,0 +1,50 @@
+{
+  "type": "design",
+  "title": "项目与多仓库侧边栏",
+  "prompt": "为 Superset 左侧栏增加产品/业务线分类，并支持一个项目关联多个仓库；输出 3 个可切换的高保真交互方案。",
+  "startingPoint": {
+    "name": "desktop-app",
+    "kind": "screen",
+    "dsSlug": "superset-design-system",
+    "section": "Screens",
+    "path": "ui_kits/desktop-app/WorkspaceSidebar.card.html"
+  },
+  "designSystems": [
+    {
+      "name": "Superset Design System",
+      "slug": "superset-design-system",
+      "namespace": "SupersetDesignSystem_91a6da",
+      "dsFolder": "_ds/superset-design-system",
+      "sourcePath": "designs/superset-design-system"
+    }
+  ],
+  "primaryDesignSystem": "superset-design-system",
+  "createdAt": "2026-09-01T08:21:10.097Z",
+  "updatedAt": "2026-09-01T08:38:35.977Z",
+  "assets": {
+    "项目与多仓库侧边栏": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-09-01T08:25:12.623Z",
+          "status": "changes-requested",
+          "subtitle": "v1 · 重新设计方向，未充分保留当前结构",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "path": "index-v2.html",
+          "createdAt": "2026-09-01T08:35:23.944Z",
+          "status": "approved",
+          "subtitle": "v2 · A 分组标题已确认：项目组 → 仓库 → Workspace",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        }
+      ]
+    }
+  }
+}

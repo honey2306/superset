@@ -14,7 +14,9 @@ import { cn } from "@superset/ui/utils";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { HiChevronRight, HiMiniPlus } from "react-icons/hi2";
 import {
+	LuCheck,
 	LuFolderOpen,
+	LuFolderTree,
 	LuImage,
 	LuImageOff,
 	LuListPlus,
@@ -44,6 +46,8 @@ import { closeProjectImmediately } from "./projectCloseOrchestration";
 
 interface ProjectHeaderProps {
 	projectId: string;
+	projectGroupId: string | null;
+	availableProjectGroups: Array<{ id: string; name: string }>;
 	projectName: string;
 	projectColor: string;
 	githubOwner: string | null;
@@ -61,6 +65,8 @@ interface ProjectHeaderProps {
 
 export function ProjectHeader({
 	projectId,
+	projectGroupId,
+	availableProjectGroups,
 	projectName,
 	projectColor,
 	githubOwner,
@@ -76,7 +82,7 @@ export function ProjectHeader({
 	const { t } = useTranslation();
 	const electronUtils = electronTrpc.useUtils();
 	const { workspaces: hostWorkspaces } = useWorkspaceCatalog();
-	const { createSection, removeProjectFromSidebar } =
+	const { createSection, moveProjectToGroup, removeProjectFromSidebar } =
 		useDashboardSidebarState();
 	const navigate = useNavigate();
 	const params = useParams({ strict: false }) as { workspaceId?: string };
@@ -169,6 +175,42 @@ export function ProjectHeader({
 		}
 	};
 
+	const moveToProjectGroupSubmenu = availableProjectGroups.length > 0 && (
+		<ContextMenuSub>
+			<ContextMenuSubTrigger>
+				<LuFolderTree className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+				{t("workspace.moveToProjectGroup")}
+			</ContextMenuSubTrigger>
+			<ContextMenuSubContent>
+				<ContextMenuItem
+					disabled={projectGroupId === null}
+					onSelect={() => moveProjectToGroup(projectId, null)}
+				>
+					{projectGroupId === null && (
+						<LuCheck className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+					)}
+					<span className={cn(projectGroupId !== null && "ml-6")}>
+						{t("workspace.ungroupedProjects")}
+					</span>
+				</ContextMenuItem>
+				{availableProjectGroups.map((projectGroup) => (
+					<ContextMenuItem
+						key={projectGroup.id}
+						disabled={projectGroup.id === projectGroupId}
+						onSelect={() => moveProjectToGroup(projectId, projectGroup.id)}
+					>
+						{projectGroup.id === projectGroupId && (
+							<LuCheck className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+						)}
+						<span className={cn(projectGroup.id !== projectGroupId && "ml-6")}>
+							{projectGroup.name}
+						</span>
+					</ContextMenuItem>
+				))}
+			</ContextMenuSubContent>
+		</ContextMenuSub>
+	);
+
 	const colorPickerSubmenu = (
 		<ContextMenuSub>
 			<ContextMenuSubTrigger>
@@ -237,6 +279,7 @@ export function ProjectHeader({
 							<LuSettings className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 							{t("workspace.projectSettings")}
 						</ContextMenuItem>
+						{moveToProjectGroupSubmenu}
 						{colorPickerSubmenu}
 						<ContextMenuItem onSelect={handleNewSection}>
 							<LuListPlus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
@@ -368,6 +411,7 @@ export function ProjectHeader({
 						<LuSettings className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 						{t("workspace.projectSettings")}
 					</ContextMenuItem>
+					{moveToProjectGroupSubmenu}
 					{colorPickerSubmenu}
 					<ContextMenuItem onSelect={handleToggleImage}>
 						{hideImage ? (
