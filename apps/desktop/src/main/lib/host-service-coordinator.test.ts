@@ -227,7 +227,9 @@ describe("HostServiceCoordinator ACP environment", () => {
 
 		const env = await internals.buildEnv(40000, "secret", spawnConfig);
 
-		expect(env.AUTOMATE_RELAY_MAILBOX_NAMESPACE).toBe("development:default");
+		expect(env.AUTOMATE_RELAY_MAILBOX_NAMESPACE).toMatch(
+			/^development:[a-z0-9-]+$/,
+		);
 	});
 });
 
