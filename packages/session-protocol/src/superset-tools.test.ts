@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	composeSupersetModelFacingInstructions,
+	formatProjectMemoryInstructions,
 	SUPERSET_PLAN_INSTRUCTIONS,
 	SUPERSET_TOOL_DEFINITIONS,
 	supersetToolRequestSchema,
@@ -17,6 +18,46 @@ describe("Superset delegation protocol", () => {
 		expect(
 			composeSupersetModelFacingInstructions([undefined, "  ", undefined]),
 		).toBeUndefined();
+	});
+
+	test("advertises project memory recording and formats injected memory", () => {
+		const remember = SUPERSET_TOOL_DEFINITIONS.find(
+			(entry) => entry.name === "remember_project_memory",
+		);
+		const search = SUPERSET_TOOL_DEFINITIONS.find(
+			(entry) => entry.name === "search_project_memories",
+		);
+		expect(remember?.description).toContain("durable, verified knowledge");
+		expect(search?.description).toContain("expensive investigation");
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "session-1",
+				name: "remember_project_memory",
+				arguments: {
+					title: "CDP workflow",
+					content: "Match the renderer to the current worktree.",
+					category: "debugging",
+				},
+			}),
+		).toMatchObject({
+			arguments: { category: "debugging", pinned: false },
+		});
+		const injectedMemory = formatProjectMemoryInstructions([
+			{
+				title: "CDP workflow",
+				category: "debugging",
+			},
+		]);
+		expect(injectedMemory).toContain(
+			"Project memory index:\n- CDP workflow (debugging)",
+		);
+		expect(injectedMemory).not.toContain("Pinned");
+		expect(injectedMemory).toContain(
+			"call `search_project_memories` to retrieve full details",
+		);
+		expect(injectedMemory).not.toContain(
+			"Match the renderer to the current worktree.",
+		);
 	});
 
 	test("advertises timely user-visible plan updates", () => {

@@ -1,0 +1,25 @@
+/* Superset DS — Opacity ladder.
+   Every alpha value used in components should map to one of these steps.
+   The 6/10/18/38/55 pattern is the same one used by `--hover`/`--line`/`--fg-mute`,
+   so opacity feels like the same system as text and fills. */
+
+:root {
+	--o-hairline: 0.06; /* @kind other · faint hairline / hover tint */
+	--o-line: 0.1; /* @kind other · standard hairline */
+	--o-line-strong: 0.18; /* @kind other · stronger hairline / current-line */
+	--o-faint: 0.38; /* @kind other · fg-faint text */
+	--o-mute: 0.55; /* @kind other · fg-mute text */
+	--o-solid: 1; /* @kind other · full opacity */
+
+	--o-disabled: 0.5; /* @kind other · disabled surface */
+	--o-scrim: 0.42; /* @kind other · modal scrim (Dracula) */
+	--o-scrim-light: 0.32; /* @kind other · modal scrim (Light) */
+
+	--o-accent-tint: 0.14; /* @kind other · pink tint fill */
+	--o-accent-line: 0.55; /* @kind other · pink line/border */
+	--o-accent-glow: 0.55; /* @kind other · focus ring */
+	--o-accent-halo: 0.22; /* @kind other · outer focus halo */
+
+	--o-status-tint: 0.12; /* @kind other · success/warning tint */
+	--o-danger-tint: 0.14; /* @kind other · danger tint (slightly heavier) */
+}

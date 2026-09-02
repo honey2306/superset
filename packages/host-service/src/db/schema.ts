@@ -332,6 +332,45 @@ export const hostAgentConfigs = sqliteTable(
 	],
 );
 
+export type ProjectMemoryCategory =
+	| "debugging"
+	| "architecture"
+	| "workflow"
+	| "environment"
+	| "preference"
+	| "other";
+
+/** Durable knowledge shared by every workspace and conversation in a project. */
+export const projectMemories = sqliteTable(
+	"project_memories",
+	{
+		id: text().primaryKey(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => projects.id, { onDelete: "cascade" }),
+		title: text().notNull(),
+		content: text().notNull(),
+		category: text().notNull().$type<ProjectMemoryCategory>(),
+		source: text().notNull().$type<"manual" | "agent">(),
+		sourceSessionId: text("source_session_id"),
+		pinned: integer({ mode: "boolean" }).notNull().default(false),
+		enabled: integer({ mode: "boolean" }).notNull().default(true),
+		createdAt: integer("created_at").notNull(),
+		updatedAt: integer("updated_at").notNull(),
+		lastUsedAt: integer("last_used_at"),
+	},
+	(table) => [
+		index("project_memories_project_enabled_idx").on(
+			table.projectId,
+			table.enabled,
+		),
+		index("project_memories_project_updated_idx").on(
+			table.projectId,
+			table.updatedAt,
+		),
+	],
+);
+
 export const workspaces = sqliteTable(
 	"workspaces",
 	{

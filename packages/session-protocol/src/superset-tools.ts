@@ -141,6 +141,28 @@ const waitDelegationArgsSchema = z
 		delegationRunId: z.string().trim().min(1).max(256),
 	})
 	.strict();
+export const projectMemoryCategorySchema = z.enum([
+	"debugging",
+	"architecture",
+	"workflow",
+	"environment",
+	"preference",
+	"other",
+]);
+const rememberProjectMemoryArgsSchema = z
+	.object({
+		title: z.string().trim().min(1).max(200),
+		content: z.string().trim().min(1).max(20_000),
+		category: projectMemoryCategorySchema.default("other"),
+		pinned: z.boolean().default(false),
+	})
+	.strict();
+const searchProjectMemoriesArgsSchema = z
+	.object({
+		query: z.string().trim().max(500).default(""),
+		limit: z.number().int().min(1).max(50).default(10),
+	})
+	.strict();
 const setProjectRunCommandArgsSchema = z
 	.object({
 		commands: z.array(z.string().trim().min(1).max(10_000)).min(1).max(20),
@@ -272,6 +294,16 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
+		name: z.literal("remember_project_memory"),
+		arguments: rememberProjectMemoryArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("search_project_memories"),
+		arguments: searchProjectMemoriesArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
 		name: z.literal("set_project_run_command"),
 		arguments: setProjectRunCommandArgsSchema,
 	}),
@@ -316,6 +348,23 @@ export type SupersetSessionRole =
  */
 export const SUPERSET_PLAN_INSTRUCTIONS =
 	"Use Superset's `update_plan` tool for user-visible planning. For multi-step or complex tasks, before implementation or tool execution, publish the complete current plan. Simple tasks do not require a plan. Submit every step on each update, keeping at most one step `in_progress`; immediately call `update_plan` again whenever a step starts or completes, or whenever the plan changes. Before the final response, update the plan so it accurately reflects the final state, including any incomplete work. Do not use provider-specific or private todo/task tools for user-visible plans.";
+
+export interface ProjectMemoryInstructionItem {
+	title: string;
+	category: string;
+}
+
+export function formatProjectMemoryInstructions(
+	memories: readonly ProjectMemoryInstructionItem[],
+): string {
+	const prelude =
+		"Project memory is shared across conversations and worktrees. When the user asks you to remember or record something, call `remember_project_memory`. Also record durable, verified knowledge that would prevent future repeated investigation, such as non-obvious debugging chains, stable architecture constraints, environment setup, and recurring workflows. Do not record temporary task progress, readily discoverable code facts, unverified guesses, credentials, tokens, cookies, secrets, transient ports, or process IDs. The automatically injected list is only a compact title index; call `search_project_memories` to retrieve full details before relying on a relevant memory, repeating expensive investigation, or creating a likely duplicate.";
+	if (memories.length === 0) return prelude;
+	const rendered = memories.map(
+		(memory) => `- ${memory.title} (${memory.category})`,
+	);
+	return `${prelude}\n\nProject memory index:\n${rendered.join("\n")}`;
+}
 
 /** Compose non-empty model-facing instruction sections without extra spacing. */
 export function composeSupersetModelFacingInstructions(
@@ -638,6 +687,46 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 				},
 			},
 			required: ["delegationRunId", "result"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "remember_project_memory",
+		description:
+			"Store durable, verified knowledge for the current project so future conversations and worktrees can reuse it. Use when the user asks to remember/record something or after discovering a non-obvious reusable debugging chain, constraint, environment fact, or workflow. Never store secrets or temporary task progress.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				title: { type: "string", minLength: 1, maxLength: 200 },
+				content: { type: "string", minLength: 1, maxLength: 20_000 },
+				category: {
+					type: "string",
+					enum: [
+						"debugging",
+						"architecture",
+						"workflow",
+						"environment",
+						"preference",
+						"other",
+					],
+					default: "other",
+				},
+				pinned: { type: "boolean", default: false },
+			},
+			required: ["title", "content"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "search_project_memories",
+		description:
+			"Search enabled memory for the current project before repeating expensive investigation. An empty query returns the highest-priority recent memories.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				query: { type: "string", maxLength: 500, default: "" },
+				limit: { type: "integer", minimum: 1, maximum: 50, default: 10 },
+			},
 			additionalProperties: false,
 		},
 	},
