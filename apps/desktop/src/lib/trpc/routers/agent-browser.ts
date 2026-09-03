@@ -60,6 +60,22 @@ export const createAgentBrowserRouter = (
 			.mutation(({ input }) => {
 				manager.setSurface(input);
 			}),
+		showPageMenu: publicProcedure
+			.input(
+				sessionInput.extend({
+					bounds: z.object({
+						x: z.number().finite().nonnegative(),
+						y: z.number().finite().nonnegative(),
+						width: z.number().finite().positive(),
+						height: z.number().finite().positive(),
+					}),
+					theme: z.enum(["dark", "light"]),
+				}),
+			)
+			.mutation(({ input }) => manager.showPageMenu(input)),
+		closePageMenu: publicProcedure.input(sessionInput).mutation(({ input }) => {
+			manager.closePageMenu(input.sessionId);
+		}),
 	});
 };
 

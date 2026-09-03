@@ -28,11 +28,18 @@ interface BrowserPage {
 	loading: boolean;
 }
 
+interface BrowserPageMenu {
+	view: WebContentsView;
+	bounds: Rectangle;
+	resolve: (pageId: string | null) => void;
+}
+
 interface BrowserSession {
 	pages: BrowserPage[];
 	activePageId: string | null;
 	bounds: Rectangle | null;
 	visible: boolean;
+	pageMenu: BrowserPageMenu | null;
 }
 
 const MIN_VIEW_SIZE = 1;
@@ -55,6 +62,15 @@ function normalizeUrl(url: string): string {
 	return `https://${value}`;
 }
 
+function escapeHtml(value: string): string {
+	return value
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#039;");
+}
+
 /**
  * Electron-main authority for every embedded Agent Browser page.
  *
@@ -74,6 +90,7 @@ export class AgentBrowserManager {
 			activePageId: null,
 			bounds: null,
 			visible: false,
+			pageMenu: null,
 		};
 		this.sessions.set(sessionId, created);
 		return created;
@@ -103,6 +120,18 @@ export class AgentBrowserManager {
 			// renderer/window after the browser session has already been created.
 			window.contentView.addChildView(page.view);
 			page.view.setBounds(session.bounds);
+		}
+
+		const menu = session.pageMenu;
+		const shouldShowMenu =
+			menu !== null &&
+			session.visible &&
+			window !== null &&
+			!window.isDestroyed();
+		menu?.view.setVisible(shouldShowMenu);
+		if (shouldShowMenu && menu && window) {
+			window.contentView.addChildView(menu.view);
+			menu.view.setBounds(menu.bounds);
 		}
 	}
 
@@ -292,11 +321,141 @@ export class AgentBrowserManager {
 				height: Math.max(MIN_VIEW_SIZE, Math.round(input.bounds.height)),
 			};
 		}
+		if (!input.visible) this.closePageMenu(input.sessionId);
 		this.attachActiveView(session);
 	}
 
+	async showPageMenu(input: {
+		sessionId: string;
+		bounds: Rectangle;
+		theme: "dark" | "light";
+	}): Promise<string | null> {
+		this.closePageMenu(input.sessionId);
+		const session = this.sessionFor(input.sessionId);
+		const window = this.getWindow();
+		if (!window || window.isDestroyed() || session.pages.length === 0) {
+			return null;
+		}
+
+		const view = new WebContentsView({
+			webPreferences: {
+				sandbox: true,
+				contextIsolation: true,
+				nodeIntegration: false,
+			},
+		});
+		view.setVisible(false);
+		view.setBackgroundColor("#00000000");
+
+		const selection = new Promise<string | null>((resolve) => {
+			session.pageMenu = {
+				view,
+				bounds: {
+					x: Math.max(0, Math.round(input.bounds.x)),
+					y: Math.max(0, Math.round(input.bounds.y)),
+					width: Math.max(MIN_VIEW_SIZE, Math.round(input.bounds.width)),
+					height: Math.max(MIN_VIEW_SIZE, Math.round(input.bounds.height)),
+				},
+				resolve,
+			};
+		});
+
+		const palette =
+			input.theme === "dark"
+				? {
+						background: "#25222d",
+						border: "#46414f",
+						foreground: "#f2eff5",
+						muted: "#aaa3b2",
+						hover: "#34303d",
+						accent: "#51334e",
+					}
+				: {
+						background: "#ffffff",
+						border: "#d9d5dd",
+						foreground: "#242128",
+						muted: "#746e79",
+						hover: "#f2eff4",
+						accent: "#f2dcea",
+					};
+		const items = session.pages
+			.map((page, index) => {
+				const state = this.pageState(session, page, index);
+				const label = state.title || state.url || `Page ${index + 1}`;
+				const href = `superset-agent-browser-menu://select?pageId=${encodeURIComponent(page.id)}`;
+				return `<a class="item${state.active ? " active" : ""}" href="${href}" title="${escapeHtml(state.url)}"><span class="globe"></span><span class="label">${escapeHtml(label)}</span><span class="check">${state.active ? "✓" : ""}</span></a>`;
+			})
+			.join("");
+		const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+			*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:${palette.foreground}}
+			.menu{width:100%;height:100%;overflow-y:auto;padding:4px;border:1px solid ${palette.border};border-radius:10px;background:${palette.background};box-shadow:0 8px 24px rgba(0,0,0,.28);scrollbar-width:none}
+			.menu::-webkit-scrollbar{display:none}
+			.item{display:flex;height:30px;align-items:center;gap:8px;padding:0 8px;border-radius:6px;color:${palette.muted};font-size:11px;text-decoration:none;outline:none}
+			.item:hover,.item:focus{background:${palette.hover};color:${palette.foreground}}
+			.item.active{background:${palette.accent};color:${palette.foreground}}
+			.globe{width:12px;height:12px;border:1.5px solid currentColor;border-radius:50%;flex:none;opacity:.8}
+			.label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+			.check{width:12px;flex:none;color:${palette.foreground};font-size:12px}
+		</style></head><body><nav class="menu">${items}</nav></body></html>`;
+
+		view.webContents.on("will-navigate", (event, destination) => {
+			if (!destination.startsWith("superset-agent-browser-menu://select")) {
+				return;
+			}
+			event.preventDefault();
+			const pageId = new URL(destination).searchParams.get("pageId");
+			if (pageId && session.pages.some((page) => page.id === pageId)) {
+				session.activePageId = pageId;
+				this.closePageMenu(input.sessionId, pageId);
+				this.attachActiveView(session);
+				this.activePage(session)?.view.webContents.focus();
+			}
+		});
+		view.webContents.on("before-input-event", (event, keyboardInput) => {
+			if (keyboardInput.key === "Escape") {
+				event.preventDefault();
+				this.closePageMenu(input.sessionId);
+			}
+		});
+		view.webContents.on("blur", () => this.closePageMenu(input.sessionId));
+		view.webContents.once("destroyed", () => {
+			const menu = session.pageMenu;
+			if (menu?.view === view) {
+				session.pageMenu = null;
+				menu.resolve(null);
+			}
+		});
+
+		try {
+			await view.webContents.loadURL(
+				`data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
+			);
+			if (session.pageMenu?.view === view) {
+				this.attachActiveView(session);
+				view.webContents.focus();
+			}
+		} catch {
+			this.closePageMenu(input.sessionId);
+		}
+		return selection;
+	}
+
+	closePageMenu(sessionId: string, pageId: string | null = null): void {
+		const session = this.sessions.get(sessionId);
+		const menu = session?.pageMenu;
+		if (!session || !menu) return;
+		session.pageMenu = null;
+		const window = this.getWindow();
+		if (window && !window.isDestroyed()) {
+			window.contentView.removeChildView(menu.view);
+		}
+		menu.resolve(pageId);
+		if (!menu.view.webContents.isDestroyed()) menu.view.webContents.close();
+	}
+
 	hideAll(): void {
-		for (const session of this.sessions.values()) {
+		for (const [sessionId, session] of this.sessions) {
+			this.closePageMenu(sessionId);
 			session.visible = false;
 			this.attachActiveView(session);
 		}
@@ -305,6 +464,7 @@ export class AgentBrowserManager {
 	async closeSession(sessionId: string): Promise<void> {
 		const session = this.sessions.get(sessionId);
 		if (!session) return;
+		this.closePageMenu(sessionId);
 		this.sessions.delete(sessionId);
 		for (const page of session.pages) {
 			if (!page.view.webContents.isDestroyed()) page.view.webContents.close();

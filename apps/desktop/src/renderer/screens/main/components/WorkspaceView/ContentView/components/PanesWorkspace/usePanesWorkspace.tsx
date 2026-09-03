@@ -49,7 +49,10 @@ import {
 } from "./buildPanesLifecycleRegistry";
 import { commentPaneTitle } from "./buildPanesNonTerminalRegistry";
 import { buildTerminalContextMenu } from "./buildTerminalContextMenu";
-import { AgentBrowserPane } from "./components/AgentBrowserPane";
+import {
+	AgentBrowserPane,
+	AgentBrowserToolbar,
+} from "./components/AgentBrowserPane";
 import { createPanesTerminalPaneBridge } from "./createPanesTerminalPaneBridge";
 import { FileViewerPaneHeaderExtras } from "./FileViewerPaneHeaderExtras";
 import { FileViewerPaneTitle } from "./FileViewerPaneTitle";
@@ -386,6 +389,15 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 		const agentBrowser: PaneDefinition<PanesPaneData> = {
 			getIcon: () => <Globe2 className="size-3.5" />,
 			getTitle: () => "Agent Browser",
+			renderToolbar: (ctx) => {
+				const sessionId = ctx.pane.data.agentBrowser?.sessionId;
+				return sessionId && hostUrl ? (
+					<AgentBrowserToolbar
+						sessionId={sessionId}
+						isVisible={ctx.isVisible}
+					/>
+				) : null;
+			},
 			renderPane: (ctx) => {
 				const sessionId = ctx.pane.data.agentBrowser?.sessionId;
 				if (!sessionId || !hostUrl) {
