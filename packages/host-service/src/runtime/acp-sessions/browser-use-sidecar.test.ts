@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveBrowserUseSidecarPath } from "./browser-use-sidecar";
@@ -21,11 +22,34 @@ describe("resolveBrowserUseSidecarPath", () => {
 		expect(resolved).toEndWith(expectedSuffix);
 	});
 
+	test("resolves an unpacked sidecar outside app.asar", () => {
+		const tempRoot = path.join(os.tmpdir(), `superset-sidecar-${process.pid}`);
+		const scriptPath = path.join(
+			tempRoot,
+			"app.asar.unpacked/dist/main/sidecar/agent-browser-sidecar.py",
+		);
+		mkdirSync(path.dirname(scriptPath), { recursive: true });
+		writeFileSync(scriptPath, "");
+		try {
+			const moduleUrl = pathToFileURL(
+				path.join(tempRoot, "app.asar/dist/main/acp-daemon.js"),
+			).href;
+			const resolved = resolveBrowserUseSidecarPath(
+				moduleUrl,
+				path.join(tempRoot, "missing-cwd"),
+			);
+
+			expect(resolved).toBe(scriptPath);
+		} finally {
+			rmSync(tempRoot, { recursive: true, force: true });
+		}
+	});
+
 	test("resolves source when the detached daemon cwd is apps/desktop", () => {
 		const repositoryRoot = path.resolve(process.cwd(), "../..");
 		const desktopCwd = path.join(repositoryRoot, "apps/desktop");
 		const moduleUrl = pathToFileURL(
-			path.join(desktopCwd, "dist/main/acp-daemon.js"),
+			path.join(desktopCwd, ".tmp-missing-dist/main/acp-daemon.js"),
 		).href;
 		const resolved = resolveBrowserUseSidecarPath(moduleUrl, desktopCwd);
 

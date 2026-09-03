@@ -962,9 +962,19 @@ describe("AcpTimeline scrolling", () => {
 		}
 	});
 
-	test("returns to the latest item after a manual reading position is hidden", () => {
+	test("preserves a running tab's semantic reading position after layout changes while hidden", () => {
 		const onRespond = async () => {};
-		const hiddenTimeline = timeline(3);
+		const sessionId = "running-reading-position-session";
+		const initialTimeline = {
+			...timeline(0),
+			items: [userMessage(1), message(2)],
+			lastSeq: 2,
+		};
+		const hiddenTimeline = {
+			...initialTimeline,
+			items: [...initialTimeline.items, message(3)],
+			lastSeq: 3,
+		};
 		let pendingFrame: FrameRequestCallback | undefined;
 		const originalRequestAnimationFrame = window.requestAnimationFrame;
 		const originalCancelAnimationFrame = window.cancelAnimationFrame;
@@ -978,8 +988,9 @@ describe("AcpTimeline scrolling", () => {
 		try {
 			const result = render(
 				createElement(AcpTimeline, {
-					timeline: timeline(2),
+					timeline: initialTimeline,
 					onRespond,
+					sessionId,
 					isFocused: true,
 					status: "running",
 				}),
@@ -987,11 +998,26 @@ describe("AcpTimeline scrolling", () => {
 			const body = result.container.querySelector(
 				".acp-pane__scroll",
 			) as HTMLDivElement;
-			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_000 });
+			setScrollMetrics(body, { clientHeight: 300, scrollHeight: 1_000 });
 			act(() => pendingFrame?.(0));
 			pendingFrame = undefined;
+			Object.defineProperty(body, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({ top: 100 }),
+			});
+			const turn = body.querySelector<HTMLElement>("[data-turn-id]");
+			if (!turn) throw new Error("expected a semantic turn anchor");
+			let anchorContentTop = 360;
+			Object.defineProperty(turn, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 100 + anchorContentTop - body.scrollTop,
+					bottom: 180 + anchorContentTop - body.scrollTop,
+				}),
+			});
 
 			body.scrollTop = 200;
+			fireEvent.wheel(body);
 			fireEvent.scroll(body);
 			expect(
 				screen.getByRole("button", { name: "Jump to latest" }),
@@ -999,30 +1025,45 @@ describe("AcpTimeline scrolling", () => {
 
 			// Switching away while a stream update arrives can temporarily make the
 			// hidden pane's scroll metrics zero-sized.
+			// While hidden, history/markdown layout grows above the same semantic turn.
+			anchorContentTop = 760;
 			setScrollMetrics(body, { clientHeight: 0, scrollHeight: 0 });
 			result.rerender(
 				createElement(AcpTimeline, {
 					timeline: hiddenTimeline,
 					onRespond,
+					sessionId,
 					isFocused: false,
 					status: "running",
 				}),
 			);
 
-			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
+			setScrollMetrics(body, { clientHeight: 300, scrollHeight: 2_000 });
 			result.rerender(
 				createElement(AcpTimeline, {
 					timeline: hiddenTimeline,
 					onRespond,
+					sessionId,
 					isFocused: true,
 					status: "running",
 				}),
 			);
 
-			expect(body.scrollTop).toBe(200);
 			expect(pendingFrame).toBeTruthy();
-			act(() => pendingFrame?.(0));
-			expect(body.scrollTop).toBe(1_300);
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrame;
+					pendingFrame = undefined;
+					if (!frame) break;
+					frame(0);
+				}
+			});
+			// The turn moved down by 400px while hidden. Restore the same 160px
+			// viewport-relative offset rather than the stale absolute scrollTop (200).
+			expect(body.scrollTop).toBe(600);
+			expect(
+				turn.getBoundingClientRect().top - body.getBoundingClientRect().top,
+			).toBe(160);
 		} finally {
 			window.requestAnimationFrame = originalRequestAnimationFrame;
 			window.cancelAnimationFrame = originalCancelAnimationFrame;

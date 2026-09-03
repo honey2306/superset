@@ -14,6 +14,10 @@ describe("electron-builder config", () => {
 		});
 	});
 
+	it("unpacks the Python browser sidecar so its interpreter can execute it", () => {
+		expect(config.asarUnpack).toContain("dist/main/sidecar/**/*");
+	});
+
 	it("excludes non-target Claude Agent SDK binaries", () => {
 		expect(config.files).toContain(
 			"!**/node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/**/*",

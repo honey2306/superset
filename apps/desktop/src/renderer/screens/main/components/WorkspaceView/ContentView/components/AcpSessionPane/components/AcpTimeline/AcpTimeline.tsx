@@ -55,17 +55,106 @@ const VIRTUALIZER_INITIAL_RECT: Rect = {
 	height: VIRTUALIZER_FALLBACK_VIEWPORT_HEIGHT,
 };
 const MAX_CACHED_READING_POSITIONS = 100;
-const settledReadingPositions = new Map<string, number>();
 
-function cacheSettledReadingPosition(
+type ReadingAnchorKind = "message" | "turn";
+
+interface ReadingAnchor {
+	kind: ReadingAnchorKind;
+	id: string;
+	viewportOffset: number;
+	turnId?: string;
+}
+
+interface ReadingPosition {
+	anchor: ReadingAnchor | null;
+	scrollTop: number;
+}
+
+const settledReadingPositions = new Map<string, ReadingPosition>();
+
+function cacheReadingPosition(
 	sessionId: string,
-	scrollTop: number,
+	position: ReadingPosition,
 ): void {
 	settledReadingPositions.delete(sessionId);
-	settledReadingPositions.set(sessionId, scrollTop);
+	settledReadingPositions.set(sessionId, position);
 	if (settledReadingPositions.size <= MAX_CACHED_READING_POSITIONS) return;
 	const oldestSessionId = settledReadingPositions.keys().next().value;
 	if (oldestSessionId) settledReadingPositions.delete(oldestSessionId);
+}
+
+function findVisibleReadingAnchor(scroll: HTMLElement): ReadingAnchor | null {
+	const scrollBounds = scroll.getBoundingClientRect();
+	const viewportBottom = scrollBounds.top + scroll.clientHeight;
+	const findAnchor = (
+		kind: ReadingAnchorKind,
+		selector: string,
+		idAttribute: "data-message-id" | "data-turn-id",
+	): ReadingAnchor | null => {
+		const elements = scroll.querySelectorAll<HTMLElement>(selector);
+		const firstVisible = Array.from(elements).find((element) => {
+			const bounds = element.getBoundingClientRect();
+			return bounds.bottom > scrollBounds.top && bounds.top < viewportBottom;
+		});
+		const element = firstVisible;
+		const id = element?.getAttribute(idAttribute);
+		if (!element || !id) return null;
+		const viewportOffset =
+			element.getBoundingClientRect().top - scrollBounds.top;
+		const turnId =
+			kind === "message"
+				? element.closest<HTMLElement>("[data-turn-id]")?.dataset.turnId
+				: undefined;
+		return Number.isFinite(viewportOffset)
+			? { kind, id, viewportOffset, turnId }
+			: null;
+	};
+
+	// Messages provide the finest semantic identity. A turn is the fallback for
+	// collapsed/virtualized content where no message is currently mounted.
+	const visibleAnchor =
+		findAnchor("message", "[data-message-id]", "data-message-id") ??
+		findAnchor("turn", "[data-turn-id]", "data-turn-id");
+	return visibleAnchor;
+}
+
+function findReadingAnchorElement(
+	scroll: HTMLElement,
+	anchor: ReadingAnchor,
+): HTMLElement | null {
+	const selector =
+		anchor.kind === "message" ? "[data-message-id]" : "[data-turn-id]";
+	const idAttribute =
+		anchor.kind === "message" ? "data-message-id" : "data-turn-id";
+	const element =
+		Array.from(scroll.querySelectorAll<HTMLElement>(selector)).find(
+			(element) => element.getAttribute(idAttribute) === anchor.id,
+		) ?? null;
+	if (element || anchor.kind !== "message" || !anchor.turnId) return element;
+	return (
+		Array.from(scroll.querySelectorAll<HTMLElement>("[data-turn-id]")).find(
+			(candidate) => candidate.dataset.turnId === anchor.turnId,
+		) ?? null
+	);
+}
+
+function resolveReadingScrollTop(
+	position: ReadingPosition,
+	scroll: HTMLElement,
+	anchorElement: HTMLElement | null,
+): number {
+	const maxScrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
+	if (anchorElement && position.anchor) {
+		const scrollBounds = scroll.getBoundingClientRect();
+		const anchorBounds = anchorElement.getBoundingClientRect();
+		const anchorContentTop =
+			scroll.scrollTop + anchorBounds.top - scrollBounds.top;
+		return Math.min(
+			maxScrollTop,
+			Math.max(0, anchorContentTop - position.anchor.viewportOffset),
+		);
+	}
+	return Math.min(maxScrollTop, Math.max(0, position.scrollTop));
 }
 
 function isActiveSessionStatus(status?: SessionStatus): boolean {
@@ -352,7 +441,11 @@ export const AcpTimeline = memo(
 	) {
 		const scrollRef = useRef<HTMLDivElement>(null);
 		const turnListRef = useRef<HTMLDivElement>(null);
+		const initialReadingPosition = sessionId
+			? (settledReadingPositions.get(sessionId) ?? null)
+			: null;
 		const [autoFollow, setAutoFollow] = useState(true);
+		const autoFollowRef = useRef(initialReadingPosition === null);
 		const [showJumpButton, setShowJumpButton] = useState(false);
 		const [activeTurnId, setActiveTurnId] = useState<string | null>(null);
 		const activeTurnFrameRef = useRef<number | null>(null);
@@ -366,24 +459,19 @@ export const AcpTimeline = memo(
 		const previousStatusRef = useRef<SessionStatus | undefined>(status);
 		const isFocusedRef = useRef(isFocused);
 		isFocusedRef.current = isFocused;
-		const statusRef = useRef<SessionStatus | undefined>(status);
-		statusRef.current = status;
 		const transientScrollIntentRef = useRef(false);
 		const pointerScrollIntentRef = useRef(false);
 		const scrollIntentTimeoutRef = useRef<number | null>(null);
-		const manualReadingScrollTopRef = useRef<number | null>(
-			sessionId ? (settledReadingPositions.get(sessionId) ?? null) : null,
+		const manualReadingPositionRef = useRef<ReadingPosition | null>(
+			initialReadingPosition,
 		);
-		if (isActiveSessionStatus(status)) {
-			transientScrollIntentRef.current = false;
-			pointerScrollIntentRef.current = false;
-			manualReadingScrollTopRef.current = null;
-		}
 		useEffect(() => {
-			if (sessionId && isActiveSessionStatus(status)) {
-				settledReadingPositions.delete(sessionId);
-			}
-		}, [sessionId, status]);
+			const nextPosition = sessionId
+				? (settledReadingPositions.get(sessionId) ?? null)
+				: null;
+			manualReadingPositionRef.current = nextPosition;
+			autoFollowRef.current = nextPosition === null;
+		}, [sessionId]);
 		const lastUserMessageIdRef = useRef<string | null>(null);
 		// Guarded while a programmatic smooth-scroll to a user message is running.
 		// Without it, the first onScroll frames still read as "near bottom" (the
@@ -514,14 +602,19 @@ export const AcpTimeline = memo(
 					initialScrollFrameRef.current = null;
 				}
 				const el = e.currentTarget;
-				if (
-					!isActiveSessionStatus(statusRef.current) &&
-					(transientScrollIntentRef.current || pointerScrollIntentRef.current)
-				) {
-					manualReadingScrollTopRef.current = el.scrollTop;
-					if (sessionId) cacheSettledReadingPosition(sessionId, el.scrollTop);
-				}
 				const near = isNearBottom(el);
+				const hasExplicitScrollIntent =
+					transientScrollIntentRef.current || pointerScrollIntentRef.current;
+				if (hasExplicitScrollIntent && !near) {
+					const anchor = findVisibleReadingAnchor(el);
+					const position = { anchor, scrollTop: el.scrollTop };
+					manualReadingPositionRef.current = position;
+					if (sessionId) cacheReadingPosition(sessionId, position);
+				} else if (hasExplicitScrollIntent && near) {
+					manualReadingPositionRef.current = null;
+					if (sessionId) settledReadingPositions.delete(sessionId);
+				}
+				autoFollowRef.current = near;
 				setAutoFollow(near);
 				setShowJumpButton(!near);
 				if (el.scrollTop > 96) topLoadTriggeredRef.current = false;
@@ -555,9 +648,12 @@ export const AcpTimeline = memo(
 			const el = scrollRef.current;
 			if (!el) return;
 			el.scrollTop = el.scrollHeight;
+			autoFollowRef.current = true;
+			manualReadingPositionRef.current = null;
+			if (sessionId) settledReadingPositions.delete(sessionId);
 			setAutoFollow(true);
 			setShowJumpButton(false);
-		}, []);
+		}, [sessionId]);
 
 		const loadOlder = useCallback(async () => {
 			const scroll = scrollRef.current;
@@ -599,6 +695,9 @@ export const AcpTimeline = memo(
 					}
 					isJumpingToUserRef.current = true;
 					scroll.dataset.jumpingToUser = "true";
+					manualReadingPositionRef.current = null;
+					if (sessionId) settledReadingPositions.delete(sessionId);
+					autoFollowRef.current = false;
 					setAutoFollow(false);
 					setShowJumpButton(true);
 					target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -612,6 +711,7 @@ export const AcpTimeline = memo(
 						target.classList.remove("is-flashed");
 						// Recompute autoFollow from the final scroll position.
 						const near = isNearBottom(scroll);
+						autoFollowRef.current = near;
 						setAutoFollow(near);
 						setShowJumpButton(!near);
 						jumpEndTimerRef.current = null;
@@ -619,7 +719,7 @@ export const AcpTimeline = memo(
 					return true;
 				},
 			}),
-			[isNearBottom],
+			[isNearBottom, sessionId],
 		);
 
 		useEffect(() => {
@@ -705,12 +805,14 @@ export const AcpTimeline = memo(
 
 			if (autoFollow || hasNewUserMessage) {
 				el.scrollTop = el.scrollHeight;
+				autoFollowRef.current = true;
 			}
 			if (hasNewUserMessage) {
 				transientScrollIntentRef.current = false;
 				pointerScrollIntentRef.current = false;
-				manualReadingScrollTopRef.current = null;
+				manualReadingPositionRef.current = null;
 				if (sessionId) settledReadingPositions.delete(sessionId);
+				autoFollowRef.current = true;
 				setAutoFollow(true);
 				setShowJumpButton(false);
 			}
@@ -826,7 +928,12 @@ export const AcpTimeline = memo(
 			isInitialFocusRef.current = false;
 			wasFocusedRef.current = isFocused;
 			if (!becameFocused && !becameSettled) return;
-			if (isInitialFocus && isActiveSessionStatus(status) && !becameSettled)
+			if (
+				isInitialFocus &&
+				isActiveSessionStatus(status) &&
+				!becameSettled &&
+				manualReadingPositionRef.current === null
+			)
 				return;
 
 			// A kept-alive pane is display:none while inactive. The virtualizer can
@@ -873,6 +980,7 @@ export const AcpTimeline = memo(
 					return;
 
 				isRestoringFocusRef.current = false;
+				autoFollowRef.current = true;
 				setAutoFollow(true);
 				setShowJumpButton(false);
 			};
@@ -880,19 +988,25 @@ export const AcpTimeline = memo(
 				focusScrollFrameRef.current = null;
 				isRestoringFocusRef.current = true;
 				const el = scrollRef.current;
-				const savedScrollTop = manualReadingScrollTopRef.current;
-				if (!el || savedScrollTop === null) {
+				const position = manualReadingPositionRef.current;
+				if (!el || !position) {
 					isRestoringFocusRef.current = false;
 					return;
 				}
 
-				const desiredScrollTop = resolveSettledScrollTop(
-					savedScrollTop,
-					el.scrollHeight,
-					el.clientHeight,
-				);
-				el.scrollTop = desiredScrollTop;
-				el.dispatchEvent(new Event("scroll"));
+				const target = position.anchor
+					? findReadingAnchorElement(el, position.anchor)
+					: null;
+				const desiredScrollTop = resolveReadingScrollTop(position, el, target);
+				if (!target && position.anchor) {
+					// The fallback scroll asks the virtualizer to mount the semantic anchor.
+					// Keep retrying before giving up to the saved pixel position.
+					if (Math.abs(el.scrollTop - desiredScrollTop) > 0.5) {
+						el.scrollTop = desiredScrollTop;
+						el.dispatchEvent(new Event("scroll"));
+					}
+					if (scheduleRetry(settleThenRestoreReadingPosition)) return;
+				}
 				if (
 					previousReadingScrollTop !== null &&
 					Math.abs(desiredScrollTop - previousReadingScrollTop) < 0.5
@@ -908,8 +1022,13 @@ export const AcpTimeline = memo(
 				)
 					return;
 
+				if (target) {
+					el.scrollTop = desiredScrollTop;
+					el.dispatchEvent(new Event("scroll"));
+				}
 				isRestoringFocusRef.current = false;
 				const near = isNearBottom(el);
+				autoFollowRef.current = near;
 				setAutoFollow(near);
 				setShowJumpButton(!near);
 			};
@@ -928,6 +1047,7 @@ export const AcpTimeline = memo(
 					// The semantic anchor exists in the folded timeline, but could not be
 					// mounted after the virtualizer settled. Bottom is the safe fallback.
 					isRestoringFocusRef.current = false;
+					autoFollowRef.current = true;
 					setAutoFollow(true);
 					setShowJumpButton(false);
 					return;
@@ -962,6 +1082,7 @@ export const AcpTimeline = memo(
 				el.dispatchEvent(new Event("scroll"));
 				isRestoringFocusRef.current = false;
 				const near = isNearBottom(el);
+				autoFollowRef.current = near;
 				setAutoFollow(near);
 				setShowJumpButton(!near);
 			};
@@ -974,11 +1095,14 @@ export const AcpTimeline = memo(
 					return;
 				}
 
-				const shouldFollowBottom = isActiveSessionStatus(status);
-				const savedReadingScrollTop = shouldFollowBottom
-					? null
-					: manualReadingScrollTopRef.current;
-				el.scrollTop = savedReadingScrollTop ?? el.scrollHeight;
+				const savedReadingPosition = manualReadingPositionRef.current;
+				const shouldRestoreReading =
+					savedReadingPosition !== null && !autoFollowRef.current;
+				const shouldFollowBottom =
+					isActiveSessionStatus(status) && !shouldRestoreReading;
+				el.scrollTop = shouldRestoreReading
+					? (savedReadingPosition?.scrollTop ?? 0)
+					: el.scrollHeight;
 				// Direct assignment does not notify the virtualizer. Dispatch a real
 				// scroll event so it mounts the relevant window before final alignment.
 				el.dispatchEvent(new Event("scroll"));
@@ -991,11 +1115,12 @@ export const AcpTimeline = memo(
 				if (shouldFollowBottom) {
 					if (scheduleRetry(settleThenFollowBottom)) return;
 					isRestoringFocusRef.current = false;
+					autoFollowRef.current = true;
 					setAutoFollow(true);
 					setShowJumpButton(false);
 					return;
 				}
-				if (savedReadingScrollTop !== null) {
+				if (shouldRestoreReading) {
 					if (scheduleRetry(settleThenRestoreReadingPosition)) return;
 					isRestoringFocusRef.current = false;
 					return;
@@ -1005,6 +1130,7 @@ export const AcpTimeline = memo(
 				// window before observing the settled anchor's real geometry.
 				if (!scheduleRetry(settleThenAlignAnchor)) {
 					isRestoringFocusRef.current = false;
+					autoFollowRef.current = true;
 					setAutoFollow(true);
 					setShowJumpButton(false);
 				}

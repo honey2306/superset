@@ -57,7 +57,7 @@ export function AcpMessageItem({
 			: null;
 
 	return (
-		<div className="acp-msg" data-role={item.role}>
+		<div className="acp-msg" data-message-id={item.id} data-role={item.role}>
 			{!hideAuthor && (
 				<div className="acp-msg__author">
 					<span className="acp-msg__author-name">{authorName}</span>

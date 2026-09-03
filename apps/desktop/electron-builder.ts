@@ -167,6 +167,8 @@ const config: Configuration = {
 		...packagedAsarUnpackGlobs,
 		// Tray icon must be unpacked so Electron Tray can load it
 		"**/resources/tray/**/*",
+		// Python cannot execute a script through Electron's virtual ASAR filesystem.
+		"dist/main/sidecar/**/*",
 	],
 
 	// Extra resources placed outside asar archive (accessible via process.resourcesPath)

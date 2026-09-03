@@ -79,8 +79,16 @@ export function resolveBrowserUseSidecarPath(
 			"packages/host-service/src/runtime/acp-sessions/sidecar/agent-browser-sidecar.py",
 		),
 	].filter((candidate): candidate is string => Boolean(candidate));
+	const executableCandidates = candidates.flatMap((candidate) => {
+		const asarSegment = `${path.sep}app.asar${path.sep}`;
+		if (!candidate.includes(asarSegment)) return [candidate];
+		return [
+			candidate.replace(asarSegment, `${path.sep}app.asar.unpacked${path.sep}`),
+			candidate,
+		];
+	});
 	return (
-		candidates.find(existsSync) ??
+		executableCandidates.find(existsSync) ??
 		path.join(here, "sidecar", "agent-browser-sidecar.py")
 	);
 }
