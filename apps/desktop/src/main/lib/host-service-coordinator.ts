@@ -788,6 +788,14 @@ export class HostServiceCoordinator extends EventEmitter {
 		// inherited, so remove legacy auth explicitly.
 		delete childEnv.AUTH_TOKEN;
 
+		// A desktop launched from an existing Superset agent terminal inherits
+		// that parent's ACP daemon identity. The embedded host must derive its own
+		// socket and log paths from the SUPERSET_HOME_DIR assigned above so stable,
+		// canary, and local-dev instances cannot attach to or replace one another.
+		delete childEnv.SUPERSET_ACP_DAEMON_SOCKET_PATH;
+		delete childEnv.SUPERSET_ACP_DAEMON_LOG_PATH;
+		delete childEnv.SUPERSET_ACP_DAEMON_BUILD_VERSION;
+
 		// Pin external CLI paths using the augmented shell PATH. Packaged
 		// Electron builds sometimes lose NVM/Homebrew entries even after shell
 		// environment setup. Both lookups are best-effort and retain their

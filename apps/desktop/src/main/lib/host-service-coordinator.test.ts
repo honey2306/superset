@@ -132,6 +132,9 @@ interface HostServiceCoordinatorInternals {
 function resetMocks(): void {
 	delete process.env.SUPERSET_TEST_APP_PACKAGED;
 	delete process.env.AUTOMATE_RELAY_URL;
+	delete process.env.SUPERSET_ACP_DAEMON_SOCKET_PATH;
+	delete process.env.SUPERSET_ACP_DAEMON_LOG_PATH;
+	delete process.env.SUPERSET_ACP_DAEMON_BUILD_VERSION;
 	manifestStore.current = null;
 	readManifestMock.mockClear();
 	removeManifestMock.mockClear();
@@ -230,6 +233,19 @@ describe("HostServiceCoordinator ACP environment", () => {
 		expect(env.AUTOMATE_RELAY_MAILBOX_NAMESPACE).toMatch(
 			/^development:[a-z0-9-]+$/,
 		);
+	});
+
+	test("does not inherit ACP daemon identity from the launching shell", async () => {
+		process.env.SUPERSET_ACP_DAEMON_SOCKET_PATH = "/tmp/foreign-acpd.sock";
+		process.env.SUPERSET_ACP_DAEMON_LOG_PATH = "/tmp/foreign-acpd.log";
+		process.env.SUPERSET_ACP_DAEMON_BUILD_VERSION = "foreign-build";
+		const internals = coordinator as unknown as HostServiceCoordinatorInternals;
+
+		const env = await internals.buildEnv(40000, "secret", spawnConfig);
+
+		expect(env.SUPERSET_ACP_DAEMON_SOCKET_PATH).toBeUndefined();
+		expect(env.SUPERSET_ACP_DAEMON_LOG_PATH).toBeUndefined();
+		expect(env.SUPERSET_ACP_DAEMON_BUILD_VERSION).toBeUndefined();
 	});
 });
 
