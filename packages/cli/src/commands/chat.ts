@@ -44,6 +44,7 @@ interface ChatSession {
 	status: string;
 	messages: ChatMessage[];
 	pendingPermissions: PendingPermission[];
+	queuedPrompts: { queueId: string; text: string }[];
 	lastSeq: number;
 	epoch?: string;
 }
@@ -60,8 +61,11 @@ const HARNESS_ALIASES: Record<string, string> = {
 
 const slashCommands = [
 	["/sessions", "切换对话"],
+	["/switch", "按序号、ID 或标题切换"],
 	["/new", "创建新对话"],
 	["/history", "显示更多历史"],
+	["/status", "查看所有对话状态"],
+	["/queue", "查看排队消息"],
 	["/permissions", "处理权限请求"],
 	["/cancel", "中止当前回合"],
 	["/clear", "清理对话显示"],
@@ -188,6 +192,12 @@ async function refreshSessions(state: TuiState): Promise<void> {
 			status: session.status,
 			messages: existing?.messages ?? [],
 			pendingPermissions: session.pendingPermissions,
+			queuedPrompts: (session.queuedPrompts ?? []).map((entry) => ({
+				queueId: entry.queueId,
+				text: (entry.prompt ?? [])
+					.map((block) => contentBlockToText(block))
+					.join(""),
+			})),
 			lastSeq: session.lastSeq,
 			epoch: session.epoch,
 		};
@@ -219,6 +229,35 @@ async function loadHistory(
 	});
 }
 
+/**
+ * Resolve a session reference to its index: position (1-based), id prefix,
+ * or a unique case-insensitive title substring. Matches the prototype's
+ * /switch semantics.
+ */
+function findSessionIndex(
+	state: TuiState,
+	reference: string,
+): number | undefined {
+	if (!reference) return undefined;
+	const numeric = Number(reference);
+	if (
+		Number.isInteger(numeric) &&
+		numeric >= 1 &&
+		numeric <= state.sessions.length
+	) {
+		return numeric - 1;
+	}
+	const byId = state.sessions.findIndex((session) =>
+		session.sessionId.startsWith(reference),
+	);
+	if (byId >= 0) return byId;
+	const lowered = reference.toLowerCase();
+	const matches = state.sessions
+		.map((session, index) => ({ index, title: session.title.toLowerCase() }))
+		.filter(({ title }) => title.includes(lowered));
+	return matches.length === 1 ? matches[0]?.index : undefined;
+}
+
 function current(state: TuiState): ChatSession | undefined {
 	return state.sessions[state.currentIndex];
 }
@@ -227,13 +266,33 @@ function current(state: TuiState): ChatSession | undefined {
 // Rendering
 // ---------------------------------------------------------------------------
 
+/**
+ * Frame budget: coalesce keypress-driven repaints into one frame per tick.
+ *
+ * Besides avoiding flicker, this bounds how fast stdout can fill the pty
+ * buffer: Bun stalls the event loop (and with it, in-flight HTTP) once
+ * writes back up against a slow consumer, so rapid full-screen redraws
+ * (typing, held arrows) must not outrun the terminal.
+ */
+let renderScheduled = false;
+let renderQueuedState: TuiState | undefined;
+
 function render(state: TuiState): void {
 	if (!state.active) return;
-	const frame = Frame.open(process.stdout);
-	if (state.view === "conversation") renderConversation(state, frame);
-	else if (state.view === "sessions") renderSessions(state, frame);
-	else renderPermission(state, frame);
-	frame.close();
+	renderQueuedState = state;
+	if (renderScheduled) return;
+	renderScheduled = true;
+	queueMicrotask(() => {
+		renderScheduled = false;
+		const current = renderQueuedState;
+		renderQueuedState = undefined;
+		if (!current?.active) return;
+		const frame = Frame.open(process.stdout);
+		if (current.view === "conversation") renderConversation(current, frame);
+		else if (current.view === "sessions") renderSessions(current, frame);
+		else renderPermission(current, frame);
+		frame.close();
+	});
 }
 
 function frameWidth(): number {
@@ -599,7 +658,7 @@ function onKeypress(
 	if (key.name === "escape") {
 		const session = current(state);
 		if (session?.status === "running") {
-			void cancelTurn(state, session);
+			defer(() => cancelTurn(state, session as ChatSession));
 		}
 		return false;
 	}
@@ -649,8 +708,12 @@ function onKeypress(
 		}
 		if (key.name === "return") {
 			const [command] = menu[state.menuIndex] ?? menu[0] ?? [];
-			if (command) {
+			// Preserve anything already typed after the command (arguments);
+			// the menu only completes the command word itself.
+			if (command && state.buffer === command) {
 				state.buffer = command;
+				submit(state);
+			} else {
 				submit(state);
 			}
 			return false;
@@ -677,6 +740,11 @@ function onKeypress(
 			state.historyIndex + 1,
 		);
 		state.buffer = state.inputHistory[state.historyIndex] ?? "";
+		return false;
+	}
+	if (key.name === "space") {
+		state.buffer += " ";
+		state.menuIndex = 0;
 		return false;
 	}
 	if (character && !key.ctrl && !key.meta && character >= " ") {
@@ -708,12 +776,15 @@ function handleSessionsKeys(
 			state.selectedIndex + 1,
 		);
 	} else if (key.name === "return" && matches[state.selectedIndex]) {
-		void switchTo(state, matches[state.selectedIndex]?.index ?? 0);
+		defer(() => switchTo(state, matches[state.selectedIndex]?.index ?? 0));
 	} else if (key.name === "escape") {
 		state.view = "conversation";
 		state.buffer = "";
 	} else if (key.name === "backspace") {
 		state.buffer = state.buffer.slice(0, -1);
+		state.selectedIndex = 0;
+	} else if (key.name === "space") {
+		state.buffer += " ";
 		state.selectedIndex = 0;
 	} else if (character && !key.ctrl && !key.meta && character >= " ") {
 		state.buffer += character;
@@ -753,7 +824,7 @@ function cycleSession(state: TuiState, direction: 1 | -1): void {
 	const next =
 		(state.currentIndex + direction + state.sessions.length) %
 		state.sessions.length;
-	void switchTo(state, next);
+	defer(() => switchTo(state, next));
 }
 
 async function switchTo(state: TuiState, index: number): Promise<void> {
@@ -782,6 +853,20 @@ async function switchTo(state: TuiState, index: number): Promise<void> {
 	}
 }
 
+/**
+ * Schedule async work started from a keypress off the readline emit call.
+ *
+ * Bun's readline emits keypress events synchronously while holding the
+ * stream; awaits started directly in the handler can stall behind that
+ * internal state. A macrotask boundary lets the async chain run on the
+ * normal event loop.
+ */
+function defer(work: () => Promise<void>): void {
+	queueMicrotask(() => {
+		void work();
+	});
+}
+
 function submit(state: TuiState): void {
 	const input = state.buffer.trim();
 	state.buffer = "";
@@ -791,15 +876,18 @@ function submit(state: TuiState): void {
 	if (input.startsWith("/")) {
 		// Async commands (sessions refresh, /new) must repaint once their
 		// awaits resolve — the keypress-driven render runs too early.
-		handleCommand(state, input)
-			.then(() => render(state))
-			.catch((error: unknown) => {
+		defer(async () => {
+			try {
+				await handleCommand(state, input);
+				render(state);
+			} catch (error) {
 				reportError(state, error);
 				render(state);
-			});
+			}
+		});
 		return;
 	}
-	void sendMessage(state, input);
+	defer(() => sendMessage(state, input));
 }
 
 async function handleCommand(state: TuiState, input: string): Promise<void> {
@@ -815,6 +903,42 @@ async function handleCommand(state: TuiState, input: string): Promise<void> {
 		case "new":
 			await createSession(state, argument);
 			break;
+		case "switch": {
+			const index = findSessionIndex(state, argument);
+			if (index === undefined) {
+				state.notice = {
+					text: `未找到唯一匹配的对话：${argument}`,
+					tone: "warning",
+				};
+			} else {
+				await switchTo(state, index);
+			}
+			break;
+		}
+		case "status":
+			await refreshSessions(state);
+			state.view = "sessions";
+			state.selectedIndex = state.currentIndex;
+			state.buffer = "";
+			break;
+		case "queue": {
+			// Queue state is already on the cached session; skip the refresh
+			// so the answer renders even when the host is slow.
+			const session = current(state);
+			if (session) {
+				if (session.queuedPrompts.length > 0) {
+					session.messages.push({
+						role: "agent",
+						text: session.queuedPrompts
+							.map((entry, index) => `${index + 1}. ${entry.text}`)
+							.join("\n"),
+					});
+				} else {
+					state.notice = { text: "当前没有排队消息", tone: "info" };
+				}
+			}
+			break;
+		}
 		case "history":
 			state.visibleMessageCount = Math.min(50, Number(argument) || 20);
 			break;
@@ -882,6 +1006,7 @@ async function createSession(state: TuiState, argument: string): Promise<void> {
 			status: session.status,
 			messages: [],
 			pendingPermissions: [],
+			queuedPrompts: [],
 			lastSeq: session.lastSeq,
 			epoch: session.epoch,
 		});

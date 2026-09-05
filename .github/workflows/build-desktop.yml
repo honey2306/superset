@@ -107,6 +107,23 @@ jobs:
           test -n "$(find release -maxdepth 1 -name '*.zip' -type f -print -quit)"
           test -f release/latest-mac.yml
 
+      - name: Build CLI binary
+        working-directory: packages/cli
+        run: bun run build
+
+      - name: Smoke test CLI binary
+        run: |
+          ./packages/cli/dist/superset version
+          ./packages/cli/dist/superset --help > /dev/null
+
+      - name: Upload CLI binary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ inputs.artifact_prefix }}-cli-darwin-arm64
+          path: packages/cli/dist/superset
+          retention-days: ${{ inputs.artifact_retention_days }}
+          if-no-files-found: error
+
       - name: Upload macOS release and updater artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
