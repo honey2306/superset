@@ -13,7 +13,7 @@ import semver from "semver";
 // Desktop is the ceiling (a plain MAJOR.MINOR.PATCH release) and is NOT unified
 // below. pty-daemon is intentionally excluded (its own 0.x track).
 export const DESKTOP_PACKAGE = "apps/desktop";
-export const UNIFIED_PACKAGES = ["packages/host-service"];
+export const UNIFIED_PACKAGES = ["packages/host-service", "packages/cli"];
 export const DAEMON_PACKAGE = "packages/pty-daemon";
 
 // name -> src dir, for the release diff report.
