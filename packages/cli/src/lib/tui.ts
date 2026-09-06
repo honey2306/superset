@@ -1,10 +1,17 @@
 /**
  * Full-screen TUI primitives for the interactive CLI.
  *
- * Mirrors the validated prototype's rendering model: each frame clears the
- * screen, prints the view top-to-bottom while counting rows, then parks the
- * cursor at a view-chosen input position. Keeping the loop in one owner means
- * views only describe content, never terminal state.
+ * Views describe a frame as a list of lines plus a cursor position; `Screen`
+ * turns consecutive frames into the smallest possible terminal write by
+ * diffing against what is already on screen.
+ *
+ * The diff is not a micro-optimisation. Bun's writes to a pty block the event
+ * loop when the terminal is slow to drain, and a blocked loop also stalls the
+ * in-flight HTTP and WebSocket traffic that feeds this UI. Clearing and
+ * repainting the whole screen every frame pushed kilobytes per keystroke and
+ * could freeze the app for seconds; rewriting only changed rows keeps a
+ * typical frame down to a few dozen bytes, and removes the flicker that comes
+ * with a full clear.
  */
 
 const ESC = String.fromCharCode(27);
@@ -13,6 +20,13 @@ export const ansi = {
 	clear: `${ESC}[2J${ESC}[H`,
 	hideCursor: `${ESC}[?25l`,
 	showCursor: `${ESC}[?25h`,
+	/** Switch to the terminal's alternate screen buffer (like vim/less). */
+	enterAltScreen: `${ESC}[?1049h`,
+	/** Restore the primary screen buffer and its prior scrollback content. */
+	exitAltScreen: `${ESC}[?1049l`,
+	/** Ask the terminal to bracket pasted text with paste-start/end markers. */
+	enableBracketedPaste: `${ESC}[?2004h`,
+	disableBracketedPaste: `${ESC}[?2004l`,
 	bold: `${ESC}[1m`,
 	dim: `${ESC}[2m`,
 	italic: `${ESC}[3m`,
@@ -31,46 +45,100 @@ export interface CursorTarget {
 	column: number;
 }
 
+export interface OutputStream {
+	write(text: string): boolean;
+	columns?: number;
+	rows?: number;
+}
+
 /**
- * Frame renderer bound to one output stream.
+ * One frame under construction.
  *
- * A frame is opened (screen cleared, cursor hidden), drawn via `print` /
- * `setCursorTarget`, and closed (cursor parked). Views receive the open frame
- * and stay oblivious to the terminal.
+ * Views only append lines and mark where the caret belongs; they never touch
+ * the terminal, so the same view code works for the diffing renderer and for
+ * tests that inspect the produced lines.
  */
 export class Frame {
-	private rows = 0;
+	private readonly lines: string[] = [];
 	private target: CursorTarget | undefined;
 
-	constructor(private readonly out: { write(text: string): boolean }) {}
-
-	static open(out: { write(text: string): boolean }): Frame {
-		const frame = new Frame(out);
-		out.write(`${ansi.hideCursor}${ansi.clear}`);
-		return frame;
-	}
-
 	print(text = ""): void {
-		this.rows += 1;
-		this.out.write(`${text}\n`);
+		this.lines.push(text);
 	}
 
 	setCursorTarget(row: number, column: number): void {
 		this.target = { row, column };
 	}
 
-	/** Rows printed so far — views use this to compute target rows. */
+	/** Rows appended so far — views use this to compute target rows. */
 	get rowCount(): number {
-		return this.rows;
+		return this.lines.length;
 	}
 
-	close(): void {
-		if (this.target) {
-			this.out.write(
-				`${ESC}[${this.target.row + 1};${this.target.column + 1}H${ansi.showCursor}`,
-			);
-			return;
+	get content(): readonly string[] {
+		return this.lines;
+	}
+
+	get cursor(): CursorTarget | undefined {
+		return this.target;
+	}
+}
+
+/**
+ * Owns what is currently on the terminal and applies frames as diffs.
+ */
+export class Screen {
+	private previous: string[] = [];
+	private columns: number | undefined;
+	private rows: number | undefined;
+
+	constructor(private readonly out: OutputStream) {}
+
+	/** Begin a frame; pass it to `commit` when the view has filled it. */
+	begin(): Frame {
+		return new Frame();
+	}
+
+	/**
+	 * Write the difference between `frame` and the current screen.
+	 *
+	 * Rows are addressed absolutely and no newline is ever emitted, so the
+	 * screen cannot scroll out from under the absolute cursor positioning.
+	 */
+	commit(frame: Frame): void {
+		const lines = frame.content;
+		let output = "";
+
+		// A resize invalidates every remembered row: start from a clean screen.
+		if (this.out.columns !== this.columns || this.out.rows !== this.rows) {
+			this.columns = this.out.columns;
+			this.rows = this.out.rows;
+			this.previous = [];
+			output += ansi.clear;
 		}
-		this.out.write(ansi.hideCursor);
+
+		output += ansi.hideCursor;
+		const rowCount = Math.max(lines.length, this.previous.length);
+		for (let row = 0; row < rowCount; row += 1) {
+			const next = lines[row] ?? "";
+			if (next === this.previous[row]) continue;
+			// Clear the row before rewriting so shorter content cannot leave
+			// stale characters behind.
+			output += `${ESC}[${row + 1};1H${ESC}[2K${next}`;
+		}
+		this.previous = [...lines];
+
+		const cursor = frame.cursor;
+		output += cursor
+			? `${ESC}[${cursor.row + 1};${cursor.column + 1}H${ansi.showCursor}`
+			: ansi.hideCursor;
+		this.out.write(output);
+	}
+
+	/** Forget the on-screen state, forcing the next commit to repaint fully. */
+	invalidate(): void {
+		this.previous = [];
+		this.columns = undefined;
+		this.rows = undefined;
 	}
 }

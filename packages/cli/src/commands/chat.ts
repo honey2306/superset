@@ -9,6 +9,7 @@
  * permission requests.
  */
 
+import { appendFileSync } from "node:fs";
 import { emitKeypressEvents as nodeEmitKeypressEvents } from "node:readline";
 import type {
 	ContentBlock,
@@ -27,7 +28,7 @@ import {
 	type WorkspaceRef,
 } from "../lib/resolve";
 import { STOP_STREAM, subscribeToSession } from "../lib/stream";
-import { ansi, Frame } from "../lib/tui";
+import { ansi, type Frame, Screen } from "../lib/tui";
 import { markdownThemeFor, renderWidth } from "./sessions/shared";
 
 type View = "conversation" | "sessions" | "permission";
@@ -80,16 +81,24 @@ interface TuiState {
 	currentIndex: number;
 	view: View;
 	buffer: string;
+	/** Caret position in `buffer`, in UTF-16 code units (0..buffer.length). */
+	cursor: number;
 	selectedIndex: number;
 	permissionIndex: number;
-	visibleMessageCount: number;
+	/** Rows of transcript scrolled up from the newest line. */
+	scrollOffset: number;
 	notice: Notice | undefined;
 	streamingSessionId: string | undefined;
 	streamingText: string;
+	/** Wall-clock start of the in-flight turn, for the elapsed readout. */
+	turnStartedAt: number | undefined;
+	spinnerTick: number;
 	inputHistory: string[];
 	historyIndex: number;
 	/** Selected row in the slash-command menu, when it is visible. */
 	menuIndex: number;
+	/** True between paste-start and paste-end from bracketed paste. */
+	pasting: boolean;
 	active: boolean;
 	lastCtrlCAt: number;
 }
@@ -110,15 +119,19 @@ export async function chatCommand(ctx: CommandContext): Promise<number> {
 		currentIndex: 0,
 		view: "conversation",
 		buffer: "",
+		cursor: 0,
 		selectedIndex: 0,
 		permissionIndex: 0,
-		visibleMessageCount: 8,
+		scrollOffset: 0,
 		notice: undefined,
 		streamingSessionId: undefined,
 		streamingText: "",
+		turnStartedAt: undefined,
+		spinnerTick: 0,
 		inputHistory: [],
 		historyIndex: 0,
 		menuIndex: 0,
+		pasting: false,
 		active: true,
 		lastCtrlCAt: 0,
 	};
@@ -135,6 +148,23 @@ export async function chatCommand(ctx: CommandContext): Promise<number> {
 		return 0;
 	}
 
+	// Enter the alternate screen buffer so the TUI owns a clean, full-height
+	// canvas and the user's prior shell scrollback is untouched — restored
+	// verbatim on exit instead of being pushed around by repeated clears.
+	process.stdout.write(`${ansi.enterAltScreen}${ansi.enableBracketedPaste}`);
+	let screenRestored = false;
+	const restoreScreen = (): void => {
+		if (screenRestored) return;
+		screenRestored = true;
+		process.stdout.write(
+			`${ansi.disableBracketedPaste}${ansi.showCursor}${ansi.exitAltScreen}`,
+		);
+	};
+	// Covers Ctrl-C/kill signals and any exit path that skips the explicit
+	// cleanup below, so the primary screen is never left showing the alt
+	// buffer's last frame.
+	process.on("exit", restoreScreen);
+
 	render(state);
 
 	await new Promise<void>((resolve) => {
@@ -142,6 +172,9 @@ export async function chatCommand(ctx: CommandContext): Promise<number> {
 		process.stdin.resume();
 		emitKeypressEvents(process.stdin);
 		process.stdin.on("keypress", (character, key) => {
+			trace(
+				`keypress: ${JSON.stringify({ character, name: key?.name, ctrl: key?.ctrl, meta: key?.meta, shift: key?.shift })}`,
+			);
 			const stop = onKeypress(state, character, key);
 			if (stop) {
 				resolve();
@@ -149,13 +182,19 @@ export async function chatCommand(ctx: CommandContext): Promise<number> {
 			}
 			render(state);
 		});
-		process.stdout.on("resize", () => render(state));
-		process.on("exit", () => process.stdout.write("\x1b[?25h"));
+		process.stdout.on("resize", () => {
+			// A resize changes every row: drop the remembered screen so the
+			// next frame repaints in full.
+			screen.invalidate();
+			render(state);
+		});
 	});
 
 	if (process.stdin.isTTY) process.stdin.setRawMode(false);
 	process.stdin.pause();
-	process.stdout.write(`${ansi.clear}${ansi.showCursor}`);
+	// The spinner interval would otherwise keep the event loop alive.
+	stopSpinner(state);
+	restoreScreen();
 	process.stdout.write(
 		`${ansi.dim}已退出；后台对话仍在 host-service 中继续运行。${ansi.reset}\n`,
 	);
@@ -210,10 +249,11 @@ async function refreshSessions(state: TuiState): Promise<void> {
 async function loadHistory(
 	state: TuiState,
 	session: ChatSession,
+	limit = 20,
 ): Promise<void> {
 	const page = await state.connection.client.acpSessions.getTranscript.query({
 		sessionId: session.sessionId,
-		limit: 12,
+		limit,
 	});
 	session.messages = page.turns.flatMap((turn) => {
 		const messages: ChatMessage[] = [];
@@ -263,36 +303,357 @@ function current(state: TuiState): ChatSession | undefined {
 }
 
 // ---------------------------------------------------------------------------
+// Composer editing
+// ---------------------------------------------------------------------------
+
+/**
+ * Buffer mutations funnel through these helpers so `cursor` can never drift
+ * out of sync with `buffer` — a desync shows up as a caret drawn in the wrong
+ * cell, which is far more confusing than a missing keybinding.
+ */
+function setBuffer(state: TuiState, text: string, cursor = text.length): void {
+	state.buffer = text;
+	state.cursor = Math.max(0, Math.min(text.length, cursor));
+}
+
+function insertAtCursor(state: TuiState, text: string): void {
+	setBuffer(
+		state,
+		state.buffer.slice(0, state.cursor) +
+			text +
+			state.buffer.slice(state.cursor),
+		state.cursor + text.length,
+	);
+}
+
+function deleteBackward(state: TuiState): void {
+	if (state.cursor === 0) return;
+	// Step over a surrogate pair as one character so astral symbols and
+	// emoji delete cleanly instead of leaving a lone half.
+	const previous = state.buffer.codePointAt(state.cursor - 2);
+	const step =
+		previous !== undefined && previous > 0xffff && state.cursor >= 2 ? 2 : 1;
+	setBuffer(
+		state,
+		state.buffer.slice(0, state.cursor - step) +
+			state.buffer.slice(state.cursor),
+		state.cursor - step,
+	);
+}
+
+function deleteForward(state: TuiState): void {
+	if (state.cursor >= state.buffer.length) return;
+	const next = state.buffer.codePointAt(state.cursor);
+	const step = next !== undefined && next > 0xffff ? 2 : 1;
+	setBuffer(
+		state,
+		state.buffer.slice(0, state.cursor) +
+			state.buffer.slice(state.cursor + step),
+		state.cursor,
+	);
+}
+
+/** Start of the word left of the caret, skipping any run of spaces first. */
+function wordStart(text: string, from: number): number {
+	let index = from;
+	while (index > 0 && /\s/.test(text[index - 1] ?? "")) index -= 1;
+	while (index > 0 && !/\s/.test(text[index - 1] ?? "")) index -= 1;
+	return index;
+}
+
+/** End of the word right of the caret, skipping any run of spaces first. */
+function wordEnd(text: string, from: number): number {
+	let index = from;
+	while (index < text.length && /\s/.test(text[index] ?? "")) index += 1;
+	while (index < text.length && !/\s/.test(text[index] ?? "")) index += 1;
+	return index;
+}
+
+function deleteWordBackward(state: TuiState): void {
+	if (state.cursor === 0) return;
+	const start = wordStart(state.buffer, state.cursor);
+	setBuffer(
+		state,
+		state.buffer.slice(0, start) + state.buffer.slice(state.cursor),
+		start,
+	);
+}
+
+function deleteWordForward(state: TuiState): void {
+	if (state.cursor >= state.buffer.length) return;
+	const end = wordEnd(state.buffer, state.cursor);
+	setBuffer(
+		state,
+		state.buffer.slice(0, state.cursor) + state.buffer.slice(end),
+		state.cursor,
+	);
+}
+
+/** One visual row of the composer, tagged with its offset into `buffer`. */
+export interface ComposerLine {
+	text: string;
+	/** Index in `buffer` where this visual row starts. */
+	start: number;
+}
+
+/**
+ * Wrap composer text into visual rows while keeping each row's buffer offset.
+ *
+ * The offsets are what let the caret be drawn in its true cell: without them
+ * the renderer can only guess, which is why the caret used to be pinned to
+ * the end of the last row regardless of where edits happened.
+ */
+export function wrapComposer(text: string, target: number): ComposerLine[] {
+	const rows: ComposerLine[] = [];
+	let index = 0;
+	for (const [paragraphIndex, paragraph] of text.split("\n").entries()) {
+		// Account for the newline separating this paragraph from the last.
+		if (paragraphIndex > 0) index += 1;
+		let start = index;
+		let line = "";
+		let width = 0;
+		for (const character of paragraph) {
+			const cells = displayWidth(character);
+			if (width + cells > target) {
+				rows.push({ text: line, start });
+				start = index;
+				line = character;
+				width = cells;
+			} else {
+				line += character;
+				width += cells;
+			}
+			index += character.length;
+		}
+		rows.push({ text: line, start });
+	}
+	return rows;
+}
+
+/** Locate the caret as a (row, column-in-cells) pair among wrapped rows. */
+export function caretPosition(
+	rows: readonly ComposerLine[],
+	buffer: string,
+	cursor: number,
+): { row: number; column: number } {
+	let row = 0;
+	for (const [index, line] of rows.entries()) {
+		// The last row starting at or before the caret owns it, so a caret
+		// sitting exactly on a wrap boundary renders on the new row.
+		if (line.start <= cursor) row = index;
+	}
+	const start = rows[row]?.start ?? 0;
+	return { row, column: displayWidth(buffer.slice(start, cursor)) };
+}
+
+/**
+ * Move the caret one visual row up or down, preserving the column.
+ *
+ * Returns false when the caret is already on the outermost row, which is the
+ * caller's signal to treat ↑/↓ as input-history navigation instead.
+ */
+function moveCaretVertically(state: TuiState, direction: -1 | 1): boolean {
+	const rows = wrapComposer(state.buffer, composerTextWidth());
+	if (rows.length < 2) return false;
+	const { row, column } = caretPosition(rows, state.buffer, state.cursor);
+	const targetRow = row + direction;
+	const target = rows[targetRow];
+	if (!target) return false;
+
+	// Walk the target row until its accumulated width reaches the old column,
+	// so the caret keeps its visual position across rows of mixed-width text.
+	let offset = target.start;
+	let width = 0;
+	for (const character of target.text) {
+		const cells = displayWidth(character);
+		if (width + cells > column) break;
+		width += cells;
+		offset += character.length;
+	}
+	setBuffer(state, state.buffer, offset);
+	return true;
+}
+
+/**
+ * Apply an emacs-style editing key to the composer.
+ *
+ * Returns true when the key was an editing command, so the caller knows not
+ * to fall through to submit / menu / character-insert handling. These are the
+ * bindings users already have muscle memory for from every other shell and
+ * terminal agent; without them the composer feels broken.
+ */
+function applyEditingKey(
+	state: TuiState,
+	character: string | undefined,
+	key: Key,
+): boolean {
+	// Word-wise motion: Alt+←/→ on macOS terminals, Ctrl+←/→ elsewhere.
+	if (key.name === "left" && (key.meta || key.ctrl)) {
+		setBuffer(state, state.buffer, wordStart(state.buffer, state.cursor));
+		return true;
+	}
+	if (key.name === "right" && (key.meta || key.ctrl)) {
+		setBuffer(state, state.buffer, wordEnd(state.buffer, state.cursor));
+		return true;
+	}
+	if (key.name === "left") {
+		setBuffer(state, state.buffer, state.cursor - 1);
+		return true;
+	}
+	if (key.name === "right") {
+		setBuffer(state, state.buffer, state.cursor + 1);
+		return true;
+	}
+	if (key.name === "home" || (key.ctrl && key.name === "a")) {
+		setBuffer(state, state.buffer, 0);
+		return true;
+	}
+	if (key.name === "end" || (key.ctrl && key.name === "e")) {
+		setBuffer(state, state.buffer, state.buffer.length);
+		return true;
+	}
+	if (key.name === "delete") {
+		deleteForward(state);
+		return true;
+	}
+	if (key.ctrl && key.name === "d" && state.buffer) {
+		deleteForward(state);
+		return true;
+	}
+	if (key.ctrl && key.name === "k") {
+		setBuffer(state, state.buffer.slice(0, state.cursor), state.cursor);
+		return true;
+	}
+	if (key.ctrl && key.name === "u") {
+		setBuffer(state, state.buffer.slice(state.cursor), 0);
+		return true;
+	}
+	if (key.ctrl && key.name === "w") {
+		deleteWordBackward(state);
+		return true;
+	}
+	if (key.meta && key.name === "backspace") {
+		deleteWordBackward(state);
+		return true;
+	}
+	if (key.meta && key.name === "d") {
+		deleteWordForward(state);
+		return true;
+	}
+	if (key.name === "backspace") {
+		deleteBackward(state);
+		state.menuIndex = 0;
+		return true;
+	}
+	if (key.name === "space") {
+		insertAtCursor(state, " ");
+		state.menuIndex = 0;
+		return true;
+	}
+	if (character && !key.ctrl && !key.meta && character >= " ") {
+		insertAtCursor(state, character);
+		state.menuIndex = 0;
+		return true;
+	}
+	return false;
+}
+
+// ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
 
 /**
- * Frame budget: coalesce keypress-driven repaints into one frame per tick.
+ * Frame budget: coalesce repaints and enforce a minimum interval between them.
  *
  * Besides avoiding flicker, this bounds how fast stdout can fill the pty
- * buffer: Bun stalls the event loop (and with it, in-flight HTTP) once
- * writes back up against a slow consumer, so rapid full-screen redraws
- * (typing, held arrows) must not outrun the terminal.
+ * buffer: Bun stalls the event loop (and with it, in-flight HTTP) once writes
+ * back up against a slow consumer. Streaming agent output arrives as many
+ * chunks per second, so a per-chunk repaint would outrun the terminal — the
+ * interval floor is what makes live streaming safe here.
  */
-let renderScheduled = false;
+const MIN_FRAME_INTERVAL_MS = 45;
+
+/** Opt-in keypress/paint trace, for diagnosing input or repaint stalls. */
+const TRACE_PATH = process.env.SUPERSET_TUI_TRACE;
+function trace(message: string): void {
+	if (!TRACE_PATH) return;
+	try {
+		appendFileSync(TRACE_PATH, `${Date.now()} ${message}\n`);
+	} catch {
+		// Tracing must never take the UI down.
+	}
+}
+
+let paintScheduled = false;
+let lastPaintAt = 0;
 let renderQueuedState: TuiState | undefined;
+const screen = new Screen(process.stdout);
 
 function render(state: TuiState): void {
 	if (!state.active) return;
 	renderQueuedState = state;
-	if (renderScheduled) return;
-	renderScheduled = true;
-	queueMicrotask(() => {
-		renderScheduled = false;
-		const current = renderQueuedState;
-		renderQueuedState = undefined;
-		if (!current?.active) return;
-		const frame = Frame.open(process.stdout);
-		if (current.view === "conversation") renderConversation(current, frame);
-		else if (current.view === "sessions") renderSessions(current, frame);
-		else renderPermission(current, frame);
-		frame.close();
-	});
+	if (paintScheduled) {
+		return;
+	}
+	paintScheduled = true;
+	const wait = Math.max(0, MIN_FRAME_INTERVAL_MS - (Date.now() - lastPaintAt));
+	// An idle repaint lands on the next microtask (no perceptible latency);
+	// bursts collapse onto the interval floor.
+	if (wait === 0) queueMicrotask(paint);
+	else setTimeout(paint, wait);
+}
+
+function paint(): void {
+	paintScheduled = false;
+	lastPaintAt = Date.now();
+	const current = renderQueuedState;
+	renderQueuedState = undefined;
+	if (!current?.active) return;
+	trace(`paint: begin view=${current.view}`);
+	const frame = screen.begin();
+	if (current.view === "conversation") renderConversation(current, frame);
+	else if (current.view === "sessions") renderSessions(current, frame);
+	else renderPermission(current, frame);
+	screen.commit(frame);
+	trace("paint: end");
+}
+
+/**
+ * Animate the working indicator while a turn is in flight.
+ *
+ * The agent can go quiet for many seconds between chunks, so the spinner —
+ * not the stream itself — is what tells the user the CLI is alive and still
+ * attached to the turn.
+ */
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+let spinnerTimer: ReturnType<typeof setInterval> | undefined;
+
+function startSpinner(state: TuiState): void {
+	state.turnStartedAt = Date.now();
+	if (spinnerTimer) return;
+	spinnerTimer = setInterval(() => {
+		state.spinnerTick += 1;
+		render(state);
+	}, 120);
+}
+
+function stopSpinner(state: TuiState): void {
+	if (spinnerTimer) {
+		clearInterval(spinnerTimer);
+		spinnerTimer = undefined;
+	}
+	state.turnStartedAt = undefined;
+}
+
+function spinnerGlyph(state: TuiState): string {
+	return SPINNER_FRAMES[state.spinnerTick % SPINNER_FRAMES.length] ?? "⠋";
+}
+
+function elapsedLabel(state: TuiState): string {
+	if (state.turnStartedAt === undefined) return "";
+	const seconds = Math.floor((Date.now() - state.turnStartedAt) / 1000);
+	if (seconds < 60) return `${seconds}s`;
+	return `${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, "0")}s`;
 }
 
 function frameWidth(): number {
@@ -350,84 +711,140 @@ function wrapText(text: string, target: number): string[] {
 	return result.length > 0 ? result : [""];
 }
 
-function renderBrand(state: TuiState, frame: Frame): void {
+function brandLines(state: TuiState): string[] {
 	const session = current(state);
-	frame.print(`${ansi.bold}${ansi.magenta}✦ Superset${ansi.reset}`);
-	frame.print(
+	return [
+		`${ansi.bold}${ansi.magenta}✦ Superset${ansi.reset}`,
 		`${ansi.dim}${state.workspace.name}  ·  ${session?.title ?? "无对话"}  ·  ${session?.agent ?? ""}${ansi.reset}`,
-	);
-	frame.print();
+		"",
+	];
 }
 
-function renderMessage(frame: Frame, message: ChatMessage): void {
+function messageLines(message: ChatMessage): string[] {
 	if (message.role === "user") {
-		const lines = wrapText(message.text, contentWidth() - 2);
-		frame.print(`${ansi.bold}${ansi.cyan}❯${ansi.reset} ${lines[0]}`);
-		for (const continuation of lines.slice(1)) {
-			frame.print(`  ${continuation}`);
-		}
-		frame.print();
-		return;
+		const wrapped = wrapText(message.text, contentWidth() - 2);
+		return [
+			`${ansi.bold}${ansi.cyan}❯${ansi.reset} ${wrapped[0] ?? ""}`,
+			...wrapped.slice(1).map((line) => `  ${line}`),
+			"",
+		];
 	}
-
-	frame.print(`${ansi.bold}${ansi.magenta}●${ansi.reset}`);
-	for (const line of renderMarkdown(message.text, renderWidth(), {
-		theme: markdownThemeFor(true),
-	})) {
-		frame.print(` ${line}`);
-	}
-	frame.print();
+	return [
+		`${ansi.bold}${ansi.magenta}●${ansi.reset}`,
+		...renderMarkdown(message.text, renderWidth(), {
+			theme: markdownThemeFor(true),
+		}).map((line) => ` ${line}`),
+		"",
+	];
 }
 
-function renderConversation(state: TuiState, frame: Frame): void {
-	renderBrand(state, frame);
+/** The full transcript as lines; the viewport decides what is on screen. */
+function transcriptLines(state: TuiState): string[] {
 	const session = current(state);
 	if (!session) {
-		frame.print(
+		return [
 			`${ansi.dim}还没有对话。输入消息开始，或 /new 创建。${ansi.reset}`,
-		);
-		frame.print();
-	} else {
-		const messages = session.messages.slice(-state.visibleMessageCount);
-		for (const message of messages) {
-			renderMessage(frame, message);
-		}
+			"",
+		];
+	}
 
-		if (state.streamingSessionId === session.sessionId) {
-			frame.print(`${ansi.bold}${ansi.magenta}●${ansi.reset}`);
-			if (state.streamingText) {
-				for (const line of renderMarkdown(state.streamingText, renderWidth(), {
-					theme: markdownThemeFor(true),
-				})) {
-					frame.print(` ${line}`);
-				}
-			} else {
-				frame.print(` ${ansi.dim}正在思考… ✻${ansi.reset}`);
+	const lines: string[] = [];
+	for (const message of session.messages) lines.push(...messageLines(message));
+
+	if (state.streamingSessionId === session.sessionId) {
+		lines.push(`${ansi.bold}${ansi.magenta}●${ansi.reset}`);
+		if (state.streamingText) {
+			for (const line of renderMarkdown(state.streamingText, renderWidth(), {
+				theme: markdownThemeFor(true),
+			})) {
+				lines.push(` ${line}`);
 			}
-			frame.print();
 		}
-
-		if (session.status === "offline") {
-			frame.print(
-				`${ansi.dim}  此对话已离线。发送消息时会恢复原 Agent 会话。${ansi.reset}`,
-			);
-			frame.print();
-		}
+		const elapsed = elapsedLabel(state);
+		lines.push(
+			` ${ansi.cyan}${spinnerGlyph(state)}${ansi.reset} ${ansi.dim}${
+				state.streamingText ? "生成中" : "正在思考"
+			}${elapsed ? ` · ${elapsed}` : ""} · Esc 中止${ansi.reset}`,
+		);
+		lines.push("");
 	}
 
-	if (state.notice) {
-		const color =
-			state.notice.tone === "warning"
-				? ansi.yellow
-				: state.notice.tone === "success"
-					? ansi.green
-					: ansi.cyan;
-		frame.print(`${color}●${ansi.reset} ${state.notice.text}`);
-		frame.print();
+	if (session.status === "offline") {
+		lines.push(
+			`${ansi.dim}  此对话已离线。发送消息时会恢复原 Agent 会话。${ansi.reset}`,
+		);
+		lines.push("");
 	}
+	return lines;
+}
 
-	if (state.buffer.startsWith("/")) renderCommandMenu(state, frame);
-	renderComposer(state, frame);
+function noticeLines(state: TuiState): string[] {
+	if (!state.notice) return [];
+	const color =
+		state.notice.tone === "warning"
+			? ansi.yellow
+			: state.notice.tone === "success"
+				? ansi.green
+				: ansi.cyan;
+	return [`${color}●${ansi.reset} ${state.notice.text}`, ""];
+}
+
+/** Usable terminal height; the floor keeps tiny windows from going negative. */
+function terminalRows(): number {
+	return Math.max(14, process.stdout.rows ?? 24);
+}
+
+/**
+ * Lay the conversation out against the real terminal height.
+ *
+ * The composer is pinned to the bottom and the transcript gets whatever rows
+ * are left, scrolled to the newest line. Two things depend on this:
+ * the screen actually looks full (no stack of content floating at the top),
+ * and the frame never prints more rows than the terminal has — which would
+ * scroll the screen out from under the absolute cursor positioning.
+ */
+function renderConversation(state: TuiState, frame: Frame): void {
+	const brand = brandLines(state);
+	const notice = noticeLines(state);
+	const menu = state.buffer.startsWith("/") ? commandMenuLines(state) : [];
+	const composer = composerBlock(state);
+	const footer = footerLine(state);
+	const transcript = transcriptLines(state);
+
+	// One row is left unused: printing into the final row would scroll.
+	const chrome =
+		brand.length + notice.length + menu.length + composer.lines.length + 2;
+	const viewport = Math.max(1, terminalRows() - chrome - 1);
+
+	const maxScroll = Math.max(0, transcript.length - viewport);
+	if (state.scrollOffset > maxScroll) state.scrollOffset = maxScroll;
+	const end = transcript.length - state.scrollOffset;
+	const start = Math.max(0, end - viewport);
+	const visible = transcript.slice(start, end);
+	const topPadding = Math.max(0, viewport - visible.length);
+
+	for (const line of brand) frame.print(line);
+	frame.print(
+		start > 0
+			? `${ansi.dim}  ↑ 上方还有 ${start} 行 · Shift+↑↓ / PgUp·PgDn 滚动${ansi.reset}`
+			: "",
+	);
+	for (let index = 0; index < topPadding; index += 1) frame.print();
+	for (const line of visible) frame.print(line);
+	for (const line of notice) frame.print(line);
+	for (const line of menu) frame.print(line);
+	for (const [index, line] of composer.lines.entries()) {
+		if (index === composer.caretRow) {
+			frame.setCursorTarget(frame.rowCount, composer.caretColumn);
+		}
+		frame.print(line);
+	}
+	frame.print(footer);
+}
+
+/** Scroll the transcript viewport; positive moves toward older content. */
+function scrollTranscript(state: TuiState, delta: number): void {
+	state.scrollOffset = Math.max(0, state.scrollOffset + delta);
 }
 
 /** The slash commands matching the current buffer, for menu render + nav. */
@@ -441,51 +858,82 @@ function matchingCommands(
 	);
 }
 
-function renderCommandMenu(state: TuiState, frame: Frame): void {
+function commandMenuLines(state: TuiState): string[] {
 	const all = matchingCommands(state);
-	if (all.length === 0) return;
+	if (all.length === 0) return [];
 	if (state.menuIndex >= all.length) state.menuIndex = 0;
 
 	const width = frameWidth();
 	const matches = all.slice(0, 6);
-	frame.print(
+	const lines = [
 		`${ansi.gray}╭─ commands ${"─".repeat(Math.max(1, width - 13))}╮${ansi.reset}`,
-	);
+	];
 	for (const [index, [command, description]] of matches.entries()) {
 		const selected = index === state.menuIndex;
-		const label = `  ${selected ? ansi.cyan : ansi.bold}${padCell(command, 16)}${selected ? ansi.reset : ansi.reset}${ansi.dim}${description}${ansi.reset}`;
-		frame.print(
+		const label = `  ${selected ? ansi.cyan : ansi.bold}${padCell(command, 16)}${ansi.reset}${ansi.dim}${description}${ansi.reset}`;
+		lines.push(
 			`${ansi.gray}│${ansi.reset}${padCell(label, width - 2)}${ansi.gray}│${ansi.reset}`,
 		);
 	}
-	frame.print(`${ansi.gray}╰${"─".repeat(width - 2)}╯${ansi.reset}`);
+	lines.push(`${ansi.gray}╰${"─".repeat(width - 2)}╯${ansi.reset}`);
+	return lines;
 }
 
-function renderComposer(state: TuiState, frame: Frame): void {
+/** Cell width available to composer text, inside the border and prompt. */
+function composerTextWidth(): number {
+	return frameWidth() - 6;
+}
+
+/** Visual rows of the composer shown at once before it starts scrolling. */
+const COMPOSER_MAX_ROWS = 6;
+
+/** The composer box plus where the caret belongs inside it. */
+interface ComposerBlock {
+	lines: string[];
+	/** Index into `lines` holding the caret. */
+	caretRow: number;
+	/** Zero-based terminal column for the caret. */
+	caretColumn: number;
+}
+
+function composerBlock(state: TuiState): ComposerBlock {
 	const width = frameWidth();
 	const innerWidth = width - 4;
-	const inputLines = wrapText(state.buffer, innerWidth - 2);
-	const visibleLines = inputLines.slice(-4);
-	frame.print(`${ansi.gray}╭${"─".repeat(width - 2)}╮${ansi.reset}`);
+	const rows = wrapComposer(state.buffer, composerTextWidth());
+	const caret = caretPosition(rows, state.buffer, state.cursor);
 
-	const rendered = visibleLines.length > 0 ? visibleLines : [""];
-	for (const [index, inputLine] of rendered.entries()) {
-		const prefix = index === 0 ? `${ansi.bold}❯${ansi.reset} ` : "  ";
-		const value = `${prefix}${inputLine}`;
-		if (index === rendered.length - 1) {
-			frame.setCursorTarget(
-				frame.rowCount,
-				displayWidth("│ ") +
-					displayWidth(stripAnsi(prefix)) +
-					displayWidth(inputLine),
-			);
+	// Scroll the composer so the caret is always on screen, even when the
+	// draft is taller than the box.
+	const windowStart = Math.max(
+		0,
+		Math.min(
+			Math.max(0, rows.length - COMPOSER_MAX_ROWS),
+			caret.row - COMPOSER_MAX_ROWS + 1,
+		),
+	);
+	const visible = rows.slice(windowStart, windowStart + COMPOSER_MAX_ROWS);
+
+	const lines = [`${ansi.gray}╭${"─".repeat(width - 2)}╮${ansi.reset}`];
+	let caretRow = 1;
+	let caretColumn = displayWidth("│ ") + 2;
+	for (const [offset, row] of visible.entries()) {
+		const rowIndex = windowStart + offset;
+		const prefix = rowIndex === 0 ? `${ansi.bold}❯${ansi.reset} ` : "  ";
+		if (rowIndex === caret.row) {
+			caretRow = lines.length;
+			caretColumn =
+				displayWidth("│ ") + displayWidth(stripAnsi(prefix)) + caret.column;
 		}
-		frame.print(
-			`${ansi.gray}│${ansi.reset} ${padCell(value, innerWidth)} ${ansi.gray}│${ansi.reset}`,
+		lines.push(
+			`${ansi.gray}│${ansi.reset} ${padCell(`${prefix}${row.text}`, innerWidth)} ${ansi.gray}│${ansi.reset}`,
 		);
 	}
-	frame.print(`${ansi.gray}╰${"─".repeat(width - 2)}╯${ansi.reset}`);
+	lines.push(`${ansi.gray}╰${"─".repeat(width - 2)}╯${ansi.reset}`);
+	return { lines, caretRow, caretColumn };
+}
 
+function footerLine(state: TuiState): string {
+	const width = frameWidth();
 	const session = current(state);
 	const left = session
 		? `${session.agent} · ${statusColor(session.status)}`
@@ -493,12 +941,12 @@ function renderComposer(state: TuiState, frame: Frame): void {
 	const right =
 		session?.status === "running"
 			? "Enter 排队 · Esc 中止"
-			: "/ 命令 · Alt/ Ctrl+↑↓ 切换对话";
+			: "/ 命令 · Alt/Ctrl+↑↓ 切换对话 · Ctrl+C 退出";
 	const spacing = Math.max(
 		2,
 		width - displayWidth(left) - displayWidth(right) - 2,
 	);
-	frame.print(` ${left}${" ".repeat(spacing)}${ansi.dim}${right}${ansi.reset}`);
+	return ` ${left}${" ".repeat(spacing)}${ansi.dim}${right}${ansi.reset}`;
 }
 
 function statusColor(status: string): string {
@@ -577,7 +1025,7 @@ function renderSessions(state: TuiState, frame: Frame): void {
 
 function renderPermission(state: TuiState, frame: Frame): void {
 	const width = frameWidth();
-	renderBrand(state, frame);
+	for (const line of brandLines(state)) frame.print(line);
 	const session = current(state);
 	const request = session?.pendingPermissions[0];
 
@@ -635,6 +1083,25 @@ function onKeypress(
 ): boolean {
 	if (!state.active) return true;
 
+	// Bracketed paste: the terminal brackets the payload with paste-start /
+	// paste-end, so pasted newlines land in the draft instead of firing one
+	// send per line — which is what made pasting a code block unusable.
+	if (key.name === "paste-start") {
+		state.pasting = true;
+		return false;
+	}
+	if (key.name === "paste-end") {
+		state.pasting = false;
+		return false;
+	}
+	if (state.pasting) {
+		if (key.name === "enter" || key.name === "return")
+			insertAtCursor(state, "\n");
+		else if (key.name === "tab") insertAtCursor(state, "  ");
+		else if (character && character >= " ") insertAtCursor(state, character);
+		return false;
+	}
+
 	if (state.view === "sessions") {
 		handleSessionsKeys(state, character, key);
 		return false;
@@ -646,7 +1113,7 @@ function onKeypress(
 
 	// Session switching: Alt+↑/↓ on modern terminals, Ctrl+↑/↓ everywhere
 	// else. Both encodings report through keypress; plain ↑/↓ stay bound to
-	// history (and the command menu when it is open).
+	// caret motion, history, and the command menu.
 	if (key.name === "up" && (key.meta || key.ctrl)) {
 		cycleSession(state, -1);
 		return false;
@@ -655,16 +1122,27 @@ function onKeypress(
 		cycleSession(state, 1);
 		return false;
 	}
-	if (key.name === "escape") {
-		const session = current(state);
-		if (session?.status === "running") {
-			defer(() => cancelTurn(state, session as ChatSession));
-		}
+	// Transcript scrolling: Shift+↑/↓ by a line, PgUp/PgDn by a screenful.
+	// Plain ↑/↓ stay with the composer, so reading back never fights typing.
+	if (key.name === "up" && key.shift) {
+		scrollTranscript(state, 3);
+		return false;
+	}
+	if (key.name === "down" && key.shift) {
+		scrollTranscript(state, -3);
+		return false;
+	}
+	if (key.name === "pageup") {
+		scrollTranscript(state, Math.max(4, terminalRows() - 8));
+		return false;
+	}
+	if (key.name === "pagedown") {
+		scrollTranscript(state, -Math.max(4, terminalRows() - 8));
 		return false;
 	}
 	if (key.ctrl && key.name === "c") {
 		if (state.buffer) {
-			state.buffer = "";
+			setBuffer(state, "");
 			return false;
 		}
 		const now = Date.now();
@@ -676,12 +1154,20 @@ function onKeypress(
 		state.notice = { text: "再按一次 Ctrl+C 退出", tone: "info" };
 		return false;
 	}
+	// Ctrl+D on an empty composer is the standard "end of input" exit.
+	if (key.ctrl && key.name === "d" && !state.buffer) {
+		state.active = false;
+		return true;
+	}
 	if (key.name === "return" && key.shift) {
-		state.buffer += "\n";
+		insertAtCursor(state, "\n");
 		return false;
 	}
-	if (key.ctrl && key.name === "j") {
-		state.buffer += "\n";
+	// A bare LF arrives as name "enter" (Ctrl+J, and Alt+Enter where the
+	// terminal sends ESC LF). readline never reports it as ctrl+j, so
+	// matching the name is the only binding that actually fires.
+	if (key.name === "enter" || (key.meta && key.name === "return")) {
+		insertAtCursor(state, "\n");
 		return false;
 	}
 
@@ -699,58 +1185,56 @@ function onKeypress(
 		}
 		if (key.name === "tab") {
 			const [command] = menu[state.menuIndex] ?? menu[0] ?? [];
-			if (command) state.buffer = `${command} `;
+			if (command) setBuffer(state, `${command} `);
 			return false;
 		}
 		if (key.name === "escape") {
-			state.buffer = "";
+			setBuffer(state, "");
 			return false;
 		}
 		if (key.name === "return") {
 			const [command] = menu[state.menuIndex] ?? menu[0] ?? [];
 			// Preserve anything already typed after the command (arguments);
 			// the menu only completes the command word itself.
-			if (command && state.buffer === command) {
-				state.buffer = command;
-				submit(state);
-			} else {
-				submit(state);
-			}
+			if (command && state.buffer === command) setBuffer(state, command);
+			submit(state);
 			return false;
 		}
 	}
 
+	if (key.name === "escape") {
+		const session = current(state);
+		if (session?.status === "running") {
+			defer(() => cancelTurn(state, session as ChatSession));
+		}
+		return false;
+	}
 	if (key.name === "return") {
 		submit(state);
 		return false;
 	}
-	if (key.name === "backspace") {
-		state.buffer = state.buffer.slice(0, -1);
-		state.menuIndex = 0;
+	// In a multi-line composer ↑↓ move the caret between lines first, and
+	// only reach for input history once the caret is at the outer edge.
+	if (key.name === "up") {
+		if (moveCaretVertically(state, -1)) return false;
+		if (state.inputHistory.length > 0) {
+			state.historyIndex = Math.max(0, state.historyIndex - 1);
+			setBuffer(state, state.inputHistory[state.historyIndex] ?? "");
+		}
 		return false;
 	}
-	if (key.name === "up" && state.inputHistory.length > 0) {
-		state.historyIndex = Math.max(0, state.historyIndex - 1);
-		state.buffer = state.inputHistory[state.historyIndex] ?? "";
+	if (key.name === "down") {
+		if (moveCaretVertically(state, 1)) return false;
+		if (state.inputHistory.length > 0) {
+			state.historyIndex = Math.min(
+				state.inputHistory.length,
+				state.historyIndex + 1,
+			);
+			setBuffer(state, state.inputHistory[state.historyIndex] ?? "");
+		}
 		return false;
 	}
-	if (key.name === "down" && state.inputHistory.length > 0) {
-		state.historyIndex = Math.min(
-			state.inputHistory.length,
-			state.historyIndex + 1,
-		);
-		state.buffer = state.inputHistory[state.historyIndex] ?? "";
-		return false;
-	}
-	if (key.name === "space") {
-		state.buffer += " ";
-		state.menuIndex = 0;
-		return false;
-	}
-	if (character && !key.ctrl && !key.meta && character >= " ") {
-		state.buffer += character;
-		state.menuIndex = 0;
-	}
+	applyEditingKey(state, character, key);
 	return false;
 }
 
@@ -779,15 +1263,18 @@ function handleSessionsKeys(
 		defer(() => switchTo(state, matches[state.selectedIndex]?.index ?? 0));
 	} else if (key.name === "escape") {
 		state.view = "conversation";
-		state.buffer = "";
+		setBuffer(state, "");
+	} else if (key.ctrl && key.name === "u") {
+		setBuffer(state, "");
+		state.selectedIndex = 0;
 	} else if (key.name === "backspace") {
-		state.buffer = state.buffer.slice(0, -1);
+		setBuffer(state, state.buffer.slice(0, -1));
 		state.selectedIndex = 0;
 	} else if (key.name === "space") {
-		state.buffer += " ";
+		setBuffer(state, `${state.buffer} `);
 		state.selectedIndex = 0;
 	} else if (character && !key.ctrl && !key.meta && character >= " ") {
-		state.buffer += character;
+		setBuffer(state, state.buffer + character);
 		state.selectedIndex = 0;
 	}
 }
@@ -831,8 +1318,8 @@ async function switchTo(state: TuiState, index: number): Promise<void> {
 	if (index !== state.currentIndex) {
 		state.currentIndex = index;
 	}
-	state.visibleMessageCount = 8;
-	state.buffer = "";
+	state.scrollOffset = 0;
+	setBuffer(state, "");
 	state.view = "conversation";
 	const session = current(state);
 	state.notice = { text: `已切换到“${session?.title ?? ""}”`, tone: "success" };
@@ -869,7 +1356,7 @@ function defer(work: () => Promise<void>): void {
 
 function submit(state: TuiState): void {
 	const input = state.buffer.trim();
-	state.buffer = "";
+	setBuffer(state, "");
 	if (!input) return;
 	state.inputHistory.push(input);
 	state.historyIndex = state.inputHistory.length;
@@ -898,7 +1385,7 @@ async function handleCommand(state: TuiState, input: string): Promise<void> {
 			await refreshSessions(state);
 			state.view = "sessions";
 			state.selectedIndex = state.currentIndex;
-			state.buffer = "";
+			setBuffer(state, "");
 			break;
 		case "new":
 			await createSession(state, argument);
@@ -919,7 +1406,7 @@ async function handleCommand(state: TuiState, input: string): Promise<void> {
 			await refreshSessions(state);
 			state.view = "sessions";
 			state.selectedIndex = state.currentIndex;
-			state.buffer = "";
+			setBuffer(state, "");
 			break;
 		case "queue": {
 			// Queue state is already on the cached session; skip the refresh
@@ -939,9 +1426,21 @@ async function handleCommand(state: TuiState, input: string): Promise<void> {
 			}
 			break;
 		}
-		case "history":
-			state.visibleMessageCount = Math.min(50, Number(argument) || 20);
+		case "history": {
+			// Reload a deeper slice of the transcript from the host, since the
+			// viewport itself is already scrollable.
+			const session = current(state);
+			if (session) {
+				await loadHistory(
+					state,
+					session,
+					Math.min(100, Number(argument) || 40),
+				);
+				state.scrollOffset = 0;
+				state.notice = { text: "已加载更多历史", tone: "success" };
+			}
 			break;
+		}
 		case "permissions": {
 			const session = current(state);
 			if (session && session.pendingPermissions.length > 0) {
@@ -957,21 +1456,35 @@ async function handleCommand(state: TuiState, input: string): Promise<void> {
 			if (session) await cancelTurn(state, session);
 			break;
 		}
-		case "clear":
-			state.visibleMessageCount = 0;
+		case "clear": {
+			const session = current(state);
+			if (session) session.messages = [];
+			state.scrollOffset = 0;
+			state.notice = {
+				text: "已清空显示（/history 可重新加载）",
+				tone: "info",
+			};
 			break;
+		}
 		case "help":
 		case "?": {
 			const session = current(state);
+			const commands = slashCommands
+				.map(([command, description]) => `- \`${command}\` — ${description}`)
+				.join("\n");
+			const shortcuts = [
+				"- `Alt/Ctrl+↑/↓` 切换对话，`Esc` 中止当前回合",
+				"- `Shift+↑/↓`、`PgUp/PgDn` 滚动历史",
+				"- `Ctrl+J` 或 `Alt+Enter` 换行；支持多行粘贴",
+				"- `←/→`、`Home/End`、`Ctrl+A/E` 移动光标；`Alt+←/→` 按词移动",
+				"- `Ctrl+W` 删词，`Ctrl+U` 删到行首，`Ctrl+K` 删到行尾",
+				"- `Ctrl+C` 两次退出（后台对话继续运行）",
+			].join("\n");
 			session?.messages.push({
 				role: "agent",
-				text: `## 可用命令\n\n${slashCommands
-					.map(([command, description]) => `- \`${command}\` — ${description}`)
-					.join(
-						"\n",
-					)}\n\n快捷键：\`Alt/Ctrl+↑/↓\` 切换对话，\`Esc\` 中止回合。`,
+				text: `## 可用命令\n\n${commands}\n\n## 快捷键\n\n${shortcuts}`,
 			});
-			state.visibleMessageCount = 12;
+			state.scrollOffset = 0;
 			break;
 		}
 		case "exit":
@@ -1101,6 +1614,7 @@ async function sendMessage(state: TuiState, text: string): Promise<void> {
 		} catch (error) {
 			reportError(state, error);
 		}
+		render(state);
 		return;
 	}
 	await sendMessageTo(state, session, text);
@@ -1113,6 +1627,9 @@ async function sendMessageTo(
 ): Promise<void> {
 	session.messages.push({ role: "user", text });
 	state.notice = undefined;
+	// Echo the user's message immediately; the prompt round-trip below can
+	// take a moment and the composer already cleared.
+	render(state);
 
 	const prompt: ContentBlock[] = [{ type: "text", text }];
 	const input = {
@@ -1147,58 +1664,67 @@ async function followTurn(
 	session.status = "running";
 	state.streamingSessionId = session.sessionId;
 	state.streamingText = "";
+	startSpinner(state);
+	render(state);
 
-	const result = await subscribeToSession(state.connection, {
-		sessionId: session.sessionId,
-		since: session.lastSeq,
-		epoch: session.epoch,
-		signal,
-		onEnvelope: (envelope) => {
-			const frame = envelope.frame;
+	try {
+		const result = await subscribeToSession(state.connection, {
+			sessionId: session.sessionId,
+			since: session.lastSeq,
+			epoch: session.epoch,
+			signal,
+			onEnvelope: (envelope) => {
+				const frame = envelope.frame;
 
-			if (frame.kind === "prompt_rejected") {
-				state.notice = {
-					text: `请求被拒绝：${frame.reason}`,
-					tone: "warning",
-				};
-				throw STOP_STREAM;
-			}
-
-			if (frame.kind === "permission_requested") {
-				session.pendingPermissions = [frame.pending];
-				session.status = "awaiting_permission";
-				if (current(state) === session) {
-					state.view = "permission";
-					state.permissionIndex = 0;
-				}
-				throw STOP_STREAM;
-			}
-
-			if (frame.kind === "update") {
-				const update = frame.update;
-				if (update.sessionUpdate === "agent_message_chunk") {
-					agentText += contentBlockToText(update.content);
-					if (state.streamingSessionId === session.sessionId) {
-						state.streamingText = agentText;
-					}
-				}
-				return;
-			}
-
-			if (frame.kind === "state") {
-				const status = frame.state.status;
-				if (status === "idle" || status === "dead") {
-					session.status = status;
+				if (frame.kind === "prompt_rejected") {
+					state.notice = {
+						text: `请求被拒绝：${frame.reason}`,
+						tone: "warning",
+					};
 					throw STOP_STREAM;
 				}
-				if (status === "running" || status === "starting") {
-					session.status = "running";
-				}
-			}
-		},
-	});
 
-	session.lastSeq = Math.max(session.lastSeq, result.lastSeq);
+				if (frame.kind === "permission_requested") {
+					session.pendingPermissions = [frame.pending];
+					session.status = "awaiting_permission";
+					if (current(state) === session) {
+						state.view = "permission";
+						state.permissionIndex = 0;
+					}
+					throw STOP_STREAM;
+				}
+
+				if (frame.kind === "update") {
+					const update = frame.update;
+					if (update.sessionUpdate === "agent_message_chunk") {
+						agentText += contentBlockToText(update.content);
+						if (state.streamingSessionId === session.sessionId) {
+							state.streamingText = agentText;
+						}
+						// Repaint per chunk so output streams in view; the frame
+						// budget throttles this back to a sustainable rate.
+						render(state);
+					}
+					return;
+				}
+
+				if (frame.kind === "state") {
+					const status = frame.state.status;
+					if (status === "idle" || status === "dead") {
+						session.status = status;
+						throw STOP_STREAM;
+					}
+					if (status === "running" || status === "starting") {
+						session.status = "running";
+					}
+				}
+			},
+		});
+		session.lastSeq = Math.max(session.lastSeq, result.lastSeq);
+	} finally {
+		stopSpinner(state);
+	}
+
 	if (agentText.trim()) {
 		session.messages.push({ role: "agent", text: agentText });
 	}
@@ -1215,6 +1741,7 @@ async function followTurn(
 			tone: "success",
 		};
 	}
+	render(state);
 }
 
 function reportError(state: TuiState, error: unknown): void {
