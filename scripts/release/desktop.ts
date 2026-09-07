@@ -31,6 +31,7 @@ import {
 	sleep,
 	success,
 	syncUnified,
+	UNIFIED_PACKAGES,
 	warn,
 	writeVersion,
 } from "./lib.ts";
@@ -342,7 +343,7 @@ async function releaseFromHead(
 			withDaemon,
 			"desktop",
 		);
-		await $`git add ${`${DESKTOP_DIR}/package.json`} packages/host-service/package.json ${daemonAdd} bun.lock`;
+		await $`git add ${`${DESKTOP_DIR}/package.json`} ${UNIFIED_PACKAGES.map((pkg) => `${pkg}/package.json`)} ${daemonAdd} bun.lock`;
 		await $`git commit -m ${`chore(desktop): bump version to ${version} (${message})`}`;
 		success(`Committed version bump (${message})`);
 	} else {
@@ -403,7 +404,7 @@ async function releaseFromCommit(
 				withDaemon,
 				"desktop",
 			);
-			await $`git add ${`${DESKTOP_DIR}/package.json`} packages/host-service/package.json ${daemonAdd} bun.lock`.cwd(
+			await $`git add ${`${DESKTOP_DIR}/package.json`} ${UNIFIED_PACKAGES.map((pkg) => `${pkg}/package.json`)} ${daemonAdd} bun.lock`.cwd(
 				worktree,
 			);
 			await $`git commit -m ${`chore(desktop): bump version to ${version} (${message})`}`.cwd(
