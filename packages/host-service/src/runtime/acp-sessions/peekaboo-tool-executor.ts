@@ -1,3 +1,6 @@
+import { setTimeout as delay } from "node:timers/promises";
+import { boundsSchema, type ReadNativeState } from "./peekaboo-native-state";
+import { verifyNativeState } from "./peekaboo-state-verifier";
 import type { McpToolResult } from "./stdio-mcp-client";
 
 type Args = Record<string, unknown>;
@@ -79,7 +82,10 @@ export class PeekabooToolExecutor {
 		string,
 		{ receipt?: Receipt; mismatched: boolean }
 	>();
-	constructor(private readonly upstream: ToolCall) {}
+	constructor(
+		private readonly upstream: ToolCall,
+		private readonly readNative?: ReadNativeState,
+	) {}
 
 	async call(
 		name: string,
@@ -90,6 +96,32 @@ export class PeekabooToolExecutor {
 			signal?.throwIfAborted();
 			return this.upstream(tool, input, signal);
 		};
+		if (name === "verify_state" && this.readNative) {
+			const verified = await verifyNativeState(args, this.readNative, signal);
+			if (args.final_screenshot !== true || verified.isError) return verified;
+			const receipt = receiptOf(verified);
+			if (!receipt) return verified;
+			const image = await invoke("see", {
+				app_target: `PID:${receipt.pid}`,
+				window_id: receipt.window_id,
+			});
+			if (image.isError || !sameReceipt(receipt, receiptOf(image)))
+				return append(
+					{
+						...verified,
+						isError: true,
+						_meta: { ...record(verified._meta), status: "unknown" },
+					},
+					"Final screenshot could not confirm the same exact window.",
+				);
+			return {
+				...verified,
+				content: [
+					...(Array.isArray(verified.content) ? verified.content : []),
+					...(Array.isArray(image.content) ? image.content : []),
+				],
+			};
+		}
 		const reference =
 			typeof args.snapshot === "string"
 				? args.snapshot
@@ -161,6 +193,17 @@ export class PeekabooToolExecutor {
 		}
 
 		let result = await invoke(name, prepared);
+		if (
+			name === "window" &&
+			(args.action === "restore" || args.action === "focus") &&
+			result.isError &&
+			this.readNative &&
+			/changed identity before native dispatch|changed exact focus identity|timeoutWaitingForCondition/.test(
+				textOf(result),
+			)
+		) {
+			result = await this.restoreThroughDock(result, args, invoke, signal);
+		}
 		if (name === "see" || name === "inspect_ui")
 			result = this.rememberObservation(result, args);
 		const meta = record(result._meta);
@@ -198,6 +241,120 @@ export class PeekabooToolExecutor {
 			);
 		}
 		return result;
+	}
+
+	private async restoreThroughDock(
+		original: McpToolResult,
+		args: Args,
+		invoke: ToolCall,
+		signal?: AbortSignal,
+	): Promise<McpToolResult> {
+		if (!this.readNative) return original;
+		let dockAttempted = false;
+		const unresolved = (message: string) =>
+			append(
+				dockAttempted
+					? {
+							...original,
+							_meta: {
+								...record(original._meta),
+								state: "indeterminate",
+								effect: "unverifiable",
+								mutation_dispatched: true,
+								escalation: "observe_before_retry",
+							},
+						}
+					: original,
+				message,
+			);
+		try {
+			const before = await this.readNative(
+				{
+					app: args.app,
+					window_id: args.window_id,
+					window_title: args.title,
+					window_index: args.index,
+				},
+				2000,
+				signal,
+			);
+			const originalReceipt = receiptOf(original);
+			if (originalReceipt && !sameReceipt(originalReceipt, before.receipt))
+				return unresolved(
+					"Recovery stopped: original target identity changed.",
+				);
+			const expected = before.elements.find(
+				(element) => element.ax_role === "AXWindow",
+			)?.bounds;
+			if (!expected)
+				return append(
+					original,
+					"Recovery could not resolve exact AX window bounds.",
+				);
+			const target = {
+				pid: before.receipt.pid,
+				window_id: before.receipt.window_id,
+			};
+			const current = await this.readNative(target, 2000, signal);
+			if (!sameReceipt(before.receipt, current.receipt))
+				return append(
+					original,
+					"Recovery stopped: the target process or window changed.",
+				);
+			dockAttempted = true;
+			const dock = await invoke("dock", {
+				action: "launch",
+				app: before.applicationName,
+				foreground: true,
+			});
+			if (dock.isError && record(dock._meta)?.mutation_dispatched !== true)
+				return append(original, `Dock recovery refused: ${textOf(dock)}`);
+			// Dock activation restores a Stage Manager group. Confirm the requested
+			// window itself, rather than treating Dock's delivery receipt as success.
+			for (let attempt = 0; attempt < 4; attempt++) {
+				await delay(100, undefined, { signal });
+				const seen = await invoke("see", {
+					app_target: `PID:${target.pid}`,
+					window_id: target.window_id,
+				});
+				const bounds = boundsSchema.safeParse(
+					record(record(seen._meta)?.coordinate_context)?.logical_bounds,
+				);
+				if (
+					!seen.isError &&
+					sameReceipt(before.receipt, receiptOf(seen)) &&
+					bounds.success &&
+					(["x", "y", "width", "height"] as const).every(
+						(key) => Math.abs(bounds.data[key] - expected[key]) <= 2,
+					)
+				) {
+					const after = await this.readNative(target, 2000, signal);
+					if (!sameReceipt(before.receipt, after.receipt)) break;
+					return append(
+						{
+							...this.rememberObservation(seen, {}),
+							isError: false,
+							_meta: {
+								...record(seen._meta),
+								state: "confirmed_change",
+								effect: "confirmed",
+								mutation_dispatched: true,
+								recovery: "dock-activation",
+							},
+						},
+						"Window restored through Dock activation; exact process/window identity and full-size screenshot bounds were verified. Use this fresh snapshot for subsequent input.",
+					);
+				}
+			}
+			return unresolved(
+				"Dock activation was attempted once, but the exact window did not regain verified full-size bounds. Do not reuse old coordinates.",
+			);
+		} catch (error) {
+			signal?.throwIfAborted();
+			return unresolved(
+				`Window recovery could not be verified: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
 	}
 
 	private rememberObservation(

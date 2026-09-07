@@ -12,6 +12,7 @@ import {
 	rewriteComputerUseRequest,
 	rewritePeekabooResponse,
 } from "./peekaboo-mcp-proxy";
+import { createNativeStateReader } from "./peekaboo-native-state";
 import { PeekabooToolExecutor } from "./peekaboo-tool-executor";
 import type { McpToolResult } from "./stdio-mcp-client";
 
@@ -49,46 +50,50 @@ const child = spawn(
 const pendingMethods = new Map<string | number, string>();
 const internalCalls = new Map<string, (response: JsonRpcMessage) => void>();
 const activeCalls = new Map<string | number, AbortController>();
+const internalIdPrefix = `superset-${randomUUID()}-`;
 let toolQueue = Promise.resolve();
-const executor = new PeekabooToolExecutor((name, args, signal) => {
-	return new Promise<McpToolResult>((resolve, reject) => {
-		const id = `superset-${randomUUID()}`;
-		const cleanup = () => {
-			clearTimeout(timeout);
-			internalCalls.delete(id);
-			signal?.removeEventListener("abort", cancel);
-		};
-		const cancel = () => {
-			cleanup();
-			if (!child.stdin.destroyed)
-				child.stdin.write(
-					`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: id } })}\n`,
+const executor = new PeekabooToolExecutor(
+	(name, args, signal) => {
+		return new Promise<McpToolResult>((resolve, reject) => {
+			const id = `${internalIdPrefix}${randomUUID()}`;
+			const cleanup = () => {
+				clearTimeout(timeout);
+				internalCalls.delete(id);
+				signal?.removeEventListener("abort", cancel);
+			};
+			const cancel = () => {
+				cleanup();
+				if (!child.stdin.destroyed)
+					child.stdin.write(
+						`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: id } })}\n`,
+					);
+				reject(
+					new Error(
+						"Computer Use call cancelled; an in-flight action may have taken effect. Observe before retrying.",
+					),
 				);
-			reject(
-				new Error(
-					"Computer Use call cancelled; an in-flight action may have taken effect. Observe before retrying.",
-				),
+			};
+			const timeout = setTimeout(cancel, 120_000);
+			if (signal?.aborted) {
+				cancel();
+				return;
+			}
+			signal?.addEventListener("abort", cancel, { once: true });
+			internalCalls.set(id, (response) => {
+				cleanup();
+				if (response.error !== undefined)
+					reject(new Error(JSON.stringify(response.error)));
+				else if (response.result && typeof response.result === "object")
+					resolve(response.result as McpToolResult);
+				else reject(new Error("Invalid Peekaboo tool result"));
+			});
+			child.stdin.write(
+				`${JSON.stringify({ jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args } })}\n`,
 			);
-		};
-		const timeout = setTimeout(cancel, 120_000);
-		if (signal?.aborted) {
-			cancel();
-			return;
-		}
-		signal?.addEventListener("abort", cancel, { once: true });
-		internalCalls.set(id, (response) => {
-			cleanup();
-			if (response.error !== undefined)
-				reject(new Error(JSON.stringify(response.error)));
-			else if (response.result && typeof response.result === "object")
-				resolve(response.result as McpToolResult);
-			else reject(new Error("Invalid Peekaboo tool result"));
 		});
-		child.stdin.write(
-			`${JSON.stringify({ jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args } })}\n`,
-		);
-	});
-});
+	},
+	createNativeStateReader(executable, resolvePeekabooBridgeSocket()),
+);
 let stderr = "";
 
 child.stderr.setEncoding("utf8");
@@ -191,7 +196,9 @@ createInterface({
 	try {
 		const response = JSON.parse(line) as JsonRpcMessage;
 		const id = response.id;
-		if (typeof id === "string" && internalCalls.has(id)) {
+		// Late responses to timed-out/cancelled internal requests must not leak
+		// into the parent MCP stream as unsolicited tool results.
+		if (typeof id === "string" && id.startsWith(internalIdPrefix)) {
 			internalCalls.get(id)?.(response);
 			return;
 		}

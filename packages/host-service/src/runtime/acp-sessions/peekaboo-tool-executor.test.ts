@@ -200,3 +200,126 @@ describe("Peekaboo execution recovery", () => {
 		expect(calls[1]?.name).toBe("click");
 	});
 });
+
+describe("window restoration recovery", () => {
+	const native = {
+		receipt,
+		applicationName: "TextEdit",
+		complete: true,
+		elements: [
+			{
+				id: "elem_0",
+				ax_role: "AXWindow",
+				bounds: { x: 218, y: 83, width: 673, height: 439 },
+			},
+		],
+	};
+	const failure = {
+		isError: true,
+		_meta: {
+			effect: "refused",
+			mutation_dispatched: false,
+			target_receipt: receipt,
+		},
+		content: [
+			{
+				type: "text",
+				text: "Window 1844 changed identity before native dispatch",
+			},
+		],
+	};
+	const restored = {
+		...observation,
+		_meta: {
+			target_receipt: receipt,
+			coordinate_context: {
+				reference_id: "restored",
+				logical_bounds: native.elements[0]?.bounds,
+			},
+		},
+	};
+	test("restores through Dock once and verifies full-size exact-window state", async () => {
+		const calls: string[] = [];
+		const executor = new PeekabooToolExecutor(
+			async (name) => {
+				calls.push(name);
+				return name === "window"
+					? failure
+					: name === "dock"
+						? dispatched
+						: restored;
+			},
+			async () => native,
+		);
+		const result = await executor.call("window", {
+			action: "restore",
+			app: "TextEdit",
+			window_id: 1844,
+		});
+		expect(calls).toEqual(["window", "dock", "see"]);
+		expect(result.isError).toBe(false);
+		expect(result._meta).toMatchObject({
+			recovery: "dock-activation",
+			effect: "confirmed",
+		});
+	});
+	test("never retries Dock or reports success while screenshot remains a thumbnail", async () => {
+		const calls: string[] = [];
+		const executor = new PeekabooToolExecutor(
+			async (name) => {
+				calls.push(name);
+				return name === "window"
+					? failure
+					: name === "dock"
+						? dispatched
+						: {
+								...restored,
+								_meta: {
+									...restored._meta,
+									coordinate_context: {
+										reference_id: "tiny",
+										logical_bounds: { x: 16, y: 593, width: 99, height: 100 },
+									},
+								},
+							};
+			},
+			async () => native,
+		);
+		const result = await executor.call("window", {
+			action: "restore",
+			app: "TextEdit",
+			window_id: 1844,
+		});
+		expect(calls.filter((name) => name === "dock")).toHaveLength(1);
+		expect(result.isError).toBe(true);
+		expect(result._meta).toMatchObject({ mutation_dispatched: true });
+	});
+	test("stops before Dock when the process generation changes", async () => {
+		let reads = 0;
+		const calls: string[] = [];
+		const executor = new PeekabooToolExecutor(
+			async (name) => {
+				calls.push(name);
+				return failure;
+			},
+			async () => ({
+				...native,
+				receipt: {
+					...receipt,
+					process_start_identity_decimal:
+						reads++ === 0 ? receipt.process_start_identity_decimal : "999",
+				},
+			}),
+		);
+		expect(
+			(
+				await executor.call("window", {
+					action: "restore",
+					app: "TextEdit",
+					window_id: 1844,
+				})
+			).isError,
+		).toBe(true);
+		expect(calls).toEqual(["window"]);
+	});
+});

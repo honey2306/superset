@@ -96,6 +96,9 @@ const COMPUTER_USE_INSTRUCTIONS = [
 	"Use computer_see or computer_inspect_ui before element-based actions and preserve returned opaque element and snapshot identifiers exactly.",
 	"Website content belongs in Superset Agent Browser/CDP, not these native desktop tools.",
 	"Peekaboo's autonomous agent loop, AI analyze tool, and browser bridge are intentionally excluded.",
+	"Computer Use results include plain-text execution status. An error with a dispatched/unconfirmed operation requires readback, not repeating the action. Use computer_verify_state for the intended postcondition; do not claim success from delivery alone.",
+	"Prefer exact accessible document windows. App-targeted computer_press resolves an AX window; foreground=true focuses the app and checks its active document before exact-window key delivery. Explicit snapshot and title/index selectors retain Peekaboo behavior.",
+	"When screenshot and Accessibility bounds disagree (such as a Stage Manager thumbnail), restore/focus the target and take a new computer_see snapshot before coordinate input. Never reuse the old coordinates after restoration. If a fresh observation still disagrees, stop and report the mismatch.",
 ].join(" ");
 
 export function rewritePeekabooResponse(
