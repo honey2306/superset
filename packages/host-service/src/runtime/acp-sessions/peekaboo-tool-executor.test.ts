@@ -382,3 +382,70 @@ describe("final observation identity", () => {
 		);
 	});
 });
+
+describe("capture engine recovery", () => {
+	test("reports a locked session without attempting another capture or activation", async () => {
+		const { executor, calls } = harness([
+			{
+				isError: true,
+				_meta: { mutation_dispatched: false, escalation: "update_runtime" },
+				content: [
+					{
+						type: "text",
+						text: "Screen capture is unavailable while the macOS GUI session is locked.",
+					},
+				],
+			},
+		]);
+		const result = await executor.call("see", { app_target: "TextEdit" });
+		expect(result._meta).toMatchObject({
+			escalation: "unlock_session",
+			mutation_dispatched: false,
+		});
+		expect(calls).toHaveLength(1);
+	});
+	const captureFailure: McpToolResult = {
+		isError: true,
+		content: [
+			{
+				type: "text",
+				text: "Capture failed: Exact window changed while ScreenCaptureKit prepared capture metadata",
+			},
+		],
+	};
+	test("re-observes the exact window once with classic capture after the known preparation race", async () => {
+		const { executor, calls } = harness([captureFailure, observation]);
+		const result = await executor.call("see", {
+			app_target: "PID:38434",
+			window_id: 1844,
+		});
+		expect(result.isError).toBe(false);
+		expect(calls).toEqual([
+			{ name: "see", args: { app_target: "PID:38434", window_id: 1844 } },
+			{
+				name: "see",
+				args: {
+					app_target: "PID:38434",
+					window_id: 1844,
+					capture_engine: "classic",
+				},
+			},
+		]);
+	});
+	test("preserves an explicit engine and unrelated capture refusals", async () => {
+		for (const [args, failure] of [
+			[{ app_target: "TextEdit", capture_engine: "modern" }, captureFailure],
+			[
+				{ app_target: "TextEdit" },
+				{
+					isError: true,
+					content: [{ type: "text", text: "Permission denied" }],
+				},
+			],
+		] as const) {
+			const { executor, calls } = harness([failure]);
+			expect((await executor.call("see", args)).isError).toBe(true);
+			expect(calls).toHaveLength(1);
+		}
+	});
+});

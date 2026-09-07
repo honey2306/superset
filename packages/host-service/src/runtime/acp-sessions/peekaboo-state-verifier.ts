@@ -283,7 +283,7 @@ export async function verifyNativeState(
 		content: [
 			{
 				type: "text",
-				text: `Verification ${status} after ${samples} targeted AX sample(s).${reason ? `\nReason: ${reason}` : ""}\n${checks.map((c, i) => `${i + 1}. ${c.kind}: ${c.status}${c.observed !== undefined ? `; observed ${JSON.stringify(c.observed)}` : ""}${c.reason ? `; ${c.reason}` : ""}`).join("\n")}`,
+				text: `${checks.some((c) => c.status === "unknown" && c.reason?.includes("incomplete")) ? "The target AX tree is incomplete. If bringing this app forward is allowed by the task, use computer_app focus for the pinned PID, then obtain a fresh observation and verify again. Verification itself does not change focus.\n" : ""}Verification ${status} after ${samples} targeted AX sample(s).${reason ? `\nReason: ${reason}` : ""}\n${checks.map((c, i) => `${i + 1}. ${c.kind}: ${c.status}${c.observed !== undefined ? `; observed ${JSON.stringify(c.observed)}` : ""}${c.reason ? `; ${c.reason}` : ""}`).join("\n")}`,
 			},
 		],
 	};

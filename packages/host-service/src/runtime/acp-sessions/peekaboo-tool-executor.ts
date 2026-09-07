@@ -96,9 +96,29 @@ export class PeekabooToolExecutor {
 		args: Args,
 		signal?: AbortSignal,
 	): Promise<McpToolResult> {
-		const invoke: ToolCall = (tool, input) => {
+		const invoke: ToolCall = async (tool, input) => {
 			signal?.throwIfAborted();
-			return this.upstream(tool, input, signal);
+			const result = await this.upstream(tool, input, signal);
+			if (
+				tool === "see" &&
+				result.isError &&
+				(input.capture_engine === undefined ||
+					input.capture_engine === "auto") &&
+				textOf(result).includes(
+					"Exact window changed while ScreenCaptureKit prepared capture metadata",
+				)
+			) {
+				signal?.throwIfAborted();
+				return append(
+					await this.upstream(
+						tool,
+						{ ...input, capture_engine: "classic" },
+						signal,
+					),
+					"The ScreenCaptureKit preparation race triggered one fresh observation with Peekaboo's classic capture engine. The original target selectors and native identity checks remain in force.",
+				);
+			}
+			return result;
 		};
 		if (name === "verify_state" && this.readNative) {
 			const verified = await verifyNativeState(args, this.readNative, signal);
@@ -205,6 +225,17 @@ export class PeekabooToolExecutor {
 		}
 
 		let result = await invoke(name, prepared);
+		if (
+			result.isError &&
+			textOf(result).includes("macOS GUI session is locked")
+		)
+			return append(
+				{
+					...result,
+					_meta: { ...record(result._meta), escalation: "unlock_session" },
+				},
+				"Desktop observation is blocked by the locked macOS session. The user must unlock the active session before desktop verification can continue. This error does not require a runtime upgrade; do not retry capture or change permissions while locked.",
+			);
 		if (
 			name === "window" &&
 			(args.action === "restore" || args.action === "focus") &&
