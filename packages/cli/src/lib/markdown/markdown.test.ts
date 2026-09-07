@@ -8,18 +8,18 @@ const visible = (source: string, width = 80): string[] =>
 	renderMarkdown(source, width).map(stripAnsi);
 
 describe("标题", () => {
-	test("h1/h2 不显示井号，h3 起显示着色前缀", () => {
+	test("所有层级都隐藏井号并保留标题样式", () => {
 		const lines = renderMarkdown("# 顶级\n## 次级\n### 三级\n#### 四级", 80);
 		expect(visible("# 顶级\n## 次级\n### 三级\n#### 四级", 80)).toEqual([
 			" 顶级",
 			"",
 			" 次级",
 			"",
-			" ### 三级",
+			" 三级",
 			"",
-			" #### 四级",
+			" 四级",
 		]);
-		// h1：heading 色 + 粗体 + 下划线；h2：heading 色 + 粗体（无下划线）
+		// h1：heading 色 + 粗体 + 下划线；其他层级：heading 色 + 粗体
 		const h1 = lines[0] ?? "";
 		expect(h1).toContain("\x1b[38;2;240;198;116m");
 		expect(h1).toContain("\x1b[1m");
@@ -28,8 +28,8 @@ describe("标题", () => {
 		expect(h2).toContain("\x1b[1m");
 		expect(h2).not.toContain("\x1b[4m");
 		const h3 = lines[4] ?? "";
-		// 前缀与文字都是 heading 色
-		expect(h3.startsWith(" \x1b[38;2;240;198;116m\x1b[1m### ")).toBe(true);
+		expect(h3).toContain("\x1b[38;2;240;198;116m");
+		expect(stripAnsi(h3)).not.toContain("#");
 	});
 });
 
@@ -104,16 +104,17 @@ describe("行内样式", () => {
 });
 
 describe("代码块", () => {
-	test("首尾 fence 着边框色，正文缩进 2 空格", () => {
+	test("隐藏 fence，正文保持代码缩进", () => {
 		const lines = renderMarkdown("```\nplain code\n```", 80);
-		expect(lines.map(stripAnsi)).toEqual([" ```", "   plain code", " ```"]);
-		expect(lines[0]).toContain("\x1b[38;2;128;128;128m```");
-		expect(lines[2]).toContain("\x1b[38;2;128;128;128m```");
+		expect(lines.map(stripAnsi)).toEqual(["   plain code"]);
+		expect(lines.join("\n")).not.toContain("```");
 	});
 
-	test("有效语言会语法高亮", () => {
+	test("语言名作为元数据标签显示，不带 fence", () => {
 		const lines = renderMarkdown("```ts\nconst a = 1;\n```", 80);
-		expect(stripAnsi(lines[1] ?? "")).toBe("   const a = 1;");
+		expect(lines.map(stripAnsi)).toEqual([" ts", "   const a = 1;"]);
+		expect(lines[0]).toContain("\x1b[38;2;128;128;128mts");
+		expect(lines.join("\n")).not.toContain("```");
 		// keyword (#569CD6) 着色
 		expect(lines[1]).toContain("\x1b[38;2;86;156;214mconst\x1b[39m");
 	});

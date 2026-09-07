@@ -40,7 +40,20 @@ describe("Superset delegation protocol", () => {
 				},
 			}),
 		).toMatchObject({
-			arguments: { category: "debugging", pinned: false },
+			arguments: {
+				category: "debugging",
+				pinned: false,
+				scope: "project",
+			},
+		});
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "session-1",
+				name: "search_project_memories",
+				arguments: {},
+			}),
+		).toMatchObject({
+			arguments: { query: "", limit: 10, scope: "all" },
 		});
 		const injectedMemory = formatProjectMemoryInstructions([
 			{
@@ -58,6 +71,79 @@ describe("Superset delegation protocol", () => {
 		expect(injectedMemory).not.toContain(
 			"Match the renderer to the current worktree.",
 		);
+
+		const terminalRequest = supersetToolRequestSchema.parse({
+			sourceSessionId: "session-1",
+			name: "read_terminal",
+			arguments: { terminalId: "terminal-1" },
+		});
+		expect(terminalRequest).toMatchObject({
+			arguments: { terminalId: "terminal-1", maxBytes: 16_384 },
+		});
+		const tools = SUPERSET_TOOL_DEFINITIONS.map(
+			(definition) => definition.name,
+		);
+		expect(tools).toEqual(
+			expect.arrayContaining([
+				"create_terminal",
+				"write_terminal",
+				"read_terminal",
+				"get_terminal_status",
+				"close_terminal",
+				"steer_session",
+				"list_global_mcp_servers",
+				"upsert_global_mcp_server",
+				"remove_global_mcp_server",
+			]),
+		);
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "session-1",
+				name: "upsert_global_mcp_server",
+				arguments: { name: "docs", command: "npx" },
+			}),
+		).toMatchObject({
+			arguments: { args: [], env: {}, enabled: true },
+		});
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "session-1",
+				name: "steer_session",
+				arguments: { sessionId: "session-2", message: "Check this first" },
+			}),
+		).toMatchObject({ name: "steer_session" });
+
+		const scopedMemory = formatProjectMemoryInstructions([
+			{ title: "Shared workflow", category: "workflow", scope: "global" },
+			{ title: "Shared workflow", category: "workflow", scope: "project" },
+			{ title: "Preferred language", category: "preference", scope: "global" },
+		]);
+		expect(scopedMemory).toContain(
+			"Project memory index:\n- Shared workflow (workflow)",
+		);
+		expect(scopedMemory).toContain(
+			"Global memory index:\n- Preferred language (preference)",
+		);
+		expect(scopedMemory.match(/Shared workflow/g)).toHaveLength(1);
+		expect(scopedMemory).toContain("Project memory takes precedence");
+	});
+
+	test("advertises and validates peer discussions", () => {
+		const tool = SUPERSET_TOOL_DEFINITIONS.find(
+			(definition) => definition.name === "discuss",
+		);
+		expect(tool?.description).toContain("peer agents");
+		expect(tool?.description).toContain("right sidebar");
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "session-1",
+				name: "discuss",
+				arguments: {
+					topic: "Choose an ACP discussion model",
+					participants: [{ agent: "claude" }, { agent: "codex" }],
+				},
+			}),
+		).toMatchObject({ name: "discuss", arguments: { maxRounds: 2 } });
 	});
 
 	test("advertises timely user-visible plan updates", () => {

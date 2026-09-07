@@ -1,3 +1,4 @@
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import type {
 	SessionConfigOption,
 	SessionModeState,
@@ -5,20 +6,26 @@ import type {
 	UsageUpdate,
 } from "@superset/session-protocol";
 import {
+	getProviderLogoUrl,
+	MODEL_PROVIDERS,
+	resolveModelProviderLogoKey,
+} from "@superset/shared/agent-models";
+import {
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@superset/ui/dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
 import { Brain, ChevronDown, GitBranch } from "lucide-react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import {
-	cleanModelLabel,
 	cleanThinkingLabel,
+	findAcpModelProvider,
+	groupAcpModelOptions,
 	normalizeAcpIdentity,
 } from "./acpIdentity";
 import { CtxDonut } from "./CtxDonut";
+import { StatusOptionItem } from "./StatusOptionItem";
 
 interface AcpStatusBarProps {
 	state: SessionScopedState;
@@ -67,6 +74,36 @@ export function AcpStatusBar({
 	const identity = normalizeAcpIdentity(resolvedMode, resolvedConfigOptions);
 	const modelOption = identity.model?.control ?? null;
 	const modelLabel = identity.model?.label ?? null;
+	// Grouped straight from the adapter's config data: ACP grouped options
+	// carry their provider in the group name, flat catalogs carry it in the
+	// entry name / value prefix ("万擎 / Claude Opus 5"). No inference.
+	const groupedOptions = groupAcpModelOptions(modelOption?.options ?? []);
+	// A single configured provider still surfaces as the section header —
+	// the per-item labels had their prefix stripped, so without the header
+	// the provider name would disappear from the menu entirely.
+	const onlyProvider =
+		groupedOptions.length === 1 &&
+		groupedOptions[0].label === null &&
+		groupedOptions[0].models.length > 0 &&
+		groupedOptions[0].models.every((model) => model.provider != null)
+			? (groupedOptions[0].models[0].provider as string)
+			: null;
+	const modelGroups =
+		onlyProvider != null
+			? [
+					{
+						label: MODEL_PROVIDERS[onlyProvider] ?? onlyProvider,
+						models: groupedOptions[0].models,
+					},
+				]
+			: groupedOptions;
+	const modelProvider = modelOption
+		? findAcpModelProvider(
+				modelOption.options,
+				modelOption.currentValue ?? null,
+			)
+		: null;
+	const modelProviderLogoKey = resolveModelProviderLogoKey(modelProvider ?? "");
 	const thinkingEffortLabel = identity.thinking?.label ?? null;
 	const thinkingEffortOption =
 		identity.thinking?.source === "config" ? identity.thinking.control : null;
@@ -113,7 +150,15 @@ export function AcpStatusBar({
 										aria-label={`Change model, current ${modelLabel}`}
 									>
 										<span className="acp-status-bar__seg-glyph" aria-hidden>
-											◆
+											{modelProviderLogoKey ? (
+												<img
+													alt=""
+													className="acp-status-bar__seg-logo dark:invert"
+													src={getProviderLogoUrl(modelProviderLogoKey)}
+												/>
+											) : (
+												"◆"
+											)}
 										</span>
 										<span className="acp-status-bar__seg-value">
 											{modelLabel}
@@ -125,24 +170,42 @@ export function AcpStatusBar({
 									</button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="start">
-									{modelOption.options
-										.flatMap((entry) =>
-											"options" in entry ? entry.options : [entry],
-										)
-										.map((option) => (
-											<DropdownMenuItem
-												key={option.value}
-												disabled={
-													isSubmitting ||
-													option.value === modelOption.currentValue
-												}
-												onSelect={() => {
-													void onSetConfigOption(modelOption.id, option.value);
-												}}
-											>
-												{cleanModelLabel(option.name)}
-											</DropdownMenuItem>
-										))}
+									{modelGroups.map((group, groupIndex) => (
+										<DropdownMenuPrimitive.Group
+											key={group.label ?? `__group_${groupIndex}`}
+										>
+											{group.label ? (
+												<DropdownMenuPrimitive.Label className="px-2.5 pt-2.5 pb-1 text-[10px] font-medium tracking-[0.16em] uppercase text-fg-faint">
+													{group.label}
+												</DropdownMenuPrimitive.Label>
+											) : null}
+											{group.models.map((model) => {
+												const selected = model.id === modelOption.currentValue;
+												const logoKey = model.provider
+													? resolveModelProviderLogoKey(model.provider)
+													: null;
+												return (
+													<StatusOptionItem
+														key={model.id}
+														selected={selected}
+														disabled={isSubmitting || selected}
+														onSelect={() => {
+															void onSetConfigOption(modelOption.id, model.id);
+														}}
+													>
+														{logoKey ? (
+															<img
+																alt=""
+																className="size-3 shrink-0 object-contain dark:invert"
+																src={getProviderLogoUrl(logoKey)}
+															/>
+														) : null}
+														<span className="truncate">{model.label}</span>
+													</StatusOptionItem>
+												);
+											})}
+										</DropdownMenuPrimitive.Group>
+									))}
 								</DropdownMenuContent>
 							</DropdownMenu>
 						) : (
@@ -151,7 +214,15 @@ export function AcpStatusBar({
 								title={`Model: ${modelLabel}`}
 							>
 								<span className="acp-status-bar__seg-glyph" aria-hidden>
-									◆
+									{modelProviderLogoKey ? (
+										<img
+											alt=""
+											className="acp-status-bar__seg-logo dark:invert"
+											src={getProviderLogoUrl(modelProviderLogoKey)}
+										/>
+									) : (
+										"◆"
+									)}
 								</span>
 								<span className="acp-status-bar__seg-value">{modelLabel}</span>
 							</span>
@@ -182,8 +253,11 @@ export function AcpStatusBar({
 											"options" in entry ? entry.options : [entry],
 										)
 										.map((option) => (
-											<DropdownMenuItem
+											<StatusOptionItem
 												key={option.value}
+												selected={
+													option.value === thinkingEffortOption.currentValue
+												}
 												disabled={
 													isSubmitting ||
 													option.value === thinkingEffortOption.currentValue
@@ -195,8 +269,10 @@ export function AcpStatusBar({
 													)
 												}
 											>
-												{cleanThinkingLabel(option.name)}
-											</DropdownMenuItem>
+												<span className="truncate">
+													{cleanThinkingLabel(option.name)}
+												</span>
+											</StatusOptionItem>
 										))}
 								</DropdownMenuContent>
 							</DropdownMenu>
@@ -221,8 +297,9 @@ export function AcpStatusBar({
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="start">
 									{thinkingMode.availableModes.map((mode) => (
-										<DropdownMenuItem
+										<StatusOptionItem
 											key={mode.id}
+											selected={mode.id === thinkingMode.currentModeId}
 											disabled={
 												isSubmitting || mode.id === thinkingMode.currentModeId
 											}
@@ -230,8 +307,10 @@ export function AcpStatusBar({
 												void onSetMode(mode.id);
 											}}
 										>
-											{cleanThinkingLabel(mode.name)}
-										</DropdownMenuItem>
+											<span className="truncate">
+												{cleanThinkingLabel(mode.name)}
+											</span>
+										</StatusOptionItem>
 									))}
 								</DropdownMenuContent>
 							</DropdownMenu>

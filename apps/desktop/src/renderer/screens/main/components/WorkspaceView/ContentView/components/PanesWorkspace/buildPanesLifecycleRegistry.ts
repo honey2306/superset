@@ -105,7 +105,7 @@ export function buildPanesLifecycleRegistry(
 }
 
 export interface PanesAcpLifecycleDeps {
-	closeSession: (sessionId: string) => Promise<void>;
+	closeEmptySession: (sessionId: string) => Promise<void>;
 	onCloseError?: (error: unknown) => void;
 }
 
@@ -124,14 +124,13 @@ export function buildPanesAcpLifecycleRegistry(
 			);
 		},
 
-		// ACP panes own their host session. Close the durable session first so a
-		// failed host request leaves the pane available for retry instead of
-		// creating a headless session that keeps the sidebar status active.
+		// Closing a pane only discards a conversation that never received a user
+		// prompt. Useful history stays persisted and can be reopened from search.
 		onBeforeClose: async (pane) => {
 			const sessionId = pane.data.acp?.sessionId;
 			if (!sessionId) return true;
 			try {
-				await deps.closeSession(sessionId);
+				await deps.closeEmptySession(sessionId);
 				return true;
 			} catch (error) {
 				deps.onCloseError?.(error);

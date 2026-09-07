@@ -34,6 +34,7 @@ function createBridge(calls: string[]): AgentBrowserBridge {
 			calls.push(`close-page:${pageId}`);
 			return { pages: [] };
 		},
+		capturePage: async () => "cG5n",
 		closeSession: async () => {
 			calls.push("close-session");
 		},

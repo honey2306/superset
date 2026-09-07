@@ -195,6 +195,88 @@ describe("SqliteAcpSessionPersistence delegation runs", () => {
 		sqlite.close();
 	});
 
+	test("persists discussion rounds and completed history", () => {
+		const sqlite = new Database(":memory:");
+		sqlite.exec(`
+			CREATE TABLE discussion_runs (
+				id TEXT PRIMARY KEY NOT NULL,
+				workspace_id TEXT NOT NULL,
+				source_session_id TEXT NOT NULL,
+				topic TEXT NOT NULL,
+				status TEXT NOT NULL,
+				current_round INTEGER NOT NULL,
+				max_rounds INTEGER NOT NULL,
+				participants_json TEXT NOT NULL,
+				rounds_json TEXT DEFAULT '[]' NOT NULL,
+				final_positions_json TEXT DEFAULT '[]' NOT NULL,
+				failure_message TEXT,
+				created_at INTEGER NOT NULL,
+				updated_at INTEGER NOT NULL,
+				completed_at INTEGER
+			);
+		`);
+		const db = drizzle(sqlite, { schema }) as unknown as HostDb;
+		const persistence = new SqliteAcpSessionPersistence(db);
+		const run = {
+			id: "discussion-1",
+			workspaceId: "workspace-1",
+			sourceSessionId: "source-1",
+			topic: "Choose an architecture",
+			status: "running" as const,
+			currentRound: 1,
+			maxRounds: 2,
+			participants: [
+				{
+					sessionId: "alpha",
+					agent: "claude" as const,
+					model: "sonnet",
+					label: "Claude",
+				},
+				{
+					sessionId: "beta",
+					agent: "codex" as const,
+					model: "gpt",
+					label: "Codex",
+				},
+			],
+			rounds: [],
+			finalPositions: [],
+			failureMessage: null,
+			createdAt: 10,
+			updatedAt: 10,
+			completedAt: null,
+		};
+		persistence.upsertDiscussionRun(run);
+		expect(persistence.listActiveDiscussionRuns()).toHaveLength(1);
+		expect(persistence.getDiscussionRun(run.id)).toEqual(run);
+
+		persistence.upsertDiscussionRun({
+			...run,
+			status: "completed",
+			currentRound: 2,
+			rounds: [
+				{
+					round: 1,
+					contributions: [
+						{ sessionId: "alpha", label: "Claude", response: "Position" },
+					],
+				},
+			],
+			finalPositions: [
+				{ sessionId: "alpha", label: "Claude", response: "Position" },
+			],
+			updatedAt: 20,
+			completedAt: 20,
+		});
+		expect(persistence.listActiveDiscussionRuns()).toHaveLength(0);
+		expect(persistence.listDiscussionRuns("workspace-1", 10)[0]).toMatchObject({
+			status: "completed",
+			currentRound: 2,
+			completedAt: 20,
+		});
+		sqlite.close();
+	});
+
 	test("creates, queries, lists, and updates durable handoffs", () => {
 		const sqlite = new Database(":memory:");
 		sqlite.exec(`

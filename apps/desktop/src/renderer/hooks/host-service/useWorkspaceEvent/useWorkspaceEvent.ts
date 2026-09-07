@@ -1,4 +1,5 @@
 import {
+	type AcpDiscussionOpenRequestedPayload,
 	type AgentLifecyclePayload,
 	type GitChangedPayload,
 	getEventBus,
@@ -39,6 +40,12 @@ export function useWorkspaceEvent(
 	enabled?: boolean,
 ): void;
 export function useWorkspaceEvent(
+	type: "acp-discussion:open-requested",
+	workspaceId: string,
+	callback: (payload: AcpDiscussionOpenRequestedPayload) => void,
+	enabled?: boolean,
+): void;
+export function useWorkspaceEvent(
 	type: "port:changed",
 	workspaceId: string,
 	callback: (payload: PortChangedPayload) => void,
@@ -50,14 +57,16 @@ export function useWorkspaceEvent(
 		| "fs:events"
 		| "agent:lifecycle"
 		| "terminal:lifecycle"
-		| "port:changed",
+		| "port:changed"
+		| "acp-discussion:open-requested",
 	workspaceId: string,
 	callback:
 		| ((event: FsWatchEvent) => void)
 		| ((payload: GitChangedPayload) => void)
 		| ((payload: AgentLifecyclePayload) => void)
 		| ((payload: TerminalLifecyclePayload) => void)
-		| ((payload: PortChangedPayload) => void),
+		| ((payload: PortChangedPayload) => void)
+		| ((payload: AcpDiscussionOpenRequestedPayload) => void),
 	enabled = true,
 ): void {
 	const hostUrl = useWorkspaceHostUrl(workspaceId);
@@ -96,6 +105,17 @@ export function useWorkspaceEvent(
 				workspaceId,
 				(_wid, payload) => {
 					(handler as (payload: TerminalLifecyclePayload) => void)(payload);
+				},
+			);
+			cleanups.push(removeListener);
+		} else if (type === "acp-discussion:open-requested") {
+			const removeListener = bus.on(
+				"acp-discussion:open-requested",
+				workspaceId,
+				(_wid, payload) => {
+					(handler as (payload: AcpDiscussionOpenRequestedPayload) => void)(
+						payload,
+					);
 				},
 			);
 			cleanups.push(removeListener);

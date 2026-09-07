@@ -10,14 +10,17 @@ import {
 	decodeMessagesCursor,
 	encodeMessagesCursor,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
+	SUPERSET_DISCUSSION_PARTICIPANT_ROLE,
 	SUPERSET_ROOT_COORDINATOR_ROLE,
 	type SupersetAgent,
 	type SupersetDelegationProfileSummary,
 	type SupersetToolRequest,
 	supersetToolRequestSchema,
 } from "@superset/session-protocol";
+import type { GlobalMcpServer } from "../../global-mcp";
 import type { DelegationProfileTarget } from "../../trpc/router/settings/delegated-execution-target";
 import type { AcpSessionManager } from "./acp-sessions";
+import { DiscussionCoordinator } from "./discussion-coordinator";
 import type {
 	DelegationRunPersistence,
 	DelegationRunRecord,
@@ -36,6 +39,14 @@ export interface AcpSessionOpenRequest {
 		| "fresh_start"
 		| "delegation"
 		| "open_session";
+	occurredAt: number;
+}
+
+export interface DiscussionOpenRequest {
+	workspaceId: string;
+	discussionId: string;
+	sourceSessionId: string;
+	requestId: string;
 	occurredAt: number;
 }
 
@@ -71,9 +82,56 @@ interface DelegatedExecutionProfileState {
 	profilesConfigured?: boolean;
 }
 
+export interface TerminalOpenRequest {
+	workspaceId: string;
+	terminalId: string;
+	sourceSessionId: string;
+	requestId: string;
+	title?: string;
+	focus: boolean;
+	occurredAt: number;
+}
+
+export interface AcpTerminalController {
+	create(input: {
+		workspaceId: string;
+		terminalId: string;
+		cwd?: string;
+		initialCommand?: string;
+		cols?: number;
+		rows?: number;
+	}): Promise<Record<string, unknown>>;
+	write(input: {
+		workspaceId: string;
+		terminalId: string;
+		data: string;
+	}): Promise<Record<string, unknown>>;
+	read(input: {
+		workspaceId: string;
+		terminalId: string;
+		cursor?: number;
+		maxBytes: number;
+	}): Promise<Record<string, unknown>>;
+	status(input: {
+		workspaceId: string;
+		terminalId: string;
+	}): Promise<Record<string, unknown>>;
+	close(input: {
+		workspaceId: string;
+		terminalId: string;
+	}): Promise<Record<string, unknown>>;
+}
+
+export interface GlobalMcpServerSummary extends Omit<GlobalMcpServer, "env"> {
+	envNames: string[];
+}
+
 export interface SupersetToolControllerOptions {
 	manager: AcpSessionManager;
 	onOpenRequested?: (event: AcpSessionOpenRequest) => void;
+	onDiscussionOpenRequested?: (event: DiscussionOpenRequest) => void;
+	terminal?: AcpTerminalController;
+	onTerminalOpenRequested?: (event: TerminalOpenRequest) => void;
 	/** Resolves only the current session's KDev create-MR page. */
 	openMergeRequest?: (input: {
 		cwd: string;
@@ -96,12 +154,17 @@ export interface SupersetToolControllerOptions {
 			| "preference"
 			| "other";
 		pinned: boolean;
+		scope: "project" | "global";
 	}) => Record<string, unknown>;
 	searchProjectMemories?: (input: {
 		workspaceId: string;
 		query: string;
 		limit: number;
+		scope: "project" | "global" | "all";
 	}) => Record<string, unknown>;
+	listGlobalMcpServers?: () => GlobalMcpServerSummary[];
+	upsertGlobalMcpServer?: (input: GlobalMcpServer) => GlobalMcpServer;
+	removeGlobalMcpServer?: (name: string) => boolean;
 	resolveTargetWorkspace?: (input: {
 		sourceWorkspaceId: string;
 		workspaceId?: string;
@@ -111,6 +174,7 @@ export interface SupersetToolControllerOptions {
 	resolveDelegatedExecution?: () => DelegatedExecutionResolution;
 	/** Optional to preserve in-process/legacy controller construction. */
 	delegationRuns?: DelegationRunPersistence;
+	discussionRuns?: import("./persistence").DiscussionRunPersistence;
 }
 
 const AGENT_TO_HARNESS = {
@@ -463,12 +527,19 @@ interface ChildLaunchRecord {
  */
 export class SupersetToolController {
 	private readonly manager: AcpSessionManager;
+	private readonly discussionCoordinator: DiscussionCoordinator;
 	private readonly onOpenRequested: SupersetToolControllerOptions["onOpenRequested"];
+	private readonly onDiscussionOpenRequested: SupersetToolControllerOptions["onDiscussionOpenRequested"];
+	private readonly terminal: SupersetToolControllerOptions["terminal"];
+	private readonly onTerminalOpenRequested: SupersetToolControllerOptions["onTerminalOpenRequested"];
 	private readonly openMergeRequest: SupersetToolControllerOptions["openMergeRequest"];
 	private readonly onMergeRequestOpenRequested: SupersetToolControllerOptions["onMergeRequestOpenRequested"];
 	private readonly setProjectRunCommand: SupersetToolControllerOptions["setProjectRunCommand"];
 	private readonly rememberProjectMemory: SupersetToolControllerOptions["rememberProjectMemory"];
 	private readonly searchProjectMemories: SupersetToolControllerOptions["searchProjectMemories"];
+	private readonly listGlobalMcpServers: SupersetToolControllerOptions["listGlobalMcpServers"];
+	private readonly upsertGlobalMcpServer: SupersetToolControllerOptions["upsertGlobalMcpServer"];
+	private readonly removeGlobalMcpServer: SupersetToolControllerOptions["removeGlobalMcpServer"];
 	private readonly resolveTargetWorkspace: SupersetToolControllerOptions["resolveTargetWorkspace"];
 	private readonly resolveDelegatedExecution: SupersetToolControllerOptions["resolveDelegatedExecution"];
 	private readonly delegationRuns: SupersetToolControllerOptions["delegationRuns"];
@@ -479,11 +550,21 @@ export class SupersetToolController {
 	constructor(options: SupersetToolControllerOptions) {
 		this.manager = options.manager;
 		this.onOpenRequested = options.onOpenRequested;
+		this.onDiscussionOpenRequested = options.onDiscussionOpenRequested;
+		this.discussionCoordinator = new DiscussionCoordinator({
+			manager: options.manager,
+			persistence: options.discussionRuns,
+		});
+		this.terminal = options.terminal;
+		this.onTerminalOpenRequested = options.onTerminalOpenRequested;
 		this.openMergeRequest = options.openMergeRequest;
 		this.onMergeRequestOpenRequested = options.onMergeRequestOpenRequested;
 		this.setProjectRunCommand = options.setProjectRunCommand;
 		this.rememberProjectMemory = options.rememberProjectMemory;
 		this.searchProjectMemories = options.searchProjectMemories;
+		this.listGlobalMcpServers = options.listGlobalMcpServers;
+		this.upsertGlobalMcpServer = options.upsertGlobalMcpServer;
+		this.removeGlobalMcpServer = options.removeGlobalMcpServer;
 		this.resolveTargetWorkspace = options.resolveTargetWorkspace;
 		this.resolveDelegatedExecution = options.resolveDelegatedExecution;
 		this.delegationRuns = options.delegationRuns;
@@ -513,12 +594,30 @@ export class SupersetToolController {
 	): Promise<Record<string, unknown>> {
 		const request = supersetToolRequestSchema.parse(input);
 		const source = this.manager.get(request.sourceSessionId);
-		if (
-			request.name === "delegate" &&
+		const isDelegatedExecutor =
 			this.manager.getRole?.(request.sourceSessionId) ===
-				SUPERSET_DELEGATED_EXECUTOR_ROLE
-		) {
+			SUPERSET_DELEGATED_EXECUTOR_ROLE;
+		const isDiscussionParticipant =
+			this.manager.getRole?.(request.sourceSessionId) ===
+			SUPERSET_DISCUSSION_PARTICIPANT_ROLE;
+		if (request.name === "delegate" && isDelegatedExecutor) {
 			throw new Error("Delegated executor sessions cannot delegate again");
+		}
+		if (
+			isDelegatedExecutor &&
+			(request.name === "list_global_mcp_servers" ||
+				request.name === "upsert_global_mcp_server" ||
+				request.name === "remove_global_mcp_server")
+		) {
+			throw new Error("Delegated executor sessions cannot manage global MCP");
+		}
+		if (
+			request.name === "discuss" &&
+			(isDelegatedExecutor || isDiscussionParticipant)
+		) {
+			throw new Error(
+				"Background participant sessions cannot start discussions",
+			);
 		}
 
 		switch (request.name) {
@@ -598,6 +697,61 @@ export class SupersetToolController {
 					requestId,
 				};
 			}
+			case "create_terminal": {
+				const terminal = this.requireTerminal();
+				const terminalId = randomUUID();
+				const created = await terminal.create({
+					workspaceId: source.workspaceId,
+					terminalId,
+					...(request.arguments.cwd ? { cwd: request.arguments.cwd } : {}),
+					...(request.arguments.initialCommand
+						? { initialCommand: request.arguments.initialCommand }
+						: {}),
+					...(request.arguments.cols ? { cols: request.arguments.cols } : {}),
+					...(request.arguments.rows ? { rows: request.arguments.rows } : {}),
+				});
+				const requestId = randomUUID();
+				let openRequested = false;
+				try {
+					if (this.onTerminalOpenRequested) {
+						this.onTerminalOpenRequested({
+							workspaceId: source.workspaceId,
+							terminalId,
+							sourceSessionId: source.sessionId,
+							requestId,
+							...(request.arguments.title
+								? { title: request.arguments.title }
+								: {}),
+							focus: request.arguments.focus,
+							occurredAt: Date.now(),
+						});
+						openRequested = true;
+					}
+				} catch {
+					// The PTY remains usable when no Desktop renderer is connected.
+				}
+				return { ...created, terminalId, openRequested, requestId };
+			}
+			case "write_terminal":
+				return this.requireTerminal().write({
+					workspaceId: source.workspaceId,
+					...request.arguments,
+				});
+			case "read_terminal":
+				return this.requireTerminal().read({
+					workspaceId: source.workspaceId,
+					...request.arguments,
+				});
+			case "get_terminal_status":
+				return this.requireTerminal().status({
+					workspaceId: source.workspaceId,
+					...request.arguments,
+				});
+			case "close_terminal":
+				return this.requireTerminal().close({
+					workspaceId: source.workspaceId,
+					...request.arguments,
+				});
 			case "get_session_messages": {
 				const target = this.getWorkspaceSession(
 					source,
@@ -633,6 +787,25 @@ export class SupersetToolController {
 					...result,
 				};
 			}
+			case "steer_session": {
+				const target = this.getWorkspaceSession(
+					source,
+					request.arguments.sessionId,
+				);
+				await this.manager.ensureLive(target.sessionId);
+				const result = await this.manager.steerPrompt({
+					sessionId: target.sessionId,
+					commandId: randomUUID(),
+					prompt: textPrompt(request.arguments.message),
+				});
+				return {
+					sessionId: target.sessionId,
+					status: target.status,
+					...result,
+				};
+			}
+			case "discuss":
+				return this.runDiscussion(source, request, signal);
 			case "continue_in_new_session":
 				return this.createChild(request, source, {
 					prompt: request.arguments.handoff,
@@ -690,6 +863,30 @@ export class SupersetToolController {
 					commands: request.arguments.commands,
 				});
 			}
+			case "list_global_mcp_servers": {
+				if (!this.listGlobalMcpServers) {
+					throw new Error("Global MCP configuration is unavailable");
+				}
+				return { servers: this.listGlobalMcpServers() };
+			}
+			case "upsert_global_mcp_server": {
+				if (!this.upsertGlobalMcpServer) {
+					throw new Error("Global MCP configuration is unavailable");
+				}
+				return {
+					server: this.upsertGlobalMcpServer(request.arguments),
+					restartRequired: true,
+				};
+			}
+			case "remove_global_mcp_server": {
+				if (!this.removeGlobalMcpServer) {
+					throw new Error("Global MCP configuration is unavailable");
+				}
+				return {
+					removed: this.removeGlobalMcpServer(request.arguments.name),
+					restartRequired: true,
+				};
+			}
 			case "update_plan": {
 				const envelope = this.manager.updatePlan({
 					sessionId: source.sessionId,
@@ -727,6 +924,13 @@ export class SupersetToolController {
 			default:
 				throw new Error("Unsupported Superset tool");
 		}
+	}
+
+	private requireTerminal(): AcpTerminalController {
+		if (!this.terminal) {
+			throw new Error("Internal terminal control is unavailable");
+		}
+		return this.terminal;
 	}
 
 	private reportDelegationResult(
@@ -870,6 +1074,96 @@ export class SupersetToolController {
 		}
 	}
 
+	listDiscussions(workspaceId: string, limit = 20) {
+		return this.discussionCoordinator.list(workspaceId, limit);
+	}
+
+	stopDiscussion(runId: string) {
+		return this.discussionCoordinator.stop(runId);
+	}
+
+	private async runDiscussion(
+		source: SessionScopedState,
+		request: Extract<SupersetToolRequest, { name: "discuss" }>,
+		signal?: AbortSignal,
+	): Promise<Record<string, unknown>> {
+		const discussionId = randomUUID();
+		const participants: Array<{
+			sessionId: string;
+			agent: SupersetAgent;
+			model?: string;
+			label: string;
+			harness: HarnessKind;
+		}> = [];
+		try {
+			for (const [
+				index,
+				participant,
+			] of request.arguments.participants.entries()) {
+				const sessionId = randomUUID();
+				const session = await this.manager.create({
+					sessionId,
+					workspaceId: source.workspaceId,
+					harness: AGENT_TO_HARNESS[participant.agent],
+					role: SUPERSET_DISCUSSION_PARTICIPANT_ROLE,
+					...(participant.model
+						? { model: participant.model, strictModel: true }
+						: {}),
+				});
+				participants.push({
+					sessionId: session.sessionId,
+					agent: participant.agent,
+					model: participant.model,
+					label: participant.label ?? `Participant ${index + 1}`,
+					harness: session.harness,
+				});
+			}
+		} catch (error) {
+			await Promise.allSettled(
+				participants.map((participant) =>
+					this.manager.close({ sessionId: participant.sessionId }),
+				),
+			);
+			throw error;
+		}
+		const runPromise = this.discussionCoordinator.start({
+			id: discussionId,
+			workspaceId: source.workspaceId,
+			sourceSessionId: source.sessionId,
+			topic: request.arguments.topic,
+			participants,
+			maxRounds: request.arguments.maxRounds,
+		});
+		try {
+			this.onDiscussionOpenRequested?.({
+				workspaceId: source.workspaceId,
+				discussionId,
+				sourceSessionId: source.sessionId,
+				requestId: randomUUID(),
+				occurredAt: Date.now(),
+			});
+		} catch {
+			// The discussion keeps running when no Desktop renderer is connected.
+		}
+		const abort = () => {
+			void this.discussionCoordinator.stop(discussionId);
+		};
+		if (signal?.aborted) abort();
+		else signal?.addEventListener("abort", abort, { once: true });
+		const run = await runPromise.finally(() => {
+			signal?.removeEventListener("abort", abort);
+		});
+		return {
+			discussionId: run.id,
+			status: run.status,
+			topic: run.topic,
+			participants: run.participants,
+			rounds: run.rounds,
+			finalPositions: run.finalPositions,
+			failureMessage: run.failureMessage,
+		};
+	}
+
 	private async resolveChildWorkspace(
 		request: Extract<
 			SupersetToolRequest,
@@ -881,17 +1175,13 @@ export class SupersetToolController {
 		const targetCount = [workspaceId, projectId, projectPath].filter(
 			Boolean,
 		).length;
-		if (targetCount > 1) {
-			throw new Error(
-				"Specify only one of workspaceId, projectId, or projectPath",
-			);
-		}
 		if (targetCount === 0) return source.workspaceId;
-		if (!this.resolveTargetWorkspace) {
-			if (workspaceId) return workspaceId;
+		const resolveTargetWorkspace = this.resolveTargetWorkspace;
+		if (!resolveTargetWorkspace) {
+			if (targetCount === 1 && workspaceId) return workspaceId;
 			throw new Error("Project target resolution is unavailable");
 		}
-		return this.resolveTargetWorkspace({
+		return resolveTargetWorkspace({
 			sourceWorkspaceId: source.workspaceId,
 			...(workspaceId ? { workspaceId } : {}),
 			...(projectId ? { projectId } : {}),

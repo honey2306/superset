@@ -347,7 +347,7 @@ describe("PanesWorkspace ACP pane storage", () => {
 
 describe("PanesWorkspace ACP pane lifecycle", () => {
 	const buildAcpLifecycle = () =>
-		buildPanesAcpLifecycleRegistry({ closeSession: mock(async () => {}) });
+		buildPanesAcpLifecycleRegistry({ closeEmptySession: mock(async () => {}) });
 	const pane = {
 		id: "pane-1",
 		kind: "acp",
@@ -360,14 +360,14 @@ describe("PanesWorkspace ACP pane lifecycle", () => {
 		},
 	} as never;
 
-	test("pane close disposes the ACP session", async () => {
-		const closeSession = mock<(sessionId: string) => Promise<void>>(
+	test("pane close asks the host to discard only an empty ACP session", async () => {
+		const closeEmptySession = mock<(sessionId: string) => Promise<void>>(
 			async () => {},
 		);
-		const acpLifecycle = buildPanesAcpLifecycleRegistry({ closeSession });
+		const acpLifecycle = buildPanesAcpLifecycleRegistry({ closeEmptySession });
 
 		expect(await acpLifecycle.onBeforeClose?.(pane)).toBe(true);
-		expect(closeSession).toHaveBeenCalledWith("s-1");
+		expect(closeEmptySession).toHaveBeenCalledWith("s-1");
 		expect(() => acpLifecycle.onAfterClose?.(pane)).not.toThrow();
 	});
 

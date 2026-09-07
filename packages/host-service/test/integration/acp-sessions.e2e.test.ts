@@ -19,10 +19,11 @@
  * scrubbing, concurrent turns, graveyard eviction, and list pagination.
  */
 import { afterAll, describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import type { McpServer } from "@agentclientprotocol/sdk";
 import { type ServerType, serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
 import {
@@ -126,6 +127,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		persistence?: AcpSessionPersistence;
 		startupTimeoutMs?: number;
 		modelFacingInstructions?: () => string | undefined;
+		resolveMcpServers?: () => McpServer[];
 		generateTitle?: (input: {
 			sessionId: string;
 			workspaceId: string;
@@ -140,6 +142,45 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		managers.push(manager);
 		return manager;
 	}
+
+	test("resolves host MCP servers for every session setup", async () => {
+		const mcpRequestLog = path.join(workspaceDir, "resolved-mcp.jsonl");
+		let command = "first-command";
+		const manager = newManager({
+			adapterEnv: { FAKE_ACP_MCP_REQUEST_LOG: mcpRequestLog },
+			resolveMcpServers: () => [
+				{
+					name: "global-docs",
+					command,
+					args: [],
+					env: [],
+				},
+			],
+		});
+
+		await manager.create({
+			sessionId: "resolved-mcp-1",
+			workspaceId: WORKSPACE_ID,
+		});
+		command = "second-command";
+		await manager.create({
+			sessionId: "resolved-mcp-2",
+			workspaceId: WORKSPACE_ID,
+		});
+
+		const requests = readFileSync(mcpRequestLog, "utf8")
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as { mcpServers: McpServer[] });
+		expect(requests[0]?.mcpServers[0]).toMatchObject({
+			name: "global-docs",
+			command: "first-command",
+		});
+		expect(requests[1]?.mcpServers[0]).toMatchObject({
+			name: "global-docs",
+			command: "second-command",
+		});
+	}, 30_000);
 
 	test("places Superset delegation instructions in Claude's system prompt metadata", async () => {
 		const sessionId = "model-context-delegation";
@@ -2245,6 +2286,42 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expect(() => manager.get("e2e-grave-0")).toThrow(AcpSessionNotFoundError);
 		expect(() => manager.get("e2e-grave-1")).not.toThrow();
 	}, 60_000);
+
+	test("excludes empty sessions and only closes a session when it is empty", async () => {
+		const manager = newManager();
+		const emptySessionId = "e2e-empty-session";
+		const usedSessionId = "e2e-used-session";
+		await manager.create({
+			sessionId: emptySessionId,
+			workspaceId: WORKSPACE_ID,
+		});
+		await manager.create({
+			sessionId: usedSessionId,
+			workspaceId: WORKSPACE_ID,
+		});
+		const { turn } = manager.prompt({
+			sessionId: usedSessionId,
+			prompt: [{ type: "text", text: "keep this conversation" }],
+		});
+		await turn;
+
+		expect(
+			manager
+				.list({ excludeEmpty: true })
+				.items.map((state) => state.sessionId),
+		).toContain(usedSessionId);
+		expect(
+			manager
+				.list({ excludeEmpty: true })
+				.items.map((state) => state.sessionId),
+		).not.toContain(emptySessionId);
+
+		await manager.close({ sessionId: emptySessionId, onlyIfEmpty: true });
+		expect(() => manager.get(emptySessionId)).toThrow(AcpSessionNotFoundError);
+
+		await manager.close({ sessionId: usedSessionId, onlyIfEmpty: true });
+		expect(manager.get(usedSessionId).sessionId).toBe(usedSessionId);
+	}, 30_000);
 
 	test("list paginates by cursor and filters by workspace", async () => {
 		const manager = newManager();

@@ -171,6 +171,7 @@ type TerminalServerMessage =
 	| { type: "title"; title: string | null };
 
 const MAX_BUFFER_BYTES = 64 * 1024;
+const MAX_TOOL_OUTPUT_BYTES = 256 * 1024;
 // Dim separator delivered ahead of a respawned shell's output so users can
 // tell restored scrollback from the fresh session (cf. VS Code's "History
 // restored" line).
@@ -251,6 +252,10 @@ interface TerminalSession {
 	 */
 	buffer: Uint8Array[];
 	bufferBytes: number;
+	/** Bounded, non-destructive output history for ACP terminal tools. */
+	toolOutput: Buffer;
+	toolOutputStart: number;
+	toolOutputEnd: number;
 	/**
 	 * Deliver SESSION_RESTORED_NOTICE ahead of the next replay. Kept out of
 	 * the FIFO so MAX_BUFFER_BYTES eviction can't drop it before a client
@@ -485,6 +490,7 @@ export interface TerminalSessionSummary {
 	createdAt: number;
 	exited: boolean;
 	exitCode: number;
+	exitSignal: number;
 	attached: boolean;
 	title: string | null;
 }
@@ -508,6 +514,7 @@ export function listTerminalSessions(
 			createdAt: session.createdAt,
 			exited: session.exited,
 			exitCode: session.exitCode,
+			exitSignal: session.exitSignal,
 			attached: pruneAndCountOpenSockets(session) > 0,
 			title: session.title,
 		}));
@@ -584,6 +591,7 @@ export async function listWorkspaceTerminalSessions(
 			createdAt: row.createdAt,
 			exited: false,
 			exitCode: 0,
+			exitSignal: 0,
 			attached: false,
 			title: null,
 		});
@@ -686,6 +694,53 @@ function bufferOutput(session: TerminalSession, data: Uint8Array) {
 		const removed = session.buffer.shift();
 		if (removed) session.bufferBytes -= removed.byteLength;
 	}
+}
+
+function bufferToolOutput(session: TerminalSession, data: Uint8Array): void {
+	const chunk = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+	session.toolOutput = Buffer.concat([session.toolOutput, chunk]);
+	session.toolOutputEnd += chunk.byteLength;
+	if (session.toolOutput.byteLength <= MAX_TOOL_OUTPUT_BYTES) return;
+	const dropped = session.toolOutput.byteLength - MAX_TOOL_OUTPUT_BYTES;
+	session.toolOutput = session.toolOutput.subarray(dropped);
+	session.toolOutputStart += dropped;
+}
+
+export function readTerminalOutput(input: {
+	terminalId: string;
+	workspaceId: string;
+	cursor?: number;
+	maxBytes: number;
+}):
+	| {
+			terminalId: string;
+			data: string;
+			cursor: number;
+			nextCursor: number;
+			truncated: boolean;
+			exited: boolean;
+	  }
+	| { error: string } {
+	const session = sessions.get(input.terminalId);
+	if (!session) return { error: "Terminal session not found" };
+	if (session.workspaceId !== input.workspaceId) {
+		return { error: "Terminal session does not belong to this workspace" };
+	}
+	const requestedCursor = input.cursor ?? session.toolOutputStart;
+	const cursor = Math.max(requestedCursor, session.toolOutputStart);
+	const offset = cursor - session.toolOutputStart;
+	const endOffset = Math.min(
+		session.toolOutput.byteLength,
+		offset + input.maxBytes,
+	);
+	return {
+		terminalId: session.terminalId,
+		data: session.toolOutput.subarray(offset, endOffset).toString("utf8"),
+		cursor,
+		nextCursor: session.toolOutputStart + endOffset,
+		truncated: requestedCursor < session.toolOutputStart,
+		exited: session.exited,
+	};
 }
 
 function normalizeTerminalDimension(
@@ -1447,6 +1502,9 @@ export async function createTerminalSessionInternal({
 		sockets: new Set(),
 		buffer: [],
 		bufferBytes: 0,
+		toolOutput: Buffer.alloc(0),
+		toolOutputStart: 0,
+		toolOutputEnd: 0,
 		// Adopted sessions kept a live shell — nothing was restored.
 		restoredNoticePending: restoredNotice && !isAdopted,
 		createdAt,
@@ -1506,6 +1564,7 @@ export async function createTerminalSessionInternal({
 					}
 				}
 				if (bytes.byteLength === 0) return;
+				bufferToolOutput(session, bytes);
 
 				// portManager.checkOutputForHint runs URL/port regexes on
 				// strings; the per-session StringDecoder buffers partial
@@ -1607,19 +1666,145 @@ export function registerWorkspaceTerminalRoute({
 		return c.json({ terminalId: result.terminalId, status: "active" });
 	});
 
-	// REST dispose — does not require an open WebSocket
-	app.delete("/terminal/sessions/:terminalId", (c) => {
+	app.post("/terminal/sessions/:terminalId/input", async (c) => {
 		const terminalId = c.req.param("terminalId");
-		if (!terminalId) {
-			return c.json({ error: "Missing terminalId" }, 400);
+		const body = await c.req.json<{ workspaceId?: string; data?: string }>();
+		if (!terminalId || !body.workspaceId || typeof body.data !== "string") {
+			return c.json({ error: "Missing terminalId, workspaceId, or data" }, 400);
+		}
+		const row = db.query.terminalSessions
+			.findFirst({ where: eq(terminalSessions.id, terminalId) })
+			.sync();
+		if (!row) return c.json({ error: "Terminal session not found" }, 404);
+		if (row.originWorkspaceId !== body.workspaceId) {
+			return c.json(
+				{ error: "Terminal session does not belong to this workspace" },
+				403,
+			);
+		}
+		let result = writeInputToSession({
+			terminalId,
+			workspaceId: body.workspaceId,
+			data: body.data,
+		});
+		if ("error" in result && result.error === "Terminal session not found") {
+			result = await writeInputToDaemonSession(terminalId, body.data);
+		}
+		return "error" in result
+			? c.json({ error: result.error }, 404)
+			: c.json({ terminalId, success: true });
+	});
+
+	app.get("/terminal/sessions/:terminalId/output", async (c) => {
+		const terminalId = c.req.param("terminalId");
+		const workspaceId = c.req.query("workspaceId");
+		const cursorValue = c.req.query("cursor");
+		const maxBytesValue = c.req.query("maxBytes");
+		const cursor = cursorValue === undefined ? undefined : Number(cursorValue);
+		const maxBytes =
+			maxBytesValue === undefined ? 16_384 : Number(maxBytesValue);
+		if (
+			!terminalId ||
+			!workspaceId ||
+			(cursor !== undefined && (!Number.isSafeInteger(cursor) || cursor < 0)) ||
+			!Number.isSafeInteger(maxBytes) ||
+			maxBytes < 1 ||
+			maxBytes > MAX_BUFFER_BYTES
+		) {
+			return c.json({ error: "Invalid terminal output request" }, 400);
+		}
+		let result = readTerminalOutput({
+			terminalId,
+			workspaceId,
+			...(cursor === undefined ? {} : { cursor }),
+			maxBytes,
+		});
+		if ("error" in result && result.error === "Terminal session not found") {
+			const row = db.query.terminalSessions
+				.findFirst({ where: eq(terminalSessions.id, terminalId) })
+				.sync();
+			if (row?.originWorkspaceId === workspaceId && row.status === "active") {
+				const adopted = await createTerminalSessionInternal({
+					terminalId,
+					workspaceId,
+					db,
+					eventBus,
+					adoptOnly: true,
+				});
+				if (!("error" in adopted)) {
+					result = readTerminalOutput({
+						terminalId,
+						workspaceId,
+						...(cursor === undefined ? {} : { cursor }),
+						maxBytes,
+					});
+				}
+			}
+		}
+		return "error" in result
+			? c.json({ error: result.error }, 404)
+			: c.json(result);
+	});
+
+	app.get("/terminal/sessions/:terminalId/status", async (c) => {
+		const terminalId = c.req.param("terminalId");
+		const workspaceId = c.req.query("workspaceId");
+		if (!terminalId || !workspaceId) {
+			return c.json({ error: "Missing terminalId or workspaceId" }, 400);
+		}
+		const localSession = listTerminalSessions({
+			workspaceId,
+			includeExited: true,
+		}).find((candidate) => candidate.terminalId === terminalId);
+		if (localSession) {
+			return c.json({
+				...localSession,
+				status: localSession.exited ? "exited" : "active",
+			});
+		}
+		const session = (await listWorkspaceTerminalSessions(db, workspaceId)).find(
+			(candidate) => candidate.terminalId === terminalId,
+		);
+		if (session) return c.json({ ...session, status: "active" });
+		const row = db.query.terminalSessions
+			.findFirst({ where: eq(terminalSessions.id, terminalId) })
+			.sync();
+		if (!row || row.originWorkspaceId !== workspaceId) {
+			return c.json({ error: "Terminal session not found" }, 404);
+		}
+		return c.json({
+			terminalId,
+			workspaceId,
+			createdAt: row.createdAt,
+			status: row.status,
+			exited: row.status !== "active",
+			exitCode: null,
+			exitSignal: null,
+			attached: false,
+			title: null,
+		});
+	});
+
+	// REST dispose — does not require an open WebSocket
+	app.delete("/terminal/sessions/:terminalId", async (c) => {
+		const terminalId = c.req.param("terminalId");
+		const workspaceId = c.req.query("workspaceId");
+		if (!terminalId || !workspaceId) {
+			return c.json({ error: "Missing terminalId or workspaceId" }, 400);
 		}
 
-		const session = sessions.get(terminalId);
-		if (!session) {
-			return c.json({ error: "session-gone" }, 404);
+		const row = db.query.terminalSessions
+			.findFirst({ where: eq(terminalSessions.id, terminalId) })
+			.sync();
+		if (!row) return c.json({ error: "session-gone" }, 404);
+		if (row.originWorkspaceId !== workspaceId) {
+			return c.json(
+				{ error: "Terminal session does not belong to this workspace" },
+				403,
+			);
 		}
 
-		disposeSession(terminalId, db);
+		await disposeSessionAndWait(terminalId, db);
 		return c.json({ terminalId, status: "disposed" });
 	});
 

@@ -16,7 +16,6 @@ import {
 	type SessionConfigOption,
 	type SessionUpdate,
 	type StopReason,
-	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DELEGATION_META_KEY,
 	TOOL_SEMANTIC_META_KEY,
 	type ToolKind,
@@ -27,13 +26,11 @@ const APPROVAL_METHODS = new Set([
 	"item/commandExecution/requestApproval",
 	"item/fileChange/requestApproval",
 ]);
-export function codexThreadExecutionPolicy(role: string | undefined): {
-	approvalPolicy: "never" | "on-request";
-	sandbox: "danger-full-access" | "workspace-write";
+export function codexThreadExecutionPolicy(_role: string | undefined): {
+	approvalPolicy: "never";
+	sandbox: "danger-full-access";
 } {
-	return role === SUPERSET_DELEGATED_EXECUTOR_ROLE
-		? { approvalPolicy: "never", sandbox: "danger-full-access" }
-		: { approvalPolicy: "on-request", sandbox: "workspace-write" };
+	return { approvalPolicy: "never", sandbox: "danger-full-access" };
 }
 
 const QUIET_NOTIFICATIONS = new Set([
@@ -456,6 +453,7 @@ export class CodexBridge {
 	private pending = new Map<RpcId, PendingRpc>();
 	private toolCalls = new Map<string, CodexToolCallUpdate>();
 	private nextId = 1;
+	private readonly pendingNotifications = new Set<Promise<void>>();
 	private threadId: string | null = null;
 	private contextCompactionItemTurnId: string | null = null;
 	private turn: {
@@ -519,6 +517,19 @@ export class CodexBridge {
 		} catch {
 			// A closed ACP host must not leave Codex waiting for the dynamic tool
 			// response merely because its final timeline update was unavailable.
+		}
+	}
+	private queueUpdate(sessionId: string, update: SessionUpdate): Promise<void> {
+		const notification = this.notifyUpdate(sessionId, update);
+		this.pendingNotifications.add(notification);
+		void notification.finally(() => {
+			this.pendingNotifications.delete(notification);
+		});
+		return notification;
+	}
+	private async flushUpdates(): Promise<void> {
+		while (this.pendingNotifications.size > 0) {
+			await Promise.allSettled([...this.pendingNotifications]);
 		}
 	}
 	async boot(): Promise<void> {
@@ -613,10 +624,10 @@ export class CodexBridge {
 			return;
 		}
 		const notify = (update: SessionUpdate) =>
-			this.client.notify("session/update", {
-				sessionId: this.threadId ?? String(params.threadId ?? "codex-pending"),
+			this.queueUpdate(
+				this.threadId ?? String(params.threadId ?? "codex-pending"),
 				update,
-			});
+			);
 		if (frame.method === "thread/tokenUsage/updated") {
 			const update = codexUsageUpdate(params);
 			if (update) void notify(update);
@@ -693,10 +704,17 @@ export class CodexBridge {
 				return;
 			const turn = this.turn;
 			this.turn = null;
-			turn.resolve({
-				stopReason:
-					completed?.status === "interrupted" ? "cancelled" : "end_turn",
-			});
+			void this.flushUpdates().then(
+				() =>
+					turn.resolve({
+						stopReason:
+							completed?.status === "interrupted" ? "cancelled" : "end_turn",
+					}),
+				(error: unknown) =>
+					turn.reject(
+						error instanceof Error ? error : new Error(String(error)),
+					),
+			);
 			return;
 		}
 		if (frame.method === "thread/compacted") {
@@ -977,17 +995,21 @@ export class CodexBridge {
 			await this.loadModels();
 			const response = (await this.request("thread/start", {
 				cwd,
+				ephemeral: false,
 				...codexThreadExecutionPolicy(process.env.SUPERSET_ACP_SESSION_ROLE),
 				...(requestedModel ? { model: requestedModel } : {}),
 				...(developerInstructions ? { developerInstructions } : {}),
 				config: codexThreadConfig(mcpServers, Boolean(developerInstructions)),
 			})) as {
-				thread?: { id?: string };
+				thread?: { id?: string; ephemeral?: boolean };
 				model?: unknown;
 				reasoningEffort?: unknown;
 			};
 			const id = response.thread?.id;
 			if (!id) throw new Error("Codex did not return a thread id");
+			if (response.thread?.ephemeral === true) {
+				throw new Error("Codex created an ephemeral thread");
+			}
 			this.model = typeof response.model === "string" ? response.model : null;
 			this.reasoningEffort =
 				typeof response.reasoningEffort === "string"
@@ -1178,6 +1200,27 @@ export class CodexBridge {
 		}
 		return completion;
 	}
+	async steer(prompt: unknown[]): Promise<{ accepted: true }> {
+		if (!this.threadId || !this.turn?.id) {
+			throw new Error("Codex has no active turn to steer");
+		}
+		const text = prompt
+			.map((block) =>
+				typeof block === "object" &&
+				block &&
+				"type" in block &&
+				(block as { type?: unknown }).type === "text"
+					? String((block as { text?: unknown }).text ?? "")
+					: JSON.stringify(block),
+			)
+			.join("\n");
+		await this.request("turn/steer", {
+			threadId: this.threadId,
+			expectedTurnId: this.turn.id,
+			input: [{ type: "text", text }],
+		});
+		return { accepted: true };
+	}
 	cancel(): void {
 		if (this.threadId && this.turn?.id)
 			void this.request("turn/interrupt", {
@@ -1230,6 +1273,16 @@ if (isCodexBridgeMain(import.meta.url, process.argv[1], import.meta.main)) {
 			if (!bridge) throw new Error("Codex session is not initialized");
 			return bridge.prompt(context.params.prompt);
 		})
+		.onRequest(
+			"sh.superset/session/steer",
+			(params: unknown) => params as Record<string, unknown>,
+			(context) => {
+				if (!bridge) throw new Error("Codex session is not initialized");
+				const prompt = context.params.prompt;
+				if (!Array.isArray(prompt)) throw new Error("Invalid steer payload");
+				return bridge.steer(prompt);
+			},
+		)
 		.onRequest("session/set_config_option", (context) => {
 			if (!bridge) throw new Error("Codex session is not initialized");
 			return bridge.setConfigOption(

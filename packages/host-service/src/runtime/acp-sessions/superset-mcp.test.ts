@@ -21,7 +21,7 @@ async function listen(server: net.Server, socketPath: string): Promise<void> {
 async function runMcp(
 	socketPath: string,
 	requests: unknown[],
-	role?: "root-coordinator" | "delegated-executor",
+	role?: "root-coordinator" | "delegated-executor" | "discussion-participant",
 ) {
 	const child = Bun.spawn({
 		cmd: [process.execPath, scriptPath],
@@ -281,6 +281,40 @@ describe("Superset MCP process", () => {
 		expect(tools.some((tool) => tool.name === "report_delegation_result")).toBe(
 			true,
 		);
+		expect(tools.some((tool) => tool.name === "list_global_mcp_servers")).toBe(
+			false,
+		);
+		expect(tools.some((tool) => tool.name === "upsert_global_mcp_server")).toBe(
+			false,
+		);
+		expect(tools.some((tool) => tool.name === "remove_global_mcp_server")).toBe(
+			false,
+		);
+	});
+
+	test("hides all Superset tools from discussion participants", async () => {
+		const socketPath = path.join(tempDir, "discussion-participant.sock");
+		const server = net.createServer((socket) => {
+			socket.setEncoding("utf8");
+			socket.once("data", (chunk: string) => {
+				const request = JSON.parse(chunk.trim()) as { id: string };
+				socket.end(
+					`${JSON.stringify({ type: "response", id: request.id, ok: true, result: { enabled: true, valid: true } })}\n`,
+				);
+			});
+		});
+		await listen(server, socketPath);
+		try {
+			const output = await runMcp(
+				socketPath,
+				[{ jsonrpc: "2.0", id: 1, method: "tools/list" }],
+				"discussion-participant",
+			);
+			const tools = (output[0]?.result as { tools: unknown[] }).tools;
+			expect(tools).toEqual([]);
+		} finally {
+			server.close();
+		}
 	});
 
 	test("forwards MCP cancellation and closes a pending ask_user daemon call", async () => {

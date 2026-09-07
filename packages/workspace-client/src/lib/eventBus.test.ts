@@ -142,6 +142,43 @@ describe("eventBus", () => {
 		});
 	});
 
+	it("preserves ACP terminal open request identity and focus intent", async () => {
+		const host = makeHostServer();
+		const bus = getEventBus(host.hostUrl, () => "tok");
+		const requests: Array<{
+			terminalId: string;
+			sourceSessionId: string;
+			requestId: string;
+			focus: boolean;
+			occurredAt: number;
+		}> = [];
+		cleanups.push(
+			bus.on("acp-terminal:open-requested", "ws-1", (_workspaceId, event) =>
+				requests.push(event),
+			),
+		);
+		cleanups.push(() => host.server.stop(true));
+
+		await waitFor(() => host.clientCount() === 1);
+		host.push({
+			type: "acp-terminal:open-requested",
+			workspaceId: "ws-1",
+			terminalId: "terminal-1",
+			sourceSessionId: "session-1",
+			requestId: "request-1",
+			focus: true,
+			occurredAt: 1,
+		});
+		await waitFor(() => requests.length === 1);
+		expect(requests[0]).toEqual({
+			terminalId: "terminal-1",
+			sourceSessionId: "session-1",
+			requestId: "request-1",
+			focus: true,
+			occurredAt: 1,
+		});
+	});
+
 	it("shares one connection per hostUrl across handles", async () => {
 		const host = makeHostServer();
 		const busA = getEventBus(host.hostUrl, () => "tok");

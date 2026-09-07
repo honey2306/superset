@@ -3,6 +3,7 @@ import type {
 	AgentBrowserView,
 	AgentBrowserViewportInput,
 	ContentBlock,
+	DiscussionRun,
 	EnqueuePromptResult,
 	MessagesPage,
 	PromptAccepted,
@@ -54,6 +55,32 @@ export type AcpSessionOpenRequestHandler = (
 	event: AcpSessionOpenRequestEvent,
 ) => void;
 
+export interface AcpDiscussionOpenRequestEvent {
+	workspaceId: string;
+	discussionId: string;
+	sourceSessionId: string;
+	requestId: string;
+	occurredAt: number;
+}
+
+export type AcpDiscussionOpenRequestHandler = (
+	event: AcpDiscussionOpenRequestEvent,
+) => void;
+
+export interface AcpTerminalOpenRequestEvent {
+	workspaceId: string;
+	terminalId: string;
+	sourceSessionId: string;
+	requestId: string;
+	title?: string;
+	focus: boolean;
+	occurredAt: number;
+}
+
+export type AcpTerminalOpenRequestHandler = (
+	event: AcpTerminalOpenRequestEvent,
+) => void;
+
 /** Best-effort request to open a provider-owned MR creation page in Desktop. */
 export interface AcpMergeRequestOpenRequestEvent {
 	workspaceId: string;
@@ -102,6 +129,7 @@ export interface AcpSessionRuntime {
 		workspaceId?: string;
 		cursor?: string;
 		limit?: number;
+		excludeEmpty?: boolean;
 	}): MaybePromise<SessionsPage>;
 	ensureLive(sessionId: string): Promise<void>;
 	getMessages(input: {
@@ -115,6 +143,11 @@ export interface AcpSessionRuntime {
 		targetTurn?: number;
 		limit?: number;
 	}): MaybePromise<TranscriptPage>;
+	listDiscussions?(input: {
+		workspaceId: string;
+		limit?: number;
+	}): MaybePromise<DiscussionRun[]>;
+	stopDiscussion?(input: { runId: string }): MaybePromise<DiscussionRun>;
 	prompt(input: {
 		sessionId: string;
 		commandId?: string;
@@ -126,7 +159,7 @@ export interface AcpSessionRuntime {
 		outcome: RequestPermissionOutcome;
 	}): MaybePromise<RespondToPermissionResult>;
 	cancel(input: { sessionId: string }): Promise<void>;
-	close(input: { sessionId: string }): Promise<void>;
+	close(input: { sessionId: string; onlyIfEmpty?: boolean }): Promise<void>;
 	setMode(input: { sessionId: string; modeId: string }): Promise<void>;
 	setConfigOption(input: {
 		sessionId: string;
@@ -141,6 +174,11 @@ export interface AcpSessionRuntime {
 		prompt: ContentBlock[];
 	}): MaybePromise<EnqueuePromptResult>;
 	sendNow(input: {
+		sessionId: string;
+		commandId?: string;
+		prompt: ContentBlock[];
+	}): MaybePromise<PromptAccepted>;
+	steerPrompt(input: {
 		sessionId: string;
 		commandId?: string;
 		prompt: ContentBlock[];
@@ -185,6 +223,10 @@ export interface AcpSessionRuntime {
 	onSessionChanged?(handler: AcpSessionChangeHandler): () => void;
 	/** Best-effort desktop presentation request emitted by Superset ACP tools. */
 	onSessionOpenRequested?(handler: AcpSessionOpenRequestHandler): () => void;
+	onDiscussionOpenRequested?(
+		handler: AcpDiscussionOpenRequestHandler,
+	): () => void;
+	onTerminalOpenRequested?(handler: AcpTerminalOpenRequestHandler): () => void;
 	onMergeRequestOpenRequested?(
 		handler: AcpMergeRequestOpenRequestHandler,
 	): () => void;

@@ -15,6 +15,7 @@ requesting that Desktop present the new conversation.
 | `get_session_status` | Read one same-workspace session's status and summary. |
 | `open_session` | Ask Desktop to focus an existing same-workspace conversation, restoring its tab when necessary. It never restarts the session. |
 | `send_message` | Send or queue a message to a same-workspace session. |
+| `discuss` | Run a bounded discussion between two specified peer agents, show one shared thread in the right sidebar, and return the result to the initiating Agent. |
 | `continue_in_new_session` | Continue work in a fresh conversation with a structured handoff. This is not a delegation or parallel-background-work primitive; use provider-native subagent tools when available, or `delegate` for tracked independent execution. |
 | `open_merge_request` | Open KDev's prefilled create-MR page for the current session's checked-out branch. It never pushes or creates an MR. |
 | `delegate` | Create an independent child session and seed it with a task. It remains in the background by default. |

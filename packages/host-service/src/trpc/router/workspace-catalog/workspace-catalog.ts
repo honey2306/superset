@@ -24,6 +24,24 @@ const changesInputSchema = z.object({
  */
 export const workspaceCatalogRouter = router({
 	snapshot: protectedProcedure.query(({ ctx }) => ctx.catalog.snapshot()),
+	/**
+	 * Phone home bootstrap. Keep the catalog projection and the global ACP page
+	 * behind one request so a phone with many workspaces does not fan out into
+	 * one `acpSessions.list` call per workspace.
+	 */
+	phoneSnapshot: protectedProcedure.query(async ({ ctx }) => {
+		const [catalog, acp] = await Promise.all([
+			Promise.resolve(ctx.catalog.snapshot()),
+			ctx.runtime.acpSessionsEnabled
+				? ctx.runtime.acpSessions.list({ limit: 200 })
+				: Promise.resolve({
+						items: [],
+						nextCursor: null,
+						enabled: false,
+					}),
+		]);
+		return { catalog, acp };
+	}),
 	changes: protectedProcedure
 		.input(changesInputSchema)
 		.query(({ ctx, input }) =>

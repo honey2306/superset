@@ -9,13 +9,16 @@ import {
 	LuGitBranch,
 	LuGitCompareArrows,
 	LuInfo,
+	LuMessageSquareMore,
 	LuShrink,
 	LuX,
 } from "react-icons/lu";
+import { useWorkspaceEvent } from "renderer/hooks/host-service/useWorkspaceEvent/useWorkspaceEvent";
 import { HotkeyLabel } from "renderer/hotkeys";
 import { openFileInPanes } from "renderer/lib/panes";
 import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import {
+	DEFAULT_DISCUSSION_SIDEBAR_WIDTH,
 	RightSidebarTab,
 	SidebarMode,
 	useSidebarStore,
@@ -25,6 +28,7 @@ import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { useScrollContext } from "../ChangesContent";
 import { ChangesView } from "./ChangesView";
 import { LogView } from "./ChangesView/components/LogView";
+import { DiscussionView } from "./DiscussionView";
 import { FilesView } from "./FilesView";
 import { getSidebarHeaderTabButtonClassName } from "./headerTabStyles";
 import { InfoView } from "./InfoView";
@@ -94,7 +98,24 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 	// Four labeled tabs plus the window actions do not fit at the default
 	// 250px sidebar width. Keep the compact icon treatment until the sidebar has
 	// enough room for every tab without pushing the actions off-screen.
-	const compactTabs = sidebarWidth < 380;
+	const compactTabs = sidebarWidth < 420;
+
+	useWorkspaceEvent(
+		"acp-discussion:open-requested",
+		workspaceId ?? "",
+		() => {
+			setRightSidebarTab(RightSidebarTab.Discussion);
+			if (!useSidebarStore.getState().isSidebarOpen) {
+				useSidebarStore.getState().setSidebarOpen(true);
+			}
+			if (useSidebarStore.getState().sidebarWidth < 380) {
+				useSidebarStore
+					.getState()
+					.setSidebarWidth(DEFAULT_DISCUSSION_SIDEBAR_WIDTH);
+			}
+		},
+		Boolean(workspaceId),
+	);
 
 	const handleExpandToggle = () => {
 		setMode(isExpanded ? SidebarMode.Tabs : SidebarMode.Changes);
@@ -185,6 +206,13 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 						compact={compactTabs}
 					/>
 					<TabButton
+						isActive={rightSidebarTab === RightSidebarTab.Discussion}
+						onClick={() => setRightSidebarTab(RightSidebarTab.Discussion)}
+						icon={<LuMessageSquareMore className="size-3.5" />}
+						label="Discuss"
+						compact={compactTabs}
+					/>
+					<TabButton
 						isActive={rightSidebarTab === RightSidebarTab.Info}
 						onClick={() => setRightSidebarTab(RightSidebarTab.Info)}
 						icon={<LuInfo className="size-3.5" />}
@@ -252,6 +280,15 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 			)}
 			<div
 				className={
+					rightSidebarTab === RightSidebarTab.Discussion
+						? "flex-1 min-h-0 flex flex-col overflow-hidden"
+						: "hidden"
+				}
+			>
+				<DiscussionView workspaceId={workspaceId ?? null} />
+			</div>
+			<div
+				className={
 					rightSidebarTab === RightSidebarTab.Info
 						? "flex-1 min-h-0 flex flex-col overflow-hidden"
 						: "hidden"
@@ -284,6 +321,7 @@ export function RightSidebar({ supportsChanges }: RightSidebarProps) {
 			<div
 				className={
 					rightSidebarTab === RightSidebarTab.Info ||
+					rightSidebarTab === RightSidebarTab.Discussion ||
 					(rightSidebarTab === RightSidebarTab.Changes && supportsChanges) ||
 					(rightSidebarTab === RightSidebarTab.History && supportsChanges)
 						? "hidden"

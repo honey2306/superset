@@ -12,6 +12,7 @@ import {
 	getSessionInput,
 	getTranscriptInput,
 	listDelegationRunsInput,
+	listDiscussionRunsInput,
 	listSessionsInput,
 	promptInput,
 	removeQueuedPromptInput,
@@ -20,7 +21,9 @@ import {
 	sendNowInput,
 	setConfigOptionInput,
 	setModeInput,
+	steerPromptInput,
 	stopDelegationRunInput,
+	stopDiscussionRunInput,
 } from "@superset/session-protocol";
 import { TRPCError } from "@trpc/server";
 import { desc, eq, or } from "drizzle-orm";
@@ -103,6 +106,25 @@ export const acpSessionsRouter = router({
 				.limit(input.limit)
 				.all(),
 		),
+
+	listDiscussionRuns: gatedProcedure
+		.input(listDiscussionRunsInput)
+		.query(async ({ ctx, input }) => {
+			return (await ctx.runtime.acpSessions.listDiscussions?.(input)) ?? [];
+		}),
+
+	stopDiscussionRun: gatedProcedure
+		.input(stopDiscussionRunInput)
+		.mutation(async ({ ctx, input }) => {
+			const stop = ctx.runtime.acpSessions.stopDiscussion;
+			if (!stop) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "ACP discussions are unavailable on this host",
+				});
+			}
+			return stop.call(ctx.runtime.acpSessions, input);
+		}),
 
 	/** Stop an active delegated child while retaining its durable activity row. */
 	stopDelegationRun: gatedProcedure
@@ -347,6 +369,17 @@ export const acpSessionsRouter = router({
 			try {
 				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
 				return await ctx.runtime.acpSessions.sendNow(input);
+			} catch (error) {
+				rethrowMapped(error);
+			}
+		}),
+
+	steerPrompt: gatedProcedure
+		.input(steerPromptInput)
+		.mutation(async ({ ctx, input }) => {
+			try {
+				await ctx.runtime.acpSessions.ensureLive(input.sessionId);
+				return await ctx.runtime.acpSessions.steerPrompt(input);
 			} catch (error) {
 				rethrowMapped(error);
 			}

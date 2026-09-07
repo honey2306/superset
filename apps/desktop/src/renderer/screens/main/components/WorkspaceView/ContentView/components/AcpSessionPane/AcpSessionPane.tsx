@@ -11,6 +11,7 @@ import {
 	useAcpPermissions,
 	useAcpSession,
 } from "@superset/session-protocol/react";
+import { LoaderCircle, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
 import { openFileInPanes } from "renderer/lib/panes";
@@ -219,6 +220,14 @@ export function AcpSessionPane({
 	const enqueueWithActivity = useCallback(
 		async (blocks: Parameters<typeof session.actions.enqueue>[0]) => {
 			await session.actions.enqueue(blocks);
+			recordActivity();
+		},
+		[recordActivity, session.actions],
+	);
+
+	const steerWithActivity = useCallback(
+		async (blocks: Parameters<typeof session.actions.steer>[0]) => {
+			await session.actions.steer(blocks);
 			recordActivity();
 		},
 		[recordActivity, session.actions],
@@ -503,14 +512,25 @@ export function AcpSessionPane({
 		<div className="acp-pane">
 			{isCompacting && (
 				<output
-					className="acp-pane__banner"
+					className="acp-pane__compaction-wrap"
 					data-activity="context-compaction"
 					aria-live="polite"
 				>
-					<span className="acp-blink" aria-hidden>
-						●
+					<span className="acp-pane__compaction-card">
+						<span className="acp-pane__compaction-icon" aria-hidden>
+							<Sparkles className="acp-pane__compaction-spark" />
+							<LoaderCircle className="acp-pane__compaction-spinner" />
+						</span>
+						<span className="acp-pane__compaction-copy">
+							<strong>Compacting context</strong>
+							<small>Preserving recent work</small>
+						</span>
+						<span className="acp-pane__compaction-dots" aria-hidden>
+							<i />
+							<i />
+							<i />
+						</span>
 					</span>
-					<span className="select-text cursor-text">Compacting context…</span>
 				</output>
 			)}
 
@@ -639,6 +659,7 @@ export function AcpSessionPane({
 					onSetConfigOption={session.actions.setConfigOption}
 					onSubmit={promptWithActivity}
 					onEnqueue={enqueueWithActivity}
+					onSteer={state?.canSteer ? steerWithActivity : undefined}
 					onRemoveQueued={session.actions.removeQueued}
 					onReorderQueue={session.actions.reorderQueue}
 					onEditQueued={session.actions.editQueued}

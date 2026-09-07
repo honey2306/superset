@@ -7,6 +7,8 @@ import {
 	buildAgentModelEnv,
 	getAgentEffortSupport,
 	getAgentModelSupport,
+	groupModelsByProvider,
+	MODEL_PROVIDERS,
 } from "./agent-models";
 import { BUILTIN_TERMINAL_AGENT_TYPES } from "./builtin-terminal-agents";
 
@@ -15,6 +17,107 @@ describe("AGENT_MODEL_SUPPORT", () => {
 		for (const entry of AGENT_MODEL_SUPPORT) {
 			expect(entry.models.length).toBeGreaterThan(0);
 		}
+	});
+
+	it("tags every catalog model with a known provider", () => {
+		for (const entry of AGENT_MODEL_SUPPORT) {
+			for (const model of entry.models) {
+				expect(
+					model.provider,
+					`${entry.presetId}/${model.id} is missing a provider`,
+				).toBeDefined();
+				expect(
+					MODEL_PROVIDERS[model.provider as string],
+					`${entry.presetId}/${model.id} uses an unknown provider`,
+				).toBeDefined();
+			}
+		}
+	});
+});
+
+describe("groupModelsByProvider", () => {
+	it("returns [] for an empty list", () => {
+		expect(groupModelsByProvider([])).toEqual([]);
+	});
+
+	it("keeps single-provider lists flat without a header", () => {
+		const models = getAgentModelSupport("codex")?.models ?? [];
+		expect(groupModelsByProvider(models)).toEqual([{ label: null, models }]);
+	});
+
+	it("keeps provider-less lists flat (efforts, dynamic models)", () => {
+		const efforts = getAgentEffortSupport("claude")?.efforts ?? [];
+		expect(groupModelsByProvider(efforts)).toEqual([
+			{ label: null, models: efforts },
+		]);
+	});
+
+	it("splits mixed lists into labelled groups in first-appearance order", () => {
+		const groups = groupModelsByProvider(
+			getAgentModelSupport("cursor-agent")?.models ?? [],
+		);
+		expect(groups.map((group) => group.label)).toEqual([
+			"Cursor",
+			"Anthropic",
+			"OpenAI",
+		]);
+		expect(groups[0]?.models.map((model) => model.id)).toEqual([
+			"auto",
+			"composer-2.5",
+		]);
+		expect(groups[1]?.models.map((model) => model.id)).toEqual([
+			"claude-fable-5-thinking-high",
+			"claude-fable-5-thinking-xhigh",
+			"claude-opus-5-high",
+			"claude-opus-4-8-high",
+			"claude-4.6-sonnet-medium",
+		]);
+		expect(groups[2]?.models.map((model) => model.id)).toEqual([
+			"gpt-5.6-sol-medium",
+			"gpt-5.6-terra-medium",
+			"gpt-5.6-luna-medium",
+			"gpt-5.3-codex",
+		]);
+	});
+
+	it("merges provider-less options into the lead group of mixed lists", () => {
+		const groups = groupModelsByProvider([
+			{ id: "m1", label: "M1" },
+			{ id: "a1", label: "A1", provider: "anthropic" },
+			{ id: "m2", label: "M2" },
+			{ id: "o1", label: "O1", provider: "openai" },
+		]);
+		expect(groups).toEqual([
+			{
+				label: null,
+				models: [
+					{ id: "m1", label: "M1" },
+					{ id: "m2", label: "M2" },
+				],
+			},
+			{
+				label: "Anthropic",
+				models: [{ id: "a1", label: "A1", provider: "anthropic" }],
+			},
+			{
+				label: "OpenAI",
+				models: [{ id: "o1", label: "O1", provider: "openai" }],
+			},
+		]);
+	});
+
+	it("falls back to the raw provider key for unknown providers", () => {
+		const groups = groupModelsByProvider([
+			{ id: "x", label: "X", provider: "newcorp" },
+		]);
+		expect(groups).toEqual([
+			{ label: null, models: [{ id: "x", label: "X", provider: "newcorp" }] },
+		]);
+		const mixed = groupModelsByProvider([
+			{ id: "x", label: "X", provider: "newcorp" },
+			{ id: "y", label: "Y", provider: "anthropic" },
+		]);
+		expect(mixed.map((group) => group.label)).toEqual(["newcorp", "Anthropic"]);
 	});
 });
 

@@ -34,6 +34,7 @@ export interface AgentBrowserBridge {
 	createPage(sessionId: string, url?: string): Promise<unknown>;
 	selectPage(sessionId: string, pageId: string): Promise<unknown>;
 	closePage(sessionId: string, pageId: string): Promise<unknown>;
+	capturePage(sessionId: string, fullPage?: boolean): Promise<string>;
 	closeSession(sessionId: string): Promise<void>;
 	view(sessionId: string): Promise<AgentBrowserView>;
 }

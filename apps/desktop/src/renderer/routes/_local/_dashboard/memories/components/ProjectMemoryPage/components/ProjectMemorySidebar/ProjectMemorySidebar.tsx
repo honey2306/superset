@@ -1,6 +1,6 @@
 import { Input } from "@superset/ui/input";
 import { useMemo, useState } from "react";
-import { LuSearch } from "react-icons/lu";
+import { LuGlobe, LuSearch } from "react-icons/lu";
 
 interface MemoryProject {
 	id: string;
@@ -12,12 +12,14 @@ export function ProjectMemorySidebar({
 	projects,
 	selectedProjectId,
 	memoryCountByProject,
+	globalMemoryCount,
 	onSelectProject,
 }: {
 	projects: MemoryProject[];
 	selectedProjectId: string | null;
 	memoryCountByProject: ReadonlyMap<string, number>;
-	onSelectProject(projectId: string): void;
+	globalMemoryCount: number;
+	onSelectProject(projectId: string | null): void;
 }) {
 	const [query, setQuery] = useState("");
 	const visibleProjects = useMemo(() => {
@@ -50,6 +52,29 @@ export function ProjectMemorySidebar({
 				</div>
 			</div>
 			<div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+				<button
+					type="button"
+					className={`grid w-full grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-2 rounded-ds-3 border-l-2 px-2.5 py-2 text-left transition-colors ${
+						selectedProjectId === null
+							? "border-l-info bg-info/10 text-fg"
+							: "border-l-transparent text-fg-mute hover:bg-info/5 hover:text-fg"
+					}`}
+					onClick={() => onSelectProject(null)}
+				>
+					<span className="flex size-6 items-center justify-center rounded-ds-3 border border-line bg-hover">
+						<LuGlobe className="size-3.5" />
+					</span>
+					<span className="min-w-0">
+						<span className="block truncate text-xs font-medium">全局记忆</span>
+						<span className="block truncate text-[9px] text-fg-faint">
+							所有项目均可使用
+						</span>
+					</span>
+					<span className="font-mono text-[10px] tabular-nums text-fg-faint">
+						{globalMemoryCount}
+					</span>
+				</button>
+				<div className="my-2 border-t border-line" />
 				{visibleProjects.map((project) => {
 					const selected = project.id === selectedProjectId;
 					return (

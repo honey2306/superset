@@ -1,0 +1,895 @@
+{
+	"data": {
+		"screenshot_annotated": "",
+		"is_dialog": false,
+		"window_title": "未命名",
+		"capture_mode": "window",
+		"mutation_targeting_available": true,
+		"execution_time": 0.6932919025421143,
+		"semantic_scope": "exact_or_requested",
+		"observation": {
+			"state_snapshot": {
+				"display_count": 0,
+				"running_application_count": 116,
+				"window_count": 0
+			},
+			"warnings": [],
+			"target": {
+				"resolved_kind": "window-id",
+				"source": "window-id",
+				"window_id": 4689,
+				"requested_kind": "app",
+				"hints": [],
+				"open_if_needed": false,
+				"bounds": [[218, 83], [603, 505]]
+			},
+			"spans": [
+				{
+					"duration_ms": 104.978083,
+					"name": "state.snapshot",
+					"metadata": {}
+				},
+				{
+					"duration_ms": 16.6825,
+					"name": "target.resolve",
+					"metadata": {}
+				},
+				{
+					"duration_ms": 371.720541,
+					"name": "capture.window",
+					"metadata": {
+						"engine": "CGWindowList"
+					}
+				},
+				{
+					"duration_ms": 58.258416,
+					"name": "detection.ax",
+					"metadata": {}
+				},
+				{
+					"duration_ms": 3.690541,
+					"name": "output.write",
+					"metadata": {}
+				},
+				{
+					"duration_ms": 1.68975,
+					"name": "output.raw.write",
+					"metadata": {}
+				},
+				{
+					"duration_ms": 1.9865,
+					"name": "snapshot.write",
+					"metadata": {}
+				},
+				{
+					"duration_ms": 660.044083,
+					"name": "desktop.observe",
+					"metadata": {}
+				}
+			]
+		},
+		"coordinate_context": {
+			"origin": "top_left",
+			"version": 1,
+			"window": {
+				"index": 0,
+				"title": "未命名",
+				"window_id": 4689
+			},
+			"display": {
+				"index": 0
+			},
+			"reference_id": "ps1_f5f032d8eea33d92fe16ba5d7d01d1dd",
+			"native_scale": 2,
+			"requested_scale": {
+				"logical1x": {}
+			},
+			"logical_bounds": [[218, 83], [603, 505]],
+			"logical_space": "global_display_points",
+			"delivered_image_size": [603, 505],
+			"output_scale": 1
+		},
+		"ui_elements": [
+			{
+				"is_value_settable": false,
+				"id": "elem_28",
+				"help": "选取字样",
+				"role": "button",
+				"ax_role": "AXPopUpButton",
+				"is_actionable": true,
+				"description": "字样",
+				"label": "字样",
+				"role_description": "弹出式按钮",
+				"is_enabled": true,
+				"value": "Helvetica",
+				"bounds": {
+					"x": 363,
+					"y": 122,
+					"width": 82,
+					"height": 22
+				}
+			},
+			{
+				"is_value_settable": false,
+				"id": "elem_29",
+				"help": "选取样式",
+				"role": "button",
+				"ax_role": "AXPopUpButton",
+				"is_actionable": true,
+				"description": "样式",
+				"label": "样式",
+				"role_description": "弹出式按钮",
+				"is_enabled": true,
+				"value": "常规体",
+				"bounds": {
+					"x": 448,
+					"y": 122,
+					"width": 82,
+					"height": 22
+				}
+			},
+			{
+				"id": "elem_31",
+				"is_actionable": true,
+				"role": "button",
+				"title": "",
+				"ax_role": "AXButton",
+				"description": "字体大小",
+				"label": "字体大小",
+				"role_description": "按钮",
+				"is_enabled": true,
+				"bounds": {
+					"x": 561.5,
+					"y": 126,
+					"width": 19.5,
+					"height": 13.5
+				}
+			},
+			{
+				"is_value_settable": false,
+				"id": "elem_38",
+				"help": "行和段落的间距",
+				"role": "button",
+				"ax_role": "AXPopUpButton",
+				"is_actionable": true,
+				"description": "行距",
+				"label": "行距",
+				"role_description": "弹出式按钮",
+				"is_enabled": true,
+				"value": "1.0",
+				"bounds": {
+					"x": 727,
+					"y": 122,
+					"width": 53,
+					"height": 22
+				}
+			},
+			{
+				"id": "elem_39",
+				"is_actionable": true,
+				"role": "button",
+				"ax_role": "AXButton",
+				"role_description": "关闭按钮",
+				"label": "关闭按钮",
+				"is_enabled": true,
+				"bounds": {
+					"x": 226,
+					"width": 16,
+					"y": 91,
+					"height": 16
+				}
+			},
+			{
+				"id": "elem_40",
+				"help": "此按钮也可以执行缩放窗口的操作",
+				"role": "button",
+				"ax_role": "AXButton",
+				"is_actionable": true,
+				"role_description": "全屏幕按钮",
+				"label": "全屏幕按钮",
+				"is_enabled": true,
+				"bounds": {
+					"x": 272,
+					"width": 16,
+					"y": 91,
+					"height": 16
+				}
+			},
+			{
+				"id": "elem_43",
+				"is_actionable": true,
+				"role": "button",
+				"ax_role": "AXButton",
+				"role_description": "最小化按钮",
+				"label": "最小化按钮",
+				"is_enabled": true,
+				"bounds": {
+					"x": 249,
+					"width": 16,
+					"y": 91,
+					"height": 16
+				}
+			},
+			{
+				"bounds": {
+					"x": 218,
+					"y": 183,
+					"width": 586,
+					"height": 382
+				},
+				"id": "elem_2",
+				"is_actionable": true,
+				"role": "textField",
+				"ax_role": "AXTextArea",
+				"role_description": "文本输入区",
+				"label": "SUPERSET_PEEKABOO_E2E_20260906",
+				"is_value_settable": true,
+				"value": "SUPERSET_PEEKABOO_E2E_20260906",
+				"identifier": "First Text View"
+			},
+			{
+				"id": "elem_21",
+				"is_actionable": false,
+				"role": "group",
+				"ax_role": "AXGroup",
+				"role_description": "组",
+				"label": "组",
+				"is_enabled": true,
+				"bounds": {
+					"x": 225,
+					"width": 85,
+					"y": 122,
+					"height": 22
+				}
+			},
+			{
+				"id": "elem_32",
+				"is_actionable": false,
+				"role": "group",
+				"ax_role": "AXGroup",
+				"role_description": "组",
+				"label": "组",
+				"is_enabled": true,
+				"bounds": {
+					"x": 588,
+					"width": 85,
+					"y": 122,
+					"height": 22
+				}
+			},
+			{
+				"id": "elem_41",
+				"is_actionable": false,
+				"role": "group",
+				"ax_role": "AXGroup",
+				"role_description": "组",
+				"label": "组",
+				"bounds": {
+					"x": 273,
+					"width": 14,
+					"y": 92,
+					"height": 14
+				}
+			},
+			{
+				"id": "elem_42",
+				"is_actionable": false,
+				"role": "group",
+				"ax_role": "AXGroup",
+				"role_description": "组",
+				"label": "组",
+				"bounds": {
+					"x": 273,
+					"width": 14,
+					"y": 92,
+					"height": 14
+				}
+			},
+			{
+				"label": "粗体",
+				"role": "checkbox",
+				"is_enabled": true,
+				"value": "0",
+				"is_actionable": true,
+				"description": "粗体",
+				"ax_role": "AXCheckBox",
+				"id": "elem_22",
+				"help": "粗体文本",
+				"is_value_settable": false,
+				"role_description": "复选框",
+				"is_selected": false,
+				"bounds": {
+					"x": 226,
+					"y": 123,
+					"width": 20,
+					"height": 20
+				}
+			},
+			{
+				"label": "斜体",
+				"role": "checkbox",
+				"is_enabled": true,
+				"value": "0",
+				"is_actionable": true,
+				"description": "斜体",
+				"ax_role": "AXCheckBox",
+				"id": "elem_23",
+				"help": "斜体文本",
+				"is_value_settable": false,
+				"role_description": "复选框",
+				"is_selected": false,
+				"bounds": {
+					"x": 247,
+					"y": 123,
+					"width": 20,
+					"height": 20
+				}
+			},
+			{
+				"label": "下划线",
+				"role": "checkbox",
+				"is_enabled": true,
+				"value": "0",
+				"is_actionable": true,
+				"description": "下划线",
+				"ax_role": "AXCheckBox",
+				"id": "elem_24",
+				"help": "下划线文本",
+				"is_value_settable": false,
+				"role_description": "复选框",
+				"is_selected": false,
+				"bounds": {
+					"x": 268,
+					"y": 123,
+					"width": 20,
+					"height": 20
+				}
+			},
+			{
+				"label": "删除线",
+				"role": "checkbox",
+				"is_enabled": true,
+				"value": "0",
+				"is_actionable": true,
+				"description": "删除线",
+				"ax_role": "AXCheckBox",
+				"id": "elem_25",
+				"help": "文本删除线",
+				"is_value_settable": false,
+				"role_description": "复选框",
+				"is_selected": false,
+				"bounds": {
+					"x": 289,
+					"y": 123,
+					"width": 20,
+					"height": 20
+				}
+			},
+			{
+				"label": "左对齐",
+				"role": "checkbox",
+				"is_enabled": true,
+				"value": "1",
+				"is_actionable": true,
+				"description": "左对齐",
+				"ax_role": "AXCheckBox",
+				"id": "elem_33",
+				"help": "文本左对齐",
+				"is_value_settable": false,
+				"role_description": "复选框",
+				"is_selected": true,
+				"bounds": {
+					"x": 589,
+					"y": 123,
+					"width": 20,
+					"height": 20
+				}
+			},
+			{
+				"label": "居中对齐",
+				"role": "checkbox",
+				"is_enabled": true,
+				"value": "0",
+				"is_actionable": true,
+				"description": "居中对齐",
+				"ax_role": "AXCheckBox",
+				"id": "elem_34",
+				"help": "文本居中",
+				"is_value_settable": false,
+				"role_description": "复选框",
+				"is_selected": false,
+				"bounds": {
+					"x": 610,
+					"y": 123,
+					"width": 20,
+					"height": 20
+				}
+			},
+			{
+				"label": "右对齐",
+				"role": "checkbox",
+				"is_enabled": true,
+				"value": "0",
+				"is_actionable": true,
+				"description": "右对齐",
+				"ax_role": "AXCheckBox",
+				"id": "elem_35",
+				"help": "文本右对齐",
+				"is_value_settable": false,
+				"role_description": "复选框",
+				"is_selected": false,
+				"bounds": {
+					"x": 631,
+					"y": 123,
+					"width": 20,
+					"height": 20
+				}
+			},
+			{
+				"label": "完全对齐",
+				"role": "checkbox",
+				"is_enabled": true,
+				"value": "0",
+				"is_actionable": true,
+				"description": "完全对齐",
+				"ax_role": "AXCheckBox",
+				"id": "elem_36",
+				"help": "文本两端对齐",
+				"is_value_settable": false,
+				"role_description": "复选框",
+				"is_selected": false,
+				"bounds": {
+					"x": 652,
+					"y": 123,
+					"width": 20,
+					"height": 20
+				}
+			},
+			{
+				"id": "elem_0",
+				"is_actionable": false,
+				"role": "other",
+				"title": "未命名",
+				"ax_role": "AXWindow",
+				"role_description": "标准窗口",
+				"label": "未命名",
+				"bounds": {
+					"x": 218,
+					"y": 83,
+					"width": 603,
+					"height": 505
+				},
+				"identifier": "_NS:34"
+			},
+			{
+				"id": "elem_1",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXScrollArea",
+				"role_description": "滚动区",
+				"label": "滚动区",
+				"bounds": {
+					"x": 218,
+					"width": 603,
+					"y": 151,
+					"height": 437
+				},
+				"identifier": "_NS:8"
+			},
+			{
+				"bounds": {
+					"x": 224.5,
+					"y": 570,
+					"width": 580.5,
+					"height": 19
+				},
+				"is_value_settable": true,
+				"id": "elem_3",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXScrollBar",
+				"role_description": "滚动条",
+				"label": "0.1851851791143417",
+				"is_enabled": false,
+				"value": "0.1851851791143417",
+				"identifier": "_NS:24"
+			},
+			{
+				"bounds": {
+					"x": 803,
+					"y": 182,
+					"width": 19,
+					"height": 390
+				},
+				"is_value_settable": true,
+				"id": "elem_4",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXScrollBar",
+				"role_description": "滚动条",
+				"label": "0.615384578704834",
+				"is_enabled": false,
+				"value": "0.615384578704834",
+				"identifier": "_NS:27"
+			},
+			{
+				"id": "elem_5",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRuler",
+				"role_description": "标尺",
+				"label": "标尺",
+				"bounds": {
+					"x": 218,
+					"width": 603,
+					"y": 151,
+					"height": 32
+				}
+			},
+			{
+				"id": "elem_6",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "0",
+				"value": "0",
+				"bounds": {
+					"x": 219,
+					"width": 9,
+					"y": 160,
+					"height": 6
+				}
+			},
+			{
+				"id": "elem_7",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "20.31746031746032",
+				"value": "20.31746031746032",
+				"bounds": {
+					"x": 795,
+					"width": 9,
+					"y": 160,
+					"height": 6
+				}
+			},
+			{
+				"id": "elem_8",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "0",
+				"value": "0",
+				"bounds": {
+					"x": 219,
+					"width": 9,
+					"y": 156,
+					"height": 10
+				}
+			},
+			{
+				"id": "elem_9",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "1.26984126984127",
+				"value": "1.26984126984127",
+				"bounds": {
+					"x": 259,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_10",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "2.53968253968254",
+				"value": "2.53968253968254",
+				"bounds": {
+					"x": 295,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_11",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "3.809523809523809",
+				"value": "3.809523809523809",
+				"bounds": {
+					"x": 331,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_12",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "5.079365079365079",
+				"value": "5.079365079365079",
+				"bounds": {
+					"x": 367,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_13",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "6.349206349206349",
+				"value": "6.349206349206349",
+				"bounds": {
+					"x": 403,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_14",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "7.619047619047619",
+				"value": "7.619047619047619",
+				"bounds": {
+					"x": 439,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_15",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "8.888888888888889",
+				"value": "8.888888888888889",
+				"bounds": {
+					"x": 475,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_16",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "10.15873015873016",
+				"value": "10.15873015873016",
+				"bounds": {
+					"x": 511,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_17",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "11.42857142857143",
+				"value": "11.42857142857143",
+				"bounds": {
+					"x": 547,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_18",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "12.6984126984127",
+				"value": "12.6984126984127",
+				"bounds": {
+					"x": 583,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_19",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "13.96825396825397",
+				"value": "13.96825396825397",
+				"bounds": {
+					"x": 619,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_20",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXRulerMarker",
+				"role_description": "标尺标记",
+				"label": "15.23809523809524",
+				"value": "15.23809523809524",
+				"bounds": {
+					"x": 655,
+					"width": 6,
+					"y": 157,
+					"height": 9
+				}
+			},
+			{
+				"id": "elem_26",
+				"help": "点按以选取文本颜色",
+				"role": "other",
+				"ax_role": "AXColorWell",
+				"is_actionable": false,
+				"description": "文本颜色",
+				"label": "文本颜色",
+				"role_description": "颜色池",
+				"is_enabled": true,
+				"value": "rgb 0 0 0 1",
+				"bounds": {
+					"x": 313,
+					"y": 122,
+					"width": 22,
+					"height": 22
+				}
+			},
+			{
+				"id": "elem_27",
+				"help": "点按以选取文本的背景颜色",
+				"role": "other",
+				"ax_role": "AXColorWell",
+				"is_actionable": false,
+				"description": "文本背景颜色",
+				"label": "文本背景颜色",
+				"role_description": "颜色池",
+				"is_enabled": true,
+				"value": "rgb 1 1 1 1",
+				"bounds": {
+					"x": 338,
+					"y": 122,
+					"width": 22,
+					"height": 22
+				}
+			},
+			{
+				"is_value_settable": true,
+				"id": "elem_30",
+				"help": "设置字体大小",
+				"role": "other",
+				"ax_role": "AXComboBox",
+				"is_actionable": true,
+				"description": "字体大小",
+				"label": "字体大小",
+				"role_description": "组合框",
+				"is_enabled": true,
+				"value": "12",
+				"bounds": {
+					"x": 533,
+					"y": 122,
+					"width": 52,
+					"height": 22
+				}
+			},
+			{
+				"id": "elem_37",
+				"help": "列表符号和编号",
+				"role": "other",
+				"ax_role": "AXMenuButton",
+				"is_actionable": false,
+				"role_description": "菜单按钮",
+				"label": "列表样式",
+				"description": "列表样式",
+				"is_enabled": true,
+				"bounds": {
+					"x": 676,
+					"y": 122,
+					"width": 48,
+					"height": 22
+				}
+			},
+			{
+				"id": "elem_44",
+				"is_actionable": false,
+				"role": "other",
+				"title": "",
+				"ax_role": "AXMenuButton",
+				"description": "文稿操作",
+				"label": "文稿操作",
+				"role_description": "菜单按钮",
+				"is_enabled": false,
+				"bounds": {
+					"x": 342,
+					"y": 90,
+					"width": 12,
+					"height": 18
+				}
+			},
+			{
+				"id": "elem_45",
+				"is_actionable": false,
+				"role": "other",
+				"ax_role": "AXStaticText",
+				"role_description": "文本",
+				"label": "未命名",
+				"is_enabled": true,
+				"value": "未命名",
+				"bounds": {
+					"x": 300,
+					"width": 43,
+					"y": 91,
+					"height": 16
+				}
+			}
+		],
+		"snapshot_reusable": true,
+		"application_name": "文本编辑",
+		"screenshot_raw": "\/tmp\/superset-peekaboo-e2e\/final-textedit.png",
+		"snapshot_id": "ps1_f5f032d8eea33d92fe16ba5d7d01d1dd",
+		"element_count": 46,
+		"interactable_count": 17,
+		"ui_map": "\/Users\/wufan\/.peekaboo\/snapshots\/ps1_f5f032d8eea33d92fe16ba5d7d01d1dd\/snapshot.json"
+	},
+	"debug_logs": [
+		"[2026-09-06T15:50:15.354Z] DEBUG: Runtime host: remote gui via \/Users\/wufan\/Library\/Application Support\/Peekaboo\/bridge.sock (build 4.3.1 (4030199))",
+		"[2026-09-06T15:50:15.355Z] VERBOSE [Operation]: Starting operation {annotate=false, hasAnalyzePrompt=false, app=com.apple.TextEdit, operation=see_command, mode=auto, menubar=false}",
+		"[2026-09-06T15:50:15.355Z] VERBOSE [Performance]: Starting timer 'see_command'",
+		"[2026-09-06T15:50:15.363Z] VERBOSE [Capture]: Starting capture and detection phase",
+		"[2026-09-06T15:50:15.363Z] VERBOSE [Capture]: Using desktop observation pipeline {target=app:com.apple.TextEdit}",
+		"[2026-09-06T15:50:15.363Z] VERBOSE [Operation]: Starting operation {mode=window, operation=capture_phase}",
+		"[2026-09-06T15:50:15.363Z] VERBOSE [Performance]: Starting timer 'capture_phase'",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Operation]: Operation completed {success=true, mode=window, operation=capture_phase}",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Performance]: Timer 'capture_phase' completed {duration_ms=683}",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Performance]: Desktop observation span {span=state.snapshot, duration_ms=105}",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Performance]: Desktop observation span {span=target.resolve, duration_ms=17}",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Performance]: Desktop observation span {span=capture.window, duration_ms=372}",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Performance]: Desktop observation span {span=detection.ax, duration_ms=58}",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Performance]: Desktop observation span {span=output.write, duration_ms=4}",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Performance]: Desktop observation span {span=output.raw.write, duration_ms=2}",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Performance]: Desktop observation span {span=snapshot.write, duration_ms=2}",
+		"[2026-09-06T15:50:16.047Z] VERBOSE [Performance]: Desktop observation span {span=desktop.observe, duration_ms=660}",
+		"[2026-09-06T15:50:16.048Z] VERBOSE [Capture]: Capture completed successfully {snapshotId=ps1_f5f032d8eea33d92fe16ba5d7d01d1dd, elementCount=46, screenshotSize=35866}"
+	],
+	"target_receipt": {
+		"process_start_identity": 1788705561804137,
+		"process_start_identity_decimal": "1788705561804137",
+		"pid": 23343,
+		"window_id": 4689
+	},
+	"success": true
+}

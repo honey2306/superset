@@ -145,11 +145,11 @@ export const createExternalRouter = () => {
 			}),
 
 		copyPath: publicProcedure.input(z.string()).mutation(async ({ input }) => {
-			clipboard.writeText(input);
+			await clipboard.writeText(input);
 		}),
 
 		copyText: publicProcedure.input(z.string()).mutation(async ({ input }) => {
-			clipboard.writeText(input);
+			await clipboard.writeText(input);
 		}),
 
 		resolvePath: publicProcedure

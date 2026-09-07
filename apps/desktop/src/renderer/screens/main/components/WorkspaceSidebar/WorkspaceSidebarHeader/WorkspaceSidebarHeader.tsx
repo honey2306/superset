@@ -3,7 +3,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useState } from "react";
-import { LuBookOpen, LuClock3, LuListTodo, LuWorkflow } from "react-icons/lu";
+import {
+	LuBookOpen,
+	LuClock3,
+	LuListTodo,
+	LuPlugZap,
+	LuSparkles,
+	LuWorkflow,
+} from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useTodoAlerts } from "renderer/routes/_local/_dashboard/hooks/useTodoAlerts";
 import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
@@ -40,6 +47,8 @@ export function WorkspaceSidebarHeader({
 	const isAutomationsOpen = !!matchRoute({ to: "/automations", fuzzy: true });
 	const isTodosOpen = !!matchRoute({ to: "/todos", fuzzy: true });
 	const isProjectMemoryOpen = !!matchRoute({ to: "/memories", fuzzy: true });
+	const isGlobalMcpOpen = !!matchRoute({ to: "/mcp", fuzzy: true });
+	const isGlobalSkillsOpen = !!matchRoute({ to: "/skills", fuzzy: true });
 	const isTemporaryWorkspaceOpen = isTemporaryWorkspaceActive(
 		workspaceId,
 		workspaces,
@@ -59,6 +68,14 @@ export function WorkspaceSidebarHeader({
 
 	const handleProjectMemoryClick = () => {
 		navigate({ to: "/memories" });
+	};
+
+	const handleGlobalMcpClick = () => {
+		navigate({ to: "/mcp" });
+	};
+
+	const handleGlobalSkillsClick = () => {
+		navigate({ to: "/skills" });
 	};
 
 	const handleTemporaryWorkspaceClick = async () => {
@@ -168,6 +185,34 @@ export function WorkspaceSidebarHeader({
 						{t("workspace.projectMemory")}
 					</TooltipContent>
 				</Tooltip>
+				<Tooltip delayDuration={300}>
+					<TooltipTrigger asChild>
+						<button
+							className={itemClassName(isGlobalMcpOpen)}
+							onClick={handleGlobalMcpClick}
+							type="button"
+						>
+							<LuPlugZap className="size-4" strokeWidth={STROKE_WIDTH} />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent side="right">
+						{t("workspace.globalMcp")}
+					</TooltipContent>
+				</Tooltip>
+				<Tooltip delayDuration={300}>
+					<TooltipTrigger asChild>
+						<button
+							className={itemClassName(isGlobalSkillsOpen)}
+							onClick={handleGlobalSkillsClick}
+							type="button"
+						>
+							<LuSparkles className="size-4" strokeWidth={STROKE_WIDTH} />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent side="right">
+						{t("workspace.globalSkills")}
+					</TooltipContent>
+				</Tooltip>
 			</div>
 		);
 	}
@@ -222,6 +267,30 @@ export function WorkspaceSidebarHeader({
 				</div>
 				<span className="flex-1 text-left text-sm font-medium">
 					{t("workspace.projectMemory")}
+				</span>
+			</button>
+			<button
+				className={itemClassName(isGlobalMcpOpen)}
+				onClick={handleGlobalMcpClick}
+				type="button"
+			>
+				<div className="flex size-5 items-center justify-center">
+					<LuPlugZap className="size-4" strokeWidth={STROKE_WIDTH} />
+				</div>
+				<span className="flex-1 text-left text-sm font-medium">
+					{t("workspace.globalMcp")}
+				</span>
+			</button>
+			<button
+				className={itemClassName(isGlobalSkillsOpen)}
+				onClick={handleGlobalSkillsClick}
+				type="button"
+			>
+				<div className="flex size-5 items-center justify-center">
+					<LuSparkles className="size-4" strokeWidth={STROKE_WIDTH} />
+				</div>
+				<span className="flex-1 text-left text-sm font-medium">
+					{t("workspace.globalSkills")}
 				</span>
 			</button>
 		</div>

@@ -71,12 +71,13 @@ test("composer auto-grows and uses compact accessible action buttons", () => {
 	expect(styles).toContain(".mobile-composer-queue-mark");
 });
 
-test("session refreshes active phone work so approvals never require reload", () => {
+test("session reconciles once after submit instead of polling full snapshots", () => {
 	const session = source("session.tsx");
 	expect(session).toContain("refreshSession().catch(() => undefined)");
+	expect(session).toContain("await Promise.all([");
 	expect(session).toContain("refreshListedTitle().catch(() => undefined)");
-	expect(session).toContain('session.state?.status !== "running"');
-	expect(session).toContain("window.setInterval");
+	expect(session).not.toContain("window.setInterval");
+	expect(session).not.toContain("ACTIVE_SESSION_REFRESH_INTERVAL_MS");
 });
 
 test("session collapses execution details and shows Working duration", () => {
@@ -123,6 +124,25 @@ test("phone home renders one chronological conversation list instead of a tree",
 	expect(workspaces).toContain("<ConversationList");
 	expect(workspaces).toContain("<h1>Conversations</h1>");
 	expect(workspaces).not.toContain("<ProjectTree");
+});
+
+test("phone home hydrates every workspace from one aggregate snapshot", () => {
+	const workspaces = source("workspaces.tsx");
+	expect(workspaces).toContain(
+		"getTrpc().workspaceCatalog.phoneSnapshot.query()",
+	);
+	expect(workspaces).toContain("buildPhoneWorkspaceContents");
+	expect(workspaces).not.toContain("workspaceContentsLoader");
+	expect(workspaces).not.toContain("getTrpc().acpSessions.list.query");
+});
+
+test("phone home paints a persisted snapshot as cached until refresh succeeds", () => {
+	const workspaces = source("workspaces.tsx");
+	expect(workspaces).toContain('"Cached · Connecting…"');
+	expect(workspaces).toContain("setHasRefreshed(true)");
+	expect(workspaces).toContain("projectPhoneSnapshotCacheValue");
+	expect(workspaces).toContain("parsePhoneSnapshotCacheValue");
+	expect(workspaces).not.toContain('snapshot ? "Connected" : "Connecting…"');
 });
 
 test("phone home bounds the page so the conversation list owns scrolling", () => {

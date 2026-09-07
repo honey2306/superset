@@ -11,11 +11,18 @@ import type { AcpDaemonRequest, AcpDaemonResponse } from "./daemon";
 
 const MCP_PROTOCOL_VERSION = "2024-11-05";
 const DAEMON_CALL_TIMEOUT_MS = 120_000;
-const LONG_RUNNING_TOOL_NAMES = new Set(["ask_user", "wait_delegation"]);
+const LONG_RUNNING_TOOL_NAMES = new Set([
+	"ask_user",
+	"discuss",
+	"wait_delegation",
+]);
 const socketPath = requiredEnv("SUPERSET_ACP_DAEMON_SOCKET_PATH");
 const sourceSessionId = requiredEnv("SUPERSET_ACP_SOURCE_SESSION_ID");
 const isDelegatedExecutor =
 	process.env.SUPERSET_ACP_SESSION_ROLE === SUPERSET_DELEGATED_EXECUTOR_ROLE;
+const isDiscussionParticipant =
+	process.env.SUPERSET_ACP_SESSION_ROLE === "discussion-participant";
+const isBackgroundParticipant = isDelegatedExecutor || isDiscussionParticipant;
 
 type JsonRpcId = string | number;
 interface JsonRpcRequest {
@@ -158,7 +165,7 @@ interface DelegationAvailability {
 }
 
 async function delegatedExecutionAvailability(): Promise<DelegationAvailability> {
-	if (isDelegatedExecutor) return { available: false };
+	if (isBackgroundParticipant) return { available: false };
 	try {
 		const delegatedExecution = await callDaemon(
 			"get_delegated_execution",
@@ -217,8 +224,20 @@ async function delegatedExecutionAvailability(): Promise<DelegationAvailability>
 }
 
 function visibleToolDefinitions(includeDelegate: boolean) {
+	if (isDiscussionParticipant) return [];
 	return SUPERSET_TOOL_DEFINITIONS.filter((tool) => {
+		if (
+			isDelegatedExecutor &&
+			(tool.name === "list_global_mcp_servers" ||
+				tool.name === "upsert_global_mcp_server" ||
+				tool.name === "remove_global_mcp_server")
+		) {
+			return false;
+		}
 		if (tool.name === "delegate") return includeDelegate;
+		if (tool.name === "discuss") {
+			return !isDelegatedExecutor && !isDiscussionParticipant;
+		}
 		if (tool.name === "report_delegation_result") return isDelegatedExecutor;
 		// A root coordinator may need to resume waiting for an existing durable
 		// run after delegation profiles are disabled or become invalid. Delegated

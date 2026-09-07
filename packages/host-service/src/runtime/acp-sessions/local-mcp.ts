@@ -40,6 +40,19 @@ function executableOnPath(
 	return null;
 }
 
+/** Build the session-scoped official Browser Use MCP for an embedded page. */
+export function embeddedBrowserUseMcpServer(input: {
+	sessionId: string;
+	cdpProxyUrl: string;
+	environment?: NodeJS.ProcessEnv;
+}): McpServer | null {
+	return browserUseMcpServerFromEnvironment(input.environment ?? process.env, {
+		BU_CDP_URL: `${input.cdpProxyUrl}/${encodeURIComponent(input.sessionId)}`,
+		BU_NAME: `superset-${input.sessionId}`,
+		BH_CLIENT: "superset-agent-browser",
+	});
+}
+
 /**
  * Build the one shared local Browser Use MCP declaration passed to ACP
  * session/new and session/load. Browser Use 3 uses `--cli-mcp`. A local
@@ -48,6 +61,7 @@ function executableOnPath(
  */
 export function browserUseMcpServerFromEnvironment(
 	environment: NodeJS.ProcessEnv = process.env,
+	overrides: Record<string, string> = {},
 ): McpServer | null {
 	const mode = environment[BROWSER_USE_MCP_ENV];
 	if (mode === "0") return null;
@@ -59,7 +73,7 @@ export function browserUseMcpServerFromEnvironment(
 			name: "browser-use",
 			command: browserUse,
 			args: ["--cli-mcp"],
-			env: [],
+			env: Object.entries(overrides).map(([name, value]) => ({ name, value })),
 		};
 	}
 
@@ -70,6 +84,6 @@ export function browserUseMcpServerFromEnvironment(
 		name: "browser-use",
 		command: uvx,
 		args: ["browser-use@latest", "--cli-mcp"],
-		env: [],
+		env: Object.entries(overrides).map(([name, value]) => ({ name, value })),
 	};
 }

@@ -70,6 +70,8 @@ export const permissionOutcomeSchema = z.custom<RequestPermissionOutcome>(
 
 export const listSessionsInput = z.object({
 	workspaceId: z.string().min(1).optional(),
+	/** Omit sessions that have never received a user prompt. */
+	excludeEmpty: z.boolean().optional().default(false),
 	// `<createdAt>:<sessionId>` — the previous page's last row (a sort
 	// position; see AcpSessionManager.list). Rejecting malformed cursors here
 	// keeps list consistent with getMessages (BAD_REQUEST, not an empty page).
@@ -160,6 +162,8 @@ export const cancelInput = z.object({
 /** Permanently closes an ACP session and removes its recoverable history. */
 export const closeSessionInput = z.object({
 	sessionId: sessionIdSchema,
+	/** Leave sessions with user-authored history intact. */
+	onlyIfEmpty: z.boolean().optional().default(false),
 });
 
 export const setModeInput = z.object({
@@ -182,6 +186,7 @@ export const enqueuePromptInput = z.object({
 });
 
 export const sendNowInput = enqueuePromptInput;
+export const steerPromptInput = enqueuePromptInput;
 
 export const removeQueuedPromptInput = z.object({
 	sessionId: sessionIdSchema,
@@ -278,7 +283,7 @@ export interface AcpSessionsApi {
 		outcome: RequestPermissionOutcome;
 	}): Promise<RespondToPermissionResult>;
 	cancel(input: { sessionId: string }): Promise<void>;
-	close(input: { sessionId: string }): Promise<void>;
+	close(input: { sessionId: string; onlyIfEmpty?: boolean }): Promise<void>;
 	setMode(input: { sessionId: string; modeId: string }): Promise<void>;
 	setConfigOption(input: {
 		sessionId: string;
@@ -304,6 +309,12 @@ export interface AcpSessionsApi {
 	 * `prompt`.
 	 */
 	sendNow(input: {
+		sessionId: string;
+		commandId?: string;
+		prompt: ContentBlock[];
+	}): Promise<PromptAccepted>;
+	/** Inject guidance into the active turn without cancelling it. */
+	steerPrompt?(input: {
 		sessionId: string;
 		commandId?: string;
 		prompt: ContentBlock[];

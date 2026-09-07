@@ -99,18 +99,6 @@ export function SessionRoute() {
 		session.loadOlder,
 	]);
 
-	// A newly created phone session can miss events emitted between prompt
-	// admission and stream cursor establishment. Keep an authoritative snapshot
-	// close behind while work is active so pending approvals never require reload.
-	useEffect(() => {
-		if (!busy && session.state?.status !== "running") return;
-		const intervalId = window.setInterval(() => {
-			void refreshSession();
-			void refreshListedTitle().catch(() => undefined);
-		}, 1_000);
-		return () => window.clearInterval(intervalId);
-	}, [busy, refreshListedTitle, refreshSession, session.state?.status]);
-
 	if (!sessionId || !workspaceId)
 		return <Navigate to={getPhoneRoute("/")} replace />;
 

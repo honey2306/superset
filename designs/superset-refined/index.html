@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Superset desktop workspace refined UI design prototype" />
+    <title>Superset · Refined workspace</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <svg aria-hidden="true" class="icon-sprite" xmlns="http://www.w3.org/2000/svg">
+      <symbol id="i-command" viewBox="0 0 24 24"><path d="M9 9h6v6H9z"/><path d="M9 4v5M15 4v5M9 15v5M15 15v5M4 9h5M15 9h5M4 15h5M15 15h5"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+      <symbol id="i-automation" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4.2"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4.2 4L19 6.5"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 5.5a2 2 0 0 1 2-2h11v16H7a2 2 0 0 0-2 2z"/><path d="M5 5.5v14M8 7h7M8 10h7"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4 4"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 8.3a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4Z"/><path d="m19.4 13.1 1.2.9-1.6 2.7-1.4-.6a8.2 8.2 0 0 1-1.6.9l-.2 1.5h-3.1l-.2-1.5a8.2 8.2 0 0 1-1.6-.9l-1.4.6-1.6-2.7 1.2-.9a7.7 7.7 0 0 1 0-2.2l-1.2-.9 1.6-2.7 1.4.6a8.2 8.2 0 0 1 1.6-.9l.2-1.5h3.1l.2 1.5a8.2 8.2 0 0 1 1.6.9l1.4-.6 1.6 2.7-1.2.9a7.7 7.7 0 0 1 0 2.2Z"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 1.3 5.7L19 10l-5.7 1.3L12 17l-1.3-5.7L5 10l5.7-1.3L12 3ZM19 16l.6 2.4L22 19l-2.4.6L19 22l-.6-2.4L16 19l2.4-.6L19 16Z"/></symbol>
+      <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="7" cy="5" r="2.2"/><circle cx="7" cy="19" r="2.2"/><circle cx="17" cy="12" r="2.2"/><path d="M7 7.2v4.5A4.3 4.3 0 0 0 11.3 16H17M7 16.8v-1.2"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3.8h8l4 4v12.4H6z"/><path d="M14 3.8v4h4M9 12h6M9 15.5h6"/></symbol>
+      <symbol id="i-code" viewBox="0 0 24 24"><path d="m9 7-5 5 5 5M15 7l5 5-5 5"/></symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></symbol>
+      <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m8.5 12.6 5.8-5.8a3.1 3.1 0 0 1 4.4 4.4l-7.9 7.9a4.7 4.7 0 0 1-6.6-6.6l7.7-7.7"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="17" r="2"/></symbol>
+      <symbol id="i-panel" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+      <symbol id="i-focus" viewBox="0 0 24 24"><path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4"/><path d="M8 8h8v8H8z"/></symbol>
+    </svg>
+
+    <div class="review-bar" data-screen-label="design-review-bar">
+      <div class="review-label">
+        <span class="review-pulse"></span>
+        <span>可交互设计稿</span>
+        <span class="review-dot">·</span>
+        <span class="review-muted">示例数据</span>
+      </div>
+      <div class="theme-switcher" aria-label="主题预览">
+        <span class="theme-caption">主题</span>
+        <button class="theme-chip is-active" type="button" data-theme-choice="graphite">石墨</button>
+        <button class="theme-chip" type="button" data-theme-choice="paper">暖白</button>
+        <button class="theme-chip" type="button" data-theme-choice="plum">灰紫</button>
+      </div>
+      <div class="review-hint"><span class="keycap">⌘</span><span class="keycap">K</span><span>打开命令菜单</span></div>
+    </div>
+
+    <div class="prototype" data-theme="graphite">
+      <div class="app-shell" id="appShell">
+        <aside class="sidebar" data-screen-label="left-navigation">
+          <div class="sidebar-top">
+            <div class="brand-lockup">
+              <img class="brand-mark" src="assets/superset-icon.png" alt="Superset" />
+              <div class="brand-name">superset</div>
+            </div>
+            <button class="icon-button quiet" type="button" aria-label="更多工作区选项" title="更多工作区选项"><svg class="icon"><use href="#i-more"></use></svg></button>
+          </div>
+
+          <button class="workspace-switch" type="button">
+            <span class="workspace-avatar">S</span>
+            <span class="workspace-switch-copy"><strong>Superset</strong><small>本地工作区</small></span>
+            <svg class="icon icon-chevron-down"><use href="#i-chevron"></use></svg>
+          </button>
+
+          <nav class="primary-nav" aria-label="主导航">
+            <button class="nav-item is-active" type="button" data-view="workspace"><svg class="icon"><use href="#i-grid"></use></svg><span>工作区</span><span class="nav-count">4</span></button>
+            <button class="nav-item" type="button" data-view="automations"><svg class="icon"><use href="#i-automation"></use></svg><span>自动化</span><span class="nav-count nav-count-soft">2</span></button>
+            <button class="nav-item" type="button" data-view="todos"><svg class="icon"><use href="#i-check"></use></svg><span>待办</span><span class="nav-count nav-count-soft">3</span></button>
+            <button class="nav-item" type="button" data-view="memory"><svg class="icon"><use href="#i-book"></use></svg><span>项目记忆</span></button>
+          </nav>
+
+          <div class="sidebar-heading"><span>项目</span><button class="icon-button tiny" type="button" aria-label="新建项目" title="新建项目"><svg class="icon"><use href="#i-plus"></use></svg></button></div>
+          <div class="project-list">
+            <div class="project-group is-open" data-project-group>
+              <button class="project-group-toggle" type="button" data-project-toggle aria-expanded="true"><svg class="icon caret"><use href="#i-chevron"></use></svg><span class="project-bullet sage"></span><span>Superset</span><span class="project-ellipsis">···</span></button>
+              <div class="project-items">
+                <button class="project-entry is-current" type="button"><span class="session-status active"></span><span class="project-entry-text">UI refresh</span><span class="project-entry-meta">现在</span></button>
+                <button class="project-entry" type="button"><span class="session-status"></span><span class="project-entry-text">Sidebar hierarchy</span><span class="project-entry-meta">昨天</span></button>
+                <button class="project-entry" type="button"><span class="session-status"></span><span class="project-entry-text">Memory surfaces</span><span class="project-entry-meta">8月</span></button>
+              </div>
+            </div>
+            <div class="project-group is-open" data-project-group>
+              <button class="project-group-toggle" type="button" data-project-toggle aria-expanded="true"><svg class="icon caret"><use href="#i-chevron"></use></svg><span class="project-bullet amber"></span><span>个人实验</span><span class="project-ellipsis">···</span></button>
+              <div class="project-items">
+                <button class="project-entry" type="button"><span class="session-status"></span><span class="project-entry-text">Inbox</span><span class="project-entry-meta">3</span></button>
+                <button class="project-entry" type="button"><span class="session-status"></span><span class="project-entry-text">Untitled workspace</span><span class="project-entry-meta"></span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="sidebar-spacer"></div>
+          <div class="sidebar-bottom">
+            <button class="sidebar-tool" type="button"><svg class="icon"><use href="#i-search"></use></svg><span>快速查找</span><span class="shortcut-label">⌘ K</span></button>
+            <button class="sidebar-tool" type="button"><svg class="icon"><use href="#i-settings"></use></svg><span>偏好设置</span></button>
+            <div class="profile-row"><span class="profile-avatar">W</span><span class="profile-name">Wufan</span><span class="profile-state">在线</span></div>
+          </div>
+        </aside>
+
+        <main class="main-column">
+          <header class="session-bar" data-screen-label="session-tabs">
+            <div class="session-tabs" role="tablist" aria-label="会话标签">
+              <button class="session-tab is-active" type="button" role="tab" data-session="refresh"><span class="session-dot live"></span><span>UI refresh</span><span class="session-close">×</span></button>
+              <button class="session-tab" type="button" role="tab" data-session="sidebar"><span class="session-dot"></span><span>Sidebar hierarchy</span></button>
+              <button class="session-tab" type="button" role="tab" data-session="terminal"><span class="session-dot"></span><span>终端</span></button>
+              <button class="new-tab" type="button" title="新建会话" aria-label="新建会话"><svg class="icon"><use href="#i-plus"></use></svg></button>
+            </div>
+            <div class="session-actions"><span class="sync-status"><span class="status-led"></span>已同步</span><button class="icon-button" type="button" aria-label="搜索会话" title="搜索会话"><svg class="icon"><use href="#i-search"></use></svg></button><button class="icon-button" type="button" aria-label="更多操作" title="更多操作"><svg class="icon"><use href="#i-more"></use></svg></button></div>
+          </header>
+
+          <div class="view-stack">
+            <section class="view-panel workspace-view is-visible" data-view-panel="workspace" data-screen-label="workspace-chat">
+              <div class="agent-context">
+                <div class="agent-summary"><span class="agent-avatar"><svg class="icon"><use href="#i-spark"></use></svg></span><div><strong>Codex</strong><span class="agent-muted" id="sessionContext">正在协作 · UI refresh</span></div><span class="running-pill"><span class="status-led"></span>运行中</span></div>
+                <div class="agent-controls"><label class="control-chip select-chip" for="modelSelect"><select id="modelSelect" aria-label="选择模型"><option value="gpt-5.6">gpt-5.6</option><option value="gpt-5.5">gpt-5.5</option><option value="gpt-5.4-mini">gpt-5.4-mini</option></select><svg class="icon"><use href="#i-chevron"></use></svg></label><button class="control-chip" type="button"><span>高推理</span><svg class="icon"><use href="#i-chevron"></use></svg></button><button class="icon-button" type="button" id="toggleFocus" aria-label="专注模式" title="专注模式"><svg class="icon"><use href="#i-focus"></use></svg></button><button class="icon-button" type="button" id="toggleReview" aria-label="切换变更预览" title="切换变更预览"><svg class="icon"><use href="#i-panel"></use></svg></button></div>
+              </div>
+
+              <div class="conversation-scroller">
+                <div class="conversation" data-screen-label="conversation">
+                  <div class="conversation-meta"><span id="conversationDate">今天 16:42</span><span class="meta-line"></span><span id="conversationWorkspace">工作区 · Superset</span></div>
+                  <article class="message user-message">
+                    <div class="message-avatar user-avatar">W</div>
+                    <div class="message-body"><div class="message-heading"><strong>你</strong><span>16:40</span></div><p>希望整体更高级、更耐看，同时保留一个真正适合长时间工作的工具感。</p></div>
+                  </article>
+                  <article class="message assistant-message">
+                    <div class="message-avatar assistant-avatar"><svg class="icon"><use href="#i-spark"></use></svg></div>
+                    <div class="message-body">
+                      <div class="message-heading"><strong>Codex</strong><span>16:42</span></div>
+                      <p>我先把工作区的层级、会话、工具状态和变更预览放回同一个清晰的阅读节奏里。整体会更安静一些：减少厚重分隔线，让每一层信息用留白、字重和低饱和状态色来区分。</p>
+                      <p>右侧现在只显示与当前会话相关的变更，路径会收起到父级目录和文件名，长路径不会再把树撑开。你可以先从顶部的主题和侧栏切换感受密度。</p>
+                      <div class="message-points">
+                        <div class="message-point"><span class="point-index">01</span><span><strong>主导航</strong><small>工作区、自动化、待办和项目记忆共享一套外壳。</small></span></div>
+                        <div class="message-point"><span class="point-index">02</span><span><strong>协作上下文</strong><small>模型、推理强度和运行状态集中在一行，减少浮层感。</small></span></div>
+                        <div class="message-point"><span class="point-index">03</span><span><strong>变更预览</strong><small>默认保留审阅上下文，专注模式可暂时收起两侧。</small></span></div>
+                      </div>
+                    </div>
+                  </article>
+
+                  <details class="activity" open>
+                    <summary><span class="activity-chevron"><svg class="icon"><use href="#i-chevron"></use></svg></span><span class="activity-icon"><svg class="icon"><use href="#i-code"></use></svg></span><span class="activity-title">已完成 3 个检查</span><span class="activity-meta">12.8s</span><span class="activity-state">完成</span></summary>
+                    <div class="activity-body">
+                      <div class="activity-row"><span class="activity-check">✓</span><span>读取现有桌面端布局与导航状态</span><span class="activity-time">3.2s</span></div>
+                      <div class="activity-row"><span class="activity-check">✓</span><span>整理会话、工作区与变更预览的关系</span><span class="activity-time">4.6s</span></div>
+                      <div class="activity-row"><span class="activity-check">✓</span><span>生成 refined UI prototype</span><span class="activity-time">5.0s</span></div>
+                    </div>
+                  </details>
+
+                  <div class="composer-spacer" aria-hidden="true"></div>
+                </div>
+              </div>
+
+              <div class="terminal-view" id="terminalView" data-screen-label="terminal-preview" aria-label="终端预览">
+                <div class="terminal-header"><div class="terminal-title"><span class="terminal-led"></span><strong>终端</strong><span>Superset · 本地工作区</span></div><span class="terminal-path">~/Code/superset</span></div>
+                <div class="terminal-output"><div><span class="terminal-prompt">$</span><code>bun run check:versions</code></div><div class="terminal-muted">正在检查 desktop 与 host-service 版本…</div><div class="terminal-ok">✓ 版本一致 · v0.9.4</div><div><span class="terminal-prompt">$</span><code>git status --short</code></div><div class="terminal-muted"> M apps/desktop/src/Sidebar.tsx</div><div class="terminal-muted"> M apps/desktop/src/WorkspaceShell.tsx</div><div class="terminal-cursor"><span class="terminal-prompt">$</span><span class="cursor-block"></span></div></div>
+              </div>
+
+              <div class="composer-wrap" data-screen-label="composer">
+                <div class="composer" id="composerBox">
+                  <textarea id="composerInput" rows="2" placeholder="描述下一步，或输入 / 查看命令…"></textarea>
+                  <div class="composer-footer"><div class="composer-context"><span class="context-dot"></span><span>Superset · UI refresh</span><button class="composer-link" type="button">添加上下文</button></div><div class="composer-actions"><button class="icon-button" type="button" aria-label="添加文件" title="添加文件"><svg class="icon"><use href="#i-paperclip"></use></svg></button><button class="control-chip compact" type="button"><span>高推理</span><svg class="icon"><use href="#i-chevron"></use></svg></button><button class="send-button" id="sendMessage" type="button" aria-label="发送"><svg class="icon"><use href="#i-arrow-up"></use></svg></button></div></div>
+                </div>
+                <div class="composer-note"><span>Enter 发送</span><span>·</span><span>Shift + Enter 换行</span><span class="composer-note-end">本地会话 · 示例数据</span></div>
+              </div>
+            </section>
+
+            <section class="view-panel list-view" data-view-panel="automations" data-screen-label="automations">
+              <div class="list-view-header"><div><span class="eyebrow">自动化</span><h1>自动化</h1><p>让重复的工作在合适的时间自己发生。</p></div><button class="primary-button" type="button"><svg class="icon"><use href="#i-plus"></use></svg>新建自动化</button></div>
+              <div class="list-toolbar"><div class="toolbar-tabs"><button class="toolbar-tab is-active" type="button">全部 <span>3</span></button><button class="toolbar-tab" type="button">运行中 <span>2</span></button><button class="toolbar-tab" type="button">已暂停 <span>1</span></button></div><button class="icon-button" type="button" aria-label="筛选"><svg class="icon"><use href="#i-sliders"></use></svg></button></div>
+              <div class="automation-list">
+                <div class="automation-row"><div class="automation-icon sage-icon"><svg class="icon"><use href="#i-automation"></use></svg></div><div class="automation-main"><strong>每日代码整理</strong><span>工作日 · 09:30 · Superset</span></div><span class="row-status is-running"><span class="status-led"></span>运行中</span><span class="row-next">下次 18 小时后</span><button class="icon-button"><svg class="icon"><use href="#i-more"></use></svg></button></div>
+                <div class="automation-row"><div class="automation-icon blue-icon"><svg class="icon"><use href="#i-search"></use></svg></div><div class="automation-main"><strong>PR review digest</strong><span>每周一 · 10:00 · 发送到项目记忆</span></div><span class="row-status is-running"><span class="status-led"></span>运行中</span><span class="row-next">下次 2 天后</span><button class="icon-button"><svg class="icon"><use href="#i-more"></use></svg></button></div>
+                <div class="automation-row is-muted"><div class="automation-icon muted-icon"><svg class="icon"><use href="#i-book"></use></svg></div><div class="automation-main"><strong>整理设计探索</strong><span>每月 1 日 · 仅保留高信号记录</span></div><span class="row-status">已暂停</span><span class="row-next">—</span><button class="icon-button"><svg class="icon"><use href="#i-more"></use></svg></button></div>
+              </div>
+              <div class="quiet-note"><span class="status-led"></span><span>自动化会在本地工作区中运行，并保留每次运行的简短记录。</span></div>
+            </section>
+
+            <section class="view-panel list-view" data-view-panel="todos" data-screen-label="todos">
+              <div class="list-view-header"><div><span class="eyebrow">个人队列</span><h1>待办</h1><p>把下一步留在视线里，保持工作区轻盈。</p></div><button class="primary-button" type="button"><svg class="icon"><use href="#i-plus"></use></svg>新建待办</button></div>
+              <div class="todo-summary"><span><strong>3</strong> 项待处理</span><span class="todo-summary-line"></span><span><strong>1</strong> 项已完成</span><span class="todo-summary-end">本周</span></div>
+              <div class="todo-list">
+                <label class="todo-row"><input type="checkbox" /><span class="todo-check"></span><span class="todo-copy"><strong>检查右侧变更预览的路径折叠</strong><small>UI refresh · 今天</small></span><span class="todo-tag">设计</span></label>
+                <label class="todo-row"><input type="checkbox" /><span class="todo-check"></span><span class="todo-copy"><strong>把模型切换器的状态接入会话恢复</strong><small>Desktop · 明天</small></span><span class="todo-tag">开发</span></label>
+                <label class="todo-row"><input type="checkbox" /><span class="todo-check"></span><span class="todo-copy"><strong>整理项目记忆中的决策记录</strong><small>Superset · 周五</small></span><span class="todo-tag">整理</span></label>
+                <label class="todo-row is-done"><input type="checkbox" checked /><span class="todo-check"></span><span class="todo-copy"><strong>确认新的主题预览文案</strong><small>UI refresh · 已完成</small></span><span class="todo-tag">完成</span></label>
+              </div>
+            </section>
+
+            <section class="view-panel list-view memory-view" data-view-panel="memory" data-screen-label="project-memory">
+              <div class="list-view-header"><div><span class="eyebrow">项目记忆</span><h1>项目记忆</h1><p>保留决定方向的上下文，让每次会话从已知开始。</p></div><button class="primary-button" type="button"><svg class="icon"><use href="#i-plus"></use></svg>记录记忆</button></div>
+              <div class="memory-toolbar"><div class="memory-search"><svg class="icon"><use href="#i-search"></use></svg><input type="text" placeholder="搜索项目记忆" /></div><button class="toolbar-tab is-active" type="button">最近更新</button><button class="toolbar-tab" type="button">决策</button><button class="toolbar-tab" type="button">约定</button></div>
+              <div class="memory-timeline">
+                <div class="memory-item"><div class="memory-marker sage-marker"></div><div class="memory-date">今天 · 16:18</div><div class="memory-copy"><strong>工作区视觉方向</strong><p>使用温和的石墨底色、低饱和 sage 状态色和更宽松的阅读节奏。工具感来自结构与反馈，而不是装饰。</p><div class="memory-source">来自 UI refresh · Wufan</div></div></div>
+                <div class="memory-item"><div class="memory-marker blue-marker"></div><div class="memory-date">昨天 · 11:04</div><div class="memory-copy"><strong>右侧变更预览</strong><p>长路径折叠为父级目录 + 文件名，默认保留当前 diff，避免在会话与审阅之间来回切换。</p><div class="memory-source">来自 Sidebar hierarchy · Codex</div></div></div>
+                <div class="memory-item"><div class="memory-marker amber-marker"></div><div class="memory-date">8月 28日</div><div class="memory-copy"><strong>会话恢复</strong><p>工作区重启后恢复最后一个活动会话和左右面板状态。</p><div class="memory-source">来自 Desktop foundations · Wufan</div></div></div>
+              </div>
+            </section>
+          </div>
+        </main>
+
+        <aside class="review-panel" data-screen-label="git-review-panel">
+          <div class="review-panel-header"><div><span class="eyebrow">当前审阅</span><h2>变更预览</h2></div><button class="icon-button" type="button" id="closeReview" aria-label="收起变更预览" title="收起变更预览"><svg class="icon"><use href="#i-panel"></use></svg></button></div>
+          <div class="branch-select"><svg class="icon"><use href="#i-branch"></use></svg><span>codex/refined-ui</span><svg class="icon branch-chevron"><use href="#i-chevron"></use></svg></div>
+          <div class="review-stat"><span><strong>3</strong> 个文件有改动</span><span class="review-add">+142</span><span class="review-remove">−28</span></div>
+          <div class="review-files" role="listbox" aria-label="已修改文件">
+            <button class="file-row is-selected" type="button" data-file="sidebar"><span class="file-kind kind-ts">TS</span><span class="file-copy"><span class="file-path">apps/desktop/src</span><strong>Sidebar.tsx</strong></span><span class="file-change"><i>+52</i><b>−12</b></span></button>
+            <button class="file-row" type="button" data-file="workspace"><span class="file-kind kind-ts">TS</span><span class="file-copy"><span class="file-path">apps/desktop/src</span><strong>WorkspaceShell.tsx</strong></span><span class="file-change"><i>+61</i><b>−10</b></span></button>
+            <button class="file-row" type="button" data-file="tokens"><span class="file-kind kind-css">CSS</span><span class="file-copy"><span class="file-path">apps/desktop/src/styles</span><strong>tokens.css</strong></span><span class="file-change"><i>+29</i><b>−6</b></span></button>
+          </div>
+          <div class="diff-heading"><span>文件变更</span><span class="diff-mode">统一 diff</span></div>
+          <div class="diff-file-title"><div class="diff-file-icon"><svg class="icon"><use href="#i-file"></use></svg></div><div><span id="diffParent">apps/desktop/src</span><strong id="diffName">Sidebar.tsx</strong></div><span class="diff-file-count">+52 −12</span></div>
+          <div class="diff-preview" id="diffPreview" aria-label="代码差异"><div class="diff-line context"><span>118</span><code>const activeProject = useProjectContext()</code></div><div class="diff-line removed"><span>119</span><code>- return &lt;Sidebar project={project} /&gt;</code></div><div class="diff-line added"><span>119</span><code>+ return &lt;Sidebar density="calm" project={project} /&gt;</code></div><div class="diff-line context"><span>120</span><code> </code></div><div class="diff-line added"><span>121</span><code>+ &lt;ProjectTree collapseEmptyGroups /&gt;</code></div></div>
+          <div class="review-footer"><span class="review-footer-led"></span><span>工作区已同步</span><button type="button">打开完整审阅 <svg class="icon"><use href="#i-chevron"></use></svg></button></div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"><span class="status-led"></span><span id="toastText">已更新</span></div>
+    <script src="app.js"></script>
+  </body>
+</html>

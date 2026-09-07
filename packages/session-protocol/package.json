@@ -12,6 +12,10 @@
 			"types": "./src/client/index.ts",
 			"default": "./src/client/index.ts"
 		},
+		"./controller": {
+			"types": "./src/controller/index.ts",
+			"default": "./src/controller/index.ts"
+		},
 		"./react": {
 			"types": "./src/react/index.ts",
 			"default": "./src/react/index.ts"

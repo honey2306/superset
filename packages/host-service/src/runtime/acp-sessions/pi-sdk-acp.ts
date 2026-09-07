@@ -100,6 +100,53 @@ export type UsageSnapshot = {
 	totalTokens: number;
 };
 
+type ContextUsageSource = Pick<AgentSession, "getContextUsage"> & {
+	model?: { contextWindow?: number } | null;
+};
+
+type AcpContextUsageUpdate = {
+	sessionUpdate: "usage_update";
+	used: number;
+	size: number;
+};
+
+type PiCompactionEvent = Extract<
+	AgentSessionEvent,
+	{ type: "compaction_start" | "compaction_end" }
+>;
+
+export function compactionLifecycleText(event: PiCompactionEvent): string {
+	if (event.type === "compaction_start") {
+		return event.reason === "manual"
+			? "Compacting context..."
+			: "Context nearing limit, running automatic compaction...";
+	}
+	if (event.aborted) return "Compaction cancelled.";
+	if (event.errorMessage) {
+		return /^compaction failed:/i.test(event.errorMessage)
+			? event.errorMessage
+			: `Compaction failed: ${event.errorMessage}`;
+	}
+	return "Context compacted.";
+}
+
+export function contextUsageUpdate(
+	session: ContextUsageSource,
+): AcpContextUsageUpdate | null {
+	const usage = session.getContextUsage();
+	const used = usage?.tokens;
+	const size = usage?.contextWindow ?? session.model?.contextWindow;
+	if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) {
+		return null;
+	}
+	return {
+		sessionUpdate: "usage_update",
+		used:
+			typeof used === "number" && Number.isFinite(used) && used >= 0 ? used : 0,
+		size,
+	};
+}
+
 function asRecord(value: unknown): JsonRecord | null {
 	return value !== null && typeof value === "object" && !Array.isArray(value)
 		? (value as JsonRecord)
@@ -845,6 +892,7 @@ export class PiSdkAcpAgent implements Agent {
 		);
 		setTimeout(() => {
 			void this.emitCommands(runtime);
+			void this.emitContextUsage(runtime);
 		}, 0);
 		return response;
 	}
@@ -875,6 +923,7 @@ export class PiSdkAcpAgent implements Agent {
 		);
 		setTimeout(() => {
 			void this.emitCommands(runtime);
+			void this.emitContextUsage(runtime);
 		}, 0);
 		return response;
 	}
@@ -1019,6 +1068,7 @@ export class PiSdkAcpAgent implements Agent {
 				);
 			}
 			await this.setModel(runtime, params.value);
+			await this.emitContextUsage(runtime);
 		} else if (params.configId === THINKING_CONFIG_ID) {
 			if (
 				typeof params.value !== "string" ||
@@ -1043,6 +1093,25 @@ export class PiSdkAcpAgent implements Agent {
 			update: { sessionUpdate: "config_option_update", configOptions: options },
 		});
 		return { configOptions: options };
+	}
+
+	async extMethod(
+		method: string,
+		params: Record<string, unknown>,
+	): Promise<Record<string, unknown>> {
+		if (method !== "sh.superset/session/steer") {
+			throw RequestError.methodNotFound(method);
+		}
+		const sessionId = params.sessionId;
+		const prompt = params.prompt;
+		if (typeof sessionId !== "string" || !Array.isArray(prompt)) {
+			throw RequestError.invalidParams("Invalid steer payload");
+		}
+		const runtime = this.requireRuntime(sessionId);
+		const text = promptText(prompt as PromptRequest["prompt"]);
+		const images = promptImages(prompt as PromptRequest["prompt"]);
+		await runtime.session.steer(text, images as never);
+		return { accepted: true };
 	}
 
 	async authenticate(): Promise<void> {
@@ -1236,6 +1305,15 @@ export class PiSdkAcpAgent implements Agent {
 		return undefined;
 	}
 
+	private async emitContextUsage(runtime: SessionRuntime): Promise<void> {
+		const update = contextUsageUpdate(runtime.session);
+		if (!update) return;
+		await this.conn.sessionUpdate({
+			sessionId: runtime.sessionId,
+			update,
+		});
+	}
+
 	private async handleEvent(
 		runtime: SessionRuntime,
 		event: AgentSessionEvent,
@@ -1275,6 +1353,25 @@ export class PiSdkAcpAgent implements Agent {
 						content: { type: "text", text: delta },
 					},
 				});
+			}
+			return;
+		}
+		if (
+			eventRecord.type === "compaction_start" ||
+			eventRecord.type === "compaction_end"
+		) {
+			await this.conn.sessionUpdate({
+				sessionId: runtime.sessionId,
+				update: {
+					sessionUpdate: "agent_message_chunk",
+					content: {
+						type: "text",
+						text: compactionLifecycleText(event as PiCompactionEvent),
+					},
+				},
+			});
+			if (eventRecord.type === "compaction_end") {
+				await this.emitContextUsage(runtime);
 			}
 			return;
 		}
@@ -1343,21 +1440,7 @@ export class PiSdkAcpAgent implements Agent {
 		if (eventRecord.type === "agent_end") {
 			runtime.lastUsage =
 				usageFromStats(runtime.session.getSessionStats()) ?? runtime.lastUsage;
-			const contextUsage = runtime.session.getContextUsage();
-			if (
-				contextUsage?.tokens !== null &&
-				typeof contextUsage?.tokens === "number" &&
-				typeof contextUsage.contextWindow === "number"
-			) {
-				await this.conn.sessionUpdate({
-					sessionId: runtime.sessionId,
-					update: {
-						sessionUpdate: "usage_update",
-						used: contextUsage.tokens,
-						size: contextUsage.contextWindow,
-					},
-				});
-			}
+			await this.emitContextUsage(runtime);
 		}
 	}
 

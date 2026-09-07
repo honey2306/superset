@@ -112,6 +112,14 @@
 			"types": "./src/host-info.ts",
 			"default": "./src/host-info.ts"
 		},
+		"./host-paths": {
+			"types": "./src/host-paths.ts",
+			"default": "./src/host-paths.ts"
+		},
+		"./host-scope": {
+			"types": "./src/host-scope.ts",
+			"default": "./src/host-scope.ts"
+		},
 		"./host-version": {
 			"types": "./src/host-version.ts",
 			"default": "./src/host-version.ts"

@@ -2,13 +2,6 @@ import type { DelegationProfile } from "@superset/host-service/settings";
 import { Button } from "@superset/ui/button";
 import { Input } from "@superset/ui/input";
 import { Label } from "@superset/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@superset/ui/select";
 import { toast } from "@superset/ui/sonner";
 import { Switch } from "@superset/ui/switch";
 import { Textarea } from "@superset/ui/textarea";
@@ -19,6 +12,7 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { AgentModelSelect } from "renderer/components/AgentModelSelect";
 import { AgentSelect } from "renderer/components/AgentSelect";
 import { useAgentConfigs } from "renderer/hooks/useAgentConfigs";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
@@ -334,10 +328,16 @@ export function DelegatedExecutionSetting() {
 							</div>
 							<div className="space-y-2">
 								<Label>{t("delegatedExecution.model")}</Label>
-								<Select
-									value={profile.executorModelId ?? ""}
+								<AgentModelSelect
+									models={models}
+									value={profile.executorModelId}
 									onValueChange={(executorModelId) =>
 										updateProfile(index, { executorModelId })
+									}
+									placeholder={
+										modelsQuery?.isLoading
+											? t("delegatedExecution.modelLoading")
+											: t("delegatedExecution.modelPlaceholder")
 									}
 									disabled={
 										locked ||
@@ -346,24 +346,9 @@ export function DelegatedExecutionSetting() {
 										modelsQuery?.isError ||
 										models.length === 0
 									}
-								>
-									<SelectTrigger className="w-full">
-										<SelectValue
-											placeholder={
-												modelsQuery?.isLoading
-													? t("delegatedExecution.modelLoading")
-													: t("delegatedExecution.modelPlaceholder")
-											}
-										/>
-									</SelectTrigger>
-									<SelectContent>
-										{models.map((model) => (
-											<SelectItem key={model.id} value={model.id}>
-												{model.label}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+									allowDefault={false}
+									triggerClassName="w-full"
+								/>
 								{profile.executorAgentConfigId && modelsQuery?.isError ? (
 									<p className="text-xs text-destructive">
 										{t("delegatedExecution.modelsLoadFailed")}

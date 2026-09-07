@@ -27,18 +27,13 @@ const FIXTURE = path.join(
 );
 
 describe("codexThreadExecutionPolicy", () => {
-	test("gives delegated executors unattended full access", () => {
-		expect(codexThreadExecutionPolicy("delegated-executor")).toEqual({
-			approvalPolicy: "never",
-			sandbox: "danger-full-access",
-		});
-	});
-
-	test("keeps ordinary sessions approval-gated and workspace-scoped", () => {
-		expect(codexThreadExecutionPolicy("root-coordinator")).toEqual({
-			approvalPolicy: "on-request",
-			sandbox: "workspace-write",
-		});
+	test("gives every ACP session unattended full access", () => {
+		for (const role of ["delegated-executor", "root-coordinator", undefined]) {
+			expect(codexThreadExecutionPolicy(role)).toEqual({
+				approvalPolicy: "never",
+				sandbox: "danger-full-access",
+			});
+		}
 	});
 });
 
@@ -57,7 +52,8 @@ function withFixture(
 		| "plan"
 		| "dynamic-tool"
 		| "dynamic-tool-image"
-		| "mcp-elicitation",
+		| "mcp-elicitation"
+		| "delayed-final-update",
 ) {
 	const previousCommand = process.env.CODEX_APP_SERVER_COMMAND;
 	const previousScenario = process.env.CODEX_BRIDGE_SCENARIO;
@@ -337,7 +333,7 @@ describe("Codex app-server MCP forwarding", () => {
 		});
 	});
 
-	test("forwards config and delegated execution policy to new and resumed Codex threads", async () => {
+	test("forwards unattended execution policy to ordinary new and resumed Codex threads", async () => {
 		const restore = withFixture("accept");
 		const logPath = path.join(
 			mkdtempSync(path.join(os.tmpdir(), "codex-mcp-")),
@@ -346,7 +342,7 @@ describe("Codex app-server MCP forwarding", () => {
 		const previousLog = process.env.CODEX_BRIDGE_MCP_REQUEST_LOG;
 		const previousRole = process.env.SUPERSET_ACP_SESSION_ROLE;
 		process.env.CODEX_BRIDGE_MCP_REQUEST_LOG = logPath;
-		process.env.SUPERSET_ACP_SESSION_ROLE = "delegated-executor";
+		process.env.SUPERSET_ACP_SESSION_ROLE = "root-coordinator";
 		try {
 			const client = {
 				notify: async () => {},
@@ -372,6 +368,7 @@ describe("Codex app-server MCP forwarding", () => {
 					method: "thread/start",
 					params: expect.objectContaining({
 						approvalPolicy: "never",
+						ephemeral: false,
 						config: codexMcpConfig([BROWSER_USE_MCP]),
 						sandbox: "danger-full-access",
 					}),
@@ -725,6 +722,43 @@ describe("Codex app-server recorded RPC fixture", () => {
 				rawInput: { command: "touch approved.txt" },
 			});
 		} finally {
+			restore();
+		}
+	});
+
+	test("waits for the final ACP update before completing the turn", async () => {
+		const restore = withFixture("delayed-final-update");
+		let releaseUpdate: (() => void) | undefined;
+		const updateDelivered = new Promise<void>((resolve) => {
+			releaseUpdate = resolve;
+		});
+		const updates: SessionUpdate[] = [];
+		const bridge = new CodexBridge({
+			notify: async (_method, params) => {
+				await updateDelivered;
+				updates.push(params.update);
+			},
+			request: async () => ({ outcome: { outcome: "cancelled" } }),
+		});
+		try {
+			await bridge.newSession(process.cwd());
+			let completed = false;
+			const prompt = bridge
+				.prompt([{ type: "text", text: "fixture" }])
+				.then((result) => {
+					completed = true;
+					return result;
+				});
+			await Bun.sleep(10);
+			expect(completed).toBe(false);
+			releaseUpdate?.();
+			await expect(prompt).resolves.toEqual({ stopReason: "end_turn" });
+			expect(updates).toContainEqual({
+				sessionUpdate: "agent_message_chunk",
+				content: { type: "text", text: "persist this final answer" },
+			});
+		} finally {
+			releaseUpdate?.();
 			restore();
 		}
 	});

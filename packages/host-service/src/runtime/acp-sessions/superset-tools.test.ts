@@ -47,11 +47,25 @@ function fixture() {
 		["foreign", "root-coordinator"],
 	]);
 	const prompt = mock(
-		async (_input: { prompt: Array<{ type: "text"; text: string }> }) => ({
+		async (_input: {
+			sessionId: string;
+			prompt: Array<{ type: "text"; text: string }>;
+		}): Promise<{
+			accepted: true;
+			turn?: Promise<{ stopReason: string }>;
+		}> => ({
 			accepted: true as const,
+			turn: Promise.resolve({ stopReason: "end_turn" }),
 		}),
 	);
 	const enqueuePrompt = mock(() => ({ accepted: true as const }));
+	const steerPrompt = mock(
+		async (_input: {
+			sessionId: string;
+			commandId?: string;
+			prompt: Array<{ type: "text"; text: string }>;
+		}) => ({ accepted: true as const }),
+	);
 	const updatePlan = mock(() => ({
 		seq: 21,
 		epoch: "epoch-1",
@@ -75,6 +89,25 @@ function fixture() {
 		items: [{ seq: 12, frame: { kind: "agent_message_chunk", text: "done" } }],
 		nextCursor: "s8",
 	}));
+	const responses = new Map<string, string>();
+	const getTranscript = mock(
+		({ sessionId }: { sessionId: string }): unknown => ({
+			turns: [
+				{
+					assistantMessage: [
+						{
+							type: "text",
+							text: responses.get(sessionId) ?? `Position from ${sessionId}`,
+						},
+					],
+					items: [],
+				},
+			],
+			index: [],
+			totalTurns: 1,
+			nextCursor: null,
+		}),
+	);
 	const askUser = mock(async () => ({
 		action: "answered" as const,
 		answers: [
@@ -84,6 +117,29 @@ function fixture() {
 			},
 		],
 	}));
+	const terminal = {
+		create: mock(async (input: Record<string, unknown>) => ({
+			status: "active",
+			...input,
+		})),
+		write: mock(async (input: Record<string, unknown>) => ({
+			success: true,
+			...input,
+		})),
+		read: mock(async (input: Record<string, unknown>) => ({
+			data: "ready\n",
+			nextCursor: 6,
+			...input,
+		})),
+		status: mock(async (input: Record<string, unknown>) => ({
+			status: "active",
+			...input,
+		})),
+		close: mock(async (input: Record<string, unknown>) => ({
+			status: "disposed",
+			...input,
+		})),
+	};
 	const create = mock(
 		async (input: {
 			sessionId: string;
@@ -91,7 +147,10 @@ function fixture() {
 			harness?: SessionScopedState["harness"];
 			model?: string;
 			strictModel?: boolean;
-			role?: "root-coordinator" | "delegated-executor";
+			role?:
+				| "root-coordinator"
+				| "delegated-executor"
+				| "discussion-participant";
 		}) => {
 			const created = {
 				...state(input.sessionId, input.workspaceId),
@@ -124,9 +183,15 @@ function fixture() {
 		create,
 		getRole: (sessionId: string) => roles.get(sessionId) ?? "root-coordinator",
 		getMessages,
+		getTranscript,
 		prompt,
+		close: mock(async ({ sessionId }: { sessionId: string }) => {
+			states.delete(sessionId);
+			roles.delete(sessionId);
+		}),
 		ensureLive: mock(async () => {}),
 		enqueuePrompt,
+		steerPrompt,
 		updatePlan,
 		askUser,
 	} as unknown as AcpSessionManager;
@@ -134,15 +199,110 @@ function fixture() {
 		manager,
 		create,
 		getMessages,
+		getTranscript,
 		prompt,
 		enqueuePrompt,
+		steerPrompt,
 		updatePlan,
 		askUser,
+		terminal,
 		roles,
 	};
 }
 
 describe("SupersetToolController", () => {
+	test("controls only current-workspace terminals and requests visible presentation", async () => {
+		const { manager, terminal } = fixture();
+		const requests: Array<{
+			workspaceId: string;
+			terminalId: string;
+			focus: boolean;
+			title?: string;
+		}> = [];
+		const controller = new SupersetToolController({
+			manager,
+			terminal,
+			onTerminalOpenRequested: (request) => requests.push(request),
+		});
+
+		const created = await controller.execute({
+			sourceSessionId: "source",
+			name: "create_terminal",
+			arguments: {
+				cwd: "packages/host-service",
+				title: "ACP terminal",
+				focus: true,
+			},
+		});
+		const terminalId = created.terminalId as string;
+		expect(terminal.create).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			terminalId,
+			cwd: "packages/host-service",
+		});
+		expect(requests).toMatchObject([
+			{
+				workspaceId: "workspace-1",
+				terminalId,
+				focus: true,
+				title: "ACP terminal",
+			},
+		]);
+
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "write_terminal",
+			arguments: { terminalId, data: "bun run test\n" },
+		});
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "read_terminal",
+			arguments: { terminalId, cursor: 3 },
+		});
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "get_terminal_status",
+			arguments: { terminalId },
+		});
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "close_terminal",
+			arguments: { terminalId },
+		});
+
+		expect(terminal.write).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			terminalId,
+			data: "bun run test\n",
+		});
+		expect(terminal.read).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			terminalId,
+			cursor: 3,
+			maxBytes: 16_384,
+		});
+		expect(terminal.status).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			terminalId,
+		});
+		expect(terminal.close).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			terminalId,
+		});
+	});
+
+	test("rejects terminal tools when the runtime bridge is unavailable", async () => {
+		const { manager } = fixture();
+		const controller = new SupersetToolController({ manager });
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "get_terminal_status",
+				arguments: { terminalId: "terminal-1" },
+			}),
+		).rejects.toThrow("Internal terminal control is unavailable");
+	});
+
 	test("publishes a complete plan for the source session", async () => {
 		const { manager, updatePlan } = fixture();
 		const controller = new SupersetToolController({ manager });
@@ -260,6 +420,59 @@ describe("SupersetToolController", () => {
 				arguments: { sessionId: "foreign", message: "hello" },
 			}),
 		).rejects.toThrow("unavailable in the current workspace");
+	});
+
+	test("steers a same-workspace session without enqueueing a follow-up", async () => {
+		const { manager, steerPrompt, enqueuePrompt } = fixture();
+		const controller = new SupersetToolController({ manager });
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "steer_session",
+			arguments: { sessionId: "sibling", message: "Check tests first" },
+		});
+
+		expect(steerPrompt).toHaveBeenCalledTimes(1);
+		expect(steerPrompt.mock.calls[0]?.[0]).toMatchObject({
+			sessionId: "sibling",
+			prompt: [{ type: "text", text: "Check tests first" }],
+		});
+		expect(enqueuePrompt).not.toHaveBeenCalled();
+		expect(result).toMatchObject({ sessionId: "sibling", accepted: true });
+	});
+
+	test("creates hidden peer participants and returns their discussion", async () => {
+		const { manager, create, prompt } = fixture();
+		const opened: string[] = [];
+		const controller = new SupersetToolController({
+			manager,
+			onDiscussionOpenRequested: (event) => opened.push(event.discussionId),
+		});
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "discuss",
+			arguments: {
+				topic: "How should ACP discussions work?",
+				participants: [
+					{ agent: "claude", label: "Claude" },
+					{ agent: "codex", model: "gpt-test", label: "Codex" },
+				],
+				maxRounds: 1,
+			},
+		});
+
+		expect(create).toHaveBeenCalledTimes(2);
+		for (const [input] of create.mock.calls) {
+			expect(input.role).toBe("discussion-participant");
+		}
+		expect(prompt).toHaveBeenCalledTimes(2);
+		expect(opened).toEqual([result.discussionId as string]);
+		expect(result).toMatchObject({
+			status: "completed",
+			topic: "How should ACP discussions work?",
+		});
+		expect(result.finalPositions).toHaveLength(2);
 	});
 
 	test("opens or focuses an existing same-workspace session", async () => {
@@ -650,6 +863,65 @@ describe("SupersetToolController", () => {
 			sessionId: result.sessionId,
 			sourceSessionId: "source",
 		});
+	});
+
+	test("forwards combined targets for validation before creating a continuation", async () => {
+		const { manager, create } = fixture();
+		const resolveTargetWorkspace = mock(
+			({ workspaceId, projectId, projectPath }) => {
+				expect(workspaceId).toBe("workspace-2");
+				expect(projectId).toBe("project-2");
+				expect(projectPath).toBe("/tmp/agent-fabric");
+				return "workspace-2";
+			},
+		);
+		const controller = new SupersetToolController({
+			manager,
+			resolveTargetWorkspace,
+		});
+
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "continue_in_new_session",
+			arguments: {
+				handoff: "Start in agent-fabric",
+				workspaceId: "workspace-2",
+				projectId: "project-2",
+				projectPath: "/tmp/agent-fabric",
+			},
+		});
+
+		expect(resolveTargetWorkspace).toHaveBeenCalledTimes(1);
+		expect(create.mock.calls[0]?.[0]).toMatchObject({
+			workspaceId: "workspace-2",
+			harness: "pi-acp",
+		});
+	});
+
+	test("rejects combined targets when validation fails", async () => {
+		const { manager, create } = fixture();
+		const controller = new SupersetToolController({
+			manager,
+			resolveTargetWorkspace: () => {
+				throw new Error(
+					"workspaceId, projectId, and projectPath must identify the same project",
+				);
+			},
+		});
+
+		await expect(
+			controller.execute({
+				sourceSessionId: "source",
+				name: "continue_in_new_session",
+				arguments: {
+					handoff: "Start in agent-fabric",
+					workspaceId: "workspace-2",
+					projectId: "project-3",
+					projectPath: "/tmp/agent-fabric",
+				},
+			}),
+		).rejects.toThrow("must identify the same project");
+		expect(create).not.toHaveBeenCalled();
 	});
 
 	test("resolves project targets for continuations", async () => {
@@ -1582,11 +1854,13 @@ describe("SupersetToolController", () => {
 			content: "Match the renderer to the worktree.",
 			category: "debugging",
 			pinned: false,
+			scope: "project",
 		});
 		expect(searchProjectMemories).toHaveBeenCalledWith({
 			workspaceId: "workspace-1",
 			query: "renderer",
 			limit: 5,
+			scope: "all",
 		});
 	});
 

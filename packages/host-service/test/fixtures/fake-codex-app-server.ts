@@ -179,6 +179,28 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 			});
 			return;
 		}
+		if (scenario === "delayed-final-update") {
+			send({
+				method: "item/completed",
+				params: {
+					threadId: "thread-1",
+					turnId: "turn-1",
+					item: {
+						id: "message-1",
+						type: "agentMessage",
+						text: "persist this final answer",
+					},
+				},
+			});
+			send({
+				method: "turn/completed",
+				params: {
+					threadId: "thread-1",
+					turn: { id: "turn-1", status: "completed" },
+				},
+			});
+			return;
+		}
 		send({
 			method: "item/started",
 			params: {

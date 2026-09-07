@@ -30,6 +30,7 @@ export async function sessionsListCommand(ctx: CommandContext): Promise<void> {
 	}
 
 	const page = await connection.client.acpSessions.list.query({
+		excludeEmpty: true,
 		limit: getNumberOption(ctx.args, "limit") ?? 50,
 		workspaceId: workspaceFilter?.id,
 		cursor: getOption(ctx.args, "cursor"),

@@ -15,6 +15,95 @@
 export interface AgentModelOption {
 	id: string;
 	label: string;
+	/**
+	 * Provider that owns the model (models.dev logo key, e.g. "anthropic").
+	 * Optional so effort lists and dynamically discovered models can reuse
+	 * the option shape without pretending to have a provider.
+	 */
+	provider?: ModelProvider;
+}
+
+/**
+ * Known model providers. The `(string & {})` escape keeps the union open
+ * for future catalog entries while preserving editor autocompletion.
+ */
+export type ModelProvider =
+	| "anthropic"
+	| "openai"
+	| "google"
+	| "mistral"
+	| "cursor"
+	| (string & {});
+
+/** Display names for picker group headers, keyed by models.dev provider id. */
+export const MODEL_PROVIDERS: Record<string, string> = {
+	anthropic: "Anthropic",
+	openai: "OpenAI",
+	google: "Google",
+	mistral: "Mistral",
+	cursor: "Cursor",
+	xai: "xAI",
+	deepseek: "DeepSeek",
+	moonshotai: "Moonshot",
+	zhipuai: "Zhipu",
+	alibaba: "Alibaba",
+	minimax: "MiniMax",
+};
+
+/** Monochrome models.dev logo for a provider (safe with `dark:invert`). */
+export function getProviderLogoUrl(provider: ModelProvider): string {
+	return `https://models.dev/logos/${provider}.svg`;
+}
+
+/**
+ * Case-insensitive models.dev logo key for a configured provider label —
+ * exact match only, never fuzzy. Returns null for custom gateway names
+ * ("万擎", "tokenverse") so callers fall back to their glyph.
+ */
+export function resolveModelProviderLogoKey(provider: string): string | null {
+	if (MODEL_PROVIDERS[provider]) return provider;
+	const lower = provider.toLowerCase();
+	return MODEL_PROVIDERS[lower] ? lower : null;
+}
+
+export interface ModelOptionGroup {
+	/** Group heading (e.g. "Anthropic"); null for the unlabelled lead group. */
+	label: string | null;
+	models: AgentModelOption[];
+}
+
+/**
+ * Arrange options for picker rendering. Lists with at most one distinct
+ * provider stay flat in a single unlabelled group (effort levels, single-
+ * provider agents). Mixed lists split into provider-labelled groups in
+ * first-appearance order; provider-less options collect into a leading
+ * unlabelled group so dynamic catalogs keep their original order up top.
+ */
+export function groupModelsByProvider(
+	models: readonly AgentModelOption[],
+): ModelOptionGroup[] {
+	const byKey = new Map<string, ModelOptionGroup>();
+	const unlabelled: ModelOptionGroup = { label: null, models: [] };
+	for (const model of models) {
+		if (!model.provider) {
+			unlabelled.models.push(model);
+			continue;
+		}
+		const existing = byKey.get(model.provider);
+		if (existing) existing.models.push(model);
+		else {
+			byKey.set(model.provider, {
+				label: MODEL_PROVIDERS[model.provider] ?? model.provider,
+				models: [model],
+			});
+		}
+	}
+	const labelled = [...byKey.values()];
+	if (labelled.length <= 1) {
+		const merged = [...unlabelled.models, ...labelled.flatMap((g) => g.models)];
+		return merged.length ? [{ label: null, models: merged }] : [];
+	}
+	return unlabelled.models.length ? [unlabelled, ...labelled] : labelled;
 }
 
 export interface AgentModelSupport {
@@ -33,41 +122,57 @@ export const AGENT_MODEL_SUPPORT: readonly AgentModelSupport[] = [
 		presetId: "claude",
 		modelFlag: "--model",
 		models: [
-			{ id: "fable", label: "Fable" },
-			{ id: "opus", label: "Opus" },
-			{ id: "claude-opus-5", label: "Opus 5" },
-			{ id: "sonnet", label: "Sonnet" },
-			{ id: "haiku", label: "Haiku" },
+			{ id: "fable", label: "Fable", provider: "anthropic" },
+			{ id: "opus", label: "Opus", provider: "anthropic" },
+			{ id: "claude-opus-5", label: "Opus 5", provider: "anthropic" },
+			{ id: "sonnet", label: "Sonnet", provider: "anthropic" },
+			{ id: "haiku", label: "Haiku", provider: "anthropic" },
 		],
 	},
 	{
 		presetId: "codex",
 		modelFlag: "--model",
 		models: [
-			{ id: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
-			{ id: "gpt-5.6-terra", label: "GPT-5.6 Terra" },
-			{ id: "gpt-5.6-luna", label: "GPT-5.6 Luna" },
-			{ id: "gpt-5.5", label: "GPT-5.5" },
+			{ id: "gpt-5.6-sol", label: "GPT-5.6 Sol", provider: "openai" },
+			{ id: "gpt-5.6-terra", label: "GPT-5.6 Terra", provider: "openai" },
+			{ id: "gpt-5.6-luna", label: "GPT-5.6 Luna", provider: "openai" },
+			{ id: "gpt-5.5", label: "GPT-5.5", provider: "openai" },
 			// Retiring from Codex on 2026-08-31; superseded by gpt-5.6-terra/luna.
-			{ id: "gpt-5.4", label: "GPT-5.4" },
-			{ id: "gpt-5.3-codex", label: "GPT-5.3 Codex" },
+			{ id: "gpt-5.4", label: "GPT-5.4", provider: "openai" },
+			{ id: "gpt-5.3-codex", label: "GPT-5.3 Codex", provider: "openai" },
 		],
 	},
 	{
 		presetId: "gemini",
 		modelFlag: "--model",
 		models: [
-			{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-			{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+			{
+				id: "gemini-2.5-pro",
+				label: "Gemini 2.5 Pro",
+				provider: "google",
+			},
+			{
+				id: "gemini-2.5-flash",
+				label: "Gemini 2.5 Flash",
+				provider: "google",
+			},
 		],
 	},
 	{
 		presetId: "copilot",
 		modelFlag: "--model",
 		models: [
-			{ id: "claude-fable-5", label: "Claude Fable 5" },
-			{ id: "claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
-			{ id: "gpt-5.1", label: "GPT-5.1" },
+			{
+				id: "claude-fable-5",
+				label: "Claude Fable 5",
+				provider: "anthropic",
+			},
+			{
+				id: "claude-sonnet-4.5",
+				label: "Claude Sonnet 4.5",
+				provider: "anthropic",
+			},
+			{ id: "gpt-5.1", label: "GPT-5.1", provider: "openai" },
 		],
 	},
 	{
@@ -81,17 +186,57 @@ export const AGENT_MODEL_SUPPORT: readonly AgentModelSupport[] = [
 			// "auto" is the only id free-plan accounts can use (besides
 			// composer) — named models fail there with "Named models
 			// unavailable", so keep an explicit working choice in the picker.
-			{ id: "auto", label: "Auto" },
-			{ id: "claude-fable-5-thinking-high", label: "Fable 5" },
-			{ id: "claude-fable-5-thinking-xhigh", label: "Fable 5 xHigh" },
-			{ id: "claude-opus-5-high", label: "Opus 5" },
-			{ id: "claude-opus-4-8-high", label: "Opus 4.8" },
-			{ id: "claude-4.6-sonnet-medium", label: "Sonnet 4.6" },
-			{ id: "gpt-5.6-sol-medium", label: "GPT-5.6 Sol" },
-			{ id: "gpt-5.6-terra-medium", label: "GPT-5.6 Terra" },
-			{ id: "gpt-5.6-luna-medium", label: "GPT-5.6 Luna" },
-			{ id: "gpt-5.3-codex", label: "Codex 5.3" },
-			{ id: "composer-2.5", label: "Composer 2.5" },
+			{ id: "auto", label: "Auto", provider: "cursor" },
+			{
+				id: "claude-fable-5-thinking-high",
+				label: "Fable 5",
+				provider: "anthropic",
+			},
+			{
+				id: "claude-fable-5-thinking-xhigh",
+				label: "Fable 5 xHigh",
+				provider: "anthropic",
+			},
+			{
+				id: "claude-opus-5-high",
+				label: "Opus 5",
+				provider: "anthropic",
+			},
+			{
+				id: "claude-opus-4-8-high",
+				label: "Opus 4.8",
+				provider: "anthropic",
+			},
+			{
+				id: "claude-4.6-sonnet-medium",
+				label: "Sonnet 4.6",
+				provider: "anthropic",
+			},
+			{
+				id: "gpt-5.6-sol-medium",
+				label: "GPT-5.6 Sol",
+				provider: "openai",
+			},
+			{
+				id: "gpt-5.6-terra-medium",
+				label: "GPT-5.6 Terra",
+				provider: "openai",
+			},
+			{
+				id: "gpt-5.6-luna-medium",
+				label: "GPT-5.6 Luna",
+				provider: "openai",
+			},
+			{
+				id: "gpt-5.3-codex",
+				label: "Codex 5.3",
+				provider: "openai",
+			},
+			{
+				id: "composer-2.5",
+				label: "Composer 2.5",
+				provider: "cursor",
+			},
 		],
 	},
 	{
@@ -102,12 +247,36 @@ export const AGENT_MODEL_SUPPORT: readonly AgentModelSupport[] = [
 			// no longer lists the old `openai/gpt-5`. anthropic ids follow the
 			// same models.dev catalog but need an authed anthropic provider to
 			// appear in that listing.
-			{ id: "anthropic/claude-opus-5", label: "Claude Opus 5" },
-			{ id: "anthropic/claude-fable-5", label: "Claude Fable 5" },
-			{ id: "anthropic/claude-sonnet-4-5", label: "Claude Sonnet 4.5" },
-			{ id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol" },
-			{ id: "openai/gpt-5.6-terra", label: "GPT-5.6 Terra" },
-			{ id: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna" },
+			{
+				id: "anthropic/claude-opus-5",
+				label: "Claude Opus 5",
+				provider: "anthropic",
+			},
+			{
+				id: "anthropic/claude-fable-5",
+				label: "Claude Fable 5",
+				provider: "anthropic",
+			},
+			{
+				id: "anthropic/claude-sonnet-4-5",
+				label: "Claude Sonnet 4.5",
+				provider: "anthropic",
+			},
+			{
+				id: "openai/gpt-5.6-sol",
+				label: "GPT-5.6 Sol",
+				provider: "openai",
+			},
+			{
+				id: "openai/gpt-5.6-terra",
+				label: "GPT-5.6 Terra",
+				provider: "openai",
+			},
+			{
+				id: "openai/gpt-5.6-luna",
+				label: "GPT-5.6 Luna",
+				provider: "openai",
+			},
 		],
 	},
 	{
@@ -115,8 +284,16 @@ export const AGENT_MODEL_SUPPORT: readonly AgentModelSupport[] = [
 		modelFlag: null,
 		modelEnv: "VIBE_ACTIVE_MODEL",
 		models: [
-			{ id: "mistral-medium-3.5", label: "Mistral Medium 3.5" },
-			{ id: "devstral-small", label: "Devstral Small" },
+			{
+				id: "mistral-medium-3.5",
+				label: "Mistral Medium 3.5",
+				provider: "mistral",
+			},
+			{
+				id: "devstral-small",
+				label: "Devstral Small",
+				provider: "mistral",
+			},
 		],
 	},
 ];

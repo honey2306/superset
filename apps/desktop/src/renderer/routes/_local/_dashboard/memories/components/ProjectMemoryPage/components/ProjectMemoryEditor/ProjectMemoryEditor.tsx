@@ -20,12 +20,14 @@ const CATEGORY_LABELS: Record<ProjectMemoryCategory, string> = {
 export function ProjectMemoryEditor({
 	value,
 	isSaving,
+	isGlobal,
 	onChange,
 	onCancel,
 	onSave,
 }: {
 	value: ProjectMemoryEditorValue;
 	isSaving: boolean;
+	isGlobal: boolean;
 	onChange(value: ProjectMemoryEditorValue): void;
 	onCancel(): void;
 	onSave(): void;
@@ -77,7 +79,9 @@ export function ProjectMemoryEditor({
 			</div>
 			<div className="mt-4 flex items-center gap-2">
 				<span className="text-[11px] text-fg-faint">
-					新对话会自动读取已启用的项目记忆
+					{isGlobal
+						? "新对话会自动读取已启用的全局记忆"
+						: "新对话会自动读取已启用的项目记忆"}
 				</span>
 				<div className="flex-1" />
 				<Button variant="ghost" size="sm" onClick={onCancel}>

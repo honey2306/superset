@@ -86,6 +86,7 @@ const PHONE_ALLOWED_PATHS = new Set<string>([
 	"phone.sessions.revoke",
 	"phone.me",
 	"workspaceCatalog.snapshot",
+	"workspaceCatalog.phoneSnapshot",
 	// Workspace tree and phone terminal navigation need the read-only session
 	// index. Terminal mutations and daemon controls remain excluded below.
 	"terminal.listSessions",

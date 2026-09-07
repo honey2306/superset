@@ -83,6 +83,23 @@ describe("router input schemas", () => {
 		).toBe(false);
 	});
 
+	test("listSessionsInput can exclude conversations without a user prompt", () => {
+		expect(listSessionsInput.parse({}).excludeEmpty).toBe(false);
+		expect(listSessionsInput.parse({ excludeEmpty: true }).excludeEmpty).toBe(
+			true,
+		);
+	});
+
+	test("closeSessionInput supports deleting only empty conversations", () => {
+		expect(closeSessionInput.parse({ sessionId: "s1" }).onlyIfEmpty).toBe(
+			false,
+		);
+		expect(
+			closeSessionInput.parse({ sessionId: "s1", onlyIfEmpty: true })
+				.onlyIfEmpty,
+		).toBe(true);
+	});
+
 	test("closeSessionInput requires a non-empty session id", () => {
 		expect(closeSessionInput.safeParse({ sessionId: "s1" }).success).toBe(true);
 		expect(closeSessionInput.safeParse({ sessionId: "" }).success).toBe(false);

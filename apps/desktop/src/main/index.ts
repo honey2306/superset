@@ -21,11 +21,13 @@ import {
 } from "shared/constants";
 import { startAgentBrowserBridge } from "./lib/agent-browser/browser-bridge-server";
 import { getAgentBrowserManager } from "./lib/agent-browser/browser-manager";
+import { startAgentBrowserCdpProxy } from "./lib/agent-browser/cdp-proxy";
 import { setupAgentHooks } from "./lib/agent-setup";
 import { SUPERSET_HOME_DIR } from "./lib/app-environment";
 import { initAppState } from "./lib/app-state";
 import { requestAppleEventsAccess } from "./lib/apple-events-permission";
 import { setupAutoUpdater } from "./lib/auto-updater";
+import { ensurePeekabooCompanion } from "./lib/computer-use/peekaboo-companion";
 import { resolveDevWorkspaceName } from "./lib/dev-workspace-name";
 import { setWorkspaceDockIcon } from "./lib/dock-icon";
 import { getHostServiceCoordinator } from "./lib/host-service-coordinator";
@@ -159,6 +161,7 @@ let isQuitting = false;
 let skipQuitConfirmation = false;
 let forceFullCleanup = false;
 let closeAgentBrowserBridge: (() => Promise<void>) | null = null;
+let closeAgentBrowserCdpProxy: (() => Promise<void>) | null = null;
 
 export function setSkipQuitConfirmation(): void {
 	skipQuitConfirmation = true;
@@ -221,6 +224,8 @@ app.on("before-quit", async (event) => {
 			await getHostServiceCoordinator().shutdownPtyDaemon();
 		}
 		await getHostServiceCoordinator().stop();
+		await closeAgentBrowserCdpProxy?.();
+		closeAgentBrowserCdpProxy = null;
 		await closeAgentBrowserBridge?.();
 		closeAgentBrowserBridge = null;
 		disposeTray();
@@ -377,14 +382,34 @@ if (!gotTheLock) {
 
 		// Start the authenticated lifecycle bridge before the embedded host so its
 		// detached ACP daemon inherits the exact socket, token, and CDP endpoint.
-		const agentBrowserBridge = await startAgentBrowserBridge(
-			getAgentBrowserManager(() => BrowserWindow.getAllWindows()[0] ?? null),
+		const agentBrowserManager = getAgentBrowserManager(
+			() => BrowserWindow.getAllWindows()[0] ?? null,
 		);
+		const agentBrowserBridge =
+			await startAgentBrowserBridge(agentBrowserManager);
+		const agentBrowserCdpProxy = await startAgentBrowserCdpProxy({
+			manager: agentBrowserManager,
+			upstreamUrl: `http://127.0.0.1:${AGENT_BROWSER_CDP_PORT}`,
+		});
 		closeAgentBrowserBridge = agentBrowserBridge.close;
+		closeAgentBrowserCdpProxy = agentBrowserCdpProxy.close;
 		process.env.SUPERSET_AGENT_BROWSER_BRIDGE_SOCKET =
 			agentBrowserBridge.socketPath;
 		process.env.SUPERSET_AGENT_BROWSER_BRIDGE_TOKEN = agentBrowserBridge.token;
 		process.env.SUPERSET_AGENT_BROWSER_CDP_URL = `http://127.0.0.1:${AGENT_BROWSER_CDP_PORT}`;
+		process.env.SUPERSET_AGENT_BROWSER_CDP_PROXY_URL =
+			agentBrowserCdpProxy.baseUrl;
+
+		const peekaboo = await ensurePeekabooCompanion();
+		if (peekaboo.available) {
+			console.log(
+				`[computer-use] Peekaboo GUI Bridge ready${peekaboo.launched ? " after launch" : ""}: ${peekaboo.bridgeSocket}`,
+			);
+		} else {
+			console.warn(
+				`[computer-use] disabled: ${peekaboo.reason ?? "Peekaboo unavailable"}`,
+			);
+		}
 
 		// Must happen before renderer restore runs. The embedded host is a single
 		// local runtime and starts without cloud credentials.

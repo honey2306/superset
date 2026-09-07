@@ -1,11 +1,12 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import type { HostDb } from "../db";
 import * as schema from "../db/schema";
-import { projects, workspaces } from "../db/schema";
+import { projectMemories, projects, workspaces } from "../db/schema";
 import {
 	createProjectMemory,
 	deleteProjectMemory,
@@ -75,5 +76,81 @@ describe("project memory store", () => {
 			}),
 		).toEqual([]);
 		expect(deleteProjectMemory(db, "project-1", created.memory.id)).toBe(true);
+	});
+
+	test("stores global memory separately from project memory", () => {
+		const db = createTestDb();
+		db.insert(projects)
+			.values({ id: "project-1", repoPath: "/repo", name: "Repo" })
+			.run();
+
+		const global = createProjectMemory(db, {
+			projectId: null,
+			title: "Preferred language",
+			content: "Always reply in Chinese.",
+			category: "preference",
+			source: "agent",
+		});
+		const duplicate = createProjectMemory(db, {
+			projectId: null,
+			title: "Preferred language",
+			content: "Always reply in Chinese.",
+			category: "preference",
+			source: "agent",
+		});
+		const project = createProjectMemory(db, {
+			projectId: "project-1",
+			title: "Preferred language",
+			content: "Always reply in Chinese.",
+			category: "preference",
+			source: "manual",
+		});
+
+		expect(global.created).toBe(true);
+		expect(duplicate.created).toBe(false);
+		expect(project.created).toBe(true);
+		expect(
+			listProjectMemories(db, { projectId: null, query: "Chinese" }),
+		).toHaveLength(1);
+		expect(listProjectMemories(db, { projectId: "project-1" })).toHaveLength(1);
+
+		const disabled = updateProjectMemory(db, null, global.memory.id, {
+			enabled: false,
+		});
+		expect(disabled?.enabled).toBe(false);
+		expect(listProjectMemories(db, { projectId: null })).toEqual([]);
+		expect(
+			listProjectMemories(db, { projectId: null, includeDisabled: true }),
+		).toHaveLength(1);
+		expect(deleteProjectMemory(db, null, global.memory.id)).toBe(true);
+	});
+
+	test("keeps global memory when a project is deleted", () => {
+		const db = createTestDb();
+		db.insert(projects)
+			.values({ id: "project-1", repoPath: "/repo", name: "Repo" })
+			.run();
+		createProjectMemory(db, {
+			projectId: null,
+			title: "Global workflow",
+			content: "Shared across repositories.",
+			category: "workflow",
+			source: "manual",
+		});
+		createProjectMemory(db, {
+			projectId: "project-1",
+			title: "Project workflow",
+			content: "Only for this repository.",
+			category: "workflow",
+			source: "manual",
+		});
+
+		db.delete(projectMemories)
+			.where(eq(projectMemories.projectId, "project-1"))
+			.run();
+		db.delete(projects).run();
+
+		expect(listProjectMemories(db, { projectId: null })).toHaveLength(1);
+		expect(db.select().from(projectMemories).all()).toHaveLength(1);
 	});
 });

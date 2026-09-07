@@ -113,6 +113,12 @@ export default defineConfig({
 					"agent-browser-mcp": resolve(
 						"../../packages/host-service/src/runtime/acp-sessions/agent-browser-mcp.ts",
 					),
+					// Session-scoped macOS Computer Use MCP proxy. It preserves Peekaboo's
+					// deterministic native tool schemas under a computer_ namespace while
+					// excluding Peekaboo's agent loop, model analyze, and browser bridge.
+					"computer-use-mcp": resolve(
+						"../../packages/host-service/src/runtime/acp-sessions/computer-use-mcp.ts",
+					),
 					// Shared manifest-backed MCP proxy used by every ACP harness to keep
 					// expensive upstream servers off the session startup path.
 					"lazy-mcp-proxy": resolve(

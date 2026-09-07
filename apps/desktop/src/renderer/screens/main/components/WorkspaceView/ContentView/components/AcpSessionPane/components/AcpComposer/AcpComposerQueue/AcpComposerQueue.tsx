@@ -1,4 +1,5 @@
 import type { ContentBlock, QueuedPrompt } from "@superset/session-protocol";
+import { GripVertical, Pencil, Sparkles, Trash2 } from "lucide-react";
 import {
 	type RefCallback,
 	useCallback,
@@ -13,6 +14,7 @@ interface AcpComposerQueueProps {
 	onRemove(queueId: string): Promise<void>;
 	onReorder(orderedIds: string[]): Promise<void>;
 	onEdit(queueId: string, blocks: ContentBlock[]): Promise<void>;
+	onSteer?(blocks: ContentBlock[]): Promise<void>;
 }
 
 /** Reads the text out of a queued prompt for display / inline edit. Images
@@ -40,6 +42,7 @@ export function AcpComposerQueue({
 	onRemove,
 	onReorder,
 	onEdit,
+	onSteer,
 }: AcpComposerQueueProps) {
 	const dragIdRef = useRef<string | null>(null);
 	const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -135,19 +138,25 @@ export function AcpComposerQueue({
 		setDragOverId(null);
 	}, []);
 
-	const summary = useMemo(
-		() => `${queued.length} queued follow-up${queued.length === 1 ? "" : "s"}`,
-		[queued.length],
+	const steerQueued = useCallback(
+		async (entry: QueuedPrompt) => {
+			if (!onSteer) return;
+			await onSteer(entry.prompt);
+			await onRemove(entry.queueId);
+		},
+		[onRemove, onSteer],
 	);
 
+	const summary = useMemo(() => `${queued.length} pending`, [queued.length]);
+
 	return (
-		<section
-			className="acp-pane__composer-queue"
-			aria-label="Follow-up prompt queue"
-		>
+		<section className="acp-pane__composer-queue" aria-label="Pending messages">
 			<header className="acp-pane__composer-queue-hd">
-				<span className="acp-pane__composer-queue-title">Follow-ups</span>
-				<span className="acp-pane__composer-queue-count">{summary}</span>
+				<span className="acp-pane__composer-queue-title">
+					Pending
+					<span className="acp-pane__composer-queue-count">{summary}</span>
+				</span>
+				<span className="acp-pane__composer-queue-hint">Drag to reorder</span>
 			</header>
 			<ol className="acp-pane__composer-queue-list">
 				{queued.map((entry, index) => {
@@ -170,10 +179,10 @@ export function AcpComposerQueue({
 								aria-hidden
 								title="Drag to reorder"
 							>
-								⋮⋮
+								<GripVertical />
 							</span>
 							<span className="acp-pane__composer-queue-idx" aria-hidden>
-								{String(index + 1).padStart(2, "0")}
+								{index + 1}
 							</span>
 							{isEditing ? (
 								<textarea
@@ -207,6 +216,19 @@ export function AcpComposerQueue({
 								</button>
 							)}
 							<span className="acp-pane__composer-queue-actions">
+								{onSteer && (
+									<button
+										type="button"
+										className="acp-pane__composer-queue-btn acp-pane__composer-queue-btn--steer"
+										disabled={isEditing}
+										onClick={() => void steerQueued(entry)}
+										aria-label="Guide current turn"
+										title="Guide current turn"
+									>
+										<Sparkles aria-hidden />
+										<span>Guide</span>
+									</button>
+								)}
 								<button
 									type="button"
 									className="acp-pane__composer-queue-btn"
@@ -215,7 +237,7 @@ export function AcpComposerQueue({
 									aria-label="Edit"
 									title="Edit"
 								>
-									✎
+									<Pencil aria-hidden />
 								</button>
 								<button
 									type="button"
@@ -227,7 +249,7 @@ export function AcpComposerQueue({
 									aria-label="Remove from queue"
 									title="Remove"
 								>
-									×
+									<Trash2 aria-hidden />
 								</button>
 							</span>
 						</li>

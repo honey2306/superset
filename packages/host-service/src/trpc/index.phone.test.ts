@@ -14,5 +14,6 @@ test("paired phones cannot use terminal mutation or daemon surfaces", () => {
 test("paired phone allowlist keeps ACP and terminal agent capabilities explicit", () => {
 	expect(isPhoneAllowedPath("acpSessions.list")).toBe(true);
 	expect(isPhoneAllowedPath("terminalAgents.listByWorkspace")).toBe(true);
+	expect(isPhoneAllowedPath("workspaceCatalog.phoneSnapshot")).toBe(true);
 	expect(isPhoneAllowedPath("workspace.destroy")).toBe(false);
 });

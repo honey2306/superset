@@ -106,12 +106,76 @@ describe("AutoMateRelay", () => {
 		);
 	});
 
+	test("keeps host reset durable without blocking control responses", async () => {
+		const pushes: Array<{
+			body?: RelayEnvelope;
+			messageId?: string;
+		}> = [];
+		let resetAttempts = 0;
+		let releaseRetryDelay: (() => void) | undefined;
+		const retryDelay = new Promise<void>((resolve) => {
+			releaseRetryDelay = resolve;
+		});
+		const relay = new AutoMateRelay("box", {
+			client: {
+				request: async (input) => {
+					const operation = input as {
+						op: string;
+						body?: RelayEnvelope;
+						messageId?: string;
+					};
+					if (operation.op !== "push") return { ok: true };
+					pushes.push(operation);
+					if (operation.body?.kind === "host.reset") {
+						resetAttempts += 1;
+						if (resetAttempts === 1) throw new Error("temporary failure");
+					}
+					return { ok: true };
+				},
+			},
+			fetch: async () => new Response(),
+			baseUrl: "http://127.0.0.1:4879",
+			sleep: async () => retryDelay,
+		});
+
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		const reset = relay["enqueueOutbound"](
+			{ kind: "host.reset", hostInstanceId: "host-1" },
+			true,
+		);
+		for (let attempt = 0; attempt < 20 && resetAttempts < 1; attempt += 1)
+			await nextTurn();
+
+		// The durable retry is deliberately independent of ordinary responses.
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		await relay["push"]({
+			kind: "http.response",
+			requestId: "request-1",
+			status: 200,
+			headers: {},
+		});
+		expect(pushes.map((push) => push.body?.kind)).toEqual([
+			"host.reset",
+			"http.response",
+		]);
+
+		releaseRetryDelay?.();
+		await reset;
+		relay.stop();
+		expect(resetAttempts).toBe(2);
+		const resetIds = pushes
+			.filter((push) => push.body?.kind === "host.reset")
+			.map((push) => push.messageId);
+		expect(resetIds[0]).toBe(resetIds[1]);
+	});
+
 	test("rejects paths outside tRPC and ACP streams", () => {
 		expect(isAllowedPath("/trpc/phone.pairing.redeem")).toBe(true);
 		expect(isAllowedPath("/trpc/acpSessions.get?input=encoded")).toBe(true);
 		expect(isAllowedPath("/trpc/terminalAgents.listByWorkspace")).toBe(true);
 		expect(isAllowedPath("/trpc/terminalAgents.getOrCreate")).toBe(true);
 		expect(isAllowedPath("/trpc/terminal.listSessions")).toBe(true);
+		expect(isAllowedPath("/trpc/workspaceCatalog.phoneSnapshot")).toBe(true);
 		expect(isAllowedPath("/trpc/terminalAgents.list")).toBe(false);
 		expect(isAllowedPath("/acp-sessions/a/stream?token=phone")).toBe(true);
 		expect(isAllowedPath("https://evil.example/trpc")).toBe(false);
@@ -242,6 +306,159 @@ describe("AutoMateRelay", () => {
 				{ channelId: "channel-1", body: { type: "text", data: "third" } },
 			],
 		});
+	});
+
+	test("does not let a failed stream retry block control responses", async () => {
+		const pushedKinds: string[] = [];
+		let releaseRetryDelay: (() => void) | undefined;
+		const retryDelay = new Promise<void>((resolve) => {
+			releaseRetryDelay = resolve;
+		});
+		let streamAttempts = 0;
+		const relay = new AutoMateRelay("box", {
+			client: {
+				request: async (input) => {
+					const operation = input as { op: string; body?: RelayEnvelope };
+					if (operation.op !== "push" || !operation.body) return { ok: true };
+					pushedKinds.push(operation.body.kind);
+					if (operation.body.kind === "stream.frames" && streamAttempts++ === 0)
+						throw new Error("temporary stream failure");
+					return { ok: true };
+				},
+			},
+			fetch: async () => new Response(),
+			baseUrl: "http://127.0.0.1:4879",
+			sleep: async () => retryDelay,
+		});
+
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		relay["enqueueStreamPush"]({
+			kind: "stream.frame",
+			channelId: "channel-1",
+			body: { type: "text", data: "frame" },
+		});
+		for (let attempt = 0; attempt < 20 && streamAttempts < 1; attempt += 1)
+			await nextTurn();
+
+		// A control response must be able to complete while the stream worker is
+		// sleeping before its bounded retry.
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		const response = relay["push"]({
+			kind: "http.response",
+			requestId: "request-1",
+			status: 200,
+			headers: {},
+		});
+		await response;
+		expect(pushedKinds).toEqual(["stream.frames", "http.response"]);
+
+		releaseRetryDelay?.();
+		for (let attempt = 0; attempt < 20 && streamAttempts < 2; attempt += 1)
+			await nextTurn();
+		relay.stop();
+		expect(streamAttempts).toBe(2);
+	});
+
+	test("stops a stream retry delay when the relay is stopped", async () => {
+		let retryDelayStarted = false;
+		const retryDelay = new Promise<void>(() => {});
+		let streamAttempts = 0;
+		const relay = new AutoMateRelay("box", {
+			client: {
+				request: async (input) => {
+					const operation = input as { op: string; body?: RelayEnvelope };
+					if (
+						operation.op === "push" &&
+						operation.body?.kind === "stream.frames"
+					) {
+						streamAttempts += 1;
+						throw new Error("temporary stream failure");
+					}
+					return { ok: true };
+				},
+			},
+			fetch: async () => new Response(),
+			baseUrl: "http://127.0.0.1:4879",
+			sleep: async () => {
+				retryDelayStarted = true;
+				return retryDelay;
+			},
+		});
+
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		relay["enqueueStreamPush"]({
+			kind: "stream.frame",
+			channelId: "channel-1",
+			body: { type: "text", data: "frame" },
+		});
+		for (let attempt = 0; attempt < 20 && !retryDelayStarted; attempt += 1)
+			await nextTurn();
+		expect(retryDelayStarted).toBe(true);
+		relay.stop();
+		for (let attempt = 0; attempt < 20; attempt += 1) await nextTurn();
+		expect(streamAttempts).toBe(1);
+	});
+
+	test("gives controls a turn during a continuous healthy stream", async () => {
+		const pushedKinds: string[] = [];
+		const streamReleases: Array<() => void> = [];
+		const relay = new AutoMateRelay("box", {
+			client: {
+				request: async (input) => {
+					const operation = input as { op: string; body?: RelayEnvelope };
+					if (operation.op !== "push" || !operation.body) return { ok: true };
+					pushedKinds.push(operation.body.kind);
+					if (operation.body.kind === "stream.frames") {
+						await new Promise<void>((resolve) => streamReleases.push(resolve));
+					}
+					return { ok: true };
+				},
+			},
+			fetch: async () => new Response(),
+			baseUrl: "http://127.0.0.1:4879",
+		});
+		const frame = (data: string) => ({
+			kind: "stream.frame" as const,
+			channelId: "channel-1",
+			body: { type: "text" as const, data },
+		});
+
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		relay["enqueueStreamPush"](frame("first"));
+		for (
+			let attempt = 0;
+			attempt < 20 && streamReleases.length < 1;
+			attempt += 1
+		)
+			await nextTurn();
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		relay["enqueueStreamPush"](frame("second"));
+		streamReleases.shift()?.();
+		for (
+			let attempt = 0;
+			attempt < 20 && streamReleases.length < 1;
+			attempt += 1
+		)
+			await nextTurn();
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		relay["enqueueStreamPush"](frame("third"));
+
+		// biome-ignore lint/complexity/useLiteralKeys: intentional private test seam
+		const response = relay["push"]({
+			kind: "http.response",
+			requestId: "request-1",
+			status: 200,
+			headers: {},
+		});
+		streamReleases.shift()?.();
+		await response;
+		expect(pushedKinds.slice(0, 3)).toEqual([
+			"stream.frames",
+			"stream.frames",
+			"http.response",
+		]);
+		streamReleases.shift()?.();
+		relay.stop();
 	});
 
 	test("keeps buffered reply frames ahead of http responses and stream closes", async () => {

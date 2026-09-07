@@ -1,0 +1,1 @@
+export { GlobalSkillsPage } from "./GlobalSkillsPage";

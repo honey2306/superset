@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Superset ACP peer discussion sidebar prototype" />
+  <title>Superset · Agent 讨论面板原型</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <svg aria-hidden="true" class="icon-sprite" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+    <symbol id="i-files" viewBox="0 0 24 24"><path d="M7 3.5h7l4 4v13H7z"/><path d="M14 3.5v4h4M4 7v13h10"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="7" cy="5" r="2"/><circle cx="7" cy="19" r="2"/><circle cx="17" cy="12" r="2"/><path d="M7 7v7a5 5 0 0 0 5 5M7 12h5a5 5 0 0 0 5-5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.2v.2"/></symbol>
+    <symbol id="i-discuss" viewBox="0 0 24 24"><path d="M4 5.5h10v8H8l-4 3z"/><path d="M11 10.5h9v7h-3l-3 2v-2h-3z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m5 12 14-7-4 14-3-5zM12 14l7-9"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 1.4 5.6L19 10l-5.6 1.4L12 17l-1.4-5.6L5 10l5.6-1.4z"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m8 13 6-6a3 3 0 1 1 4 4l-8 8a5 5 0 0 1-7-7l8-8"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></symbol>
+  </svg>
+
+  <div class="review-bar">
+    <div class="review-label"><span class="review-dot"></span>可交互原型 <span class="muted">· Agent 发起的双 Agent 讨论</span></div>
+    <div class="review-controls" role="group" aria-label="原型状态">
+      <button class="review-chip active" data-state="running" type="button">讨论中</button>
+      <button class="review-chip" data-state="completed" type="button">已完成</button>
+    </div>
+    <div class="review-note">右侧面板建议宽度 · 420 px</div>
+  </div>
+
+  <main class="prototype" data-state="running" data-screen-label="peer-discussion-sidebar-prototype">
+    <aside class="project-rail">
+      <div class="brand"><img src="superset-icon.png" alt="Superset" /><span>superset</span></div>
+      <nav>
+        <button class="rail-item active" type="button"><svg><use href="#i-grid"></use></svg><span>工作区</span></button>
+        <button class="rail-item" type="button"><svg><use href="#i-files"></use></svg><span>项目记忆</span></button>
+      </nav>
+      <div class="project-label">SUPerset</div>
+      <button class="session-row active" type="button"><span class="live-dot"></span><span>讨论 ACP 协作体验</span></button>
+      <button class="session-row" type="button"><span class="idle-dot"></span><span>Session persistence</span></button>
+      <div class="rail-spacer"></div>
+      <div class="account"><span>W</span><div><strong>Wufan</strong><small>Local</small></div></div>
+    </aside>
+
+    <section class="conversation" data-screen-label="initiating-agent-conversation">
+      <header class="conversation-header">
+        <div><span class="agent-mark"><svg><use href="#i-spark"></use></svg></span><strong>Pi</strong><span class="header-muted">· 当前对话</span></div>
+        <span class="model-chip">Claude Sonnet 4.6</span>
+      </header>
+      <div class="conversation-body">
+        <div class="date-rule"><span>今天 14:32</span></div>
+        <article class="message user">
+          <div class="avatar user-avatar">W</div>
+          <div><div class="message-meta"><strong>你</strong><span>14:32</span></div><p>你觉得 ACP 的多 Agent 讨论应该做成什么样？找两个不同模型讨论一下，给我一个收敛后的建议。</p></div>
+        </article>
+        <article class="message agent">
+          <div class="avatar agent-avatar"><svg><use href="#i-spark"></use></svg></div>
+          <div><div class="message-meta"><strong>Pi</strong><span>14:32</span></div><p>我会发起一个平等讨论，让 Claude 和 Codex 分别提出观点、互相回应，再把共识和分歧带回这里。</p>
+            <div class="tool-call">
+              <div class="tool-head"><svg><use href="#i-discuss"></use></svg><strong>讨论进行中</strong><span>第 2 / 3 轮</span><span class="tool-spinner"></span></div>
+              <p>如何设计 ACP 的双 Agent 讨论体验</p>
+              <div class="tool-agents"><span><i class="avatar-mini claude">C</i>Claude · Sonnet 4.6</span><span><i class="avatar-mini codex">O</i>Codex · GPT-5.3</span></div>
+              <div class="tool-note">结果完成后会自动回到当前 Agent</div>
+            </div>
+          </div>
+        </article>
+        <article class="message result-message">
+          <div class="avatar agent-avatar"><svg><use href="#i-spark"></use></svg></div>
+          <div><div class="message-meta"><strong>Pi</strong><span>14:35</span></div><p>讨论已经收敛。双方都认为它应该是一个独立的共享对象，并在右侧栏实时呈现；参与 Agent 的底层会话不应进入普通对话列表。</p><button class="inline-link" type="button" id="openResult">查看讨论结论 <svg><use href="#i-arrow"></use></svg></button></div>
+        </article>
+      </div>
+      <div class="composer"><textarea aria-label="给当前 Agent 发消息" placeholder="继续告诉 Pi 你想调整什么…"></textarea><div class="composer-footer"><span>Superset · 当前工作区</span><button type="button"><svg><use href="#i-send"></use></svg></button></div></div>
+    </section>
+
+    <aside class="right-panel" data-screen-label="discussion-panel">
+      <header class="panel-tabs">
+        <button type="button"><svg><use href="#i-branch"></use></svg><span>Changes</span></button>
+        <button type="button"><svg><use href="#i-files"></use></svg><span>Files</span></button>
+        <button type="button"><svg><use href="#i-info"></use></svg><span>Info</span></button>
+        <button class="active" type="button"><svg><use href="#i-discuss"></use></svg><span>Discuss</span><i class="tab-live"></i></button>
+        <span class="tabs-spacer"></span>
+        <button class="icon-button" type="button" aria-label="关闭"><svg><use href="#i-x"></use></svg></button>
+      </header>
+
+      <section class="discussion-panel running-panel">
+        <div class="discussion-header">
+          <div class="status-row"><span class="status-live"><i></i>讨论中</span><span>第 2 / 3 轮</span><span>1m 42s</span></div>
+          <h1>如何设计 ACP 的双 Agent 讨论体验</h1>
+          <div class="participant-row">
+            <div class="participant"><span class="participant-avatar claude">C</span><span><strong>Claude</strong><small>Sonnet 4.6</small></span><i class="speaking"></i></div>
+            <span class="peer-link"><i></i><i></i><i></i></span>
+            <div class="participant"><span class="participant-avatar codex">O</span><span><strong>Codex</strong><small>GPT-5.3</small></span></div>
+          </div>
+          <div class="header-actions"><button id="pauseButton" type="button"><svg><use href="#i-pause"></use></svg><span>暂停</span></button><button id="stopButton" class="danger" type="button"><svg><use href="#i-stop"></use></svg><span>结束</span></button></div>
+        </div>
+
+        <div class="round-progress" aria-label="讨论进度"><span class="done"></span><span class="active"></span><span></span></div>
+
+        <div class="discussion-scroll">
+          <section class="round-section">
+            <button class="round-label" type="button" data-round-toggle><svg><use href="#i-chevron"></use></svg><span>第 1 轮 · 独立观点</span><span class="round-status"><svg><use href="#i-check"></use></svg>完成</span></button>
+            <div class="round-content collapsed-content">
+              <article class="contribution claude-contribution">
+                <div class="contribution-head"><span class="participant-avatar small claude">C</span><strong>Claude</strong><span>14:33</span></div>
+                <p>Discussion 应该是 workspace 级共享对象。用户只需要看到一个连续线程，两个参与者会话只是执行细节。</p>
+              </article>
+              <article class="contribution codex-contribution">
+                <div class="contribution-head"><span class="participant-avatar small codex">O</span><strong>Codex</strong><span>14:33</span></div>
+                <p>同意共享对象，但需要把每轮输入固定下来，避免双方读取到不同版本的上下文。</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="round-section current-round">
+            <div class="round-label static"><span>第 2 轮 · 交叉回应</span><span class="round-status active-status"><i></i>进行中</span></div>
+            <div class="round-content">
+              <article class="contribution codex-contribution">
+                <div class="contribution-head"><span class="participant-avatar small codex">O</span><strong>Codex</strong><span>14:34</span></div>
+                <p>共享线程和固定轮次并不冲突。Host 可以先收齐双方当前轮输出，再同时开放下一轮，保证平等且避免先发优势。</p>
+                <div class="response-link"><span></span>回应 Claude 关于“共享对象”的观点</div>
+              </article>
+              <article class="contribution claude-contribution composing">
+                <div class="contribution-head"><span class="participant-avatar small claude">C</span><strong>Claude</strong><span class="thinking-label">正在回应</span></div>
+                <div class="thinking-lines"><i></i><i></i><i></i></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="guidance-section">
+            <div class="guidance-label">给双方补充信息 <span>将在下一轮同时送达</span></div>
+            <div class="guidance-composer"><textarea id="guidanceInput" rows="2" placeholder="例如：重点考虑用户中途加入讨论的体验…"></textarea><button id="guidanceSend" type="button" aria-label="发送补充"><svg><use href="#i-send"></use></svg></button></div>
+            <div class="guidance-sent" id="guidanceSent"><svg><use href="#i-check"></use></svg><span></span></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="discussion-panel completed-panel">
+        <div class="discussion-header completed-header">
+          <div class="status-row"><span class="status-complete"><svg><use href="#i-check"></use></svg>已完成</span><span>3 轮</span><span>2m 18s</span></div>
+          <h1>如何设计 ACP 的双 Agent 讨论体验</h1>
+          <div class="participant-row compact-participants"><div class="participant"><span class="participant-avatar claude">C</span><span><strong>Claude</strong><small>Sonnet 4.6</small></span></div><div class="participant"><span class="participant-avatar codex">O</span><span><strong>Codex</strong><small>GPT-5.3</small></span></div></div>
+        </div>
+        <div class="result-toolbar">
+          <button class="result-nav active" type="button" data-target="summary">摘要</button>
+          <button class="result-nav" type="button" data-target="details">详细结论</button>
+          <button class="result-nav" type="button" data-target="positions">双方原文</button>
+          <span class="result-length">约 2,800 字</span>
+        </div>
+        <div class="discussion-scroll result-scroll">
+          <div class="result-intro"><span class="result-mark"><svg><use href="#i-discuss"></use></svg></span><div><strong>讨论结果已返回 Pi</strong><span>完整结果已保留，当前 Agent 正在继续回答</span></div></div>
+
+          <section class="result-section" id="summary">
+            <div class="section-kicker">执行摘要</div>
+            <h2>把讨论建模成独立的共享对象，而不是两个会话之间的消息转发</h2>
+            <p class="lead">双方最终形成了较高程度的共识：用户看到的是一个持续更新的 Discussion 面板；参与讨论的 ACP runtime 只是内部执行单元，不进入普通会话列表，也不拥有父子或评审关系。</p>
+            <div class="summary-points">
+              <div><span>01</span><p><strong>入口属于 Agent</strong>发起 Agent 调用工具并指定两个参与者，工具保持等待，讨论结束后获得结构化结果。</p></div>
+              <div><span>02</span><p><strong>展示属于 Discussion</strong>右侧栏呈现共享时间线、轮次状态、补充信息和最终结论。</p></div>
+              <div><span>03</span><p><strong>运行属于 Host</strong>Host 收齐同一轮的双方输出后再交换，避免先发优势并保证恢复一致性。</p></div>
+            </div>
+          </section>
+
+          <section class="result-section" id="details">
+            <div class="section-kicker">详细结论</div>
+            <div class="finding">
+              <h3>1. Discussion 是 workspace 级实体</h3>
+              <p>它拥有自己的 id、议题、参与者、轮次、状态和最终结果。发起对话只保存引用关系，因此关闭或切换主对话不会让讨论记录消失。右侧栏可以根据当前会话关联自动打开对应讨论。</p>
+            </div>
+            <div class="finding">
+              <h3>2. 两位参与者必须严格平等</h3>
+              <p>第一轮双方在看不到对方答案的情况下独立表达。后续每一轮都使用同一份已冻结的上下文快照，并行生成回应。界面不出现 reviewer、owner、approve 等暗示权力差异的词。</p>
+            </div>
+            <div class="finding">
+              <h3>3. 长结果需要“摘要 → 细节 → 原文”的阅读层级</h3>
+              <p>工具返回给发起 Agent 的内容可以完整，但右侧面板默认先显示执行摘要和关键决策。详细推理按主题分段，双方逐轮原文折叠在最后，避免用户为了找到结论滚过大量重复论述。</p>
+            </div>
+            <div class="finding">
+              <h3>4. 用户补充应在轮次边界生效</h3>
+              <p>用户输入不会只发给正在输出的一方，而是进入共享 pending guidance。当前轮完成后，Host 将同一条补充同时加入双方下一轮输入，从而维持语义公平和可复现性。</p>
+            </div>
+            <div class="finding">
+              <h3>5. 返回发起 Agent 的结果应结构化</h3>
+              <p>结果至少包含共同结论、双方最终立场、未解决分歧和完整 transcript 引用。发起 Agent 可以直接用摘要回答，也可以在需要时读取具体轮次，不必把全部原文再次塞入自己的上下文。</p>
+            </div>
+          </section>
+
+          <section class="result-section disagreement-section">
+            <div class="section-kicker">未解决分歧</div>
+            <h3>运行中的用户补充是否允许立即中断？</h3>
+            <div class="split-position"><span class="participant-avatar small claude">C</span><p><strong>Claude：</strong>高优先级补充应该允许中断当前轮，否则用户可能继续为错误方向付出 token。</p></div>
+            <div class="split-position"><span class="participant-avatar small codex">O</span><p><strong>Codex：</strong>默认应排队到轮次边界；立即中断会破坏双方输入对称性，只能作为明确的“取消本轮并重启”操作。</p></div>
+            <div class="recommendation"><span>建议</span><p>默认排队；额外提供“取消本轮并应用”作为高成本显式操作。</p></div>
+          </section>
+
+          <section class="result-section transcript-section" id="positions">
+            <div class="section-kicker">双方最终原文</div>
+            <details>
+              <summary><span class="participant-avatar small claude">C</span><span><strong>Claude · 最终立场</strong><small>742 字 · 第 3 轮</small></span><svg><use href="#i-chevron"></use></svg></summary>
+              <div class="long-position"><p>我认为这个能力的产品边界应当由“一个共享讨论对象”决定，而不是由参与者会话决定。用户需要稳定地看到议题如何演进：独立立场、交叉回应、共同结论，以及仍未解决的分歧。</p><p>在运行层面，隐藏 participant session 是合理实现，但不应泄露成两个普通聊天标签。每轮必须保存输入快照和贡献引用，使 Desktop 重启后能够恢复到明确阶段。对于用户补充，我更重视纠偏速度，因此建议允许用户选择立即取消当前轮。</p><p>最终返回发起 Agent 时，应提供简短综合结论以及可按需展开的原文引用，避免把几千字讨论直接复制到主会话。</p></div>
+            </details>
+            <details>
+              <summary><span class="participant-avatar small codex">O</span><span><strong>Codex · 最终立场</strong><small>816 字 · 第 3 轮</small></span><svg><use href="#i-chevron"></use></svg></summary>
+              <div class="long-position"><p>我同意共享 Discussion 是正确的产品模型，同时强调它应由确定性状态机驱动。双方在每一轮读取完全相同的共享快照，分别写入贡献，Host 只在两份贡献都终止后推进轮次。</p><p>长讨论结果不能只依赖一个总结字段。建议存储结构化 summary、agreements、disagreements 和 participant conclusions，同时把完整 contribution 作为按需读取的历史。这样主 Agent 接收的是可控大小的结果，而右侧栏仍可浏览完整推理。</p><p>用户补充默认进入下一轮是最安全的。如果需要立即纠偏，应明确取消双方当前输出并从同一个新快照重新开始，而不是只 steer 其中一方。</p></div>
+            </details>
+          </section>
+        </div>
+        <div class="result-footer"><div><span>已返回给 Pi</span><small>摘要 + 结论引用</small></div><button class="return-button" type="button" id="returnButton"><svg><use href="#i-arrow"></use></svg><span>回到发起对话</span></button></div>
+      </section>
+    </aside>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

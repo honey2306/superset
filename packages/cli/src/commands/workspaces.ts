@@ -103,6 +103,7 @@ export async function workspacesGetCommand(ctx: CommandContext): Promise<void> {
 		: undefined;
 
 	const sessions = await connection.client.acpSessions.list.query({
+		excludeEmpty: true,
 		limit: 200,
 		workspaceId: workspace.id,
 	});

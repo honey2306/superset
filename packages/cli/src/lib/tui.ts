@@ -24,6 +24,9 @@ export const ansi = {
 	enterAltScreen: `${ESC}[?1049h`,
 	/** Restore the primary screen buffer and its prior scrollback content. */
 	exitAltScreen: `${ESC}[?1049l`,
+	/** Ask the terminal to report button presses and scroll-wheel events. */
+	enableMouseTracking: `${ESC}[?1000h${ESC}[?1006h`,
+	disableMouseTracking: `${ESC}[?1006l${ESC}[?1000l`,
 	/** Ask the terminal to bracket pasted text with paste-start/end markers. */
 	enableBracketedPaste: `${ESC}[?2004h`,
 	disableBracketedPaste: `${ESC}[?2004l`,

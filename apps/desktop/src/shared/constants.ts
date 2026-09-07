@@ -69,10 +69,11 @@ export const NOTIFICATION_EVENTS = {
 	TERMINAL_EXIT: "terminal-exit",
 } as const;
 
-// Stable scope for the single local desktop runtime. Keep this value stable so
-// existing host.db data created by the previous local-session shim remains
-// discoverable after cloud identity is removed.
-export const LOCAL_HOST_SCOPE_ID = "1887f807-99db-49c0-9568-fc085a2fd36a";
+// Stable scope for the single local desktop runtime. Single-sourced in
+// @superset/shared/host-scope so the CLI resolves the same manifest directory.
+// Imported from `host-scope` (not `host-paths`): this file reaches the
+// renderer, and host-paths pulls in node:fs/os/path.
+export { LOCAL_HOST_SCOPE_ID } from "@superset/shared/host-scope";
 
 // Development/testing mock values (used when SKIP_ENV_VALIDATION is set)
 export const MOCK_ORG_ID = "mock-org-id";

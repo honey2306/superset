@@ -21,6 +21,7 @@ const FILTERS: Array<{ value: ProjectMemoryFilter; label: string }> = [
 
 export function ProjectMemoryToolbar({
 	projectName,
+	isGlobal,
 	count,
 	query,
 	filter,
@@ -29,6 +30,7 @@ export function ProjectMemoryToolbar({
 	onCreate,
 }: {
 	projectName: string;
+	isGlobal: boolean;
 	count: number;
 	query: string;
 	filter: ProjectMemoryFilter;
@@ -48,7 +50,7 @@ export function ProjectMemoryToolbar({
 						className="h-8 border-line-strong bg-surface pl-8 text-xs"
 						value={query}
 						onChange={(event) => onQueryChange(event.target.value)}
-						placeholder="搜索当前项目记忆…"
+						placeholder={isGlobal ? "搜索全局记忆…" : "搜索当前项目记忆…"}
 					/>
 				</div>
 				<Button size="sm" onClick={onCreate}>

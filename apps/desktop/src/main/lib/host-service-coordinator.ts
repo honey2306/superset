@@ -779,6 +779,8 @@ export class HostServiceCoordinator extends EventEmitter {
 			// The embedded local host can present the same headless browser that ACP
 			// tools control. Standalone/remote hosts omit this and retain Browser Use.
 			SUPERSET_AGENT_BROWSER: "1",
+			SUPERSET_AGENT_BROWSER_CDP_PROXY_URL:
+				process.env.SUPERSET_AGENT_BROWSER_CDP_PROXY_URL ?? "",
 			// Read by the child's parent watchdog so it can self-exit if
 			// Electron crashes without sending SIGTERM (orphan reparenting).
 			HOST_PARENT_PID: String(process.pid),

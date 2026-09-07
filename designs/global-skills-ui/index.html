@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Superset global skills refined UI design" />
+  <title>Superset · Skills</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.1"></circle><path d="m15.5 15.5 4.2 4.2"></path></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></symbol>
+    <symbol id="spark" viewBox="0 0 24 24"><path d="m12 3 1.25 5.75L19 10l-5.75 1.25L12 17l-1.25-5.75L5 10l5.75-1.25L12 3Z"></path><path d="m19 16 .55 2.45L22 19l-2.45.55L19 22l-.55-2.45L16 19l2.45-.55L19 16Z"></path></symbol>
+    <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"></circle><circle cx="12" cy="12" r="1.3"></circle><circle cx="19" cy="12" r="1.3"></circle></symbol>
+    <symbol id="check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4L19 6.8"></path></symbol>
+    <symbol id="chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"></path></symbol>
+    <symbol id="folder" viewBox="0 0 24 24"><path d="M3.5 6.5h6l2 2H20.5v10H3.5z"></path></symbol>
+    <symbol id="trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V4.5h6V7M7.5 7l.7 12h7.6l.7-12M10 10.5v5M14 10.5v5"></path></symbol>
+  </svg>
+
+  <div class="app" data-screen-label="global-skills-refined">
+    <aside class="library">
+      <header class="library-head">
+        <div class="brand"><span class="brand-mark"><svg><use href="#spark"></use></svg></span><span>Skills</span></div>
+        <button class="quiet-icon" id="newSkill" type="button" aria-label="新建 Skill"><svg><use href="#plus"></use></svg></button>
+      </header>
+      <div class="search-wrap"><svg><use href="#search"></use></svg><input id="searchInput" type="search" placeholder="搜索" /><kbd>⌘ K</kbd></div>
+      <div class="section-label"><span>全部</span><span id="skillCount">5</span></div>
+      <nav class="skill-nav" id="skillNav" aria-label="全局 Skills"></nav>
+      <footer class="library-foot"><span class="online-dot"></span><span>全局可用</span><button type="button" title="打开目录"><svg><use href="#folder"></use></svg></button></footer>
+    </aside>
+
+    <main class="canvas">
+      <header class="topbar">
+        <div class="path"><span>Global</span><svg><use href="#chevron"></use></svg><strong id="pathName">diagnose</strong></div>
+        <div class="top-actions"><span class="save-state" id="saveState"><i></i>已保存</span><button class="more-button" id="moreButton" type="button" aria-label="更多操作"><svg><use href="#more"></use></svg></button><button class="save-button" id="saveButton" type="button"><svg><use href="#check"></use></svg><span>保存</span></button></div>
+        <div class="menu" id="moreMenu" hidden><button type="button"><svg><use href="#folder"></use></svg>在 Finder 中显示</button><button class="danger" id="deleteButton" type="button"><svg><use href="#trash"></use></svg>删除 Skill</button></div>
+      </header>
+
+      <div class="document-scroll">
+        <article class="document">
+          <div class="document-kicker"><span class="tiny-spark"><svg><use href="#spark"></use></svg></span><span>GLOBAL SKILL</span></div>
+          <input class="title-input" id="titleInput" value="diagnose" aria-label="Skill 名称" />
+          <textarea class="description-input" id="descriptionInput" rows="1" aria-label="Skill 描述">复杂 Bug 与性能回退的结构化诊断流程</textarea>
+
+          <div class="meta-line"><span>在任务匹配时自动加载</span><span class="divider"></span><span id="updateTime">刚刚更新</span></div>
+
+          <div class="content-divider">
+            <span>INSTRUCTIONS</span>
+            <div class="view-switch" role="tablist" aria-label="Markdown 显示方式">
+              <button class="is-active" id="editMode" type="button" role="tab" aria-selected="true">编辑</button>
+              <button id="previewMode" type="button" role="tab" aria-selected="false">预览</button>
+            </div>
+          </div>
+          <textarea class="body-input" id="bodyInput" spellcheck="false" aria-label="Skill 指令"></textarea>
+          <div class="markdown-preview" id="markdownPreview" hidden></div>
+
+          <footer class="document-foot"><code id="filePath">~/.agents/skills/diagnose/SKILL.md</code><span><i class="online-dot"></i>可被新会话发现</span></footer>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"><svg><use href="#check"></use></svg><span>已保存</span></div>
+  <div class="confirm-layer" id="confirmLayer" hidden>
+    <div class="confirm-card">
+      <h2>删除这个 Skill？</h2>
+      <p><strong id="deleteName">diagnose</strong> 将不再提供给后续 Agent 会话。</p>
+      <div><button class="cancel-delete" id="cancelDelete" type="button">取消</button><button class="confirm-delete" id="confirmDelete" type="button">删除</button></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

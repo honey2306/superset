@@ -8,7 +8,9 @@ export {
 	setDirectSocketTelemetry,
 } from "./lib/directSocket";
 export {
+	type AcpDiscussionOpenRequestedPayload,
 	type AcpSessionChangedPayload,
+	type AcpTerminalOpenRequestedPayload,
 	type AgentIdentity,
 	type AgentLifecyclePayload,
 	type CatalogChangedPayload,

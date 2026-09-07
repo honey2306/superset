@@ -294,13 +294,14 @@ supported agent preset is opened.
 Embedded Desktop hosts set `SUPERSET_AGENT_BROWSER=1`. Electron main owns one
 conversation-partitioned `WebContentsView` session per ACP conversation and is
 the only process allowed to create, select, or close its pages. The detached
-ACP daemon injects a thin session-scoped MCP; structured actions are executed by
-a conversation-scoped Browser Use Python SDK sidecar after it focuses the exact
-Electron target id and verifies the conversation target allowlist. New/close
-page operations bridge back to Electron rather than using CDP
-`Target.createTarget`. Hiding the Desktop companion pane only hides the native
-view and never destroys its pages or login state. No screenshot polling is used
-for Desktop presentation.
+ACP daemon injects the official `browser-use --cli-mcp` process for each
+conversation. Superset gives it a conversation-scoped `BU_CDP_URL` backed by a
+loopback CDP proxy. The proxy exposes only that conversation's Electron target
+ids and maps target create/select/close commands back to Electron's
+`AgentBrowserManager`; all browser-harness helpers and MCP execution remain
+upstream Browser Use code. Hiding the Desktop companion pane only hides the
+native view and never destroys its pages or login state. No screenshot polling
+is used for Desktop presentation.
 
 Standalone and remote hosts currently retain the Browser Use fallback. The ACP
 daemon discovers the local Browser Use CLI once at startup and passes the same

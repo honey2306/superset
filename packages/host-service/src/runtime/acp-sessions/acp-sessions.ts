@@ -57,6 +57,8 @@ import {
 	SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DELEGATION_META_KEY,
+	SUPERSET_DISCUSSION_PARTICIPANT_INSTRUCTIONS,
+	SUPERSET_DISCUSSION_PARTICIPANT_ROLE,
 	SUPERSET_PLAN_INSTRUCTIONS,
 	SUPERSET_ROOT_COORDINATOR_ROLE,
 	selectedOptionIds,
@@ -78,6 +80,7 @@ import type {
 	AcpMergeRequestOpenRequestHandler,
 	AcpSessionChangeHandler,
 	AcpSessionOpenRequestHandler,
+	AcpTerminalOpenRequestHandler,
 } from "./runtime";
 import {
 	buildTranscriptPageFromTurns,
@@ -644,6 +647,8 @@ export interface AcpSessionManagerOptions {
 	 * tool surface regardless of the selected harness.
 	 */
 	mcpServers?: McpServer[];
+	/** Resolve host-configured MCP servers for each new or resumed session. */
+	resolveMcpServers?: () => McpServer[];
 	/** Session-scoped MCP declarations (for tools that need source identity). */
 	mcpServerFactory?: (input: {
 		sessionId: string;
@@ -734,6 +739,9 @@ export class AcpSessionManager {
 	private readonly deepseekAdapterCommand: string | undefined;
 	private readonly deepseekAdapterConfig: string | undefined;
 	private readonly mcpServers: McpServer[];
+	private readonly resolveMcpServers:
+		| AcpSessionManagerOptions["resolveMcpServers"]
+		| undefined;
 	private readonly mcpServerFactory: AcpSessionManagerOptions["mcpServerFactory"];
 	private readonly modelFacingInstructions:
 		| AcpSessionManagerOptions["modelFacingInstructions"]
@@ -787,6 +795,7 @@ export class AcpSessionManager {
 		this.deepseekAdapterCommand = options.deepseekAdapterCommand;
 		this.deepseekAdapterConfig = options.deepseekAdapterConfig;
 		this.mcpServers = options.mcpServers ?? [];
+		this.resolveMcpServers = options.resolveMcpServers;
 		this.mcpServerFactory = options.mcpServerFactory;
 		this.modelFacingInstructions = options.modelFacingInstructions;
 		const startupTimeoutMs = options.startupTimeoutMs;
@@ -939,6 +948,7 @@ export class AcpSessionManager {
 		workspaceId?: string;
 		cursor?: string;
 		limit?: number;
+		excludeEmpty?: boolean;
 	}): SessionsPage {
 		const limit = input.limit ?? 50;
 		const states = [
@@ -951,7 +961,10 @@ export class AcpSessionManager {
 		]
 			.filter(
 				(state) =>
-					!input.workspaceId || state.workspaceId === input.workspaceId,
+					this.getRole(state.sessionId) !==
+						SUPERSET_DISCUSSION_PARTICIPANT_ROLE &&
+					(!input.workspaceId || state.workspaceId === input.workspaceId) &&
+					(!input.excludeEmpty || this.sessionHasUserPrompt(state.sessionId)),
 			)
 			.sort(
 				(a, b) =>
@@ -1463,6 +1476,57 @@ export class AcpSessionManager {
 	}
 
 	/**
+	 * Inject guidance into the currently running native turn. This deliberately
+	 * bypasses the host follow-up queue: supported adapters consume the message
+	 * inside their active turn and keep existing queued follow-ups untouched.
+	 */
+	async steerPrompt(input: {
+		sessionId: string;
+		commandId?: string;
+		prompt: ContentBlock[];
+	}): Promise<PromptAccepted> {
+		const runtime = this.requireLive(input.sessionId);
+		if (!runtime.state.canSteer) {
+			throw new Error("This agent does not support non-interrupting guidance");
+		}
+		if (runtime.activePromptCount === 0) {
+			return this.prompt(input);
+		}
+		const delivery =
+			runtime.state.harness === "myflicker-acp"
+				? runtime.connection.agent.request("session/prompt", {
+						sessionId: runtime.acpSessionId,
+						prompt: input.prompt,
+					})
+				: runtime.connection.agent.request<
+						Record<string, unknown>,
+						{ sessionId: string; prompt: ContentBlock[] }
+					>("sh.superset/session/steer", {
+						sessionId: runtime.acpSessionId,
+						prompt: input.prompt,
+					});
+		if (runtime.state.harness === "myflicker-acp") {
+			// MyFlicker's public ACP surface does not expose its native
+			// enqueueUserInjection method. A concurrent session/prompt reaches the
+			// same backend session without issuing session/cancel; keep it detached
+			// because the request resolves only when the active response settles.
+			void delivery.catch((error: unknown) => {
+				console.error("[acp-sessions] MyFlicker steer failed", error);
+			});
+		} else {
+			await delivery;
+		}
+		for (const block of input.prompt) {
+			this.journalFrame(runtime, {
+				kind: "update",
+				update: { sessionUpdate: "user_message_chunk", content: block },
+				...(input.commandId ? { commandId: input.commandId } : {}),
+			});
+		}
+		return { accepted: true };
+	}
+
+	/**
 	 * Cancel the running turn (if any) and run this prompt immediately. Works
 	 * for every adapter: the standard `session/cancel` notification stops the
 	 * in-flight turn's stopReason to `cancelled`, and the queue drain hook
@@ -1878,7 +1942,10 @@ export class AcpSessionManager {
 	 * intentionally survive so a known session id can still render history, but
 	 * the session cannot be resurrected after a host restart.
 	 */
-	async close(input: { sessionId: string }): Promise<void> {
+	async close(input: {
+		sessionId: string;
+		onlyIfEmpty?: boolean;
+	}): Promise<void> {
 		const { sessionId } = input;
 		const creation = this.creations.get(sessionId);
 		if (creation) await creation.promise;
@@ -1888,6 +1955,7 @@ export class AcpSessionManager {
 		if (!runtime && !offline) {
 			throw new AcpSessionNotFoundError(`Unknown ACP session: ${sessionId}`);
 		}
+		if (input.onlyIfEmpty && this.sessionHasUserPrompt(sessionId)) return;
 		const workspaceId = runtime?.state.workspaceId ?? offline?.workspaceId;
 		const discovery = runtime?.discovery === true;
 		if (runtime && !discovery) {
@@ -2280,6 +2348,7 @@ export class AcpSessionManager {
 				? []
 				: [
 						...this.mcpServers,
+						...(this.resolveMcpServers?.() ?? []),
 						...(this.mcpServerFactory?.({
 							sessionId,
 							workspaceId,
@@ -2291,7 +2360,9 @@ export class AcpSessionManager {
 		const roleInstructions =
 			role === SUPERSET_DELEGATED_EXECUTOR_ROLE
 				? SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS
-				: this.modelFacingInstructions?.({ role, workspaceId, cwd });
+				: role === SUPERSET_DISCUSSION_PARTICIPANT_ROLE
+					? SUPERSET_DISCUSSION_PARTICIPANT_INSTRUCTIONS
+					: this.modelFacingInstructions?.({ role, workspaceId, cwd });
 		const modelFacingInstructions = discovery
 			? undefined
 			: composeSupersetModelFacingInstructions([
@@ -2681,6 +2752,7 @@ export class AcpSessionManager {
 					configOptions,
 					availableCommands: null,
 					pendingPermissions: [],
+					canSteer: harness !== "deepseek-acp",
 					queuedPrompts: restoredQueuedCommands.queued.map((command) => ({
 						queueId: command.queueId,
 						prompt: [...command.prompt],
@@ -3632,6 +3704,16 @@ export class AcpSessionManager {
 		return () => {};
 	}
 
+	onDiscussionOpenRequested(): () => void {
+		return () => {};
+	}
+
+	onTerminalOpenRequested(
+		_listener: AcpTerminalOpenRequestHandler,
+	): () => void {
+		return () => {};
+	}
+
 	onMergeRequestOpenRequested(
 		_listener: AcpMergeRequestOpenRequestHandler,
 	): () => void {
@@ -3647,6 +3729,33 @@ export class AcpSessionManager {
 			} catch (error) {
 				console.warn("[acp-sessions] session-change listener threw", error);
 			}
+		}
+	}
+
+	private sessionHasUserPrompt(sessionId: string): boolean {
+		try {
+			if (this.loadCompactTurns(sessionId).length > 0) return true;
+			const runtime = this.runtimes.get(sessionId);
+			const record = this.offline.get(sessionId);
+			const epoch = runtime?.state.epoch ?? record?.epoch;
+			const entries = runtime
+				? runtime.journal.snapshot()
+				: epoch
+					? (this.persistence?.loadJournal(sessionId, epoch) ?? [])
+					: [];
+			return entries.some(
+				(envelope) =>
+					envelope.frame.kind === "update" &&
+					envelope.frame.update.sessionUpdate === "user_message_chunk",
+			);
+		} catch (error) {
+			// Failure must preserve a possibly valuable conversation and keep it
+			// visible rather than misclassifying it as empty.
+			console.warn(
+				`[acp-sessions] failed to inspect session history for ${sessionId}`,
+				error,
+			);
+			return true;
 		}
 	}
 

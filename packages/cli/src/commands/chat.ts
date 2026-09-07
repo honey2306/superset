@@ -12,26 +12,42 @@
 import { appendFileSync } from "node:fs";
 import { emitKeypressEvents as nodeEmitKeypressEvents } from "node:readline";
 import type {
-	ContentBlock,
+	FoldedTimeline,
 	PendingPermission,
 } from "@superset/session-protocol";
 import { makeSelectedOutcome } from "@superset/session-protocol";
+import { AcpSessionController } from "@superset/session-protocol/controller";
 import { contentBlockToText } from "../lib/content";
 import type { CommandContext } from "../lib/context";
 import { CliError } from "../lib/exit-codes";
-import type { HostConnection } from "../lib/host-connection";
+import {
+	createAcpSessionsApi,
+	type HostConnection,
+	sessionStreamUrl,
+} from "../lib/host-connection";
 import { renderMarkdown } from "../lib/markdown";
 import { stripAnsi, truncateVisible } from "../lib/output";
+import { RenderCache } from "../lib/render-cache";
 import {
+	type CatalogView,
 	loadCatalog,
+	type ProjectRef,
 	resolveWorkspace,
 	type WorkspaceRef,
+	workspaceForDirectory,
 } from "../lib/resolve";
-import { STOP_STREAM, subscribeToSession } from "../lib/stream";
 import { ansi, type Frame, Screen } from "../lib/tui";
-import { markdownThemeFor, renderWidth } from "./sessions/shared";
+import { markdownThemeFor } from "./sessions/shared";
 
-type View = "conversation" | "sessions" | "permission";
+type View =
+	| "conversation"
+	| "sessions"
+	| "project-select"
+	| "workspace-select"
+	| "agent-select"
+	| "creating-session"
+	| "model-select"
+	| "permission";
 
 interface ChatMessage {
 	role: "user" | "agent";
@@ -47,10 +63,34 @@ interface ChatSession {
 	pendingPermissions: PendingPermission[];
 	queuedPrompts: { queueId: string; text: string }[];
 	lastSeq: number;
+	createdAt: number;
+	updatedAt: number;
 	epoch?: string;
 }
 
 type Notice = { text: string; tone: "info" | "success" | "warning" };
+
+const RECENT_SESSION_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+
+export interface RecentSessionCandidate {
+	sessionId: string;
+	createdAt: number;
+	updatedAt: number;
+}
+
+/** The interactive CLI is a recent-work surface, not a session archive. */
+export function recentSessionCandidates<T extends RecentSessionCandidate>(
+	sessions: readonly T[],
+	now = Date.now(),
+): T[] {
+	const cutoff = now - RECENT_SESSION_WINDOW_MS;
+	return sessions
+		.filter((session) => session.updatedAt >= cutoff)
+		.sort(
+			(a, b) =>
+				b.updatedAt - a.updatedAt || a.sessionId.localeCompare(b.sessionId),
+		);
+}
 
 const HARNESS_ALIASES: Record<string, string> = {
 	claude: "claude-agent-acp",
@@ -61,9 +101,11 @@ const HARNESS_ALIASES: Record<string, string> = {
 };
 
 const slashCommands = [
+	["/projects", "切换项目"],
 	["/sessions", "切换对话"],
 	["/switch", "按序号、ID 或标题切换"],
 	["/new", "创建新对话"],
+	["/model", "选择当前对话模型"],
 	["/history", "显示更多历史"],
 	["/status", "查看所有对话状态"],
 	["/queue", "查看排队消息"],
@@ -74,8 +116,9 @@ const slashCommands = [
 	["/exit", "退出"],
 ] as const;
 
-interface TuiState {
+export interface TuiState {
 	connection: HostConnection;
+	catalog: CatalogView;
 	workspace: WorkspaceRef;
 	sessions: ChatSession[];
 	currentIndex: number;
@@ -85,11 +128,25 @@ interface TuiState {
 	cursor: number;
 	selectedIndex: number;
 	permissionIndex: number;
+	projectIndex: number;
+	workspaceIndex: number;
+	agentIndex: number;
+	modelIndex: number;
+	modelOptions: { value: string; name: string; description?: string | null }[];
+	hasSelectedProject?: boolean;
+	projectSelectionMode?: "create" | "switch";
+	newConversationProject: ProjectRef | undefined;
+	newConversationWorkspace: WorkspaceRef | undefined;
 	/** Rows of transcript scrolled up from the newest line. */
 	scrollOffset: number;
 	notice: Notice | undefined;
+	/** Session whose shared ACP controller is currently attached. */
+	attachedSessionId: string | undefined;
+	controller: AcpSessionController | undefined;
 	streamingSessionId: string | undefined;
 	streamingText: string;
+	/** Latest useful activity reported by the agent while a turn is running. */
+	activityText: string | undefined;
 	/** Wall-clock start of the in-flight turn, for the elapsed readout. */
 	turnStartedAt: number | undefined;
 	spinnerTick: number;
@@ -99,21 +156,32 @@ interface TuiState {
 	menuIndex: number;
 	/** True between paste-start and paste-end from bracketed paste. */
 	pasting: boolean;
+	/** Bytes after an SGR mouse prefix while readline emits them as keys. */
+	pendingMouseInput: string | undefined;
 	active: boolean;
+	/** Whether the user has entered a concrete conversation from the launcher. */
+	hasOpenedConversation: boolean;
 	lastCtrlCAt: number;
+	/** Resolve the outer input loop when an async slash command exits. */
+	requestExit?: () => void;
 }
 
 export async function chatCommand(ctx: CommandContext): Promise<number> {
 	const connection = await ctx.host();
 	const catalog = await loadCatalog(connection);
-	const workspace = resolveWorkspace(
-		catalog.workspaces,
-		ctx.args.options.get("workspace")?.[0],
-		process.cwd(),
-	);
+	const reference = ctx.args.options.get("workspace")?.[0];
+	const workspace = reference
+		? resolveWorkspace(catalog.workspaces, reference, process.cwd())
+		: (workspaceForDirectory(catalog.workspaces, process.cwd()) ??
+			catalog.workspaces[0]);
+	if (!workspace) {
+		process.stdout.write("没有可用项目，请先在 Superset 中添加项目。\n");
+		return 0;
+	}
 
 	const state: TuiState = {
 		connection,
+		catalog,
 		workspace,
 		sessions: [],
 		currentIndex: 0,
@@ -122,26 +190,36 @@ export async function chatCommand(ctx: CommandContext): Promise<number> {
 		cursor: 0,
 		selectedIndex: 0,
 		permissionIndex: 0,
+		projectIndex: 0,
+		workspaceIndex: 0,
+		agentIndex: 0,
+		modelIndex: 0,
+		modelOptions: [],
+		newConversationProject: undefined,
+		newConversationWorkspace: undefined,
 		scrollOffset: 0,
 		notice: undefined,
 		streamingSessionId: undefined,
+		attachedSessionId: undefined,
+		controller: undefined,
 		streamingText: "",
+		activityText: undefined,
 		turnStartedAt: undefined,
 		spinnerTick: 0,
 		inputHistory: [],
 		historyIndex: 0,
 		menuIndex: 0,
 		pasting: false,
+		pendingMouseInput: undefined,
 		active: true,
+		hasOpenedConversation: false,
 		lastCtrlCAt: 0,
 	};
 
-	await refreshSessions(state);
-	// A fresh conversation on entry: the list stays one Alt+↑/↓ or /sessions
-	// away, but the default landing is a clean composer.
-	await createSession(state, "");
-	state.currentIndex = 0;
-	state.notice = undefined;
+	// Directory / --workspace only preselects a project; no session query is
+	// issued until the user explicitly chooses the project to work in.
+	state.hasSelectedProject = false;
+	openProjectSelect(state, "switch");
 
 	if (process.stdin.isTTY !== true) {
 		process.stdout.write("交互模式需要终端。非交互使用请运行子命令。\n");
@@ -151,13 +229,15 @@ export async function chatCommand(ctx: CommandContext): Promise<number> {
 	// Enter the alternate screen buffer so the TUI owns a clean, full-height
 	// canvas and the user's prior shell scrollback is untouched — restored
 	// verbatim on exit instead of being pushed around by repeated clears.
-	process.stdout.write(`${ansi.enterAltScreen}${ansi.enableBracketedPaste}`);
+	process.stdout.write(
+		`${ansi.enterAltScreen}${ansi.enableBracketedPaste}${ansi.enableMouseTracking}`,
+	);
 	let screenRestored = false;
 	const restoreScreen = (): void => {
 		if (screenRestored) return;
 		screenRestored = true;
 		process.stdout.write(
-			`${ansi.disableBracketedPaste}${ansi.showCursor}${ansi.exitAltScreen}`,
+			`${ansi.disableMouseTracking}${ansi.disableBracketedPaste}${ansi.showCursor}${ansi.exitAltScreen}`,
 		);
 	};
 	// Covers Ctrl-C/kill signals and any exit path that skips the explicit
@@ -168,16 +248,25 @@ export async function chatCommand(ctx: CommandContext): Promise<number> {
 	render(state);
 
 	await new Promise<void>((resolve) => {
+		let resolved = false;
+		const finish = (): void => {
+			if (resolved) return;
+			resolved = true;
+			state.active = false;
+			resolve();
+		};
+		state.requestExit = finish;
 		process.stdin.setRawMode(true);
 		process.stdin.resume();
 		emitKeypressEvents(process.stdin);
 		process.stdin.on("keypress", (character, key) => {
+			if (consumeMouseInput(state, character, key)) return;
 			trace(
 				`keypress: ${JSON.stringify({ character, name: key?.name, ctrl: key?.ctrl, meta: key?.meta, shift: key?.shift })}`,
 			);
 			const stop = onKeypress(state, character, key);
 			if (stop) {
-				resolve();
+				finish();
 				return;
 			}
 			render(state);
@@ -189,11 +278,14 @@ export async function chatCommand(ctx: CommandContext): Promise<number> {
 			render(state);
 		});
 	});
+	state.requestExit = undefined;
 
 	if (process.stdin.isTTY) process.stdin.setRawMode(false);
 	process.stdin.pause();
 	// The spinner interval would otherwise keep the event loop alive.
 	stopSpinner(state);
+	state.controller?.stop();
+	state.controller = undefined;
 	restoreScreen();
 	process.stdout.write(
 		`${ansi.dim}已退出；后台对话仍在 host-service 中继续运行。${ansi.reset}\n`,
@@ -216,13 +308,26 @@ function agentShortName(harness: string): string {
 	return harness;
 }
 
-async function refreshSessions(state: TuiState): Promise<void> {
-	const page = await state.connection.client.acpSessions.list.query({
-		limit: 50,
-		workspaceId: state.workspace.id,
-	});
+export async function refreshSessions(state: TuiState): Promise<void> {
+	const items: Awaited<
+		ReturnType<typeof state.connection.client.acpSessions.list.query>
+	>["items"] = [];
+	let cursor: string | undefined;
+	do {
+		const page = await state.connection.client.acpSessions.list.query({
+			cursor,
+			excludeEmpty: true,
+			limit: 50,
+			workspaceId: state.workspace.id,
+		});
+		items.push(...page.items);
+		cursor = page.nextCursor ?? undefined;
+	} while (cursor);
+
+	const currentSessionId = current(state)?.sessionId;
 	const previous = new Map(state.sessions.map((s) => [s.sessionId, s]));
-	state.sessions = page.items.map((session) => {
+	const recent = recentSessionCandidates(items);
+	state.sessions = recent.map((session) => {
 		const existing = previous.get(session.sessionId);
 		return {
 			sessionId: session.sessionId,
@@ -238,35 +343,21 @@ async function refreshSessions(state: TuiState): Promise<void> {
 					.join(""),
 			})),
 			lastSeq: session.lastSeq,
+			createdAt: session.createdAt,
+			updatedAt: session.updatedAt,
 			epoch: session.epoch,
 		};
 	});
-	if (state.currentIndex >= state.sessions.length) {
+	const retainedIndex = currentSessionId
+		? state.sessions.findIndex(
+				(session) => session.sessionId === currentSessionId,
+			)
+		: -1;
+	if (retainedIndex >= 0) {
+		state.currentIndex = retainedIndex;
+	} else if (state.currentIndex >= state.sessions.length) {
 		state.currentIndex = Math.max(0, state.sessions.length - 1);
 	}
-}
-
-async function loadHistory(
-	state: TuiState,
-	session: ChatSession,
-	limit = 20,
-): Promise<void> {
-	const page = await state.connection.client.acpSessions.getTranscript.query({
-		sessionId: session.sessionId,
-		limit,
-	});
-	session.messages = page.turns.flatMap((turn) => {
-		const messages: ChatMessage[] = [];
-		const userText =
-			(turn.userMessage ?? []).map(contentBlockToText).join("") ||
-			turn.userPreview;
-		if (userText) messages.push({ role: "user", text: userText });
-		const agentText =
-			(turn.assistantMessage ?? []).map(contentBlockToText).join("") ||
-			turn.agentPreview;
-		if (agentText) messages.push({ role: "agent", text: agentText });
-		return messages;
-	});
 }
 
 /**
@@ -613,6 +704,14 @@ function paint(): void {
 	const frame = screen.begin();
 	if (current.view === "conversation") renderConversation(current, frame);
 	else if (current.view === "sessions") renderSessions(current, frame);
+	else if (current.view === "project-select")
+		renderProjectSelect(current, frame);
+	else if (current.view === "workspace-select")
+		renderWorkspaceSelect(current, frame);
+	else if (current.view === "agent-select") renderAgentSelect(current, frame);
+	else if (current.view === "creating-session")
+		renderCreatingSession(current, frame);
+	else if (current.view === "model-select") renderModelSelect(current, frame);
 	else renderPermission(current, frame);
 	screen.commit(frame);
 	trace("paint: end");
@@ -629,7 +728,7 @@ const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", 
 let spinnerTimer: ReturnType<typeof setInterval> | undefined;
 
 function startSpinner(state: TuiState): void {
-	state.turnStartedAt = Date.now();
+	state.turnStartedAt ??= Date.now();
 	if (spinnerTimer) return;
 	spinnerTimer = setInterval(() => {
 		state.spinnerTick += 1;
@@ -657,7 +756,7 @@ function elapsedLabel(state: TuiState): string {
 }
 
 function frameWidth(): number {
-	return Math.max(64, Math.min(process.stdout.columns ?? 84, 100));
+	return Math.max(64, process.stdout.columns ?? 84);
 }
 
 function contentWidth(): number {
@@ -711,6 +810,34 @@ function wrapText(text: string, target: number): string[] {
 	return result.length > 0 ? result : [""];
 }
 
+function relativeActivity(timestamp: number, now = Date.now()): string {
+	const elapsed = Math.max(0, now - timestamp);
+	const minutes = Math.floor(elapsed / 60_000);
+	if (minutes < 1) return "刚刚";
+	if (minutes < 60) return `${minutes} 分钟前`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours} 小时前`;
+	return `${Math.floor(hours / 24)} 天前`;
+}
+
+function statusLabel(status: string): string {
+	switch (status) {
+		case "idle":
+			return "就绪";
+		case "running":
+		case "starting":
+			return "执行中";
+		case "offline":
+			return "可恢复";
+		case "awaiting_permission":
+			return "待确认";
+		case "dead":
+			return "已结束";
+		default:
+			return status;
+	}
+}
+
 function brandLines(state: TuiState): string[] {
 	const session = current(state);
 	return [
@@ -720,22 +847,58 @@ function brandLines(state: TuiState): string[] {
 	];
 }
 
-function messageLines(message: ChatMessage): string[] {
-	if (message.role === "user") {
-		const wrapped = wrapText(message.text, contentWidth() - 2);
+function hangingMessageLines(
+	marker: string,
+	text: string,
+	role: ChatMessage["role"],
+): string[] {
+	const markerPlainWidth = displayWidth(stripAnsi(marker));
+	const bodyWidth = Math.max(1, contentWidth() - markerPlainWidth);
+	if (role === "user") {
+		const wrapped = wrapText(text, bodyWidth);
 		return [
-			`${ansi.bold}${ansi.cyan}❯${ansi.reset} ${wrapped[0] ?? ""}`,
-			...wrapped.slice(1).map((line) => `  ${line}`),
+			`${marker}${ansi.cyan}${wrapped[0] ?? ""}${ansi.reset}`,
+			...wrapped
+				.slice(1)
+				.map(
+					(line) =>
+						`${" ".repeat(markerPlainWidth)}${ansi.cyan}${line}${ansi.reset}`,
+				),
 			"",
 		];
 	}
-	return [
-		`${ansi.bold}${ansi.magenta}●${ansi.reset}`,
-		...renderMarkdown(message.text, renderWidth(), {
-			theme: markdownThemeFor(true),
-		}).map((line) => ` ${line}`),
-		"",
-	];
+	const rendered = renderMarkdown(text.trim(), bodyWidth, {
+		theme: markdownThemeFor(true),
+		paddingX: 0,
+	});
+	if (rendered.length === 0) return [];
+	return [marker.trimEnd(), "", ...rendered.map((line) => `  ${line}`), ""];
+}
+
+/** Claude layout: role glyph on the first line, hanging body indentation. */
+export function messageLines(
+	message: ChatMessage,
+	agentName = "Agent",
+): string[] {
+	return hangingMessageLines(
+		message.role === "user"
+			? `${ansi.bold}${ansi.cyan}❯${ansi.reset} `
+			: `${ansi.bold}${ansi.magenta}● ${agentName}${ansi.reset} `,
+		message.text,
+		message.role,
+	);
+}
+
+const transcriptRenderCache = new RenderCache();
+
+export function cachedMessageLines(
+	message: ChatMessage,
+	agentName: string,
+): readonly string[] {
+	return transcriptRenderCache.get(
+		JSON.stringify([contentWidth(), message.role, agentName, message.text]),
+		() => messageLines(message, agentName),
+	);
 }
 
 /** The full transcript as lines; the viewport decides what is on screen. */
@@ -743,28 +906,41 @@ function transcriptLines(state: TuiState): string[] {
 	const session = current(state);
 	if (!session) {
 		return [
-			`${ansi.dim}还没有对话。输入消息开始，或 /new 创建。${ansi.reset}`,
+			`${ansi.bold}最近两天没有对话${ansi.reset}`,
+			`${ansi.dim}直接输入消息开始，或用 /new <agent> 创建。${ansi.reset}`,
 			"",
 		];
 	}
 
 	const lines: string[] = [];
-	for (const message of session.messages) lines.push(...messageLines(message));
+	for (const message of session.messages) {
+		lines.push(...cachedMessageLines(message, session.agent));
+	}
 
 	if (state.streamingSessionId === session.sessionId) {
-		lines.push(`${ansi.bold}${ansi.magenta}●${ansi.reset}`);
 		if (state.streamingText) {
-			for (const line of renderMarkdown(state.streamingText, renderWidth(), {
-				theme: markdownThemeFor(true),
-			})) {
-				lines.push(` ${line}`);
-			}
+			const rendered = hangingMessageLines(
+				`${ansi.bold}${ansi.magenta}● ${session.agent}${ansi.reset} `,
+				state.streamingText,
+				"agent",
+			);
+			// The working indicator below owns the trailing spacing while streaming.
+			if (rendered.at(-1) === "") rendered.pop();
+			lines.push(...rendered);
+		} else {
+			lines.push(`${ansi.bold}${ansi.magenta}● ${session.agent}${ansi.reset}`);
+			lines.push("");
 		}
 		const elapsed = elapsedLabel(state);
+		const activity =
+			state.activityText ??
+			(state.streamingText
+				? `${session.agent} 正在组织回复`
+				: `${session.agent} 正在思考`);
 		lines.push(
-			` ${ansi.cyan}${spinnerGlyph(state)}${ansi.reset} ${ansi.dim}${
-				state.streamingText ? "生成中" : "正在思考"
-			}${elapsed ? ` · ${elapsed}` : ""} · Esc 中止${ansi.reset}`,
+			` ${ansi.cyan}${spinnerGlyph(state)}${ansi.reset} ${ansi.dim}${activity}${
+				elapsed ? ` · ${elapsed}` : ""
+			} · Esc 中止${ansi.reset}`,
 		);
 		lines.push("");
 	}
@@ -778,15 +954,10 @@ function transcriptLines(state: TuiState): string[] {
 	return lines;
 }
 
-function noticeLines(state: TuiState): string[] {
-	if (!state.notice) return [];
-	const color =
-		state.notice.tone === "warning"
-			? ansi.yellow
-			: state.notice.tone === "success"
-				? ansi.green
-				: ansi.cyan;
-	return [`${color}●${ansi.reset} ${state.notice.text}`, ""];
+export function noticeLines(state: Pick<TuiState, "notice">): string[] {
+	// Routine acknowledgements must not occupy space above the composer.
+	if (state.notice?.tone !== "warning") return [];
+	return [`${ansi.yellow}●${ansi.reset} ${state.notice.text}`, ""];
 }
 
 /** Usable terminal height; the floor keeps tiny windows from going negative. */
@@ -821,16 +992,18 @@ function renderConversation(state: TuiState, frame: Frame): void {
 	const end = transcript.length - state.scrollOffset;
 	const start = Math.max(0, end - viewport);
 	const visible = transcript.slice(start, end);
-	const topPadding = Math.max(0, viewport - visible.length);
+	const bottomPadding = Math.max(0, viewport - visible.length);
 
 	for (const line of brand) frame.print(line);
 	frame.print(
 		start > 0
-			? `${ansi.dim}  ↑ 上方还有 ${start} 行 · Shift+↑↓ / PgUp·PgDn 滚动${ansi.reset}`
+			? `${ansi.dim}  ↑ 上方还有 ${start} 行 · ↑↓ / PgUp·PgDn 滚动${ansi.reset}`
 			: "",
 	);
-	for (let index = 0; index < topPadding; index += 1) frame.print();
 	for (const line of visible) frame.print(line);
+	// Anchor short conversations below the header; unused space separates the
+	// transcript from the composer instead of pushing new messages downward.
+	for (let index = 0; index < bottomPadding; index += 1) frame.print();
 	for (const line of notice) frame.print(line);
 	for (const line of menu) frame.print(line);
 	for (const [index, line] of composer.lines.entries()) {
@@ -858,6 +1031,17 @@ function matchingCommands(
 	);
 }
 
+export function selectedSlashCommandInput(
+	buffer: string,
+	command: string | undefined,
+): string {
+	if (!command) return buffer;
+	const argumentStart = buffer.search(/\s/);
+	return argumentStart < 0
+		? command
+		: `${command}${buffer.slice(argumentStart)}`;
+}
+
 function commandMenuLines(state: TuiState): string[] {
 	const all = matchingCommands(state);
 	if (all.length === 0) return [];
@@ -879,9 +1063,9 @@ function commandMenuLines(state: TuiState): string[] {
 	return lines;
 }
 
-/** Cell width available to composer text, inside the border and prompt. */
+/** Cell width available to composer text below Claude's `❯ ` prompt. */
 function composerTextWidth(): number {
-	return frameWidth() - 6;
+	return frameWidth() - 2;
 }
 
 /** Visual rows of the composer shown at once before it starts scrolling. */
@@ -896,9 +1080,25 @@ interface ComposerBlock {
 	caretColumn: number;
 }
 
+export function claudeComposerLines(
+	rows: readonly ComposerLine[],
+	width: number,
+	windowStart = 0,
+): string[] {
+	const rule = `${ansi.gray}${"─".repeat(width)}${ansi.reset}`;
+	return [
+		rule,
+		...rows.map((row, offset) => {
+			const rowIndex = windowStart + offset;
+			const prefix = rowIndex === 0 ? `${ansi.bold}❯${ansi.reset} ` : "  ";
+			return `${prefix}${row.text}`;
+		}),
+		rule,
+	];
+}
+
 function composerBlock(state: TuiState): ComposerBlock {
 	const width = frameWidth();
-	const innerWidth = width - 4;
 	const rows = wrapComposer(state.buffer, composerTextWidth());
 	const caret = caretPosition(rows, state.buffer, state.cursor);
 
@@ -913,22 +1113,20 @@ function composerBlock(state: TuiState): ComposerBlock {
 	);
 	const visible = rows.slice(windowStart, windowStart + COMPOSER_MAX_ROWS);
 
-	const lines = [`${ansi.gray}╭${"─".repeat(width - 2)}╮${ansi.reset}`];
+	// Claude Code uses full-width horizontal rules around a borderless input
+	// row. The prompt sits directly below the top rule; wrapped lines hang from
+	// the text column instead of being enclosed in a box.
+	const lines = claudeComposerLines(visible, width, windowStart);
 	let caretRow = 1;
-	let caretColumn = displayWidth("│ ") + 2;
-	for (const [offset, row] of visible.entries()) {
+	let caretColumn = displayWidth("❯ ");
+	for (const [offset] of visible.entries()) {
 		const rowIndex = windowStart + offset;
 		const prefix = rowIndex === 0 ? `${ansi.bold}❯${ansi.reset} ` : "  ";
 		if (rowIndex === caret.row) {
-			caretRow = lines.length;
-			caretColumn =
-				displayWidth("│ ") + displayWidth(stripAnsi(prefix)) + caret.column;
+			caretRow = offset + 1;
+			caretColumn = displayWidth(stripAnsi(prefix)) + caret.column;
 		}
-		lines.push(
-			`${ansi.gray}│${ansi.reset} ${padCell(`${prefix}${row.text}`, innerWidth)} ${ansi.gray}│${ansi.reset}`,
-		);
 	}
-	lines.push(`${ansi.gray}╰${"─".repeat(width - 2)}╯${ansi.reset}`);
 	return { lines, caretRow, caretColumn };
 }
 
@@ -940,8 +1138,8 @@ function footerLine(state: TuiState): string {
 		: "无对话";
 	const right =
 		session?.status === "running"
-			? "Enter 排队 · Esc 中止"
-			: "/ 命令 · Alt/Ctrl+↑↓ 切换对话 · Ctrl+C 退出";
+			? "Enter 排队 · Ctrl+L 列表 · Esc 中止"
+			: "/ 命令 · ↑↓/滚轮翻阅 · Esc/Ctrl+L 列表";
 	const spacing = Math.max(
 		2,
 		width - displayWidth(left) - displayWidth(right) - 2,
@@ -968,20 +1166,26 @@ function renderSessions(state: TuiState, frame: Frame): void {
 	const width = frameWidth();
 	frame.print(`${ansi.bold}${ansi.magenta}✦ Superset${ansi.reset}`);
 	frame.print();
-	frame.print(`${ansi.bold}选择对话${ansi.reset}`);
 	frame.print(
-		`${ansi.dim}输入可搜索 · ↑↓ 选择 · Enter 切换 · Esc 返回${ansi.reset}`,
+		`${ansi.bold}${state.workspace.name} · 最近两天的对话${ansi.reset}`,
+	);
+	frame.print(
+		`${ansi.dim}${state.sessions.length} 个 · ↑↓ 选择 · Enter 打开 · Ctrl+P 切换项目 · 输入搜索 · Esc 退出${ansi.reset}`,
 	);
 	frame.print();
 
 	const filter = state.buffer.toLowerCase();
-	const filtered = state.sessions
-		.map((session, index) => ({ session, index }))
+	const sessionEntries = state.sessions
+		.map((session, index) => ({ kind: "session" as const, session, index }))
 		.filter(({ session }) =>
 			`${session.title} ${session.sessionId} ${session.agent}`
 				.toLowerCase()
 				.includes(filter),
 		);
+	const filtered = [
+		...(filter ? [] : [{ kind: "new" as const }]),
+		...sessionEntries,
+	];
 	if (state.selectedIndex >= filtered.length) {
 		state.selectedIndex = Math.max(0, filtered.length - 1);
 	}
@@ -992,27 +1196,60 @@ function renderSessions(state: TuiState, frame: Frame): void {
 			`${ansi.gray}│${ansi.reset}  ${padCell(`${ansi.dim}没有匹配的对话${ansi.reset}`, width - 4)}${ansi.gray}│${ansi.reset}`,
 		);
 	}
-	for (const [row, item] of filtered.entries()) {
+	// Each session occupies two rows. Keep the picker inside the terminal and
+	// window around the selection instead of printing all 50 results, which
+	// would scroll the alternate screen and make navigation appear broken.
+	const visibleCount = Math.max(1, Math.floor((terminalRows() - 9) / 2));
+	const windowStart = Math.max(
+		0,
+		Math.min(
+			Math.max(0, filtered.length - visibleCount),
+			state.selectedIndex - Math.floor(visibleCount / 2),
+		),
+	);
+	const visible = filtered.slice(windowStart, windowStart + visibleCount);
+	for (const [visibleRow, item] of visible.entries()) {
+		const row = windowStart + visibleRow;
 		const selected = row === state.selectedIndex;
 		const cursor = selected ? `${ansi.cyan}❯${ansi.reset}` : " ";
+		if (item.kind === "new") {
+			frame.print(
+				`${ansi.gray}│${ansi.reset} ${cursor} ${ansi.green}+${ansi.reset} ${padCell(`${ansi.bold}新建对话${ansi.reset}`, width - 10)} ${ansi.gray}│${ansi.reset}`,
+			);
+			frame.print(
+				`${ansi.gray}│${ansi.reset}       ${padCell(`${ansi.dim}选择 Agent 后创建${ansi.reset}`, width - 8)} ${ansi.gray}│${ansi.reset}`,
+			);
+			continue;
+		}
 		const activeMark =
 			item.index === state.currentIndex ? `${ansi.green}●${ansi.reset}` : " ";
-		const titleWidth = width - 30;
+		const titleWidth = Math.max(8, width - 38);
 		const title = truncateVisible(item.session.title, titleWidth);
-		const metadata = truncateVisible(item.session.agent, 18);
+		const metadata = truncateVisible(
+			`${item.session.agent} · ${statusLabel(item.session.status)} · ${relativeActivity(item.session.updatedAt)}`,
+			26,
+		);
 		const titleCell = padCell(
 			`${selected ? ansi.bold : ""}${title}${ansi.reset}`,
 			titleWidth,
 		);
 		frame.print(
-			`${ansi.gray}│${ansi.reset} ${cursor} ${activeMark} ${titleCell} ${padCell(`${ansi.dim}${metadata}${ansi.reset}`, 18)} ${ansi.gray}│${ansi.reset}`,
+			`${ansi.gray}│${ansi.reset} ${cursor} ${activeMark} ${titleCell} ${padCell(`${ansi.dim}${metadata}${ansi.reset}`, 26)} ${ansi.gray}│${ansi.reset}`,
 		);
 		frame.print(
-			`${ansi.gray}│${ansi.reset}       ${padCell(`${ansi.dim}${item.session.sessionId.slice(0, 8)}${ansi.reset}`, titleWidth - 2)} ${padCell(statusColor(item.session.status), 18)} ${ansi.gray}│${ansi.reset}`,
+			`${ansi.gray}│${ansi.reset}       ${padCell(`${ansi.dim}${item.session.sessionId.slice(0, 8)}${ansi.reset}`, titleWidth - 2)} ${padCell(statusColor(item.session.status), 26)} ${ansi.gray}│${ansi.reset}`,
 		);
 	}
 	frame.print(`${ansi.gray}╰${"─".repeat(width - 2)}╯${ansi.reset}`);
-	frame.print();
+	if (filtered.length > visible.length) {
+		const first = windowStart + 1;
+		const last = windowStart + visible.length;
+		frame.print(
+			`${ansi.dim}显示 ${first}–${last} / ${filtered.length} · 继续用 ↑↓ 浏览${ansi.reset}`,
+		);
+	} else {
+		frame.print();
+	}
 	const searchLabel = `搜索：${state.buffer || "输入标题、Agent 或 ID"}`;
 	frame.setCursorTarget(
 		frame.rowCount,
@@ -1021,6 +1258,154 @@ function renderSessions(state: TuiState, frame: Frame): void {
 			: displayWidth("搜索："),
 	);
 	frame.print(`${ansi.dim}${searchLabel}${ansi.reset}`);
+}
+
+export function sessionPickerEntries<T>(
+	sessions: readonly T[],
+	filter: string,
+) {
+	return [
+		...(filter ? [] : [{ kind: "new" as const }]),
+		...sessions.map((session, index) => ({
+			kind: "session" as const,
+			session,
+			index,
+		})),
+	];
+}
+
+const AGENT_CHOICES = Object.entries(HARNESS_ALIASES).map(
+	([alias, harness]) => ({
+		alias,
+		harness,
+	}),
+);
+
+function renderProjectSelect(state: TuiState, frame: Frame): void {
+	frame.print(`${ansi.bold}${ansi.magenta}✦ Superset${ansi.reset}`);
+	frame.print();
+	frame.print(`${ansi.bold}选择项目${ansi.reset}`);
+	frame.print(
+		`${ansi.dim}${state.projectSelectionMode === "switch" ? "切换项目并浏览已有对话" : "新对话将创建在所选项目中"} · ↑↓ 选择 · Enter 下一步 · Esc 返回${ansi.reset}`,
+	);
+	frame.print();
+	for (const line of noticeLines(state)) frame.print(line);
+	const countVisible = Math.max(1, Math.floor((terminalRows() - 9) / 3));
+	const start = Math.max(0, state.projectIndex - countVisible + 1);
+	for (const [offset, project] of state.catalog.projects
+		.slice(start, start + countVisible)
+		.entries()) {
+		const index = start + offset;
+		const cursor =
+			index === state.projectIndex ? `${ansi.cyan}❯${ansi.reset}` : " ";
+		const count = state.catalog.workspaces.filter(
+			(workspace) => workspace.projectId === project.id,
+		).length;
+		frame.print(` ${cursor} ${ansi.bold}${project.name}${ansi.reset}`);
+		frame.print(
+			`   ${ansi.dim}${count} workspace${count === 1 ? "" : "s"} · ${project.repoPath}${ansi.reset}`,
+		);
+		frame.print();
+	}
+}
+
+export function workspacesForProject(
+	workspaces: readonly WorkspaceRef[],
+	projectId: string,
+): WorkspaceRef[] {
+	return workspaces.filter((workspace) => workspace.projectId === projectId);
+}
+
+function selectedProjectWorkspaces(state: TuiState): WorkspaceRef[] {
+	return state.newConversationProject
+		? workspacesForProject(
+				state.catalog.workspaces,
+				state.newConversationProject.id,
+			)
+		: [];
+}
+
+function renderWorkspaceSelect(state: TuiState, frame: Frame): void {
+	frame.print(`${ansi.bold}${ansi.magenta}✦ Superset${ansi.reset}`);
+	frame.print();
+	frame.print(
+		`${ansi.bold}${state.newConversationProject?.name ?? "项目"} · 选择 Workspace${ansi.reset}`,
+	);
+	frame.print(`${ansi.dim}↑↓ 选择 · Enter 下一步 · Esc 返回${ansi.reset}`);
+	frame.print();
+	for (const line of noticeLines(state)) frame.print(line);
+	const countVisible = Math.max(1, Math.floor((terminalRows() - 9) / 3));
+	const start = Math.max(0, state.workspaceIndex - countVisible + 1);
+	for (const [offset, workspace] of selectedProjectWorkspaces(state)
+		.slice(start, start + countVisible)
+		.entries()) {
+		const index = start + offset;
+		const cursor =
+			index === state.workspaceIndex ? `${ansi.cyan}❯${ansi.reset}` : " ";
+		frame.print(` ${cursor} ${ansi.bold}${workspace.name}${ansi.reset}`);
+		frame.print(
+			`   ${ansi.dim}${workspace.branch} · ${workspace.type}${ansi.reset}`,
+		);
+		frame.print();
+	}
+}
+
+function renderAgentSelect(state: TuiState, frame: Frame): void {
+	frame.print(`${ansi.bold}${ansi.magenta}✦ Superset${ansi.reset}`);
+	frame.print();
+	frame.print(`${ansi.bold}选择 Agent${ansi.reset}`);
+	frame.print(
+		`${ansi.dim}${state.newConversationProject?.name ?? ""} · ${state.newConversationWorkspace?.name ?? ""} · ↑↓ 选择 · Enter 创建 · Esc 返回${ansi.reset}`,
+	);
+	frame.print();
+	for (const [index, choice] of AGENT_CHOICES.entries()) {
+		const cursor =
+			index === state.agentIndex ? `${ansi.cyan}❯${ansi.reset}` : " ";
+		frame.print(` ${cursor} ${ansi.bold}${choice.alias}${ansi.reset}`);
+		frame.print(
+			`   ${ansi.dim}${choice.harness}${choice.alias === "claude" ? " · 默认" : ""}${ansi.reset}`,
+		);
+		frame.print();
+	}
+}
+
+function renderCreatingSession(state: TuiState, frame: Frame): void {
+	frame.print(`${ansi.bold}${ansi.magenta}✦ Superset${ansi.reset}`);
+	frame.print();
+	frame.print(`${ansi.bold}正在创建新对话${ansi.reset}`);
+	frame.print();
+	frame.print(
+		` ${ansi.cyan}${spinnerGlyph(state)}${ansi.reset} ${state.newConversationProject?.name ?? ""} · ${state.newConversationWorkspace?.name ?? ""}`,
+	);
+	frame.print(
+		`   ${ansi.dim}${AGENT_CHOICES[state.agentIndex]?.alias ?? "agent"} 正在启动，请稍候…${ansi.reset}`,
+	);
+}
+
+function renderModelSelect(state: TuiState, frame: Frame): void {
+	frame.print(`${ansi.bold}${ansi.magenta}✦ Superset${ansi.reset}`);
+	frame.print();
+	frame.print(`${ansi.bold}选择模型${ansi.reset}`);
+	frame.print(`${ansi.dim}↑↓ 选择 · Enter 应用 · Esc 返回${ansi.reset}`);
+	frame.print();
+	const visibleCount = Math.max(1, terminalRows() - 7);
+	const start = Math.max(
+		0,
+		Math.min(
+			Math.max(0, state.modelOptions.length - visibleCount),
+			state.modelIndex - Math.floor(visibleCount / 2),
+		),
+	);
+	for (const [offset, option] of state.modelOptions
+		.slice(start, start + visibleCount)
+		.entries()) {
+		const selected = start + offset === state.modelIndex;
+		const cursor = selected ? `${ansi.cyan}❯${ansi.reset}` : " ";
+		frame.print(` ${cursor} ${ansi.bold}${option.name}${ansi.reset}`);
+		if (option.description) {
+			frame.print(`   ${ansi.dim}${option.description}${ansi.reset}`);
+		}
+	}
 }
 
 function renderPermission(state: TuiState, frame: Frame): void {
@@ -1069,14 +1454,66 @@ function permissionOptions(request: PendingPermission | undefined): string[] {
 // ---------------------------------------------------------------------------
 
 interface Key {
+	sequence?: string;
 	name?: string;
 	ctrl?: boolean;
 	meta?: boolean;
 	shift?: boolean;
 }
 
+export interface MouseScroll {
+	delta: number;
+}
+
+export function consumeMouseInput(
+	state: TuiState,
+	character: string | undefined,
+	key: Key,
+): boolean {
+	if (state.pendingMouseInput !== undefined) {
+		const body = state.pendingMouseInput + (character ?? "");
+		if (character && /^[0-9;]*[Mm]$/.test(body)) {
+			const mouse = parseMouseScrollBody(body);
+			state.pendingMouseInput = undefined;
+			if (mouse && state.view === "conversation") {
+				scrollTranscript(state, mouse.delta);
+				render(state);
+			}
+			return true;
+		}
+		if (character && /^[0-9;]{1,32}$/.test(body)) {
+			state.pendingMouseInput = body;
+			return true;
+		}
+		// A malformed/truncated report must not trap all future keypresses.
+		state.pendingMouseInput = undefined;
+	}
+	// Readline labels many unsupported keys "undefined", not just the mouse
+	// prefix. Match the actual sequence, otherwise ordinary typing is swallowed.
+	if (key.sequence === "\u001b[<") {
+		state.pendingMouseInput = "";
+		return true;
+	}
+	return false;
+}
+
+/** Decode the report body that readline emits after consuming SGR `ESC[<`. */
+export function parseMouseScrollBody(input: string): MouseScroll | undefined {
+	const match = input.match(/^(64|65);\d+;\d+[Mm]$/);
+	if (!match) return undefined;
+	return { delta: match[1] === "64" ? 3 : -3 };
+}
+
+export function isComposerSubmitKey(key: Key): boolean {
+	return key.name === "return" || key.name === "enter";
+}
+
+export function isComposerNewlineKey(key: Key): boolean {
+	return isComposerSubmitKey(key) && Boolean(key.shift || key.meta);
+}
+
 /** Returns true when the TUI should stop. */
-function onKeypress(
+export function onKeypress(
 	state: TuiState,
 	character: string | undefined,
 	key: Key,
@@ -1104,10 +1541,36 @@ function onKeypress(
 
 	if (state.view === "sessions") {
 		handleSessionsKeys(state, character, key);
+		return !state.active;
+	}
+	if (state.view === "project-select") {
+		handleProjectSelectKeys(state, key);
+		return false;
+	}
+	if (state.view === "workspace-select") {
+		handleWorkspaceSelectKeys(state, key);
+		return false;
+	}
+	if (state.view === "agent-select") {
+		handleAgentSelectKeys(state, key);
+		return false;
+	}
+	if (state.view === "creating-session") {
+		// Creation is already admitted; consume input so repeated Enter cannot
+		// create duplicate sessions while the adapter starts.
+		return false;
+	}
+	if (state.view === "model-select") {
+		handleModelSelectKeys(state, key);
 		return false;
 	}
 	if (state.view === "permission") {
 		handlePermissionKeys(state, character, key);
+		return false;
+	}
+
+	if (key.ctrl && key.name === "l") {
+		showSessionList(state);
 		return false;
 	}
 
@@ -1159,14 +1622,7 @@ function onKeypress(
 		state.active = false;
 		return true;
 	}
-	if (key.name === "return" && key.shift) {
-		insertAtCursor(state, "\n");
-		return false;
-	}
-	// A bare LF arrives as name "enter" (Ctrl+J, and Alt+Enter where the
-	// terminal sends ESC LF). readline never reports it as ctrl+j, so
-	// matching the name is the only binding that actually fires.
-	if (key.name === "enter" || (key.meta && key.name === "return")) {
+	if (isComposerNewlineKey(key)) {
 		insertAtCursor(state, "\n");
 		return false;
 	}
@@ -1192,11 +1648,11 @@ function onKeypress(
 			setBuffer(state, "");
 			return false;
 		}
-		if (key.name === "return") {
+		if (isComposerSubmitKey(key)) {
 			const [command] = menu[state.menuIndex] ?? menu[0] ?? [];
-			// Preserve anything already typed after the command (arguments);
-			// the menu only completes the command word itself.
-			if (command && state.buffer === command) setBuffer(state, command);
+			// Enter executes the highlighted menu entry. Replace the typed prefix
+			// (`/s`, `/sta`, …) while retaining any already-entered arguments.
+			setBuffer(state, selectedSlashCommandInput(state.buffer, command));
 			submit(state);
 			return false;
 		}
@@ -1205,12 +1661,24 @@ function onKeypress(
 	if (key.name === "escape") {
 		const session = current(state);
 		if (session?.status === "running") {
-			defer(() => cancelTurn(state, session as ChatSession));
+			defer(state, () => cancelTurn(state, session as ChatSession));
+		} else {
+			showSessionList(state);
 		}
 		return false;
 	}
-	if (key.name === "return") {
+	if (isComposerSubmitKey(key)) {
 		submit(state);
+		return false;
+	}
+	// With an empty composer, plain ↑/↓ directly browse the conversation.
+	// Draft history remains available once the user has started typing.
+	if (key.name === "up" && !state.buffer) {
+		scrollTranscript(state, 3);
+		return false;
+	}
+	if (key.name === "down" && !state.buffer) {
+		scrollTranscript(state, -3);
 		return false;
 	}
 	// In a multi-line composer ↑↓ move the caret between lines first, and
@@ -1238,19 +1706,172 @@ function onKeypress(
 	return false;
 }
 
-function handleSessionsKeys(
+function showSessionList(state: TuiState): void {
+	setBuffer(state, "");
+	state.view = "sessions";
+	// The first row is the synthetic new-conversation entry.
+	state.selectedIndex = state.sessions.length ? state.currentIndex + 1 : 0;
+}
+
+function openProjectSelect(
+	state: TuiState,
+	mode: "create" | "switch" = "create",
+): void {
+	state.projectSelectionMode = mode;
+	state.notice = undefined;
+	state.view = "project-select";
+	state.projectIndex = Math.max(
+		0,
+		state.catalog.projects.findIndex(
+			(project) => project.id === state.workspace.projectId,
+		),
+	);
+	state.newConversationProject = undefined;
+	state.newConversationWorkspace = undefined;
+	setBuffer(state, "");
+}
+
+function handleProjectSelectKeys(state: TuiState, key: Key): void {
+	if (key.name === "up") {
+		state.projectIndex = Math.max(0, state.projectIndex - 1);
+	} else if (key.name === "down") {
+		state.projectIndex = Math.min(
+			state.catalog.projects.length - 1,
+			state.projectIndex + 1,
+		);
+	} else if (isComposerSubmitKey(key)) {
+		const project = state.catalog.projects[state.projectIndex];
+		if (!project) return;
+		state.newConversationProject = project;
+		const workspaces = workspacesForProject(
+			state.catalog.workspaces,
+			project.id,
+		);
+		if (workspaces.length === 1 && workspaces[0]) {
+			selectProjectWorkspace(state, workspaces[0]);
+		} else if (workspaces.length > 1) {
+			state.workspaceIndex = 0;
+			state.view = "workspace-select";
+		} else {
+			state.notice = { text: "该项目没有可用 Workspace", tone: "warning" };
+		}
+	} else if (key.name === "escape") {
+		if (state.hasSelectedProject === false) state.requestExit?.();
+		else state.view = "sessions";
+	}
+}
+
+function handleWorkspaceSelectKeys(state: TuiState, key: Key): void {
+	const workspaces = selectedProjectWorkspaces(state);
+	if (key.name === "up") {
+		state.workspaceIndex = Math.max(0, state.workspaceIndex - 1);
+	} else if (key.name === "down") {
+		state.workspaceIndex = Math.min(
+			workspaces.length - 1,
+			state.workspaceIndex + 1,
+		);
+	} else if (isComposerSubmitKey(key)) {
+		const workspace = workspaces[state.workspaceIndex];
+		if (!workspace) return;
+		selectProjectWorkspace(state, workspace);
+	} else if (key.name === "escape") {
+		state.view = "project-select";
+	}
+}
+
+function selectProjectWorkspace(
+	state: TuiState,
+	workspace: WorkspaceRef,
+): void {
+	if (state.projectSelectionMode === "switch") {
+		defer(state, () => switchProjectWorkspace(state, workspace));
+	} else {
+		state.newConversationWorkspace = workspace;
+		openAgentSelect(state);
+	}
+}
+
+export async function switchProjectWorkspace(
+	state: TuiState,
+	workspace: WorkspaceRef,
+): Promise<void> {
+	// Fetch before committing the switch so an unreachable host cannot wipe
+	// the current conversation or leave its live subscription half-detached.
+	const target = { ...state, workspace, sessions: [], currentIndex: 0 };
+	await refreshSessions(target);
+	state.controller?.stop();
+	state.controller = undefined;
+	state.attachedSessionId = undefined;
+	stopSpinner(state);
+	state.workspace = workspace;
+	state.hasSelectedProject = true;
+	state.sessions = target.sessions;
+	state.currentIndex = 0;
+	state.selectedIndex = 0;
+	state.streamingSessionId = undefined;
+	state.streamingText = "";
+	state.activityText = undefined;
+	state.scrollOffset = 0;
+	state.hasOpenedConversation = false;
+	state.newConversationProject = undefined;
+	state.newConversationWorkspace = undefined;
+	state.projectSelectionMode = undefined;
+	state.notice = undefined;
+	setBuffer(state, "");
+	state.view = "sessions";
+	render(state);
+}
+
+function openAgentSelect(state: TuiState): void {
+	state.view = "agent-select";
+	state.agentIndex = 0;
+	setBuffer(state, "");
+}
+
+function handleAgentSelectKeys(state: TuiState, key: Key): void {
+	if (key.name === "up") {
+		state.agentIndex = Math.max(0, state.agentIndex - 1);
+	} else if (key.name === "down") {
+		state.agentIndex = Math.min(AGENT_CHOICES.length - 1, state.agentIndex + 1);
+	} else if (isComposerSubmitKey(key)) {
+		const choice = AGENT_CHOICES[state.agentIndex];
+		if (choice) {
+			state.view = "creating-session";
+			startSpinner(state);
+			render(state);
+			defer(state, () => createSession(state, choice.alias));
+		}
+	} else if (key.name === "escape") {
+		state.view =
+			state.projectSelectionMode === undefined
+				? "sessions"
+				: selectedProjectWorkspaces(state).length > 1
+					? "workspace-select"
+					: "project-select";
+	}
+}
+
+export function handleSessionsKeys(
 	state: TuiState,
 	character: string | undefined,
 	key: Key,
 ): void {
+	if (key.ctrl && key.name === "p") {
+		openProjectSelect(state, "switch");
+		return;
+	}
 	const filter = state.buffer.toLowerCase();
-	const matches = state.sessions
-		.map((session, index) => ({ session, index }))
+	const sessionMatches = state.sessions
+		.map((session, index) => ({ kind: "session" as const, session, index }))
 		.filter(({ session }) =>
 			`${session.title} ${session.sessionId} ${session.agent}`
 				.toLowerCase()
 				.includes(filter),
 		);
+	const matches = [
+		...(filter ? [] : [{ kind: "new" as const }]),
+		...sessionMatches,
+	];
 
 	if (key.name === "up") {
 		state.selectedIndex = Math.max(0, state.selectedIndex - 1);
@@ -1259,11 +1880,25 @@ function handleSessionsKeys(
 			Math.max(0, matches.length - 1),
 			state.selectedIndex + 1,
 		);
-	} else if (key.name === "return" && matches[state.selectedIndex]) {
-		defer(() => switchTo(state, matches[state.selectedIndex]?.index ?? 0));
+	} else if (isComposerSubmitKey(key)) {
+		const selected = matches[state.selectedIndex];
+		if (selected?.kind === "new") {
+			state.projectSelectionMode = undefined;
+			state.newConversationProject = state.catalog.projects.find(
+				(project) => project.id === state.workspace.projectId,
+			);
+			state.newConversationWorkspace = state.workspace;
+			openAgentSelect(state);
+		} else if (selected?.kind === "session") {
+			defer(state, () => switchTo(state, selected.index));
+		}
 	} else if (key.name === "escape") {
-		state.view = "conversation";
 		setBuffer(state, "");
+		if (state.hasOpenedConversation) {
+			state.view = "conversation";
+		} else {
+			state.requestExit?.();
+		}
 	} else if (key.ctrl && key.name === "u") {
 		setBuffer(state, "");
 		state.selectedIndex = 0;
@@ -1276,6 +1911,86 @@ function handleSessionsKeys(
 	} else if (character && !key.ctrl && !key.meta && character >= " ") {
 		setBuffer(state, state.buffer + character);
 		state.selectedIndex = 0;
+	}
+}
+
+function flattenSelectOptions(
+	options: readonly (
+		| { value: string; name: string; description?: string | null }
+		| {
+				group: string;
+				name: string;
+				options: Array<{
+					value: string;
+					name: string;
+					description?: string | null;
+				}>;
+		  }
+	)[],
+): { value: string; name: string; description?: string | null }[] {
+	return options.flatMap((option) =>
+		"options" in option ? option.options : [option],
+	);
+}
+
+async function openModelSelect(state: TuiState): Promise<void> {
+	const session = current(state);
+	if (!session) return;
+	try {
+		const snapshot = await state.connection.client.acpSessions.get.query({
+			sessionId: session.sessionId,
+		});
+		const model = snapshot.configOptions.find(
+			(option) => option.id === "model" && option.type === "select",
+		);
+		if (!model || model.type !== "select") {
+			state.notice = {
+				text:
+					snapshot.status === "offline"
+						? "此对话已离线；发送消息恢复后即可切换模型"
+						: "当前 Agent 不支持切换模型",
+				tone: "warning",
+			};
+			return;
+		}
+		state.modelOptions = flattenSelectOptions(model.options);
+		state.modelIndex = Math.max(
+			0,
+			state.modelOptions.findIndex(
+				(option) => option.value === model.currentValue,
+			),
+		);
+		state.view = "model-select";
+	} catch (error) {
+		reportError(state, error);
+	}
+}
+
+function handleModelSelectKeys(state: TuiState, key: Key): void {
+	if (key.name === "up") {
+		state.modelIndex = Math.max(0, state.modelIndex - 1);
+	} else if (key.name === "down") {
+		state.modelIndex = Math.min(
+			state.modelOptions.length - 1,
+			state.modelIndex + 1,
+		);
+	} else if (isComposerSubmitKey(key)) {
+		const session = current(state);
+		const option = state.modelOptions[state.modelIndex];
+		if (!session || !option) return;
+		defer(state, async () => {
+			try {
+				const controller = await attachSessionController(state, session);
+				await controller.actions.setConfigOption("model", option.value);
+				state.view = "conversation";
+				state.notice = { text: `模型已切换为 ${option.name}`, tone: "success" };
+			} catch (error) {
+				reportError(state, error);
+			}
+			render(state);
+		});
+	} else if (key.name === "escape") {
+		state.view = "conversation";
 	}
 }
 
@@ -1294,7 +2009,7 @@ function handlePermissionKeys(
 			optionCount - 1,
 			state.permissionIndex + 1,
 		);
-	} else if (key.name === "return") {
+	} else if (isComposerSubmitKey(key)) {
 		void resolvePermission(state, state.permissionIndex < optionCount - 1);
 	} else if (key.name === "escape") {
 		void resolvePermission(state, false);
@@ -1311,33 +2026,36 @@ function cycleSession(state: TuiState, direction: 1 | -1): void {
 	const next =
 		(state.currentIndex + direction + state.sessions.length) %
 		state.sessions.length;
-	defer(() => switchTo(state, next));
+	defer(state, () => switchTo(state, next));
+}
+
+export function isRunningSessionStatus(status: string): boolean {
+	return status === "running" || status === "starting";
 }
 
 async function switchTo(state: TuiState, index: number): Promise<void> {
+	const target = state.sessions[index];
+	if (
+		state.attachedSessionId &&
+		state.attachedSessionId !== target?.sessionId
+	) {
+		state.controller?.stop();
+		state.controller = undefined;
+		state.attachedSessionId = undefined;
+	}
 	if (index !== state.currentIndex) {
 		state.currentIndex = index;
 	}
 	state.scrollOffset = 0;
 	setBuffer(state, "");
 	state.view = "conversation";
+	state.hasOpenedConversation = true;
 	const session = current(state);
-	state.notice = { text: `已切换到“${session?.title ?? ""}”`, tone: "success" };
-	if (session && session.messages.length === 0) {
-		state.notice = { text: "正在加载历史…", tone: "info" };
-		try {
-			await loadHistory(state, session);
-			state.notice = {
-				text: `已切换到“${session.title}”`,
-				tone: "success",
-			};
-		} catch (error) {
-			reportError(state, error);
-		}
-		// The caller's render ran before this fetch resolved; repaint with
-		// the loaded history.
-		render(state);
-	}
+	state.notice = undefined;
+	// Idle sessions can start running from Desktop or another CLI. Subscribe
+	// immediately, and let the shared controller own history as well as updates.
+	if (session) await attachSessionController(state, session);
+	render(state);
 }
 
 /**
@@ -1348,22 +2066,29 @@ async function switchTo(state: TuiState, index: number): Promise<void> {
  * internal state. A macrotask boundary lets the async chain run on the
  * normal event loop.
  */
-function defer(work: () => Promise<void>): void {
-	queueMicrotask(() => {
-		void work();
-	});
+export function defer(state: TuiState, work: () => Promise<void>): void {
+	setTimeout(() => {
+		if (!state.active) return;
+		void Promise.resolve()
+			.then(work)
+			.catch((error: unknown) => {
+				reportError(state, error);
+				render(state);
+			});
+	}, 0);
 }
 
 function submit(state: TuiState): void {
 	const input = state.buffer.trim();
 	setBuffer(state, "");
 	if (!input) return;
+	state.scrollOffset = 0;
 	state.inputHistory.push(input);
 	state.historyIndex = state.inputHistory.length;
 	if (input.startsWith("/")) {
 		// Async commands (sessions refresh, /new) must repaint once their
 		// awaits resolve — the keypress-driven render runs too early.
-		defer(async () => {
+		defer(state, async () => {
 			try {
 				await handleCommand(state, input);
 				render(state);
@@ -1374,13 +2099,19 @@ function submit(state: TuiState): void {
 		});
 		return;
 	}
-	defer(() => sendMessage(state, input));
+	defer(state, () => sendMessage(state, input));
 }
 
-async function handleCommand(state: TuiState, input: string): Promise<void> {
+export async function handleCommand(
+	state: TuiState,
+	input: string,
+): Promise<void> {
 	const [name, ...parts] = input.slice(1).trim().split(/\s+/);
 	const argument = parts.join(" ");
 	switch (name) {
+		case "projects":
+			openProjectSelect(state, "switch");
+			break;
 		case "sessions":
 			await refreshSessions(state);
 			state.view = "sessions";
@@ -1426,18 +2157,18 @@ async function handleCommand(state: TuiState, input: string): Promise<void> {
 			}
 			break;
 		}
+		case "model":
+			await openModelSelect(state);
+			break;
 		case "history": {
-			// Reload a deeper slice of the transcript from the host, since the
-			// viewport itself is already scrollable.
 			const session = current(state);
 			if (session) {
-				await loadHistory(
-					state,
-					session,
-					Math.min(100, Number(argument) || 40),
-				);
+				const controller = await attachSessionController(state, session);
+				await controller.loadOlder();
+				const snapshot = controller.getSnapshot();
+				if (snapshot.historyError) throw snapshot.historyError;
 				state.scrollOffset = 0;
-				state.notice = { text: "已加载更多历史", tone: "success" };
+				state.notice = { text: "已加载历史", tone: "success" };
 			}
 			break;
 		}
@@ -1475,7 +2206,7 @@ async function handleCommand(state: TuiState, input: string): Promise<void> {
 			const shortcuts = [
 				"- `Alt/Ctrl+↑/↓` 切换对话，`Esc` 中止当前回合",
 				"- `Shift+↑/↓`、`PgUp/PgDn` 滚动历史",
-				"- `Ctrl+J` 或 `Alt+Enter` 换行；支持多行粘贴",
+				"- `Shift+Enter` 或 `Alt+Enter` 换行；支持多行粘贴",
 				"- `←/→`、`Home/End`、`Ctrl+A/E` 移动光标；`Alt+←/→` 按词移动",
 				"- `Ctrl+W` 删词，`Ctrl+U` 删到行首，`Ctrl+K` 删到行尾",
 				"- `Ctrl+C` 两次退出（后台对话继续运行）",
@@ -1488,7 +2219,7 @@ async function handleCommand(state: TuiState, input: string): Promise<void> {
 			break;
 		}
 		case "exit":
-			state.active = false;
+			state.requestExit?.();
 			break;
 		default:
 			state.notice = { text: `未知命令：/${name}`, tone: "warning" };
@@ -1497,6 +2228,7 @@ async function handleCommand(state: TuiState, input: string): Promise<void> {
 
 async function createSession(state: TuiState, argument: string): Promise<void> {
 	const alias = argument.trim().toLowerCase();
+	const targetWorkspace = state.newConversationWorkspace ?? state.workspace;
 	if (alias && !HARNESS_ALIASES[alias]) {
 		state.notice = {
 			text: `未知 agent：${alias}（可用：${Object.keys(HARNESS_ALIASES).join(", ")}）`,
@@ -1507,28 +2239,166 @@ async function createSession(state: TuiState, argument: string): Promise<void> {
 	try {
 		const session = await state.connection.client.acpSessions.create.mutate({
 			sessionId: crypto.randomUUID(),
-			workspaceId: state.workspace.id,
+			workspaceId: targetWorkspace.id,
 			harness: alias
 				? (HARNESS_ALIASES[alias] as "claude-agent-acp")
 				: undefined,
 		});
-		state.sessions.unshift({
-			sessionId: session.sessionId,
-			title: session.title ?? "(untitled)",
-			agent: agentShortName(session.harness),
-			status: session.status,
-			messages: [],
-			pendingPermissions: [],
-			queuedPrompts: [],
-			lastSeq: session.lastSeq,
-			epoch: session.epoch,
-		});
-		state.currentIndex = 0;
-		state.view = "conversation";
-		state.notice = { text: "新对话已创建", tone: "success" };
+		state.newConversationProject = undefined;
+		state.newConversationWorkspace = undefined;
+		stopSpinner(state);
+		if (targetWorkspace.id === state.workspace.id) {
+			state.sessions.unshift({
+				sessionId: session.sessionId,
+				title: session.title ?? "(untitled)",
+				agent: agentShortName(session.harness),
+				status: session.status,
+				messages: [],
+				pendingPermissions: [],
+				queuedPrompts: [],
+				lastSeq: session.lastSeq,
+				createdAt: session.createdAt,
+				updatedAt: session.updatedAt,
+				epoch: session.epoch,
+			});
+			state.currentIndex = 0;
+			state.view = "conversation";
+			state.hasOpenedConversation = true;
+			state.notice = { text: "新对话已创建", tone: "success" };
+		} else {
+			state.workspace = targetWorkspace;
+			state.sessions = [];
+			state.currentIndex = 0;
+			await refreshSessions(state);
+			const index = state.sessions.findIndex(
+				(entry) => entry.sessionId === session.sessionId,
+			);
+			if (index >= 0) state.currentIndex = index;
+			state.view = "conversation";
+			state.hasOpenedConversation = true;
+			state.notice = {
+				text: `已切换到 ${targetWorkspace.name}`,
+				tone: "success",
+			};
+		}
+		render(state);
 	} catch (error) {
+		stopSpinner(state);
+		state.view = "agent-select";
 		reportError(state, error);
+		render(state);
 	}
+}
+
+function timelineMessages(timeline: FoldedTimeline): ChatMessage[] {
+	return timeline.items.flatMap((item) => {
+		if (item.kind !== "message" || item.role === "thought") return [];
+		const text = item.blocks.map(contentBlockToText).join("");
+		return text ? [{ role: item.role, text }] : [];
+	});
+}
+
+export function splitStreamingAgentMessage(
+	messages: readonly ChatMessage[],
+	isRunning: boolean,
+): { committed: ChatMessage[]; streamingText: string } {
+	const latest = messages.at(-1);
+	if (!isRunning || latest?.role !== "agent") {
+		return { committed: [...messages], streamingText: "" };
+	}
+	return {
+		committed: messages.slice(0, -1),
+		streamingText: latest.text,
+	};
+}
+
+export function syncFromController(
+	state: TuiState,
+	attachedSession: ChatSession,
+	controller: Pick<AcpSessionController, "getSnapshot">,
+): void {
+	// List refreshes replace row objects. Resolve by identity on every event,
+	// and never let a late callback from a switched-away session paint this view.
+	const session = current(state);
+	if (
+		!session ||
+		session.sessionId !== attachedSession.sessionId ||
+		state.attachedSessionId !== attachedSession.sessionId
+	)
+		return;
+	const snapshot = controller.getSnapshot();
+	if (snapshot.error) {
+		reportError(state, snapshot.error);
+		render(state);
+	}
+	if (
+		snapshot.isLoading &&
+		snapshot.timeline.items.length === 0 &&
+		session.messages.length > 0
+	) {
+		return;
+	}
+	const authoritative = snapshot.state;
+	const isRunning = isRunningSessionStatus(
+		authoritative?.status ?? session.status,
+	);
+	const projected = splitStreamingAgentMessage(
+		timelineMessages(snapshot.timeline),
+		isRunning,
+	);
+	session.messages = projected.committed;
+	if (authoritative) {
+		session.status = authoritative.status;
+		session.title = authoritative.title ?? session.title;
+		session.lastSeq = authoritative.lastSeq;
+		session.epoch = authoritative.epoch;
+		session.updatedAt = authoritative.updatedAt;
+		session.pendingPermissions = authoritative.pendingPermissions;
+		session.queuedPrompts = authoritative.queuedPrompts.map((entry) => ({
+			queueId: entry.queueId,
+			text: entry.prompt.map(contentBlockToText).join(""),
+		}));
+	}
+	state.streamingSessionId = isRunning ? session.sessionId : undefined;
+	state.streamingText = projected.streamingText;
+	state.activityText = isRunningSessionStatus(session.status)
+		? state.streamingText
+			? `${session.agent} 正在组织回复`
+			: `${session.agent} 正在思考`
+		: undefined;
+	if (isRunningSessionStatus(session.status)) startSpinner(state);
+	else stopSpinner(state);
+	render(state);
+}
+
+export async function attachSessionController(
+	state: TuiState,
+	session: ChatSession,
+): Promise<AcpSessionController> {
+	if (state.attachedSessionId === session.sessionId && state.controller) {
+		const controller = state.controller;
+		// Exhausted bootstrap/reset retries leave no stream subscription. A
+		// successful HTTP prompt alone would otherwise look like a silent hang.
+		if (controller.getSnapshot().availability === "unavailable") {
+			await controller.refresh();
+		}
+		const snapshot = controller.getSnapshot();
+		if (snapshot.error) throw snapshot.error;
+		return controller;
+	}
+	state.controller?.stop();
+	const controller = new AcpSessionController({
+		sessionId: session.sessionId,
+		api: createAcpSessionsApi(state.connection),
+		streamUrl: sessionStreamUrl(state.connection, session.sessionId),
+	});
+	state.controller = controller;
+	state.attachedSessionId = session.sessionId;
+	controller.subscribe(() => syncFromController(state, session, controller));
+	await controller.start();
+	const snapshot = controller.getSnapshot();
+	if (snapshot.error) throw snapshot.error;
+	return controller;
 }
 
 async function cancelTurn(
@@ -1537,9 +2407,8 @@ async function cancelTurn(
 ): Promise<void> {
 	if (session.status !== "running") return;
 	try {
-		await state.connection.client.acpSessions.cancel.mutate({
-			sessionId: session.sessionId,
-		});
+		const controller = await attachSessionController(state, session);
+		await controller.actions.cancel();
 		state.notice = { text: "已请求中止当前回合", tone: "warning" };
 	} catch (error) {
 		reportError(state, error);
@@ -1571,11 +2440,11 @@ async function resolvePermission(
 	}
 
 	try {
-		await state.connection.client.acpSessions.respondToPermission.mutate({
-			sessionId: session.sessionId,
-			requestId: request.requestId,
-			outcome: makeSelectedOutcome([option.optionId]),
-		});
+		const controller = await attachSessionController(state, session);
+		await controller.actions.respondToPermission(
+			request.requestId,
+			makeSelectedOutcome([option.optionId]),
+		);
 		state.notice = {
 			text: approved ? "已允许，Agent 继续执行" : "已拒绝权限请求",
 			tone: approved ? "success" : "warning",
@@ -1600,13 +2469,10 @@ async function sendMessage(state: TuiState, text: string): Promise<void> {
 		state.permissionIndex = 0;
 		return;
 	}
-	if (session.status === "running" || session.status === "starting") {
+	if (isRunningSessionStatus(session.status)) {
 		try {
-			await state.connection.client.acpSessions.enqueuePrompt.mutate({
-				sessionId: session.sessionId,
-				prompt: [{ type: "text", text } as ContentBlock],
-				commandId: crypto.randomUUID(),
-			});
+			const controller = await attachSessionController(state, session);
+			await controller.actions.enqueue([{ type: "text", text }]);
 			state.notice = {
 				text: "消息已排队，将在当前回合完成后发送",
 				tone: "info",
@@ -1625,121 +2491,14 @@ async function sendMessageTo(
 	session: ChatSession,
 	text: string,
 ): Promise<void> {
-	session.messages.push({ role: "user", text });
-	state.notice = undefined;
-	// Echo the user's message immediately; the prompt round-trip below can
-	// take a moment and the composer already cleared.
+	state.notice = { text: "正在提交消息…", tone: "info" };
 	render(state);
-
-	const prompt: ContentBlock[] = [{ type: "text", text }];
-	const input = {
-		sessionId: session.sessionId,
-		prompt,
-		commandId: crypto.randomUUID(),
-	};
-
-	// Attach the stream before delivering so a short turn cannot finish
-	// between delivery and subscription.
-	const controller = new AbortController();
-	const streaming = followTurn(state, session, controller.signal);
-
 	try {
-		await state.connection.client.acpSessions.prompt.mutate(input);
+		const controller = await attachSessionController(state, session);
+		await controller.actions.prompt([{ type: "text", text }]);
+		state.notice = undefined;
 	} catch (error) {
-		controller.abort();
 		reportError(state, error);
-		return;
-	}
-
-	await streaming;
-}
-
-/** Watch the turn we just started, updating streaming state and messages. */
-async function followTurn(
-	state: TuiState,
-	session: ChatSession,
-	signal: AbortSignal,
-): Promise<void> {
-	let agentText = "";
-	session.status = "running";
-	state.streamingSessionId = session.sessionId;
-	state.streamingText = "";
-	startSpinner(state);
-	render(state);
-
-	try {
-		const result = await subscribeToSession(state.connection, {
-			sessionId: session.sessionId,
-			since: session.lastSeq,
-			epoch: session.epoch,
-			signal,
-			onEnvelope: (envelope) => {
-				const frame = envelope.frame;
-
-				if (frame.kind === "prompt_rejected") {
-					state.notice = {
-						text: `请求被拒绝：${frame.reason}`,
-						tone: "warning",
-					};
-					throw STOP_STREAM;
-				}
-
-				if (frame.kind === "permission_requested") {
-					session.pendingPermissions = [frame.pending];
-					session.status = "awaiting_permission";
-					if (current(state) === session) {
-						state.view = "permission";
-						state.permissionIndex = 0;
-					}
-					throw STOP_STREAM;
-				}
-
-				if (frame.kind === "update") {
-					const update = frame.update;
-					if (update.sessionUpdate === "agent_message_chunk") {
-						agentText += contentBlockToText(update.content);
-						if (state.streamingSessionId === session.sessionId) {
-							state.streamingText = agentText;
-						}
-						// Repaint per chunk so output streams in view; the frame
-						// budget throttles this back to a sustainable rate.
-						render(state);
-					}
-					return;
-				}
-
-				if (frame.kind === "state") {
-					const status = frame.state.status;
-					if (status === "idle" || status === "dead") {
-						session.status = status;
-						throw STOP_STREAM;
-					}
-					if (status === "running" || status === "starting") {
-						session.status = "running";
-					}
-				}
-			},
-		});
-		session.lastSeq = Math.max(session.lastSeq, result.lastSeq);
-	} finally {
-		stopSpinner(state);
-	}
-
-	if (agentText.trim()) {
-		session.messages.push({ role: "agent", text: agentText });
-	}
-	if (state.streamingSessionId === session.sessionId) {
-		state.streamingSessionId = undefined;
-		state.streamingText = "";
-	}
-	if (session.status !== "awaiting_permission") {
-		session.status = "idle";
-	}
-	if (current(state) !== session && session.status === "idle") {
-		state.notice = {
-			text: `后台对话“${session.title}”已完成`,
-			tone: "success",
-		};
 	}
 	render(state);
 }

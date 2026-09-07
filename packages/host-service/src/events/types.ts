@@ -167,6 +167,26 @@ export interface AcpSessionOpenRequestedMessage {
 	occurredAt: number;
 }
 
+export interface AcpDiscussionOpenRequestedMessage {
+	type: "acp-discussion:open-requested";
+	workspaceId: string;
+	discussionId: string;
+	sourceSessionId: string;
+	requestId: string;
+	occurredAt: number;
+}
+
+export interface AcpTerminalOpenRequestedMessage {
+	type: "acp-terminal:open-requested";
+	workspaceId: string;
+	terminalId: string;
+	sourceSessionId: string;
+	requestId: string;
+	title?: string;
+	focus: boolean;
+	occurredAt: number;
+}
+
 /** A validated, provider-owned MR page that Desktop should open externally. */
 export interface AcpMergeRequestOpenRequestedMessage {
 	type: "acp-session:merge-request-open-requested";
@@ -195,6 +215,8 @@ export type ServerMessage =
 	| WorkspaceOperationChangedMessage
 	| AcpSessionChangedMessage
 	| AcpSessionOpenRequestedMessage
+	| AcpDiscussionOpenRequestedMessage
+	| AcpTerminalOpenRequestedMessage
 	| AcpMergeRequestOpenRequestedMessage
 	| EventBusErrorMessage;
 

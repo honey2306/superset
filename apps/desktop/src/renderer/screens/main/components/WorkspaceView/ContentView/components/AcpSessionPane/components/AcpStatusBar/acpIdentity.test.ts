@@ -3,7 +3,11 @@ import type {
 	SessionConfigOption,
 	SessionModeState,
 } from "@superset/session-protocol";
-import { normalizeAcpIdentity } from "./acpIdentity";
+import {
+	findAcpModelProvider,
+	groupAcpModelOptions,
+	normalizeAcpIdentity,
+} from "./acpIdentity";
 
 const thinkingModes: SessionModeState = {
 	currentModeId: "thinking-medium",
@@ -150,5 +154,103 @@ describe("normalizeAcpIdentity", () => {
 		]);
 
 		expect(identity).toEqual({ mode: null, model: null, thinking: null });
+	});
+});
+
+describe("groupAcpModelOptions", () => {
+	test("uses the provider embedded in a flat entry name", () => {
+		const groups = groupAcpModelOptions([
+			{ value: "wanqing/auto", name: "万擎 / Auto" },
+			{ value: "wanqing/claude-opus-5", name: "万擎 / Claude Opus 5" },
+			{ value: "wanqing/claude-haiku-4.5", name: "万擎 / Claude Haiku 4.5" },
+		]);
+		expect(groups).toEqual([
+			{
+				label: null,
+				models: [
+					{ id: "wanqing/auto", label: "Auto", provider: "万擎" },
+					{
+						id: "wanqing/claude-opus-5",
+						label: "Claude Opus 5",
+						provider: "万擎",
+					},
+					{
+						id: "wanqing/claude-haiku-4.5",
+						label: "Claude Haiku 4.5",
+						provider: "万擎",
+					},
+				],
+			},
+		]);
+	});
+
+	test("splits mixed flat catalogs by the configured prefix", () => {
+		const groups = groupAcpModelOptions([
+			{ value: "wanqing/glm-5.3", name: "万擎 / GLM-5.3" },
+			{ value: "moonshotai/kimi-k2", name: "Moonshot / Kimi K2" },
+			{ value: "wanqing/glm-5.2", name: "万擎 / GLM-5.2" },
+		]);
+		expect(groups.map((group) => group.label)).toEqual(["万擎", "Moonshot"]);
+		expect(groups[0]?.models.map((model) => model.label)).toEqual([
+			"GLM-5.3",
+			"GLM-5.2",
+		]);
+	});
+
+	test("falls back to the value prefix when the name has none", () => {
+		const groups = groupAcpModelOptions([
+			{ value: "anthropic/claude-opus-5", name: "Claude Opus 5" },
+			{ value: "openai/gpt-5.6-sol", name: "GPT-5.6 Sol" },
+		]);
+		expect(groups.map((group) => group.label)).toEqual(["Anthropic", "OpenAI"]);
+	});
+
+	test("keeps prefix-less catalogs in one unlabelled group", () => {
+		const groups = groupAcpModelOptions([
+			{ value: "sonnet", name: "Claude Sonnet 4.5" },
+			{ value: "opus", name: "Claude Opus 5" },
+		]);
+		expect(groups).toEqual([
+			{
+				label: null,
+				models: [
+					{ id: "sonnet", label: "Claude Sonnet 4.5", provider: undefined },
+					{ id: "opus", label: "Claude Opus 5", provider: undefined },
+				],
+			},
+		]);
+	});
+
+	test("uses the ACP group name as the provider for grouped catalogs", () => {
+		const groups = groupAcpModelOptions([
+			{
+				name: "万擎",
+				options: [
+					{ value: "w/c", name: "Claude Opus 5" },
+					{ value: "w/g", name: "GLM-5.3" },
+				],
+			},
+			{
+				name: "Moonshot",
+				options: [{ value: "m/k", name: "Kimi K2" }],
+			},
+		]);
+		expect(groups.map((group) => group.label)).toEqual(["万擎", "Moonshot"]);
+		expect(groups[0]?.models.map((model) => model.label)).toEqual([
+			"Claude Opus 5",
+			"GLM-5.3",
+		]);
+	});
+});
+
+describe("findAcpModelProvider", () => {
+	test("returns the configured provider of the current model", () => {
+		const options = [
+			{ value: "wanqing/claude-opus-5", name: "万擎 / Claude Opus 5" },
+			{ value: "wanqing/glm-5.3", name: "万擎 / GLM-5.3" },
+		];
+		expect(findAcpModelProvider(options, "wanqing/glm-5.3")).toBe("万擎");
+		expect(findAcpModelProvider(options, null)).toBeNull();
+		expect(findAcpModelProvider(options, "missing")).toBeNull();
 	});
 });

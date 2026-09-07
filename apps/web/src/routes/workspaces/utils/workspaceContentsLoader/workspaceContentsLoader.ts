@@ -10,6 +10,13 @@ export type WorkspaceContentsLoadState =
 	| "loaded"
 	| "error";
 
+/** Keep a catalog refresh from flooding the relay with one call per workspace. */
+export const WORKSPACE_CONTENTS_MAX_CONCURRENT_REQUESTS = 2;
+
+export type WorkspaceContentsLoaderOptions = {
+	maxConcurrentRequests?: number;
+};
+
 export type WorkspaceContentsLoader = {
 	load(workspaceId: string): Promise<WorkspaceContents>;
 	get(workspaceId: string): WorkspaceContents | undefined;
@@ -24,10 +31,54 @@ export type WorkspaceContentsLoader = {
  */
 export function createWorkspaceContentsLoader(
 	fetchWorkspaceContents: WorkspaceContentsFetcher,
+	options: WorkspaceContentsLoaderOptions = {},
 ): WorkspaceContentsLoader {
 	const contentsByWorkspaceId = new Map<string, WorkspaceContents>();
 	const requestsByWorkspaceId = new Map<string, Promise<WorkspaceContents>>();
 	const errorsByWorkspaceId = new Map<string, Error>();
+	const queue: Array<{
+		workspaceId: string;
+		resolve: (contents: WorkspaceContents) => void;
+		reject: (error: unknown) => void;
+	}> = [];
+	const maxConcurrentRequests = normalizeConcurrency(
+		options.maxConcurrentRequests,
+	);
+	let activeRequests = 0;
+
+	const drain = (): void => {
+		while (activeRequests < maxConcurrentRequests && queue.length > 0) {
+			const pending = queue.shift();
+			if (!pending) return;
+			activeRequests += 1;
+
+			let fetchResult: Promise<WorkspaceContents>;
+			try {
+				fetchResult = fetchWorkspaceContents(pending.workspaceId);
+			} catch (caught) {
+				fetchResult = Promise.reject(caught);
+			}
+			void fetchResult
+				.then((contents) => {
+					contentsByWorkspaceId.set(pending.workspaceId, contents);
+					return contents;
+				})
+				.catch((caught: unknown) => {
+					const error =
+						caught instanceof Error
+							? caught
+							: new Error("Failed to load workspace contents");
+					errorsByWorkspaceId.set(pending.workspaceId, error);
+					throw error;
+				})
+				.then(pending.resolve, pending.reject)
+				.finally(() => {
+					requestsByWorkspaceId.delete(pending.workspaceId);
+					activeRequests -= 1;
+					drain();
+				});
+		}
+	};
 
 	return {
 		load(workspaceId) {
@@ -38,23 +89,11 @@ export function createWorkspaceContentsLoader(
 			if (pending) return pending;
 
 			errorsByWorkspaceId.delete(workspaceId);
-			const request = fetchWorkspaceContents(workspaceId)
-				.then((contents) => {
-					contentsByWorkspaceId.set(workspaceId, contents);
-					return contents;
-				})
-				.catch((caught: unknown) => {
-					const error =
-						caught instanceof Error
-							? caught
-							: new Error("Failed to load workspace contents");
-					errorsByWorkspaceId.set(workspaceId, error);
-					throw error;
-				})
-				.finally(() => {
-					requestsByWorkspaceId.delete(workspaceId);
-				});
+			const request = new Promise<WorkspaceContents>((resolve, reject) => {
+				queue.push({ workspaceId, resolve, reject });
+			});
 			requestsByWorkspaceId.set(workspaceId, request);
+			drain();
 			return request;
 		},
 		get(workspaceId) {
@@ -70,4 +109,11 @@ export function createWorkspaceContentsLoader(
 			return errorsByWorkspaceId.get(workspaceId);
 		},
 	};
+}
+
+function normalizeConcurrency(value: number | undefined): number {
+	if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+		return WORKSPACE_CONTENTS_MAX_CONCURRENT_REQUESTS;
+	}
+	return Math.max(1, Math.floor(value));
 }

@@ -20,13 +20,13 @@ function makeTab(
 }
 
 describe("runPanesBeforeCloseTab", () => {
-	test("runs an ACP pane guard and closes its host session", async () => {
-		const closeSession = mock<(sessionId: string) => Promise<void>>(
+	test("runs an ACP pane guard and discards its host session only when empty", async () => {
+		const closeEmptySession = mock<(sessionId: string) => Promise<void>>(
 			async () => {},
 		);
 		const registry: PaneRegistry<PanesPaneData> = {
 			acp: {
-				...buildPanesAcpLifecycleRegistry({ closeSession }),
+				...buildPanesAcpLifecycleRegistry({ closeEmptySession }),
 				renderPane: () => null,
 			},
 		};
@@ -41,11 +41,11 @@ describe("runPanesBeforeCloseTab", () => {
 		]);
 
 		expect(await runPanesBeforeCloseTab(tab, registry)).toBe(true);
-		expect(closeSession).toHaveBeenCalledWith("session-1");
+		expect(closeEmptySession).toHaveBeenCalledWith("session-1");
 	});
 
 	test("blocks the tab when a pane guard vetoes close", async () => {
-		const closeSession = mock<(sessionId: string) => Promise<void>>(
+		const closeEmptySession = mock<(sessionId: string) => Promise<void>>(
 			async () => {
 				throw new Error("host unavailable");
 			},
@@ -53,7 +53,10 @@ describe("runPanesBeforeCloseTab", () => {
 		const onCloseError = mock<(error: unknown) => void>();
 		const registry: PaneRegistry<PanesPaneData> = {
 			acp: {
-				...buildPanesAcpLifecycleRegistry({ closeSession, onCloseError }),
+				...buildPanesAcpLifecycleRegistry({
+					closeEmptySession,
+					onCloseError,
+				}),
 				renderPane: () => null,
 			},
 		};
@@ -68,7 +71,7 @@ describe("runPanesBeforeCloseTab", () => {
 		]);
 
 		expect(await runPanesBeforeCloseTab(tab, registry)).toBe(false);
-		expect(closeSession).toHaveBeenCalledTimes(1);
+		expect(closeEmptySession).toHaveBeenCalledTimes(1);
 		expect(onCloseError).toHaveBeenCalledTimes(1);
 	});
 

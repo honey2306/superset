@@ -219,8 +219,8 @@ function renderToken(
 	switch (token.type) {
 		case "heading": {
 			const headingLevel = token.depth;
-			const headingPrefix = `${"#".repeat(headingLevel)} `;
-			// h1：heading 色 + 粗体 + 下划线；h2 及更深：heading 色 + 粗体
+			// Hierarchy comes from weight, underline, and color — never leak the
+			// Markdown source marker into the rendered conversation.
 			const headingStyleFn =
 				headingLevel === 1
 					? (text: string) => theme.heading(theme.bold(theme.underline(text)))
@@ -234,12 +234,7 @@ function renderToken(
 				markedTokens(token.tokens),
 				headingStyleContext,
 			);
-			// h1/h2 不显示井号，h3 起显示 "### " 前缀（前缀同样着色）
-			const styledHeading =
-				headingLevel >= 3
-					? headingStyleFn(headingPrefix) + headingText
-					: headingText;
-			lines.push(styledHeading);
+			lines.push(headingText);
 			if (nextTokenType && nextTokenType !== "space") lines.push("");
 			break;
 		}
@@ -262,14 +257,17 @@ function renderToken(
 			break;
 		case "code": {
 			const indent = theme.codeBlockIndent ?? "  ";
-			lines.push(theme.codeBlockBorder(`\`\`\`${token.lang || ""}`));
+			// A language label is useful metadata; triple backticks are source
+			// syntax and should disappear once the block has been rendered.
+			if (token.lang) {
+				lines.push(theme.codeBlockBorder(token.lang));
+			}
 			for (const highlightedLine of theme.highlightCode(
 				token.text,
 				token.lang,
 			)) {
 				lines.push(`${indent}${highlightedLine}`);
 			}
-			lines.push(theme.codeBlockBorder("```"));
 			if (nextTokenType && nextTokenType !== "space") lines.push("");
 			break;
 		}

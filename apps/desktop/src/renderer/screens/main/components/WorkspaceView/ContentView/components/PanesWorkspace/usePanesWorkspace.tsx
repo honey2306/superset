@@ -421,9 +421,12 @@ function usePanesRegistry(workspaceId: string): PaneRegistry<PanesPaneData> {
 
 		// --- acp agent pane ----------------------------------------------------
 		const acpLifecycle = buildPanesAcpLifecycleRegistry({
-			closeSession: async (sessionId) => {
+			closeEmptySession: async (sessionId) => {
 				if (!hostUrl) throw new Error("Host unavailable");
-				await createDesktopAcpSessionClient(hostUrl).api.close({ sessionId });
+				await createDesktopAcpSessionClient(hostUrl).api.close({
+					sessionId,
+					onlyIfEmpty: true,
+				});
 			},
 		});
 

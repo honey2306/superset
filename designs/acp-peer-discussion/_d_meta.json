@@ -1,0 +1,18 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "ACP Peer Discussion Sidebar": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-09-06T14:15:00.591Z",
+          "status": "needs-review"
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-09-06T14:15:00.592Z",
+  "updatedAt": "2026-09-06T14:21:20.821Z"
+}

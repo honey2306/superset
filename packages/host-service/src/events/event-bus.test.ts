@@ -107,6 +107,39 @@ describe("EventBus workspace listeners", () => {
 });
 
 describe("EventBus merge request presentation", () => {
+	it("broadcasts an ACP terminal presentation request", () => {
+		const eventBus = createEventBus();
+		const sentMessages: string[] = [];
+		eventBus.handleOpen({
+			readyState: 1,
+			send(data: string) {
+				sentMessages.push(data);
+			},
+			close() {},
+		});
+
+		eventBus.broadcastAcpTerminalOpenRequested({
+			workspaceId: "workspace-1",
+			terminalId: "terminal-1",
+			sourceSessionId: "session-1",
+			requestId: "request-1",
+			title: "Agent terminal",
+			focus: true,
+			occurredAt: 1,
+		});
+
+		expect(JSON.parse(sentMessages[0] ?? "{}")).toEqual({
+			type: "acp-terminal:open-requested",
+			workspaceId: "workspace-1",
+			terminalId: "terminal-1",
+			sourceSessionId: "session-1",
+			requestId: "request-1",
+			title: "Agent terminal",
+			focus: true,
+			occurredAt: 1,
+		});
+	});
+
 	it("broadcasts a validated KDev page opening request", () => {
 		const eventBus = createEventBus();
 		const sentMessages: string[] = [];

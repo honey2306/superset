@@ -10,7 +10,7 @@ import {
 	usePromptInputAttachments,
 	usePromptInputController,
 } from "@superset/ui/ai-elements/prompt-input";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	TiptapPromptEditor,
@@ -52,6 +52,8 @@ interface AcpComposerProps {
 	onSubmit(blocks: ContentBlock[]): Promise<void>;
 	/** Streaming path: append to the follow-up queue. */
 	onEnqueue(blocks: ContentBlock[]): Promise<void>;
+	/** Streaming path: inject guidance into the active turn. */
+	onSteer?(blocks: ContentBlock[]): Promise<void>;
 	onRemoveQueued(queueId: string): Promise<void>;
 	onReorderQueue(orderedIds: string[]): Promise<void>;
 	onEditQueued(queueId: string, blocks: ContentBlock[]): Promise<void>;
@@ -82,6 +84,7 @@ function AcpComposerInner({
 	onSetConfigOption,
 	onSubmit,
 	onEnqueue,
+	onSteer,
 	onRemoveQueued,
 	onReorderQueue,
 	onEditQueued,
@@ -214,6 +217,10 @@ function AcpComposerInner({
 				: submitWith(onSubmit, canEnqueue),
 		[canEnqueue, mode, onEnqueue, onSubmit, submitWith],
 	);
+	const handleSteer = useCallback(
+		() => (onSteer ? submitWith(onSteer, canEnqueue) : Promise.resolve()),
+		[canEnqueue, onSteer, submitWith],
+	);
 	const imageAttachments = attachments.files.filter(isAcpImageAttachment);
 	const handlePastedFiles = useCallback(
 		(files: File[]) => {
@@ -240,6 +247,7 @@ function AcpComposerInner({
 					onRemove={onRemoveQueued}
 					onReorder={onReorderQueue}
 					onEdit={onEditQueued}
+					onSteer={onSteer}
 				/>
 			)}
 			{admitError && (
@@ -302,6 +310,19 @@ function AcpComposerInner({
 							<ArrowUp aria-hidden />
 						</button>
 					)}
+					{mode === "streaming" && onSteer && (
+						<button
+							type="button"
+							className="acp-pane__composer-steer"
+							disabled={disabled || isDraftEmpty || !canEnqueue}
+							onClick={() => void handleSteer()}
+							aria-label="Guide the current turn"
+							title="Guide current turn"
+						>
+							<Sparkles aria-hidden />
+							Guide
+						</button>
+					)}
 					{mode === "streaming" && showCancel && (
 						<button
 							type="button"
@@ -327,9 +348,8 @@ function AcpComposerInner({
 							)}
 						</button>
 					)}
-					{/* Streaming mode: Enter submits the form (→ enqueue), so no
-						 visible "Queue" button is needed. The queue chip list above
-						 appears automatically when there is anything queued. */}
+					{/* Streaming mode: Enter queues the draft; Guide injects it into
+						 the active turn when the adapter advertises native steering. */}
 				</div>
 			</form>
 		</div>

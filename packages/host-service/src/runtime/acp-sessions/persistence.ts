@@ -1,5 +1,6 @@
 import type {
 	ContentBlock,
+	DiscussionRun,
 	HarnessKind,
 	SessionUpdateEnvelope,
 	SessionUpdateFrame,
@@ -18,6 +19,7 @@ import {
 	acpSessionTurns,
 	type DelegationRunStatus,
 	delegationRuns,
+	discussionRuns,
 } from "../../db/schema";
 import type { AcpArtifactStore } from "./artifact-store";
 import {
@@ -114,6 +116,13 @@ export interface DelegationRunPersistence {
 		limit: number,
 	): DelegationRunRecord[];
 	listActiveDelegationRuns(): DelegationRunRecord[];
+}
+
+export interface DiscussionRunPersistence {
+	upsertDiscussionRun(run: DiscussionRun): void;
+	getDiscussionRun(id: string): DiscussionRun | null;
+	listDiscussionRuns(workspaceId: string, limit: number): DiscussionRun[];
+	listActiveDiscussionRuns(): DiscussionRun[];
 }
 
 /**
@@ -250,8 +259,43 @@ function parseToolLocation(
 	};
 }
 
+function parseDiscussionArray<T>(json: string, field: string): T[] {
+	const value = parseJson(json, field);
+	if (!Array.isArray(value)) {
+		throw new Error(`Invalid ACP discussion ${field}: expected an array`);
+	}
+	return value as T[];
+}
+
+function discussionRunFromRow(
+	row: typeof discussionRuns.$inferSelect,
+): DiscussionRun {
+	return {
+		id: row.id,
+		workspaceId: row.workspaceId,
+		sourceSessionId: row.sourceSessionId,
+		topic: row.topic,
+		status: row.status,
+		currentRound: row.currentRound,
+		maxRounds: row.maxRounds,
+		participants: parseDiscussionArray(row.participantsJson, "participants"),
+		rounds: parseDiscussionArray(row.roundsJson, "rounds"),
+		finalPositions: parseDiscussionArray(
+			row.finalPositionsJson,
+			"finalPositions",
+		),
+		failureMessage: row.failureMessage,
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+		completedAt: row.completedAt,
+	};
+}
+
 export class SqliteAcpSessionPersistence
-	implements AcpSessionPersistence, DelegationRunPersistence
+	implements
+		AcpSessionPersistence,
+		DelegationRunPersistence,
+		DiscussionRunPersistence
 {
 	constructor(private readonly db: HostDb) {}
 
@@ -542,5 +586,59 @@ export class SqliteAcpSessionPersistence
 			.where(inArray(delegationRuns.status, ["creating", "running"]))
 			.orderBy(asc(delegationRuns.createdAt))
 			.all();
+	}
+
+	upsertDiscussionRun(run: DiscussionRun): void {
+		const row = {
+			id: run.id,
+			workspaceId: run.workspaceId,
+			sourceSessionId: run.sourceSessionId,
+			topic: run.topic,
+			status: run.status,
+			currentRound: run.currentRound,
+			maxRounds: run.maxRounds,
+			participantsJson: JSON.stringify(run.participants),
+			roundsJson: JSON.stringify(run.rounds),
+			finalPositionsJson: JSON.stringify(run.finalPositions),
+			failureMessage: run.failureMessage,
+			createdAt: run.createdAt,
+			updatedAt: run.updatedAt,
+			completedAt: run.completedAt,
+		};
+		this.db
+			.insert(discussionRuns)
+			.values(row)
+			.onConflictDoUpdate({ target: discussionRuns.id, set: row })
+			.run();
+	}
+
+	getDiscussionRun(id: string): DiscussionRun | null {
+		const row = this.db
+			.select()
+			.from(discussionRuns)
+			.where(eq(discussionRuns.id, id))
+			.get();
+		return row ? discussionRunFromRow(row) : null;
+	}
+
+	listDiscussionRuns(workspaceId: string, limit: number): DiscussionRun[] {
+		return this.db
+			.select()
+			.from(discussionRuns)
+			.where(eq(discussionRuns.workspaceId, workspaceId))
+			.orderBy(desc(discussionRuns.createdAt))
+			.limit(limit)
+			.all()
+			.map(discussionRunFromRow);
+	}
+
+	listActiveDiscussionRuns(): DiscussionRun[] {
+		return this.db
+			.select()
+			.from(discussionRuns)
+			.where(eq(discussionRuns.status, "running"))
+			.orderBy(asc(discussionRuns.createdAt))
+			.all()
+			.map(discussionRunFromRow);
 	}
 }

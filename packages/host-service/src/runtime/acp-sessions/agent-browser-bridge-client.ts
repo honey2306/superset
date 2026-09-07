@@ -120,6 +120,10 @@ export class AgentBrowserBridgeClient {
 		return this.call("closePage", { sessionId, pageId });
 	}
 
+	capturePage(sessionId: string, fullPage = false): Promise<string> {
+		return this.call("capturePage", { sessionId, fullPage });
+	}
+
 	async closeSession(sessionId: string): Promise<void> {
 		await this.call("closeSession", { sessionId });
 	}

@@ -1,4 +1,5 @@
 import type {
+	DiscussionStatus,
 	HarnessKind,
 	StopReason,
 	SupersetSessionRole,
@@ -340,14 +341,17 @@ export type ProjectMemoryCategory =
 	| "preference"
 	| "other";
 
-/** Durable knowledge shared by every workspace and conversation in a project. */
+/**
+ * Durable knowledge shared across conversations. A null project ID marks
+ * host-wide personal memory; the host database is the ownership boundary.
+ */
 export const projectMemories = sqliteTable(
 	"project_memories",
 	{
 		id: text().primaryKey(),
-		projectId: text("project_id")
-			.notNull()
-			.references(() => projects.id, { onDelete: "cascade" }),
+		projectId: text("project_id").references(() => projects.id, {
+			onDelete: "cascade",
+		}),
 		title: text().notNull(),
 		content: text().notNull(),
 		category: text().notNull().$type<ProjectMemoryCategory>(),
@@ -662,6 +666,32 @@ export const delegationRuns = sqliteTable(
 		),
 		index("delegation_runs_parent_session_history_idx").on(
 			table.parentSessionId,
+			table.createdAt,
+		),
+	],
+);
+
+export const discussionRuns = sqliteTable(
+	"discussion_runs",
+	{
+		id: text().primaryKey(),
+		workspaceId: text("workspace_id").notNull(),
+		sourceSessionId: text("source_session_id").notNull(),
+		topic: text().notNull(),
+		status: text().notNull().$type<DiscussionStatus>(),
+		currentRound: integer("current_round").notNull(),
+		maxRounds: integer("max_rounds").notNull(),
+		participantsJson: text("participants_json").notNull(),
+		roundsJson: text("rounds_json").notNull().default("[]"),
+		finalPositionsJson: text("final_positions_json").notNull().default("[]"),
+		failureMessage: text("failure_message"),
+		createdAt: integer("created_at").notNull(),
+		updatedAt: integer("updated_at").notNull(),
+		completedAt: integer("completed_at"),
+	},
+	(table) => [
+		index("discussion_runs_workspace_history_idx").on(
+			table.workspaceId,
 			table.createdAt,
 		),
 	],

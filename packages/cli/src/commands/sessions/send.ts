@@ -8,8 +8,10 @@
 
 import type {
 	ContentBlock,
+	FoldedTimeline,
 	SessionScopedState,
 } from "@superset/session-protocol";
+import { AcpSessionController } from "@superset/session-protocol/controller";
 import { getFlag, getOption, parseDuration } from "../../lib/args";
 import { contentBlockToText } from "../../lib/content";
 import type { CommandContext } from "../../lib/context";
@@ -19,9 +21,12 @@ import {
 	timeoutError,
 	usageError,
 } from "../../lib/exit-codes";
-import type { HostConnection } from "../../lib/host-connection";
+import {
+	createAcpSessionsApi,
+	type HostConnection,
+	sessionStreamUrl,
+} from "../../lib/host-connection";
 import { renderMarkdown } from "../../lib/markdown";
-import { STOP_STREAM, subscribeToSession } from "../../lib/stream";
 import { markdownThemeFor, renderWidth, resolveSession } from "./shared";
 
 /** How the prompt should be delivered relative to a turn already running. */
@@ -74,8 +79,8 @@ export async function sessionsSendCommand(
 	// Attach before sending: a short turn can finish before a later subscribe
 	// would attach, and the journal cursor is what makes this race-free.
 	const controller = new AbortController();
-	const streaming = wait
-		? watchTurn(ctx, connection, session, controller.signal)
+	const watcher = wait
+		? await startTurnWatcher(ctx, connection, session, controller.signal)
 		: undefined;
 
 	const delivery = await deliverPrompt(connection, session, {
@@ -94,7 +99,7 @@ export async function sessionsSendCommand(
 		: undefined;
 
 	try {
-		const outcome = await streaming;
+		const outcome = await watcher?.outcome;
 		if (!outcome) return EXIT_CODES.OK;
 
 		if (outcome.kind === "timeout") {
@@ -238,136 +243,114 @@ type TurnOutcome =
  * Streams agent text as it arrives when `--follow` is set; otherwise stays
  * silent and only reports the outcome.
  */
-async function watchTurn(
+function agentText(timeline: FoldedTimeline): string {
+	return timeline.items
+		.filter((item) => item.kind === "message" && item.role === "agent")
+		.flatMap((item) => (item.kind === "message" ? item.blocks : []))
+		.map(contentBlockToText)
+		.join("");
+}
+
+/** Follow a turn through the same headless ACP controller used by the TUI. */
+async function startTurnWatcher(
 	ctx: CommandContext,
 	connection: HostConnection,
 	session: SessionScopedState,
 	signal: AbortSignal,
-): Promise<TurnOutcome> {
+): Promise<{ outcome: Promise<TurnOutcome> }> {
 	const follow = getFlag(ctx.args, "follow");
-	const width = renderWidth();
-	const theme = markdownThemeFor(ctx.out.options.color);
-
-	let agentText = "";
+	const controller = new AcpSessionController({
+		sessionId: session.sessionId,
+		api: createAcpSessionsApi(connection),
+		streamUrl: sessionStreamUrl(connection, session.sessionId),
+	});
+	await controller.start();
+	const baselineAgentText = agentText(controller.getSnapshot().timeline);
+	let latestText = "";
 	let printedChars = 0;
 	let sawActivity = false;
-	let outcome: TurnOutcome | undefined;
 	let headerPrinted = false;
 
 	const flushPlain = () => {
-		// While streaming we print raw text as it arrives: Markdown structure
-		// is only known once the block is complete.
-		const pending = agentText.slice(printedChars);
+		const pending = latestText.slice(printedChars);
 		if (!pending) return;
 		process.stdout.write(pending);
-		printedChars = agentText.length;
+		printedChars = latestText.length;
 	};
 
-	const result = await subscribeToSession(connection, {
-		sessionId: session.sessionId,
-		since: session.lastSeq,
-		epoch: session.epoch,
-		signal,
-		onEnvelope: (envelope) => {
-			const frame = envelope.frame;
-
-			if (frame.kind === "prompt_rejected") {
-				outcome = { kind: "rejected", reason: frame.reason };
-				throw STOP_STREAM;
-			}
-
-			if (frame.kind === "permission_requested") {
-				outcome = {
-					kind: "permission",
-					title: frame.pending.toolCall.title ?? "(untitled request)",
-				};
-				throw STOP_STREAM;
-			}
-
-			if (frame.kind === "update") {
-				const update = frame.update;
-				if (update.sessionUpdate === "agent_message_chunk") {
-					sawActivity = true;
-					if (follow && !headerPrinted && !ctx.out.isMachineReadable) {
-						ctx.out.line();
-						headerPrinted = true;
-					}
-					agentText += contentBlockToText(update.content);
-					if (follow && !ctx.out.isMachineReadable) flushPlain();
-				} else if (
-					update.sessionUpdate === "tool_call" &&
-					follow &&
-					!ctx.out.isMachineReadable
-				) {
-					sawActivity = true;
-					flushPlain();
-					if (agentText) process.stdout.write("\n");
-					ctx.out.line(ctx.out.dim(`  ⚙ ${update.title}`));
+	const outcome = new Promise<TurnOutcome>((resolve) => {
+		let settled = false;
+		const finish = (outcome: TurnOutcome) => {
+			if (settled) return;
+			settled = true;
+			unsubscribe();
+			controller.stop();
+			resolve(outcome);
+		};
+		const unsubscribe = controller.subscribe(() => {
+			const snapshot = controller.getSnapshot();
+			const allAgentText = agentText(snapshot.timeline);
+			latestText = allAgentText.slice(baselineAgentText.length);
+			const status = snapshot.state?.status;
+			if (status === "running" || status === "starting") sawActivity = true;
+			if (latestText) {
+				sawActivity = true;
+				if (follow && !headerPrinted && !ctx.out.isMachineReadable) {
+					ctx.out.line();
+					headerPrinted = true;
 				}
+				if (follow && !ctx.out.isMachineReadable) flushPlain();
+			}
+			const permission = snapshot.state?.pendingPermissions[0];
+			if (permission) {
+				finish({
+					kind: "permission",
+					title: permission.toolCall.title ?? "(untitled request)",
+				});
 				return;
 			}
-
-			if (frame.kind === "state") {
-				const status = frame.state.status;
-				// Ignore the state echo that precedes our turn actually starting.
-				if (status === "running" || status === "starting") {
-					sawActivity = true;
-					return;
-				}
-				if (!sawActivity && status === "idle") return;
-				if (status === "idle" || status === "dead") {
-					outcome = {
-						kind: "finished",
-						status,
-						stopReason: frame.state.lastStopReason,
-						text: agentText,
-					};
-					throw STOP_STREAM;
-				}
+			if (snapshot.timeline.resetReason) {
+				finish({ kind: "reset", reason: snapshot.timeline.resetReason });
+				return;
 			}
-		},
-	});
-
-	if (follow && !ctx.out.isMachineReadable) {
-		flushPlain();
-		if (agentText) process.stdout.write("\n");
-	}
-
-	if (result.reason === "aborted") return { kind: "timeout" };
-	if (result.reason === "reset") {
-		return { kind: "reset", reason: result.resetReason ?? "unknown" };
-	}
-
-	if (!outcome) {
-		return {
-			kind: "finished",
-			status: "idle",
-			stopReason: null,
-			text: agentText,
-		};
-	}
-
-	// Re-render the completed reply as Markdown so structure (lists, fences)
-	// is shown properly rather than as the raw stream.
-	if (
-		outcome.kind === "finished" &&
-		follow &&
-		!ctx.out.isMachineReadable &&
-		outcome.text.trim()
-	) {
-		process.stdout.write("\x1b[2K\r");
-		ctx.out.line();
-		for (const line of renderMarkdown(outcome.text, width, { theme })) {
-			ctx.out.line(line);
+			if (sawActivity && (status === "idle" || status === "dead")) {
+				finish({
+					kind: "finished",
+					status,
+					stopReason: snapshot.state?.lastStopReason ?? null,
+					text: latestText,
+				});
+			}
+		});
+		signal.addEventListener("abort", () => finish({ kind: "timeout" }), {
+			once: true,
+		});
+	}).then((outcome) => {
+		if (follow && !ctx.out.isMachineReadable) {
+			flushPlain();
+			if (latestText) process.stdout.write("\n");
 		}
-		ctx.out.line();
-	}
-
-	if (outcome.kind === "finished" && !follow && !ctx.out.isMachineReadable) {
-		ctx.out.result(
-			`${ctx.out.green("✓")} Turn finished (${outcome.stopReason ?? outcome.status})`,
-		);
-	}
-
-	return outcome;
+		if (
+			outcome.kind === "finished" &&
+			follow &&
+			!ctx.out.isMachineReadable &&
+			outcome.text.trim()
+		) {
+			process.stdout.write("\x1b[2K\r");
+			ctx.out.line();
+			for (const line of renderMarkdown(outcome.text, renderWidth(), {
+				theme: markdownThemeFor(ctx.out.options.color),
+			})) {
+				ctx.out.line(line);
+			}
+			ctx.out.line();
+		}
+		if (outcome.kind === "finished" && !follow && !ctx.out.isMachineReadable) {
+			ctx.out.result(
+				`${ctx.out.green("✓")} Turn finished (${outcome.stopReason ?? outcome.status})`,
+			);
+		}
+		return outcome;
+	});
+	return { outcome };
 }

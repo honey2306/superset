@@ -2,6 +2,10 @@ import type {
 	SessionConfigOption,
 	SessionModeState,
 } from "@superset/session-protocol";
+import {
+	groupModelsByProvider,
+	type ModelOptionGroup,
+} from "@superset/shared/agent-models";
 
 export type SelectConfigOption = Extract<
 	SessionConfigOption,
@@ -33,6 +37,95 @@ function normalized(value: string | null | undefined): string {
 function flattenOptions(option: SelectConfigOption) {
 	return option.options.flatMap((entry) =>
 		"options" in entry ? entry.options : [entry],
+	);
+}
+
+/** Id/name pairs exactly as the ACP adapter reports a model entry. */
+export interface AcpModelEntry {
+	value: string;
+	name: string;
+}
+
+/**
+ * Provider label + clean model label taken straight from the ACP config
+ * data — never inferred from model names:
+ *  - ACP grouped options carry the provider as the group's `name`
+ *    (SessionConfigSelectGroup).
+ *  - Flat options carry it as the entry's name or value prefix
+ *    ("万擎 / Claude Opus 5", "wanqing/glm-5.3").
+ */
+function configModelEntries(
+	options: readonly (
+		| AcpModelEntry
+		| { name: string; options: AcpModelEntry[] }
+	)[],
+): (AcpModelEntry & { provider: string | null })[] {
+	return options.flatMap((entry) => {
+		if ("options" in entry) {
+			const provider = entry.name.trim() || null;
+			return entry.options.map((option) => ({
+				value: option.value,
+				name: option.name,
+				provider,
+			}));
+		}
+		const nameMatch = entry.name.match(/^(.+?)\s*\/\s*(.+)$/s);
+		if (nameMatch) {
+			return [
+				{
+					value: entry.value,
+					name: nameMatch[2].trim(),
+					provider: nameMatch[1].trim() || null,
+				},
+			];
+		}
+		const valuePrefix = entry.value.includes("/")
+			? entry.value.split("/")[0]
+			: "";
+		return [
+			{
+				value: entry.value,
+				name: entry.name,
+				provider: valuePrefix || null,
+			},
+		];
+	});
+}
+
+/**
+ * Arrange ACP model options for the status-bar picker. Grouped adapters
+ * (SessionConfigSelectGroup) keep their own provider labels; flat catalogs
+ * split the configured name/value prefix off into the provider slot.
+ * Known models.dev provider keys (MODEL_PROVIDERS) display as proper
+ * names with logos; unknown labels pass through verbatim.
+ */
+export function groupAcpModelOptions(
+	options: readonly (
+		| AcpModelEntry
+		| { name: string; options: AcpModelEntry[] }
+	)[],
+): ModelOptionGroup[] {
+	return groupModelsByProvider(
+		configModelEntries(options).map((entry) => ({
+			id: entry.value,
+			label: cleanModelLabel(entry.name),
+			provider: entry.provider ?? undefined,
+		})),
+	);
+}
+
+/** Provider label of the currently-selected model, from the config data. */
+export function findAcpModelProvider(
+	options: readonly (
+		| AcpModelEntry
+		| { name: string; options: AcpModelEntry[] }
+	)[],
+	currentValue: string | null | undefined,
+): string | null {
+	if (currentValue == null) return null;
+	return (
+		configModelEntries(options).find((entry) => entry.value === currentValue)
+			?.provider ?? null
 	);
 }
 

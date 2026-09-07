@@ -21,6 +21,8 @@ type EventType =
 	| "workspace-operation:changed"
 	| "acp-session:changed"
 	| "acp-session:open-requested"
+	| "acp-discussion:open-requested"
+	| "acp-terminal:open-requested"
 	| "acp-session:merge-request-open-requested";
 
 interface FsEventsPayload {
@@ -136,6 +138,26 @@ export type AcpSessionOpenRequestedPayload = Omit<
 	"type" | "workspaceId"
 >;
 
+type AcpDiscussionOpenRequestedMessage = Extract<
+	ServerMessage,
+	{ type: "acp-discussion:open-requested" }
+>;
+
+export type AcpDiscussionOpenRequestedPayload = Omit<
+	AcpDiscussionOpenRequestedMessage,
+	"type" | "workspaceId"
+>;
+
+type AcpTerminalOpenRequestedMessage = Extract<
+	ServerMessage,
+	{ type: "acp-terminal:open-requested" }
+>;
+
+export type AcpTerminalOpenRequestedPayload = Omit<
+	AcpTerminalOpenRequestedMessage,
+	"type" | "workspaceId"
+>;
+
 type AcpMergeRequestOpenRequestedMessage = Extract<
 	ServerMessage,
 	{ type: "acp-session:merge-request-open-requested" }
@@ -163,43 +185,38 @@ export interface WorkspaceOperationChangedPayload {
 	operation: WorkspaceOperationChangedMessage["operation"];
 }
 
-type EventListener<T extends EventType> = T extends "fs:events"
-	? (workspaceId: string, payload: FsEventsPayload) => void
-	: T extends "git:changed"
-		? (workspaceId: string, payload: GitChangedPayload) => void
-		: T extends "agent:lifecycle"
-			? (workspaceId: string, payload: AgentLifecyclePayload) => void
-			: T extends "terminal:lifecycle"
-				? (workspaceId: string, payload: TerminalLifecyclePayload) => void
-				: T extends "port:changed"
-					? (workspaceId: string, payload: PortChangedPayload) => void
-					: T extends "workspace:changed"
-						? (workspaceId: string, payload: WorkspaceChangedPayload) => void
-						: T extends "project:changed"
-							? (projectId: string, payload: ProjectChangedPayload) => void
-							: T extends "catalog:changed"
-								? (_scope: "*", payload: CatalogChangedPayload) => void
-								: T extends "workspace-operation:changed"
-									? (
-											operationId: string,
-											payload: WorkspaceOperationChangedPayload,
-										) => void
-									: T extends "acp-session:changed"
-										? (
-												workspaceId: string,
-												payload: AcpSessionChangedPayload,
-											) => void
-										: T extends "acp-session:open-requested"
-											? (
-													workspaceId: string,
-													payload: AcpSessionOpenRequestedPayload,
-												) => void
-											: T extends "acp-session:merge-request-open-requested"
-												? (
-														workspaceId: string,
-														payload: AcpMergeRequestOpenRequestedPayload,
-													) => void
-												: never;
+type EventListener<T extends EventType> = (
+	workspaceId: string,
+	payload: T extends "fs:events"
+		? FsEventsPayload
+		: T extends "git:changed"
+			? GitChangedPayload
+			: T extends "agent:lifecycle"
+				? AgentLifecyclePayload
+				: T extends "terminal:lifecycle"
+					? TerminalLifecyclePayload
+					: T extends "port:changed"
+						? PortChangedPayload
+						: T extends "workspace:changed"
+							? WorkspaceChangedPayload
+							: T extends "project:changed"
+								? ProjectChangedPayload
+								: T extends "catalog:changed"
+									? CatalogChangedPayload
+									: T extends "workspace-operation:changed"
+										? WorkspaceOperationChangedPayload
+										: T extends "acp-session:changed"
+											? AcpSessionChangedPayload
+											: T extends "acp-session:open-requested"
+												? AcpSessionOpenRequestedPayload
+												: T extends "acp-discussion:open-requested"
+													? AcpDiscussionOpenRequestedPayload
+													: T extends "acp-terminal:open-requested"
+														? AcpTerminalOpenRequestedPayload
+														: T extends "acp-session:merge-request-open-requested"
+															? AcpMergeRequestOpenRequestedPayload
+															: never,
+) => void;
 
 interface ListenerEntry {
 	type: EventType;
@@ -253,6 +270,8 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 			message.type === "workspace:changed" ||
 			message.type === "acp-session:changed" ||
 			message.type === "acp-session:open-requested" ||
+			message.type === "acp-discussion:open-requested" ||
+			message.type === "acp-terminal:open-requested" ||
 			message.type === "acp-session:merge-request-open-requested"
 				? message.workspaceId
 				: message.type === "project:changed"
@@ -347,6 +366,18 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 		} else if (message.type === "acp-session:open-requested") {
 			const { type: _type, workspaceId, ...payload } = message;
 			(entry.callback as EventListener<"acp-session:open-requested">)(
+				workspaceId,
+				payload,
+			);
+		} else if (message.type === "acp-discussion:open-requested") {
+			const { type: _type, workspaceId, ...payload } = message;
+			(entry.callback as EventListener<"acp-discussion:open-requested">)(
+				workspaceId,
+				payload,
+			);
+		} else if (message.type === "acp-terminal:open-requested") {
+			const { type: _type, workspaceId, ...payload } = message;
+			(entry.callback as EventListener<"acp-terminal:open-requested">)(
 				workspaceId,
 				payload,
 			);

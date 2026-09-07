@@ -1,0 +1,25 @@
+{
+  "type": "design",
+  "title": "Global Skills UI",
+  "prompt": "使用 baoyu 重新设计全局 Skills UI，方向为克制精密。",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "createdAt": "2026-09-07T06:28:20.304Z",
+  "updatedAt": "2026-09-07T06:55:17.468Z",
+  "assets": {
+    "Global Skills UI": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-09-07T06:33:26.674Z",
+          "status": "needs-review",
+          "subtitle": "克制精密的 Skill 管理界面，包含 Markdown 编辑与渲染预览",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          }
+        }
+      ]
+    }
+  }
+}

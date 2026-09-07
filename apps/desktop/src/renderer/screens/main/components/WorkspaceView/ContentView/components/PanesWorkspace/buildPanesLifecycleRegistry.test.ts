@@ -26,7 +26,7 @@ function makePane(id: string, terminalId: string) {
 describe("buildPanesAcpLifecycleRegistry", () => {
 	test("uses the stable first title for the tab instead of the latest status title", () => {
 		const lifecycle = buildPanesAcpLifecycleRegistry({
-			closeSession: mock(async () => {}),
+			closeEmptySession: mock(async () => {}),
 		});
 		const title = lifecycle.getTitle?.({
 			id: "acp-pane",
@@ -44,11 +44,11 @@ describe("buildPanesAcpLifecycleRegistry", () => {
 		expect(title).toBe("Initial task");
 	});
 
-	test("closes the host session before allowing the pane to close", async () => {
-		const closeSession = mock<(sessionId: string) => Promise<void>>(
+	test("pane close asks the host to discard the ACP session only when empty", async () => {
+		const closeEmptySession = mock<(sessionId: string) => Promise<void>>(
 			async () => {},
 		);
-		const lifecycle = buildPanesAcpLifecycleRegistry({ closeSession });
+		const lifecycle = buildPanesAcpLifecycleRegistry({ closeEmptySession });
 		const pane = {
 			id: "acp-pane",
 			kind: "acp",
@@ -58,14 +58,14 @@ describe("buildPanesAcpLifecycleRegistry", () => {
 		} as never;
 
 		expect(await lifecycle.onBeforeClose?.(pane)).toBe(true);
-		expect(closeSession).toHaveBeenCalledWith("session-1");
+		expect(closeEmptySession).toHaveBeenCalledWith("session-1");
 	});
 
 	test("keeps the pane open when closing the host session fails", async () => {
 		const error = new Error("host unavailable");
 		const onCloseError = mock<(error: unknown) => void>();
 		const lifecycle = buildPanesAcpLifecycleRegistry({
-			closeSession: mock(async () => {
+			closeEmptySession: mock(async () => {
 				throw error;
 			}),
 			onCloseError,

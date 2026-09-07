@@ -43,6 +43,12 @@ interface BrowserSession {
 }
 
 const MIN_VIEW_SIZE = 1;
+const DEFAULT_AUTOMATION_BOUNDS: Rectangle = {
+	x: 0,
+	y: 0,
+	width: 1_280,
+	height: 800,
+};
 
 function partitionForConversation(sessionId: string): string {
 	const digest = createHash("sha256")
@@ -108,18 +114,24 @@ export class AgentBrowserManager {
 		const window = this.getWindow();
 		const active = this.activePage(session);
 		for (const page of session.pages) {
-			const shouldShow =
-				page === active &&
-				session.visible &&
-				session.bounds !== null &&
-				window !== null &&
-				!window.isDestroyed();
-			page.view.setVisible(shouldShow);
-			if (!shouldShow || !window || !session.bounds) continue;
-			// addChildView reparents an existing view and is safe when restoring a
-			// renderer/window after the browser session has already been created.
+			const shouldAttach =
+				page === active && window !== null && !window.isDestroyed();
+			page.view.setVisible(shouldAttach);
+			if (!shouldAttach || !window) continue;
+			// Keep the active page attached and composited even while its companion
+			// pane is hidden. Official browser-harness needs a real viewport for
+			// input and screenshots; placing the view just beyond the window keeps it
+			// invisible without collapsing its viewport to 0x0.
 			window.contentView.addChildView(page.view);
-			page.view.setBounds(session.bounds);
+			if (session.visible && session.bounds) {
+				page.view.setBounds(session.bounds);
+			} else {
+				const windowBounds = window.getContentBounds();
+				page.view.setBounds({
+					...DEFAULT_AUTOMATION_BOUNDS,
+					x: windowBounds.width + 1,
+				});
+			}
 		}
 
 		const menu = session.pageMenu;
@@ -150,6 +162,7 @@ export class AgentBrowserManager {
 			},
 		});
 		view.setVisible(false);
+		view.setBounds(session.bounds ?? DEFAULT_AUTOMATION_BOUNDS);
 		view.webContents.setBackgroundThrottling(true);
 		const page: BrowserPage = {
 			id: pageId,
@@ -272,6 +285,23 @@ export class AgentBrowserManager {
 		const page = session?.pages.find((candidate) => candidate.id === pageId);
 		if (!session || !page) throw new Error("Agent Browser page is not allowed");
 		page.view.webContents.close();
+	}
+
+	async capturePage(sessionId: string, fullPage = false): Promise<string> {
+		const session = this.sessions.get(sessionId);
+		const page = session ? this.activePage(session) : null;
+		if (!page) throw new Error("Agent Browser page is not allowed");
+		const rectangle = fullPage
+			? await page.view.webContents.executeJavaScript(`({
+				x: 0,
+				y: 0,
+				width: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0),
+				height: Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight || 0)
+			})`)
+			: undefined;
+		return (await page.view.webContents.capturePage(rectangle))
+			.toPNG()
+			.toString("base64");
 	}
 
 	async navigate(sessionId: string, url: string): Promise<void> {

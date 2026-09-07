@@ -101,32 +101,53 @@ export const projectRouter = router({
 	listMemories: protectedProcedure
 		.input(
 			z.object({
-				projectId: z.string().uuid(),
+				projectId: z.string().uuid().nullable(),
 				query: z.string().max(500).optional(),
 				includeDisabled: z.boolean().default(true),
 				limit: z.number().int().min(1).max(500).default(200),
 			}),
 		)
-		.query(({ ctx, input }) => listProjectMemories(ctx.db, input)),
+		.query(({ ctx, input }) =>
+			listProjectMemories(ctx.db, input).map((memory) => ({
+				...memory,
+				scope:
+					memory.projectId === null
+						? ("global" as const)
+						: ("project" as const),
+			})),
+		),
 
 	createMemory: protectedProcedure
 		.input(
 			z.object({
-				projectId: z.string().uuid(),
+				projectId: z.string().uuid().nullable(),
 				title: z.string().trim().min(1).max(200),
 				content: z.string().trim().min(1).max(20_000),
 				category: z.enum(PROJECT_MEMORY_CATEGORIES).default("other"),
 				pinned: z.boolean().default(false),
 			}),
 		)
-		.mutation(({ ctx, input }) =>
-			createProjectMemory(ctx.db, { ...input, source: "manual" }),
-		),
+		.mutation(({ ctx, input }) => {
+			const result = createProjectMemory(ctx.db, {
+				...input,
+				source: "manual",
+			});
+			return {
+				...result,
+				memory: {
+					...result.memory,
+					scope:
+						result.memory.projectId === null
+							? ("global" as const)
+							: ("project" as const),
+				},
+			};
+		}),
 
 	updateMemory: protectedProcedure
 		.input(
 			z.object({
-				projectId: z.string().uuid(),
+				projectId: z.string().uuid().nullable(),
 				memoryId: z.string().uuid(),
 				patch: z
 					.object({
@@ -152,13 +173,19 @@ export const projectRouter = router({
 					message: "Project memory not found",
 				});
 			}
-			return memory;
+			return {
+				...memory,
+				scope:
+					memory.projectId === null
+						? ("global" as const)
+						: ("project" as const),
+			};
 		}),
 
 	deleteMemory: protectedProcedure
 		.input(
 			z.object({
-				projectId: z.string().uuid(),
+				projectId: z.string().uuid().nullable(),
 				memoryId: z.string().uuid(),
 			}),
 		)

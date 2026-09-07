@@ -29,12 +29,16 @@ import {
 	AcpWorkspaceMismatchError,
 } from "./acp-sessions";
 import type {
+	AcpDiscussionOpenRequestEvent,
+	AcpDiscussionOpenRequestHandler,
 	AcpMergeRequestOpenRequestEvent,
 	AcpMergeRequestOpenRequestHandler,
 	AcpSessionChangeHandler,
 	AcpSessionOpenRequestEvent,
 	AcpSessionOpenRequestHandler,
 	AcpSessionRuntime,
+	AcpTerminalOpenRequestEvent,
+	AcpTerminalOpenRequestHandler,
 } from "./runtime";
 
 // Superset tool operations/events are additive. Keep v1 compatibility so a
@@ -80,6 +84,8 @@ export type RequestOperation =
 	| "ensureLive"
 	| "getMessages"
 	| "getTranscript"
+	| "listDiscussions"
+	| "stopDiscussion"
 	| "prompt"
 	| "respondToPermission"
 	| "cancel"
@@ -88,6 +94,7 @@ export type RequestOperation =
 	| "setConfigOption"
 	| "enqueuePrompt"
 	| "sendNow"
+	| "steerPrompt"
 	| "removeQueuedPrompt"
 	| "reorderQueue"
 	| "editQueuedPrompt"
@@ -108,6 +115,7 @@ const RETRYABLE_AFTER_DISCONNECT: ReadonlySet<RequestOperation> = new Set([
 	"ensureLive",
 	"getMessages",
 	"getTranscript",
+	"listDiscussions",
 	"getAgentBrowserView",
 ]);
 
@@ -159,6 +167,16 @@ export interface AcpDaemonSessionOpenRequestedEvent
 	type: "session-open-requested";
 }
 
+export interface AcpDaemonDiscussionOpenRequestedEvent
+	extends AcpDiscussionOpenRequestEvent {
+	type: "discussion-open-requested";
+}
+
+export interface AcpDaemonTerminalOpenRequestedEvent
+	extends AcpTerminalOpenRequestEvent {
+	type: "terminal-open-requested";
+}
+
 export interface AcpDaemonMergeRequestOpenRequestedEvent
 	extends AcpMergeRequestOpenRequestEvent {
 	type: "merge-request-open-requested";
@@ -170,6 +188,8 @@ export type AcpDaemonMessage =
 	| AcpDaemonEvent
 	| AcpDaemonSessionChangedEvent
 	| AcpDaemonSessionOpenRequestedEvent
+	| AcpDaemonDiscussionOpenRequestedEvent
+	| AcpDaemonTerminalOpenRequestedEvent
 	| AcpDaemonMergeRequestOpenRequestedEvent;
 
 export function acpDaemonSocketPath(
@@ -260,6 +280,10 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 	private readonly sessionChangeHandlers = new Set<AcpSessionChangeHandler>();
 	private readonly sessionOpenRequestHandlers =
 		new Set<AcpSessionOpenRequestHandler>();
+	private readonly discussionOpenRequestHandlers =
+		new Set<AcpDiscussionOpenRequestHandler>();
+	private readonly terminalOpenRequestHandlers =
+		new Set<AcpTerminalOpenRequestHandler>();
 	private readonly mergeRequestOpenRequestHandlers =
 		new Set<AcpMergeRequestOpenRequestHandler>();
 
@@ -281,6 +305,20 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		this.sessionOpenRequestHandlers.add(handler);
 		return () => {
 			this.sessionOpenRequestHandlers.delete(handler);
+		};
+	}
+
+	onDiscussionOpenRequested(
+		handler: AcpDiscussionOpenRequestHandler,
+	): () => void {
+		this.discussionOpenRequestHandlers.add(handler);
+		return () => this.discussionOpenRequestHandlers.delete(handler);
+	}
+
+	onTerminalOpenRequested(handler: AcpTerminalOpenRequestHandler): () => void {
+		this.terminalOpenRequestHandlers.add(handler);
+		return () => {
+			this.terminalOpenRequestHandlers.delete(handler);
 		};
 	}
 
@@ -347,6 +385,20 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		return this.request<TranscriptPage>("getTranscript", input);
 	}
 
+	async listDiscussions(input: { workspaceId: string; limit?: number }) {
+		return this.request<import("@superset/session-protocol").DiscussionRun[]>(
+			"listDiscussions",
+			input,
+		);
+	}
+
+	async stopDiscussion(input: { runId: string }) {
+		return this.request<import("@superset/session-protocol").DiscussionRun>(
+			"stopDiscussion",
+			input,
+		);
+	}
+
 	async prompt(input: Parameters<AcpSessionRuntime["prompt"]>[0]) {
 		return this.request<{ accepted: true }>("prompt", input);
 	}
@@ -386,6 +438,10 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 
 	async sendNow(input: Parameters<AcpSessionRuntime["sendNow"]>[0]) {
 		return this.request<PromptAccepted>("sendNow", input);
+	}
+
+	async steerPrompt(input: Parameters<AcpSessionRuntime["steerPrompt"]>[0]) {
+		return this.request<PromptAccepted>("steerPrompt", input);
 	}
 
 	async removeQueuedPrompt(
@@ -739,6 +795,34 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 				} catch (error) {
 					console.warn(
 						"[acp-daemon-client] session-open-requested handler threw",
+						error,
+					);
+				}
+			}
+			return;
+		}
+		if (message.type === "discussion-open-requested") {
+			const { type: _type, ...payload } = message;
+			for (const handler of this.discussionOpenRequestHandlers) {
+				try {
+					handler(payload);
+				} catch (error) {
+					console.warn(
+						"[acp-daemon-client] discussion-open-requested handler threw",
+						error,
+					);
+				}
+			}
+			return;
+		}
+		if (message.type === "terminal-open-requested") {
+			const { type: _type, ...payload } = message;
+			for (const handler of this.terminalOpenRequestHandlers) {
+				try {
+					handler(payload);
+				} catch (error) {
+					console.warn(
+						"[acp-daemon-client] terminal-open-requested handler threw",
 						error,
 					);
 				}

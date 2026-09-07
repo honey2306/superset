@@ -4,6 +4,12 @@ import type { SessionConfigOption } from "@superset/session-protocol";
 export interface DelegatedExecutionModel {
 	id: string;
 	label: string;
+	/**
+	 * models.dev provider key when known (static catalog entries). Dynamic
+	 * discoveries (pi, myflicker, claude ACP) leave it unset; pickers render
+	 * those items without a logo.
+	 */
+	provider?: string;
 }
 
 /**

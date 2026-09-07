@@ -169,6 +169,20 @@
       "when": 1788232455185,
       "tag": "0023_windy_mephistopheles",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1788495426362,
+      "tag": "0024_milky_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1788707997543,
+      "tag": "0025_nice_jane_foster",
+      "breakpoints": true
     }
   ]
 }

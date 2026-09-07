@@ -26,6 +26,9 @@ type OutboundEnvelope = {
 // pushes and acknowledgements while keeping streaming responsive.
 export const EMPTY_RELAY_PULL_DELAY_MS = 500;
 const MAX_CONCURRENT_TASK_REQUESTS = 4;
+export const MAX_STREAM_PUSH_RETRIES = 2;
+export const STREAM_PUSH_RETRY_DELAY_MS = 250;
+const MAX_STREAM_ENVELOPES_BEFORE_CONTROL = 2;
 
 /** Host-side mailbox worker. The relay is only a carrier; phone credentials survive unchanged. */
 export class AutoMateRelay {
@@ -35,12 +38,24 @@ export class AutoMateRelay {
 	private readonly streams = new Map<string, RelaySocket>();
 	private readonly streamFrameTails = new Map<string, Promise<void>>();
 	private readonly outboundQueue: OutboundEnvelope[] = [];
+	private readonly streamOutboundQueue: OutboundEnvelope[] = [];
+	private readonly durableOutboundQueue: OutboundEnvelope[] = [];
 	private outboundPumping = false;
+	private streamOutboundPumping = false;
+	private durableOutboundPumping = false;
+	private streamRetrying = false;
+	private streamItemsSinceLastControl = 0;
+	private readonly failedStreamChannels = new Set<string>();
+	private readonly stopSignal: Promise<void>;
+	private resolveStopSignal: (() => void) | undefined;
 	private readonly createWebSocket: RelaySocketFactory;
 	constructor(
 		readonly mailboxId: string,
 		private readonly deps: RelayDependencies,
 	) {
+		this.stopSignal = new Promise<void>((resolve) => {
+			this.resolveStopSignal = resolve;
+		});
 		this.createWebSocket =
 			deps.createWebSocket ??
 			((url) => new WebSocket(url) as unknown as RelaySocket);
@@ -59,10 +74,20 @@ export class AutoMateRelay {
 		void this.run();
 	}
 	stop(): void {
+		if (this.stopped) return;
 		this.stopped = true;
+		this.resolveStopSignal?.();
 		const stopped = new Error("AutoMate relay stopped");
-		for (const pending of this.outboundQueue) pending.reject(stopped);
+		for (const pending of [
+			...this.outboundQueue,
+			...this.streamOutboundQueue,
+			...this.durableOutboundQueue,
+		])
+			pending.reject(stopped);
 		this.outboundQueue.length = 0;
+		this.streamOutboundQueue.length = 0;
+		this.durableOutboundQueue.length = 0;
+		this.failedStreamChannels.clear();
 		for (const socket of this.streams.values()) socket.close();
 		this.streams.clear();
 		this.streamFrameTails.clear();
@@ -80,6 +105,13 @@ export class AutoMateRelay {
 		}
 		return result;
 	}
+	private async wait(ms: number): Promise<void> {
+		await Promise.race([
+			this.deps.sleep?.(ms) ??
+				new Promise<void>((resolve) => setTimeout(resolve, ms)),
+			this.stopSignal,
+		]);
+	}
 	private async ack(seq: number): Promise<void> {
 		await this.invoke({
 			op: "ack",
@@ -96,8 +128,21 @@ export class AutoMateRelay {
 		retryUntilStopped: boolean,
 	): Promise<void> {
 		return new Promise((resolve, reject) => {
+			if (this.stopped) {
+				reject(new Error("AutoMate relay stopped"));
+				return;
+			}
+			if (
+				body.kind === "stream.frame" &&
+				this.failedStreamChannels.has(body.channelId)
+			) {
+				reject(
+					new Error(`AutoMate relay stream ${body.channelId} is unavailable`),
+				);
+				return;
+			}
 			if (body.kind === "stream.frame") {
-				const last = this.outboundQueue.at(-1);
+				const last = this.streamOutboundQueue.at(-1);
 				if (last?.body.kind === "stream.frames" && last.retryUntilStopped) {
 					last.body.frames.push({
 						channelId: body.channelId,
@@ -114,7 +159,7 @@ export class AutoMateRelay {
 						reject(error);
 					};
 				} else {
-					this.outboundQueue.push({
+					this.streamOutboundQueue.push({
 						body: {
 							kind: "stream.frames",
 							frames: [{ channelId: body.channelId, body: body.body }],
@@ -124,13 +169,34 @@ export class AutoMateRelay {
 						reject,
 					});
 				}
+				void this.drainStreamOutbound();
+			} else if (body.kind === "stream.close" && retryUntilStopped) {
+				this.streamOutboundQueue.push({
+					body,
+					retryUntilStopped,
+					resolve,
+					reject,
+				});
+				void this.drainStreamOutbound();
+			} else if (body.kind === "host.reset" && retryUntilStopped) {
+				this.durableOutboundQueue.push({
+					body,
+					retryUntilStopped,
+					resolve,
+					reject,
+				});
+				void this.drainDurableOutbound();
 			} else {
 				this.outboundQueue.push({ body, retryUntilStopped, resolve, reject });
+				void this.drainOutbound();
 			}
-			void this.drainOutbound();
 		});
 	}
 	private async drainOutbound(): Promise<void> {
+		// Keep the historical ordering for a short healthy stream burst: control
+		// responses wait for already-buffered stream frames. After two envelopes,
+		// yield one control response so a busy stream cannot starve mailbox work.
+		if (!this.canDrainControls()) return;
 		if (this.outboundPumping) return;
 		this.outboundPumping = true;
 		try {
@@ -138,17 +204,79 @@ export class AutoMateRelay {
 				const next = this.outboundQueue.shift();
 				if (!next) continue;
 				try {
-					if (next.retryUntilStopped) await this.pushStreamWithRetry(next.body);
-					else await this.pushEnvelope(next.body);
+					await this.pushEnvelope(next.body);
+					next.resolve();
+				} catch (error) {
+					next.reject(asError(error));
+				}
+				this.streamItemsSinceLastControl = 0;
+				if (
+					this.streamRetrying ||
+					this.streamOutboundPumping ||
+					this.streamOutboundQueue.length > 0
+				)
+					break;
+			}
+		} finally {
+			this.outboundPumping = false;
+			if (!this.stopped && this.outboundQueue.length > 0)
+				void this.drainOutbound();
+		}
+	}
+	private canDrainControls(): boolean {
+		if (this.streamRetrying) return true;
+		if (!this.streamOutboundPumping && this.streamOutboundQueue.length === 0)
+			return true;
+		return (
+			this.streamItemsSinceLastControl >= MAX_STREAM_ENVELOPES_BEFORE_CONTROL
+		);
+	}
+	private async drainDurableOutbound(): Promise<void> {
+		if (this.durableOutboundPumping) return;
+		this.durableOutboundPumping = true;
+		try {
+			while (!this.stopped && this.durableOutboundQueue.length > 0) {
+				const next = this.durableOutboundQueue.shift();
+				if (!next) continue;
+				try {
+					await this.pushDurableWithRetry(next.body);
 					next.resolve();
 				} catch (error) {
 					next.reject(asError(error));
 				}
 			}
 		} finally {
-			this.outboundPumping = false;
-			if (!this.stopped && this.outboundQueue.length > 0)
-				void this.drainOutbound();
+			this.durableOutboundPumping = false;
+			if (!this.stopped && this.durableOutboundQueue.length > 0)
+				void this.drainDurableOutbound();
+		}
+	}
+	private async drainStreamOutbound(): Promise<void> {
+		if (this.streamOutboundPumping) return;
+		this.streamOutboundPumping = true;
+		try {
+			while (!this.stopped && this.streamOutboundQueue.length > 0) {
+				const next = this.streamOutboundQueue.shift();
+				if (!next) continue;
+				try {
+					await this.pushStreamWithRetry(next.body);
+					next.resolve();
+					this.streamItemsSinceLastControl += 1;
+					void this.drainOutbound();
+				} catch (error) {
+					const failure = asError(error);
+					next.reject(failure);
+					this.failStreamEnvelope(next.body, failure);
+				}
+			}
+		} finally {
+			this.streamRetrying = false;
+			this.streamOutboundPumping = false;
+			if (!this.stopped) {
+				if (this.streamOutboundQueue.length > 0)
+					void this.drainStreamOutbound();
+				if (this.outboundQueue.length > 0) void this.drainOutbound();
+			}
 		}
 	}
 	private async pushEnvelope(body: RelayEnvelope): Promise<void> {
@@ -170,8 +298,7 @@ export class AutoMateRelay {
 				})) as { message?: RelayMessage };
 				const message = result?.message;
 				if (!message) {
-					await (this.deps.sleep?.(EMPTY_RELAY_PULL_DELAY_MS) ??
-						new Promise((r) => setTimeout(r, EMPTY_RELAY_PULL_DELAY_MS)));
+					await this.wait(EMPTY_RELAY_PULL_DELAY_MS);
 					continue;
 				}
 				if (this.seen.has(message.messageId)) {
@@ -202,8 +329,7 @@ export class AutoMateRelay {
 				this.seen.delete(message.messageId);
 			} catch (error) {
 				console.warn("[automate-relay] mailbox poll failed", error);
-				await (this.deps.sleep?.(1_000) ??
-					new Promise((r) => setTimeout(r, 1_000)));
+				await this.wait(1_000);
 			}
 		}
 	}
@@ -333,20 +459,89 @@ export class AutoMateRelay {
 	}
 	private enqueueStreamPush(body: RelayEnvelope): void {
 		void this.enqueueOutbound(body, true).catch((error) =>
-			console.warn("[automate-relay] stream push failed", error),
+			this.stopped
+				? undefined
+				: console.warn("[automate-relay] stream push failed", error),
 		);
 	}
 	private async pushStreamWithRetry(body: RelayEnvelope): Promise<void> {
+		return this.pushWithRetry(body, "stream");
+	}
+	private async pushDurableWithRetry(body: RelayEnvelope): Promise<void> {
+		return this.pushWithRetry(body, "durable");
+	}
+	private async pushWithRetry(
+		body: RelayEnvelope,
+		kind: "stream" | "durable",
+	): Promise<void> {
 		const messageId = crypto.randomUUID();
-		while (!this.stopped) {
+		for (let retry = 0; retry <= MAX_STREAM_PUSH_RETRIES; retry += 1) {
+			if (this.stopped) throw new Error("AutoMate relay stopped");
 			try {
 				await this.pushEnvelopeWithMessageId(body, messageId);
 				return;
-			} catch (error) {
-				console.warn("[automate-relay] retrying stream push", error);
-				await (this.deps.sleep?.(1_000) ??
-					new Promise((resolve) => setTimeout(resolve, 1_000)));
+			} catch (_error) {
+				if (this.stopped) throw new Error("AutoMate relay stopped");
+				if (retry >= MAX_STREAM_PUSH_RETRIES) {
+					throw new Error(
+						`AutoMate relay ${kind} push failed after ${retry + 1} attempts`,
+					);
+				}
+				if (kind === "stream") {
+					this.streamRetrying = true;
+					console.warn(
+						`[automate-relay] retrying stream push (attempt ${retry + 2}/${MAX_STREAM_PUSH_RETRIES + 1})`,
+					);
+					// The control lane may proceed while this retry is sleeping. Its
+					// response still uses the normal one-shot/idempotent envelope path.
+					void this.drainOutbound();
+				} else {
+					console.warn(
+						`[automate-relay] retrying durable push (attempt ${retry + 2}/${MAX_STREAM_PUSH_RETRIES + 1})`,
+					);
+				}
+				await this.wait(STREAM_PUSH_RETRY_DELAY_MS * 2 ** retry);
 			}
+		}
+		throw new Error(`AutoMate relay ${kind} push failed`);
+	}
+	private failStreamEnvelope(body: RelayEnvelope, _failure: Error): void {
+		if (this.stopped || body.kind !== "stream.frames") return;
+		const channelIds = new Set(body.frames.map((frame) => frame.channelId));
+		for (const channelId of channelIds)
+			this.failedStreamChannels.add(channelId);
+
+		// Never allow a later frame from a failed channel to overtake the failed
+		// one. Mixed batches retain frames for healthy channels, preserving their
+		// independent stream order and avoiding cross-channel head-of-line blocking.
+		for (
+			let index = this.streamOutboundQueue.length - 1;
+			index >= 0;
+			index -= 1
+		) {
+			const queued = this.streamOutboundQueue[index];
+			if (!queued || queued.body.kind !== "stream.frames") continue;
+			const frames = queued.body.frames.filter(
+				(frame) => !this.failedStreamChannels.has(frame.channelId),
+			);
+			if (frames.length === 0) {
+				this.streamOutboundQueue.splice(index, 1);
+				queued.reject(new Error("AutoMate relay stream became unavailable"));
+			} else {
+				queued.body = { ...queued.body, frames };
+			}
+		}
+
+		for (const channelId of channelIds) {
+			void this.enqueueOutbound(
+				{
+					kind: "stream.close",
+					channelId,
+					code: 1011,
+					reason: "Relay stream unavailable",
+				},
+				false,
+			).catch(() => undefined);
 		}
 	}
 	private async pushEnvelopeWithMessageId(
@@ -625,6 +820,7 @@ const PHONE_RELAY_TRPC_PATHS = new Set([
 	"terminalAgents.listByWorkspace",
 	"terminalAgents.getOrCreate",
 	"workspaceCatalog.snapshot",
+	"workspaceCatalog.phoneSnapshot",
 ]);
 
 function isAllowedTrpcPath(pathname: string): boolean {

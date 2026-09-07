@@ -11,6 +11,12 @@ import { eq } from "drizzle-orm";
 import { createDb } from "../../db";
 import { projects, workspaces } from "../../db/schema";
 import {
+	readGlobalMcpServers,
+	removeGlobalMcpServer,
+	toAcpMcpServers,
+	upsertGlobalMcpServer,
+} from "../../global-mcp";
+import {
 	createProjectMemory,
 	listProjectMemories,
 	markProjectMemoriesUsed,
@@ -35,22 +41,28 @@ import {
 } from "./acp-cli-auto-updater";
 import { AcpSessionManager } from "./acp-sessions";
 import { generateAcpSessionTitle } from "./acp-title-generation";
-import { agentBrowserMcpServer } from "./agent-browser-local-mcp";
 import { AgentBrowserRuntime } from "./agent-browser-runtime";
 import { AcpArtifactStore } from "./artifact-store";
+import { computerUseMcpServer } from "./computer-use-local-mcp";
 import {
 	ACP_DAEMON_BUILD_VERSION,
 	ACP_DAEMON_PROTOCOL_VERSION,
+	type AcpDaemonDiscussionOpenRequestedEvent,
 	type AcpDaemonEvent,
 	type AcpDaemonMergeRequestOpenRequestedEvent,
 	type AcpDaemonRequest,
 	type AcpDaemonResponse,
 	type AcpDaemonSessionChangedEvent,
 	type AcpDaemonSessionOpenRequestedEvent,
+	type AcpDaemonTerminalOpenRequestedEvent,
 	acpDaemonSocketPath,
 } from "./daemon";
 import { resolveKDevMergeRequestPage } from "./kdev-merge-request";
-import { browserUseMcpServerFromEnvironment } from "./local-mcp";
+import {
+	browserUseMcpServerFromEnvironment,
+	embeddedBrowserUseMcpServer,
+} from "./local-mcp";
+import { resolvePeekabooExecutable } from "./peekaboo-executable";
 import { SqliteAcpSessionPersistence } from "./persistence";
 import { supersetMcpServer } from "./superset-local-mcp";
 import { SupersetToolController } from "./superset-tools";
@@ -89,6 +101,10 @@ async function main(): Promise<void> {
 		path.join(path.dirname(dbPath), "acp-artifacts"),
 	);
 	const agentBrowserEnabled = process.env.SUPERSET_AGENT_BROWSER === "1";
+	const computerUseEnabled =
+		agentBrowserEnabled &&
+		process.platform === "darwin" &&
+		resolvePeekabooExecutable() !== null;
 	const agentBrowserRuntime = new AgentBrowserRuntime({
 		enabled: agentBrowserEnabled,
 	});
@@ -119,27 +135,44 @@ async function main(): Promise<void> {
 			: [browserUseMcpServerFromEnvironment()].filter(
 					(server): server is NonNullable<typeof server> => server !== null,
 				),
-		mcpServerFactory: ({ sessionId, role }) => [
-			supersetMcpServer({ sessionId, daemonSocketPath: socketPath, role }),
-			...(agentBrowserEnabled
-				? [
-						agentBrowserMcpServer({
-							sessionId,
-							daemonSocketPath: socketPath,
-						}),
-					]
-				: []),
-		],
+		resolveMcpServers: () => toAcpMcpServers(readGlobalMcpServers()),
+		mcpServerFactory: ({ sessionId, role }) => {
+			const embeddedBrowserMcp = agentBrowserEnabled
+				? embeddedBrowserUseMcpServer({
+						sessionId,
+						cdpProxyUrl: requiredEnv("SUPERSET_AGENT_BROWSER_CDP_PROXY_URL"),
+					})
+				: null;
+			const computerUseMcp = computerUseEnabled
+				? computerUseMcpServer({ sessionId })
+				: null;
+			return [
+				supersetMcpServer({ sessionId, daemonSocketPath: socketPath, role }),
+				...(embeddedBrowserMcp ? [embeddedBrowserMcp] : []),
+				...(computerUseMcp ? [computerUseMcp] : []),
+			];
+		},
 		modelFacingInstructions: ({ role, workspaceId }) => {
 			const embeddedBrowserInstructions = agentBrowserEnabled
 				? [
 						"## Embedded Agent Browser",
-						"For every request to browse, open, inspect, or interact with a website, use the agent-browser MCP tools so the page appears in the conversation's Agent Browser pane.",
+						"For every request to browse, open, inspect, or interact with a website, use the official browser-use MCP tools so the page appears in the conversation's Agent Browser pane.",
 						"Never use shell commands such as `open`, `xdg-open`, or `start`, and never fall back to the OS/system browser. If an agent-browser tool fails, report the failure instead of claiming the page was opened.",
 					].join("\n\n")
 				: undefined;
+			const computerUseInstructions = computerUseEnabled
+				? [
+						"## macOS Computer Use",
+						"When the user asks you to inspect or operate a native macOS application, use the computer-use tools. Call computer_see for visual state or computer_inspect_ui for an Accessibility-only tree before element-based actions, and preserve Peekaboo element/snapshot identifiers exactly.",
+						"The computer-use surface wraps all deterministic Peekaboo native capabilities, including app/window/menu/dialog/Dock/Space management, capture, clipboard, drag, semantic actions, and state verification. Peekaboo's autonomous agent loop and AI analyze tool are intentionally excluded because the current Superset Agent owns planning and reasoning.",
+						"Computer Use actions execute immediately and visibly. Do not use them for websites; website tasks belong in the Embedded Agent Browser. If macOS reports missing Accessibility, Automation, or Screen Recording access, tell the user which permission to enable instead of using shell automation as a workaround.",
+					].join("\n\n")
+				: undefined;
 			if (role !== SUPERSET_ROOT_COORDINATOR_ROLE) {
-				return embeddedBrowserInstructions;
+				return composeSupersetModelFacingInstructions([
+					embeddedBrowserInstructions,
+					computerUseInstructions,
+				]);
 			}
 			const profiles = resolveDelegationProfileTargets(db);
 			const summaries = profiles.map(toDelegationProfileSummary);
@@ -149,26 +182,39 @@ async function main(): Promise<void> {
 				? formatSupersetDelegationInstructions(summaries)
 				: undefined;
 			const projectId = resolveProjectIdForWorkspace(db, workspaceId);
-			const memories = projectId
+			const projectMemories = projectId
 				? listProjectMemories(db, {
 						projectId,
 						includeDisabled: false,
 						limit: 12,
 					})
 				: [];
+			const globalMemories = listProjectMemories(db, {
+				projectId: null,
+				includeDisabled: false,
+				limit: 8,
+			});
+			const memories = [...projectMemories, ...globalMemories];
 			markProjectMemoriesUsed(
 				db,
 				memories.map((memory) => memory.id),
 			);
 			return composeSupersetModelFacingInstructions([
 				embeddedBrowserInstructions,
+				computerUseInstructions,
 				delegationInstructions,
-				formatProjectMemoryInstructions(
-					memories.map((memory) => ({
+				formatProjectMemoryInstructions([
+					...projectMemories.map((memory) => ({
 						title: memory.title,
 						category: memory.category,
+						scope: "project" as const,
 					})),
-				),
+					...globalMemories.map((memory) => ({
+						title: memory.title,
+						category: memory.category,
+						scope: "global" as const,
+					})),
+				]),
 			]);
 		},
 		generateTitle: ({ message }) => generateAcpSessionTitle(message),
@@ -179,12 +225,22 @@ async function main(): Promise<void> {
 		(
 			event:
 				| AcpDaemonSessionOpenRequestedEvent
+				| AcpDaemonDiscussionOpenRequestedEvent
+				| AcpDaemonTerminalOpenRequestedEvent
 				| AcpDaemonMergeRequestOpenRequestedEvent,
 		) => void
 	>();
 	const toolController = new SupersetToolController({
 		manager,
 		delegationRuns: persistence,
+		discussionRuns: persistence,
+		listGlobalMcpServers: () =>
+			readGlobalMcpServers().map(({ env, ...server }) => ({
+				...server,
+				envNames: Object.keys(env),
+			})),
+		upsertGlobalMcpServer: (input) => upsertGlobalMcpServer(input),
+		removeGlobalMcpServer: (name) => removeGlobalMcpServer(name),
 		resolveDelegatedExecution: () => {
 			const profiles = resolveDelegationProfileTargets(db);
 			const profilesState = readDelegationProfiles(db);
@@ -232,14 +288,15 @@ async function main(): Promise<void> {
 			projectId,
 			projectPath,
 		}) => {
-			if (workspaceId) {
-				const workspace = db.query.workspaces
-					.findFirst({ where: eq(workspaces.id, workspaceId) })
-					.sync();
-				if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`);
-				return workspace.id;
+			const workspace = workspaceId
+				? db.query.workspaces
+						.findFirst({ where: eq(workspaces.id, workspaceId) })
+						.sync()
+				: undefined;
+			if (workspaceId && !workspace) {
+				throw new Error(`Workspace not found: ${workspaceId}`);
 			}
-			let resolvedProjectId = projectId;
+			let pathProjectId: string | undefined;
 			if (projectPath) {
 				const canonicalProjectPath = canonicalizeHostPath(projectPath);
 				const project = db.query.projects
@@ -248,8 +305,24 @@ async function main(): Promise<void> {
 					})
 					.sync();
 				if (!project) throw new Error(`Project not found: ${projectPath}`);
-				resolvedProjectId = project.id;
+				pathProjectId = project.id;
 			}
+			const targetProjectIds = [
+				workspace?.projectId,
+				projectId,
+				pathProjectId,
+			].filter((value): value is string => value !== undefined);
+			if (
+				targetProjectIds.some(
+					(targetProjectId) => targetProjectId !== targetProjectIds[0],
+				)
+			) {
+				throw new Error(
+					"workspaceId, projectId, and projectPath must identify the same project",
+				);
+			}
+			if (workspace) return workspace.id;
+			const resolvedProjectId = targetProjectIds[0];
 			if (!resolvedProjectId) return sourceWorkspaceId;
 			const candidates = db
 				.select({
@@ -276,9 +349,15 @@ async function main(): Promise<void> {
 			content,
 			category,
 			pinned,
+			scope,
 		}) => {
-			const projectId = resolveProjectIdForWorkspace(db, workspaceId);
-			if (!projectId) throw new Error(`Workspace not found: ${workspaceId}`);
+			const projectId =
+				scope === "global"
+					? null
+					: resolveProjectIdForWorkspace(db, workspaceId);
+			if (scope === "project" && !projectId) {
+				throw new Error(`Workspace not found: ${workspaceId}`);
+			}
 			const result = createProjectMemory(db, {
 				projectId,
 				title,
@@ -288,22 +367,47 @@ async function main(): Promise<void> {
 				sourceSessionId,
 				pinned,
 			});
-			return { ...result, projectId };
+			return { ...result, projectId, scope };
 		},
-		searchProjectMemories: ({ workspaceId, query, limit }) => {
+		searchProjectMemories: ({ workspaceId, query, limit, scope }) => {
 			const projectId = resolveProjectIdForWorkspace(db, workspaceId);
-			if (!projectId) throw new Error(`Workspace not found: ${workspaceId}`);
-			const memories = listProjectMemories(db, {
-				projectId,
-				query,
-				includeDisabled: false,
-				limit,
-			});
+			if ((scope === "project" || scope === "all") && !projectId) {
+				throw new Error(`Workspace not found: ${workspaceId}`);
+			}
+			const projectResults =
+				scope === "global"
+					? []
+					: listProjectMemories(db, {
+							projectId,
+							query,
+							includeDisabled: false,
+							limit,
+						});
+			const remaining = Math.max(0, limit - projectResults.length);
+			const globalResults =
+				scope === "project" || (scope === "all" && remaining === 0)
+					? []
+					: listProjectMemories(db, {
+							projectId: null,
+							query,
+							includeDisabled: false,
+							limit: scope === "all" ? remaining : limit,
+						});
+			const memories = [
+				...projectResults.map((memory) => ({
+					...memory,
+					scope: "project" as const,
+				})),
+				...globalResults.map((memory) => ({
+					...memory,
+					scope: "global" as const,
+				})),
+			];
 			markProjectMemoriesUsed(
 				db,
 				memories.map((memory) => memory.id),
 			);
-			return { projectId, memories };
+			return { projectId, scope, memories };
 		},
 		setProjectRunCommand: ({ workspaceId, commands }) => {
 			const project = db
@@ -332,9 +436,20 @@ async function main(): Promise<void> {
 			updateProjectConfig(project.repoPath, { run: commands });
 			return { status: "configured" as const, commands };
 		},
+		terminal: createHostTerminalController(),
+		onTerminalOpenRequested: (event) => {
+			for (const write of clientWriters) {
+				write({ type: "terminal-open-requested", ...event });
+			}
+		},
 		onOpenRequested: (event) => {
 			for (const write of clientWriters) {
 				write({ type: "session-open-requested", ...event });
+			}
+		},
+		onDiscussionOpenRequested: (event) => {
+			for (const write of clientWriters) {
+				write({ type: "discussion-open-requested", ...event });
 			}
 		},
 		openMergeRequest: ({ cwd }) => resolveKDevMergeRequestPage(cwd),
@@ -373,6 +488,8 @@ async function main(): Promise<void> {
 				| AcpDaemonEvent
 				| AcpDaemonSessionChangedEvent
 				| AcpDaemonSessionOpenRequestedEvent
+				| AcpDaemonDiscussionOpenRequestedEvent
+				| AcpDaemonTerminalOpenRequestedEvent
 				| AcpDaemonMergeRequestOpenRequestedEvent,
 		): boolean => {
 			if (socket.destroyed) return false;
@@ -459,6 +576,78 @@ async function main(): Promise<void> {
 
 	process.on("SIGTERM", () => void shutdown());
 	process.on("SIGINT", () => void shutdown());
+}
+
+function createHostTerminalController() {
+	const hostUrl = `http://127.0.0.1:${requiredEnv("HOST_SERVICE_PORT")}`;
+	const token = requiredEnv("HOST_SERVICE_SECRET");
+	const call = async (
+		path: string,
+		init: RequestInit,
+	): Promise<Record<string, unknown>> => {
+		const response = await fetch(`${hostUrl}${path}`, {
+			...init,
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+				...init.headers,
+			},
+		});
+		const payload: unknown = await response.json();
+		if (!response.ok) {
+			const message =
+				typeof payload === "object" &&
+				payload !== null &&
+				"error" in payload &&
+				typeof payload.error === "string"
+					? payload.error
+					: `Terminal request failed (${response.status})`;
+			throw new Error(message);
+		}
+		return payload as Record<string, unknown>;
+	};
+	const query = (input: Record<string, string | number | undefined>) => {
+		const params = new URLSearchParams();
+		for (const [key, value] of Object.entries(input)) {
+			if (value !== undefined) params.set(key, String(value));
+		}
+		return params.toString();
+	};
+	return {
+		create: (input: Record<string, unknown>) =>
+			call("/terminal/sessions", {
+				method: "POST",
+				body: JSON.stringify(input),
+			}),
+		write: (input: { workspaceId: string; terminalId: string; data: string }) =>
+			call(`/terminal/sessions/${encodeURIComponent(input.terminalId)}/input`, {
+				method: "POST",
+				body: JSON.stringify({
+					workspaceId: input.workspaceId,
+					data: input.data,
+				}),
+			}),
+		read: (input: {
+			workspaceId: string;
+			terminalId: string;
+			cursor?: number;
+			maxBytes: number;
+		}) =>
+			call(
+				`/terminal/sessions/${encodeURIComponent(input.terminalId)}/output?${query(input)}`,
+				{ method: "GET" },
+			),
+		status: (input: { workspaceId: string; terminalId: string }) =>
+			call(
+				`/terminal/sessions/${encodeURIComponent(input.terminalId)}/status?${query(input)}`,
+				{ method: "GET" },
+			),
+		close: (input: { workspaceId: string; terminalId: string }) =>
+			call(
+				`/terminal/sessions/${encodeURIComponent(input.terminalId)}?${query(input)}`,
+				{ method: "DELETE" },
+			),
+	};
 }
 
 /**
@@ -608,6 +797,16 @@ async function dispatch(
 					request.params as Parameters<AcpSessionManager["getTranscript"]>[0],
 				);
 				break;
+			case "listDiscussions": {
+				const input = request.params as { workspaceId: string; limit?: number };
+				result = toolController.listDiscussions(input.workspaceId, input.limit);
+				break;
+			}
+			case "stopDiscussion":
+				result = await toolController.stopDiscussion(
+					(request.params as { runId: string }).runId,
+				);
+				break;
 			case "prompt": {
 				const admission = manager.prompt(
 					request.params as Parameters<AcpSessionManager["prompt"]>[0],
@@ -651,6 +850,11 @@ async function dispatch(
 			case "sendNow":
 				result = await manager.sendNow(
 					request.params as Parameters<AcpSessionManager["sendNow"]>[0],
+				);
+				break;
+			case "steerPrompt":
+				result = await manager.steerPrompt(
+					request.params as Parameters<AcpSessionManager["steerPrompt"]>[0],
 				);
 				break;
 			case "removeQueuedPrompt":

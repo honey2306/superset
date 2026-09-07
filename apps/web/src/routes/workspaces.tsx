@@ -1,5 +1,5 @@
 import { BUILTIN_AGENT_LABELS } from "@superset/shared/agent-catalog";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearStoredSession, getStoredSession } from "~/lib/auth-store";
 import {
@@ -16,23 +16,63 @@ import {
 import {
 	createPhoneRouteCache,
 	getPhonePairingCacheKey,
+	type PhoneSnapshotCacheValue,
+	parsePhoneSnapshotCacheValue,
+	projectPhoneSnapshotCacheValue,
 } from "./workspaces/utils/phoneRouteCache/phoneRouteCache";
+import { buildPhoneWorkspaceContents } from "./workspaces/utils/phoneWorkspaceSnapshot/phoneWorkspaceSnapshot";
 import { createWorkspaceCatalogRefresher } from "./workspaces/utils/workspaceCatalogRefresher/workspaceCatalogRefresher";
-import { resolveWorkspaceContents } from "./workspaces/utils/workspaceContentsLoader/resolveWorkspaceContents";
-import {
-	createWorkspaceContentsLoader,
-	type WorkspaceContentsLoadState,
-} from "./workspaces/utils/workspaceContentsLoader/workspaceContentsLoader";
 
-type Snapshot = Awaited<
+type PhoneSnapshot = Awaited<
 	ReturnType<
-		ReturnType<typeof getTrpc>["workspaceCatalog"]["snapshot"]["query"]
+		ReturnType<typeof getTrpc>["workspaceCatalog"]["phoneSnapshot"]["query"]
 	>
 >;
+type Snapshot = PhoneSnapshotCacheValue["catalog"];
 
 const CATALOG_CACHE_SCOPE = "catalog";
-const workspaceCatalogCache = createPhoneRouteCache<Snapshot>();
-const workspaceContentsCache = createPhoneRouteCache<WorkspaceContents>();
+const workspaceCatalogCache = createPhoneRouteCache<PhoneSnapshotCacheValue>({
+	persistence: {
+		serialize: projectPhoneSnapshotCacheValue,
+		deserialize: parsePhoneSnapshotCacheValue,
+	},
+});
+
+function toPhoneSnapshotCacheValue(
+	snapshot: PhoneSnapshot,
+): PhoneSnapshotCacheValue {
+	return {
+		catalog: {
+			schemaVersion: snapshot.catalog.schemaVersion,
+			revision: snapshot.catalog.revision,
+			projects: snapshot.catalog.projects.map(({ id, name, repoPath }) => ({
+				id,
+				name,
+				repoPath,
+			})),
+			workspaces: snapshot.catalog.workspaces.map(
+				({ id, projectId, name, branch }) => ({
+					id,
+					projectId,
+					name,
+					branch,
+				}),
+			),
+		},
+		acp: {
+			enabled: snapshot.acp.enabled,
+			items: snapshot.acp.items.map(
+				({ sessionId, workspaceId, title, status, updatedAt }) => ({
+					sessionId,
+					workspaceId,
+					title,
+					status,
+					updatedAt,
+				}),
+			),
+		},
+	};
+}
 
 function snapshotProjects(snapshot: Snapshot): Snapshot["projects"] {
 	return Array.isArray(snapshot.projects) ? snapshot.projects : [];
@@ -54,59 +94,32 @@ export function WorkspacesRoute() {
 	const session = getStoredSession();
 	const pairingCacheKey = getPhonePairingCacheKey(session);
 	workspaceCatalogCache.activate(pairingCacheKey);
-	workspaceContentsCache.activate(pairingCacheKey);
-	const cachedSnapshot = workspaceCatalogCache.get(CATALOG_CACHE_SCOPE);
+	const cachedPhoneSnapshot = workspaceCatalogCache.get(CATALOG_CACHE_SCOPE);
+	const cachedSnapshot = cachedPhoneSnapshot?.catalog ?? null;
 	const initialWorkspaceTabs = new Map<string, WorkspaceContents>();
-	if (cachedSnapshot) {
+	if (cachedPhoneSnapshot && cachedSnapshot) {
+		const aggregateContents = buildPhoneWorkspaceContents({
+			enabled: cachedPhoneSnapshot.acp.enabled,
+			sessions: cachedPhoneSnapshot.acp.items,
+			workspaceIds: snapshotWorkspaces(cachedSnapshot).map(
+				(workspace) => workspace.id,
+			),
+		});
 		for (const workspace of snapshotWorkspaces(cachedSnapshot)) {
-			const contents = workspaceContentsCache.get(workspace.id);
+			const contents = aggregateContents.get(workspace.id);
 			if (contents) initialWorkspaceTabs.set(workspace.id, contents);
 		}
 	}
-	const initialCachedSnapshotRef = useRef(cachedSnapshot);
 	const [snapshot, setSnapshot] = useState<Snapshot | null>(
 		() => cachedSnapshot ?? null,
 	);
 	const [workspaceTabs, setWorkspaceTabs] = useState<
 		ReadonlyMap<string, WorkspaceContents>
 	>(() => initialWorkspaceTabs);
-	const [workspaceLoadStates, setWorkspaceLoadStates] = useState<
-		ReadonlyMap<string, WorkspaceContentsLoadState>
-	>(
-		() =>
-			new Map(
-				Array.from(initialWorkspaceTabs.keys(), (workspaceId) => [
-					workspaceId,
-					"loaded" as const,
-				]),
-			),
-	);
-	const [workspaceLoadErrors, setWorkspaceLoadErrors] = useState<
-		ReadonlyMap<string, string>
-	>(new Map());
-	const [workspaceLoadWarnings, setWorkspaceLoadWarnings] = useState<
-		ReadonlyMap<string, readonly string[]>
-	>(
-		() =>
-			new Map(
-				Array.from(initialWorkspaceTabs.entries())
-					.filter(([, contents]) => (contents.warnings?.length ?? 0) > 0)
-					.map(([workspaceId, contents]) => [
-						workspaceId,
-						contents.warnings ?? [],
-					]),
-			),
-	);
 	const [error, setError] = useState<string | null>(null);
+	const [hasRefreshed, setHasRefreshed] = useState(false);
+	const [snapshotPairingKey, setSnapshotPairingKey] = useState(pairingCacheKey);
 	const mountedRef = useRef(true);
-	const workspaceContentsLoader = useRef(
-		createWorkspaceContentsLoader(async (workspaceId) => {
-			const result = await resolveWorkspaceContents({
-				acp: getTrpc().acpSessions.list.query({ workspaceId, limit: 50 }),
-			});
-			return result.contents;
-		}),
-	).current;
 
 	useEffect(
 		() => () => {
@@ -115,129 +128,61 @@ export function WorkspacesRoute() {
 		[],
 	);
 
-	const loadWorkspaceContents = useCallback(
-		(workspaceId: string): void => {
-			const existingState = workspaceContentsLoader.getState(workspaceId);
-			if (existingState === "loaded" || existingState === "loading") return;
-			const cachedContents = workspaceContentsCache.get(workspaceId);
-			if (cachedContents) {
-				setWorkspaceTabs((current) => {
-					if (current.get(workspaceId) === cachedContents) return current;
-					const next = new Map(current);
-					next.set(workspaceId, cachedContents);
-					return next;
-				});
-				setWorkspaceLoadStates((current) => {
-					if (current.get(workspaceId) === "loaded") return current;
-					const next = new Map(current);
-					next.set(workspaceId, "loaded");
-					return next;
-				});
-				setWorkspaceLoadWarnings((current) => {
-					const warnings = cachedContents.warnings ?? [];
-					if (warnings.length === 0 && !current.has(workspaceId))
-						return current;
-					const next = new Map(current);
-					if (warnings.length > 0) next.set(workspaceId, warnings);
-					else next.delete(workspaceId);
-					return next;
-				});
-			} else {
-				setWorkspaceLoadStates((current) => {
-					const next = new Map(current);
-					next.set(workspaceId, "loading");
-					return next;
-				});
-				setWorkspaceLoadErrors((current) => {
-					if (!current.has(workspaceId)) return current;
-					const next = new Map(current);
-					next.delete(workspaceId);
-					return next;
-				});
-				setWorkspaceLoadWarnings((current) => {
-					if (!current.has(workspaceId)) return current;
-					const next = new Map(current);
-					next.delete(workspaceId);
-					return next;
-				});
-			}
-
-			void workspaceContentsLoader.load(workspaceId).then(
-				(contents) => {
-					if (workspaceContentsCache.activeKey() !== pairingCacheKey) return;
-					workspaceContentsCache.set(workspaceId, contents);
-					if (!mountedRef.current) return;
-					setWorkspaceTabs((current) => {
-						const next = new Map(current);
-						next.set(workspaceId, contents);
-						return next;
-					});
-					setWorkspaceLoadStates((current) => {
-						const next = new Map(current);
-						next.set(workspaceId, "loaded");
-						return next;
-					});
-					setWorkspaceLoadWarnings((current) => {
-						const next = new Map(current);
-						const warnings = contents.warnings ?? [];
-						if (warnings.length > 0) next.set(workspaceId, warnings);
-						else next.delete(workspaceId);
-						return next;
-					});
-				},
-				(caught: unknown) => {
-					if (!mountedRef.current) return;
-					if (workspaceContentsCache.get(workspaceId)) {
-						// Keep the last successful tab list visible while a foreground
-						// refresh retries. A transient relay error must not turn a
-						// rendered workspace back into a blank/error-only panel.
-						setWorkspaceLoadStates((current) => {
-							const next = new Map(current);
-							next.set(workspaceId, "loaded");
-							return next;
-						});
-						return;
-					}
-					const message =
-						caught instanceof Error
-							? caught.message
-							: "Failed to load workspace tabs";
-					setWorkspaceLoadStates((current) => {
-						const next = new Map(current);
-						next.set(workspaceId, "error");
-						return next;
-					});
-					setWorkspaceLoadErrors((current) => {
-						const next = new Map(current);
-						next.set(workspaceId, message);
-						return next;
-					});
-					setWorkspaceLoadWarnings((current) => {
-						if (!current.has(workspaceId)) return current;
-						const next = new Map(current);
-						next.delete(workspaceId);
-						return next;
-					});
-				},
-			);
-		},
-		[workspaceContentsLoader, pairingCacheKey],
-	);
-
 	useEffect(() => {
 		mountedRef.current = true;
+		// A pairing can change without React remounting this route. Replace the
+		// rendered state immediately after activation so the previous Host's
+		// snapshot cannot survive into the next pairing's refresh.
+		setSnapshotPairingKey(pairingCacheKey);
+		const currentCachedPhoneSnapshot =
+			workspaceCatalogCache.get(CATALOG_CACHE_SCOPE);
+		const currentCachedSnapshot = currentCachedPhoneSnapshot?.catalog ?? null;
+		const currentWorkspaceTabs = new Map<string, WorkspaceContents>();
+		if (currentCachedPhoneSnapshot && currentCachedSnapshot) {
+			const aggregateContents = buildPhoneWorkspaceContents({
+				enabled: currentCachedPhoneSnapshot.acp.enabled,
+				sessions: currentCachedPhoneSnapshot.acp.items,
+				workspaceIds: snapshotWorkspaces(currentCachedSnapshot).map(
+					(workspace) => workspace.id,
+				),
+			});
+			for (const workspace of snapshotWorkspaces(currentCachedSnapshot)) {
+				const contents = aggregateContents.get(workspace.id);
+				if (contents) currentWorkspaceTabs.set(workspace.id, contents);
+			}
+		}
+		setSnapshot(currentCachedSnapshot);
+		setWorkspaceTabs(currentWorkspaceTabs);
+		setHasRefreshed(false);
 		if (pairingCacheKey === null) return;
 		const refresher = createWorkspaceCatalogRefresher(
-			() => getTrpc().workspaceCatalog.snapshot.query(),
+			() => getTrpc().workspaceCatalog.phoneSnapshot.query(),
 			{
-				onSnapshot: (nextSnapshot) => {
-					if (!mountedRef.current) return;
-					workspaceCatalogCache.set(CATALOG_CACHE_SCOPE, nextSnapshot);
+				onSnapshot: (nextPhoneSnapshot) => {
+					if (
+						!mountedRef.current ||
+						workspaceCatalogCache.activeKey() !== pairingCacheKey
+					)
+						return;
+					const nextPhoneSnapshotCacheValue =
+						toPhoneSnapshotCacheValue(nextPhoneSnapshot);
+					const nextSnapshot = nextPhoneSnapshotCacheValue.catalog;
+					const nextWorkspaceIds = snapshotWorkspaces(nextSnapshot).map(
+						(workspace) => workspace.id,
+					);
+					const nextWorkspaceTabs = buildPhoneWorkspaceContents({
+						enabled: nextPhoneSnapshotCacheValue.acp.enabled,
+						sessions: nextPhoneSnapshotCacheValue.acp.items,
+						workspaceIds: nextWorkspaceIds,
+					});
+					workspaceCatalogCache.set(
+						CATALOG_CACHE_SCOPE,
+						nextPhoneSnapshotCacheValue,
+					);
 					setSnapshot(nextSnapshot);
+					setWorkspaceTabs(nextWorkspaceTabs);
+					setHasRefreshed(true);
 					setError(null);
-					for (const workspace of snapshotWorkspaces(nextSnapshot)) {
-						loadWorkspaceContents(workspace.id);
-					}
 				},
 				onError: (caught) => {
 					if (!mountedRef.current) return;
@@ -260,42 +205,42 @@ export function WorkspacesRoute() {
 			},
 		);
 		refresher.start();
-		if (initialCachedSnapshotRef.current) {
-			for (const workspace of snapshotWorkspaces(
-				initialCachedSnapshotRef.current,
-			)) {
-				loadWorkspaceContents(workspace.id);
-			}
-		}
 		void refresher.refresh();
 		return () => refresher.stop();
-	}, [navigate, loadWorkspaceContents, pairingCacheKey]);
+	}, [navigate, pairingCacheKey]);
 
+	const snapshotForRender =
+		snapshotPairingKey === pairingCacheKey ? snapshot : cachedSnapshot;
+	const workspaceTabsForRender =
+		snapshotPairingKey === pairingCacheKey
+			? workspaceTabs
+			: initialWorkspaceTabs;
 	const projects = useMemo(
 		() =>
-			snapshot
+			snapshotForRender
 				? buildProjectTree({
-						projects: snapshotProjects(snapshot),
-						workspaces: snapshotWorkspaces(snapshot),
-						contentsByWorkspaceId: workspaceTabs,
+						projects: snapshotProjects(snapshotForRender),
+						workspaces: snapshotWorkspaces(snapshotForRender),
+						contentsByWorkspaceId: workspaceTabsForRender,
 						agentLabel,
 					})
 				: [],
-		[snapshot, workspaceTabs],
+		[snapshotForRender, workspaceTabsForRender],
 	);
 	const conversations = useMemo(
 		() => buildConversationList(projects),
 		[projects],
 	);
-	const workspaceIds = snapshot
-		? snapshotWorkspaces(snapshot).map((workspace) => workspace.id)
-		: [];
-	const conversationsLoading =
-		snapshot === null ||
-		workspaceIds.some((workspaceId) => {
-			const state = workspaceLoadStates.get(workspaceId) ?? "idle";
-			return state === "idle" || state === "loading";
-		});
+	const conversationsLoading = snapshotForRender === null;
+	const connected =
+		snapshotPairingKey === pairingCacheKey &&
+		hasRefreshed &&
+		snapshotForRender !== null;
+	const connectionLabel = connected
+		? "Connected"
+		: cachedPhoneSnapshot
+			? "Cached · Connecting…"
+			: "Connecting…";
 
 	return (
 		<main className="mobile-projects-page">
@@ -304,17 +249,15 @@ export function WorkspacesRoute() {
 					<h1>Conversations</h1>
 					<p>
 						<span
-							className={`mobile-host-dot ${snapshot ? "is-connected" : ""}`}
+							className={`mobile-host-dot ${connected ? "is-connected" : ""}`}
 						/>
-						{session?.hostName ?? "Host"} ·{" "}
-						{snapshot ? "Connected" : "Connecting…"}
+						{session?.hostName ?? "Host"} · {connectionLabel}
 					</p>
 				</div>
 				<button
 					type="button"
 					onClick={() => {
 						workspaceCatalogCache.clear();
-						workspaceContentsCache.clear();
 						clearStoredSession();
 						resetTrpc();
 						if (isAutoMateWebAppPath(location.pathname)) {
@@ -336,8 +279,8 @@ export function WorkspacesRoute() {
 				<ConversationList
 					conversations={conversations}
 					loading={conversationsLoading}
-					loadErrorCount={workspaceLoadErrors.size}
-					loadWarningCount={workspaceLoadWarnings.size}
+					loadErrorCount={0}
+					loadWarningCount={0}
 				/>
 			</section>
 		</main>

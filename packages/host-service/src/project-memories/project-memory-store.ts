@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import type { HostDb } from "../db";
 import {
 	type ProjectMemoryCategory,
@@ -19,7 +19,7 @@ export const PROJECT_MEMORY_CATEGORIES = [
 export type ProjectMemory = typeof projectMemories.$inferSelect;
 
 export interface CreateProjectMemoryInput {
-	projectId: string;
+	projectId: string | null;
 	title: string;
 	content: string;
 	category: ProjectMemoryCategory;
@@ -49,17 +49,23 @@ export function resolveProjectIdForWorkspace(
 	);
 }
 
+function projectMemoryScopeCondition(projectId: string | null) {
+	return projectId === null
+		? isNull(projectMemories.projectId)
+		: eq(projectMemories.projectId, projectId);
+}
+
 export function listProjectMemories(
 	db: HostDb,
 	input: {
-		projectId: string;
+		projectId: string | null;
 		query?: string;
 		includeDisabled?: boolean;
 		limit?: number;
 	},
 ): ProjectMemory[] {
 	const query = input.query?.trim();
-	const filters = [eq(projectMemories.projectId, input.projectId)];
+	const filters = [projectMemoryScopeCondition(input.projectId)];
 	if (!input.includeDisabled) filters.push(eq(projectMemories.enabled, true));
 	if (query) {
 		filters.push(
@@ -90,7 +96,7 @@ export function createProjectMemory(
 		.from(projectMemories)
 		.where(
 			and(
-				eq(projectMemories.projectId, input.projectId),
+				projectMemoryScopeCondition(input.projectId),
 				eq(projectMemories.title, title),
 				eq(projectMemories.content, content),
 			),
@@ -119,7 +125,7 @@ export function createProjectMemory(
 
 export function updateProjectMemory(
 	db: HostDb,
-	projectId: string,
+	projectId: string | null,
 	memoryId: string,
 	input: UpdateProjectMemoryInput,
 ): ProjectMemory | null {
@@ -136,7 +142,7 @@ export function updateProjectMemory(
 		.where(
 			and(
 				eq(projectMemories.id, memoryId),
-				eq(projectMemories.projectId, projectId),
+				projectMemoryScopeCondition(projectId),
 			),
 		)
 		.run();
@@ -147,7 +153,7 @@ export function updateProjectMemory(
 			.where(
 				and(
 					eq(projectMemories.id, memoryId),
-					eq(projectMemories.projectId, projectId),
+					projectMemoryScopeCondition(projectId),
 				),
 			)
 			.get() ?? null
@@ -156,7 +162,7 @@ export function updateProjectMemory(
 
 export function deleteProjectMemory(
 	db: HostDb,
-	projectId: string,
+	projectId: string | null,
 	memoryId: string,
 ): boolean {
 	return (
@@ -165,7 +171,7 @@ export function deleteProjectMemory(
 			.where(
 				and(
 					eq(projectMemories.id, memoryId),
-					eq(projectMemories.projectId, projectId),
+					projectMemoryScopeCondition(projectId),
 				),
 			)
 			.run().changes > 0

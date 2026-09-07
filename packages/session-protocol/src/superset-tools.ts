@@ -19,6 +19,38 @@ const getSessionStatusArgsSchema = z
 	.object({ sessionId: sessionIdSchema })
 	.strict();
 const openSessionArgsSchema = z.object({ sessionId: sessionIdSchema }).strict();
+const terminalIdSchema = z.string().trim().min(1).max(256);
+const createTerminalArgsSchema = z
+	.object({
+		cwd: z.string().trim().min(1).max(2_000).optional(),
+		initialCommand: z.string().min(1).max(100_000).optional(),
+		title: z.string().trim().min(1).max(200).optional(),
+		focus: z.boolean().default(true),
+		cols: z.number().int().min(20).max(1_000).optional(),
+		rows: z.number().int().min(5).max(1_000).optional(),
+	})
+	.strict();
+const terminalTargetArgsSchema = z
+	.object({ terminalId: terminalIdSchema })
+	.strict();
+const writeTerminalArgsSchema = z
+	.object({
+		terminalId: terminalIdSchema,
+		data: z.string().min(1).max(100_000),
+	})
+	.strict();
+const readTerminalArgsSchema = z
+	.object({
+		terminalId: terminalIdSchema,
+		cursor: z.number().int().nonnegative().optional(),
+		maxBytes: z
+			.number()
+			.int()
+			.min(1)
+			.max(64 * 1024)
+			.default(16 * 1024),
+	})
+	.strict();
 const getSessionMessagesArgsSchema = z
 	.object({
 		sessionId: sessionIdSchema,
@@ -37,6 +69,22 @@ const sendMessageArgsSchema = z
 	.object({
 		sessionId: sessionIdSchema,
 		message: messageSchema,
+	})
+	.strict();
+const discussionParticipantSchema = z
+	.object({
+		agent: supersetAgentSchema,
+		model: z.string().trim().min(1).max(256).optional(),
+		label: z.string().trim().min(1).max(100).optional(),
+	})
+	.strict();
+const discussArgsSchema = z
+	.object({
+		topic: messageSchema,
+		participants: z
+			.array(discussionParticipantSchema)
+			.length(2, "exactly two participants are required"),
+		maxRounds: z.number().int().min(1).max(3).default(2),
 	})
 	.strict();
 const targetWorkspaceIdSchema = z.string().trim().min(1).max(256);
@@ -149,24 +197,66 @@ export const projectMemoryCategorySchema = z.enum([
 	"preference",
 	"other",
 ]);
+const projectMemoryScopeSchema = z.enum(["project", "global"]);
+const projectMemorySearchScopeSchema = z.enum(["project", "global", "all"]);
 const rememberProjectMemoryArgsSchema = z
 	.object({
 		title: z.string().trim().min(1).max(200),
 		content: z.string().trim().min(1).max(20_000),
 		category: projectMemoryCategorySchema.default("other"),
 		pinned: z.boolean().default(false),
+		scope: projectMemoryScopeSchema.default("project"),
 	})
 	.strict();
 const searchProjectMemoriesArgsSchema = z
 	.object({
 		query: z.string().trim().max(500).default(""),
 		limit: z.number().int().min(1).max(50).default(10),
+		scope: projectMemorySearchScopeSchema.default("all"),
 	})
 	.strict();
 const setProjectRunCommandArgsSchema = z
 	.object({
 		commands: z.array(z.string().trim().min(1).max(10_000)).min(1).max(20),
 	})
+	.strict();
+const globalMcpServerArgsSchema = z
+	.object({
+		name: z
+			.string()
+			.trim()
+			.min(1)
+			.max(64)
+			.regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
+		command: z
+			.string()
+			.trim()
+			.min(1)
+			.max(2_000)
+			.refine((value) => !value.includes("\0")),
+		args: z
+			.array(
+				z
+					.string()
+					.max(10_000)
+					.refine((value) => !value.includes("\0")),
+			)
+			.max(100)
+			.default([]),
+		env: z
+			.record(
+				z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+				z
+					.string()
+					.max(100_000)
+					.refine((value) => !value.includes("\0")),
+			)
+			.default({}),
+		enabled: z.boolean().default(true),
+	})
+	.strict();
+const removeGlobalMcpServerArgsSchema = z
+	.object({ name: z.string().trim().min(1).max(64) })
 	.strict();
 const updatePlanArgsSchema = z
 	.object({
@@ -259,6 +349,31 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
+		name: z.literal("create_terminal"),
+		arguments: createTerminalArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("write_terminal"),
+		arguments: writeTerminalArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("read_terminal"),
+		arguments: readTerminalArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("get_terminal_status"),
+		arguments: terminalTargetArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("close_terminal"),
+		arguments: terminalTargetArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
 		name: z.literal("get_session_messages"),
 		arguments: getSessionMessagesArgsSchema,
 	}),
@@ -266,6 +381,16 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 		sourceSessionId: sessionIdSchema,
 		name: z.literal("send_message"),
 		arguments: sendMessageArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("steer_session"),
+		arguments: sendMessageArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("discuss"),
+		arguments: discussArgsSchema,
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
@@ -309,6 +434,21 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
+		name: z.literal("list_global_mcp_servers"),
+		arguments: z.object({}).strict(),
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("upsert_global_mcp_server"),
+		arguments: globalMcpServerArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("remove_global_mcp_server"),
+		arguments: removeGlobalMcpServerArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
 		name: z.literal("update_plan"),
 		arguments: updatePlanArgsSchema,
 	}),
@@ -335,9 +475,12 @@ export type DelegationResult = z.infer<typeof delegationResultSchema>;
 /** Persisted role of an ACP session in Superset's coordinator boundary. */
 export const SUPERSET_ROOT_COORDINATOR_ROLE = "root-coordinator" as const;
 export const SUPERSET_DELEGATED_EXECUTOR_ROLE = "delegated-executor" as const;
+export const SUPERSET_DISCUSSION_PARTICIPANT_ROLE =
+	"discussion-participant" as const;
 export type SupersetSessionRole =
 	| typeof SUPERSET_ROOT_COORDINATOR_ROLE
-	| typeof SUPERSET_DELEGATED_EXECUTOR_ROLE;
+	| typeof SUPERSET_DELEGATED_EXECUTOR_ROLE
+	| typeof SUPERSET_DISCUSSION_PARTICIPANT_ROLE;
 
 /**
  * Model-facing guidance for Superset's user-visible execution plan.
@@ -352,18 +495,45 @@ export const SUPERSET_PLAN_INSTRUCTIONS =
 export interface ProjectMemoryInstructionItem {
 	title: string;
 	category: string;
+	scope?: "project" | "global";
 }
 
 export function formatProjectMemoryInstructions(
 	memories: readonly ProjectMemoryInstructionItem[],
 ): string {
 	const prelude =
-		"Project memory is shared across conversations and worktrees. When the user asks you to remember or record something, call `remember_project_memory`. Also record durable, verified knowledge that would prevent future repeated investigation, such as non-obvious debugging chains, stable architecture constraints, environment setup, and recurring workflows. Do not record temporary task progress, readily discoverable code facts, unverified guesses, credentials, tokens, cookies, secrets, transient ports, or process IDs. The automatically injected list is only a compact title index; call `search_project_memories` to retrieve full details before relying on a relevant memory, repeating expensive investigation, or creating a likely duplicate.";
+		"Memory is shared across conversations and worktrees. Project memory applies to the current project, while global memory applies across every project on this host. When the user asks you to remember or record something, call `remember_project_memory`; use global scope only for knowledge that genuinely applies across projects. Also record durable, verified knowledge that would prevent future repeated investigation, such as non-obvious debugging chains, stable architecture constraints, environment setup, and recurring workflows. Do not record temporary task progress, readily discoverable code facts, unverified guesses, credentials, tokens, cookies, secrets, transient ports, or process IDs. The automatically injected lists are compact title indexes; call `search_project_memories` to retrieve full details before relying on a relevant memory, repeating expensive investigation, or creating a likely duplicate. Project memory takes precedence over global memory with the same title.";
 	if (memories.length === 0) return prelude;
-	const rendered = memories.map(
-		(memory) => `- ${memory.title} (${memory.category})`,
+
+	const projectMemories = memories.filter(
+		(memory) => memory.scope !== "global",
 	);
-	return `${prelude}\n\nProject memory index:\n${rendered.join("\n")}`;
+	const projectTitles = new Set(
+		projectMemories.map((memory) => memory.title.trim().toLocaleLowerCase()),
+	);
+	const globalMemories = memories.filter(
+		(memory) =>
+			memory.scope === "global" &&
+			!projectTitles.has(memory.title.trim().toLocaleLowerCase()),
+	);
+	const sections: string[] = [];
+	if (projectMemories.length > 0) {
+		sections.push(
+			`Project memory index:\n${projectMemories
+				.map((memory) => `- ${memory.title} (${memory.category})`)
+				.join("\n")}`,
+		);
+	}
+	if (globalMemories.length > 0) {
+		sections.push(
+			`Global memory index:\n${globalMemories
+				.map((memory) => `- ${memory.title} (${memory.category})`)
+				.join("\n")}`,
+		);
+	}
+	return sections.length > 0
+		? `${prelude}\n\n${sections.join("\n\n")}`
+		: prelude;
 }
 
 /** Compose non-empty model-facing instruction sections without extra spacing. */
@@ -428,6 +598,9 @@ export const SUPERSET_DELEGATION_INSTRUCTIONS =
  */
 export const SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS =
 	"You are a delegated executor Agent running inside a Superset child session. Directly execute the current delegated task in the workspace, including inspecting files, making the requested changes, and running the relevant validation. You receive only a finite context snapshot relevant to this task; verify decision-critical facts in the workspace and do not infer or require context from sibling tasks. Do not use any delegation or subagent mechanism: do not call Superset `delegate`, and do not use provider-native tools such as Codex `spawn_agent` or Claude `Task`. Perform the work yourself and do not hand it back for further delegation. Before finishing, call Superset `report_delegation_result` with the provided delegationRunId and a concise structured summary of work, changed files, validation, and notes.";
+
+export const SUPERSET_DISCUSSION_PARTICIPANT_INSTRUCTIONS =
+	"You are an equal participant in a Superset peer discussion. Respond directly to the discussion prompt. Do not delegate, start another discussion, contact other sessions, modify files, or call tools unless the prompt explicitly requires factual inspection. The host coordinates turns and delivers the other participant's position.";
 
 /** JSON Schemas advertised by the bundled Superset MCP server. */
 export const SUPERSET_TOOL_DEFINITIONS = [
@@ -553,6 +726,52 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 				message: { type: "string", minLength: 1, maxLength: 100_000 },
 			},
 			required: ["sessionId", "message"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "steer_session",
+		description:
+			"Send non-interrupting guidance into another running ACP session in the current workspace. The target agent incorporates it into the active turn; this does not cancel the turn or append a follow-up.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				sessionId: { type: "string", minLength: 1, maxLength: 256 },
+				message: { type: "string", minLength: 1, maxLength: 100_000 },
+			},
+			required: ["sessionId", "message"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "discuss",
+		description:
+			"Start a bounded discussion between exactly two specified peer agents and wait for its result. Superset presents one shared discussion in the right sidebar; the participant sessions are hidden implementation details. Both peers receive the same topic, exchange positions between rounds, and have equal status.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				topic: { type: "string", minLength: 1, maxLength: 100_000 },
+				participants: {
+					type: "array",
+					minItems: 2,
+					maxItems: 2,
+					items: {
+						type: "object",
+						properties: {
+							agent: {
+								type: "string",
+								enum: ["claude", "codex", "pi", "myflicker", "deepseek"],
+							},
+							model: { type: "string", minLength: 1, maxLength: 256 },
+							label: { type: "string", minLength: 1, maxLength: 100 },
+						},
+						required: ["agent"],
+						additionalProperties: false,
+					},
+				},
+				maxRounds: { type: "integer", minimum: 1, maximum: 3, default: 2 },
+			},
+			required: ["topic", "participants"],
 			additionalProperties: false,
 		},
 	},
@@ -691,9 +910,135 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 		},
 	},
 	{
+		name: "create_terminal",
+		description:
+			"Create a Superset internal terminal in the current workspace using the user's default shell. The terminal is visible in the app and can be taken over by the user. Use cwd relative to the workspace or an existing absolute path. Set focus=false to avoid changing the active pane.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				cwd: { type: "string", minLength: 1, maxLength: 2_000 },
+				initialCommand: { type: "string", minLength: 1, maxLength: 100_000 },
+				title: { type: "string", minLength: 1, maxLength: 200 },
+				focus: { type: "boolean", default: true },
+				cols: { type: "integer", minimum: 20, maximum: 1_000 },
+				rows: { type: "integer", minimum: 5, maximum: 1_000 },
+			},
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "write_terminal",
+		description:
+			"Write text or control characters to a Superset internal terminal owned by the current workspace. Include a trailing newline (for example \\n) when submitting a shell command.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				terminalId: { type: "string", minLength: 1, maxLength: 256 },
+				data: { type: "string", minLength: 1, maxLength: 100_000 },
+			},
+			required: ["terminalId", "data"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "read_terminal",
+		description:
+			"Read bounded incremental output from a Superset internal terminal. Omit cursor for the retained output snapshot, then pass nextCursor to subsequent calls. Output may be truncated when the terminal's bounded history has advanced.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				terminalId: { type: "string", minLength: 1, maxLength: 256 },
+				cursor: { type: "integer", minimum: 0 },
+				maxBytes: {
+					type: "integer",
+					minimum: 1,
+					maximum: 65_536,
+					default: 16_384,
+				},
+			},
+			required: ["terminalId"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "get_terminal_status",
+		description:
+			"Get ownership, liveness, exit, title, and attachment status for a Superset internal terminal in the current workspace.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				terminalId: { type: "string", minLength: 1, maxLength: 256 },
+			},
+			required: ["terminalId"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "close_terminal",
+		description:
+			"Close a Superset internal terminal owned by the current workspace and terminate its PTY process.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				terminalId: { type: "string", minLength: 1, maxLength: 256 },
+			},
+			required: ["terminalId"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "list_global_mcp_servers",
+		description:
+			"List app-global MCP servers configured for this Superset host. These servers are supplied to every Agent on the next new or resumed session.",
+		inputSchema: {
+			type: "object",
+			properties: {},
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "upsert_global_mcp_server",
+		description:
+			"Add or update one app-global stdio MCP server by name. The configuration applies to every Agent on its next new or resumed session. Never store credentials unless the user explicitly asks; prefer environment-variable references supported by the command.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				name: { type: "string", minLength: 1, maxLength: 64 },
+				command: { type: "string", minLength: 1, maxLength: 2_000 },
+				args: {
+					type: "array",
+					items: { type: "string", maxLength: 10_000 },
+					maxItems: 100,
+					default: [],
+				},
+				env: {
+					type: "object",
+					additionalProperties: { type: "string", maxLength: 100_000 },
+					default: {},
+				},
+				enabled: { type: "boolean", default: true },
+			},
+			required: ["name", "command"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "remove_global_mcp_server",
+		description:
+			"Remove an app-global MCP server by name. Existing live sessions are unaffected; new or resumed sessions use the updated list.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				name: { type: "string", minLength: 1, maxLength: 64 },
+			},
+			required: ["name"],
+			additionalProperties: false,
+		},
+	},
+	{
 		name: "remember_project_memory",
 		description:
-			"Store durable, verified knowledge for the current project so future conversations and worktrees can reuse it. Use when the user asks to remember/record something or after discovering a non-obvious reusable debugging chain, constraint, environment fact, or workflow. Never store secrets or temporary task progress.",
+			"Store durable, verified knowledge for future conversations and worktrees. Project scope (the default) applies to the current project; global scope applies across every project on this host and should only be used for genuinely cross-project knowledge. Use when the user asks to remember/record something or after discovering a non-obvious reusable debugging chain, constraint, environment fact, or workflow. Never store secrets or temporary task progress.",
 		inputSchema: {
 			type: "object",
 			properties: {
@@ -712,6 +1057,11 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 					default: "other",
 				},
 				pinned: { type: "boolean", default: false },
+				scope: {
+					type: "string",
+					enum: ["project", "global"],
+					default: "project",
+				},
 			},
 			required: ["title", "content"],
 			additionalProperties: false,
@@ -720,12 +1070,17 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "search_project_memories",
 		description:
-			"Search enabled memory for the current project before repeating expensive investigation. An empty query returns the highest-priority recent memories.",
+			"Search enabled project and global memory before repeating expensive investigation. The default searches both scopes with project results first; select a scope to search only project or global memory. An empty query returns the highest-priority recent memories.",
 		inputSchema: {
 			type: "object",
 			properties: {
 				query: { type: "string", maxLength: 500, default: "" },
 				limit: { type: "integer", minimum: 1, maximum: 50, default: 10 },
+				scope: {
+					type: "string",
+					enum: ["project", "global", "all"],
+					default: "all",
+				},
 			},
 			additionalProperties: false,
 		},

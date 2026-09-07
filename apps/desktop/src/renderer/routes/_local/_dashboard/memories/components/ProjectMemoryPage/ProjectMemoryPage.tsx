@@ -31,8 +31,17 @@ import {
 	type ProjectMemoryRecord,
 } from "./types";
 
-function projectMemoryQueryKey(hostUrl: string | null, projectId: string) {
-	return ["project-memories", hostUrl, projectId] as const;
+const GLOBAL_MEMORY_QUERY_SCOPE = "global";
+
+function projectMemoryQueryKey(
+	hostUrl: string | null,
+	projectId: string | null,
+) {
+	return [
+		"project-memories",
+		hostUrl,
+		projectId ?? GLOBAL_MEMORY_QUERY_SCOPE,
+	] as const;
 }
 
 export function ProjectMemoryPage() {
@@ -51,31 +60,37 @@ export function ProjectMemoryPage() {
 	const [editor, setEditor] = useState<ProjectMemoryEditorValue | null>(null);
 	const [pendingDelete, setPendingDelete] =
 		useState<ProjectMemoryRecord | null>(null);
-	const activeProjectId = availableProjects.some(
-		(project) => project.id === selectedProjectId,
-	)
-		? selectedProjectId
-		: (availableProjects[0]?.id ?? null);
+	const activeProjectId =
+		selectedProjectId === null ||
+		availableProjects.some((project) => project.id === selectedProjectId)
+			? selectedProjectId
+			: null;
+	const memoryScopes = [
+		{ projectId: null },
+		...availableProjects.map((project) => ({ projectId: project.id })),
+	];
 	const memoryQueries = useQueries({
-		queries: availableProjects.map((project) => ({
-			queryKey: projectMemoryQueryKey(hostUrl, project.id),
+		queries: memoryScopes.map(({ projectId }) => ({
+			queryKey: projectMemoryQueryKey(hostUrl, projectId),
 			enabled: hostUrl !== null,
 			queryFn: async () => {
 				if (!hostUrl) return [];
 				return getHostServiceClientByUrl(hostUrl).project.listMemories.query({
-					projectId: project.id,
+					projectId,
 					includeDisabled: true,
 					limit: 500,
 				});
 			},
 		})),
 	});
+	const globalMemories = (memoryQueries[0]?.data ??
+		[]) as ProjectMemoryRecord[];
 	const memoryCountByProject = useMemo(
 		() =>
 			new Map(
 				availableProjects.map((project, index) => [
 					project.id,
-					memoryQueries[index]?.data?.filter((memory) => memory.enabled)
+					memoryQueries[index + 1]?.data?.filter((memory) => memory.enabled)
 						.length ?? 0,
 				]),
 			),
@@ -85,21 +100,24 @@ export function ProjectMemoryPage() {
 		(project) => project.id === activeProjectId,
 	);
 	const activeProject = availableProjects[activeProjectIndex] ?? null;
-	const memories = (memoryQueries[activeProjectIndex]?.data ??
-		[]) as ProjectMemoryRecord[];
+	const isGlobal = activeProjectId === null;
+	const memories = isGlobal
+		? globalMemories
+		: ((memoryQueries[activeProjectIndex + 1]?.data ??
+				[]) as ProjectMemoryRecord[]);
 	const visibleMemories = useMemo(
 		() => filterProjectMemories(memories, searchQuery, filter),
 		[filter, memories, searchQuery],
 	);
+	const scopeLabel = isGlobal ? "全局记忆" : "项目记忆";
 
-	const invalidateProject = (projectId: string) =>
+	const invalidateScope = (projectId: string | null) =>
 		queryClient.invalidateQueries({
 			queryKey: projectMemoryQueryKey(hostUrl, projectId),
 		});
 	const createMemory = useMutation({
 		mutationFn: async (value: ProjectMemoryEditorValue) => {
-			if (!hostUrl || !activeProjectId)
-				throw new Error("Project host is unavailable");
+			if (!hostUrl) throw new Error("Host service is unavailable");
 			return getHostServiceClientByUrl(hostUrl).project.createMemory.mutate({
 				projectId: activeProjectId,
 				title: value.title,
@@ -109,11 +127,11 @@ export function ProjectMemoryPage() {
 			});
 		},
 		onSuccess: () => {
-			if (activeProjectId) void invalidateProject(activeProjectId);
+			void invalidateScope(activeProjectId);
 			setEditor(null);
-			toast.success("已添加项目记忆");
+			toast.success(`已添加${scopeLabel}`);
 		},
-		onError: (error) => toast.error(`无法添加项目记忆：${error.message}`),
+		onError: (error) => toast.error(`无法添加${scopeLabel}：${error.message}`),
 	});
 	const updateMemory = useMutation({
 		mutationFn: async ({
@@ -128,8 +146,7 @@ export function ProjectMemoryPage() {
 				>
 			>;
 		}) => {
-			if (!hostUrl || !activeProjectId)
-				throw new Error("Project host is unavailable");
+			if (!hostUrl) throw new Error("Host service is unavailable");
 			return getHostServiceClientByUrl(hostUrl).project.updateMemory.mutate({
 				projectId: activeProjectId,
 				memoryId,
@@ -137,26 +154,25 @@ export function ProjectMemoryPage() {
 			});
 		},
 		onSuccess: () => {
-			if (activeProjectId) void invalidateProject(activeProjectId);
+			void invalidateScope(activeProjectId);
 			setEditor(null);
 		},
-		onError: (error) => toast.error(`无法更新项目记忆：${error.message}`),
+		onError: (error) => toast.error(`无法更新${scopeLabel}：${error.message}`),
 	});
 	const deleteMemory = useMutation({
 		mutationFn: async (memoryId: string) => {
-			if (!hostUrl || !activeProjectId)
-				throw new Error("Project host is unavailable");
+			if (!hostUrl) throw new Error("Host service is unavailable");
 			return getHostServiceClientByUrl(hostUrl).project.deleteMemory.mutate({
 				projectId: activeProjectId,
 				memoryId,
 			});
 		},
 		onSuccess: () => {
-			if (activeProjectId) void invalidateProject(activeProjectId);
+			void invalidateScope(activeProjectId);
 			setPendingDelete(null);
-			toast.success("已删除项目记忆");
+			toast.success(`已删除${scopeLabel}`);
 		},
-		onError: (error) => toast.error(`无法删除项目记忆：${error.message}`),
+		onError: (error) => toast.error(`无法删除${scopeLabel}：${error.message}`),
 	});
 
 	const openEditor = (memory?: ProjectMemoryRecord) => {
@@ -188,26 +204,12 @@ export function ProjectMemoryPage() {
 		}
 		createMemory.mutate(editor);
 	};
-	const selectProject = (projectId: string) => {
+	const selectProject = (projectId: string | null) => {
 		setSelectedProjectId(projectId);
 		setSearchQuery("");
 		setFilter("all");
 		setEditor(null);
 	};
-
-	if (availableProjects.length === 0) {
-		return (
-			<div className="flex h-full flex-col items-center justify-center gap-3 bg-background text-center">
-				<LuBookOpen className="size-8 text-fg-faint" />
-				<div>
-					<h1 className="font-semibold">还没有项目</h1>
-					<p className="mt-1 text-sm text-fg-mute">
-						添加代码仓库后即可使用项目记忆。
-					</p>
-				</div>
-			</div>
-		);
-	}
 
 	return (
 		<div className="flex h-full min-h-0 w-full bg-background">
@@ -219,11 +221,15 @@ export function ProjectMemoryPage() {
 				}))}
 				selectedProjectId={activeProjectId}
 				memoryCountByProject={memoryCountByProject}
+				globalMemoryCount={
+					globalMemories.filter((memory) => memory.enabled).length
+				}
 				onSelectProject={selectProject}
 			/>
 			<main className="flex min-h-0 min-w-0 flex-1 flex-col">
 				<ProjectMemoryToolbar
-					projectName={activeProject?.name ?? ""}
+					projectName={isGlobal ? "全局记忆" : (activeProject?.name ?? "")}
+					isGlobal={isGlobal}
 					count={memories.length}
 					query={searchQuery}
 					filter={filter}
@@ -237,6 +243,7 @@ export function ProjectMemoryPage() {
 							<ProjectMemoryEditor
 								value={editor}
 								isSaving={createMemory.isPending}
+								isGlobal={isGlobal}
 								onChange={setEditor}
 								onCancel={() => setEditor(null)}
 								onSave={saveEditor}
@@ -247,9 +254,11 @@ export function ProjectMemoryPage() {
 						<div className="flex min-h-80 flex-col items-center justify-center gap-3 text-center">
 							<LuBookOpen className="size-7 text-fg-faint" />
 							<div>
-								<h2 className="text-sm font-medium">没有匹配的项目记忆</h2>
+								<h2 className="text-sm font-medium">没有匹配的{scopeLabel}</h2>
 								<p className="mt-1 text-xs text-fg-mute">
-									你也可以直接告诉 Agent“把这个记住”。
+									{isGlobal
+										? "你也可以告诉 Agent 将跨项目知识记为全局记忆。"
+										: "你也可以直接告诉 Agent“把这个记住”。"}
 								</p>
 							</div>
 							<Button
@@ -286,6 +295,7 @@ export function ProjectMemoryPage() {
 										<ProjectMemoryEditor
 											value={editor}
 											isSaving={updateMemory.isPending}
+											isGlobal={isGlobal}
 											onChange={setEditor}
 											onCancel={() => setEditor(null)}
 											onSave={saveEditor}
@@ -303,7 +313,7 @@ export function ProjectMemoryPage() {
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>删除项目记忆？</AlertDialogTitle>
+						<AlertDialogTitle>删除{scopeLabel}？</AlertDialogTitle>
 						<AlertDialogDescription>
 							“{pendingDelete?.title}”将不再提供给后续 Agent 对话。
 						</AlertDialogDescription>

@@ -64,14 +64,20 @@ mock.module(
 	}),
 );
 
-mock.module("renderer/lib/acp-session-client", () => ({
-	createDesktopAcpSessionClient: () => ({
-		list: async () => ({
-			items: [session],
-			nextCursor: null,
-			enabled: true,
-		}),
+const listSessions = mock(
+	async (_input: {
+		cursor?: string;
+		excludeEmpty?: boolean;
+		limit?: number;
+	}) => ({
+		items: [session],
+		nextCursor: null,
+		enabled: true,
 	}),
+);
+
+mock.module("renderer/lib/acp-session-client", () => ({
+	createDesktopAcpSessionClient: () => ({ list: listSessions }),
 }));
 
 mock.module(
@@ -105,10 +111,22 @@ describe("ConversationSearchDialog", () => {
 	beforeEach(() => {
 		onOpenChange.mockClear();
 		navigateToWorkspace.mockClear();
+		listSessions.mockClear();
 		resolveNavigation = null;
 	});
 
 	afterEach(() => cleanup());
+
+	test("excludes empty conversations from search results", async () => {
+		render(<ConversationSearchDialog open onOpenChange={onOpenChange} />);
+		await screen.findByText("Previous conversation");
+
+		expect(listSessions).toHaveBeenCalledWith({
+			cursor: undefined,
+			excludeEmpty: true,
+			limit: 200,
+		});
+	});
 
 	test("keeps the dialog open until the selected conversation navigation completes", async () => {
 		render(<ConversationSearchDialog open onOpenChange={onOpenChange} />);

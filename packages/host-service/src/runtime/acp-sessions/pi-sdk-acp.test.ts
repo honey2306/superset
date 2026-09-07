@@ -11,6 +11,8 @@ import { join } from "node:path";
 import { ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
 import {
 	acpUsage,
+	compactionLifecycleText,
+	contextUsageUpdate,
 	extensionUiCustomResponse,
 	extensionUiPermissionOptions,
 	extractSystemInstructions,
@@ -74,6 +76,44 @@ describe("Pi SDK ACP mappings", () => {
 			allowModelNetwork: false,
 			refreshOnCreate: true,
 		});
+	});
+
+	test("maps context usage before and after the first model response", () => {
+		expect(
+			contextUsageUpdate({
+				model: { contextWindow: 200_000 },
+				getContextUsage: () => ({
+					tokens: null,
+					contextWindow: 200_000,
+					percent: null,
+				}),
+			} as never),
+		).toEqual({ sessionUpdate: "usage_update", used: 0, size: 200_000 });
+		expect(
+			contextUsageUpdate({
+				model: { contextWindow: 200_000 },
+				getContextUsage: () => ({
+					tokens: 12_345,
+					contextWindow: 200_000,
+					percent: 6.1725,
+				}),
+			} as never),
+		).toEqual({ sessionUpdate: "usage_update", used: 12_345, size: 200_000 });
+	});
+
+	test("falls back to the selected model context window", () => {
+		expect(
+			contextUsageUpdate({
+				model: { contextWindow: 128_000 },
+				getContextUsage: () => undefined,
+			} as never),
+		).toEqual({ sessionUpdate: "usage_update", used: 0, size: 128_000 });
+		expect(
+			contextUsageUpdate({
+				model: null,
+				getContextUsage: () => undefined,
+			} as never),
+		).toBeNull();
 	});
 
 	test("restores configured providers during runtime creation", async () => {
@@ -250,6 +290,76 @@ lines.on("line", (line) => {
 				rawOutput: result,
 			},
 		});
+	});
+
+	test("maps Pi compaction lifecycle events to visible ACP messages", async () => {
+		const { agent, updates } = testAgent();
+		const runtime = {
+			sessionId: "session-1",
+			assistantMessageId: undefined,
+			session: {
+				model: { contextWindow: 200_000 },
+				getContextUsage: () => ({
+					tokens: 21_000,
+					contextWindow: 200_000,
+					percent: 10.5,
+				}),
+			},
+		};
+		const handleEvent = (
+			event: Parameters<typeof compactionLifecycleText>[0],
+		) =>
+			(
+				agent as unknown as {
+					handleEvent: (runtime: unknown, event: unknown) => Promise<void>;
+				}
+			).handleEvent(runtime, event);
+
+		await handleEvent({ type: "compaction_start", reason: "threshold" });
+		await handleEvent({
+			type: "compaction_end",
+			reason: "threshold",
+			result: undefined,
+			aborted: false,
+			willRetry: false,
+		});
+
+		expect(updates).toEqual([
+			{
+				sessionId: "session-1",
+				update: {
+					sessionUpdate: "agent_message_chunk",
+					content: {
+						type: "text",
+						text: "Context nearing limit, running automatic compaction...",
+					},
+				},
+			},
+			{
+				sessionId: "session-1",
+				update: {
+					sessionUpdate: "agent_message_chunk",
+					content: { type: "text", text: "Context compacted." },
+				},
+			},
+			{
+				sessionId: "session-1",
+				update: { sessionUpdate: "usage_update", used: 21_000, size: 200_000 },
+			},
+		]);
+	});
+
+	test("maps failed Pi compaction lifecycle events", () => {
+		expect(
+			compactionLifecycleText({
+				type: "compaction_end",
+				reason: "overflow",
+				result: undefined,
+				aborted: false,
+				willRetry: false,
+				errorMessage: "summary request failed",
+			}),
+		).toBe("Compaction failed: summary request failed");
 	});
 
 	test("maps Pi assistant usage to ACP cumulative usage", () => {

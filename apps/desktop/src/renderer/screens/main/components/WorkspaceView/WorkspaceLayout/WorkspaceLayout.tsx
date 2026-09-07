@@ -1,8 +1,10 @@
 import type { ExternalApp } from "@superset/shared/desktop-types";
 import {
+	DEFAULT_DISCUSSION_SIDEBAR_WIDTH,
 	DEFAULT_SIDEBAR_WIDTH,
 	MAX_SIDEBAR_WIDTH,
 	MIN_SIDEBAR_WIDTH,
+	RightSidebarTab,
 	SidebarMode,
 	useSidebarStore,
 } from "renderer/stores/sidebar-state";
@@ -32,8 +34,13 @@ export function WorkspaceLayout({
 	const isResizing = useSidebarStore((s) => s.isResizing);
 	const setIsResizing = useSidebarStore((s) => s.setIsResizing);
 	const currentMode = useSidebarStore((s) => s.currentMode);
+	const rightSidebarTab = useSidebarStore((s) => s.rightSidebarTab);
 
 	const isExpanded = supportsChanges && currentMode === SidebarMode.Changes;
+	const defaultSidebarWidth =
+		rightSidebarTab === RightSidebarTab.Discussion
+			? DEFAULT_DISCUSSION_SIDEBAR_WIDTH
+			: DEFAULT_SIDEBAR_WIDTH;
 
 	return (
 		<ScrollProvider>
@@ -61,7 +68,7 @@ export function WorkspaceLayout({
 					maxWidth={MAX_SIDEBAR_WIDTH}
 					handleSide="left"
 					className={isExpanded ? "border-l-0" : undefined}
-					onDoubleClickHandle={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
+					onDoubleClickHandle={() => setSidebarWidth(defaultSidebarWidth)}
 				>
 					<RightSidebar supportsChanges={supportsChanges} />
 				</ResizablePanel>

@@ -16,6 +16,26 @@ async function main(): Promise<void> {
 	});
 
 	const { connection, agent } = runAcp();
+	const steerableAgent = agent as typeof agent & {
+		extMethod?: (
+			method: string,
+			params: Record<string, unknown>,
+		) => Promise<Record<string, unknown>>;
+	};
+	steerableAgent.extMethod = async (method, params) => {
+		if (method !== "sh.superset/session/steer") {
+			throw new Error(`Unsupported extension method: ${method}`);
+		}
+		const sessionId = params.sessionId;
+		const prompt = params.prompt;
+		if (typeof sessionId !== "string" || !Array.isArray(prompt)) {
+			throw new Error("Invalid steer payload");
+		}
+		void agent
+			.prompt({ sessionId, prompt: prompt as never })
+			.catch((error) => console.error("Failed to steer Claude session", error));
+		return { accepted: true };
+	};
 	const shutdown = async () => {
 		await agent.dispose().catch((error) => {
 			console.error("Error during cleanup:", error);

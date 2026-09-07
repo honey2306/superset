@@ -32,3 +32,29 @@ describe("ACP pane vertical rhythm", () => {
 		expect(rule(".acp-pane__body-inner")).toContain("padding: 32px 56px 24px");
 	});
 });
+
+describe("ACP context compaction status", () => {
+	test("renders as a centered floating card instead of shifting the timeline", () => {
+		const wrap = rule(".acp-pane__compaction-wrap");
+		expect(wrap).toContain("position: absolute");
+		expect(wrap).toContain("left: 50%");
+		expect(wrap).toContain("pointer-events: none");
+
+		const card = rule(".acp-pane__compaction-card");
+		expect(card).toContain("backdrop-filter: blur(12px)");
+		expect(card).not.toContain("background: var(--acp-purple-dim)");
+		expect(card).toContain("var(--shadow-2");
+	});
+
+	test("uses restrained progress motion for the active state", () => {
+		expect(rule(".acp-pane__compaction-spinner")).toContain(
+			"animation: acp-compaction-spin",
+		);
+		expect(rule(".acp-pane__compaction-dots i")).toContain(
+			"animation: acp-compaction-dot",
+		);
+		expect(rule(".acp-pane__compaction-card::after")).toContain(
+			"animation: acp-compaction-sweep",
+		);
+	});
+});

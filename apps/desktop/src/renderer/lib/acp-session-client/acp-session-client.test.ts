@@ -174,10 +174,13 @@ describe("createDesktopAcpSessionClient", () => {
 	});
 
 	describe("api.close", () => {
-		test("delegates to acpSessions.close.mutate", async () => {
+		test("delegates conditional empty-session close to acpSessions.close.mutate", async () => {
 			const client = createDesktopAcpSessionClient("http://localhost:3000");
-			await client.api.close({ sessionId: "s-1" });
-			expect(closeMutateMock).toHaveBeenCalledWith({ sessionId: "s-1" });
+			await client.api.close({ sessionId: "s-1", onlyIfEmpty: true });
+			expect(closeMutateMock).toHaveBeenCalledWith({
+				sessionId: "s-1",
+				onlyIfEmpty: true,
+			});
 		});
 	});
 

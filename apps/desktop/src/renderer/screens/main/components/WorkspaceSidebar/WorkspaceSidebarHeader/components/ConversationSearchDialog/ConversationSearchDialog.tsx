@@ -65,7 +65,11 @@ export function ConversationSearchDialog({
 				let enabled = true;
 
 				do {
-					const page = await client.list({ cursor, limit: 200 });
+					const page = await client.list({
+						cursor,
+						excludeEmpty: true,
+						limit: 200,
+					});
 					enabled = page.enabled;
 					items.push(...page.items);
 					cursor = page.nextCursor ?? undefined;

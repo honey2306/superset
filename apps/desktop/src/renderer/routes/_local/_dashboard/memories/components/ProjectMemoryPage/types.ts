@@ -11,7 +11,8 @@ export type ProjectMemoryCategory = (typeof PROJECT_MEMORY_CATEGORIES)[number];
 
 export interface ProjectMemoryRecord {
 	id: string;
-	projectId: string;
+	projectId: string | null;
+	scope?: "project" | "global";
 	title: string;
 	content: string;
 	category: ProjectMemoryCategory;

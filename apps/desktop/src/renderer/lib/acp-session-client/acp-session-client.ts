@@ -19,6 +19,7 @@ export interface DesktopAcpSessionClient {
 		workspaceId?: string;
 		cursor?: string;
 		limit?: number;
+		excludeEmpty?: boolean;
 	}): Promise<SessionsPage>;
 	streamUrl(sessionId: string): () => string;
 	searchFiles?(input: {
@@ -50,6 +51,7 @@ export function createDesktopAcpSessionClient(
 		// the user types while a turn is in flight when these are omitted.
 		enqueuePrompt: (input) => trpc().enqueuePrompt.mutate(input),
 		sendNow: (input) => trpc().sendNow.mutate(input),
+		steerPrompt: (input) => trpc().steerPrompt.mutate(input),
 		removeQueuedPrompt: (input) => trpc().removeQueuedPrompt.mutate(input),
 		reorderQueue: (input) => trpc().reorderQueue.mutate(input),
 		editQueuedPrompt: (input) => trpc().editQueuedPrompt.mutate(input),

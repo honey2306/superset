@@ -72,6 +72,8 @@ async function dispatch(
 				requiredString(request.params, "pageId"),
 			);
 			return manager.getState(sessionId);
+		case "capturePage":
+			return manager.capturePage(sessionId, request.params?.fullPage === true);
 		case "closeSession":
 			await manager.closeSession(sessionId);
 			return null;

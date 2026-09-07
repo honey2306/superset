@@ -175,6 +175,8 @@ export interface SessionScopedState {
 	/** Slash-command catalog; null until the adapter has reported it. */
 	availableCommands: AvailableCommand[] | null;
 	pendingPermissions: PendingPermission[];
+	/** Whether this adapter accepts non-interrupting guidance mid-turn. */
+	canSteer?: boolean;
 	/** Follow-up prompts waiting to be sent when the current turn finishes. */
 	queuedPrompts: QueuedPrompt[];
 	cwd: string;

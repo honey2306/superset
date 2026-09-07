@@ -7,6 +7,7 @@
  */
 
 import type { AppRouter } from "@superset/host-service";
+import type { AcpSessionsApi } from "@superset/session-protocol";
 import {
 	type HostServiceManifest,
 	hostManifestPath,
@@ -17,6 +18,7 @@ import {
 import { createTRPCClient, httpLink } from "@trpc/client";
 import superjson from "superjson";
 import { unavailableError } from "./exit-codes";
+import { hostFetch } from "./request";
 
 export type HostClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 
@@ -96,6 +98,12 @@ export function createHostClient(manifest: HostServiceManifest): HostClient {
 		links: [
 			httpLink({
 				url: `${endpoint}/trpc`,
+				fetch: async (input, init) => {
+					const response = await hostFetch(input, init);
+					// httpLink only consumes JSON. Avoid coupling its stream types
+					// to Bun's different ReadableStream overloads.
+					return { ok: response.ok, json: () => response.json() };
+				},
 				transformer: superjson,
 				headers: () => ({ Authorization: `Bearer ${manifest.authToken}` }),
 			}),
@@ -135,6 +143,30 @@ export async function connectToHost(options?: {
 	}
 
 	return { client, manifest, endpoint };
+}
+
+export function createAcpSessionsApi(
+	connection: HostConnection,
+): AcpSessionsApi {
+	const acp = connection.client.acpSessions;
+	return {
+		get: (input) => acp.get.query(input),
+		getMessages: (input) => acp.getMessages.query(input),
+		getTranscript: (input) => acp.getTranscript.query(input),
+		prompt: (input) => acp.prompt.mutate(input),
+		respondToPermission: (input) => acp.respondToPermission.mutate(input),
+		cancel: (input) => acp.cancel.mutate(input),
+		close: (input) => acp.close.mutate(input),
+		setMode: (input) => acp.setMode.mutate(input),
+		setConfigOption: (input) => acp.setConfigOption.mutate(input),
+		enqueuePrompt: (input) => acp.enqueuePrompt.mutate(input),
+		sendNow: (input) => acp.sendNow.mutate(input),
+		steerPrompt: (input) => acp.steerPrompt.mutate(input),
+		removeQueuedPrompt: (input) => acp.removeQueuedPrompt.mutate(input),
+		reorderQueue: (input) => acp.reorderQueue.mutate(input),
+		editQueuedPrompt: (input) => acp.editQueuedPrompt.mutate(input),
+		clearQueue: (input) => acp.clearQueue.mutate(input),
+	};
 }
 
 /** WebSocket URL for a session's live event stream. */
