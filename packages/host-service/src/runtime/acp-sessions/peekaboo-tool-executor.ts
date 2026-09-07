@@ -1,5 +1,9 @@
 import { setTimeout as delay } from "node:timers/promises";
-import { boundsSchema, type ReadNativeState } from "./peekaboo-native-state";
+import {
+	boundsSchema,
+	type NativeState,
+	type ReadNativeState,
+} from "./peekaboo-native-state";
 import { verifyNativeState } from "./peekaboo-state-verifier";
 import type { McpToolResult } from "./stdio-mcp-client";
 
@@ -106,19 +110,27 @@ export class PeekabooToolExecutor {
 				window_id: receipt.window_id,
 			});
 			if (image.isError || !sameReceipt(receipt, receiptOf(image)))
-				return append(
-					{
-						...verified,
-						isError: true,
-						_meta: { ...record(verified._meta), status: "unknown" },
+				return {
+					...verified,
+					isError: true,
+					_meta: {
+						...record(verified._meta),
+						status: "unknown",
+						reason: "Final screenshot could not confirm the same exact window",
 					},
-					"Final screenshot could not confirm the same exact window.",
-				);
+					content: [
+						{
+							type: "text",
+							text: "Verification unknown: final screenshot could not confirm the same exact window. Earlier AX samples alone do not confirm the requested final observation.",
+						},
+					],
+				};
+			const observed = this.rememberObservation(image, {});
 			return {
 				...verified,
 				content: [
 					...(Array.isArray(verified.content) ? verified.content : []),
-					...(Array.isArray(image.content) ? image.content : []),
+					...(Array.isArray(observed.content) ? observed.content : []),
 				],
 			};
 		}
@@ -198,7 +210,7 @@ export class PeekabooToolExecutor {
 			(args.action === "restore" || args.action === "focus") &&
 			result.isError &&
 			this.readNative &&
-			/changed identity before native dispatch|changed exact focus identity|timeoutWaitingForCondition/.test(
+			/changed identity before native dispatch|changed exact focus identity|timeoutWaitingForCondition|Pinned window target disappeared or changed owner\/process generation\/bounds/.test(
 				textOf(result),
 			)
 		) {
@@ -261,6 +273,12 @@ export class PeekabooToolExecutor {
 								state: "indeterminate",
 								effect: "unverifiable",
 								mutation_dispatched: true,
+								dispatch_state: "may_have_dispatched",
+								evidence: "completion_unknown",
+								requires_fresh_observation: true,
+								retry_safe: false,
+								retry_safety: "unsafe",
+								refusal_reason: undefined,
 								escalation: "observe_before_retry",
 							},
 						}
@@ -311,6 +329,7 @@ export class PeekabooToolExecutor {
 				return append(original, `Dock recovery refused: ${textOf(dock)}`);
 			// Dock activation restores a Stage Manager group. Confirm the requested
 			// window itself, rather than treating Dock's delivery receipt as success.
+			let lastBounds: unknown;
 			for (let attempt = 0; attempt < 4; attempt++) {
 				await delay(100, undefined, { signal });
 				const seen = await invoke("see", {
@@ -320,16 +339,42 @@ export class PeekabooToolExecutor {
 				const bounds = boundsSchema.safeParse(
 					record(record(seen._meta)?.coordinate_context)?.logical_bounds,
 				);
+				let after: NativeState;
+				try {
+					after = await this.readNative(target, 2000, signal);
+				} catch (error) {
+					signal?.throwIfAborted();
+					lastBounds = {
+						observationError:
+							error instanceof Error ? error.message : String(error),
+					};
+					continue;
+				}
+				if (!sameReceipt(before.receipt, after.receipt)) break;
+				const currentBounds = after.elements.find(
+					(element) => element.ax_role === "AXWindow",
+				)?.bounds;
+				lastBounds = {
+					screenshot: bounds.success ? bounds.data : null,
+					accessibility: currentBounds,
+				};
 				if (
 					!seen.isError &&
 					sameReceipt(before.receipt, receiptOf(seen)) &&
 					bounds.success &&
+					currentBounds &&
 					(["x", "y", "width", "height"] as const).every(
-						(key) => Math.abs(bounds.data[key] - expected[key]) <= 2,
+						(key) => Math.abs(bounds.data[key] - currentBounds[key]) <= 2,
 					)
 				) {
-					const after = await this.readNative(target, 2000, signal);
-					if (!sameReceipt(before.receipt, after.receipt)) break;
+					if (args.action === "focus") {
+						const active = await this.readNative(
+							{ pid: target.pid },
+							2000,
+							signal,
+						);
+						if (!sameReceipt(before.receipt, active.receipt)) break;
+					}
 					return append(
 						{
 							...this.rememberObservation(seen, {}),
@@ -347,7 +392,7 @@ export class PeekabooToolExecutor {
 				}
 			}
 			return unresolved(
-				"Dock activation was attempted once, but the exact window did not regain verified full-size bounds. Do not reuse old coordinates.",
+				`Dock activation was attempted once, but the exact window did not regain verified full-size bounds. Do not reuse old coordinates. Last observation: ${JSON.stringify(lastBounds)}`,
 			);
 		} catch (error) {
 			signal?.throwIfAborted();

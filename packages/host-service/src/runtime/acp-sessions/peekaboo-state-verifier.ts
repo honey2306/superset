@@ -134,6 +134,13 @@ function evaluate(p: z.infer<typeof predicate>, state: NativeState): Check {
 		return check(p.kind, matches.length > 0 === p.expected, matches.length > 0);
 	if (!matches.length)
 		return { kind: p.kind, status: "unsatisfied", reason: "Element absent" };
+	if (!state.complete)
+		return {
+			kind: p.kind,
+			status: "unknown",
+			reason:
+				"AX tree is incomplete; selector uniqueness cannot be established",
+		};
 	if (matches.length !== 1)
 		return {
 			kind: p.kind,

@@ -238,13 +238,16 @@ describe("window restoration recovery", () => {
 			},
 		},
 	};
-	test("restores through Dock once and verifies full-size exact-window state", async () => {
+	test.each([
+		"Window 1844 changed identity before native dispatch",
+		"Pinned window target disappeared or changed owner/process generation/bounds",
+	])("restores through Dock after %s", async (message) => {
 		const calls: string[] = [];
 		const executor = new PeekabooToolExecutor(
 			async (name) => {
 				calls.push(name);
 				return name === "window"
-					? failure
+					? { ...failure, content: [{ type: "text", text: message }] }
 					: name === "dock"
 						? dispatched
 						: restored;
@@ -262,6 +265,33 @@ describe("window restoration recovery", () => {
 			recovery: "dock-activation",
 			effect: "confirmed",
 		});
+	});
+	test("observes again after a transient AX read failure without repeating activation", async () => {
+		let reads = 0;
+		const calls: string[] = [];
+		const executor = new PeekabooToolExecutor(
+			async (name) => {
+				calls.push(name);
+				return name === "window"
+					? failure
+					: name === "dock"
+						? dispatched
+						: restored;
+			},
+			async () => {
+				if (++reads === 3)
+					throw new Error("AX temporarily unavailable during restoration");
+				return native;
+			},
+		);
+		const result = await executor.call("window", {
+			action: "restore",
+			app: "TextEdit",
+			window_id: 1844,
+		});
+		expect(result.isError).toBe(false);
+		expect(calls.filter((name) => name === "dock")).toHaveLength(1);
+		expect(calls.filter((name) => name === "see")).toHaveLength(2);
 	});
 	test("never retries Dock or reports success while screenshot remains a thumbnail", async () => {
 		const calls: string[] = [];
@@ -321,5 +351,34 @@ describe("window restoration recovery", () => {
 			).isError,
 		).toBe(true);
 		expect(calls).toEqual(["window"]);
+	});
+});
+
+describe("final observation identity", () => {
+	test("does not leave a satisfied summary when final capture changes windows", async () => {
+		const state = {
+			receipt,
+			applicationName: "TextEdit",
+			complete: true,
+			elements: [{ id: "elem_0", ax_role: "AXWindow" }],
+		};
+		const executor = new PeekabooToolExecutor(
+			async () => ({
+				...observation,
+				_meta: { target_receipt: { ...receipt, window_id: 999 } },
+			}),
+			async () => state,
+		);
+		const result = await executor.call("verify_state", {
+			pid: receipt.pid,
+			window_id: receipt.window_id,
+			predicates: [{ kind: "window_exists", expected: true }],
+			final_screenshot: true,
+		});
+		expect(result.isError).toBe(true);
+		expect(JSON.stringify(result.content)).toContain("Verification unknown");
+		expect(JSON.stringify(result.content)).not.toContain(
+			"Verification satisfied",
+		);
 	});
 });

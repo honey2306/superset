@@ -9,12 +9,18 @@ async function fixture() {
 	const root = await mkdtemp(path.join(tmpdir(), "superset-computer-mcp-"));
 	const executable = path.join(root, "peekaboo");
 	const log = path.join(root, "calls.jsonl");
+	const bridge = path.join(root, "bridge.sock");
+	await writeFile(bridge, "fixture");
 	await writeFile(
 		executable,
 		`#!${process.execPath}
 import { createInterface } from 'node:readline';
 import { appendFileSync } from 'node:fs';
 const receipt = { pid: 42, window_id: 100, process_start_identity_decimal: '123456789' };
+if (process.argv.includes('see')) {
+ process.stdout.write(JSON.stringify({ success: true, target_receipt: receipt, data: { application_name: 'TextEdit', snapshot_id: 'native', ui_elements: [{ id: 'elem_0', ax_role: 'AXWindow', bounds: { x: 0, y: 0, width: 600, height: 400 } }, { id: 'elem_2', ax_role: 'AXTextArea', identifier: 'editor', value: 'hello' }] } }));
+ process.exit(0);
+}
 for await (const line of createInterface({ input: process.stdin })) {
  const m = JSON.parse(line);
  if (!m.method || m.id === undefined) continue;
@@ -37,7 +43,10 @@ for await (const line of createInterface({ input: process.stdin })) {
 		name: "computer-use-probe",
 		command: process.execPath,
 		args: [path.join(import.meta.dir, "computer-use-mcp.ts")],
-		env: [{ name: "SUPERSET_PEEKABOO_PATH", value: executable }],
+		env: [
+			{ name: "SUPERSET_PEEKABOO_PATH", value: executable },
+			{ name: "SUPERSET_PEEKABOO_BRIDGE_SOCKET", value: bridge },
+		],
 	});
 	await client.initialize();
 	return {
@@ -51,6 +60,29 @@ for await (const line of createInterface({ input: process.stdin })) {
 }
 
 describe("Computer Use MCP process", () => {
+	test("verifies through the structured CLI reader in the real MCP entry point", async () => {
+		const f = await fixture();
+		try {
+			const result = await f.client.callTool("computer_verify_state", {
+				pid: 42,
+				window_id: 100,
+				predicates: [
+					{
+						kind: "element_value",
+						selector: { identifier: "editor" },
+						expected_value: "hello",
+					},
+				],
+			});
+			expect(result.isError).toBe(false);
+			expect(result._meta).toMatchObject({
+				status: "satisfied",
+				verifier: "superset-targeted-ax",
+			});
+		} finally {
+			await f.close();
+		}
+	});
 	test("routes preflight and readback internally and retains parent tool results", async () => {
 		const f = await fixture();
 		try {
