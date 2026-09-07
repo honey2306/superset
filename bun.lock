@@ -23,7 +23,7 @@
     },
     "apps/desktop": {
       "name": "@superset/desktop",
-      "version": "2.2.1",
+      "version": "2.3.0",
       "dependencies": {
         "@agentclientprotocol/claude-agent-acp": "0.56.0",
         "@ai-sdk/anthropic": "3.0.64",
@@ -311,7 +311,7 @@
     },
     "packages/cli": {
       "name": "@superset/cli",
-      "version": "2.2.1",
+      "version": "2.3.0",
       "bin": {
         "superset": "./src/index.ts",
       },
@@ -332,7 +332,7 @@
     },
     "packages/host-service": {
       "name": "@superset/host-service",
-      "version": "2.2.1",
+      "version": "2.3.0",
       "dependencies": {
         "@agentclientprotocol/claude-agent-acp": "0.56.0",
         "@agentclientprotocol/sdk": "1.2.0",
