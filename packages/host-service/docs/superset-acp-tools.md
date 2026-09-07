@@ -19,6 +19,9 @@ requesting that Desktop present the new conversation.
 | `continue_in_new_session` | Continue work in a fresh conversation with a structured handoff. This is not a delegation or parallel-background-work primitive; use provider-native subagent tools when available, or `delegate` for tracked independent execution. |
 | `open_merge_request` | Open KDev's prefilled create-MR page for the current session's checked-out branch. It never pushes or creates an MR. |
 | `delegate` | Create an independent child session and seed it with a task. It remains in the background by default. |
+| `remember_project_memory` / `search_project_memories` / `update_project_memory` / `delete_project_memory` | Create, search, update, and delete project-scoped or host-global durable memory. Updates and deletes require an ID returned by search. |
+| `list_global_skills` / `upsert_global_skill` / `remove_global_skill` | Read, create or update, and delete host-global Agent Skills. |
+| `list_global_mcp_servers` / `upsert_global_mcp_server` / `remove_global_mcp_server` | Read, create or update, and delete host-global MCP server configuration. Secret values are omitted from list results. |
 
 The surface deliberately uses semantic operations instead of UI primitives such
 as `click`, `focus_pane`, or `open_tab`. Superset remains free to change its pane
@@ -108,8 +111,10 @@ duplicates remain idempotent in Desktop.
 - Read/message targets must belong to the source workspace.
 - `open_session` targets must belong to the source workspace; the event carries
   the source-derived workspace rather than a caller-supplied workspace.
-- No destructive session or workspace operations are exposed by the current
-  MCP tool surface.
+- No destructive session or workspace operations are exposed. Memory, Skill,
+  and MCP deletion is limited to the explicitly named configuration resource.
+- Delegated executor sessions cannot read or mutate global Skill or MCP
+  configuration.
 - Tool inputs are strict Zod schemas with bounded strings and list limits.
 - `open_merge_request` has no caller-supplied path, repository, branch, target,
   or URL. It accepts only KDev `origin` remotes, rejects detached HEAD and

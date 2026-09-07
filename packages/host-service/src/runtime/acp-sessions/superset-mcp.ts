@@ -230,7 +230,10 @@ function visibleToolDefinitions(includeDelegate: boolean) {
 			isDelegatedExecutor &&
 			(tool.name === "list_global_mcp_servers" ||
 				tool.name === "upsert_global_mcp_server" ||
-				tool.name === "remove_global_mcp_server")
+				tool.name === "remove_global_mcp_server" ||
+				tool.name === "list_global_skills" ||
+				tool.name === "upsert_global_skill" ||
+				tool.name === "remove_global_skill")
 		) {
 			return false;
 		}

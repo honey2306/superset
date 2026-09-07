@@ -130,6 +130,24 @@ if (!lazyMcpProxyResult.success) {
 	process.exit(1);
 }
 
+// Remote-to-stdio MCP bridge for harnesses without native HTTP/SSE support.
+const remoteMcpProxyResult = await Bun.build({
+	entrypoints: ["src/runtime/acp-sessions/remote-mcp-proxy.ts"],
+	target: "node",
+	outdir,
+	naming: "remote-mcp-proxy.js",
+	format: "esm",
+	define: {
+		"process.env.NODE_ENV": JSON.stringify("production"),
+	},
+});
+
+if (!remoteMcpProxyResult.success) {
+	console.error("[host-service] Remote MCP proxy build failed:");
+	for (const log of remoteMcpProxyResult.logs) console.error(log);
+	process.exit(1);
+}
+
 // This is launched as an ACP subprocess by acp-sessions.ts, so it must be
 // emitted beside host-service.js rather than relying on a source-tree .ts file.
 const codexBridgeResult = await Bun.build({
@@ -174,5 +192,5 @@ if (!piBridgeResult.success) {
 }
 
 console.log(
-	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/superset-mcp.js + ${outdir}/lazy-mcp-proxy.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js`,
+	`[host-service] bundled to ${outdir}/host-service.js + ${outdir}/host-worker.js + ${outdir}/acp-daemon.js + ${outdir}/superset-mcp.js + ${outdir}/lazy-mcp-proxy.js + ${outdir}/remote-mcp-proxy.js + ${outdir}/codex-app-server-acp.js + ${outdir}/pi-acp.js`,
 );

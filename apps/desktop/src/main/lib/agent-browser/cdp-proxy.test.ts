@@ -53,7 +53,9 @@ function fakeManager() {
 	};
 }
 
-async function upstream() {
+async function upstream(
+	mode: "normal" | "error" | "close" | "silent" = "normal",
+) {
 	const server = createServer((request, response) => {
 		if (request.url === "/json/list") {
 			const address = server.address();
@@ -87,6 +89,37 @@ async function upstream() {
 				id: number;
 				method: string;
 			};
+			if (
+				!Number.isInteger(request.id) ||
+				request.id < -2_147_483_648 ||
+				request.id > 2_147_483_647
+			) {
+				client.send(
+					JSON.stringify({
+						error: {
+							code: -32600,
+							message: "Message must have integer 'id' property",
+						},
+					}),
+				);
+				return;
+			}
+			if (request.method === "Emulation.setDeviceMetricsOverride") {
+				if (mode === "silent") return;
+				if (mode === "close") {
+					client.close();
+					return;
+				}
+				if (mode === "error") {
+					client.send(
+						JSON.stringify({
+							id: request.id,
+							error: { code: -32000, message: "Viewport rejected" },
+						}),
+					);
+					return;
+				}
+			}
 			client.send(
 				JSON.stringify({ id: request.id, result: { echoed: request.method } }),
 			);
@@ -128,6 +161,43 @@ async function request(
 }
 
 describe("Agent Browser CDP proxy", () => {
+	for (const mode of ["error", "close", "silent"] as const) {
+		test(`reports viewport initialization ${mode} as an attach failure`, async () => {
+			const { manager } = fakeManager();
+			const proxy = await startAgentBrowserCdpProxy({
+				manager,
+				upstreamUrl: await upstream(mode),
+			});
+			cleanups.push(proxy.close);
+			const version = (await fetch(
+				`${proxy.baseUrl}/session-1/json/version`,
+			).then((response) => response.json())) as {
+				webSocketDebuggerUrl: string;
+			};
+			const socket = await connect(version.webSocketDebuggerUrl);
+			try {
+				const result = await request(socket, {
+					id: 1,
+					method: "Target.attachToTarget",
+					params: { targetId: "target-1", flatten: true },
+				});
+				expect(result).toMatchObject({
+					id: 1,
+					error: {
+						message:
+							mode === "error"
+								? "Viewport rejected"
+								: mode === "close"
+									? "Agent Browser target closed during initialization"
+									: "Agent Browser viewport initialization timed out",
+					},
+				});
+			} finally {
+				socket.terminate();
+			}
+		}, 15_000);
+	}
+
 	test("publishes a session endpoint and only its allowlisted targets", async () => {
 		const { manager } = fakeManager();
 		const proxy = await startAgentBrowserCdpProxy({
@@ -175,13 +245,13 @@ describe("Agent Browser CDP proxy", () => {
 		const sessionId = (attached.result as { sessionId: string }).sessionId;
 		expect(
 			await request(socket, {
-				id: 2,
+				id: -1,
 				sessionId,
 				method: "Runtime.evaluate",
 				params: { expression: "document.title" },
 			}),
 		).toMatchObject({
-			id: 2,
+			id: -1,
 			sessionId,
 			result: { echoed: "Runtime.evaluate" },
 		});

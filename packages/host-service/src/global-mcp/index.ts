@@ -1,5 +1,6 @@
 export {
 	type GlobalMcpServer,
+	type GlobalMcpServerInput,
 	globalMcpConfigPath,
 	globalMcpServerInputSchema,
 	readGlobalMcpServers,

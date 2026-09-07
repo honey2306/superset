@@ -76,6 +76,7 @@ import type {
 	AcpSessionTurnRecord,
 } from "./persistence";
 import { piExtensionUiPermissionPresentation } from "./pi-extension-ui";
+import { prepareRemoteMcpServersForHarness } from "./remote-mcp";
 import type {
 	AcpMergeRequestOpenRequestHandler,
 	AcpSessionChangeHandler,
@@ -2343,7 +2344,7 @@ export class AcpSessionManager {
 		}
 		const cwd = cwdOverride ?? (await this.resolveWorkspaceCwd(workspaceId));
 		assertWorkspaceCwd(cwd, workspaceId);
-		const mcpServers = prepareSharedMcpServers(
+		const configuredMcpServers = prepareSharedMcpServers(
 			discovery
 				? []
 				: [
@@ -2356,6 +2357,11 @@ export class AcpSessionManager {
 							role,
 						}) ?? []),
 					],
+		);
+		const mcpServers = prepareRemoteMcpServersForHarness(
+			configuredMcpServers,
+			harness,
+			{ execPath: this.adapterExecPath },
 		);
 		const roleInstructions =
 			role === SUPERSET_DELEGATED_EXECUTOR_ROLE

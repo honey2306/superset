@@ -125,7 +125,6 @@ export async function startAgentBrowserCdpProxy(input: {
 		"connection",
 		(client: WebSocket, _request: unknown, sessionId: string) => {
 			const targets = new Map<string, TargetConnection>();
-			const internalRequests = new Map<number, () => void>();
 			const reply = (id: number, result: unknown = {}) => {
 				if (client.readyState === WebSocket.OPEN) {
 					client.send(JSON.stringify({ id, result }));
@@ -158,6 +157,11 @@ export async function startAgentBrowserCdpProxy(input: {
 					pending: [],
 				};
 				targets.set(cdpSessionId, connection);
+				// Internal replies belong to this target, not other attached sockets.
+				const internalRequests = new Map<
+					number,
+					(message: Record<string, unknown>) => void
+				>();
 				socket.on("message", (data) => {
 					const message = JSON.parse(data.toString()) as Record<
 						string,
@@ -167,7 +171,7 @@ export async function startAgentBrowserCdpProxy(input: {
 						const completeInternal = internalRequests.get(message.id);
 						if (completeInternal) {
 							internalRequests.delete(message.id);
-							completeInternal();
+							completeInternal(message);
 							return;
 						}
 						const original = connection.pending.find(
@@ -194,23 +198,72 @@ export async function startAgentBrowserCdpProxy(input: {
 				// Hidden WebContentsViews report a 0x0 viewport through CDP. Browser
 				// harness relies on viewport geometry for coordinate input and images,
 				// so emulate a stable viewport until the real companion pane is shown.
-				const internalRequestId = Number.MAX_SAFE_INTEGER;
-				const viewportApplied = new Promise<void>((resolve) => {
-					internalRequests.set(internalRequestId, resolve);
-				});
-				socket.send(
-					JSON.stringify({
-						id: internalRequestId,
-						method: "Emulation.setDeviceMetricsOverride",
-						params: {
-							width: 1_280,
-							height: 800,
-							deviceScaleFactor: 1,
-							mobile: false,
-						},
-					}),
-				);
-				await viewportApplied;
+				// Chromium accepts signed 32-bit IDs, not all JS safe integers.
+				// No client commands can reach this session until attach completes.
+				const internalRequestId = -1;
+				try {
+					await new Promise<void>((resolve, reject) => {
+						const finish = (error?: Error) => {
+							clearTimeout(timer);
+							internalRequests.delete(internalRequestId);
+							socket.off("close", onClose);
+							socket.off("error", onError);
+							if (error) reject(error);
+							else resolve();
+						};
+						const onClose = () =>
+							finish(
+								new Error("Agent Browser target closed during initialization"),
+							);
+						const onError = (error: Error) => finish(error);
+						const timer = setTimeout(
+							() =>
+								finish(
+									new Error("Agent Browser viewport initialization timed out"),
+								),
+							10_000,
+						);
+						socket.once("close", onClose);
+						socket.once("error", onError);
+						internalRequests.set(internalRequestId, (message) => {
+							if (message.error) {
+								const error = message.error as { message?: unknown };
+								finish(
+									new Error(
+										typeof error.message === "string"
+											? error.message
+											: "Agent Browser viewport initialization failed",
+									),
+								);
+							} else {
+								finish();
+							}
+						});
+						try {
+							socket.send(
+								JSON.stringify({
+									id: internalRequestId,
+									method: "Emulation.setDeviceMetricsOverride",
+									params: {
+										width: 1_280,
+										height: 800,
+										deviceScaleFactor: 1,
+										mobile: false,
+									},
+								}),
+								(error) => {
+									if (error) finish(error);
+								},
+							);
+						} catch (error) {
+							finish(error instanceof Error ? error : new Error(String(error)));
+						}
+					});
+				} catch (error) {
+					targets.delete(cdpSessionId);
+					socket.close();
+					throw error;
+				}
 			};
 
 			client.on("message", (data) => {

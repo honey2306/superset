@@ -8,6 +8,7 @@ test("main build emits every external ACP runtime alongside the daemon", () => {
 		"acp-daemon": expect.stringContaining("daemon-entry.ts"),
 		"superset-mcp": expect.stringContaining("superset-mcp.ts"),
 		"lazy-mcp-proxy": expect.stringContaining("lazy-mcp-proxy.ts"),
+		"remote-mcp-proxy": expect.stringContaining("remote-mcp-proxy.ts"),
 		"codex-app-server-acp": expect.stringContaining("codex-app-server-acp.ts"),
 		"claude-agent-acp": expect.stringContaining("claude-agent-acp-entry.ts"),
 		"pi-acp": expect.stringContaining("pi-sdk-acp.ts"),

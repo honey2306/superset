@@ -103,3 +103,9 @@ plans/local/
 
 # apps/web build output (served by host-service under /app/*)
 packages/host-service/public/web/
+
+# Local Superdesign project state
+.superdesign/
+
+# Stray root-level bundler output
+/index.js

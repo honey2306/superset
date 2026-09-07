@@ -124,6 +124,9 @@ export default defineConfig({
 					"lazy-mcp-proxy": resolve(
 						"../../packages/host-service/src/runtime/acp-sessions/lazy-mcp-proxy.ts",
 					),
+					"remote-mcp-proxy": resolve(
+						"../../packages/host-service/src/runtime/acp-sessions/remote-mcp-proxy.ts",
+					),
 					// ACP protocol bridges are subprocesses, so emit standalone entries
 					// beside acp-daemon.js where AcpSessionManager resolves them.
 					"codex-app-server-acp": resolve(

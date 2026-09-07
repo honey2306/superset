@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -29,6 +29,7 @@ describe("global MCP store", () => {
 		const file = configPath();
 		upsertGlobalMcpServer(
 			{
+				type: "stdio",
 				name: "filesystem",
 				command: "npx",
 				args: ["-y", "server-filesystem", "/tmp"],
@@ -39,6 +40,7 @@ describe("global MCP store", () => {
 		);
 		expect(readGlobalMcpServers(file)).toEqual([
 			{
+				type: "stdio",
 				name: "filesystem",
 				command: "npx",
 				args: ["-y", "server-filesystem", "/tmp"],
@@ -49,6 +51,7 @@ describe("global MCP store", () => {
 
 		upsertGlobalMcpServer(
 			{
+				type: "stdio",
 				name: "filesystem",
 				command: "bunx",
 				args: ["server-filesystem", "/tmp"],
@@ -57,9 +60,10 @@ describe("global MCP store", () => {
 			},
 			file,
 		);
-		expect(readGlobalMcpServers(file)[0]?.command).toBe("bunx");
+		expect(readGlobalMcpServers(file)[0]).toMatchObject({ command: "bunx" });
 		upsertGlobalMcpServer(
 			{
+				type: "stdio",
 				name: "other",
 				command: "node",
 				args: [],
@@ -72,6 +76,7 @@ describe("global MCP store", () => {
 			replaceGlobalMcpServer(
 				"filesystem",
 				{
+					type: "stdio",
 					name: "other",
 					command: "bun",
 					args: [],
@@ -91,10 +96,80 @@ describe("global MCP store", () => {
 		]);
 	});
 
+	it("persists native remote servers and preserves their ACP transport", () => {
+		const file = configPath();
+		upsertGlobalMcpServer(
+			{
+				type: "http",
+				name: "docs",
+				url: "https://mcp.example.com/api",
+				headers: { Authorization: "Bearer test" },
+				enabled: true,
+			},
+			file,
+		);
+
+		expect(readGlobalMcpServers(file)).toEqual([
+			{
+				type: "http",
+				name: "docs",
+				url: "https://mcp.example.com/api",
+				headers: { Authorization: "Bearer test" },
+				enabled: true,
+			},
+		]);
+		expect(toAcpMcpServers(readGlobalMcpServers(file))).toEqual([
+			{
+				type: "http",
+				name: "docs",
+				url: "https://mcp.example.com/api",
+				headers: [{ name: "Authorization", value: "Bearer test" }],
+			},
+		]);
+	});
+
+	it("normalizes the legacy npx mcp-remote shape to native HTTP", () => {
+		const file = configPath();
+		writeFileSync(
+			file,
+			JSON.stringify({
+				version: 1,
+				servers: [
+					{
+						name: "remote",
+						command: "npx",
+						args: [
+							"-y",
+							"mcp-remote@0.8.3",
+							"https://mcp.example.com/api",
+							"--transport",
+							"http-only",
+							"--header",
+							"X-User:example",
+						],
+						env: {},
+						enabled: true,
+					},
+				],
+			}),
+		);
+
+		expect(readGlobalMcpServers(file)).toEqual([
+			{
+				type: "http",
+				name: "remote",
+				url: "https://mcp.example.com/api",
+				headers: { "X-User": "example" },
+				enabled: true,
+			},
+		]);
+	});
+
 	it("only emits enabled servers in ACP format", () => {
 		expect(
 			toAcpMcpServers([
 				{
+					type: "stdio",
 					name: "enabled",
 					command: "node",
 					args: ["server.js"],
@@ -102,6 +177,7 @@ describe("global MCP store", () => {
 					enabled: true,
 				},
 				{
+					type: "stdio",
 					name: "disabled",
 					command: "node",
 					args: [],
@@ -124,6 +200,7 @@ describe("global MCP store", () => {
 		expect(() =>
 			upsertGlobalMcpServer(
 				{
+					type: "stdio",
 					name: "superset",
 					command: "node",
 					args: [],
@@ -136,6 +213,7 @@ describe("global MCP store", () => {
 
 		upsertGlobalMcpServer(
 			{
+				type: "stdio",
 				name: "valid",
 				command: "node",
 				args: [],

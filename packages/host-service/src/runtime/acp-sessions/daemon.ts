@@ -619,6 +619,7 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 			throw new Error(`ACP daemon is not available at ${socketPath}`);
 		}
 		const logPath =
+			this.options.spawnEnv?.SUPERSET_ACP_DAEMON_LOG_PATH ??
 			process.env.SUPERSET_ACP_DAEMON_LOG_PATH ??
 			path.join(os.tmpdir(), `superset-acpd-${process.pid}.log`);
 		const logFd = openSync(logPath, "a");

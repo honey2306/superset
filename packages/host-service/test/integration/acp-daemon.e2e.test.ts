@@ -210,6 +210,8 @@ describe("ACP daemon process boundary", () => {
 				ORGANIZATION_ID: "org-daemon-e2e",
 				HOST_DB_PATH: dbPath,
 				HOST_MIGRATIONS_FOLDER: MIGRATIONS_FOLDER,
+				HOST_SERVICE_PORT: "1",
+				HOST_SERVICE_SECRET: "daemon-e2e-secret",
 				SUPERSET_HOME_DIR: tempRoot,
 				SUPERSET_ACP_DAEMON_LOG_PATH: daemonLogPath,
 				SUPERSET_ACP_ADAPTER_ENTRY: FAKE_ADAPTER,
@@ -263,7 +265,6 @@ describe("ACP daemon process boundary", () => {
 				(await second.get("session-1")).pendingPermissions.length === 0,
 			"permission completion",
 		);
-
 		await second.prompt({
 			sessionId: "session-1",
 			prompt: [{ type: "text", text: "ask-single Choose one|Alpha,Beta" }],

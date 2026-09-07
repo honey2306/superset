@@ -85,4 +85,26 @@ describe("globalMcpRouter", () => {
 			}),
 		).rejects.toThrow();
 	});
+
+	it("round-trips native HTTP servers", async () => {
+		const caller = createCaller();
+		await caller.upsert({
+			server: {
+				type: "http",
+				name: "remote-docs",
+				url: "https://mcp.example.com/api",
+				headers: { "X-User": "example" },
+				enabled: true,
+			},
+		});
+		expect((await caller.list()).servers).toEqual([
+			{
+				type: "http",
+				name: "remote-docs",
+				url: "https://mcp.example.com/api",
+				headers: { "X-User": "example" },
+				enabled: true,
+			},
+		]);
+	});
 });

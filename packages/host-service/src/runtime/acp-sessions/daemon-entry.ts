@@ -17,10 +17,17 @@ import {
 	upsertGlobalMcpServer,
 } from "../../global-mcp";
 import {
+	readGlobalSkills,
+	removeGlobalSkill,
+	upsertGlobalSkill,
+} from "../../global-skills";
+import {
 	createProjectMemory,
+	deleteProjectMemory,
 	listProjectMemories,
 	markProjectMemoriesUsed,
 	resolveProjectIdForWorkspace,
+	updateProjectMemory,
 } from "../../project-memories";
 import {
 	readDelegationProfiles,
@@ -235,12 +242,19 @@ async function main(): Promise<void> {
 		delegationRuns: persistence,
 		discussionRuns: persistence,
 		listGlobalMcpServers: () =>
-			readGlobalMcpServers().map(({ env, ...server }) => ({
-				...server,
-				envNames: Object.keys(env),
-			})),
+			readGlobalMcpServers().map((server) => {
+				if (server.type === "stdio") {
+					const { env, ...summary } = server;
+					return { ...summary, envNames: Object.keys(env) };
+				}
+				const { headers, ...summary } = server;
+				return { ...summary, headerNames: Object.keys(headers) };
+			}),
 		upsertGlobalMcpServer: (input) => upsertGlobalMcpServer(input),
 		removeGlobalMcpServer: (name) => removeGlobalMcpServer(name),
+		listGlobalSkills: () => readGlobalSkills(),
+		upsertGlobalSkill: (input, options) => upsertGlobalSkill(input, options),
+		removeGlobalSkill: (name) => removeGlobalSkill(name),
 		resolveDelegatedExecution: () => {
 			const profiles = resolveDelegationProfileTargets(db);
 			const profilesState = readDelegationProfiles(db);
@@ -408,6 +422,34 @@ async function main(): Promise<void> {
 				memories.map((memory) => memory.id),
 			);
 			return { projectId, scope, memories };
+		},
+		updateProjectMemory: ({ workspaceId, memoryId, scope, patch }) => {
+			const projectId =
+				scope === "global"
+					? null
+					: resolveProjectIdForWorkspace(db, workspaceId);
+			if (scope === "project" && !projectId) {
+				throw new Error(`Workspace not found: ${workspaceId}`);
+			}
+			const memory = updateProjectMemory(db, projectId, memoryId, patch);
+			if (!memory) {
+				throw new Error(`Memory not found in ${scope} scope: ${memoryId}`);
+			}
+			return { memory, projectId, scope };
+		},
+		deleteProjectMemory: ({ workspaceId, memoryId, scope }) => {
+			const projectId =
+				scope === "global"
+					? null
+					: resolveProjectIdForWorkspace(db, workspaceId);
+			if (scope === "project" && !projectId) {
+				throw new Error(`Workspace not found: ${workspaceId}`);
+			}
+			return {
+				deleted: deleteProjectMemory(db, projectId, memoryId),
+				projectId,
+				scope,
+			};
 		},
 		setProjectRunCommand: ({ workspaceId, commands }) => {
 			const project = db

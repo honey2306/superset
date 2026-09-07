@@ -290,6 +290,15 @@ describe("Superset MCP process", () => {
 		expect(tools.some((tool) => tool.name === "remove_global_mcp_server")).toBe(
 			false,
 		);
+		expect(tools.some((tool) => tool.name === "list_global_skills")).toBe(
+			false,
+		);
+		expect(tools.some((tool) => tool.name === "upsert_global_skill")).toBe(
+			false,
+		);
+		expect(tools.some((tool) => tool.name === "remove_global_skill")).toBe(
+			false,
+		);
 	});
 
 	test("hides all Superset tools from discussion participants", async () => {

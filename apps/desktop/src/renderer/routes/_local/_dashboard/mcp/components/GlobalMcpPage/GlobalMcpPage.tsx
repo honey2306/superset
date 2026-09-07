@@ -34,13 +34,24 @@ import {
 	type GlobalMcpEditorValue,
 } from "./components/GlobalMcpEditor";
 
-interface GlobalMcpServer {
+interface GlobalMcpStdioServer {
+	type: "stdio";
 	name: string;
 	command: string;
 	args: string[];
 	env: Record<string, string>;
 	enabled: boolean;
 }
+
+interface GlobalMcpRemoteServer {
+	type: "http" | "sse";
+	name: string;
+	url: string;
+	headers: Record<string, string>;
+	enabled: boolean;
+}
+
+type GlobalMcpServer = GlobalMcpStdioServer | GlobalMcpRemoteServer;
 
 interface PendingSelection {
 	selectedName: string | null;
@@ -49,9 +60,12 @@ interface PendingSelection {
 
 const EMPTY_EDITOR: GlobalMcpEditorValue = {
 	name: "untitled-mcp",
+	transport: "stdio",
 	command: "npx",
 	argsText: "",
 	envText: "",
+	url: "",
+	headersText: "",
 	enabled: true,
 };
 
@@ -59,29 +73,40 @@ function toEditorValue(server: GlobalMcpServer): GlobalMcpEditorValue {
 	return {
 		originalName: server.name,
 		name: server.name,
-		command: server.command,
-		argsText: server.args.join("\n"),
-		envText: Object.entries(server.env)
+		transport: server.type,
+		command: server.type === "stdio" ? server.command : "",
+		argsText: server.type === "stdio" ? server.args.join("\n") : "",
+		envText: Object.entries(server.type === "stdio" ? server.env : {})
+			.map(([name, value]) => `${name}=${value}`)
+			.join("\n"),
+		url: server.type === "stdio" ? "" : server.url,
+		headersText: Object.entries(server.type === "stdio" ? {} : server.headers)
 			.map(([name, value]) => `${name}=${value}`)
 			.join("\n"),
 		enabled: server.enabled,
 	};
 }
 
-function parseEnvironment(text: string): Record<string, string> {
-	const environment: Record<string, string> = {};
+function parseKeyValues(text: string, label: string): Record<string, string> {
+	const values: Record<string, string> = {};
 	for (const [index, rawLine] of text.split("\n").entries()) {
 		const line = rawLine.trim();
 		if (!line) continue;
 		const separator = line.indexOf("=");
 		if (separator <= 0) {
-			throw new Error(`环境变量第 ${index + 1} 行应为 KEY=VALUE`);
+			throw new Error(`${label}第 ${index + 1} 行应为 KEY=VALUE`);
 		}
 		const name = line.slice(0, separator).trim();
-		if (!name) throw new Error(`环境变量第 ${index + 1} 行缺少名称`);
-		environment[name] = line.slice(separator + 1);
+		if (!name) throw new Error(`${label}第 ${index + 1} 行缺少名称`);
+		values[name] = line.slice(separator + 1);
 	}
-	return environment;
+	return values;
+}
+
+function serverSummary(server: GlobalMcpServer): string {
+	return server.type === "stdio"
+		? [server.command, ...server.args].join(" ")
+		: `${server.type.toUpperCase()} ${server.url}`;
 }
 
 export function GlobalMcpPage() {
@@ -115,7 +140,7 @@ export function GlobalMcpPage() {
 		const normalizedQuery = query.trim().toLocaleLowerCase();
 		if (!normalizedQuery) return servers;
 		return servers.filter((server) =>
-			`${server.name} ${server.command} ${server.args.join(" ")}`
+			`${server.name} ${serverSummary(server)}`
 				.toLocaleLowerCase()
 				.includes(normalizedQuery),
 		);
@@ -141,13 +166,25 @@ export function GlobalMcpPage() {
 				hostUrl,
 			).settings.globalMcp.upsert.mutate({
 				...(value.originalName ? { originalName: value.originalName } : {}),
-				server: {
-					name: value.name.trim(),
-					command: value.command.trim(),
-					args: value.argsText.split("\n").filter((arg) => arg.length > 0),
-					env: parseEnvironment(value.envText),
-					enabled: value.enabled,
-				},
+				server:
+					value.transport === "stdio"
+						? {
+								type: "stdio" as const,
+								name: value.name.trim(),
+								command: value.command.trim(),
+								args: value.argsText
+									.split("\n")
+									.filter((arg) => arg.length > 0),
+								env: parseKeyValues(value.envText, "环境变量"),
+								enabled: value.enabled,
+							}
+						: {
+								type: value.transport,
+								name: value.name.trim(),
+								url: value.url.trim(),
+								headers: parseKeyValues(value.headersText, "请求头"),
+								enabled: value.enabled,
+							},
 			});
 		},
 		onSuccess: ({ server }) => {
@@ -269,7 +306,7 @@ export function GlobalMcpPage() {
 									{server.name}
 								</strong>
 								<span className="mt-1 block truncate font-mono text-[10.5px] text-fg-mute">
-									{[server.command, ...server.args].join(" ")}
+									{serverSummary(server)}
 								</span>
 							</span>
 							<span

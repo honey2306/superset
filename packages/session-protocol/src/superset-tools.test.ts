@@ -27,8 +27,16 @@ describe("Superset delegation protocol", () => {
 		const search = SUPERSET_TOOL_DEFINITIONS.find(
 			(entry) => entry.name === "search_project_memories",
 		);
+		const update = SUPERSET_TOOL_DEFINITIONS.find(
+			(entry) => entry.name === "update_project_memory",
+		);
+		const remove = SUPERSET_TOOL_DEFINITIONS.find(
+			(entry) => entry.name === "delete_project_memory",
+		);
 		expect(remember?.description).toContain("durable, verified knowledge");
 		expect(search?.description).toContain("expensive investigation");
+		expect(update?.description).toContain("memory by ID");
+		expect(remove?.description).toContain("delete");
 		expect(
 			supersetToolRequestSchema.parse({
 				sourceSessionId: "session-1",
@@ -54,6 +62,24 @@ describe("Superset delegation protocol", () => {
 			}),
 		).toMatchObject({
 			arguments: { query: "", limit: 10, scope: "all" },
+		});
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "session-1",
+				name: "update_project_memory",
+				arguments: { memoryId: "memory-1", pinned: true },
+			}),
+		).toMatchObject({
+			arguments: { memoryId: "memory-1", pinned: true, scope: "project" },
+		});
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "session-1",
+				name: "delete_project_memory",
+				arguments: { memoryId: "memory-1", scope: "global" },
+			}),
+		).toMatchObject({
+			arguments: { memoryId: "memory-1", scope: "global" },
 		});
 		const injectedMemory = formatProjectMemoryInstructions([
 			{
@@ -94,8 +120,22 @@ describe("Superset delegation protocol", () => {
 				"list_global_mcp_servers",
 				"upsert_global_mcp_server",
 				"remove_global_mcp_server",
+				"list_global_skills",
+				"upsert_global_skill",
+				"remove_global_skill",
 			]),
 		);
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "session-1",
+				name: "upsert_global_skill",
+				arguments: {
+					name: "review-pr",
+					description: "Review pull requests",
+					instructions: "Inspect the diff.",
+				},
+			}),
+		).toMatchObject({ arguments: { name: "review-pr" } });
 		expect(
 			supersetToolRequestSchema.parse({
 				sourceSessionId: "session-1",
@@ -103,7 +143,21 @@ describe("Superset delegation protocol", () => {
 				arguments: { name: "docs", command: "npx" },
 			}),
 		).toMatchObject({
-			arguments: { args: [], env: {}, enabled: true },
+			arguments: { type: "stdio", args: [], env: {}, enabled: true },
+		});
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "session-1",
+				name: "upsert_global_mcp_server",
+				arguments: {
+					type: "http",
+					name: "docs",
+					url: "https://mcp.example.com",
+					headers: { Authorization: "Bearer test" },
+				},
+			}),
+		).toMatchObject({
+			arguments: { type: "http", headers: { Authorization: "Bearer test" } },
 		});
 		expect(
 			supersetToolRequestSchema.parse({

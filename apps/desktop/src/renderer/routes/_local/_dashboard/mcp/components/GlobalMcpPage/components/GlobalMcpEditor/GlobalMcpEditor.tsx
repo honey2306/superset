@@ -7,9 +7,12 @@ import { LuCheck, LuPlugZap } from "react-icons/lu";
 export interface GlobalMcpEditorValue {
 	originalName?: string;
 	name: string;
+	transport: "stdio" | "http" | "sse";
 	command: string;
 	argsText: string;
 	envText: string;
+	url: string;
+	headersText: string;
 	enabled: boolean;
 }
 
@@ -25,7 +28,10 @@ export function GlobalMcpEditor({
 	onSave(): void;
 }) {
 	const canSave =
-		value.name.trim().length > 0 && value.command.trim().length > 0;
+		value.name.trim().length > 0 &&
+		(value.transport === "stdio"
+			? value.command.trim().length > 0
+			: value.url.trim().length > 0);
 
 	return (
 		<div className="mx-auto flex min-h-full w-full max-w-[820px] flex-col px-8 pb-10 pt-14">
@@ -45,7 +51,7 @@ export function GlobalMcpEditor({
 				onChange={(event) => onChange({ ...value, name: event.target.value })}
 			/>
 			<div className="mt-3 flex items-center gap-2 text-[10px] text-fg-faint">
-				<span>stdio transport</span>
+				<span>{value.transport} transport</span>
 				<span className="h-2.5 w-px bg-line" />
 				<span>新建或恢复会话生效</span>
 			</div>
@@ -56,54 +62,105 @@ export function GlobalMcpEditor({
 				</span>
 				<span className="h-px flex-1 bg-line" />
 			</div>
-			<label htmlFor="global-mcp-command" className="mt-5 block text-sm">
-				<span className="font-medium">命令</span>
-				<Input
-					id="global-mcp-command"
-					value={value.command}
-					placeholder="npx"
-					className="mt-2 font-mono text-xs"
-					onChange={(event) =>
-						onChange({ ...value, command: event.target.value })
-					}
-				/>
-				<span className="mt-1.5 block text-xs text-fg-faint">
-					启动 stdio MCP Server 的可执行命令。
-				</span>
-			</label>
+			<fieldset className="mt-5 flex gap-2">
+				<legend className="sr-only">MCP transport</legend>
+				{(["stdio", "http", "sse"] as const).map((transport) => (
+					<Button
+						key={transport}
+						type="button"
+						size="sm"
+						variant={value.transport === transport ? "secondary" : "ghost"}
+						onClick={() => onChange({ ...value, transport })}
+					>
+						{transport.toUpperCase()}
+					</Button>
+				))}
+			</fieldset>
 
-			<div className="mt-6 grid gap-6 sm:grid-cols-2">
-				<label htmlFor="global-mcp-args" className="block text-sm">
-					<span className="font-medium">参数</span>
-					<Textarea
-						id="global-mcp-args"
-						value={value.argsText}
-						placeholder={"-y\n@modelcontextprotocol/server-filesystem\n/path"}
-						className="mt-2 min-h-48 resize-y font-mono text-xs leading-6"
-						onChange={(event) =>
-							onChange({ ...value, argsText: event.target.value })
-						}
-					/>
-					<span className="mt-1.5 block text-xs text-fg-faint">
-						每行一个参数。
-					</span>
-				</label>
-				<label htmlFor="global-mcp-env" className="block text-sm">
-					<span className="font-medium">环境变量</span>
-					<Textarea
-						id="global-mcp-env"
-						value={value.envText}
-						placeholder="API_URL=https://example.com"
-						className="mt-2 min-h-48 resize-y font-mono text-xs leading-6"
-						onChange={(event) =>
-							onChange({ ...value, envText: event.target.value })
-						}
-					/>
-					<span className="mt-1.5 block text-xs text-fg-faint">
-						每行一个 KEY=VALUE。内容仅当前用户可读；请谨慎保存密钥。
-					</span>
-				</label>
-			</div>
+			{value.transport === "stdio" ? (
+				<>
+					<label htmlFor="global-mcp-command" className="mt-5 block text-sm">
+						<span className="font-medium">命令</span>
+						<Input
+							id="global-mcp-command"
+							value={value.command}
+							placeholder="npx"
+							className="mt-2 font-mono text-xs"
+							onChange={(event) =>
+								onChange({ ...value, command: event.target.value })
+							}
+						/>
+						<span className="mt-1.5 block text-xs text-fg-faint">
+							启动 stdio MCP Server 的可执行命令。
+						</span>
+					</label>
+
+					<div className="mt-6 grid gap-6 sm:grid-cols-2">
+						<label htmlFor="global-mcp-args" className="block text-sm">
+							<span className="font-medium">参数</span>
+							<Textarea
+								id="global-mcp-args"
+								value={value.argsText}
+								placeholder={
+									"-y\n@modelcontextprotocol/server-filesystem\n/path"
+								}
+								className="mt-2 min-h-48 resize-y font-mono text-xs leading-6"
+								onChange={(event) =>
+									onChange({ ...value, argsText: event.target.value })
+								}
+							/>
+							<span className="mt-1.5 block text-xs text-fg-faint">
+								每行一个参数。
+							</span>
+						</label>
+						<label htmlFor="global-mcp-env" className="block text-sm">
+							<span className="font-medium">环境变量</span>
+							<Textarea
+								id="global-mcp-env"
+								value={value.envText}
+								placeholder="API_URL=https://example.com"
+								className="mt-2 min-h-48 resize-y font-mono text-xs leading-6"
+								onChange={(event) =>
+									onChange({ ...value, envText: event.target.value })
+								}
+							/>
+							<span className="mt-1.5 block text-xs text-fg-faint">
+								每行一个 KEY=VALUE。内容仅当前用户可读；请谨慎保存密钥。
+							</span>
+						</label>
+					</div>
+				</>
+			) : (
+				<>
+					<label htmlFor="global-mcp-url" className="mt-5 block text-sm">
+						<span className="font-medium">URL</span>
+						<Input
+							id="global-mcp-url"
+							value={value.url}
+							placeholder="https://mcp.example.com/api"
+							className="mt-2 font-mono text-xs"
+							onChange={(event) =>
+								onChange({ ...value, url: event.target.value })
+							}
+						/>
+					</label>
+					<label htmlFor="global-mcp-headers" className="mt-6 block text-sm">
+						<span className="font-medium">请求头</span>
+						<Textarea
+							id="global-mcp-headers"
+							value={value.headersText}
+							placeholder="Authorization=Bearer token"
+							className="mt-2 min-h-36 resize-y font-mono text-xs leading-6"
+							onChange={(event) =>
+								onChange({ ...value, headersText: event.target.value })
+							}
+						/>
+						<span className="mt-1.5 block text-xs text-fg-faint">
+							每行一个 Header=Value。内容仅当前用户可读。
+						</span>
+					</label>
+				</>
+			)}
 
 			<div className="mt-8 flex items-center justify-between gap-4 border-y border-line py-4">
 				<div>

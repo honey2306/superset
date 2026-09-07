@@ -17,7 +17,9 @@ import {
 	type SupersetToolRequest,
 	supersetToolRequestSchema,
 } from "@superset/session-protocol";
-import type { GlobalMcpServer } from "../../global-mcp";
+import type { GlobalMcpServer, GlobalMcpServerInput } from "../../global-mcp";
+import type { GlobalSkill, GlobalSkillInput } from "../../global-skills";
+import type { UpdateProjectMemoryInput } from "../../project-memories";
 import type { DelegationProfileTarget } from "../../trpc/router/settings/delegated-execution-target";
 import type { AcpSessionManager } from "./acp-sessions";
 import { DiscussionCoordinator } from "./discussion-coordinator";
@@ -122,9 +124,13 @@ export interface AcpTerminalController {
 	}): Promise<Record<string, unknown>>;
 }
 
-export interface GlobalMcpServerSummary extends Omit<GlobalMcpServer, "env"> {
-	envNames: string[];
-}
+export type GlobalMcpServerSummary =
+	| (Omit<Extract<GlobalMcpServer, { type: "stdio" }>, "env"> & {
+			envNames: string[];
+	  })
+	| (Omit<Extract<GlobalMcpServer, { type: "http" | "sse" }>, "headers"> & {
+			headerNames: string[];
+	  });
 
 export interface SupersetToolControllerOptions {
 	manager: AcpSessionManager;
@@ -162,9 +168,26 @@ export interface SupersetToolControllerOptions {
 		limit: number;
 		scope: "project" | "global" | "all";
 	}) => Record<string, unknown>;
+	updateProjectMemory?: (input: {
+		workspaceId: string;
+		memoryId: string;
+		scope: "project" | "global";
+		patch: UpdateProjectMemoryInput;
+	}) => Record<string, unknown>;
+	deleteProjectMemory?: (input: {
+		workspaceId: string;
+		memoryId: string;
+		scope: "project" | "global";
+	}) => Record<string, unknown>;
 	listGlobalMcpServers?: () => GlobalMcpServerSummary[];
-	upsertGlobalMcpServer?: (input: GlobalMcpServer) => GlobalMcpServer;
+	upsertGlobalMcpServer?: (input: GlobalMcpServerInput) => GlobalMcpServer;
 	removeGlobalMcpServer?: (name: string) => boolean;
+	listGlobalSkills?: () => GlobalSkill[];
+	upsertGlobalSkill?: (
+		input: GlobalSkillInput,
+		options?: { previousName?: string },
+	) => GlobalSkill;
+	removeGlobalSkill?: (name: string) => boolean;
 	resolveTargetWorkspace?: (input: {
 		sourceWorkspaceId: string;
 		workspaceId?: string;
@@ -537,9 +560,14 @@ export class SupersetToolController {
 	private readonly setProjectRunCommand: SupersetToolControllerOptions["setProjectRunCommand"];
 	private readonly rememberProjectMemory: SupersetToolControllerOptions["rememberProjectMemory"];
 	private readonly searchProjectMemories: SupersetToolControllerOptions["searchProjectMemories"];
+	private readonly updateProjectMemory: SupersetToolControllerOptions["updateProjectMemory"];
+	private readonly deleteProjectMemory: SupersetToolControllerOptions["deleteProjectMemory"];
 	private readonly listGlobalMcpServers: SupersetToolControllerOptions["listGlobalMcpServers"];
 	private readonly upsertGlobalMcpServer: SupersetToolControllerOptions["upsertGlobalMcpServer"];
 	private readonly removeGlobalMcpServer: SupersetToolControllerOptions["removeGlobalMcpServer"];
+	private readonly listGlobalSkills: SupersetToolControllerOptions["listGlobalSkills"];
+	private readonly upsertGlobalSkill: SupersetToolControllerOptions["upsertGlobalSkill"];
+	private readonly removeGlobalSkill: SupersetToolControllerOptions["removeGlobalSkill"];
 	private readonly resolveTargetWorkspace: SupersetToolControllerOptions["resolveTargetWorkspace"];
 	private readonly resolveDelegatedExecution: SupersetToolControllerOptions["resolveDelegatedExecution"];
 	private readonly delegationRuns: SupersetToolControllerOptions["delegationRuns"];
@@ -562,9 +590,14 @@ export class SupersetToolController {
 		this.setProjectRunCommand = options.setProjectRunCommand;
 		this.rememberProjectMemory = options.rememberProjectMemory;
 		this.searchProjectMemories = options.searchProjectMemories;
+		this.updateProjectMemory = options.updateProjectMemory;
+		this.deleteProjectMemory = options.deleteProjectMemory;
 		this.listGlobalMcpServers = options.listGlobalMcpServers;
 		this.upsertGlobalMcpServer = options.upsertGlobalMcpServer;
 		this.removeGlobalMcpServer = options.removeGlobalMcpServer;
+		this.listGlobalSkills = options.listGlobalSkills;
+		this.upsertGlobalSkill = options.upsertGlobalSkill;
+		this.removeGlobalSkill = options.removeGlobalSkill;
 		this.resolveTargetWorkspace = options.resolveTargetWorkspace;
 		this.resolveDelegatedExecution = options.resolveDelegatedExecution;
 		this.delegationRuns = options.delegationRuns;
@@ -607,9 +640,14 @@ export class SupersetToolController {
 			isDelegatedExecutor &&
 			(request.name === "list_global_mcp_servers" ||
 				request.name === "upsert_global_mcp_server" ||
-				request.name === "remove_global_mcp_server")
+				request.name === "remove_global_mcp_server" ||
+				request.name === "list_global_skills" ||
+				request.name === "upsert_global_skill" ||
+				request.name === "remove_global_skill")
 		) {
-			throw new Error("Delegated executor sessions cannot manage global MCP");
+			throw new Error(
+				"Delegated executor sessions cannot manage global Agent configuration",
+			);
 		}
 		if (
 			request.name === "discuss" &&
@@ -854,6 +892,27 @@ export class SupersetToolController {
 					...request.arguments,
 				});
 			}
+			case "update_project_memory": {
+				if (!this.updateProjectMemory) {
+					throw new Error("Project memory is unavailable");
+				}
+				const { memoryId, scope, ...patch } = request.arguments;
+				return this.updateProjectMemory({
+					workspaceId: source.workspaceId,
+					memoryId,
+					scope,
+					patch,
+				});
+			}
+			case "delete_project_memory": {
+				if (!this.deleteProjectMemory) {
+					throw new Error("Project memory is unavailable");
+				}
+				return this.deleteProjectMemory({
+					workspaceId: source.workspaceId,
+					...request.arguments,
+				});
+			}
 			case "set_project_run_command": {
 				if (!this.setProjectRunCommand) {
 					throw new Error("Project run command configuration is unavailable");
@@ -884,6 +943,31 @@ export class SupersetToolController {
 				}
 				return {
 					removed: this.removeGlobalMcpServer(request.arguments.name),
+					restartRequired: true,
+				};
+			}
+			case "list_global_skills": {
+				if (!this.listGlobalSkills) {
+					throw new Error("Global Skill configuration is unavailable");
+				}
+				return { skills: this.listGlobalSkills() };
+			}
+			case "upsert_global_skill": {
+				if (!this.upsertGlobalSkill) {
+					throw new Error("Global Skill configuration is unavailable");
+				}
+				const { previousName, ...skill } = request.arguments;
+				return {
+					skill: this.upsertGlobalSkill(skill, { previousName }),
+					restartRequired: true,
+				};
+			}
+			case "remove_global_skill": {
+				if (!this.removeGlobalSkill) {
+					throw new Error("Global Skill configuration is unavailable");
+				}
+				return {
+					removed: this.removeGlobalSkill(request.arguments.name),
 					restartRequired: true,
 				};
 			}

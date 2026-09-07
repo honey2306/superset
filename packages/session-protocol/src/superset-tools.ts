@@ -215,19 +215,47 @@ const searchProjectMemoriesArgsSchema = z
 		scope: projectMemorySearchScopeSchema.default("all"),
 	})
 	.strict();
+const updateProjectMemoryArgsSchema = z
+	.object({
+		memoryId: z.string().trim().min(1).max(256),
+		title: z.string().trim().min(1).max(200).optional(),
+		content: z.string().trim().min(1).max(20_000).optional(),
+		category: projectMemoryCategorySchema.optional(),
+		pinned: z.boolean().optional(),
+		enabled: z.boolean().optional(),
+		scope: projectMemoryScopeSchema.default("project"),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.title !== undefined ||
+			value.content !== undefined ||
+			value.category !== undefined ||
+			value.pinned !== undefined ||
+			value.enabled !== undefined,
+		{ message: "At least one memory field must be provided." },
+	);
+const deleteProjectMemoryArgsSchema = z
+	.object({
+		memoryId: z.string().trim().min(1).max(256),
+		scope: projectMemoryScopeSchema.default("project"),
+	})
+	.strict();
 const setProjectRunCommandArgsSchema = z
 	.object({
 		commands: z.array(z.string().trim().min(1).max(10_000)).min(1).max(20),
 	})
 	.strict();
-const globalMcpServerArgsSchema = z
+const globalMcpServerNameSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(64)
+	.regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
+const globalMcpStdioServerArgsSchema = z
 	.object({
-		name: z
-			.string()
-			.trim()
-			.min(1)
-			.max(64)
-			.regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
+		type: z.literal("stdio").default("stdio"),
+		name: globalMcpServerNameSchema,
 		command: z
 			.string()
 			.trim()
@@ -255,8 +283,55 @@ const globalMcpServerArgsSchema = z
 		enabled: z.boolean().default(true),
 	})
 	.strict();
+const globalMcpRemoteServerArgsSchema = z
+	.object({
+		type: z.enum(["http", "sse"]),
+		name: globalMcpServerNameSchema,
+		url: z
+			.url()
+			.max(10_000)
+			.refine(
+				(value) => value.startsWith("https://") || value.startsWith("http://"),
+			),
+		headers: z
+			.record(
+				z
+					.string()
+					.min(1)
+					.max(256)
+					.regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/),
+				z
+					.string()
+					.max(100_000)
+					.refine((value) => !/[\r\n\0]/.test(value)),
+			)
+			.default({}),
+		enabled: z.boolean().default(true),
+	})
+	.strict();
+const globalMcpServerArgsSchema = z.union([
+	globalMcpStdioServerArgsSchema,
+	globalMcpRemoteServerArgsSchema,
+]);
 const removeGlobalMcpServerArgsSchema = z
 	.object({ name: z.string().trim().min(1).max(64) })
+	.strict();
+const globalSkillNameSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(64)
+	.regex(/^[a-z0-9][a-z0-9-]*$/);
+const globalSkillArgsSchema = z
+	.object({
+		name: globalSkillNameSchema,
+		description: z.string().trim().min(1).max(2_000),
+		instructions: z.string().trim().min(1).max(100_000),
+		previousName: globalSkillNameSchema.optional(),
+	})
+	.strict();
+const removeGlobalSkillArgsSchema = z
+	.object({ name: globalSkillNameSchema })
 	.strict();
 const updatePlanArgsSchema = z
 	.object({
@@ -429,6 +504,16 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
+		name: z.literal("update_project_memory"),
+		arguments: updateProjectMemoryArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("delete_project_memory"),
+		arguments: deleteProjectMemoryArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
 		name: z.literal("set_project_run_command"),
 		arguments: setProjectRunCommandArgsSchema,
 	}),
@@ -446,6 +531,21 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 		sourceSessionId: sessionIdSchema,
 		name: z.literal("remove_global_mcp_server"),
 		arguments: removeGlobalMcpServerArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("list_global_skills"),
+		arguments: z.object({}).strict(),
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("upsert_global_skill"),
+		arguments: globalSkillArgsSchema,
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("remove_global_skill"),
+		arguments: removeGlobalSkillArgsSchema,
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
@@ -502,7 +602,7 @@ export function formatProjectMemoryInstructions(
 	memories: readonly ProjectMemoryInstructionItem[],
 ): string {
 	const prelude =
-		"Memory is shared across conversations and worktrees. Project memory applies to the current project, while global memory applies across every project on this host. When the user asks you to remember or record something, call `remember_project_memory`; use global scope only for knowledge that genuinely applies across projects. Also record durable, verified knowledge that would prevent future repeated investigation, such as non-obvious debugging chains, stable architecture constraints, environment setup, and recurring workflows. Do not record temporary task progress, readily discoverable code facts, unverified guesses, credentials, tokens, cookies, secrets, transient ports, or process IDs. The automatically injected lists are compact title indexes; call `search_project_memories` to retrieve full details before relying on a relevant memory, repeating expensive investigation, or creating a likely duplicate. Project memory takes precedence over global memory with the same title.";
+		"Memory is shared across conversations and worktrees. Project memory applies to the current project, while global memory applies across every project on this host. When the user asks you to remember or record something, call `remember_project_memory`; use global scope only for knowledge that genuinely applies across projects. Use `update_project_memory` or `delete_project_memory` when durable knowledge changes or becomes obsolete. Also record durable, verified knowledge that would prevent future repeated investigation, such as non-obvious debugging chains, stable architecture constraints, environment setup, and recurring workflows. Do not record temporary task progress, readily discoverable code facts, unverified guesses, credentials, tokens, cookies, secrets, transient ports, or process IDs. The automatically injected lists are compact title indexes; call `search_project_memories` to retrieve full details and IDs before relying on a relevant memory, repeating expensive investigation, creating a likely duplicate, updating, or deleting. Project memory takes precedence over global memory with the same title.";
 	if (memories.length === 0) return prelude;
 
 	const projectMemories = memories.filter(
@@ -999,27 +1099,47 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "upsert_global_mcp_server",
 		description:
-			"Add or update one app-global stdio MCP server by name. The configuration applies to every Agent on its next new or resumed session. Never store credentials unless the user explicitly asks; prefer environment-variable references supported by the command.",
+			"Add or update one app-global stdio, HTTP, or SSE MCP server by name. The configuration applies to every Agent on its next new or resumed session. Never store credentials unless the user explicitly asks; prefer environment-variable references for stdio servers.",
 		inputSchema: {
 			type: "object",
-			properties: {
-				name: { type: "string", minLength: 1, maxLength: 64 },
-				command: { type: "string", minLength: 1, maxLength: 2_000 },
-				args: {
-					type: "array",
-					items: { type: "string", maxLength: 10_000 },
-					maxItems: 100,
-					default: [],
+			oneOf: [
+				{
+					properties: {
+						type: { type: "string", const: "stdio", default: "stdio" },
+						name: { type: "string", minLength: 1, maxLength: 64 },
+						command: { type: "string", minLength: 1, maxLength: 2_000 },
+						args: {
+							type: "array",
+							items: { type: "string", maxLength: 10_000 },
+							maxItems: 100,
+							default: [],
+						},
+						env: {
+							type: "object",
+							additionalProperties: { type: "string", maxLength: 100_000 },
+							default: {},
+						},
+						enabled: { type: "boolean", default: true },
+					},
+					required: ["name", "command"],
+					additionalProperties: false,
 				},
-				env: {
-					type: "object",
-					additionalProperties: { type: "string", maxLength: 100_000 },
-					default: {},
+				{
+					properties: {
+						type: { type: "string", enum: ["http", "sse"] },
+						name: { type: "string", minLength: 1, maxLength: 64 },
+						url: { type: "string", format: "uri", maxLength: 10_000 },
+						headers: {
+							type: "object",
+							additionalProperties: { type: "string", maxLength: 100_000 },
+							default: {},
+						},
+						enabled: { type: "boolean", default: true },
+					},
+					required: ["type", "name", "url"],
+					additionalProperties: false,
 				},
-				enabled: { type: "boolean", default: true },
-			},
-			required: ["name", "command"],
-			additionalProperties: false,
+			],
 		},
 	},
 	{
@@ -1030,6 +1150,60 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 			type: "object",
 			properties: {
 				name: { type: "string", minLength: 1, maxLength: 64 },
+			},
+			required: ["name"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "list_global_skills",
+		description:
+			"List app-global Agent Skills installed on this Superset host, including their full instructions.",
+		inputSchema: {
+			type: "object",
+			properties: {},
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "upsert_global_skill",
+		description:
+			"Create or update an app-global Agent Skill. To rename an existing skill, provide its current name as previousName. Skills become available to compatible Agents in new or resumed sessions.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				name: {
+					type: "string",
+					minLength: 1,
+					maxLength: 64,
+					pattern: "^[a-z0-9][a-z0-9-]*$",
+				},
+				description: { type: "string", minLength: 1, maxLength: 2_000 },
+				instructions: { type: "string", minLength: 1, maxLength: 100_000 },
+				previousName: {
+					type: "string",
+					minLength: 1,
+					maxLength: 64,
+					pattern: "^[a-z0-9][a-z0-9-]*$",
+				},
+			},
+			required: ["name", "description", "instructions"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "remove_global_skill",
+		description:
+			"Remove an app-global Agent Skill by name. Existing live sessions are unaffected; new or resumed sessions use the updated list.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				name: {
+					type: "string",
+					minLength: 1,
+					maxLength: 64,
+					pattern: "^[a-z0-9][a-z0-9-]*$",
+				},
 			},
 			required: ["name"],
 			additionalProperties: false,
@@ -1064,6 +1238,57 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 				},
 			},
 			required: ["title", "content"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "update_project_memory",
+		description:
+			"Update an existing project or global memory by ID. Use search_project_memories first to resolve the memory ID and scope.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				memoryId: { type: "string", minLength: 1, maxLength: 256 },
+				title: { type: "string", minLength: 1, maxLength: 200 },
+				content: { type: "string", minLength: 1, maxLength: 20_000 },
+				category: {
+					type: "string",
+					enum: [
+						"debugging",
+						"architecture",
+						"workflow",
+						"environment",
+						"preference",
+						"other",
+					],
+				},
+				pinned: { type: "boolean" },
+				enabled: { type: "boolean" },
+				scope: {
+					type: "string",
+					enum: ["project", "global"],
+					default: "project",
+				},
+			},
+			required: ["memoryId"],
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "delete_project_memory",
+		description:
+			"Permanently delete an existing project or global memory by ID. Use search_project_memories first to resolve the memory ID and scope.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				memoryId: { type: "string", minLength: 1, maxLength: 256 },
+				scope: {
+					type: "string",
+					enum: ["project", "global"],
+					default: "project",
+				},
+			},
+			required: ["memoryId"],
 			additionalProperties: false,
 		},
 	},

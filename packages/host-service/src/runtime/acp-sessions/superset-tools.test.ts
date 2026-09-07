@@ -1822,14 +1822,18 @@ describe("SupersetToolController", () => {
 		});
 	});
 
-	test("records and searches memory for the project owning the source workspace", async () => {
+	test("creates, reads, updates, and deletes memory for the source workspace", async () => {
 		const { manager } = fixture();
 		const rememberProjectMemory = mock(() => ({ created: true, id: "m1" }));
 		const searchProjectMemories = mock(() => ({ memories: [{ id: "m1" }] }));
+		const updateProjectMemory = mock(() => ({ memory: { id: "m1" } }));
+		const deleteProjectMemory = mock(() => ({ deleted: true }));
 		const controller = new SupersetToolController({
 			manager,
 			rememberProjectMemory,
 			searchProjectMemories,
+			updateProjectMemory,
+			deleteProjectMemory,
 		});
 
 		await controller.execute({
@@ -1845,6 +1849,16 @@ describe("SupersetToolController", () => {
 			sourceSessionId: "source",
 			name: "search_project_memories",
 			arguments: { query: "renderer", limit: 5 },
+		});
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "update_project_memory",
+			arguments: { memoryId: "m1", content: "Updated workflow." },
+		});
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "delete_project_memory",
+			arguments: { memoryId: "m1", scope: "global" },
 		});
 
 		expect(rememberProjectMemory).toHaveBeenCalledWith({
@@ -1862,6 +1876,71 @@ describe("SupersetToolController", () => {
 			limit: 5,
 			scope: "all",
 		});
+		expect(updateProjectMemory).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			memoryId: "m1",
+			scope: "project",
+			patch: { content: "Updated workflow." },
+		});
+		expect(deleteProjectMemory).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			memoryId: "m1",
+			scope: "global",
+		});
+	});
+
+	test("lists, upserts, and removes global Agent Skills", async () => {
+		const { manager } = fixture();
+		const skill = {
+			name: "review-pr",
+			description: "Review pull requests",
+			instructions: "Inspect the diff.",
+			filePath: "/skills/review-pr/SKILL.md",
+		};
+		const listGlobalSkills = mock(() => [skill]);
+		const upsertGlobalSkill = mock(() => skill);
+		const removeGlobalSkill = mock(() => true);
+		const controller = new SupersetToolController({
+			manager,
+			listGlobalSkills,
+			upsertGlobalSkill,
+			removeGlobalSkill,
+		});
+
+		expect(
+			await controller.execute({
+				sourceSessionId: "source",
+				name: "list_global_skills",
+				arguments: {},
+			}),
+		).toEqual({ skills: [skill] });
+		expect(
+			await controller.execute({
+				sourceSessionId: "source",
+				name: "upsert_global_skill",
+				arguments: {
+					name: "review-pr",
+					description: "Review pull requests",
+					instructions: "Inspect the diff.",
+					previousName: "old-review-pr",
+				},
+			}),
+		).toEqual({ skill, restartRequired: true });
+		expect(upsertGlobalSkill).toHaveBeenCalledWith(
+			{
+				name: "review-pr",
+				description: "Review pull requests",
+				instructions: "Inspect the diff.",
+			},
+			{ previousName: "old-review-pr" },
+		);
+		expect(
+			await controller.execute({
+				sourceSessionId: "source",
+				name: "remove_global_skill",
+				arguments: { name: "review-pr" },
+			}),
+		).toEqual({ removed: true, restartRequired: true });
 	});
 
 	test("sets the run command for the project owning the source workspace", async () => {

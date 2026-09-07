@@ -199,6 +199,7 @@
 		"lowlight": "3.3.0",
 		"lucide-react": "0.563.0",
 		"mastracode": "0.18.1",
+		"mcp-remote": "0.8.3",
 		"mdast-util-to-string": "4.0.0",
 		"nanoid": "5.1.7",
 		"native-keymap": "3.3.9",

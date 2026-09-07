@@ -24,17 +24,20 @@ const RESERVED_SERVER_NAMES = new Set([
 	"superset",
 ]);
 
-export const globalMcpServerInputSchema = z
+const globalMcpNameSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(64)
+	.regex(
+		/^[A-Za-z0-9][A-Za-z0-9._-]*$/,
+		"Use letters, numbers, dots, underscores, or hyphens.",
+	);
+
+const stdioMcpServerInputSchema = z
 	.object({
-		name: z
-			.string()
-			.trim()
-			.min(1)
-			.max(64)
-			.regex(
-				/^[A-Za-z0-9][A-Za-z0-9._-]*$/,
-				"Use letters, numbers, dots, underscores, or hyphens.",
-			),
+		type: z.literal("stdio").default("stdio"),
+		name: globalMcpNameSchema,
 		command: z
 			.string()
 			.trim()
@@ -72,7 +75,38 @@ export const globalMcpServerInputSchema = z
 			.default({}),
 		enabled: z.boolean().default(true),
 	})
-	.strict()
+	.strict();
+
+const remoteMcpServerInputSchema = z
+	.object({
+		type: z.enum(["http", "sse"]),
+		name: globalMcpNameSchema,
+		url: z
+			.url()
+			.max(10_000)
+			.refine(
+				(value) => value.startsWith("https://") || value.startsWith("http://"),
+				"Remote MCP URL must use HTTP or HTTPS.",
+			),
+		headers: z
+			.record(
+				z
+					.string()
+					.min(1)
+					.max(256)
+					.regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/),
+				z
+					.string()
+					.max(100_000)
+					.refine((value) => !/[\r\n\0]/.test(value)),
+			)
+			.default({}),
+		enabled: z.boolean().default(true),
+	})
+	.strict();
+
+export const globalMcpServerInputSchema = z
+	.union([stdioMcpServerInputSchema, remoteMcpServerInputSchema])
 	.superRefine((server, context) => {
 		if (RESERVED_SERVER_NAMES.has(server.name)) {
 			context.addIssue({
@@ -84,6 +118,51 @@ export const globalMcpServerInputSchema = z
 	});
 
 export type GlobalMcpServer = z.infer<typeof globalMcpServerInputSchema>;
+export type GlobalMcpServerInput = z.input<typeof globalMcpServerInputSchema>;
+
+function migrateMcpRemoteServer(server: GlobalMcpServer): GlobalMcpServer {
+	if (server.type !== "stdio") return server;
+	const runner = path.basename(server.command).toLowerCase();
+	if (runner !== "npx" && runner !== "bunx") return server;
+	if (Object.keys(server.env).some((name) => name !== "PATH")) return server;
+
+	const args = [...server.args];
+	while (args[0] === "-y" || args[0] === "--yes") args.shift();
+	if (args[0] === "--prefix" && args.length >= 2) args.splice(0, 2);
+	if (!/^mcp-remote(?:@[^/]+)?$/.test(args[0] ?? "")) return server;
+	args.shift();
+	const url = args.shift();
+	if (!url) return server;
+	const headers: Record<string, string> = {};
+	let transport: "http" | "sse" | null = null;
+	while (args.length > 0) {
+		const flag = args.shift();
+		const value = args.shift();
+		if (!value) return server;
+		if (flag === "--transport") {
+			if (value === "http-only") transport = "http";
+			else if (value === "sse-only") transport = "sse";
+			else return server;
+			continue;
+		}
+		if (flag === "--header") {
+			const separator = value.indexOf(":");
+			if (separator <= 0) return server;
+			headers[value.slice(0, separator)] = value.slice(separator + 1);
+			continue;
+		}
+		return server;
+	}
+	if (!transport) return server;
+	const migrated = remoteMcpServerInputSchema.safeParse({
+		type: transport,
+		name: server.name,
+		url,
+		headers,
+		enabled: server.enabled,
+	});
+	return migrated.success ? migrated.data : server;
+}
 
 const globalMcpFileSchema = z
 	.object({
@@ -131,7 +210,7 @@ export function readGlobalMcpServers(
 			`Invalid global MCP settings at ${configPath}: ${parsed.error.issues[0]?.message ?? "invalid configuration"}`,
 		);
 	}
-	return parsed.data.servers;
+	return parsed.data.servers.map(migrateMcpRemoteServer);
 }
 
 function writeGlobalMcpServers(
@@ -192,7 +271,7 @@ function withGlobalMcpLock<T>(configPath: string, mutate: () => T): T {
 }
 
 export function upsertGlobalMcpServer(
-	input: GlobalMcpServer,
+	input: GlobalMcpServerInput,
 	configPath = globalMcpConfigPath(),
 ): GlobalMcpServer {
 	const server = globalMcpServerInputSchema.parse(input);
@@ -210,7 +289,7 @@ export function upsertGlobalMcpServer(
 
 export function replaceGlobalMcpServer(
 	originalName: string,
-	input: GlobalMcpServer,
+	input: GlobalMcpServerInput,
 	configPath = globalMcpConfigPath(),
 ): GlobalMcpServer {
 	const server = globalMcpServerInputSchema.parse(input);
@@ -252,10 +331,26 @@ export function toAcpMcpServers(
 ): McpServer[] {
 	return servers
 		.filter((server) => server.enabled)
-		.map((server) => ({
-			name: server.name,
-			command: server.command,
-			args: server.args,
-			env: Object.entries(server.env).map(([name, value]) => ({ name, value })),
-		}));
+		.map((server) => {
+			if (!("command" in server)) {
+				return {
+					type: server.type,
+					name: server.name,
+					url: server.url,
+					headers: Object.entries(server.headers).map(([name, value]) => ({
+						name,
+						value,
+					})),
+				};
+			}
+			return {
+				name: server.name,
+				command: server.command,
+				args: server.args,
+				env: Object.entries(server.env).map(([name, value]) => ({
+					name,
+					value,
+				})),
+			};
+		});
 }
