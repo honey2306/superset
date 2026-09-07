@@ -214,7 +214,12 @@ export class PeekabooToolExecutor {
 				textOf(result),
 			)
 		) {
-			result = await this.restoreThroughDock(result, args, invoke, signal);
+			result = await this.restoreThroughActivation(
+				result,
+				args,
+				invoke,
+				signal,
+			);
 		}
 		if (name === "see" || name === "inspect_ui")
 			result = this.rememberObservation(result, args);
@@ -255,17 +260,17 @@ export class PeekabooToolExecutor {
 		return result;
 	}
 
-	private async restoreThroughDock(
+	private async restoreThroughActivation(
 		original: McpToolResult,
 		args: Args,
 		invoke: ToolCall,
 		signal?: AbortSignal,
 	): Promise<McpToolResult> {
 		if (!this.readNative) return original;
-		let dockAttempted = false;
+		let activationAttempted = false;
 		const unresolved = (message: string) =>
 			append(
-				dockAttempted
+				activationAttempted
 					? {
 							...original,
 							_meta: {
@@ -319,17 +324,23 @@ export class PeekabooToolExecutor {
 					original,
 					"Recovery stopped: the target process or window changed.",
 				);
-			dockAttempted = true;
-			const dock = await invoke("dock", {
-				action: "launch",
-				app: before.applicationName,
-				foreground: true,
+			activationAttempted = true;
+			const activation = await invoke("app", {
+				action: "focus",
+				name: `PID:${target.pid}`,
 			});
-			if (dock.isError && record(dock._meta)?.mutation_dispatched !== true)
-				return append(original, `Dock recovery refused: ${textOf(dock)}`);
-			// Dock activation restores a Stage Manager group. Confirm the requested
-			// window itself, rather than treating Dock's delivery receipt as success.
+			if (
+				activation.isError &&
+				record(activation._meta)?.mutation_dispatched !== true
+			)
+				return append(
+					original,
+					`App activation refused: ${textOf(activation)}`,
+				);
+			// Activate the pinned process, then wait for its exact window to stabilize.
+			// Delivery acceptance alone does not prove restoration.
 			let lastBounds: unknown;
+			let stableBounds: string | undefined;
 			for (let attempt = 0; attempt < 4; attempt++) {
 				await delay(100, undefined, { signal });
 				const seen = await invoke("see", {
@@ -367,6 +378,14 @@ export class PeekabooToolExecutor {
 						(key) => Math.abs(bounds.data[key] - currentBounds[key]) <= 2,
 					)
 				) {
+					const fingerprint = JSON.stringify({
+						screenshot: bounds.data,
+						accessibility: currentBounds,
+					});
+					if (stableBounds !== fingerprint) {
+						stableBounds = fingerprint;
+						continue;
+					}
 					if (args.action === "focus") {
 						const active = await this.readNative(
 							{ pid: target.pid },
@@ -384,15 +403,16 @@ export class PeekabooToolExecutor {
 								state: "confirmed_change",
 								effect: "confirmed",
 								mutation_dispatched: true,
-								recovery: "dock-activation",
+								recovery: "app-activation",
 							},
 						},
-						"Window restored through Dock activation; exact process/window identity and full-size screenshot bounds were verified. Use this fresh snapshot for subsequent input.",
+						"Window restored through app activation; exact process/window identity and full-size screenshot bounds were verified. Use this fresh snapshot for subsequent input.",
 					);
 				}
+				stableBounds = undefined;
 			}
 			return unresolved(
-				`Dock activation was attempted once, but the exact window did not regain verified full-size bounds. Do not reuse old coordinates. Last observation: ${JSON.stringify(lastBounds)}`,
+				`App activation was attempted once, but the exact window did not regain verified full-size bounds. Do not reuse old coordinates. Last observation: ${JSON.stringify(lastBounds)}`,
 			);
 		} catch (error) {
 			signal?.throwIfAborted();

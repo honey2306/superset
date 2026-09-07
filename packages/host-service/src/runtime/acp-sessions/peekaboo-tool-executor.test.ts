@@ -241,14 +241,14 @@ describe("window restoration recovery", () => {
 	test.each([
 		"Window 1844 changed identity before native dispatch",
 		"Pinned window target disappeared or changed owner/process generation/bounds",
-	])("restores through Dock after %s", async (message) => {
+	])("restores through app activation after %s", async (message) => {
 		const calls: string[] = [];
 		const executor = new PeekabooToolExecutor(
 			async (name) => {
 				calls.push(name);
 				return name === "window"
 					? { ...failure, content: [{ type: "text", text: message }] }
-					: name === "dock"
+					: name === "app"
 						? dispatched
 						: restored;
 			},
@@ -259,10 +259,10 @@ describe("window restoration recovery", () => {
 			app: "TextEdit",
 			window_id: 1844,
 		});
-		expect(calls).toEqual(["window", "dock", "see"]);
+		expect(calls).toEqual(["window", "app", "see", "see"]);
 		expect(result.isError).toBe(false);
 		expect(result._meta).toMatchObject({
-			recovery: "dock-activation",
+			recovery: "app-activation",
 			effect: "confirmed",
 		});
 	});
@@ -274,7 +274,7 @@ describe("window restoration recovery", () => {
 				calls.push(name);
 				return name === "window"
 					? failure
-					: name === "dock"
+					: name === "app"
 						? dispatched
 						: restored;
 			},
@@ -290,17 +290,17 @@ describe("window restoration recovery", () => {
 			window_id: 1844,
 		});
 		expect(result.isError).toBe(false);
-		expect(calls.filter((name) => name === "dock")).toHaveLength(1);
-		expect(calls.filter((name) => name === "see")).toHaveLength(2);
+		expect(calls.filter((name) => name === "app")).toHaveLength(1);
+		expect(calls.filter((name) => name === "see")).toHaveLength(3);
 	});
-	test("never retries Dock or reports success while screenshot remains a thumbnail", async () => {
+	test("never retries app activation or reports success while screenshot remains a thumbnail", async () => {
 		const calls: string[] = [];
 		const executor = new PeekabooToolExecutor(
 			async (name) => {
 				calls.push(name);
 				return name === "window"
 					? failure
-					: name === "dock"
+					: name === "app"
 						? dispatched
 						: {
 								...restored,
@@ -320,11 +320,11 @@ describe("window restoration recovery", () => {
 			app: "TextEdit",
 			window_id: 1844,
 		});
-		expect(calls.filter((name) => name === "dock")).toHaveLength(1);
+		expect(calls.filter((name) => name === "app")).toHaveLength(1);
 		expect(result.isError).toBe(true);
 		expect(result._meta).toMatchObject({ mutation_dispatched: true });
 	});
-	test("stops before Dock when the process generation changes", async () => {
+	test("stops before app activation when the process generation changes", async () => {
 		let reads = 0;
 		const calls: string[] = [];
 		const executor = new PeekabooToolExecutor(
