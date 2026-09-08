@@ -182,6 +182,52 @@ lines.on("line", (line) => {
 		}
 	});
 
+	test("keeps available MCP tools when another server fails to initialize", async () => {
+		const root = mkdtempSync(join(tmpdir(), "pi-sdk-acp-mcp-failure-"));
+		const healthyServerPath = join(root, "healthy-mcp.ts");
+		const failingServerPath = join(root, "failing-mcp.ts");
+		writeFileSync(
+			healthyServerPath,
+			`import readline from "node:readline";
+const lines = readline.createInterface({ input: process.stdin });
+lines.on("line", (line) => {
+  const request = JSON.parse(line);
+  if (request.method === "initialize") {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: {} }));
+  } else if (request.method === "tools/list") {
+    console.log(JSON.stringify({ jsonrpc: "2.0", id: request.id, result: { tools: [{ name: "healthy_tool", inputSchema: { type: "object" } }] } }));
+  }
+});
+`,
+		);
+		writeFileSync(failingServerPath, "process.exit(1);\n");
+
+		try {
+			const result = await initializeMcpTools([
+				{
+					name: "healthy",
+					command: process.execPath,
+					args: [healthyServerPath],
+					env: [],
+				},
+				{
+					name: "unavailable",
+					command: process.execPath,
+					args: [failingServerPath],
+					env: [],
+				},
+			] as never);
+			try {
+				expect(result.clients).toHaveLength(1);
+				expect(result.tools.map((tool) => tool.name)).toEqual(["healthy_tool"]);
+			} finally {
+				await Promise.all(result.clients.map((client) => client.close()));
+			}
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
 	test("persists a new session before an immediate list/load", async () => {
 		const root = mkdtempSync(join(tmpdir(), "pi-sdk-acp-session-"));
 		const cwd = join(root, "cwd");

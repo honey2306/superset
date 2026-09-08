@@ -531,13 +531,24 @@ export async function initializeMcpTools(
 	try {
 		// Independent MCP servers initialize in parallel. Slow shared servers are
 		// wrapped by the manager's harness-neutral lazy MCP proxy before this point.
-		const toolCatalogs = await Promise.all(
+		const toolCatalogs = await Promise.allSettled(
 			registrations.map(({ catalog }) => catalog),
 		);
-		for (const [index, catalog] of toolCatalogs.entries()) {
+		const availableClients: McpClient[] = [];
+		for (const [index, catalogResult] of toolCatalogs.entries()) {
 			const client = clients[index];
 			const server = processServers[index];
 			if (!client || !server) continue;
+			if (catalogResult.status === "rejected") {
+				await Promise.allSettled([client.close()]);
+				console.warn(
+					`[pi-sdk-acp] MCP server "${server.name}" is unavailable; continuing without its tools`,
+					catalogResult.reason,
+				);
+				continue;
+			}
+			availableClients.push(client);
+			const catalog = catalogResult.value;
 			for (const tool of catalog) {
 				if (registeredNames.has(tool.name)) {
 					throw new Error(`Duplicate ACP MCP tool name: ${tool.name}`);
@@ -564,7 +575,7 @@ export async function initializeMcpTools(
 				});
 			}
 		}
-		return { clients, tools };
+		return { clients: availableClients, tools };
 	} catch (error) {
 		await Promise.allSettled(clients.map((client) => client.close()));
 		throw error;
