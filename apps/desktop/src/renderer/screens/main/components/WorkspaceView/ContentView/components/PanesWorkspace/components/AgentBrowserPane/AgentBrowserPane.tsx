@@ -73,8 +73,8 @@ export function AgentBrowserPane({
 				{!state.data?.active && (
 					<div className="agent-browser-pane__empty">
 						<Globe2 />
-						<strong>Starting local browser</strong>
-						<span>The page remains alive when this pane is hidden.</span>
+						<strong>No open pages</strong>
+						<span>Open a page with + or ask the agent to browse.</span>
 					</div>
 				)}
 			</div>

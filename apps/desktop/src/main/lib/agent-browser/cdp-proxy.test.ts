@@ -55,6 +55,7 @@ function fakeManager() {
 
 async function upstream(
 	mode: "normal" | "error" | "close" | "silent" = "normal",
+	commands: string[] = [],
 ) {
 	const server = createServer((request, response) => {
 		if (request.url === "/json/list") {
@@ -104,7 +105,8 @@ async function upstream(
 				);
 				return;
 			}
-			if (request.method === "Emulation.setDeviceMetricsOverride") {
+			commands.push(request.method);
+			if (request.method === "Emulation.clearDeviceMetricsOverride") {
 				if (mode === "silent") return;
 				if (mode === "close") {
 					client.close();
@@ -225,9 +227,10 @@ describe("Agent Browser CDP proxy", () => {
 
 	test("routes lifecycle through Electron and forwards attached page commands", async () => {
 		const { manager, calls } = fakeManager();
+		const commands: string[] = [];
 		const proxy = await startAgentBrowserCdpProxy({
 			manager,
-			upstreamUrl: await upstream(),
+			upstreamUrl: await upstream("normal", commands),
 		});
 		cleanups.push(proxy.close);
 		const version = (await fetch(
@@ -242,6 +245,7 @@ describe("Agent Browser CDP proxy", () => {
 			method: "Target.attachToTarget",
 			params: { targetId: "target-1", flatten: true },
 		});
+		expect(commands).toEqual(["Emulation.clearDeviceMetricsOverride"]);
 		const sessionId = (attached.result as { sessionId: string }).sessionId;
 		expect(
 			await request(socket, {

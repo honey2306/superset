@@ -72,6 +72,9 @@ export class AgentBrowserBridgeClient {
 				if (error) reject(error);
 				else resolve(value as T);
 			};
+			socket.setTimeout(10_000, () =>
+				finish(new Error("Agent Browser bridge timed out")),
+			);
 			socket.setEncoding("utf8");
 			socket.once("connect", () => {
 				socket.write(`${JSON.stringify({ id, token, method, params })}\n`);
@@ -122,6 +125,10 @@ export class AgentBrowserBridgeClient {
 
 	capturePage(sessionId: string, fullPage = false): Promise<string> {
 		return this.call("capturePage", { sessionId, fullPage });
+	}
+
+	async closeAgentPages(sessionId: string): Promise<void> {
+		await this.call("closeAgentPages", { sessionId });
 	}
 
 	async closeSession(sessionId: string): Promise<void> {

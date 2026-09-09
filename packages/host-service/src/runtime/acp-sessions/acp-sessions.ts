@@ -564,6 +564,7 @@ interface AcpSessionRuntime {
 	/** The first host-journaled user block, used to suppress legacy Pi preludes. */
 	piFirstUserMessageSeq: number | null;
 	activePromptCount: number;
+	turnCleanup?: Promise<void>;
 	/**
 	 * A `sendNow` request parked while the current turn drains. When
 	 * `activePromptCount` returns to zero the finally hook picks it up before
@@ -615,6 +616,8 @@ interface TranscriptCacheEntry {
 }
 
 export interface AcpSessionManagerOptions {
+	/** Release turn-owned resources before admitting queued follow-ups. */
+	onTurnEnd?: (sessionId: string) => Promise<void>;
 	/**
 	 * Resolve a workspace id to the worktree directory its sessions run in.
 	 * app.ts wires this to the workspaces table; tests pass a fixture dir.
@@ -731,6 +734,7 @@ export interface AcpSessionManagerOptions {
 export class AcpSessionManager {
 	private readonly resolveWorkspaceCwd: AcpSessionManagerOptions["resolveWorkspaceCwd"];
 	private readonly journalCapacity: number;
+	private readonly onTurnEnd: AcpSessionManagerOptions["onTurnEnd"];
 	private readonly adapterEntry: string | undefined;
 	private readonly codexAdapterEntry: string | undefined;
 	private readonly piAdapterEntry: string | undefined;
@@ -779,6 +783,7 @@ export class AcpSessionManager {
 	private readonly sessionChangeListeners = new Set<AcpSessionChangeHandler>();
 
 	constructor(options: AcpSessionManagerOptions) {
+		this.onTurnEnd = options.onTurnEnd;
 		this.resolveWorkspaceCwd = options.resolveWorkspaceCwd;
 		const journalCapacity = options.journalCapacity ?? 5_000;
 		if (!Number.isInteger(journalCapacity) || journalCapacity < 1) {
@@ -1360,11 +1365,16 @@ export class AcpSessionManager {
 		runtime.state.lastStopReason = null;
 		runtime.activePromptCount += 1;
 		this.syncStatus(runtime, { force: true });
-		const turn = runtime.connection.agent
-			.request("session/prompt", {
+		const requestPrompt = () =>
+			runtime.connection.agent.request("session/prompt", {
 				sessionId: runtime.acpSessionId,
 				prompt: input.prompt,
-			})
+			});
+		const turn = (
+			runtime.turnCleanup
+				? runtime.turnCleanup.then(requestPrompt)
+				: requestPrompt()
+		)
 			.then((response) => {
 				const completedAt = Date.now();
 				runtime.state.lastStopReason = response.stopReason;
@@ -1410,25 +1420,42 @@ export class AcpSessionManager {
 				throw error;
 			})
 			.finally(() => {
-				runtime.activePromptCount -= 1;
-				if (runtime.closed || runtime.closing) return;
-				// Whatever never reached a terminal status this turn (cancelled,
-				// errored) must not keep rendering as running on every client.
-				if (runtime.activePromptCount === 0) {
-					this.terminalizeOpenToolCalls(runtime);
+				const finishTurn = () => {
+					runtime.activePromptCount -= 1;
+					if (runtime.closed || runtime.closing) return;
+					// Whatever never reached a terminal status this turn (cancelled,
+					// errored) must not keep rendering as running on every client.
+					if (runtime.activePromptCount === 0) {
+						this.terminalizeOpenToolCalls(runtime);
+					}
+					// Force an emit so every turn end lands a state frame with the
+					// final lastStopReason / lastError even if the status is unchanged.
+					this.syncStatus(runtime, { force: true });
+					if (runtime.activePromptCount === 0) {
+						this.compactCompletedTurns(runtime);
+					}
+					// Drain the follow-up queue: whichever prompt is next (a pending
+					// sendNow beats the ordered tail) fires as if the user had just
+					// typed it. Its own finally hook keeps the chain going.
+					if (runtime.activePromptCount === 0) {
+						this.drainQueue(runtime);
+					}
+				};
+				if (runtime.activePromptCount !== 1 || !this.onTurnEnd) {
+					finishTurn();
+					return;
 				}
-				// Force an emit so every turn end lands a state frame with the
-				// final lastStopReason / lastError even if the status is unchanged.
-				this.syncStatus(runtime, { force: true });
-				if (runtime.activePromptCount === 0) {
-					this.compactCompletedTurns(runtime);
-				}
-				// Drain the follow-up queue: whichever prompt is next (a pending
-				// sendNow beats the ordered tail) fires as if the user had just
-				// typed it. Its own finally hook keeps the chain going.
-				if (runtime.activePromptCount === 0) {
-					this.drainQueue(runtime);
-				}
+				// Keep the session running and prevent new adapter requests until
+				// old browser pages have been released.
+				runtime.turnCleanup = Promise.resolve()
+					.then(() => this.onTurnEnd?.(input.sessionId))
+					.catch((error: unknown) => {
+						console.error("[acp-sessions] Turn cleanup failed", error);
+					});
+				return runtime.turnCleanup.then(() => {
+					runtime.turnCleanup = undefined;
+					finishTurn();
+				});
 			});
 		// Detached callers (the router) drop `turn`; keep its rejection handled.
 		turn.catch(() => {});

@@ -52,13 +52,14 @@ async function dispatch(
 		case "state":
 			return manager.getState(sessionId);
 		case "ensurePage":
-			return manager.ensurePage(sessionId);
+			return manager.ensurePage(sessionId, "agent");
 		case "createPage":
 			return manager.createPage(
 				sessionId,
 				typeof request.params?.url === "string"
 					? request.params.url
 					: undefined,
+				"agent",
 			);
 		case "selectPage":
 			await manager.selectPage(
@@ -77,11 +78,18 @@ async function dispatch(
 		case "closeSession":
 			await manager.closeSession(sessionId);
 			return null;
+		case "closeAgentPages":
+			await manager.closeAgentPages(sessionId);
+			return null;
 		case "navigate":
-			await manager.navigate(sessionId, requiredString(request.params, "url"));
+			await manager.navigate(
+				sessionId,
+				requiredString(request.params, "url"),
+				"agent",
+			);
 			return manager.getState(sessionId);
 		case "activeTarget": {
-			const active = await manager.ensurePage(sessionId);
+			const active = await manager.ensurePage(sessionId, "agent");
 			return {
 				page: active,
 				allowedTargetIds: manager.getAllowedTargetIds(sessionId),

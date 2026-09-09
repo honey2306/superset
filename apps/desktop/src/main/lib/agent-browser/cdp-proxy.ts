@@ -94,7 +94,7 @@ export async function startAgentBrowserCdpProxy(input: {
 			return;
 		}
 		if (url.pathname.endsWith("/json/version")) {
-			await input.manager.ensurePage(sessionId);
+			await input.manager.ensurePage(sessionId, "agent");
 			const address = server.address();
 			if (!address || typeof address === "string") {
 				response.writeHead(503).end();
@@ -191,13 +191,9 @@ export async function startAgentBrowserCdpProxy(input: {
 					socket.once("open", () => resolve());
 					socket.once("error", reject);
 				});
-				const state = input.manager.getState(sessionId);
-				if (state.activePageIndex === null) return;
-				const active = state.pages[state.activePageIndex];
-				if (active?.targetId !== targetId || state.pages.length === 0) return;
-				// Hidden WebContentsViews report a 0x0 viewport through CDP. Browser
-				// harness relies on viewport geometry for coordinate input and images,
-				// so emulate a stable viewport until the real companion pane is shown.
+				// BrowserManager keeps a native viewport even when the pane is hidden.
+				// Clear stale emulation on every target: forcing 1280x800 at DPR 1
+				// overrides pane resizing and makes Retina content blurry.
 				// Chromium accepts signed 32-bit IDs, not all JS safe integers.
 				// No client commands can reach this session until attach completes.
 				const internalRequestId = -1;
@@ -243,13 +239,7 @@ export async function startAgentBrowserCdpProxy(input: {
 							socket.send(
 								JSON.stringify({
 									id: internalRequestId,
-									method: "Emulation.setDeviceMetricsOverride",
-									params: {
-										width: 1_280,
-										height: 800,
-										deviceScaleFactor: 1,
-										mobile: false,
-									},
+									method: "Emulation.clearDeviceMetricsOverride",
 								}),
 								(error) => {
 									if (error) finish(error);
@@ -311,6 +301,7 @@ export async function startAgentBrowserCdpProxy(input: {
 								typeof request.params?.url === "string"
 									? request.params.url
 									: undefined,
+								"agent",
 							);
 							reply(request.id, { targetId: page.targetId });
 							return;

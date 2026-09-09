@@ -487,12 +487,9 @@
 
 /* ---------- Context compaction ---------- */
 .acp-pane__compaction-wrap {
-	position: absolute;
-	z-index: 8;
-	top: 12px;
-	left: 50%;
-	width: min(calc(100% - 32px), 360px);
-	transform: translateX(-50%);
+	display: block;
+	width: min(calc(100% - 28px), 320px);
+	margin: 0 auto 8px;
 	pointer-events: none;
 }
 .acp-pane__compaction-card {
@@ -500,8 +497,8 @@
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	min-height: 48px;
-	padding: 8px 11px 8px 9px;
+	min-height: 40px;
+	padding: 6px 10px;
 	overflow: hidden;
 	border: 1px solid color-mix(in oklch, var(--acp-purple) 35%, var(--acp-line));
 	border-radius: var(--r-4, 8px);
@@ -532,8 +529,8 @@
 }
 .acp-pane__compaction-icon {
 	position: relative;
-	width: 30px;
-	height: 30px;
+	width: 24px;
+	height: 24px;
 	flex: 0 0 auto;
 	display: grid;
 	place-items: center;
@@ -543,14 +540,14 @@
 	color: var(--acp-purple);
 }
 .acp-pane__compaction-spark {
-	width: 14px;
-	height: 14px;
+	width: 10px;
+	height: 10px;
 }
 .acp-pane__compaction-spinner {
 	position: absolute;
-	inset: -4px;
-	width: 38px;
-	height: 38px;
+	inset: 2px;
+	width: 18px;
+	height: 18px;
 	color: color-mix(in oklch, var(--acp-cyan) 70%, transparent);
 	stroke-width: 1;
 	animation: acp-compaction-spin 2.8s linear infinite;

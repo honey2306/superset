@@ -35,6 +35,9 @@ function createBridge(calls: string[]): AgentBrowserBridge {
 			return { pages: [] };
 		},
 		capturePage: async () => "cG5n",
+		closeAgentPages: async () => {
+			calls.push("close-agent-pages");
+		},
 		closeSession: async () => {
 			calls.push("close-session");
 		},
@@ -183,4 +186,28 @@ describe("AgentBrowserRuntime", () => {
 			}),
 		).rejects.toThrow("disabled or unavailable");
 	});
+});
+
+test("turn cleanup releases the sidecar and only agent pages, then supports reuse", async () => {
+	const bridgeCalls: string[] = [];
+	const sidecarCalls: unknown[] = [];
+	const runtime = new AgentBrowserRuntime({
+		bridge: createBridge(bridgeCalls),
+		createSidecar: () => createSidecar(sidecarCalls),
+		cdpUrl: "http://localhost:49001",
+	});
+	const input = {
+		sessionId: "s",
+		name: "browser_get_state" as const,
+		arguments: {},
+	};
+	await runtime.execute(input);
+	await runtime.endTurn("s");
+	expect(bridgeCalls).toEqual(["close-agent-pages"]);
+	expect(sidecarCalls.at(-1)).toBe("sidecar-close");
+	await runtime.execute(input);
+	await runtime.endTurn("s");
+	expect(sidecarCalls.filter((call) => call === "sidecar-close")).toHaveLength(
+		2,
+	);
 });

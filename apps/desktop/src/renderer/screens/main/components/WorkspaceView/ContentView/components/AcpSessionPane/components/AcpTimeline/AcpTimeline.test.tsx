@@ -697,7 +697,7 @@ describe("findSettledTimelineAnchor", () => {
 		expect(findSettledTimelineAnchor(scroll, "turn:2")).toBeNull();
 	});
 
-	test("falls back to the latest turn's user message when it has no response", () => {
+	test("uses the latest turn's user message even when it has a response", () => {
 		const scroll = document.createElement("div");
 		scroll.innerHTML = `
 			<section data-turn-id="turn:1">
@@ -705,6 +705,7 @@ describe("findSettledTimelineAnchor", () => {
 			</section>
 			<section data-turn-id="turn:2">
 				<div class="acp-msg" data-role="user">latest user</div>
+				<div class="acp-msg" data-role="agent">latest response</div>
 			</section>
 		`;
 
@@ -719,11 +720,11 @@ describe("resolveSettledScrollTop", () => {
 		expect(resolveSettledScrollTop(200, 300, 500)).toBe(0);
 	});
 
-	test("clamps a short final response to the normal bottom", () => {
+	test("clamps a low anchor to the normal bottom", () => {
 		expect(resolveSettledScrollTop(658, 725, 330)).toBe(395);
 	});
 
-	test("aligns a final response when enough content follows it", () => {
+	test("aligns an anchor when enough content follows it", () => {
 		expect(resolveSettledScrollTop(240, 1_300, 100)).toBe(240);
 	});
 });
@@ -891,6 +892,96 @@ describe("AcpTimeline scrolling", () => {
 		expect(screen.queryByRole("button", { name: "Jump to latest" })).toBeNull();
 	});
 
+	test("does not reposition when the focused session completes", () => {
+		const pendingFrames: Array<{
+			id: number;
+			callback: FrameRequestCallback;
+		}> = [];
+		let nextFrameId = 0;
+		const originalRequestAnimationFrame = window.requestAnimationFrame;
+		const originalCancelAnimationFrame = window.cancelAnimationFrame;
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			nextFrameId += 1;
+			pendingFrames.push({ id: nextFrameId, callback });
+			return nextFrameId;
+		}) as typeof window.requestAnimationFrame;
+		window.cancelAnimationFrame = ((id: number) => {
+			const index = pendingFrames.findIndex((frame) => frame.id === id);
+			if (index >= 0) pendingFrames.splice(index, 1);
+		}) as typeof window.cancelAnimationFrame;
+
+		try {
+			const onRespond = async () => {};
+			const runningTimeline = {
+				...timeline(0),
+				items: [userMessage(1), tool(2, "completed")],
+				lastSeq: 2,
+			};
+			const settledTimeline = {
+				...runningTimeline,
+				items: [...runningTimeline.items, message(3, "final response")],
+				lastSeq: 3,
+			};
+			const result = render(
+				createElement(AcpTimeline, {
+					timeline: runningTimeline,
+					onRespond,
+					isFocused: true,
+					status: "running",
+				}),
+			);
+			const body = result.container.querySelector(
+				".acp-pane__scroll",
+			) as HTMLDivElement;
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame.callback(0);
+				}
+			});
+
+			body.scrollTop = 420;
+			fireEvent.scroll(body);
+			Object.defineProperty(body, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({ top: 100 }),
+			});
+			result.rerender(
+				createElement(AcpTimeline, {
+					timeline: settledTimeline,
+					onRespond,
+					isFocused: true,
+					status: "idle",
+				}),
+			);
+			const finalMessage = body.querySelector<HTMLElement>(
+				'.acp-msg[data-role="agent"]:not(.acp-msg--author-only)',
+			);
+			if (!finalMessage) throw new Error("expected the final Agent message");
+			Object.defineProperty(finalMessage, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 100 + 240 - body.scrollTop,
+					bottom: 160 + 240 - body.scrollTop,
+				}),
+			});
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame.callback(0);
+				}
+			});
+
+			expect(body.scrollTop).toBe(420);
+		} finally {
+			window.requestAnimationFrame = originalRequestAnimationFrame;
+			window.cancelAnimationFrame = originalCancelAnimationFrame;
+		}
+	});
+
 	test("returns to the latest item after an auto-following hidden tab is shown", () => {
 		let pendingFrame: FrameRequestCallback | undefined;
 		const originalRequestAnimationFrame = window.requestAnimationFrame;
@@ -962,7 +1053,7 @@ describe("AcpTimeline scrolling", () => {
 		}
 	});
 
-	test("preserves a running tab's semantic reading position after layout changes while hidden", () => {
+	test("returns a running tab to the bottom after layout changes while hidden", () => {
 		const onRespond = async () => {};
 		const sessionId = "running-reading-position-session";
 		const initialTimeline = {
@@ -1058,19 +1149,16 @@ describe("AcpTimeline scrolling", () => {
 					frame(0);
 				}
 			});
-			// The turn moved down by 400px while hidden. Restore the same 160px
-			// viewport-relative offset rather than the stale absolute scrollTop (200).
-			expect(body.scrollTop).toBe(600);
-			expect(
-				turn.getBoundingClientRect().top - body.getBoundingClientRect().top,
-			).toBe(160);
+			// A running conversation always resumes at the latest activity, regardless
+			// of the reading position saved before switching away.
+			expect(body.scrollTop).toBe(2_000);
 		} finally {
 			window.requestAnimationFrame = originalRequestAnimationFrame;
 			window.cancelAnimationFrame = originalCancelAnimationFrame;
 		}
 	});
 
-	test("restores a settled conversation's manual reading position", () => {
+	test("returns a settled conversation to its latest user message", () => {
 		const settledTimeline = {
 			...timeline(0),
 			items: [userMessage(1), message(2, "final response")],
@@ -1120,6 +1208,21 @@ describe("AcpTimeline scrolling", () => {
 				body.scrollTop = 420;
 				fireEvent.scroll(body);
 			});
+			Object.defineProperty(body, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({ top: 100 }),
+			});
+			const lastUserMessage = body.querySelector<HTMLElement>(
+				'.acp-msg[data-role="user"]',
+			);
+			if (!lastUserMessage) throw new Error("expected the latest user message");
+			Object.defineProperty(lastUserMessage, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 100 + 80 - body.scrollTop,
+					bottom: 160 + 80 - body.scrollTop,
+				}),
+			});
 			result.rerender(
 				createElement(AcpTimeline, { ...props, isFocused: false }),
 			);
@@ -1136,43 +1239,14 @@ describe("AcpTimeline scrolling", () => {
 				}
 			});
 
-			expect(body.scrollTop).toBe(420);
-
-			act(() => {
-				fireEvent.wheel(body);
-				body.scrollTop = 300;
-				fireEvent.scroll(body);
-			});
-			result.unmount();
-			const remounted = render(
-				createElement(AcpTimeline, { ...props, isFocused: false }),
-			);
-			const remountedBody = remounted.container.querySelector(
-				".acp-pane__scroll",
-			) as HTMLDivElement;
-			setScrollMetrics(remountedBody, { clientHeight: 0, scrollHeight: 0 });
-			setScrollMetrics(remountedBody, {
-				clientHeight: 100,
-				scrollHeight: 1_300,
-			});
-			remounted.rerender(
-				createElement(AcpTimeline, { ...props, isFocused: true }),
-			);
-			act(() => {
-				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
-					const frame = pendingFrames.shift();
-					if (!frame) break;
-					frame.callback(0);
-				}
-			});
-			expect(remountedBody.scrollTop).toBe(300);
+			expect(body.scrollTop).toBe(80);
 		} finally {
 			window.requestAnimationFrame = originalRequestAnimationFrame;
 			window.cancelAnimationFrame = originalCancelAnimationFrame;
 		}
 	});
 
-	test("shows the final Agent response after a settled hidden tab is shown", () => {
+	test("shows the latest user message after a settled hidden tab is shown", () => {
 		const onRespond = async () => {};
 		const processTool = tool(2, "completed");
 		const initialTimeline = {
@@ -1297,14 +1371,15 @@ describe("AcpTimeline scrolling", () => {
 				const restoreFrame = pendingFrames.shift();
 				if (!restoreFrame) throw new Error("expected a focus restore frame");
 				restoreFrame.callback(0);
-				// Hydration can add timeline items between mounting the latest turn and
-				// aligning its response. This must not cancel the in-flight restore.
+				// Hydration can add timeline items and refine the settled status between
+				// mounting the latest turn and aligning its user message. Neither update
+				// may cancel the in-flight restore.
 				result.rerender(
 					createElement(AcpTimeline, {
 						timeline: hydratedTimeline,
 						onRespond,
 						isFocused: true,
-						status: "idle",
+						status: "offline",
 					}),
 				);
 				expect(body.scrollTop).toBe(1_300);
@@ -1333,13 +1408,111 @@ describe("AcpTimeline scrolling", () => {
 					throw new Error("expected the final alignment frame");
 				}
 				finalAlignmentFrame.callback(0);
-				expect(body.scrollTop).toBe(240);
+				expect(body.scrollTop).toBe(80);
 			});
 
-			expect(body.scrollTop).toBe(240);
+			expect(body.scrollTop).toBe(80);
 			expect(
 				screen.getByRole("button", { name: "Jump to latest" }),
 			).toBeTruthy();
+		} finally {
+			window.requestAnimationFrame = originalRequestAnimationFrame;
+			window.cancelAnimationFrame = originalCancelAnimationFrame;
+		}
+	});
+
+	test("finishes restoring when the latest user message mounts after the frame retries", async () => {
+		const settledTimeline = {
+			...timeline(0),
+			items: [userMessage(1), message(2, "final response")],
+			lastSeq: 2,
+		};
+		const pendingFrames: Array<{
+			id: number;
+			callback: FrameRequestCallback;
+		}> = [];
+		let nextFrameId = 0;
+		const originalRequestAnimationFrame = window.requestAnimationFrame;
+		const originalCancelAnimationFrame = window.cancelAnimationFrame;
+		window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+			nextFrameId += 1;
+			pendingFrames.push({ id: nextFrameId, callback });
+			return nextFrameId;
+		}) as typeof window.requestAnimationFrame;
+		window.cancelAnimationFrame = ((id: number) => {
+			const index = pendingFrames.findIndex((frame) => frame.id === id);
+			if (index >= 0) pendingFrames.splice(index, 1);
+		}) as typeof window.cancelAnimationFrame;
+
+		try {
+			const props = {
+				timeline: settledTimeline,
+				onRespond: async () => {},
+				status: "idle" as const,
+			};
+			const result = render(
+				createElement(AcpTimeline, { ...props, isFocused: true }),
+			);
+			const body = result.container.querySelector(
+				".acp-pane__scroll",
+			) as HTMLDivElement;
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame.callback(0);
+				}
+			});
+			Object.defineProperty(body, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({ top: 100 }),
+			});
+			const lastUserMessage = body.querySelector<HTMLElement>(
+				'.acp-msg[data-role="user"]',
+			);
+			if (!lastUserMessage) throw new Error("expected the latest user message");
+			const messageParent = lastUserMessage.parentElement;
+			if (!messageParent) throw new Error("expected the message parent");
+			Object.defineProperty(lastUserMessage, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 100 + 80 - body.scrollTop,
+					bottom: 160 + 80 - body.scrollTop,
+				}),
+			});
+
+			result.rerender(
+				createElement(AcpTimeline, { ...props, isFocused: false }),
+			);
+			setScrollMetrics(body, { clientHeight: 0, scrollHeight: 0 });
+			lastUserMessage.remove();
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1_300 });
+			result.rerender(
+				createElement(AcpTimeline, { ...props, isFocused: true }),
+			);
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame.callback(0);
+				}
+			});
+			expect(body.scrollTop).toBe(1_300);
+
+			await act(async () => {
+				messageParent.prepend(lastUserMessage);
+				await new Promise((resolve) => setTimeout(resolve, 0));
+			});
+			act(() => {
+				for (let frameCount = 0; frameCount < 20; frameCount += 1) {
+					const frame = pendingFrames.shift();
+					if (!frame) break;
+					frame.callback(0);
+				}
+			});
+
+			expect(body.scrollTop).toBe(80);
 		} finally {
 			window.requestAnimationFrame = originalRequestAnimationFrame;
 			window.cancelAnimationFrame = originalCancelAnimationFrame;

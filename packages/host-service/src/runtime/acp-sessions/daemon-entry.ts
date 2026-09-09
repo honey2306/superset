@@ -122,6 +122,7 @@ async function main(): Promise<void> {
 		);
 	}
 	const manager = new AcpSessionManager({
+		onTurnEnd: (sessionId) => agentBrowserRuntime.endTurn(sessionId),
 		resolveWorkspaceCwd: (workspaceId) => {
 			const workspace = db.query.workspaces
 				.findFirst({ where: eq(workspaces.id, workspaceId) })

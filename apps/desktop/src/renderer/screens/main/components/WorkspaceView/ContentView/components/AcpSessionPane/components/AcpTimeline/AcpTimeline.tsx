@@ -174,27 +174,6 @@ function findLatestUserMessage(scroll: ParentNode): HTMLElement | null {
 }
 
 /**
- * Find the final Agent response in the latest mounted turn. The author-only row
- * also uses the Agent role for styling, so it must not become the restore anchor.
- */
-function findLatestFinalAgentMessage(
-	scroll: HTMLElement,
-	latestTurnId: string | null,
-): HTMLElement | null {
-	const selector = '.acp-msg[data-role="agent"]:not(.acp-msg--author-only)';
-	const findLast = (root: ParentNode) => {
-		const messages = root.querySelectorAll<HTMLElement>(selector);
-		return messages.item(messages.length - 1);
-	};
-	if (!latestTurnId) return findLast(scroll);
-
-	const latestTurn = Array.from(
-		scroll.querySelectorAll<HTMLElement>("[data-turn-id]"),
-	).find((turn) => turn.dataset.turnId === latestTurnId);
-	return latestTurn ? findLast(latestTurn) : null;
-}
-
-/**
  * Resolve only within the latest semantic turn. A virtualized latest turn may
  * not be mounted yet; in that case return null so focus restoration retries
  * instead of accidentally anchoring to an older mounted turn.
@@ -203,20 +182,13 @@ export function findSettledTimelineAnchor(
 	scroll: HTMLElement,
 	latestTurnId: string | null,
 ): HTMLElement | null {
-	if (!latestTurnId) {
-		return (
-			findLatestFinalAgentMessage(scroll, null) ?? findLatestUserMessage(scroll)
-		);
-	}
+	if (!latestTurnId) return findLatestUserMessage(scroll);
 
 	const latestTurn = Array.from(
 		scroll.querySelectorAll<HTMLElement>("[data-turn-id]"),
 	).find((turn) => turn.dataset.turnId === latestTurnId);
 	if (!latestTurn) return null;
-	return (
-		findLatestFinalAgentMessage(scroll, latestTurnId) ??
-		findLatestUserMessage(latestTurn)
-	);
+	return findLatestUserMessage(latestTurn);
 }
 
 /**
@@ -282,6 +254,7 @@ interface AcpTimelineProps {
 	sessionId?: string;
 	/** Current session status, used to distinguish an idle timeline from work. */
 	status?: SessionStatus;
+	hideWorkingIndicator?: boolean;
 	/** Whether the pane is displayed. Inactive tabs stay mounted but use display:none. */
 	isFocused?: boolean;
 	/** Whether an older journal page is available before this timeline. */
@@ -423,6 +396,7 @@ export const AcpTimeline = memo(
 			agentLabel,
 			sessionId,
 			status,
+			hideWorkingIndicator = false,
 			isFocused = true,
 			hasOlder = false,
 			isLoadingOlder = false,
@@ -456,7 +430,8 @@ export const AcpTimeline = memo(
 		const hasInitiallyScrolledRef = useRef(false);
 		const isInitialFocusRef = useRef(true);
 		const wasFocusedRef = useRef(false);
-		const previousStatusRef = useRef<SessionStatus | undefined>(status);
+		const statusRef = useRef<SessionStatus | undefined>(status);
+		statusRef.current = status;
 		const isFocusedRef = useRef(isFocused);
 		isFocusedRef.current = isFocused;
 		const transientScrollIntentRef = useRef(false);
@@ -818,10 +793,9 @@ export const AcpTimeline = memo(
 			}
 		}, [timeline.items, autoFollow, sessionId]);
 
-		const showWorkingIndicator = shouldShowWorkingIndicator(
-			timeline.items,
-			status,
-		);
+		const showWorkingIndicator =
+			!hideWorkingIndicator &&
+			shouldShowWorkingIndicator(timeline.items, status);
 		// ACP plan updates are snapshots. The latest non-removed snapshot owns the
 		// dock, but only while it still has pending or in-progress entries.
 		const latestPlan =
@@ -920,26 +894,26 @@ export const AcpTimeline = memo(
 		useEffect(() => {
 			const becameFocused = isFocused && !wasFocusedRef.current;
 			const isInitialFocus = isInitialFocusRef.current;
-			const becameSettled =
-				isFocused &&
-				isActiveSessionStatus(previousStatusRef.current) &&
-				!isActiveSessionStatus(status);
-			previousStatusRef.current = status;
+			const focusStatus = statusRef.current;
 			isInitialFocusRef.current = false;
 			wasFocusedRef.current = isFocused;
-			if (!becameFocused && !becameSettled) return;
+			if (!becameFocused) return;
 			if (
 				isInitialFocus &&
-				isActiveSessionStatus(status) &&
-				!becameSettled &&
+				isActiveSessionStatus(focusStatus) &&
 				manualReadingPositionRef.current === null
 			)
 				return;
+			if (!isInitialFocus) {
+				manualReadingPositionRef.current = null;
+				if (sessionId) settledReadingPositions.delete(sessionId);
+				autoFollowRef.current = true;
+			}
 
 			// A kept-alive pane is display:none while inactive. The virtualizer can
 			// therefore still have the old window (or zero-sized measurements) when
 			// focus returns. Keep the restore alive for a few frames: first bring the
-			// latest turn into the virtual window, then align its final Agent response.
+			// latest turn into the virtual window, then align its latest user message.
 			focusScrollRetryRef.current = 0;
 			let previousSettledScrollTop: number | null = null;
 			let stableSettledFrames = 0;
@@ -947,11 +921,21 @@ export const AcpTimeline = memo(
 			let stableBottomFrames = 0;
 			let previousReadingScrollTop: number | null = null;
 			let stableReadingFrames = 0;
+			let settledAnchorObserver: MutationObserver | null = null;
+			let settledAnchorTimeout: number | null = null;
 			const scheduleRetry = (callback: () => void): boolean => {
 				if (focusScrollRetryRef.current >= 12) return false;
 				focusScrollRetryRef.current += 1;
 				focusScrollFrameRef.current = window.requestAnimationFrame(callback);
 				return true;
+			};
+			const stopWaitingForSettledAnchor = () => {
+				settledAnchorObserver?.disconnect();
+				settledAnchorObserver = null;
+				if (settledAnchorTimeout !== null) {
+					window.clearTimeout(settledAnchorTimeout);
+					settledAnchorTimeout = null;
+				}
 			};
 			const settleThenFollowBottom = () => {
 				focusScrollFrameRef.current = null;
@@ -1032,7 +1016,7 @@ export const AcpTimeline = memo(
 				setAutoFollow(near);
 				setShowJumpButton(!near);
 			};
-			const settleThenAlignAnchor = () => {
+			function settleThenAlignAnchor() {
 				focusScrollFrameRef.current = null;
 				isRestoringFocusRef.current = true;
 				const el = scrollRef.current;
@@ -1044,12 +1028,14 @@ export const AcpTimeline = memo(
 				const target = findSettledTimelineAnchor(el, latestTurnIdRef.current);
 				if (!target) {
 					if (scheduleRetry(settleThenAlignAnchor)) return;
-					// The semantic anchor exists in the folded timeline, but could not be
-					// mounted after the virtualizer settled. Bottom is the safe fallback.
+					// The virtualizer may mount the semantic target after the short frame
+					// retry window. Keep the bottom as a visible fallback, then resume as
+					// soon as the target actually enters the DOM.
 					isRestoringFocusRef.current = false;
 					autoFollowRef.current = true;
 					setAutoFollow(true);
 					setShowJumpButton(false);
+					waitForSettledAnchor();
 					return;
 				}
 
@@ -1078,6 +1064,7 @@ export const AcpTimeline = memo(
 				if (stableSettledFrames < 2 && scheduleRetry(settleThenAlignAnchor))
 					return;
 
+				stopWaitingForSettledAnchor();
 				el.scrollTop = desiredScrollTop;
 				el.dispatchEvent(new Event("scroll"));
 				isRestoringFocusRef.current = false;
@@ -1085,7 +1072,35 @@ export const AcpTimeline = memo(
 				autoFollowRef.current = near;
 				setAutoFollow(near);
 				setShowJumpButton(!near);
-			};
+			}
+			function waitForSettledAnchor() {
+				const el = scrollRef.current;
+				if (!el || settledAnchorObserver) return;
+
+				const resumeWhenMounted = () => {
+					if (!findSettledTimelineAnchor(el, latestTurnIdRef.current)) return;
+					stopWaitingForSettledAnchor();
+					focusScrollRetryRef.current = 0;
+					previousSettledScrollTop = null;
+					stableSettledFrames = 0;
+					focusScrollFrameRef.current = window.requestAnimationFrame(
+						settleThenAlignAnchor,
+					);
+				};
+
+				settledAnchorObserver = new MutationObserver(resumeWhenMounted);
+				settledAnchorObserver.observe(el, {
+					attributes: true,
+					childList: true,
+					subtree: true,
+				});
+				settledAnchorTimeout = window.setTimeout(
+					stopWaitingForSettledAnchor,
+					2_000,
+				);
+				// Close the gap between the final failed query and observer setup.
+				resumeWhenMounted();
+			}
 			const restoreFocusPosition = () => {
 				focusScrollFrameRef.current = null;
 				isRestoringFocusRef.current = true;
@@ -1097,9 +1112,11 @@ export const AcpTimeline = memo(
 
 				const savedReadingPosition = manualReadingPositionRef.current;
 				const shouldRestoreReading =
-					savedReadingPosition !== null && !autoFollowRef.current;
+					isInitialFocus &&
+					savedReadingPosition !== null &&
+					!autoFollowRef.current;
 				const shouldFollowBottom =
-					isActiveSessionStatus(status) && !shouldRestoreReading;
+					isActiveSessionStatus(focusStatus) && !shouldRestoreReading;
 				el.scrollTop = shouldRestoreReading
 					? (savedReadingPosition?.scrollTop ?? 0)
 					: el.scrollHeight;
@@ -1139,13 +1156,14 @@ export const AcpTimeline = memo(
 			focusScrollFrameRef.current =
 				window.requestAnimationFrame(restoreFocusPosition);
 			return () => {
+				stopWaitingForSettledAnchor();
 				isRestoringFocusRef.current = false;
 				if (focusScrollFrameRef.current !== null) {
 					window.cancelAnimationFrame(focusScrollFrameRef.current);
 					focusScrollFrameRef.current = null;
 				}
 			};
-		}, [isFocused, isNearBottom, status]);
+		}, [isFocused, isNearBottom, sessionId]);
 		const resolvedActiveTurnId =
 			activeTurnId &&
 			(turnIndex.length > 0

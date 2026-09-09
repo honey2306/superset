@@ -25,6 +25,7 @@ interface BrowserPage {
 	id: string;
 	targetId: string;
 	view: WebContentsView;
+	owner: "agent" | "user";
 	loading: boolean;
 }
 
@@ -150,6 +151,7 @@ export class AgentBrowserManager {
 	async createPage(
 		sessionId: string,
 		url = "about:blank",
+		owner: BrowserPage["owner"] = "user",
 	): Promise<AgentBrowserPageState> {
 		const session = this.sessionFor(sessionId);
 		const pageId = randomUUID();
@@ -168,13 +170,14 @@ export class AgentBrowserManager {
 			id: pageId,
 			targetId: view.webContents.getOrCreateDevToolsTargetId(),
 			view,
+			owner,
 			loading: false,
 		};
 		session.pages.push(page);
 		session.activePageId = pageId;
 
 		view.webContents.setWindowOpenHandler(({ url: childUrl }) => {
-			void this.createPage(sessionId, childUrl);
+			void this.createPage(sessionId, childUrl, page.owner);
 			return { action: "deny" };
 		});
 		view.webContents.on("will-navigate", (event, destination) => {
@@ -220,10 +223,13 @@ export class AgentBrowserManager {
 		return this.pageState(session, page, session.pages.indexOf(page));
 	}
 
-	async ensurePage(sessionId: string): Promise<AgentBrowserPageState> {
+	async ensurePage(
+		sessionId: string,
+		owner: BrowserPage["owner"] = "user",
+	): Promise<AgentBrowserPageState> {
 		const session = this.sessionFor(sessionId);
 		const page = this.activePage(session);
-		if (!page) return this.createPage(sessionId);
+		if (!page) return this.createPage(sessionId, undefined, owner);
 		return this.pageState(session, page, session.pages.indexOf(page));
 	}
 
@@ -304,8 +310,12 @@ export class AgentBrowserManager {
 			.toString("base64");
 	}
 
-	async navigate(sessionId: string, url: string): Promise<void> {
-		const page = await this.ensurePage(sessionId);
+	async navigate(
+		sessionId: string,
+		url: string,
+		owner: BrowserPage["owner"] = "user",
+	): Promise<void> {
+		const page = await this.ensurePage(sessionId, owner);
 		const session = this.sessions.get(sessionId);
 		const browserPage = session?.pages.find(
 			(candidate) => candidate.id === page.id,
@@ -499,6 +509,31 @@ export class AgentBrowserManager {
 		for (const page of session.pages) {
 			if (!page.view.webContents.isDestroyed()) page.view.webContents.close();
 		}
+	}
+
+	async closeAgentPages(sessionId: string): Promise<void> {
+		const session = this.sessions.get(sessionId);
+		if (!session) return;
+		const pages = session.pages.filter((page) => page.owner === "agent");
+		if (pages.length === 0) return;
+		this.closePageMenu(sessionId);
+		session.pages = session.pages.filter((page) => page.owner !== "agent");
+		if (
+			session.activePageId &&
+			pages.some((page) => page.id === session.activePageId)
+		) {
+			session.activePageId = this.activePage(session)?.id ?? null;
+		}
+		const window = this.getWindow();
+		for (const page of pages) {
+			if (window && !window.isDestroyed()) {
+				window.contentView.removeChildView(page.view);
+			}
+			if (!page.view.webContents.isDestroyed()) {
+				page.view.webContents.close({ waitForBeforeUnload: false });
+			}
+		}
+		this.attachActiveView(session);
 	}
 
 	async dispose(): Promise<void> {

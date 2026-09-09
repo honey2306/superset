@@ -36,6 +36,7 @@ export interface AgentBrowserBridge {
 	closePage(sessionId: string, pageId: string): Promise<unknown>;
 	capturePage(sessionId: string, fullPage?: boolean): Promise<string>;
 	closeSession(sessionId: string): Promise<void>;
+	closeAgentPages(sessionId: string): Promise<void>;
 	view(sessionId: string): Promise<AgentBrowserView>;
 }
 
@@ -177,6 +178,21 @@ export class AgentBrowserRuntime {
 				activePageIndex: null,
 				error: error instanceof Error ? error.message : String(error),
 			};
+		}
+	}
+
+	async endTurn(sessionId: string): Promise<void> {
+		if (!this.enabled) return;
+		const sidecar = this.sidecars.get(sessionId);
+		this.sidecars.delete(sessionId);
+		const results = await Promise.allSettled([
+			sidecar?.close() ?? Promise.resolve(),
+			this.bridge.isAvailable()
+				? this.bridge.closeAgentPages(sessionId)
+				: Promise.resolve(),
+		]);
+		for (const result of results) {
+			if (result.status === "rejected") throw result.reason;
 		}
 	}
 

@@ -76,3 +76,20 @@ export function isContextCompacting(
 	}
 	return false;
 }
+
+/** Hide only standalone progress notices; preserve failures and substantive output. */
+export function isContextCompactionNotice(item: TimelineItem): boolean {
+	return (
+		item.kind === "message" &&
+		item.role === "agent" &&
+		!item.failed &&
+		item.blocks.length > 0 &&
+		item.blocks.every(
+			(block) =>
+				block.type === "text" &&
+				/^(?:Compacting(?: (?:context|conversation|history))?(?:\.{3}|…)?|Context nearing limit, running automatic compaction(?:\.{3}|…)?)$/i.test(
+					block.text.trim(),
+				),
+		)
+	);
+}

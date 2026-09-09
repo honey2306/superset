@@ -3,6 +3,7 @@ import type { MessageItem, TimelineItem } from "@superset/session-protocol";
 import {
 	contextCompactionPhaseFromText,
 	isContextCompacting,
+	isContextCompactionNotice,
 } from "./contextCompaction";
 
 function message(
@@ -73,5 +74,29 @@ describe("context compaction lifecycle", () => {
 				"I changed the component to use a more compact layout.",
 			),
 		).toBeNull();
+	});
+});
+
+describe("compaction notice visibility", () => {
+	test("hides standalone agent progress notices", () => {
+		expect(
+			isContextCompactionNotice(
+				message(
+					1,
+					"agent",
+					"Context nearing limit, running automatic compaction...",
+				),
+			),
+		).toBe(true);
+	});
+	test("preserves user text, failures, completion and substantive output", () => {
+		for (const item of [
+			message(1, "user", "Compacting context..."),
+			message(2, "agent", "Compacting failed: unavailable"),
+			message(3, "agent", "Context compacted."),
+			message(4, "agent", "Compacting context...\nHere is the summary."),
+			{ ...message(5, "agent", "Compacting context..."), failed: true },
+		])
+			expect(isContextCompactionNotice(item)).toBe(false);
 	});
 });

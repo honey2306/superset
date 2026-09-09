@@ -33,7 +33,10 @@ import {
 } from "./components/AcpTimeline/components/AcpToolCallItem/components/AcpPermissionCard";
 import { useRetainedAcpConnection } from "./hooks/useRetainedAcpConnection";
 import { registerJumpHandler } from "./paneJumpRegistry";
-import { isContextCompacting } from "./utils/contextCompaction";
+import {
+	isContextCompacting,
+	isContextCompactionNotice,
+} from "./utils/contextCompaction";
 
 function modelLabel(
 	options: readonly SessionConfigOption[],
@@ -510,30 +513,6 @@ export function AcpSessionPane({
 
 	return (
 		<div className="acp-pane">
-			{isCompacting && (
-				<output
-					className="acp-pane__compaction-wrap"
-					data-activity="context-compaction"
-					aria-live="polite"
-				>
-					<span className="acp-pane__compaction-card">
-						<span className="acp-pane__compaction-icon" aria-hidden>
-							<Sparkles className="acp-pane__compaction-spark" />
-							<LoaderCircle className="acp-pane__compaction-spinner" />
-						</span>
-						<span className="acp-pane__compaction-copy">
-							<strong>Compacting context</strong>
-							<small>Preserving recent work</small>
-						</span>
-						<span className="acp-pane__compaction-dots" aria-hidden>
-							<i />
-							<i />
-							<i />
-						</span>
-					</span>
-				</output>
-			)}
-
 			{session.streamStatus === "reconnecting" && (
 				<div className="acp-pane__banner" data-tone="warn">
 					<span className="acp-blink" aria-hidden>
@@ -578,7 +557,17 @@ export function AcpSessionPane({
 				ref={timelineRef}
 				className="acp-pane__body"
 				sessionId={sessionId}
-				timeline={session.timeline}
+				timeline={
+					isCompacting
+						? {
+								...session.timeline,
+								items: session.timeline.items.filter(
+									(item) => !isContextCompactionNotice(item),
+								),
+							}
+						: session.timeline
+				}
+				hideWorkingIndicator={isCompacting}
 				onRespond={handleRespond}
 				cwd={cwd}
 				model={model}
@@ -606,6 +595,29 @@ export function AcpSessionPane({
 			/>
 
 			<div className="acp-pane__composer-wrap">
+				{isCompacting && (
+					<output
+						className="acp-pane__compaction-wrap"
+						data-activity="context-compaction"
+						aria-live="polite"
+					>
+						<span className="acp-pane__compaction-card">
+							<span className="acp-pane__compaction-icon" aria-hidden>
+								<Sparkles className="acp-pane__compaction-spark" />
+								<LoaderCircle className="acp-pane__compaction-spinner" />
+							</span>
+							<span className="acp-pane__compaction-copy">
+								<strong>Compacting context</strong>
+								<small>Preserving recent work</small>
+							</span>
+							<span className="acp-pane__compaction-dots" aria-hidden>
+								<i />
+								<i />
+								<i />
+							</span>
+						</span>
+					</output>
+				)}
 				{permissions.pending.length > 0 &&
 					(() => {
 						const pending = permissions.pending[0];
