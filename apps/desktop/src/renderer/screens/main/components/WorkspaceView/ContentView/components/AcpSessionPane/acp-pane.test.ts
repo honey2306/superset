@@ -34,10 +34,11 @@ describe("ACP pane vertical rhythm", () => {
 });
 
 describe("ACP context compaction status", () => {
-	test("renders as a centered floating card instead of shifting the timeline", () => {
+	test("renders a centered card in the composer flow", () => {
 		const wrap = rule(".acp-pane__compaction-wrap");
-		expect(wrap).toContain("position: absolute");
-		expect(wrap).toContain("left: 50%");
+		expect(wrap).toContain("display: block");
+		expect(wrap).toContain("margin: 0 auto 8px");
+		expect(wrap).not.toContain("position: absolute");
 		expect(wrap).toContain("pointer-events: none");
 
 		const card = rule(".acp-pane__compaction-card");

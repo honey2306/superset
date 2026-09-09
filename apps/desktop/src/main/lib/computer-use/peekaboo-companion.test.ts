@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import path from "node:path";
 import {
 	ensurePeekabooCompanion,
@@ -17,6 +17,18 @@ const bridgeSocket = path.join(
 );
 
 describe("Peekaboo companion", () => {
+	const originalPlatform = process.platform;
+
+	beforeEach(() => {
+		// The companion is intentionally macOS-only. Exercise its supported
+		// lifecycle in Linux CI without changing the production platform guard.
+		Object.defineProperty(process, "platform", { value: "darwin" });
+	});
+
+	afterEach(() => {
+		Object.defineProperty(process, "platform", { value: originalPlatform });
+	});
+
 	test("resolves the official app, CLI, and GUI bridge", () => {
 		const existing = new Set([appPath, executable, bridgeSocket]);
 		expect(
@@ -96,6 +108,18 @@ describe("Peekaboo companion", () => {
 				exists: (candidate) => candidate === executable,
 			},
 		);
+		expect(state).toEqual({
+			available: false,
+			launched: false,
+			reason: "app-not-installed",
+		});
+	});
+
+	test("keeps Computer Use disabled outside macOS", async () => {
+		Object.defineProperty(process, "platform", { value: "linux" });
+
+		const state = await ensurePeekabooCompanion();
+
 		expect(state).toEqual({
 			available: false,
 			launched: false,

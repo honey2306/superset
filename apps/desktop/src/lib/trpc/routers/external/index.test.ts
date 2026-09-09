@@ -1,21 +1,22 @@
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	type mock as MockType,
-	mock,
-	test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { shell } from "electron";
-import { createExternalRouter } from "./index";
 
-const openPath = shell.openPath as ReturnType<typeof MockType>;
+const openPath = mock((_filePath: string) => Promise.resolve(""));
 const showItemInFolder = mock((_filePath: string) => {});
-Object.assign(shell, { showItemInFolder });
+mock.module("electron", () => ({
+	clipboard: { writeText: () => {} },
+	shell: {
+		openExternal: () => Promise.resolve(),
+		openPath,
+		showItemInFolder,
+	},
+}));
+const { createExternalRouter } = await import("./index");
+// The router captured the fake shell. Restore Electron before unrelated test
+// files load so this test does not depend on their mock ordering.
+mock.restore();
 const caller = createExternalRouter().createCaller({});
 let testRoot = "";
 

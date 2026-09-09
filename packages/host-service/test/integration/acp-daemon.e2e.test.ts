@@ -10,12 +10,7 @@ import {
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import {
-	decodeMessagesCursor,
-	emptyTimeline,
-	foldEnvelopes,
-	type Timeline,
-} from "@superset/session-protocol";
+import { decodeMessagesCursor } from "@superset/session-protocol";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "../../src/db/schema";
@@ -79,14 +74,6 @@ async function rawRequest(
 			}
 		});
 	});
-}
-
-function agentText(timeline: Timeline): string {
-	return timeline.items
-		.filter((item) => item.kind === "message" && item.role === "agent")
-		.flatMap((item) => (item.kind === "message" ? item.blocks : []))
-		.map((block) => (block.type === "text" ? block.text : ""))
-		.join("\n");
 }
 
 async function buildDaemonEntry(
@@ -215,6 +202,7 @@ describe("ACP daemon process boundary", () => {
 				SUPERSET_HOME_DIR: tempRoot,
 				SUPERSET_ACP_DAEMON_LOG_PATH: daemonLogPath,
 				SUPERSET_ACP_ADAPTER_ENTRY: FAKE_ADAPTER,
+				SUPERSET_PI_ACP_ADAPTER_ENTRY: FAKE_ADAPTER,
 				NODE_OPTIONS:
 					`${process.env.NODE_OPTIONS ?? ""} --experimental-strip-types`.trim(),
 			},
@@ -298,12 +286,12 @@ describe("ACP daemon process boundary", () => {
 		);
 		let imageArtifactPath: string | undefined;
 		await waitFor(async () => {
-			const page = await third.getMessages({
+			const transcript = await third.getTranscript({
 				sessionId: "session-1",
-				limit: 500,
+				limit: 50,
 			});
-			return agentText(foldEnvelopes(emptyTimeline(), page.items)).includes(
-				"picked:Beta",
+			return transcript.turns.some((turn) =>
+				turn.agentPreview?.includes("picked:Beta"),
 			);
 		}, "AskUser turn completion");
 
@@ -315,6 +303,25 @@ describe("ACP daemon process boundary", () => {
 			{ sessionId: "session-large", workspaceId: "workspace-1" },
 			daemonLogPath,
 		);
+		// Keep one turn active while exercising raw-frame paging. Settled turns
+		// compact into the durable transcript, which is covered above; this
+		// deliberately holds the live journal open for the NDJSON/backpressure
+		// transport path below.
+		await third.prompt({
+			sessionId: "session-large",
+			prompt: [{ type: "text", text: "hang" }],
+		});
+		await waitFor(async () => {
+			const page = await third.getMessages({
+				sessionId: "session-large",
+				limit: 200,
+			});
+			return page.items.some(
+				(item) =>
+					item.frame.kind === "update" &&
+					item.frame.update.sessionUpdate === "tool_call",
+			);
+		}, "live turn for large-frame transport");
 		await third.prompt({
 			sessionId: "session-large",
 			prompt: [{ type: "text", text: "large 5 4194304" }],
@@ -344,7 +351,7 @@ describe("ACP daemon process boundary", () => {
 		expect(pagedSeqs).toEqual(
 			[...pagedSeqs].sort((left, right) => left - right),
 		);
-		expect(pagedSeqs).toHaveLength(7); // startup + user prompt + five tools
+		expect(pagedSeqs).toHaveLength(9); // live turn + its tool, then prompt + five tools
 
 		const replayedSeqs: number[] = [];
 		const stopLargeReplay = await third.subscribe({
@@ -385,6 +392,11 @@ describe("ACP daemon process boundary", () => {
 		if (!imageArtifactPath)
 			throw new Error("inline image artifact was missing");
 		expect(existsSync(imageArtifactPath)).toBe(true);
+		await third.cancel({ sessionId: "session-large" });
+		await waitFor(
+			async () => (await third.get("session-large")).status === "idle",
+			"live transport turn cancellation",
+		);
 		await third.close({ sessionId: "session-large" });
 		expect(existsSync(imageArtifactPath)).toBe(false);
 		expect((await third.hello()).pid).toBe(daemonPid);
