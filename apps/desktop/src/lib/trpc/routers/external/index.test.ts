@@ -1,82 +1,16 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { expect, test } from "bun:test";
+import path from "node:path";
 
-const openPath = mock((_filePath: string) => Promise.resolve(""));
-const showItemInFolder = mock((_filePath: string) => {});
-mock.module("electron", () => ({
-	clipboard: { writeText: () => {} },
-	shell: {
-		openExternal: () => Promise.resolve(),
-		openPath,
-		showItemInFolder,
-	},
-}));
-const { createExternalRouter } = await import("./index");
-// The router captured the fake shell. Restore Electron before unrelated test
-// files load so this test does not depend on their mock ordering.
-mock.restore();
-const caller = createExternalRouter().createCaller({});
-let testRoot = "";
-
-beforeEach(() => {
-	testRoot = mkdtempSync(join(tmpdir(), "superset-external-"));
-});
-
-afterEach(() => {
-	openPath.mockClear();
-	openPath.mockImplementation(() => Promise.resolve(""));
-	showItemInFolder.mockClear();
-	rmSync(testRoot, { force: true, recursive: true });
-	testRoot = "";
-});
-
-describe("external.openInApp", () => {
-	test("waits for Finder to finish opening the path", async () => {
-		const directoryPath = join(testRoot, "project");
-		mkdirSync(directoryPath);
-
-		let resolveOpenPath: ((error: string) => void) | undefined;
-		const openPathPromise = new Promise<string>((resolve) => {
-			resolveOpenPath = resolve;
-		});
-		openPath.mockImplementation(() => openPathPromise);
-
-		let settled = false;
-		const openRequest = caller
-			.openInApp({ path: directoryPath, app: "finder" })
-			.then(() => {
-				settled = true;
-			});
-
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		expect(settled).toBe(false);
-		expect(openPath).toHaveBeenCalledWith(directoryPath);
-		expect(showItemInFolder).not.toHaveBeenCalled();
-
-		resolveOpenPath?.("");
-		await openRequest;
-		expect(settled).toBe(true);
+test("external.openInApp with isolated Electron mocks", async () => {
+	const fixturePath = path.join(import.meta.dir, "external.fixture.ts");
+	const child = Bun.spawn([process.execPath, "test", fixturePath], {
+		stdout: "pipe",
+		stderr: "pipe",
 	});
-
-	test("surfaces Finder errors returned by Electron", async () => {
-		const directoryPath = join(testRoot, "project");
-		mkdirSync(directoryPath);
-		openPath.mockResolvedValue("The path could not be opened");
-
-		await expect(
-			caller.openInApp({ path: directoryPath, app: "finder" }),
-		).rejects.toThrow("The path could not be opened");
-	});
-
-	test("reveals files in Finder instead of opening them", async () => {
-		const filePath = join(testRoot, "config.json");
-		writeFileSync(filePath, "{}");
-
-		await caller.openInApp({ path: filePath, app: "finder" });
-
-		expect(showItemInFolder).toHaveBeenCalledWith(filePath);
-		expect(openPath).not.toHaveBeenCalled();
-	});
+	const [exitCode, stdout, stderr] = await Promise.all([
+		child.exited,
+		new Response(child.stdout).text(),
+		new Response(child.stderr).text(),
+	]);
+	expect(exitCode, `${stdout}\n${stderr}`).toBe(0);
 });
