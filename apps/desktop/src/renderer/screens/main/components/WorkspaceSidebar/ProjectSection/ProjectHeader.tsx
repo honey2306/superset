@@ -39,12 +39,17 @@ import { useWorkspaceCatalog } from "renderer/routes/_local/providers/WorkspaceC
 import { useProjectRename } from "renderer/screens/main/hooks/useProjectRename";
 import { STROKE_WIDTH } from "../constants";
 import { RenameInput } from "../RenameInput";
+import type { SidebarWorkspace } from "../types";
+import { WorkspaceListItem } from "../WorkspaceListItem";
 import { CloseProjectDialog } from "./CloseProjectDialog";
 import { useProjectCloseDialog } from "./hooks/useProjectCloseDialog";
 import { ProjectThumbnail } from "./ProjectThumbnail";
 import { closeProjectImmediately } from "./projectCloseOrchestration";
 
 interface ProjectHeaderProps {
+	singleWorkspace?: SidebarWorkspace;
+	workspaceSections?: { id: string; name: string }[];
+
 	projectId: string;
 	projectGroupId: string | null;
 	availableProjectGroups: Array<{ id: string; name: string }>;
@@ -64,6 +69,8 @@ interface ProjectHeaderProps {
 }
 
 export function ProjectHeader({
+	singleWorkspace,
+	workspaceSections = [],
 	projectId,
 	projectGroupId,
 	availableProjectGroups,
@@ -86,6 +93,11 @@ export function ProjectHeader({
 		useDashboardSidebarState();
 	const navigate = useNavigate();
 	const params = useParams({ strict: false }) as { workspaceId?: string };
+	const activateProject = () => {
+		if (workspaceCount === 0) onNewWorkspace();
+		else onToggleCollapse();
+	};
+
 	const { isCloseDialogOpen, setIsCloseDialogOpen, closeDialogCoordinator } =
 		useProjectCloseDialog();
 	const rename = useProjectRename(projectId, projectName);
@@ -227,6 +239,97 @@ export function ProjectHeader({
 		</ContextMenuSub>
 	);
 
+	const projectMenuItems = (
+		<>
+			<ContextMenuItem onSelect={onNewWorkspace}>
+				<HiMiniPlus className="size-4 mr-2" />
+				{t("workspace.new")}
+			</ContextMenuItem>
+
+			<ContextMenuSeparator />
+			<ContextMenuItem onSelect={rename.startRename}>
+				<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+				{t("workspace.renameProject")}
+			</ContextMenuItem>
+			<ContextMenuSeparator />
+			<ContextMenuItem onSelect={handleOpenInFinder}>
+				<LuFolderOpen className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+				{t("workspace.openFinder")}
+			</ContextMenuItem>
+			<ContextMenuItem onSelect={handleOpenSettings}>
+				<LuSettings className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+				{t("workspace.projectSettings")}
+			</ContextMenuItem>
+			{moveToProjectGroupSubmenu}
+			{colorPickerSubmenu}
+			<ContextMenuItem onSelect={handleToggleImage}>
+				{hideImage ? (
+					<LuImage className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+				) : (
+					<LuImageOff className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+				)}
+				{hideImage ? t("workspace.showImage") : t("workspace.hideImage")}
+			</ContextMenuItem>
+			<ContextMenuItem onSelect={handleNewSection}>
+				<LuListPlus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+				{t("workspace.newSection")}
+			</ContextMenuItem>
+			<ContextMenuSeparator />
+			<ContextMenuItem
+				onSelect={closeDialogCoordinator.requestOpenDeleteDialog}
+				className="text-destructive focus:text-destructive"
+			>
+				<LuX
+					className="size-4 mr-2 text-destructive"
+					strokeWidth={STROKE_WIDTH}
+				/>
+				{t("workspace.closeProject")}
+			</ContextMenuItem>
+		</>
+	);
+
+	if (singleWorkspace) {
+		return (
+			<>
+				<WorkspaceListItem
+					id={singleWorkspace.id}
+					projectId={projectId}
+					worktreePath={singleWorkspace.worktreePath}
+					name={singleWorkspace.name}
+					branch={singleWorkspace.branch}
+					type={singleWorkspace.type}
+					isUnread={singleWorkspace.isUnread}
+					index={0}
+					isCollapsed={isSidebarCollapsed}
+					projectName={projectName}
+					projectMenu={projectMenuItems}
+					sections={workspaceSections}
+					onProjectMenuCloseAutoFocus={
+						closeDialogCoordinator.handleCloseAutoFocus
+					}
+					projectNameEditor={
+						rename.isRenaming ? (
+							<RenameInput
+								value={rename.renameValue}
+								onChange={rename.setRenameValue}
+								onSubmit={rename.submitRename}
+								onCancel={rename.cancelRename}
+								className="h-6 px-1 text-[13px] w-full"
+							/>
+						) : undefined
+					}
+				/>
+				<CloseProjectDialog
+					projectName={projectName}
+					workspaceCount={workspaceCount}
+					open={isCloseDialogOpen}
+					onOpenChange={setIsCloseDialogOpen}
+					onConfirm={handleConfirmClose}
+				/>
+			</>
+		);
+	}
+
 	if (isSidebarCollapsed) {
 		return (
 			<>
@@ -236,10 +339,11 @@ export function ProjectHeader({
 							<TooltipTrigger asChild>
 								<button
 									type="button"
-									onClick={onToggleCollapse}
+									aria-label={projectName}
+									onClick={activateProject}
 									className={cn(
 										"flex items-center justify-center size-8 rounded-ds-3",
-										"hover:bg-hover/50 transition-colors",
+										"hover:bg-hover transition-colors",
 									)}
 								>
 									<ProjectThumbnail
@@ -316,20 +420,14 @@ export function ProjectHeader({
 				<ContextMenuTrigger asChild>
 					<div
 						className={cn(
-							"flex items-center w-full pl-3 pr-2 py-1.5 text-sm font-medium",
-							"hover:bg-hover/50 transition-colors",
+							"group/project flex items-center w-full h-8 pl-2 pr-1 text-[13px] rounded-ds-3",
+							"hover:bg-hover transition-colors",
 						)}
 					>
+						{/* lane 占位：与行状态点通道（14px）对齐，多 workspace 项目头无聚合状态点 */}
+						<span aria-hidden="true" className="w-[14px] shrink-0" />
 						{rename.isRenaming ? (
 							<div className="flex items-center gap-2 flex-1 min-w-0 py-0.5">
-								<ProjectThumbnail
-									projectId={projectId}
-									projectName={projectName}
-									projectColor={projectColor}
-									githubOwner={githubOwner}
-									hideImage={hideImage}
-									iconUrl={iconUrl}
-								/>
 								<RenameInput
 									value={rename.renameValue}
 									onChange={rename.setRenameValue}
@@ -341,101 +439,47 @@ export function ProjectHeader({
 						) : (
 							<button
 								type="button"
-								onClick={onToggleCollapse}
+								onClick={activateProject}
 								onDoubleClick={rename.startRename}
-								className="flex items-center gap-2 flex-1 min-w-0 py-0.5 text-left cursor-pointer"
+								className="flex items-center gap-1.5 flex-1 min-w-0 h-full text-left cursor-pointer"
 							>
-								<ProjectThumbnail
-									projectId={projectId}
-									projectName={projectName}
-									projectColor={projectColor}
-									githubOwner={githubOwner}
-									hideImage={hideImage}
-									iconUrl={iconUrl}
-								/>
-								<span className="truncate">{projectName}</span>
-								<span className="text-xs text-fg-mute tabular-nums font-normal">
-									({workspaceCount})
+								{/* 与普通行同级：名字是主角，满值 + medium */}
+								<span
+									className="truncate font-medium text-fg"
+									title={projectName}
+								>
+									{projectName}
 								</span>
+								{workspaceCount > 1 && (
+									<span className="ml-auto font-mono text-[10px] text-fg-faint tabular-nums font-normal">
+										{workspaceCount}
+									</span>
+								)}
 							</button>
 						)}
 
-						<Tooltip delayDuration={500}>
-							<TooltipTrigger asChild>
-								<button
-									type="button"
-									onClick={(e) => {
-										e.stopPropagation();
-										onNewWorkspace();
-									}}
-									onContextMenu={(e) => e.stopPropagation()}
-									className="p-1 rounded hover:bg-hover transition-colors shrink-0 ml-1"
-								>
-									<HiMiniPlus className="size-4 text-fg-mute" />
-								</button>
-							</TooltipTrigger>
-							<TooltipContent side="bottom" sideOffset={4}>
-								{t("workspace.new")}
-							</TooltipContent>
-						</Tooltip>
-
-						<button
-							type="button"
-							onClick={onToggleCollapse}
-							onContextMenu={(e) => e.stopPropagation()}
-							aria-expanded={!isCollapsed}
-							className="p-1 rounded hover:bg-hover transition-colors shrink-0 ml-1"
-						>
-							<HiChevronRight
-								className={cn(
-									"size-3.5 text-fg-mute transition-transform duration-150",
-									!isCollapsed && "rotate-90",
-								)}
-							/>
-						</button>
+						{workspaceCount > 1 && (
+							<button
+								type="button"
+								onClick={onToggleCollapse}
+								onContextMenu={(e) => e.stopPropagation()}
+								aria-expanded={!isCollapsed}
+								className="p-1 rounded hover:bg-hover transition-colors shrink-0 ml-1"
+							>
+								<HiChevronRight
+									className={cn(
+										"size-3.5 text-fg-mute transition-transform duration-150",
+										!isCollapsed && "rotate-90",
+									)}
+								/>
+							</button>
+						)}
 					</div>
 				</ContextMenuTrigger>
 				<ContextMenuContent
 					onCloseAutoFocus={closeDialogCoordinator.handleCloseAutoFocus}
 				>
-					<ContextMenuItem onSelect={rename.startRename}>
-						<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						{t("workspace.renameAction")}
-					</ContextMenuItem>
-					<ContextMenuSeparator />
-					<ContextMenuItem onSelect={handleOpenInFinder}>
-						<LuFolderOpen className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						{t("workspace.openFinder")}
-					</ContextMenuItem>
-					<ContextMenuItem onSelect={handleOpenSettings}>
-						<LuSettings className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						{t("workspace.projectSettings")}
-					</ContextMenuItem>
-					{moveToProjectGroupSubmenu}
-					{colorPickerSubmenu}
-					<ContextMenuItem onSelect={handleToggleImage}>
-						{hideImage ? (
-							<LuImage className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						) : (
-							<LuImageOff className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						)}
-						{hideImage ? t("workspace.showImage") : t("workspace.hideImage")}
-					</ContextMenuItem>
-					<ContextMenuItem onSelect={handleNewSection}>
-						<LuListPlus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-						{t("workspace.newSection")}
-					</ContextMenuItem>
-					<ContextMenuSeparator />
-					<ContextMenuItem
-						onSelect={closeDialogCoordinator.requestOpenDeleteDialog}
-						className="text-destructive focus:text-destructive"
-					>
-						<LuX
-							className="size-4 mr-2 text-destructive"
-							strokeWidth={STROKE_WIDTH}
-						/>
-						{t("workspace.closeProject")}
-					</ContextMenuItem>
+					{projectMenuItems}
 				</ContextMenuContent>
 			</ContextMenu>
 

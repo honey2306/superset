@@ -1,0 +1,27 @@
+{
+  "type": "design",
+  "designSystems": [
+    {
+      "name": "Superset Design System",
+      "slug": "superset-design-system",
+      "namespace": "SupersetDesignSystem_91a6da",
+      "dsFolder": "_ds/superset-design-system",
+      "sourcePath": "designs/superset-design-system"
+    }
+  ],
+  "primaryDesignSystem": "superset-design-system",
+  "createdAt": "2026-09-12T15:36:05.487Z",
+  "updatedAt": "2026-09-14T03:26:49.160Z",
+  "assets": {
+    "左侧栏重设计 · 普通 + 置顶进行中": {
+      "versions": [
+        {
+          "path": "Sidebar Two-Tier.html",
+          "createdAt": "2026-09-14T03:26:49.160Z",
+          "status": "needs-review",
+          "subtitle": "最终稿 A · 安静：树形 guide 分组 ·「置顶进行中」叠加开关 · rail 收起"
+        }
+      ]
+    }
+  }
+}

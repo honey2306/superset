@@ -170,3 +170,22 @@
 	font-size: 11px;
 	line-height: 1.55;
 }
+
+.agent-browser-pane__handoff {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	flex-shrink: 0;
+	max-height: 120px;
+	overflow: auto;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--line);
+	background: var(--ds-surface-sunk);
+	font-size: 11px;
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+	user-select: text;
+}
+.agent-browser-pane__handoff span {
+	color: var(--fg-mute);
+}

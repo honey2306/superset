@@ -37,6 +37,7 @@ import {
 	type SessionUpdateEnvelope,
 	SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS,
 	SUPERSET_DELEGATION_META_KEY,
+	SUPERSET_DISCUSSION_INSTRUCTIONS,
 	SUPERSET_PLAN_INSTRUCTIONS,
 	type Timeline,
 } from "@superset/session-protocol";
@@ -206,6 +207,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expect(requests[0]?.meta).toEqual({
 			[SUPERSET_DELEGATION_META_KEY]: composeSupersetModelFacingInstructions([
 				SUPERSET_PLAN_INSTRUCTIONS,
+				SUPERSET_DISCUSSION_INSTRUCTIONS,
 				instructions,
 			]),
 			systemPrompt: {
@@ -213,6 +215,7 @@ describe("acp-sessions e2e (fake adapter)", () => {
 				preset: "claude_code",
 				append: composeSupersetModelFacingInstructions([
 					SUPERSET_PLAN_INSTRUCTIONS,
+					SUPERSET_DISCUSSION_INSTRUCTIONS,
 					instructions,
 				]),
 			},
@@ -288,12 +291,13 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		expect(request.piAppendSystemPrompt).toBe(
 			composeSupersetModelFacingInstructions([
 				SUPERSET_PLAN_INSTRUCTIONS,
+				SUPERSET_DISCUSSION_INSTRUCTIONS,
 				instructions,
 			]),
 		);
 	}, 30_000);
 
-	test("injects plan instructions into a Pi root session without delegation", async () => {
+	test("injects plan and user-triggered discussion instructions without delegation", async () => {
 		const sessionId = "pi-model-context-plan-only";
 		const mcpRequestLog = path.join(workspaceDir, "pi-plan-context.jsonl");
 		const manager = newManager({
@@ -310,7 +314,12 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		const request = JSON.parse(
 			(await Bun.file(mcpRequestLog).text()).trim(),
 		) as { piAppendSystemPrompt?: string };
-		expect(request.piAppendSystemPrompt).toBe(SUPERSET_PLAN_INSTRUCTIONS);
+		expect(request.piAppendSystemPrompt).toBe(
+			composeSupersetModelFacingInstructions([
+				SUPERSET_PLAN_INSTRUCTIONS,
+				SUPERSET_DISCUSSION_INSTRUCTIONS,
+			]),
+		);
 	}, 30_000);
 
 	test("composes plan instructions with the delegated executor role", async () => {

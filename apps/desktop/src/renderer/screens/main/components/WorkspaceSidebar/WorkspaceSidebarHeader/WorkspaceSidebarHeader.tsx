@@ -6,6 +6,8 @@ import { useState } from "react";
 import {
 	LuBrainCircuit,
 	LuClock3,
+	LuFolderTree,
+	LuHistory,
 	LuListTodo,
 	LuWorkflow,
 } from "react-icons/lu";
@@ -16,6 +18,7 @@ import {
 	useCatalogProjects,
 	useCatalogWorkspaces,
 } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
+import { useWorkspaceSidebarStore } from "renderer/stores";
 import {
 	useWorkspaceLaunch,
 	useWorkspaceProvisioningAdapter,
@@ -56,6 +59,13 @@ export function WorkspaceSidebarHeader({
 
 	const { alertCount: todoAlertCount } = useTodoAlerts();
 	const hasTodoAlerts = todoAlertCount > 0;
+
+	const isTimelineView = useWorkspaceSidebarStore(
+		(state) => state.viewMode === "timeline",
+	);
+	const toggleViewMode = useWorkspaceSidebarStore(
+		(state) => state.toggleViewMode,
+	);
 
 	const handleAutomationsClick = () => {
 		navigate({ to: "/automations" });
@@ -112,8 +122,8 @@ export function WorkspaceSidebarHeader({
 
 	const itemClassName = (isActive = false) =>
 		cn(
-			"flex items-center gap-2 rounded-ds-3 text-fg-mute transition-colors duration-[120ms] hover:bg-hover hover:text-fg",
-			isCollapsed ? "size-8 justify-center" : "w-full px-2 py-1.5",
+			"flex items-center justify-center rounded-ds-3 text-fg-mute transition-colors duration-[120ms] hover:bg-hover hover:text-fg",
+			isCollapsed ? "size-8" : "size-7",
 			isActive && "bg-accent-tint text-fg",
 		);
 
@@ -181,57 +191,94 @@ export function WorkspaceSidebarHeader({
 	}
 
 	return (
-		<div className="flex flex-col gap-1 border-b border-line px-2 py-2">
-			<button
-				className={itemClassName(isAutomationsOpen)}
-				onClick={handleAutomationsClick}
-				type="button"
-			>
-				<div className="flex size-5 items-center justify-center">
-					<LuWorkflow className="size-4" strokeWidth={STROKE_WIDTH} />
-				</div>
-				<span className="flex-1 text-left text-sm font-medium">
+		<div className="flex shrink-0 gap-1 px-[14px] pt-4 pb-[18px]">
+			<Tooltip delayDuration={300}>
+				<TooltipTrigger asChild>
+					<button
+						className={itemClassName(isAutomationsOpen)}
+						onClick={handleAutomationsClick}
+						type="button"
+						aria-label={t("workspace.automations")}
+					>
+						<LuWorkflow className="size-4" strokeWidth={STROKE_WIDTH} />
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="right">
 					{t("workspace.automations")}
-				</span>
-			</button>
-			<button
-				className={itemClassName(isTodosOpen)}
-				onClick={handleTodosClick}
-				type="button"
-			>
-				<div className="relative flex size-5 items-center justify-center">
-					<LuListTodo className="size-4" strokeWidth={STROKE_WIDTH} />
-					{hasTodoAlerts && <TodoAlertDot />}
-				</div>
-				<span className="flex-1 text-left text-sm font-medium">
-					{t("workspace.todos")}
-				</span>
-			</button>
-			<button
-				className={itemClassName(isTemporaryWorkspaceOpen)}
-				disabled={isTemporaryWorkspacePending}
-				onClick={() => void handleTemporaryWorkspaceClick()}
-				type="button"
-			>
-				<div className="flex size-5 items-center justify-center">
-					<LuClock3 className="size-4" strokeWidth={STROKE_WIDTH} />
-				</div>
-				<span className="flex-1 text-left text-sm font-medium">
+				</TooltipContent>
+			</Tooltip>
+			<Tooltip delayDuration={300}>
+				<TooltipTrigger asChild>
+					<button
+						className={cn(itemClassName(isTodosOpen), "relative")}
+						onClick={handleTodosClick}
+						type="button"
+						aria-label={t("workspace.todos")}
+					>
+						<LuListTodo className="size-4" strokeWidth={STROKE_WIDTH} />
+						{hasTodoAlerts && <TodoAlertDot />}
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="right">{t("workspace.todos")}</TooltipContent>
+			</Tooltip>
+			<Tooltip delayDuration={300}>
+				<TooltipTrigger asChild>
+					<button
+						className={itemClassName(isTemporaryWorkspaceOpen)}
+						disabled={isTemporaryWorkspacePending}
+						onClick={() => void handleTemporaryWorkspaceClick()}
+						type="button"
+						aria-label={t("workspace.temporaryWorkspace")}
+					>
+						<LuClock3 className="size-4" strokeWidth={STROKE_WIDTH} />
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="right">
 					{t("workspace.temporaryWorkspace")}
-				</span>
-			</button>
-			<button
-				className={itemClassName(isAgentContextOpen)}
-				onClick={handleAgentContextClick}
-				type="button"
-			>
-				<div className="flex size-5 items-center justify-center">
-					<LuBrainCircuit className="size-4" strokeWidth={STROKE_WIDTH} />
-				</div>
-				<span className="flex-1 text-left text-sm font-medium">
+				</TooltipContent>
+			</Tooltip>
+			<Tooltip delayDuration={300}>
+				<TooltipTrigger asChild>
+					<button
+						className={itemClassName(isAgentContextOpen)}
+						onClick={handleAgentContextClick}
+						type="button"
+						aria-label={t("workspace.agentContext")}
+					>
+						<LuBrainCircuit className="size-4" strokeWidth={STROKE_WIDTH} />
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="right">
 					{t("workspace.agentContext")}
-				</span>
-			</button>
+				</TooltipContent>
+			</Tooltip>
+
+			{/* 视图切换与上面四个导航入口语义不同，用 ml-auto 推到另一端 */}
+			<Tooltip delayDuration={300}>
+				<TooltipTrigger asChild>
+					<button
+						className={cn(itemClassName(), "ml-auto")}
+						onClick={toggleViewMode}
+						type="button"
+						aria-label={
+							isTimelineView
+								? t("workspace.viewProjects")
+								: t("workspace.viewTimeline")
+						}
+					>
+						{isTimelineView ? (
+							<LuFolderTree className="size-4" strokeWidth={STROKE_WIDTH} />
+						) : (
+							<LuHistory className="size-4" strokeWidth={STROKE_WIDTH} />
+						)}
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="right">
+					{isTimelineView
+						? t("workspace.viewProjects")
+						: t("workspace.viewTimeline")}
+				</TooltipContent>
+			</Tooltip>
 		</div>
 	);
 }

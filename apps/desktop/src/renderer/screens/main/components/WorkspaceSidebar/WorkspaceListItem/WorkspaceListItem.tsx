@@ -3,8 +3,7 @@ import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { HiEllipsisHorizontal } from "react-icons/hi2";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useHighestAcpSessionStatusAtHost } from "renderer/hooks/host-service/useAcpSessionStatuses";
 import {
 	useClearWorkspaceTerminalStatusesAtHost,
@@ -32,15 +31,20 @@ import { useWorkspaceRename } from "renderer/screens/main/hooks/useWorkspaceRena
 import { useActiveDragItemStore } from "renderer/stores/active-drag-item";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { getHighestPriorityStatus } from "shared/tabs-types";
+import { BranchTag } from "./BranchTag";
 import { CollapsedWorkspaceItem } from "./CollapsedWorkspaceItem";
 import { DeleteWorkspaceDialog, RenameBranchDialog } from "./components";
 import { GITHUB_STATUS_STALE_TIME } from "./constants";
 import { useWorkspaceDnD } from "./useWorkspaceDnD";
 import { WorkspaceAheadBehind } from "./WorkspaceAheadBehind";
 import { WorkspaceContextMenu } from "./WorkspaceContextMenu";
-import { WorkspaceStatusBadge } from "./WorkspaceStatusBadge";
 
 interface WorkspaceListItemProps {
+	projectName?: string;
+	projectMenu?: ReactNode;
+	projectNameEditor?: ReactNode;
+	onProjectMenuCloseAutoFocus?: (event: Event) => void;
+
 	id: string;
 	projectId: string;
 	worktreePath: string;
@@ -57,6 +61,10 @@ interface WorkspaceListItemProps {
 }
 
 export function WorkspaceListItem({
+	projectName,
+	projectMenu,
+	projectNameEditor,
+	onProjectMenuCloseAutoFocus,
 	id,
 	projectId,
 	worktreePath,
@@ -170,20 +178,22 @@ export function WorkspaceListItem({
 	);
 
 	useEffect(() => {
+		if (projectName) return;
 		if (isCollapsed) {
 			drag(drop(collapsedItemRef));
 			return;
 		}
 		drag(drop(expandedItemRef));
-	}, [drag, drop, isCollapsed]);
+	}, [drag, drop, isCollapsed, projectName]);
 
 	useEffect(() => {
 		if (!isActive) return;
-		const activeNode = isCollapsed
-			? collapsedItemRef.current
-			: expandedItemRef.current;
+		const activeNode =
+			isCollapsed && !projectName
+				? collapsedItemRef.current
+				: expandedItemRef.current;
 		activeNode?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-	}, [isActive, isCollapsed]);
+	}, [isActive, isCollapsed, projectName]);
 
 	const openInFinder = electronTrpc.external.openInFinder.useMutation({
 		onError: (error) => toast.error(`Failed to open: ${error.message}`),
@@ -280,19 +290,6 @@ export function WorkspaceListItem({
 		await copyToClipboard(branch);
 		toast.success(t("workspace.branchCopied"));
 	};
-	const handleMenuButtonClick = (
-		event: React.MouseEvent<HTMLButtonElement>,
-	) => {
-		event.stopPropagation();
-		const rect = event.currentTarget.getBoundingClientRect();
-		event.currentTarget.dispatchEvent(
-			new MouseEvent("contextmenu", {
-				bubbles: true,
-				clientX: rect.left + rect.width / 2,
-				clientY: rect.top + rect.height / 2,
-			}),
-		);
-	};
 	const openUrl = electronTrpc.external.openUrl.useMutation();
 	const refreshLinkedPullRequest = async () => {
 		await refetchPullRequestState();
@@ -333,9 +330,10 @@ export function WorkspaceListItem({
 	const linkedPullRequest =
 		pullRequestState?.pullRequest ??
 		(pullRequestState?.isPullRequestSuppressed ? null : pr);
-	const showBranchSubtitle = isBranchWorkspace || (!!name && name !== branch);
+	/* 分支统一独占第二行：行高整齐，长分支也拿得到整行宽度 */
+	const showBranchSubtitle = !isCollapsed && !!branch;
 
-	if (isCollapsed) {
+	if (isCollapsed && !projectName) {
 		return (
 			<CollapsedWorkspaceItem
 				id={id}
@@ -361,11 +359,17 @@ export function WorkspaceListItem({
 		// biome-ignore lint/a11y/useSemanticElements: Contains nested interactive elements
 		<div
 			role="button"
+			aria-label={projectName}
+			aria-current={isActive ? "page" : undefined}
+			title={projectName ? `${projectName} · ${branch}` : undefined}
 			tabIndex={0}
 			ref={expandedItemRef}
 			onClick={handleClick}
 			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
+				if (
+					e.target === e.currentTarget &&
+					(e.key === "Enter" || e.key === " ")
+				) {
 					e.preventDefault();
 					handleClick();
 				}
@@ -377,104 +381,95 @@ export function WorkspaceListItem({
 				}
 			}}
 			onMouseEnter={handleMouseEnter}
-			onDoubleClick={isBranchWorkspace ? undefined : rename.startRename}
+			onDoubleClick={
+				projectName || isBranchWorkspace ? undefined : rename.startRename
+			}
 			className={cn(
-				// DS: hover → --hover; active → accent-tint + 2px pink left bar.
-				"flex w-full pl-11 pr-2 text-[13px]",
+				// 行盒挂在组 guide 右侧（容器已给 25px）：项目行 lane 中心落在 40px，
+				// workspace 子行左侧再让出一个 lane 宽，挂到二级 guide 右缘。
+				// 分支标签独占第二行，所以行高统一为双行。
+				"group/row relative flex w-full items-center gap-1.5 pr-2",
+				showBranchSubtitle ? "h-10" : "h-8",
+				projectName ? "pl-2 text-[13px]" : "pl-[22px] text-[13px]",
 				"transition-colors duration-[120ms] text-left cursor-pointer rounded-ds-3",
-				isActive ? "hover:bg-accent-tint" : "hover:bg-hover",
-				"group relative",
-				showBranchSubtitle ? "py-1.5" : "py-2 items-center",
-				isActive && "bg-accent-tint",
+				// 当前行升格为浮起卡片；hover 与选中保持 accent 语义
+				isActive
+					? "bg-surface-elev ring-1 ring-inset ring-line-strong shadow-ds-1 hover:bg-surface-elev"
+					: "hover:bg-hover",
 				isSelected && "bg-accent-tint ring-1 ring-inset ring-accent-line",
+				projectName && isCollapsed && "!pl-1 !pr-1 w-9 justify-center",
 				(isDragging || isMultiDragging) && "opacity-30",
 			)}
 			style={{ cursor: isDragging ? "grabbing" : "pointer" }}
 		>
-			{isActive && (
-				<div className="absolute left-0 top-1.5 bottom-1.5 w-[2px] bg-accent-solid rounded-r-sm" />
+			{/* 2px 粉条：全站唯二的实心品牌色用法，卡片化之后仍然保留 */}
+			{isActive && !isCollapsed && (
+				<span className="absolute left-0 top-[5px] bottom-[5px] w-[2px] rounded-r-sm bg-accent-solid" />
 			)}
-			{combinedWorkspaceStatus && (
-				<span className="absolute left-4 top-1/2 -translate-y-1/2">
-					<StatusIndicator status={combinedWorkspaceStatus} />
+			{/* lane：状态点通道常驻 14px，无状态时也保持整列对齐（收起态除外） */}
+			{!(projectName && isCollapsed) && (
+				<span className="flex w-[14px] shrink-0 justify-center">
+					{combinedWorkspaceStatus && (
+						<StatusIndicator status={combinedWorkspaceStatus} />
+					)}
 				</span>
 			)}
 
-			<div className="flex-1 min-w-0">
-				{rename.isRenaming ? (
-					<Input
-						ref={rename.inputRef}
-						variant="ghost"
-						value={rename.renameValue}
-						onChange={(e) => rename.setRenameValue(e.target.value)}
-						onBlur={rename.submitRename}
-						onKeyDown={(e) => {
-							e.stopPropagation();
-							rename.handleKeyDown(e);
-						}}
-						onClick={(e) => e.stopPropagation()}
-						onMouseDown={(e) => e.stopPropagation()}
-						className="h-6 px-1 py-0 text-sm -ml-1"
-					/>
-				) : (
-					<div className="flex flex-col gap-0.5">
-						<div className="flex items-center gap-1.5">
-							<span
-								className={cn(
-									"truncate text-[13px] leading-tight transition-colors flex-1",
-									isActive ? "text-fg font-medium" : "text-fg",
-								)}
-							>
-								{isBranchWorkspace ? "local" : name || branch}
-							</span>
-
-							{isBranchWorkspace && branchSyncStatus && (
-								<WorkspaceAheadBehind
-									pullCount={branchSyncStatus.pullCount}
-									pushCount={branchSyncStatus.pushCount}
-									hasUpstream={branchSyncStatus.hasUpstream}
-								/>
+			<div className="flex-1 min-w-0 flex flex-col justify-center gap-px">
+				<div className="flex items-center gap-1.5 min-w-0">
+					{rename.isRenaming ? (
+						<Input
+							ref={rename.inputRef}
+							variant="ghost"
+							value={rename.renameValue}
+							onChange={(e) => rename.setRenameValue(e.target.value)}
+							onBlur={rename.submitRename}
+							onKeyDown={(e) => {
+								e.stopPropagation();
+								rename.handleKeyDown(e);
+							}}
+							onClick={(e) => e.stopPropagation()}
+							onMouseDown={(e) => e.stopPropagation()}
+							className="h-6 px-1 py-0 text-sm -ml-1"
+						/>
+					) : projectNameEditor ? (
+						projectNameEditor
+					) : (
+						<span
+							className={cn(
+								// 名字是行的主角：满值 + medium 压过下方的彩色标签，
+								// 当前行与未读行再加重一档
+								"truncate transition-colors min-w-0 leading-[1.3] text-fg",
+								isActive || isUnread ? "font-semibold" : "font-medium",
 							)}
-							{workspaceRunState && showBranchSubtitle && (
-								<WorkspaceRunIndicator
-									state={workspaceRunState}
-									variant="inline"
-								/>
-							)}
+						>
+							{projectName
+								? isCollapsed
+									? projectName.slice(0, 2)
+									: projectName
+								: isBranchWorkspace
+									? "local"
+									: name || branch}
+						</span>
+					)}
 
-							<div className="grid shrink-0 h-5 [&>*]:col-start-1 [&>*]:row-start-1 items-center">
-								<div className="flex items-center justify-end gap-1.5">
-									<button
-										type="button"
-										onClick={handleMenuButtonClick}
-										className="flex size-5 items-center justify-center rounded-ds-2 text-fg-faint transition-colors hover:bg-hover hover:text-fg"
-										aria-label="Open workspace menu"
-									>
-										<HiEllipsisHorizontal className="size-4" />
-									</button>
-								</div>
-							</div>
-						</div>
+					{!isCollapsed && isBranchWorkspace && branchSyncStatus && (
+						<WorkspaceAheadBehind
+							pullCount={branchSyncStatus.pullCount}
+							pushCount={branchSyncStatus.pushCount}
+							hasUpstream={branchSyncStatus.hasUpstream}
+						/>
+					)}
+					{workspaceRunState && !isCollapsed && (
+						<WorkspaceRunIndicator state={workspaceRunState} variant="inline" />
+					)}
+					{isUnread && !(projectName && isCollapsed) && (
+						<span className="ml-auto size-[5px] shrink-0 rounded-full bg-line-strong" />
+					)}
+				</div>
 
-						{(showBranchSubtitle || pr) && (
-							<div className="flex items-center gap-2 text-[11px] w-full">
-								{showBranchSubtitle && (
-									<span className="truncate text-fg-faint font-mono tracking-[var(--ls-mono)] leading-tight">
-										{branch}
-									</span>
-								)}
-								{pr && (
-									<WorkspaceStatusBadge
-										state={pr.state}
-										prNumber={pr.number}
-										prUrl={pr.url}
-										className="ml-auto"
-									/>
-								)}
-							</div>
-						)}
-					</div>
-				)}
+				{/* 分支标签独占第二行：前缀剥进颜色里，标签更短也更有辨识度 */}
+				{showBranchSubtitle && <BranchTag branch={branch} />}
 			</div>
 		</div>
 	);
@@ -482,6 +477,9 @@ export function WorkspaceListItem({
 	return (
 		<>
 			<WorkspaceContextMenu
+				projectName={projectName}
+				projectMenu={projectMenu}
+				onProjectMenuCloseAutoFocus={onProjectMenuCloseAutoFocus}
 				id={id}
 				projectId={projectId}
 				branch={branch}

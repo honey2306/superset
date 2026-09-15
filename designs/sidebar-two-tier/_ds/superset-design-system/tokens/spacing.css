@@ -1,0 +1,20 @@
+/* Superset DS — Spacing scale (4-based, with 2/6/10 half-steps for dense UI) */
+
+:root {
+	--s-1: 2px;
+	--s-2: 4px;
+	--s-3: 6px;
+	--s-4: 8px;
+	--s-5: 10px;
+	--s-6: 12px;
+	--s-7: 14px;
+	--s-8: 16px;
+	--s-10: 20px;
+	--s-12: 24px;
+	--s-14: 28px;
+	--s-16: 32px;
+	--s-20: 40px;
+	--s-24: 48px;
+	--s-32: 64px;
+	--s-40: 80px;
+}

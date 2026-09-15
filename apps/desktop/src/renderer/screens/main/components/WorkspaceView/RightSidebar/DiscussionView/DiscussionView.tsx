@@ -171,7 +171,8 @@ export function DiscussionView({
 	if (!selected) {
 		return (
 			<div className="flex h-full items-center justify-center px-5 text-center text-xs leading-5 text-fg-mute">
-				Agent 发起讨论后，双方的实时观点和最终结果会显示在这里。
+				在聊天中主动要求两个 Agent
+				讨论某个话题，双方的实时观点和最终结果会显示在这里。
 			</div>
 		);
 	}

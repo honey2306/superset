@@ -84,16 +84,6 @@ interface DelegatedExecutionProfileState {
 	profilesConfigured?: boolean;
 }
 
-export interface TerminalOpenRequest {
-	workspaceId: string;
-	terminalId: string;
-	sourceSessionId: string;
-	requestId: string;
-	title?: string;
-	focus: boolean;
-	occurredAt: number;
-}
-
 export interface AcpTerminalController {
 	create(input: {
 		workspaceId: string;
@@ -137,7 +127,6 @@ export interface SupersetToolControllerOptions {
 	onOpenRequested?: (event: AcpSessionOpenRequest) => void;
 	onDiscussionOpenRequested?: (event: DiscussionOpenRequest) => void;
 	terminal?: AcpTerminalController;
-	onTerminalOpenRequested?: (event: TerminalOpenRequest) => void;
 	/** Resolves only the current session's KDev create-MR page. */
 	openMergeRequest?: (input: {
 		cwd: string;
@@ -162,11 +151,17 @@ export interface SupersetToolControllerOptions {
 		pinned: boolean;
 		scope: "project" | "global";
 	}) => Record<string, unknown>;
+	listMemoryProjects?: (input: {
+		workspaceId: string;
+		query: string;
+		limit: number;
+	}) => Record<string, unknown>;
 	searchProjectMemories?: (input: {
 		workspaceId: string;
 		query: string;
 		limit: number;
-		scope: "project" | "global" | "all";
+		scope: "project" | "global" | "all" | "accessible";
+		projectId?: string;
 	}) => Record<string, unknown>;
 	updateProjectMemory?: (input: {
 		workspaceId: string;
@@ -554,11 +549,11 @@ export class SupersetToolController {
 	private readonly onOpenRequested: SupersetToolControllerOptions["onOpenRequested"];
 	private readonly onDiscussionOpenRequested: SupersetToolControllerOptions["onDiscussionOpenRequested"];
 	private readonly terminal: SupersetToolControllerOptions["terminal"];
-	private readonly onTerminalOpenRequested: SupersetToolControllerOptions["onTerminalOpenRequested"];
 	private readonly openMergeRequest: SupersetToolControllerOptions["openMergeRequest"];
 	private readonly onMergeRequestOpenRequested: SupersetToolControllerOptions["onMergeRequestOpenRequested"];
 	private readonly setProjectRunCommand: SupersetToolControllerOptions["setProjectRunCommand"];
 	private readonly rememberProjectMemory: SupersetToolControllerOptions["rememberProjectMemory"];
+	private readonly listMemoryProjects: SupersetToolControllerOptions["listMemoryProjects"];
 	private readonly searchProjectMemories: SupersetToolControllerOptions["searchProjectMemories"];
 	private readonly updateProjectMemory: SupersetToolControllerOptions["updateProjectMemory"];
 	private readonly deleteProjectMemory: SupersetToolControllerOptions["deleteProjectMemory"];
@@ -584,11 +579,11 @@ export class SupersetToolController {
 			persistence: options.discussionRuns,
 		});
 		this.terminal = options.terminal;
-		this.onTerminalOpenRequested = options.onTerminalOpenRequested;
 		this.openMergeRequest = options.openMergeRequest;
 		this.onMergeRequestOpenRequested = options.onMergeRequestOpenRequested;
 		this.setProjectRunCommand = options.setProjectRunCommand;
 		this.rememberProjectMemory = options.rememberProjectMemory;
+		this.listMemoryProjects = options.listMemoryProjects;
 		this.searchProjectMemories = options.searchProjectMemories;
 		this.updateProjectMemory = options.updateProjectMemory;
 		this.deleteProjectMemory = options.deleteProjectMemory;
@@ -748,27 +743,7 @@ export class SupersetToolController {
 					...(request.arguments.cols ? { cols: request.arguments.cols } : {}),
 					...(request.arguments.rows ? { rows: request.arguments.rows } : {}),
 				});
-				const requestId = randomUUID();
-				let openRequested = false;
-				try {
-					if (this.onTerminalOpenRequested) {
-						this.onTerminalOpenRequested({
-							workspaceId: source.workspaceId,
-							terminalId,
-							sourceSessionId: source.sessionId,
-							requestId,
-							...(request.arguments.title
-								? { title: request.arguments.title }
-								: {}),
-							focus: request.arguments.focus,
-							occurredAt: Date.now(),
-						});
-						openRequested = true;
-					}
-				} catch {
-					// The PTY remains usable when no Desktop renderer is connected.
-				}
-				return { ...created, terminalId, openRequested, requestId };
+				return { ...created, terminalId };
 			}
 			case "write_terminal":
 				return this.requireTerminal().write({
@@ -880,6 +855,14 @@ export class SupersetToolController {
 				return this.rememberProjectMemory({
 					workspaceId: source.workspaceId,
 					sourceSessionId: source.sessionId,
+					...request.arguments,
+				});
+			}
+			case "list_memory_projects": {
+				if (!this.listMemoryProjects)
+					throw new Error("Project memory is unavailable");
+				return this.listMemoryProjects({
+					workspaceId: source.workspaceId,
 					...request.arguments,
 				});
 			}

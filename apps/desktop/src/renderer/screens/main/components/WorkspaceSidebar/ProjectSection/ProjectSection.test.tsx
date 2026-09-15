@@ -30,14 +30,28 @@ mock.module(import.meta.resolve("../hooks"), () => ({
 	}),
 }));
 mock.module(import.meta.resolve("../WorkspaceListItem"), () => ({
-	WorkspaceListItem: () => null,
+	WorkspaceListItem: ({ id }: { id: string }) => <div data-workspace-id={id} />,
 }));
 mock.module(import.meta.resolve("../WorkspaceSection"), () => ({
 	WorkspaceSection: () => null,
 }));
 mock.module(import.meta.resolve("./ProjectHeader"), () => ({
-	ProjectHeader: ({ projectName }: { projectName: string }) => (
-		<div>{projectName}</div>
+	ProjectHeader: ({
+		projectName,
+		singleWorkspace,
+		onShowWorkspaceDetails,
+	}: {
+		projectName: string;
+		singleWorkspace?: { id: string };
+		onShowWorkspaceDetails?: () => void;
+	}) => (
+		<button
+			type="button"
+			data-single-workspace={singleWorkspace?.id}
+			onClick={onShowWorkspaceDetails}
+		>
+			{projectName}
+		</button>
 	),
 }));
 
@@ -264,5 +278,112 @@ describe("ProjectSection project ordering drag", () => {
 
 		expect(moveProjectToGroup).toHaveBeenCalledWith("project-a", "group-b", 0);
 		expect(reorderProjects).not.toHaveBeenCalled();
+	});
+});
+
+describe("ProjectSection compact project navigation", () => {
+	const workspace = {
+		id: "ws-one",
+		projectId: "project-a",
+		worktreePath: "/repo",
+		name: "main",
+		branch: "main",
+		type: "branch" as const,
+		tabOrder: 0,
+		isUnread: false,
+	};
+	function mount(
+		workspaces: Array<typeof workspace>,
+		sections: Array<{
+			id: string;
+			projectId: string;
+			name: string;
+			tabOrder: number;
+			isCollapsed: boolean;
+			color: string | null;
+			workspaces: Array<typeof workspace>;
+		}> = [],
+		isSidebarCollapsed = false,
+	) {
+		const manager = createDragDropManager(TestBackend);
+		return render(
+			createElement(
+				DndProvider,
+				{ manager },
+				createElement(ProjectSection, {
+					projectId: "project-a",
+					projectName: "Project A",
+					isCollapsed: isSidebarCollapsed,
+					projectColor: "#000",
+					githubOwner: null,
+					mainRepoPath: "/repo",
+					hideImage: false,
+					iconUrl: null,
+					workspaces,
+					sections,
+					topLevelItems: workspaces.map((ws, index) => ({
+						id: ws.id,
+						kind: "workspace" as const,
+						tabOrder: index,
+					})),
+					shortcutBaseIndex: 0,
+					index: 0,
+					orderedProjectIds: ["project-a"],
+					projectGroupId: null,
+					availableProjectGroups: [],
+				}),
+			),
+		);
+	}
+	test("a single workspace becomes one project entry without a duplicate workspace row", () => {
+		const result = mount([workspace]);
+		const header = result.container.querySelector<HTMLButtonElement>(
+			"[data-single-workspace]",
+		);
+		expect(header?.dataset.singleWorkspace).toBe("ws-one");
+		expect(
+			result.container.querySelectorAll("[data-workspace-id]").length,
+		).toBe(0);
+	});
+	test("collapsed sidebar passes the single workspace to the project entry without a duplicate child", () => {
+		const result = mount([workspace], [], true);
+		expect(
+			result.container.querySelector<HTMLButtonElement>(
+				"[data-single-workspace]",
+			)?.dataset.singleWorkspace,
+		).toBe("ws-one");
+		expect(
+			result.container.querySelectorAll("[data-workspace-id]").length,
+		).toBe(0);
+	});
+	test("multiple workspaces retain the expanded workspace list", () => {
+		const result = mount([workspace, { ...workspace, id: "ws-two" }]);
+		expect(
+			result.container.querySelector("[data-single-workspace]"),
+		).toBeNull();
+		expect(
+			result.container.querySelectorAll("[data-workspace-id]").length,
+		).toBe(2);
+	});
+	test("counts section workspace references once", () => {
+		const result = mount(
+			[workspace],
+			[
+				{
+					id: "section",
+					projectId: "project-a",
+					name: "Section",
+					color: null,
+					tabOrder: 0,
+					isCollapsed: false,
+					workspaces: [workspace],
+				},
+			],
+		);
+		expect(
+			result.container.querySelector<HTMLButtonElement>(
+				"[data-single-workspace]",
+			)?.dataset.singleWorkspace,
+		).toBe("ws-one");
 	});
 });

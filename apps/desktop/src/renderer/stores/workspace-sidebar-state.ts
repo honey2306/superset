@@ -1,13 +1,16 @@
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 
-export const DEFAULT_WORKSPACE_SIDEBAR_WIDTH = 280;
+export const DEFAULT_WORKSPACE_SIDEBAR_WIDTH = 264;
 export const COLLAPSED_WORKSPACE_SIDEBAR_WIDTH = 52;
 const MIN_WORKSPACE_SIDEBAR_WIDTH = 220;
 export const MAX_WORKSPACE_SIDEBAR_WIDTH = 400;
 
 // Threshold for snapping to collapsed state
 const COLLAPSE_THRESHOLD = 120;
+
+/** 侧栏的两种组织方式：按项目树，或按 agent 活动时间线平铺 */
+export type SidebarViewMode = "projects" | "timeline";
 
 interface WorkspaceSidebarState {
 	isOpen: boolean;
@@ -16,6 +19,7 @@ interface WorkspaceSidebarState {
 	// Use string[] instead of Set<string> for JSON serialization with Zustand persist
 	collapsedProjectIds: string[];
 	isResizing: boolean;
+	viewMode: SidebarViewMode;
 
 	toggleOpen: () => void;
 	setOpen: (open: boolean) => void;
@@ -25,6 +29,8 @@ interface WorkspaceSidebarState {
 	isProjectCollapsed: (projectId: string) => boolean;
 	toggleCollapsed: () => void;
 	isCollapsed: () => boolean;
+	setViewMode: (mode: SidebarViewMode) => void;
+	toggleViewMode: () => void;
 }
 
 export const useWorkspaceSidebarStore = create<WorkspaceSidebarState>()(
@@ -36,6 +42,7 @@ export const useWorkspaceSidebarStore = create<WorkspaceSidebarState>()(
 				lastExpandedWidth: DEFAULT_WORKSPACE_SIDEBAR_WIDTH,
 				collapsedProjectIds: [],
 				isResizing: false,
+				viewMode: "projects",
 
 				toggleOpen: () => {
 					const { isOpen, lastExpandedWidth } = get();
@@ -111,16 +118,27 @@ export const useWorkspaceSidebarStore = create<WorkspaceSidebarState>()(
 				isCollapsed: () => {
 					return get().width === COLLAPSED_WORKSPACE_SIDEBAR_WIDTH;
 				},
+
+				setViewMode: (mode) => {
+					set({ viewMode: mode });
+				},
+
+				toggleViewMode: () => {
+					set((state) => ({
+						viewMode: state.viewMode === "projects" ? "timeline" : "projects",
+					}));
+				},
 			}),
 			{
 				name: "workspace-sidebar-store",
-				version: 2,
+				version: 3,
 				// Exclude ephemeral state from persistence
 				partialize: (state) => ({
 					isOpen: state.isOpen,
 					width: state.width,
 					lastExpandedWidth: state.lastExpandedWidth,
 					collapsedProjectIds: state.collapsedProjectIds,
+					viewMode: state.viewMode,
 					// isResizing intentionally excluded - ephemeral UI state
 				}),
 			},

@@ -35,8 +35,16 @@ function createBridge(calls: string[]): AgentBrowserBridge {
 			return { pages: [] };
 		},
 		capturePage: async () => "cG5n",
-		closeAgentPages: async () => {
-			calls.push("close-agent-pages");
+		keepOpen: async (_sessionId, input) => {
+			calls.push(`keep:${input.pageIds.join(",")}:${input.message}`);
+			return { pages };
+		},
+		closeAgentPages: async (_sessionId, pageIds) => {
+			calls.push(
+				pageIds
+					? `close-agent-pages:${pageIds.join(",")}`
+					: "close-agent-pages",
+			);
 		},
 		closeSession: async () => {
 			calls.push("close-session");
@@ -210,4 +218,50 @@ test("turn cleanup releases the sidecar and only agent pages, then supports reus
 	expect(sidecarCalls.filter((call) => call === "sidecar-close")).toHaveLength(
 		2,
 	);
+});
+
+test("handoff and explicit cleanup use the bridge without creating a sidecar", async () => {
+	const calls: string[] = [];
+	const runtime = new AgentBrowserRuntime({
+		bridge: createBridge(calls),
+		cdpUrl: "http://localhost:49001",
+		createSidecar: () => {
+			throw new Error("Unexpected sidecar");
+		},
+	});
+	await runtime.execute({
+		sessionId: "s",
+		name: "browser_keep_open",
+		arguments: {
+			pageIds: ["page-1"],
+			reason: "user_action",
+			message: "Please log in",
+		},
+	});
+	await runtime.endTurn("s");
+	await runtime.endTurn("s");
+	await runtime.execute({
+		sessionId: "s",
+		name: "browser_close",
+		arguments: { pageIds: ["page-1"] },
+	});
+	await runtime.execute({
+		sessionId: "s",
+		name: "browser_close",
+		arguments: {},
+	});
+	expect(calls).toEqual([
+		"keep:page-1:Please log in",
+		"close-agent-pages",
+		"close-agent-pages",
+		"close-agent-pages:page-1",
+		"close-agent-pages",
+	]);
+	await expect(
+		runtime.execute({
+			sessionId: "s",
+			name: "browser_keep_open",
+			arguments: { pageIds: [], reason: "review", message: "" },
+		}),
+	).rejects.toThrow();
 });

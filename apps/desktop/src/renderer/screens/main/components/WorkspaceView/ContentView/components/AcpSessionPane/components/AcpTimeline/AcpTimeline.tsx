@@ -565,6 +565,10 @@ export const AcpTimeline = memo(
 		const handleScroll = useCallback(
 			(e: UIEvent<HTMLDivElement>) => {
 				if (isJumpingToUserRef.current) return;
+				// Chromium can emit a scroll event when display:none collapses a
+				// kept-alive pane to zero-sized metrics. It carries no user intent and
+				// must not overwrite the reading/follow state saved before the switch.
+				if (!isFocusedRef.current) return;
 				// Programmatic restore writes can emit scroll events. Ignore those
 				// without cancelling the retry frame that finishes the restore.
 				if (isRestoringFocusRef.current) return;
@@ -793,6 +797,29 @@ export const AcpTimeline = memo(
 			}
 		}, [timeline.items, autoFollow, sessionId]);
 
+		// A reader who moved away from the bottom owns the viewport. Timeline
+		// commits can fold process output, remove the working indicator, or finish
+		// measuring Markdown above that viewport. Re-resolve the saved semantic
+		// anchor in the committed layout instead of retaining a stale pixel offset.
+		useLayoutEffect(() => {
+			if (!isFocused || autoFollowRef.current || isRestoringFocusRef.current)
+				return;
+			const el = scrollRef.current;
+			const position = manualReadingPositionRef.current;
+			if (!el || !position) return;
+
+			const target = position.anchor
+				? findReadingAnchorElement(el, position.anchor)
+				: null;
+			const desiredScrollTop = resolveReadingScrollTop(position, el, target);
+			if (Math.abs(el.scrollTop - desiredScrollTop) <= 0.5) return;
+
+			isRestoringFocusRef.current = true;
+			el.scrollTop = desiredScrollTop;
+			el.dispatchEvent(new Event("scroll"));
+			isRestoringFocusRef.current = false;
+		});
+
 		const showWorkingIndicator =
 			!hideWorkingIndicator &&
 			shouldShowWorkingIndicator(timeline.items, status);
@@ -904,11 +931,6 @@ export const AcpTimeline = memo(
 				manualReadingPositionRef.current === null
 			)
 				return;
-			if (!isInitialFocus) {
-				manualReadingPositionRef.current = null;
-				if (sessionId) settledReadingPositions.delete(sessionId);
-				autoFollowRef.current = true;
-			}
 
 			// A kept-alive pane is display:none while inactive. The virtualizer can
 			// therefore still have the old window (or zero-sized measurements) when
@@ -1112,9 +1134,7 @@ export const AcpTimeline = memo(
 
 				const savedReadingPosition = manualReadingPositionRef.current;
 				const shouldRestoreReading =
-					isInitialFocus &&
-					savedReadingPosition !== null &&
-					!autoFollowRef.current;
+					savedReadingPosition !== null && !autoFollowRef.current;
 				const shouldFollowBottom =
 					isActiveSessionStatus(focusStatus) && !shouldRestoreReading;
 				el.scrollTop = shouldRestoreReading
@@ -1163,7 +1183,7 @@ export const AcpTimeline = memo(
 					focusScrollFrameRef.current = null;
 				}
 			};
-		}, [isFocused, isNearBottom, sessionId]);
+		}, [isFocused, isNearBottom]);
 		const resolvedActiveTurnId =
 			activeTurnId &&
 			(turnIndex.length > 0

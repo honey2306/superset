@@ -2,13 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWorkspaceShortcuts } from "renderer/hooks/useWorkspaceShortcuts";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
+import { useWorkspaceSidebarStore } from "renderer/stores";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
+import { isLiveStatus, useSidebarWorkspaceActivity } from "./hooks";
+import type { LiveWorkspaceRowItem } from "./LiveWorkspacesSection";
+import { LiveWorkspacesSection } from "./LiveWorkspacesSection";
 import { MultiDragPreview } from "./MultiDragPreview";
 import { PortsList } from "./PortsList";
 import { ProjectGroupSection } from "./ProjectGroupSection";
 import { ProjectSection } from "./ProjectSection";
 import { SetupScriptCard } from "./SetupScriptCard";
 import { SidebarDropZone } from "./SidebarDropZone";
+import type { TimelineItem } from "./TimelineView";
+import { TimelineView } from "./TimelineView";
 import { WorkspaceSidebarFooter } from "./WorkspaceSidebarFooter";
 import { WorkspaceSidebarHeader } from "./WorkspaceSidebarHeader";
 
@@ -27,6 +33,10 @@ export function WorkspaceSidebar({
 	const { groups, projectGroups, ungroupedProjects } = useWorkspaceShortcuts();
 	const { toggleProjectGroupCollapsed } = useDashboardSidebarState();
 	const [isUngroupedCollapsed, setIsUngroupedCollapsed] = useState(false);
+	const [isLiveCollapsed, setIsLiveCollapsed] = useState(false);
+	const viewMode = useWorkspaceSidebarStore((state) => state.viewMode);
+	// 收起成 rail 时没有空间铺时间线，退回项目图标列
+	const showTimeline = viewMode === "timeline" && !isCollapsed;
 	const clearSelection = useWorkspaceSelectionStore((s) => s.clearSelection);
 
 	const orderedProjectIds = useMemo(
@@ -60,6 +70,73 @@ export function WorkspaceSidebar({
 		}
 		return indices;
 	}, [groups]);
+
+	/* 两个视图共用同一份 agent 活动聚合：项目视图用它挑「进行中」置顶组，
+	   时间线视图用它排序。queryKey 与逐行 hook 一致，缓存共享。 */
+	const sidebarWorkspaceEntries = useMemo(
+		() =>
+			groups.flatMap((group) => {
+				const projectWorkspaces = [
+					...group.workspaces,
+					...(group.sections ?? []).flatMap((section) => section.workspaces),
+				];
+				const isSingleWorkspace = projectWorkspaces.length === 1;
+				return projectWorkspaces.map((workspace) => ({
+					id: workspace.id,
+					projectId: workspace.projectId,
+					projectName: group.project.name,
+					workspaceName: workspace.name || workspace.branch,
+					branch: workspace.branch,
+					isSingleWorkspace,
+				}));
+			}),
+		[groups],
+	);
+	const activityInputs = useMemo(
+		() => sidebarWorkspaceEntries.map(({ id }) => ({ id })),
+		[sidebarWorkspaceEntries],
+	);
+	const workspaceActivity = useSidebarWorkspaceActivity(activityInputs);
+
+	const liveWorkspaceItems = useMemo(() => {
+		const items: LiveWorkspaceRowItem[] = [];
+		for (const entry of sidebarWorkspaceEntries) {
+			const status = workspaceActivity.get(entry.id)?.status ?? null;
+			if (!isLiveStatus(status) || !status) continue;
+			items.push({
+				workspaceId: entry.id,
+				projectId: entry.projectId,
+				label: entry.isSingleWorkspace
+					? entry.projectName
+					: entry.workspaceName,
+				projectLabel: entry.isSingleWorkspace ? null : entry.projectName,
+				branch: entry.branch,
+				status,
+			});
+		}
+		return items;
+	}, [sidebarWorkspaceEntries, workspaceActivity]);
+
+	const timelineItems = useMemo<TimelineItem[]>(
+		() =>
+			sidebarWorkspaceEntries.map((entry) => {
+				const activity = workspaceActivity.get(entry.id);
+				const status = activity?.status ?? null;
+				return {
+					workspaceId: entry.id,
+					projectId: entry.projectId,
+					label: entry.isSingleWorkspace
+						? entry.projectName
+						: entry.workspaceName,
+					projectName: entry.projectName,
+					branch: entry.branch,
+					status,
+					lastActivityAt: activity?.lastActivityAt ?? null,
+					isLive: isLiveStatus(status),
+				};
+			}),
+		[sidebarWorkspaceEntries, workspaceActivity],
+	);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -117,83 +194,98 @@ export function WorkspaceSidebar({
 	);
 
 	return (
-		<SidebarDropZone className="flex flex-col h-full bg-hover/45 dark:bg-hover/35">
+		<SidebarDropZone className="flex flex-col h-full bg-sidebar font-sans text-[13px] leading-[1.55]">
 			<WorkspaceSidebarHeader isCollapsed={isCollapsed} />
 
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: mousedown on empty sidebar space clears selection */}
 			<div
-				className="flex-1 overflow-y-auto hide-scrollbar"
+				className="flex-1 min-h-0 overflow-y-auto"
 				onMouseDown={handleSidebarMouseDown}
 			>
-				{isCollapsed || projectGroups.length === 0 ? (
-					groups.map((group, index) =>
-						renderProjectSection(
-							group,
-							index,
-							orderedProjectIds,
-							group.project.projectGroupId,
-						),
-					)
+				{showTimeline ? (
+					<TimelineView items={timelineItems} />
 				) : (
 					<>
-						{projectGroups.map((projectGroup, projectGroupIndex) => {
-							const projectIds = projectGroup.projects.map(
-								(project) => project.project.id,
-							);
-							return (
-								<ProjectGroupSection
-									key={projectGroup.group.id}
-									projectGroupId={projectGroup.group.id}
-									name={projectGroup.group.name}
-									projectCount={projectGroup.projects.length}
-									isCollapsed={projectGroup.group.isCollapsed}
-									index={projectGroupIndex}
-									orderedProjectGroupIds={orderedProjectGroupIds}
-									onToggleCollapsed={() =>
-										toggleProjectGroupCollapsed(projectGroup.group.id)
-									}
-								>
-									{projectGroup.projects.map((group, index) =>
-										renderProjectSection(
-											group,
-											index,
-											projectIds,
-											projectGroup.group.id,
-										),
-									)}
-								</ProjectGroupSection>
-							);
-						})}
-						{ungroupedProjects.length > 0 && (
-							<ProjectGroupSection
-								projectGroupId={null}
-								name={t("workspace.ungroupedProjects")}
-								projectCount={ungroupedProjects.length}
-								isCollapsed={isUngroupedCollapsed}
-								index={projectGroups.length}
-								orderedProjectGroupIds={orderedProjectGroupIds}
+						{!isCollapsed && liveWorkspaceItems.length > 0 && (
+							<LiveWorkspacesSection
+								items={liveWorkspaceItems}
+								isCollapsed={isLiveCollapsed}
 								onToggleCollapsed={() =>
-									setIsUngroupedCollapsed((collapsed) => !collapsed)
+									setIsLiveCollapsed((collapsed) => !collapsed)
 								}
-							>
-								{ungroupedProjects.map((group, index) =>
-									renderProjectSection(
-										group,
-										index,
-										ungroupedProjects.map((project) => project.project.id),
-										null,
-									),
+							/>
+						)}
+						{isCollapsed || projectGroups.length === 0 ? (
+							groups.map((group, index) =>
+								renderProjectSection(
+									group,
+									index,
+									orderedProjectIds,
+									group.project.projectGroupId,
+								),
+							)
+						) : (
+							<>
+								{projectGroups.map((projectGroup, projectGroupIndex) => {
+									const projectIds = projectGroup.projects.map(
+										(project) => project.project.id,
+									);
+									return (
+										<ProjectGroupSection
+											key={projectGroup.group.id}
+											projectGroupId={projectGroup.group.id}
+											name={projectGroup.group.name}
+											projectCount={projectGroup.projects.length}
+											isCollapsed={projectGroup.group.isCollapsed}
+											index={projectGroupIndex}
+											orderedProjectGroupIds={orderedProjectGroupIds}
+											onToggleCollapsed={() =>
+												toggleProjectGroupCollapsed(projectGroup.group.id)
+											}
+										>
+											{projectGroup.projects.map((group, index) =>
+												renderProjectSection(
+													group,
+													index,
+													projectIds,
+													projectGroup.group.id,
+												),
+											)}
+										</ProjectGroupSection>
+									);
+								})}
+								{ungroupedProjects.length > 0 && (
+									<ProjectGroupSection
+										projectGroupId={null}
+										name={t("workspace.ungroupedProjects")}
+										projectCount={ungroupedProjects.length}
+										isCollapsed={isUngroupedCollapsed}
+										index={projectGroups.length}
+										orderedProjectGroupIds={orderedProjectGroupIds}
+										onToggleCollapsed={() =>
+											setIsUngroupedCollapsed((collapsed) => !collapsed)
+										}
+									>
+										{ungroupedProjects.map((group, index) =>
+											renderProjectSection(
+												group,
+												index,
+												ungroupedProjects.map((project) => project.project.id),
+												null,
+											),
+										)}
+									</ProjectGroupSection>
 								)}
-							</ProjectGroupSection>
+							</>
+						)}
+
+						{groups.length === 0 && !isCollapsed && (
+							<div className="flex flex-col items-center justify-center h-32 text-fg-mute text-sm">
+								<span>{t("workspace.none")}</span>
+								<span className="text-xs mt-1">{t("workspace.noneHint")}</span>
+							</div>
 						)}
 					</>
-				)}
-
-				{groups.length === 0 && !isCollapsed && (
-					<div className="flex flex-col items-center justify-center h-32 text-fg-mute text-sm">
-						<span>{t("workspace.none")}</span>
-						<span className="text-xs mt-1">{t("workspace.noneHint")}</span>
-					</div>
 				)}
 			</div>
 

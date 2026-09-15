@@ -57,6 +57,7 @@ import {
 	SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DELEGATION_META_KEY,
+	SUPERSET_DISCUSSION_INSTRUCTIONS,
 	SUPERSET_DISCUSSION_PARTICIPANT_INSTRUCTIONS,
 	SUPERSET_DISCUSSION_PARTICIPANT_ROLE,
 	SUPERSET_PLAN_INSTRUCTIONS,
@@ -81,7 +82,6 @@ import type {
 	AcpMergeRequestOpenRequestHandler,
 	AcpSessionChangeHandler,
 	AcpSessionOpenRequestHandler,
-	AcpTerminalOpenRequestHandler,
 } from "./runtime";
 import {
 	buildTranscriptPageFromTurns,
@@ -2400,6 +2400,9 @@ export class AcpSessionManager {
 			? undefined
 			: composeSupersetModelFacingInstructions([
 					SUPERSET_PLAN_INSTRUCTIONS,
+					role === SUPERSET_ROOT_COORDINATOR_ROLE
+						? SUPERSET_DISCUSSION_INSTRUCTIONS
+						: undefined,
 					roleInstructions,
 				]);
 		const sessionMeta = modelFacingInstructions
@@ -3738,12 +3741,6 @@ export class AcpSessionManager {
 	}
 
 	onDiscussionOpenRequested(): () => void {
-		return () => {};
-	}
-
-	onTerminalOpenRequested(
-		_listener: AcpTerminalOpenRequestHandler,
-	): () => void {
 		return () => {};
 	}
 

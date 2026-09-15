@@ -15,11 +15,12 @@ requesting that Desktop present the new conversation.
 | `get_session_status` | Read one same-workspace session's status and summary. |
 | `open_session` | Ask Desktop to focus an existing same-workspace conversation, restoring its tab when necessary. It never restarts the session. |
 | `send_message` | Send or queue a message to a same-workspace session. |
-| `discuss` | Run a bounded discussion between two specified peer agents, show one shared thread in the right sidebar, and return the result to the initiating Agent. |
+| `discuss` | Only when the user explicitly requests a two-agent discussion on the current topic, run a bounded discussion between two specified peer agents, show one shared thread in the right sidebar, and return the result to the initiating Agent. |
 | `continue_in_new_session` | Continue work in a fresh conversation with a structured handoff. This is not a delegation or parallel-background-work primitive; use provider-native subagent tools when available, or `delegate` for tracked independent execution. |
 | `open_merge_request` | Open KDev's prefilled create-MR page for the current session's checked-out branch. It never pushes or creates an MR. |
 | `delegate` | Create an independent child session and seed it with a task. It remains in the background by default. |
-| `remember_project_memory` / `search_project_memories` / `update_project_memory` / `delete_project_memory` | Create, search, update, and delete project-scoped or host-global durable memory. Updates and deletes require an ID returned by search. |
+| `list_memory_projects` | Discover the current project and permitted reference projects on this host. Other projects are read-only and never automatically injected. |
+| `remember_project_memory` / `search_project_memories` / `update_project_memory` / `delete_project_memory` | Read and search project-scoped or host-global memory as needed. `all` remains current project + global; `accessible` also searches permitted projects, while `project` with `projectId` targets one permitted project. Results include source project, update time, and read-only status. Create, update, and delete only on an explicit user request; never maintain memories autonomously. Updates and deletes require an ID returned by search. |
 | `list_global_skills` / `upsert_global_skill` / `remove_global_skill` | Read, create or update, and delete host-global Agent Skills. |
 | `list_global_mcp_servers` / `upsert_global_mcp_server` / `remove_global_mcp_server` | Read, create or update, and delete host-global MCP server configuration. Secret values are omitted from list results. |
 
@@ -129,3 +130,13 @@ Potential additions should remain semantic and separately permissioned:
 - Durable parent/child relationships and result collection.
 - Workspace/worktree delegation.
 - Acknowledged or durable presentation requests for multi-window workflows.
+
+Cross-project memory access is configured by the user in the memory page: off
+(default), selected source projects, or all repository projects on this host for
+the current organization. The setting is stored under
+`$SUPERSET_HOME_DIR/memory-access/` (or `~/.superset/memory-access/`) and checked on
+every discovery/search call, so revocations affect subsequent reads immediately.
+It is a boundary of the memory tools, not an OS filesystem sandbox. The agent has
+no tool to change this setting. Current-project and global title injection stays
+unchanged. External memories are attributed references; they cannot override
+current-project rules or be updated/deleted through another project's session.

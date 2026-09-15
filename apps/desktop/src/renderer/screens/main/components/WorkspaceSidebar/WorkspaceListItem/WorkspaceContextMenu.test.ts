@@ -47,3 +47,22 @@ describe("WorkspaceContextMenu - delete/close option (#2741)", () => {
 		expect(callCount).toBe(1);
 	});
 });
+
+describe("merged project and workspace menu confirmation", () => {
+	for (const target of ["project", "workspace"] as const) {
+		test(`closing ${target} only opens its own confirmation`, () => {
+			const opened: string[] = [];
+			const workspace = createContextMenuDeleteDialogCoordinator(() =>
+				opened.push("workspace"),
+			);
+			const project = createContextMenuDeleteDialogCoordinator(() =>
+				opened.push("project"),
+			);
+			(target === "project" ? project : workspace).requestOpenDeleteDialog();
+			const event = { preventDefault() {} };
+			workspace.handleCloseAutoFocus(event);
+			project.handleCloseAutoFocus(event);
+			expect(opened).toEqual([target]);
+		});
+	}
+});

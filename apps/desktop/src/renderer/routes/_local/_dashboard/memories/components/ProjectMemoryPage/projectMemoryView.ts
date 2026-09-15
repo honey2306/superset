@@ -30,3 +30,12 @@ export function filterProjectMemories(
 			return right.updatedAt - left.updatedAt;
 		});
 }
+
+export function getProjectsWithMemories<T extends { id: string }>(
+	sidebarProjects: readonly T[],
+	memoryCountByProject: ReadonlyMap<string, number>,
+): T[] {
+	return sidebarProjects.filter(
+		(project) => (memoryCountByProject.get(project.id) ?? 0) > 0,
+	);
+}

@@ -1,8 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
+import {
+	type AgentBrowserHandoff,
+	agentBrowserKeepOpenSchema,
+} from "@superset/session-protocol";
 import type { BrowserWindow, Rectangle } from "electron";
 import { Menu, WebContentsView } from "electron";
 
 export interface AgentBrowserPageState {
+	handoff?: AgentBrowserHandoff;
 	id: string;
 	index: number;
 	targetId: string;
@@ -22,6 +27,7 @@ export interface AgentBrowserSessionState {
 }
 
 interface BrowserPage {
+	handoff?: AgentBrowserHandoff;
 	id: string;
 	targetId: string;
 	view: WebContentsView;
@@ -250,6 +256,7 @@ export class AgentBrowserManager {
 			canGoBack: contents.canGoBack(),
 			canGoForward: contents.canGoForward(),
 			loading: page.loading,
+			...(page.handoff ? { handoff: page.handoff } : {}),
 		};
 	}
 
@@ -511,27 +518,51 @@ export class AgentBrowserManager {
 		}
 	}
 
-	async closeAgentPages(sessionId: string): Promise<void> {
+	keepOpen(sessionId: string, input: unknown): AgentBrowserSessionState {
+		const { pageIds, reason, message } =
+			agentBrowserKeepOpenSchema.parse(input);
 		const session = this.sessions.get(sessionId);
+		const pages = pageIds.map((id) =>
+			session?.pages.find((page) => page.id === id),
+		);
+		if (pages.some((page) => !page))
+			throw new Error("Agent Browser page is not allowed");
+		for (const page of pages) {
+			if (page) page.handoff = { reason, message };
+		}
+		return this.getState(sessionId);
+	}
+
+	async closeAgentPages(sessionId: string, pageIds?: string[]): Promise<void> {
+		const session = this.sessions.get(sessionId);
+		if (
+			pageIds?.some(
+				(id) =>
+					!session?.pages.some(
+						(page) => page.id === id && page.owner === "agent",
+					),
+			)
+		) {
+			throw new Error("Agent Browser page is not an agent-owned page");
+		}
 		if (!session) return;
-		const pages = session.pages.filter((page) => page.owner === "agent");
+		const pages = session.pages.filter(
+			(page) =>
+				page.owner === "agent" &&
+				(pageIds ? pageIds.includes(page.id) : !page.handoff),
+		);
 		if (pages.length === 0) return;
 		this.closePageMenu(sessionId);
-		session.pages = session.pages.filter((page) => page.owner !== "agent");
-		if (
-			session.activePageId &&
-			pages.some((page) => page.id === session.activePageId)
-		) {
+		session.pages = session.pages.filter((page) => !pages.includes(page));
+		if (pages.some((page) => page.id === session.activePageId)) {
 			session.activePageId = this.activePage(session)?.id ?? null;
 		}
 		const window = this.getWindow();
 		for (const page of pages) {
-			if (window && !window.isDestroyed()) {
+			if (window && !window.isDestroyed())
 				window.contentView.removeChildView(page.view);
-			}
-			if (!page.view.webContents.isDestroyed()) {
+			if (!page.view.webContents.isDestroyed())
 				page.view.webContents.close({ waitForBeforeUnload: false });
-			}
 		}
 		this.attachActiveView(session);
 	}

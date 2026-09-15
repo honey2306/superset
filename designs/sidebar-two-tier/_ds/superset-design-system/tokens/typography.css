@@ -1,0 +1,42 @@
+/* Superset DS — Typography */
+
+:root {
+	/* ---------- Families ---------- */
+	--font-ui:
+		-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+		"Noto Sans SC", "Segoe UI", system-ui, sans-serif; /* @kind font */
+	--font-mono:
+		"SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; /* @kind font */
+	--font-display: var(--font-ui); /* @kind font */
+
+	/* ---------- Sizes ---------- */
+	--fs-9: 9.5px; /* @kind font */
+	--fs-10: 10.5px; /* @kind font */
+	--fs-11: 11px; /* @kind font */
+	--fs-12: 12px; /* @kind font */
+	--fs-13: 13px; /* @kind font */
+	--fs-14: 14px; /* @kind font */
+	--fs-16: 16px; /* @kind font */
+	--fs-18: 18px; /* @kind font */
+	--fs-22: 22px; /* @kind font */
+	--fs-28: 28px; /* @kind font */
+	--fs-36: 36px; /* @kind font */
+
+	/* ---------- Weights ---------- */
+	--fw-regular: 400; /* @kind font */
+	--fw-medium: 500; /* @kind font */
+	--fw-semibold: 600; /* @kind font */
+	--fw-bold: 700; /* @kind font */
+
+	/* ---------- Line heights ---------- */
+	--lh-tight: 1.2; /* @kind other */
+	--lh-snug: 1.35; /* @kind other */
+	--lh-body: 1.55; /* @kind other */
+	--lh-loose: 1.75; /* @kind other */
+
+	/* ---------- Letter spacing ---------- */
+	--ls-eyebrow: 0.16em; /* @kind other */
+	--ls-caps: 0.14em; /* @kind other */
+	--ls-title: -0.02em; /* @kind other */
+	--ls-mono: -0.005em; /* @kind other */
+}

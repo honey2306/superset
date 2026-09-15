@@ -211,28 +211,14 @@ function fixture() {
 }
 
 describe("SupersetToolController", () => {
-	test("controls only current-workspace terminals and requests visible presentation", async () => {
+	test("controls only current-workspace terminals without opening a tab", async () => {
 		const { manager, terminal } = fixture();
-		const requests: Array<{
-			workspaceId: string;
-			terminalId: string;
-			focus: boolean;
-			title?: string;
-		}> = [];
-		const controller = new SupersetToolController({
-			manager,
-			terminal,
-			onTerminalOpenRequested: (request) => requests.push(request),
-		});
+		const controller = new SupersetToolController({ manager, terminal });
 
 		const created = await controller.execute({
 			sourceSessionId: "source",
 			name: "create_terminal",
-			arguments: {
-				cwd: "packages/host-service",
-				title: "ACP terminal",
-				focus: true,
-			},
+			arguments: { cwd: "packages/host-service" },
 		});
 		const terminalId = created.terminalId as string;
 		expect(terminal.create).toHaveBeenCalledWith({
@@ -240,14 +226,7 @@ describe("SupersetToolController", () => {
 			terminalId,
 			cwd: "packages/host-service",
 		});
-		expect(requests).toMatchObject([
-			{
-				workspaceId: "workspace-1",
-				terminalId,
-				focus: true,
-				title: "ACP terminal",
-			},
-		]);
+		expect(created).not.toHaveProperty("openRequested");
 
 		await controller.execute({
 			sourceSessionId: "source",
@@ -1819,6 +1798,39 @@ describe("SupersetToolController", () => {
 		expect(result).toEqual({
 			action: "answered",
 			answers: [{ question: "Choose a runtime", selectedLabels: ["Bun"] }],
+		});
+	});
+
+	test("routes memory discovery and cross-project search with the actual source workspace", async () => {
+		const { manager } = fixture();
+		const listMemoryProjects = mock(() => ({ projects: [{ id: "other" }] }));
+		const searchProjectMemories = mock(() => ({ memories: [] }));
+		const controller = new SupersetToolController({
+			manager,
+			listMemoryProjects,
+			searchProjectMemories,
+		});
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "list_memory_projects",
+			arguments: { query: "other" },
+		});
+		expect(listMemoryProjects).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			query: "other",
+			limit: 50,
+		});
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "search_project_memories",
+			arguments: { scope: "project", projectId: "other", query: "login" },
+		});
+		expect(searchProjectMemories).toHaveBeenCalledWith({
+			workspaceId: "workspace-1",
+			scope: "project",
+			projectId: "other",
+			query: "login",
+			limit: 10,
 		});
 	});
 

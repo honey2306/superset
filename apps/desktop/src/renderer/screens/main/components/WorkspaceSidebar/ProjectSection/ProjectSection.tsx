@@ -82,9 +82,16 @@ export function ProjectSection({
 	const openModal = useOpenNewWorkspaceModal();
 
 	const isCollapsed = isProjectCollapsed(projectId);
-	const totalWorkspaceCount =
-		workspaces.length +
-		sections.reduce((sum, s) => sum + s.workspaces.length, 0);
+	const projectWorkspaces = [
+		...new Map(
+			[...workspaces, ...sections.flatMap((section) => section.workspaces)].map(
+				(workspace) => [workspace.id, workspace],
+			),
+		).values(),
+	];
+	const totalWorkspaceCount = projectWorkspaces.length;
+	const singleWorkspace =
+		totalWorkspaceCount === 1 ? projectWorkspaces[0] : undefined;
 
 	const { orderedWorkspaceIds, topLevelChildren } = useMemo(() => {
 		const topLevelWorkspacesById = new Map(
@@ -276,6 +283,8 @@ export function ProjectSection({
 					)}
 				>
 					<ProjectHeader
+						singleWorkspace={singleWorkspace}
+						workspaceSections={sections}
 						projectId={projectId}
 						projectGroupId={projectGroupId}
 						availableProjectGroups={availableProjectGroups}
@@ -293,7 +302,7 @@ export function ProjectSection({
 					/>
 				</div>
 				<AnimatePresence initial={false}>
-					{!isCollapsed && (
+					{!singleWorkspace && !isCollapsed && (
 						<motion.div
 							initial={{ height: 0, opacity: 0 }}
 							animate={{ height: "auto", opacity: 1 }}
@@ -373,17 +382,26 @@ export function ProjectSection({
 		<div
 			ref={projectDropRef}
 			data-dnd-target-id={targetHandlerId ?? undefined}
+			// 行盒左缘挂在组 guide（21px）右侧 4px，右缘留 6px inset
 			className={cn(
-				"border-b border-line last:border-b-0",
+				"relative ml-[25px] mr-[6px] mb-2.5",
 				isDragging && "opacity-30",
 			)}
 		>
+			{/* guide 竖线按项目分段：线段只跟着自己这一个项目，
+			    项目之间的缺口就是边界——不用卡片也不用加留白 */}
+			<div
+				aria-hidden="true"
+				className="absolute -left-1 top-0 bottom-0 w-px bg-line-strong"
+			/>
 			<div
 				ref={projectDragRef}
 				data-dnd-source-id={sourceHandlerId ?? undefined}
 				className={cn("w-full cursor-grab", isDragging && "cursor-grabbing")}
 			>
 				<ProjectHeader
+					singleWorkspace={singleWorkspace}
+					workspaceSections={sections}
 					projectId={projectId}
 					projectGroupId={projectGroupId}
 					availableProjectGroups={availableProjectGroups}
@@ -402,14 +420,20 @@ export function ProjectSection({
 			</div>
 
 			<AnimatePresence initial={false}>
-				{!isCollapsed && (
+				{!singleWorkspace && !isCollapsed && (
 					<motion.div
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: "auto", opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
 						transition={{ duration: 0.15, ease: "easeOut" }}
-						className="overflow-hidden"
+						className="relative overflow-hidden"
 					>
+						{/* 二级 guide：竖线从项目状态点正下方落下（侧栏 40px = 容器内 15px），
+						    子 workspace 挂在它上面——两级缩进各有各的锚点 */}
+						<div
+							aria-hidden="true"
+							className="absolute left-[15px] top-0 bottom-1 w-px bg-line"
+						/>
 						<div className="pb-1">
 							{showRootDropZones && topLevelChildren.length === 0 && (
 								<div

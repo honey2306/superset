@@ -29,6 +29,11 @@ import {
 	resolveProjectIdForWorkspace,
 	updateProjectMemory,
 } from "../../project-memories";
+import { readMemoryAccessSettings } from "../../project-memories/memory-access-settings";
+import {
+	listMemoryProjects,
+	searchProjectMemories,
+} from "../../project-memories/search-project-memories";
 import {
 	readDelegationProfiles,
 	resolveDelegatedExecutionTarget,
@@ -48,6 +53,7 @@ import {
 } from "./acp-cli-auto-updater";
 import { AcpSessionManager } from "./acp-sessions";
 import { generateAcpSessionTitle } from "./acp-title-generation";
+import { agentBrowserMcpServer } from "./agent-browser-local-mcp";
 import { AgentBrowserRuntime } from "./agent-browser-runtime";
 import { AcpArtifactStore } from "./artifact-store";
 import { computerUseMcpServer } from "./computer-use-local-mcp";
@@ -61,7 +67,6 @@ import {
 	type AcpDaemonResponse,
 	type AcpDaemonSessionChangedEvent,
 	type AcpDaemonSessionOpenRequestedEvent,
-	type AcpDaemonTerminalOpenRequestedEvent,
 	acpDaemonSocketPath,
 } from "./daemon";
 import { resolveKDevMergeRequestPage } from "./kdev-merge-request";
@@ -157,6 +162,15 @@ async function main(): Promise<void> {
 			return [
 				supersetMcpServer({ sessionId, daemonSocketPath: socketPath, role }),
 				...(embeddedBrowserMcp ? [embeddedBrowserMcp] : []),
+				...(agentBrowserEnabled
+					? [
+							agentBrowserMcpServer({
+								sessionId,
+								daemonSocketPath: socketPath,
+								lifecycleOnly: true,
+							}),
+						]
+					: []),
 				...(computerUseMcp ? [computerUseMcp] : []),
 			];
 		},
@@ -164,6 +178,7 @@ async function main(): Promise<void> {
 			const embeddedBrowserInstructions = agentBrowserEnabled
 				? [
 						"## Embedded Agent Browser",
+						"Temporary agent pages close automatically when your turn ends. Use agent-browser browser_tabs list to obtain pageIds, and browser_keep_open only when the user must act (login, authorization, input), needs to review the page as a deliverable, or explicitly asks to keep it open. Provide a concrete handoff message in the user’s language and explain it in your final response. Retained pages stay open across turns; never close them merely because another turn ends. After handoff is complete, use browser_close with explicit pageIds. Without pageIds, browser_close only closes temporary agent pages. User-created pages are preserved.",
 						"For every request to browse, open, inspect, or interact with a website, use the official browser-use MCP tools so the page appears in the conversation's Agent Browser pane.",
 						"Never use shell commands such as `open`, `xdg-open`, or `start`, and never fall back to the OS/system browser. If an agent-browser tool fails, report the failure instead of claiming the page was opened.",
 					].join("\n\n")
@@ -234,7 +249,6 @@ async function main(): Promise<void> {
 			event:
 				| AcpDaemonSessionOpenRequestedEvent
 				| AcpDaemonDiscussionOpenRequestedEvent
-				| AcpDaemonTerminalOpenRequestedEvent
 				| AcpDaemonMergeRequestOpenRequestedEvent,
 		) => void
 	>();
@@ -384,46 +398,14 @@ async function main(): Promise<void> {
 			});
 			return { ...result, projectId, scope };
 		},
-		searchProjectMemories: ({ workspaceId, query, limit, scope }) => {
-			const projectId = resolveProjectIdForWorkspace(db, workspaceId);
-			if ((scope === "project" || scope === "all") && !projectId) {
-				throw new Error(`Workspace not found: ${workspaceId}`);
-			}
-			const projectResults =
-				scope === "global"
-					? []
-					: listProjectMemories(db, {
-							projectId,
-							query,
-							includeDisabled: false,
-							limit,
-						});
-			const remaining = Math.max(0, limit - projectResults.length);
-			const globalResults =
-				scope === "project" || (scope === "all" && remaining === 0)
-					? []
-					: listProjectMemories(db, {
-							projectId: null,
-							query,
-							includeDisabled: false,
-							limit: scope === "all" ? remaining : limit,
-						});
-			const memories = [
-				...projectResults.map((memory) => ({
-					...memory,
-					scope: "project" as const,
-				})),
-				...globalResults.map((memory) => ({
-					...memory,
-					scope: "global" as const,
-				})),
-			];
-			markProjectMemoriesUsed(
+		listMemoryProjects: (input) =>
+			listMemoryProjects(db, input, readMemoryAccessSettings(organizationId)),
+		searchProjectMemories: (input) =>
+			searchProjectMemories(
 				db,
-				memories.map((memory) => memory.id),
-			);
-			return { projectId, scope, memories };
-		},
+				input,
+				readMemoryAccessSettings(organizationId),
+			),
 		updateProjectMemory: ({ workspaceId, memoryId, scope, patch }) => {
 			const projectId =
 				scope === "global"
@@ -480,11 +462,6 @@ async function main(): Promise<void> {
 			return { status: "configured" as const, commands };
 		},
 		terminal: createHostTerminalController(),
-		onTerminalOpenRequested: (event) => {
-			for (const write of clientWriters) {
-				write({ type: "terminal-open-requested", ...event });
-			}
-		},
 		onOpenRequested: (event) => {
 			for (const write of clientWriters) {
 				write({ type: "session-open-requested", ...event });
@@ -532,7 +509,6 @@ async function main(): Promise<void> {
 				| AcpDaemonSessionChangedEvent
 				| AcpDaemonSessionOpenRequestedEvent
 				| AcpDaemonDiscussionOpenRequestedEvent
-				| AcpDaemonTerminalOpenRequestedEvent
 				| AcpDaemonMergeRequestOpenRequestedEvent,
 		): boolean => {
 			if (socket.destroyed) return false;

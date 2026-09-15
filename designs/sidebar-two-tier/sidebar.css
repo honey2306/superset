@@ -1,0 +1,1086 @@
+/* ===========================================================================
+   Sidebar Two-Tier — 样式
+   全部颜色 / 间距 / 圆角 / 字号来自 Superset Design System 的 token allowlist。
+   四条契约：pink stays a tint · mono everywhere numbers appear ·
+   no hover-only inline actions（右键菜单）· hairline everything。
+   =========================================================================== */
+
+/* ------------------------------------------------------------ page shell -- */
+
+html,
+body {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	background: #14151c;
+	color: var(--fg);
+	font-family: var(--font-ui);
+	font-size: var(--fs-13);
+	line-height: var(--lh-body);
+	-webkit-font-smoothing: antialiased;
+}
+
+#root {
+	min-height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+
+/* ----------------------------------------------------------- control bar -- */
+
+.cbar {
+	position: sticky;
+	top: 0;
+	z-index: var(--z-sticky-overlay);
+	display: flex;
+	align-items: center;
+	gap: var(--s-6);
+	flex-wrap: wrap;
+	padding: var(--s-5) var(--s-10);
+	background: color-mix(in srgb, #14151c 88%, transparent);
+	backdrop-filter: blur(8px);
+	border-bottom: 1px solid var(--line);
+}
+
+.cbar-title {
+	font-size: var(--fs-12);
+	font-weight: var(--fw-semibold);
+	letter-spacing: var(--ls-title);
+	color: var(--fg);
+	margin-right: var(--s-2);
+}
+
+.cbar-note {
+	font-size: var(--fs-11);
+	color: var(--fg-faint);
+	max-width: 58ch;
+}
+
+.cbar-spacer {
+	flex: 1;
+}
+
+.toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s-3);
+	height: 26px;
+	padding: 0 var(--s-5);
+	border: 1px solid var(--line);
+	border-radius: var(--r-pill);
+	background: transparent;
+	color: var(--fg-mute);
+	font-family: inherit;
+	font-size: var(--fs-11);
+	cursor: pointer;
+	transition:
+		background var(--dur-quick) var(--ease-standard),
+		color var(--dur-quick) var(--ease-standard),
+		border-color var(--dur-quick) var(--ease-standard);
+}
+
+.toggle:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+
+.toggle[aria-pressed="true"] {
+	background: var(--accent-tint);
+	border-color: var(--accent-line);
+	color: var(--fg);
+}
+
+.toggle .dot {
+	width: 5px;
+	height: 5px;
+	border-radius: var(--r-pill);
+	background: var(--fg-faint);
+}
+
+.toggle[aria-pressed="true"] .dot {
+	background: var(--accent);
+}
+
+/* --------------------------------------------------------------- stage ---- */
+
+.stage {
+	flex: 1;
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding: var(--s-10) var(--s-10) var(--s-16);
+}
+
+.win {
+	width: min(1280px, 100%);
+	height: min(780px, calc(100vh - 172px));
+	min-height: 560px;
+	display: flex;
+	flex-direction: column;
+	border-radius: var(--r-7);
+	overflow: hidden;
+	background: var(--page-bg);
+	box-shadow: var(--shadow-4);
+}
+
+.win-chrome {
+	height: 34px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--s-4);
+	padding: 0 var(--s-5);
+	background: var(--surface-sunk);
+	border-bottom: 1px solid var(--line);
+}
+
+.win-lights {
+	display: flex;
+	gap: 7px;
+	padding-right: var(--s-2);
+}
+
+.win-lights i {
+	width: 11px;
+	height: 11px;
+	border-radius: var(--r-pill);
+	background: var(--line-strong);
+}
+
+.win-body {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+}
+
+/* ==========================================================================
+   SIDEBAR — 共享骨架
+   树形几何：组头是「目录节点」（chevron + 大写组名），一条 1px 竖 guide
+   从 chevron 正下方垂到组内末行中心，行挂在线右侧——每个组因此有
+   明确的形状与缩进层级，组间不需要任何横线。
+   ========================================================================== */
+
+.sb {
+	--sb-inset: 6px; /* 行相对面板左右缩进 */
+	--sb-pad: 8px; /* 行内左内距 */
+	--sb-lane: 14px; /* 状态点 / chevron 通道 */
+	--sb-gap: 4px; /* lane 与文字之间 */
+	--sb-text: calc(
+		var(--sb-inset) + var(--sb-pad) + var(--sb-lane) + var(--sb-gap)
+	); /* 32px：组名与面板头部文字的硬左边 */
+	--sb-guide: calc(var(--sb-inset) + var(--sb-pad) + 7px); /* 21px：组 guide = chevron 中心 */
+	--sb-row-x: calc(var(--sb-guide) + 4px); /* 25px：行盒左缘，挂在 guide 右侧 */
+	/* 40px：项目状态点中心 = 子行 guide，两级缩进各自对齐自己的锚点 */
+	--sb-guide-2: calc(
+		var(--sb-row-x) + var(--sb-pad) + var(--sb-lane) / 2
+	);
+	--sb-row-h: 30px;
+	--sb-row-r: var(--r-3);
+
+	width: 268px;
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	background: var(--surface-sunk);
+	border-right: 1px solid var(--line);
+	user-select: none;
+	transition: width var(--dur-base) var(--ease-standard);
+}
+
+.sb.is-rail {
+	width: 56px;
+}
+
+/* ------------------------------------------------------------ sb header --- */
+
+.sb-head {
+	height: 38px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--s-2);
+	padding: 0 var(--s-3) 0 var(--sb-text);
+}
+
+.sb-mark {
+	font-size: var(--fs-13);
+	font-weight: var(--fw-semibold);
+	letter-spacing: var(--ls-title);
+	color: var(--fg);
+	white-space: nowrap;
+}
+
+.sb-icon-btn {
+	width: 26px;
+	height: 26px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	border-radius: var(--r-3);
+	background: transparent;
+	color: var(--fg-mute);
+	cursor: pointer;
+	position: relative;
+	transition:
+		background var(--dur-quick) var(--ease-standard),
+		color var(--dur-quick) var(--ease-standard);
+}
+
+.sb-icon-btn:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+
+.sb-icon-btn.is-on {
+	background: var(--accent-tint);
+	color: var(--fg);
+}
+
+.sb-icon-btn:focus-visible {
+	outline: none;
+	box-shadow: var(--glow-accent);
+}
+
+/* Nav rail —— 四个入口压成一排 26px 图标，省下约 200px 竖向空间。 */
+
+.sb-nav {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--s-1);
+	padding: 0 var(--s-3) var(--s-5) calc(var(--sb-text) - 6px);
+}
+
+.sb.is-rail .sb-nav {
+	flex-direction: column;
+	padding: var(--s-2) 0 var(--s-4);
+	gap: var(--s-2);
+}
+
+.sb-nav-alert {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	width: 5px;
+	height: 5px;
+	border-radius: var(--r-pill);
+	background: var(--danger);
+	box-shadow: 0 0 0 2px var(--surface-sunk);
+}
+
+/* ------------------------------------------------------------- sb list ---- */
+
+.sb-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-bottom: var(--s-4);
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+
+.sb-scroll:hover {
+	scrollbar-color: var(--line-strong) transparent;
+}
+
+.sb-scroll::-webkit-scrollbar {
+	width: 8px;
+}
+
+.sb-scroll::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: var(--r-pill);
+	border: 2px solid transparent;
+	background-clip: padding-box;
+}
+
+.sb-scroll:hover::-webkit-scrollbar-thumb {
+	background: var(--line-strong);
+	background-clip: padding-box;
+}
+
+/* --- group（第一层） ------------------------------------------------------ */
+
+/* 组间零横线：分组由「guide 竖线 + 悬殊留白 + 目录节点组头」共同承担。
+   组内行距 1px、组间 28px，空白与线一起画出每个组的形状。 */
+.sb-group + .sb-group {
+	margin-top: var(--s-14);
+}
+
+.sb-ghead {
+	height: 28px;
+	display: flex;
+	align-items: center;
+	gap: var(--s-2);
+	padding-left: calc(var(--sb-text) + var(--s-1));
+	padding-right: var(--s-3);
+	position: relative;
+	cursor: default;
+}
+
+/* 组名是标题而不是注释：常驻 fg + semibold，与行内文字拉开等级 */
+.sb-ghead-label {
+	font-size: var(--fs-10);
+	font-weight: var(--fw-semibold);
+	letter-spacing: var(--ls-caps);
+	text-transform: uppercase;
+	color: var(--fg);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	transition: color var(--dur-quick) var(--ease-standard);
+}
+
+/* 折叠箭头常驻在 guide 正上方：chevron 中心 = 组 guide 线 = 21px，
+   展开时竖线就像从箭头里长出来——「目录节点」由此闭合。 */
+.sb-gtoggle {
+	position: absolute;
+	left: calc(var(--sb-guide) - 11px);
+	width: 22px;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	background: transparent;
+	color: var(--fg-faint);
+	cursor: pointer;
+	transition: color var(--dur-quick) var(--ease-standard);
+}
+
+.sb-ghead:hover .sb-gtoggle,
+.sb-gtoggle:focus-visible {
+	color: var(--fg-mute);
+}
+
+.sb-gtoggle svg {
+	transition: transform var(--dur-quick) var(--ease-standard);
+	transform: rotate(-90deg);
+}
+
+.sb-group.is-open .sb-gtoggle svg {
+	transform: rotate(0deg);
+}
+
+.sb-gcount {
+	font-family: var(--font-mono);
+	font-size: var(--fs-9);
+	letter-spacing: var(--ls-mono);
+	color: var(--fg-mute);
+	font-variant-numeric: tabular-nums;
+}
+
+.sb-gadd {
+	margin-left: auto;
+	width: 20px;
+	height: 20px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	border-radius: var(--r-2);
+	background: transparent;
+	color: var(--fg-faint);
+	cursor: pointer;
+	opacity: 0;
+	transition:
+		opacity var(--dur-quick) var(--ease-standard),
+		background var(--dur-quick) var(--ease-standard),
+		color var(--dur-quick) var(--ease-standard);
+}
+
+.sb-ghead:hover .sb-gadd,
+.sb-gadd:focus-visible {
+	opacity: 1;
+}
+
+.sb-gadd:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+
+.sb-glist {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding-top: var(--s-1);
+}
+
+/* 组 guide：一条 1px 竖线从组头 chevron 正下方垂到组内末行中心。
+   行挂在它右侧——组不再是一列散行，而是一个有形状的整体；
+   折叠时（.sb-glist 不渲染）线随内容一起消失。 */
+.sb-glist::before {
+	content: "";
+	position: absolute;
+	left: var(--sb-guide);
+	top: 0;
+	bottom: calc(var(--sb-row-h) / 2 - var(--s-1));
+	width: 1px;
+	background: var(--line);
+}
+
+/* --- row（第二层：项目 = 那个唯一的 workspace） --------------------------- */
+
+.sb-row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--s-3);
+	height: var(--sb-row-h);
+	margin: 0 var(--sb-inset) 0 var(--sb-row-x);
+	padding-left: var(--sb-pad);
+	padding-right: var(--s-4);
+	border-radius: var(--sb-row-r);
+	color: var(--fg-mute);
+	cursor: pointer;
+	transition:
+		background var(--dur-quick) var(--ease-standard),
+		color var(--dur-quick) var(--ease-standard);
+}
+
+.sb-row:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+
+.sb-row:focus-visible {
+	outline: none;
+	box-shadow: var(--glow-accent);
+}
+
+.sb-row.is-active {
+	background: var(--accent-tint);
+	color: var(--fg);
+}
+
+.sb-row.is-active:hover {
+	background: color-mix(in oklch, var(--accent) 18%, transparent);
+}
+
+/* 2px 粉色左条 —— 全站唯一的实心品牌色用法之一 */
+.sb-row.is-active::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 5px;
+	bottom: 5px;
+	width: 2px;
+	border-radius: 0 var(--r-1) var(--r-1) 0;
+	background: var(--accent);
+}
+
+.sb-lane {
+	width: var(--sb-lane);
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: calc(var(--sb-gap) - var(--s-3));
+}
+
+.sb-name {
+	flex: 1 1 auto;
+	min-width: 4.5em;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: var(--fs-13);
+	font-weight: var(--fw-regular);
+}
+
+.sb-row.is-active .sb-name,
+.sb-row.is-unread .sb-name {
+	font-weight: var(--fw-medium);
+}
+
+.sb-row.is-unread {
+	color: var(--fg);
+}
+
+.sb-meta {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--s-3);
+	font-family: var(--font-mono);
+	font-size: var(--fs-10);
+	letter-spacing: var(--ls-mono);
+	color: var(--fg-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.sb-branch {
+	font-family: var(--font-mono);
+	font-size: var(--fs-10);
+	letter-spacing: var(--ls-mono);
+	color: var(--fg-faint);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 12ch;
+	flex: 0 3 auto;
+	min-width: 0;
+}
+
+.sb-hotkey {
+	font-family: var(--font-mono);
+	font-size: var(--fs-9);
+	color: var(--fg-faint);
+	opacity: 0;
+	transition: opacity var(--dur-quick) var(--ease-standard);
+}
+
+.sb-row:hover .sb-hotkey {
+	opacity: 1;
+}
+
+.sb-unread-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: var(--r-pill);
+	background: var(--accent);
+	flex-shrink: 0;
+}
+
+/* diff 计数与 PR badge —— 数字一律 mono */
+
+.sb-diff {
+	display: inline-flex;
+	gap: var(--s-2);
+	font-family: var(--font-mono);
+	font-size: var(--fs-9);
+	font-variant-numeric: tabular-nums;
+}
+
+.sb-diff .add {
+	color: var(--success);
+}
+
+.sb-diff .del {
+	color: var(--danger);
+}
+
+.sb-pr {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	height: 15px;
+	padding: 0 5px;
+	border-radius: var(--r-pill);
+	font-family: var(--font-mono);
+	font-size: var(--fs-9);
+	letter-spacing: var(--ls-mono);
+	white-space: nowrap;
+}
+
+.sb-pr.open {
+	background: var(--success-tint);
+	color: var(--success);
+}
+
+.sb-pr.merged {
+	background: color-mix(in oklch, var(--accent-2) 14%, transparent);
+	color: var(--accent-2);
+}
+
+/* --- 状态指示 ------------------------------------------------------------- */
+
+.st {
+	width: 6px;
+	height: 6px;
+	border-radius: var(--r-pill);
+	flex-shrink: 0;
+}
+
+.st-ok {
+	background: var(--success);
+}
+.st-warn {
+	background: var(--warning);
+}
+.st-err {
+	background: var(--danger);
+}
+.st-idle {
+	background: transparent;
+	box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.st-run {
+	width: 10px;
+	height: 10px;
+	border-radius: var(--r-pill);
+	border: 1.5px solid var(--accent-line);
+	border-top-color: transparent;
+	border-right-color: transparent;
+	animation: st-spin 900ms linear infinite;
+	flex-shrink: 0;
+}
+
+@keyframes st-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* --- 第三层：只有真的 >1 个 workspace 才出现 ------------------------------ */
+
+.sb-children {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding-top: 1px;
+}
+
+/* 二级 guide：竖线从项目状态点的正下方落下（--sb-guide-2 = 40px），
+   子 workspace 挂在它上面——两级缩进各有各的锚点 */
+.sb-children::before {
+	content: "";
+	position: absolute;
+	left: var(--sb-guide-2);
+	top: 0;
+	bottom: 4px;
+	width: 1px;
+	background: var(--line);
+}
+
+.sb-row.is-child {
+	padding-left: calc(var(--sb-pad) + var(--sb-lane));
+}
+
+.sb-row.is-child .sb-lane {
+	width: var(--sb-lane);
+	margin-right: calc(var(--sb-gap) - var(--s-3));
+}
+
+.sb-row.is-child .sb-name {
+	font-size: var(--fs-12);
+}
+
+.sb-row.is-child .sb-branch {
+	max-width: 10ch;
+}
+
+/* ==========================================================================
+   变体 A · 安静清单 —— 活跃行是面板里唯一的「物」
+   ========================================================================== */
+
+.v-quiet .sb-row {
+	--sb-row-h: 32px;
+	--sb-row-r: var(--r-4);
+}
+
+/* 活跃行是面板里唯一的「物」：一张浮起的小卡片，其余行都是平的。
+   中性色描边 + 一层浅阴影，粉条仍然只占 2px。 */
+.v-quiet .sb-row.is-active {
+	background: var(--surface-elev);
+	box-shadow:
+		inset 0 0 0 1px var(--line-strong),
+		var(--shadow-1);
+}
+
+.v-quiet .sb-row.is-active:hover {
+	background: var(--surface-elev);
+}
+
+/* branch 常驻在最弱一档灰阶：分支是 agent 工作的坐标，不该藏进 hover；
+   全灰阶、无数字——信息补上了，「安静」的质感不丢。 */
+.v-quiet .sb-row:hover .sb-branch,
+.v-quiet .sb-row.is-active .sb-branch {
+	color: var(--fg-mute);
+}
+
+/* ==========================================================================
+   「置顶进行中」附加组 —— 叠加在普通模式之上，不替换它
+   ========================================================================== */
+
+/* 计数徽章用 accent tint：组里有多少 agent 在干活，一眼可数（pink stays a tint） */
+.sb-group.is-live .sb-gcount {
+	background: var(--accent-tint);
+	color: var(--accent);
+	padding: 1px var(--s-2);
+	border-radius: var(--r-pill);
+}
+
+/* ==========================================================================
+   ports + footer
+   ========================================================================== */
+
+.sb-ports {
+	flex-shrink: 0;
+	border-top: 1px solid var(--line);
+	padding: var(--s-3) 0 var(--s-2);
+}
+
+.sb-ports-head {
+	height: 22px;
+	display: flex;
+	align-items: center;
+	gap: var(--s-2);
+	padding-left: calc(var(--sb-inset) + var(--s-2));
+	padding-right: var(--s-4);
+	color: var(--fg-faint);
+	font-size: var(--fs-10);
+	letter-spacing: var(--ls-caps);
+	text-transform: uppercase;
+	font-weight: var(--fw-medium);
+	background: transparent;
+	border: 0;
+	width: 100%;
+	cursor: pointer;
+	font-family: inherit;
+	transition: color var(--dur-quick) var(--ease-standard);
+}
+
+.sb-ports-head:hover {
+	color: var(--fg-mute);
+}
+
+.sb-ports-count {
+	margin-left: auto;
+	font-family: var(--font-mono);
+	font-size: var(--fs-9);
+	font-variant-numeric: tabular-nums;
+}
+
+.sb-port-row {
+	display: flex;
+	align-items: center;
+	gap: var(--s-3);
+	height: 24px;
+	margin: 0 var(--sb-inset);
+	padding-left: var(--sb-pad);
+	padding-right: var(--s-4);
+	border-radius: var(--r-2);
+	cursor: pointer;
+	transition: background var(--dur-quick) var(--ease-standard);
+}
+
+.sb-port-row:hover {
+	background: var(--hover);
+}
+
+.sb-port-num {
+	font-family: var(--font-mono);
+	font-size: var(--fs-10);
+	color: var(--fg-mute);
+	font-variant-numeric: tabular-nums;
+}
+
+.sb-port-label {
+	font-size: var(--fs-10);
+	color: var(--fg-faint);
+}
+
+.sb-port-project {
+	margin-left: auto;
+	font-family: var(--font-mono);
+	font-size: var(--fs-9);
+	color: var(--fg-faint);
+	max-width: 12ch;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sb-foot {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--s-2);
+	height: 40px;
+	padding: 0 var(--s-3) 0 var(--sb-inset);
+	border-top: 1px solid var(--line);
+}
+
+.sb-foot-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s-3);
+	height: 26px;
+	padding: 0 var(--s-4);
+	border: 0;
+	border-radius: var(--r-3);
+	background: transparent;
+	color: var(--fg-faint);
+	font-family: inherit;
+	font-size: var(--fs-11);
+	cursor: pointer;
+	transition:
+		background var(--dur-quick) var(--ease-standard),
+		color var(--dur-quick) var(--ease-standard);
+}
+
+.sb-foot-btn:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+
+.sb-avatar {
+	width: 22px;
+	height: 22px;
+	border-radius: var(--r-pill);
+	background: var(--accent-tint);
+	color: var(--fg);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--fs-10);
+	font-weight: var(--fw-medium);
+	flex-shrink: 0;
+}
+
+/* rail 模式 */
+
+.sb.is-rail .sb-head {
+	justify-content: center;
+	padding: 0;
+}
+
+.sb.is-rail .sb-scroll {
+	padding-top: var(--s-2);
+}
+
+.sb.is-rail .sb-foot {
+	flex-direction: column;
+	height: auto;
+	padding: var(--s-3) 0;
+	gap: var(--s-2);
+}
+
+.sb.is-rail .sb-scroll {
+	scrollbar-width: none;
+}
+
+.sb.is-rail .sb-scroll::-webkit-scrollbar {
+	width: 0;
+}
+
+.sb-rail-item {
+	width: 32px;
+	height: 32px;
+	margin: 0 auto 6px;
+	font-family: var(--font-mono);
+	letter-spacing: var(--ls-mono);
+	border-radius: var(--r-3);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	cursor: pointer;
+	font-size: var(--fs-11);
+	font-weight: var(--fw-medium);
+	color: var(--fg-mute);
+	background: var(--hover);
+	transition:
+		background var(--dur-quick) var(--ease-standard),
+		color var(--dur-quick) var(--ease-standard);
+}
+
+.sb-rail-item:hover {
+	background: var(--selected);
+	color: var(--fg);
+}
+
+.sb-rail-item.is-active {
+	background: var(--accent-tint);
+	color: var(--fg);
+	box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.sb-rail-item.is-long {
+	font-size: var(--fs-9);
+}
+
+.sb-rail-unread {
+	position: absolute;
+	right: -1px;
+	top: -1px;
+	width: 6px;
+	height: 6px;
+	border-radius: var(--r-pill);
+	background: var(--accent);
+	box-shadow: 0 0 0 2px var(--surface-sunk);
+}
+
+.sb-rail-item .st,
+.sb-rail-item .st-run {
+	position: absolute;
+	right: -2px;
+	bottom: -2px;
+	box-shadow: 0 0 0 2px var(--surface-sunk);
+}
+
+.sb-rail-sep {
+	width: 20px;
+	height: 1px;
+	background: var(--line);
+	margin: var(--s-3) auto;
+}
+
+/* ==========================================================================
+   右键菜单（no hover-only inline actions 的落点）
+   ========================================================================== */
+
+.ctx {
+	position: fixed;
+	z-index: var(--z-dropdown);
+	min-width: 196px;
+	padding: var(--s-2);
+	border-radius: var(--r-6);
+	background: color-mix(in srgb, var(--surface) 92%, transparent);
+	backdrop-filter: blur(6px);
+	box-shadow: var(--shadow-3);
+	animation: ctx-in var(--dur-quick) var(--ease-standard);
+}
+
+@keyframes ctx-in {
+	from {
+		opacity: 0;
+		transform: translateY(-3px) scale(0.98);
+	}
+}
+
+.ctx-item {
+	display: flex;
+	align-items: center;
+	gap: var(--s-4);
+	width: 100%;
+	height: 28px;
+	padding: 0 var(--s-4);
+	border: 0;
+	border-radius: var(--r-3);
+	background: transparent;
+	color: var(--fg-mute);
+	font-family: inherit;
+	font-size: var(--fs-12);
+	text-align: left;
+	cursor: pointer;
+	transition:
+		background var(--dur-instant) var(--ease-standard),
+		color var(--dur-instant) var(--ease-standard);
+}
+
+.ctx-item:hover {
+	background: var(--hover);
+	color: var(--fg);
+}
+
+.ctx-item.danger:hover {
+	background: var(--danger-tint);
+	color: var(--danger);
+}
+
+.ctx-kbd {
+	margin-left: auto;
+	font-family: var(--font-mono);
+	font-size: var(--fs-9);
+	color: var(--fg-faint);
+}
+
+.ctx-sep {
+	height: 1px;
+	margin: var(--s-2) var(--s-3);
+	background: var(--line);
+}
+
+.ctx-head {
+	padding: var(--s-2) var(--s-4) var(--s-3);
+	font-family: var(--font-mono);
+	font-size: var(--fs-9);
+	letter-spacing: var(--ls-mono);
+	color: var(--fg-faint);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   主区占位 —— 只为了让侧边栏的比例读起来是真的
+   ========================================================================== */
+
+.main {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	background: var(--page-bg);
+}
+
+.main-tabs {
+	height: 34px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: stretch;
+	border-bottom: 1px solid var(--line);
+	padding-left: var(--s-3);
+}
+
+.main-tab {
+	display: flex;
+	align-items: center;
+	padding: 0 var(--s-6);
+	font-size: var(--fs-12);
+	color: var(--fg-faint);
+	border-bottom: 2px solid transparent;
+	white-space: nowrap;
+}
+
+.main-tab.is-on {
+	color: var(--fg);
+	border-bottom-color: var(--accent);
+}
+
+.main-body {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--s-16);
+	opacity: 0.5;
+}
+
+.main-ghost {
+	width: 100%;
+	max-width: 520px;
+	display: flex;
+	flex-direction: column;
+	gap: var(--s-6);
+}
+
+.main-ghost i {
+	display: block;
+	height: 9px;
+	border-radius: var(--r-pill);
+	background: var(--hover);
+}
+
+.main-status {
+	height: 24px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--s-6);
+	padding: 0 var(--s-6);
+	border-top: 1px solid var(--line);
+	font-family: var(--font-mono);
+	font-size: var(--fs-9);
+	letter-spacing: var(--ls-mono);
+	color: var(--fg-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}

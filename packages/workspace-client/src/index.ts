@@ -10,7 +10,6 @@ export {
 export {
 	type AcpDiscussionOpenRequestedPayload,
 	type AcpSessionChangedPayload,
-	type AcpTerminalOpenRequestedPayload,
 	type AgentIdentity,
 	type AgentLifecyclePayload,
 	type CatalogChangedPayload,

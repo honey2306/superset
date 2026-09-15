@@ -139,13 +139,13 @@ export function WorkspaceSidebarFooter({
 	}
 
 	return (
-		<div className="border-t border-line p-2 flex items-center gap-2">
+		<div className="shrink-0 px-5 pb-2 pt-3 flex items-center gap-2">
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button
 						variant="ghost"
 						size="sm"
-						className="flex-1 min-w-0 justify-start gap-2 text-fg-mute hover:text-fg"
+						className="h-7 px-0 flex-1 min-w-0 justify-start gap-2 text-[11px] font-normal text-fg-mute hover:text-fg"
 						disabled={isLoading}
 					>
 						<LuFolderPlus className="w-4 h-4" strokeWidth={STROKE_WIDTH} />
@@ -167,12 +167,15 @@ export function WorkspaceSidebarFooter({
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+			<UpdatesPill />
+			{/* 「新建项目组」的常驻入口：滚动区顶部不再有全局「项目 N」行 */}
 			<Tooltip delayDuration={300}>
 				<TooltipTrigger asChild>
 					<Button
 						variant="ghost"
 						size="icon"
-						className="size-8 shrink-0 text-fg-mute hover:text-fg"
+						aria-label={t("workspace.createProjectGroup")}
+						className="size-7 shrink-0 text-fg-mute hover:text-fg"
 						onClick={() => setIsCreateProjectGroupOpen(true)}
 					>
 						<LuFolderTree className="size-4" strokeWidth={STROKE_WIDTH} />
@@ -182,7 +185,6 @@ export function WorkspaceSidebarFooter({
 					{t("workspace.createProjectGroup")}
 				</TooltipContent>
 			</Tooltip>
-			<UpdatesPill />
 			<SettingsButton />
 			<CreateProjectGroupDialog
 				open={isCreateProjectGroupOpen}

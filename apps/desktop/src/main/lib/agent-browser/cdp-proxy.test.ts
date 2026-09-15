@@ -39,8 +39,8 @@ function fakeManager() {
 				calls.push(`create:${url}`);
 				return { ...pages[0], id: "page-2", targetId: "target-2" };
 			},
-			closePage: async (_sessionId: string, pageId: string) => {
-				calls.push(`close:${pageId}`);
+			closeAgentPages: async (_sessionId: string, pageIds: string[]) => {
+				calls.push(`close:${pageIds.join(",")}`);
 			},
 			selectPage: async (_sessionId: string, pageId: string) => {
 				calls.push(`select:${pageId}`);

@@ -1,6 +1,5 @@
 import type { WorkspaceStore } from "@superset/panes";
 import type { HarnessKind } from "@superset/session-protocol";
-import type { AcpTerminalOpenRequestedPayload } from "@superset/workspace-client";
 import { getEventBus } from "@superset/workspace-client";
 import { useEffect, useRef } from "react";
 import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
@@ -21,53 +20,11 @@ const AGENT_BY_HARNESS = {
 
 export interface AcpSessionOpenRequestIdentity {
 	sessionId?: string;
-	terminalId?: string;
 	requestId?: string;
 	occurredAt: number;
 }
 
 export const MAX_HANDLED_ACP_SESSION_OPEN_REQUESTS = 256;
-
-export function openTerminalFromAcpRequest(
-	store: StoreApi<WorkspaceStore<PanesPaneData>>,
-	event: AcpTerminalOpenRequestedPayload,
-): void {
-	const state = store.getState();
-	for (const tab of state.tabs) {
-		for (const pane of Object.values(tab.panes)) {
-			if (pane.kind !== "terminal" || pane.data.terminalId !== event.terminalId)
-				continue;
-			if (event.title) {
-				state.setPaneTitleOverride({
-					tabId: tab.id,
-					paneId: pane.id,
-					titleOverride: event.title,
-				});
-			}
-			if (event.focus) {
-				state.setActiveTab(tab.id);
-				state.setActivePane({ tabId: tab.id, paneId: pane.id });
-			}
-			return;
-		}
-	}
-	state.addTab({
-		titleOverride: event.title,
-		panes: [
-			{
-				kind: "terminal",
-				titleOverride: event.title,
-				data: { terminalId: event.terminalId },
-			},
-		],
-	});
-	if (!event.focus) {
-		const nextState = store.getState();
-		const createdTab = nextState.tabs.at(-1);
-		const previousTab = state.activeTabId;
-		if (createdTab && previousTab) nextState.setActiveTab(previousTab);
-	}
-}
 
 /**
  * Keep transport duplicates idempotent without suppressing a later explicit
@@ -79,8 +36,7 @@ export function shouldHandleAcpSessionOpenRequest(
 	event: AcpSessionOpenRequestIdentity,
 ): boolean {
 	const key =
-		event.requestId ??
-		`${event.sessionId ?? event.terminalId ?? "unknown"}:${event.occurredAt}`;
+		event.requestId ?? `${event.sessionId ?? "unknown"}:${event.occurredAt}`;
 	if (handled.has(key)) return false;
 	handled.add(key);
 	while (handled.size > MAX_HANDLED_ACP_SESSION_OPEN_REQUESTS) {
@@ -119,18 +75,9 @@ export function useAcpSessionOpenRequests({
 				});
 			},
 		);
-		const offTerminal = bus.on(
-			"acp-terminal:open-requested",
-			hostWorkspaceId,
-			(_workspaceId, event) => {
-				if (!shouldHandleAcpSessionOpenRequest(handled.current, event)) return;
-				openTerminalFromAcpRequest(store, event);
-			},
-		);
 		const release = bus.retain();
 		return () => {
 			off();
-			offTerminal();
 			release();
 		};
 	}, [hostUrl, hostWorkspaceId, store]);

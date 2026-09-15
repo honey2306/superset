@@ -102,13 +102,8 @@ export function groupSidebarProjects(
 	};
 }
 
-/**
- * Shared hook for workspace keyboard shortcuts.
- * Used by WorkspaceSidebar for navigation between workspaces.
- *
- * Handles ⌘1-9 workspace switching shortcuts (global).
- */
-export function useWorkspaceShortcuts() {
+/** Shared sidebar membership and ordering, without registering keyboard shortcuts. */
+export function useWorkspaceSidebarGroups() {
 	const { projects, workspaces } = useWorkspaceCatalog();
 	const collections = useLocalCollections();
 	const { data: localWorkspaceRows = [] } = useLiveQuery(
@@ -127,7 +122,6 @@ export function useWorkspaceShortcuts() {
 		(q) => q.from({ rows: collections.sidebarProjectGroups }),
 		[collections],
 	);
-	const navigate = useNavigate();
 
 	const sidebarProjects = useMemo<SidebarProject[]>(() => {
 		const localByWorkspaceId = new Map(
@@ -225,6 +219,13 @@ export function useWorkspaceShortcuts() {
 		[projectGroupRows, sidebarProjects],
 	);
 
+	return { groups, projectGroups, ungroupedProjects };
+}
+
+export function useWorkspaceShortcuts() {
+	const { groups, projectGroups, ungroupedProjects } =
+		useWorkspaceSidebarGroups();
+	const navigate = useNavigate();
 	const allWorkspaces = groups.flatMap((group) => {
 		const topLevelWorkspacesById = new Map(
 			group.workspaces.map((workspace) => [workspace.id, workspace]),

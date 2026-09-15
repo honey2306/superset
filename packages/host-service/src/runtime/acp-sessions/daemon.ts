@@ -37,8 +37,6 @@ import type {
 	AcpSessionOpenRequestEvent,
 	AcpSessionOpenRequestHandler,
 	AcpSessionRuntime,
-	AcpTerminalOpenRequestEvent,
-	AcpTerminalOpenRequestHandler,
 } from "./runtime";
 
 // Superset tool operations/events are additive. Keep v1 compatibility so a
@@ -172,11 +170,6 @@ export interface AcpDaemonDiscussionOpenRequestedEvent
 	type: "discussion-open-requested";
 }
 
-export interface AcpDaemonTerminalOpenRequestedEvent
-	extends AcpTerminalOpenRequestEvent {
-	type: "terminal-open-requested";
-}
-
 export interface AcpDaemonMergeRequestOpenRequestedEvent
 	extends AcpMergeRequestOpenRequestEvent {
 	type: "merge-request-open-requested";
@@ -189,7 +182,6 @@ export type AcpDaemonMessage =
 	| AcpDaemonSessionChangedEvent
 	| AcpDaemonSessionOpenRequestedEvent
 	| AcpDaemonDiscussionOpenRequestedEvent
-	| AcpDaemonTerminalOpenRequestedEvent
 	| AcpDaemonMergeRequestOpenRequestedEvent;
 
 export function acpDaemonSocketPath(
@@ -282,8 +274,6 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		new Set<AcpSessionOpenRequestHandler>();
 	private readonly discussionOpenRequestHandlers =
 		new Set<AcpDiscussionOpenRequestHandler>();
-	private readonly terminalOpenRequestHandlers =
-		new Set<AcpTerminalOpenRequestHandler>();
 	private readonly mergeRequestOpenRequestHandlers =
 		new Set<AcpMergeRequestOpenRequestHandler>();
 
@@ -313,13 +303,6 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 	): () => void {
 		this.discussionOpenRequestHandlers.add(handler);
 		return () => this.discussionOpenRequestHandlers.delete(handler);
-	}
-
-	onTerminalOpenRequested(handler: AcpTerminalOpenRequestHandler): () => void {
-		this.terminalOpenRequestHandlers.add(handler);
-		return () => {
-			this.terminalOpenRequestHandlers.delete(handler);
-		};
 	}
 
 	onMergeRequestOpenRequested(
@@ -810,20 +793,6 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 				} catch (error) {
 					console.warn(
 						"[acp-daemon-client] discussion-open-requested handler threw",
-						error,
-					);
-				}
-			}
-			return;
-		}
-		if (message.type === "terminal-open-requested") {
-			const { type: _type, ...payload } = message;
-			for (const handler of this.terminalOpenRequestHandlers) {
-				try {
-					handler(payload);
-				} catch (error) {
-					console.warn(
-						"[acp-daemon-client] terminal-open-requested handler threw",
 						error,
 					);
 				}

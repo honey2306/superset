@@ -10,6 +10,7 @@ import { chmod } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { agentBrowserCloseSchema } from "@superset/session-protocol";
 import type { AgentBrowserManager } from "./browser-manager";
 
 interface BridgeRequest {
@@ -68,10 +69,9 @@ async function dispatch(
 			);
 			return manager.getState(sessionId);
 		case "closePage":
-			await manager.closePage(
-				sessionId,
+			await manager.closeAgentPages(sessionId, [
 				requiredString(request.params, "pageId"),
-			);
+			]);
 			return manager.getState(sessionId);
 		case "capturePage":
 			return manager.capturePage(sessionId, request.params?.fullPage === true);
@@ -79,8 +79,13 @@ async function dispatch(
 			await manager.closeSession(sessionId);
 			return null;
 		case "closeAgentPages":
-			await manager.closeAgentPages(sessionId);
+			await manager.closeAgentPages(
+				sessionId,
+				agentBrowserCloseSchema.parse(request.params ?? {}).pageIds,
+			);
 			return null;
+		case "keepOpen":
+			return manager.keepOpen(sessionId, request.params);
 		case "navigate":
 			await manager.navigate(
 				sessionId,

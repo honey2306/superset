@@ -892,7 +892,7 @@ describe("AcpTimeline scrolling", () => {
 		expect(screen.queryByRole("button", { name: "Jump to latest" })).toBeNull();
 	});
 
-	test("does not reposition when the focused session completes", () => {
+	test("preserves the semantic reading position when the focused session completes", () => {
 		const pendingFrames: Array<{
 			id: number;
 			callback: FrameRequestCallback;
@@ -942,12 +942,30 @@ describe("AcpTimeline scrolling", () => {
 				}
 			});
 
-			body.scrollTop = 420;
-			fireEvent.scroll(body);
 			Object.defineProperty(body, "getBoundingClientRect", {
 				configurable: true,
 				value: () => ({ top: 100 }),
 			});
+			const user = body.querySelector<HTMLElement>(
+				'.acp-msg[data-role="user"]',
+			);
+			if (!user) throw new Error("expected the user message anchor");
+			let anchorContentTop = 450;
+			Object.defineProperty(user, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 100 + anchorContentTop - body.scrollTop,
+					bottom: 160 + anchorContentTop - body.scrollTop,
+				}),
+			});
+			body.scrollTop = 420;
+			fireEvent.wheel(body);
+			fireEvent.scroll(body);
+
+			// Final-response folding and Markdown measurement can change content
+			// above the viewport during the same commit. Keep the visible semantic
+			// anchor at its prior viewport offset instead of preserving stale pixels.
+			anchorContentTop = 300;
 			result.rerender(
 				createElement(AcpTimeline, {
 					timeline: settledTimeline,
@@ -975,7 +993,21 @@ describe("AcpTimeline scrolling", () => {
 				}
 			});
 
-			expect(body.scrollTop).toBe(420);
+			expect(body.scrollTop).toBe(270);
+
+			// A later Markdown/virtualizer measurement rerender must keep the same
+			// anchor stable even when timeline and status references do not change.
+			anchorContentTop = 350;
+			result.rerender(
+				createElement(AcpTimeline, {
+					timeline: settledTimeline,
+					onRespond,
+					isFocused: true,
+					status: "idle",
+					model: "measurement-refined",
+				}),
+			);
+			expect(body.scrollTop).toBe(320);
 		} finally {
 			window.requestAnimationFrame = originalRequestAnimationFrame;
 			window.cancelAnimationFrame = originalCancelAnimationFrame;
@@ -1053,7 +1085,7 @@ describe("AcpTimeline scrolling", () => {
 		}
 	});
 
-	test("returns a running tab to the bottom after layout changes while hidden", () => {
+	test("restores a running tab's reading position after layout changes while hidden", () => {
 		const onRespond = async () => {};
 		const sessionId = "running-reading-position-session";
 		const initialTimeline = {
@@ -1128,6 +1160,9 @@ describe("AcpTimeline scrolling", () => {
 					status: "running",
 				}),
 			);
+			// Chromium emits a scroll event when display:none collapses the pane's
+			// layout metrics. It is not user intent and must not re-enable follow.
+			fireEvent.scroll(body);
 
 			setScrollMetrics(body, { clientHeight: 300, scrollHeight: 2_000 });
 			result.rerender(
@@ -1149,16 +1184,16 @@ describe("AcpTimeline scrolling", () => {
 					frame(0);
 				}
 			});
-			// A running conversation always resumes at the latest activity, regardless
-			// of the reading position saved before switching away.
-			expect(body.scrollTop).toBe(2_000);
+			// The turn moved down by 400px while hidden, so restoring the same
+			// semantic viewport offset moves scrollTop from 200px to 600px.
+			expect(body.scrollTop).toBe(600);
 		} finally {
 			window.requestAnimationFrame = originalRequestAnimationFrame;
 			window.cancelAnimationFrame = originalCancelAnimationFrame;
 		}
 	});
 
-	test("returns a settled conversation to its latest user message", () => {
+	test("restores a settled conversation's reading position", () => {
 		const settledTimeline = {
 			...timeline(0),
 			items: [userMessage(1), message(2, "final response")],
@@ -1239,7 +1274,7 @@ describe("AcpTimeline scrolling", () => {
 				}
 			});
 
-			expect(body.scrollTop).toBe(80);
+			expect(body.scrollTop).toBe(420);
 		} finally {
 			window.requestAnimationFrame = originalRequestAnimationFrame;
 			window.cancelAnimationFrame = originalCancelAnimationFrame;

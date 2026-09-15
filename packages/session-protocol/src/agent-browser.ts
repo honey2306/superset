@@ -9,6 +9,7 @@ export const AGENT_BROWSER_TOOL_NAMES = [
 	"browser_go_back",
 	"browser_tabs",
 	"browser_close",
+	"browser_keep_open",
 ] as const;
 
 export type AgentBrowserToolName = (typeof AGENT_BROWSER_TOOL_NAMES)[number];
@@ -105,8 +106,30 @@ export const AGENT_BROWSER_TOOL_DEFINITIONS = [
 	{
 		name: "browser_close",
 		description:
-			"Close this conversation's embedded browser session and all pages.",
-		inputSchema: { type: "object", properties: {} },
+			"Close temporary agent pages by default. Pass pageIds to explicitly close retained agent pages after handoff is complete. Never closes user-created pages.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				pageIds: { type: "array", minItems: 1, items: { type: "string" } },
+			},
+		},
+	},
+	{
+		name: "browser_keep_open",
+		description:
+			"Keep selected pages open across turns for user action, review, or an explicit user request. Obtain pageIds with browser_tabs list. Give the user a concrete next step in message and in your final response. Other temporary pages close automatically.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				pageIds: { type: "array", minItems: 1, items: { type: "string" } },
+				reason: {
+					type: "string",
+					enum: ["user_action", "review", "user_request"],
+				},
+				message: { type: "string", minLength: 1, maxLength: 500 },
+			},
+			required: ["pageIds", "reason", "message"],
+		},
 	},
 ] as const satisfies readonly AgentBrowserToolDefinition[];
 
@@ -136,6 +159,7 @@ export type AgentBrowserViewportInput = z.infer<
 >;
 
 export interface AgentBrowserPageView {
+	handoff?: AgentBrowserHandoff;
 	id?: string;
 	index: number;
 	url: string;
@@ -150,3 +174,15 @@ export interface AgentBrowserView {
 	activePageIndex: number | null;
 	error?: string;
 }
+
+export const agentBrowserHandoffSchema = z.object({
+	reason: z.enum(["user_action", "review", "user_request"]),
+	message: z.string().trim().min(1).max(500),
+});
+export type AgentBrowserHandoff = z.infer<typeof agentBrowserHandoffSchema>;
+export const agentBrowserKeepOpenSchema = agentBrowserHandoffSchema.extend({
+	pageIds: z.array(z.string().min(1)).min(1),
+});
+export const agentBrowserCloseSchema = z.object({
+	pageIds: z.array(z.string().min(1)).min(1).optional(),
+});

@@ -317,7 +317,7 @@ export async function startAgentBrowserCdpProxy(input: {
 							);
 							if (!page) throw new Error("Agent Browser target is not allowed");
 							if (request.method === "Target.closeTarget") {
-								await input.manager.closePage(sessionId, page.id);
+								await input.manager.closeAgentPages(sessionId, [page.id]);
 							} else {
 								await input.manager.selectPage(sessionId, page.id);
 							}

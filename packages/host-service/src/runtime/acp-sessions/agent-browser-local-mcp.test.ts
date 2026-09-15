@@ -28,3 +28,43 @@ describe("agentBrowserMcpServer", () => {
 		});
 	});
 });
+
+test("the lifecycle MCP exposes keep, close and tabs alongside the official browser tools", async () => {
+	const server = agentBrowserMcpServer({
+		sessionId: "s",
+		daemonSocketPath: "/tmp/unused-browser-test.sock",
+		execPath: process.execPath,
+		scriptPath: `${import.meta.dir}/agent-browser-mcp.ts`,
+		lifecycleOnly: true,
+	});
+	if (!("command" in server)) throw new Error("Expected stdio MCP");
+	const child = Bun.spawn([server.command, ...server.args], {
+		env: {
+			...process.env,
+			...Object.fromEntries(
+				server.env.map((entry) => [entry.name, entry.value]),
+			),
+		},
+		stdin: "pipe",
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	child.stdin.write(
+		`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })}\n`,
+	);
+	child.stdin.end();
+	const [stdout, stderr, code] = await Promise.all([
+		new Response(child.stdout).text(),
+		new Response(child.stderr).text(),
+		child.exited,
+	]);
+	expect(code, stderr).toBe(0);
+	const response = JSON.parse(stdout) as {
+		result: { tools: Array<{ name: string }> };
+	};
+	expect(response.result.tools.map((tool) => tool.name)).toEqual([
+		"browser_tabs",
+		"browser_close",
+		"browser_keep_open",
+	]);
+});

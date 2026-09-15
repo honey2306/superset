@@ -19,7 +19,10 @@ interface SidecarResponse {
 }
 
 export interface BrowserUseSidecarCall {
-	name: Exclude<AgentBrowserToolName, "browser_tabs" | "browser_close">;
+	name: Exclude<
+		AgentBrowserToolName,
+		"browser_tabs" | "browser_close" | "browser_keep_open"
+	>;
 	arguments: unknown;
 	cdpUrl: string;
 	targetId: string;

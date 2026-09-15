@@ -3,6 +3,11 @@ import type {
 	AgentBrowserView,
 	AgentBrowserViewportInput,
 } from "@superset/session-protocol";
+import {
+	type AgentBrowserHandoff,
+	agentBrowserCloseSchema,
+	agentBrowserKeepOpenSchema,
+} from "@superset/session-protocol";
 import { AgentBrowserBridgeClient } from "./agent-browser-bridge-client";
 import { BrowserUseSidecar } from "./browser-use-sidecar";
 
@@ -36,7 +41,11 @@ export interface AgentBrowserBridge {
 	closePage(sessionId: string, pageId: string): Promise<unknown>;
 	capturePage(sessionId: string, fullPage?: boolean): Promise<string>;
 	closeSession(sessionId: string): Promise<void>;
-	closeAgentPages(sessionId: string): Promise<void>;
+	closeAgentPages(sessionId: string, pageIds?: string[]): Promise<void>;
+	keepOpen(
+		sessionId: string,
+		input: AgentBrowserHandoff & { pageIds: string[] },
+	): Promise<unknown>;
 	view(sessionId: string): Promise<AgentBrowserView>;
 }
 
@@ -137,8 +146,18 @@ export class AgentBrowserRuntime {
 			return this.executeTabs(input.sessionId, input.arguments);
 		}
 		if (input.name === "browser_close") {
-			await this.closeSession(input.sessionId);
+			await this.bridge.closeAgentPages(
+				input.sessionId,
+				agentBrowserCloseSchema.parse(input.arguments ?? {}).pageIds,
+			);
 			return { success: true };
+		}
+
+		if (input.name === "browser_keep_open") {
+			return this.bridge.keepOpen(
+				input.sessionId,
+				agentBrowserKeepOpenSchema.parse(input.arguments),
+			);
 		}
 
 		const target = await this.bridge.activeTarget(input.sessionId);

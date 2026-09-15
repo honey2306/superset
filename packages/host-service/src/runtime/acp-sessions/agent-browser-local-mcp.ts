@@ -8,6 +8,7 @@ export interface AgentBrowserMcpServerInput {
 	daemonSocketPath: string;
 	execPath?: string;
 	scriptPath?: string;
+	lifecycleOnly?: boolean;
 }
 
 export function resolveAgentBrowserMcpScriptPath(
@@ -30,6 +31,9 @@ export function agentBrowserMcpServer(
 		command: input.execPath ?? process.execPath,
 		args: [input.scriptPath ?? resolveAgentBrowserMcpScriptPath()],
 		env: [
+			...(input.lifecycleOnly
+				? [{ name: "SUPERSET_AGENT_BROWSER_LIFECYCLE_ONLY", value: "1" }]
+				: []),
 			{ name: "ELECTRON_RUN_AS_NODE", value: "1" },
 			{
 				name: "SUPERSET_ACP_DAEMON_SOCKET_PATH",

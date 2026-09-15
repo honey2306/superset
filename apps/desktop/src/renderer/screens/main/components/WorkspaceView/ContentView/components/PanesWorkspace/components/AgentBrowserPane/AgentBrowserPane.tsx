@@ -67,8 +67,22 @@ export function AgentBrowserPane({
 		};
 	}, [isVisible, sessionId, setSurface.mutate, syncSurface, zoom.data]);
 
+	const handoff = state.data?.pages.find((page) => page.active)?.handoff;
+
 	return (
 		<div className="agent-browser-pane">
+			{handoff && (
+				<output className="agent-browser-pane__handoff">
+					<strong>
+						{handoff.reason === "user_action"
+							? "Your action needed"
+							: handoff.reason === "review"
+								? "Ready for your review"
+								: "Kept open for you"}
+					</strong>
+					<span>{handoff.message}</span>
+				</output>
+			)}
 			<div ref={viewportRef} className="agent-browser-pane__viewport">
 				{!state.data?.active && (
 					<div className="agent-browser-pane__empty">

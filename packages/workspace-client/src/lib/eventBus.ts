@@ -22,7 +22,6 @@ type EventType =
 	| "acp-session:changed"
 	| "acp-session:open-requested"
 	| "acp-discussion:open-requested"
-	| "acp-terminal:open-requested"
 	| "acp-session:merge-request-open-requested";
 
 interface FsEventsPayload {
@@ -148,16 +147,6 @@ export type AcpDiscussionOpenRequestedPayload = Omit<
 	"type" | "workspaceId"
 >;
 
-type AcpTerminalOpenRequestedMessage = Extract<
-	ServerMessage,
-	{ type: "acp-terminal:open-requested" }
->;
-
-export type AcpTerminalOpenRequestedPayload = Omit<
-	AcpTerminalOpenRequestedMessage,
-	"type" | "workspaceId"
->;
-
 type AcpMergeRequestOpenRequestedMessage = Extract<
 	ServerMessage,
 	{ type: "acp-session:merge-request-open-requested" }
@@ -211,11 +200,9 @@ type EventListener<T extends EventType> = (
 												? AcpSessionOpenRequestedPayload
 												: T extends "acp-discussion:open-requested"
 													? AcpDiscussionOpenRequestedPayload
-													: T extends "acp-terminal:open-requested"
-														? AcpTerminalOpenRequestedPayload
-														: T extends "acp-session:merge-request-open-requested"
-															? AcpMergeRequestOpenRequestedPayload
-															: never,
+													: T extends "acp-session:merge-request-open-requested"
+														? AcpMergeRequestOpenRequestedPayload
+														: never,
 ) => void;
 
 interface ListenerEntry {
@@ -271,7 +258,6 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 			message.type === "acp-session:changed" ||
 			message.type === "acp-session:open-requested" ||
 			message.type === "acp-discussion:open-requested" ||
-			message.type === "acp-terminal:open-requested" ||
 			message.type === "acp-session:merge-request-open-requested"
 				? message.workspaceId
 				: message.type === "project:changed"
@@ -372,12 +358,6 @@ function handleMessage(state: ConnectionState, data: unknown): void {
 		} else if (message.type === "acp-discussion:open-requested") {
 			const { type: _type, workspaceId, ...payload } = message;
 			(entry.callback as EventListener<"acp-discussion:open-requested">)(
-				workspaceId,
-				payload,
-			);
-		} else if (message.type === "acp-terminal:open-requested") {
-			const { type: _type, workspaceId, ...payload } = message;
-			(entry.callback as EventListener<"acp-terminal:open-requested">)(
 				workspaceId,
 				payload,
 			);

@@ -13,10 +13,10 @@ import { toast } from "@superset/ui/sonner";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { LuBookOpen, LuPlus } from "react-icons/lu";
+import { useWorkspaceSidebarGroups } from "renderer/hooks/useWorkspaceShortcuts";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { useLocalHostService } from "renderer/routes/_local/providers/LocalHostServiceProvider";
-import { useCatalogProjects } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
-import { isTemporaryProject } from "renderer/utils/isTemporaryProject";
+import { ProjectMemoryAccessSettings } from "./components/ProjectMemoryAccessSettings";
 import { ProjectMemoryEditor } from "./components/ProjectMemoryEditor";
 import { ProjectMemoryItem } from "./components/ProjectMemoryItem";
 import { ProjectMemorySidebar } from "./components/ProjectMemorySidebar";
@@ -24,7 +24,10 @@ import {
 	type ProjectMemoryFilter,
 	ProjectMemoryToolbar,
 } from "./components/ProjectMemoryToolbar";
-import { filterProjectMemories } from "./projectMemoryView";
+import {
+	filterProjectMemories,
+	getProjectsWithMemories,
+} from "./projectMemoryView";
 import {
 	EMPTY_PROJECT_MEMORY_EDITOR,
 	type ProjectMemoryEditorValue,
@@ -46,11 +49,15 @@ function projectMemoryQueryKey(
 
 export function ProjectMemoryPage() {
 	const { activeHostUrl: hostUrl } = useLocalHostService();
-	const { projects } = useCatalogProjects();
+	const { groups } = useWorkspaceSidebarGroups();
 	const queryClient = useQueryClient();
 	const availableProjects = useMemo(
-		() => projects.filter((project) => !isTemporaryProject(project)),
-		[projects],
+		() =>
+			groups.map(({ project }) => ({
+				...project,
+				repoPath: project.mainRepoPath,
+			})),
+		[groups],
 	);
 	const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
 		null,
@@ -60,11 +67,6 @@ export function ProjectMemoryPage() {
 	const [editor, setEditor] = useState<ProjectMemoryEditorValue | null>(null);
 	const [pendingDelete, setPendingDelete] =
 		useState<ProjectMemoryRecord | null>(null);
-	const activeProjectId =
-		selectedProjectId === null ||
-		availableProjects.some((project) => project.id === selectedProjectId)
-			? selectedProjectId
-			: null;
 	const memoryScopes = [
 		{ projectId: null },
 		...availableProjects.map((project) => ({ projectId: project.id })),
@@ -90,12 +92,20 @@ export function ProjectMemoryPage() {
 			new Map(
 				availableProjects.map((project, index) => [
 					project.id,
-					memoryQueries[index + 1]?.data?.filter((memory) => memory.enabled)
-						.length ?? 0,
+					memoryQueries[index + 1]?.data?.length ?? 0,
 				]),
 			),
 		[availableProjects, memoryQueries],
 	);
+	const projectsWithMemories = getProjectsWithMemories(
+		availableProjects,
+		memoryCountByProject,
+	);
+	const activeProjectId =
+		selectedProjectId !== null &&
+		projectsWithMemories.some((project) => project.id === selectedProjectId)
+			? selectedProjectId
+			: null;
 	const activeProjectIndex = availableProjects.findIndex(
 		(project) => project.id === activeProjectId,
 	);
@@ -214,7 +224,7 @@ export function ProjectMemoryPage() {
 	return (
 		<div className="flex h-full min-h-0 w-full bg-background">
 			<ProjectMemorySidebar
-				projects={availableProjects.map((project) => ({
+				projects={projectsWithMemories.map((project) => ({
 					id: project.id,
 					name: project.name,
 					repoPath: project.repoPath,
@@ -238,6 +248,11 @@ export function ProjectMemoryPage() {
 					onCreate={() => openEditor()}
 				/>
 				<div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+					{hostUrl && (
+						<div className="mb-4">
+							<ProjectMemoryAccessSettings key={hostUrl} hostUrl={hostUrl} />
+						</div>
+					)}
 					{editor?.id === null && (
 						<div className="mb-3">
 							<ProjectMemoryEditor

@@ -5,6 +5,7 @@ import { branchPrefixRouter } from "./branch-prefix";
 import { delegatedExecutionRouter } from "./delegated-execution";
 import { globalMcpRouter } from "./global-mcp";
 import { globalSkillsRouter } from "./global-skills";
+import { memoryAccessRouter } from "./memory-access";
 import { worktreeLocationRouter } from "./worktree-location";
 
 export const settingsRouter = router({
@@ -13,6 +14,7 @@ export const settingsRouter = router({
 	delegatedExecution: delegatedExecutionRouter,
 	globalMcp: globalMcpRouter,
 	globalSkills: globalSkillsRouter,
+	memoryAccess: memoryAccessRouter,
 	worktreeLocation: worktreeLocationRouter,
 	acpPresetLaunch: acpPresetLaunchRouter,
 });

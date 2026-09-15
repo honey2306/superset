@@ -1,0 +1,64 @@
+/* Superset DS — reset + document defaults */
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	background: var(--page-bg);
+	color: var(--fg);
+	font-family: var(--font-ui);
+	font-size: 13px;
+	line-height: 1.55;
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+}
+
+button {
+	font-family: inherit;
+	color: inherit;
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+}
+
+::selection {
+	background: color-mix(in oklch, var(--accent) 55%, transparent);
+	color: var(--fg);
+}
+
+/* Scrollbars — overlay-thin, tinted by fg */
+*,
+*::before,
+*::after {
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in oklch, var(--fg) 18%, transparent) transparent;
+}
+*::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+	background-color: color-mix(in oklch, var(--fg) 18%, transparent);
+	border-radius: 999px;
+	border: 3px solid transparent;
+	background-clip: padding-box;
+	min-height: 32px;
+}
+*::-webkit-scrollbar-thumb:hover {
+	background-color: color-mix(in oklch, var(--fg) 32%, transparent);
+}
+*::-webkit-scrollbar-corner {
+	background: transparent;
+}

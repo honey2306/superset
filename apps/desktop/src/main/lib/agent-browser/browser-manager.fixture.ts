@@ -101,3 +101,65 @@ describe("AgentBrowserManager fixture", () => {
 		expect(views[2]?.webContents.isDestroyed()).toBe(true);
 	});
 });
+
+test("retained pages survive repeated cleanup with state intact until explicitly closed", async () => {
+	const browser = manager();
+	const user = await browser.createPage("s", "https://user.example");
+	const retained = await browser.createPage(
+		"s",
+		"https://login.example",
+		"agent",
+	);
+	const retainedView = views.at(-1);
+	await browser.createPage("s", "https://temporary.example", "agent");
+	browser.keepOpen("s", {
+		pageIds: [retained.id],
+		reason: "user_action",
+		message: "Please log in",
+	});
+	await browser.closeAgentPages("s");
+	await browser.closeAgentPages("s");
+	expect(browser.getState("s").pages.map((page) => page.id)).toEqual([
+		user.id,
+		retained.id,
+	]);
+	expect(browser.getState("s").pages[1]?.handoff?.message).toBe(
+		"Please log in",
+	);
+	expect(retainedView?.webContents.isDestroyed()).toBe(false);
+	expect(retainedView?.webContents.getURL()).toBe("https://login.example");
+	await expect(
+		browser.closeAgentPages("s", [retained.id, user.id]),
+	).rejects.toThrow();
+	expect(retainedView?.webContents.isDestroyed()).toBe(false);
+	await browser.closeAgentPages("s", [retained.id]);
+	expect(retainedView?.webContents.isDestroyed()).toBe(true);
+	expect(browser.getState("s").pages.map((page) => page.id)).toEqual([user.id]);
+});
+
+test("handoff rejects foreign or missing pages atomically and manual close removes retained pages", async () => {
+	const browser = manager();
+	const page = await browser.createPage("s", "https://result.example", "agent");
+	const foreign = await browser.createPage(
+		"other",
+		"https://other.example",
+		"agent",
+	);
+	expect(() =>
+		browser.keepOpen("s", {
+			pageIds: [page.id, foreign.id],
+			reason: "review",
+			message: "Review this",
+		}),
+	).toThrow();
+	expect(browser.getState("s").pages[0]?.handoff).toBeUndefined();
+	browser.keepOpen("s", {
+		pageIds: [page.id],
+		reason: "review",
+		message: "Review this",
+	});
+	await browser.closePage("s", page.id);
+	expect(browser.getState("s").pages).toEqual([]);
+	await browser.closeAgentPages("s");
+	expect(browser.getState("other").pages).toHaveLength(1);
+});

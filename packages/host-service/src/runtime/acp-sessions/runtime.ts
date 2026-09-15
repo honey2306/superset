@@ -67,20 +67,6 @@ export type AcpDiscussionOpenRequestHandler = (
 	event: AcpDiscussionOpenRequestEvent,
 ) => void;
 
-export interface AcpTerminalOpenRequestEvent {
-	workspaceId: string;
-	terminalId: string;
-	sourceSessionId: string;
-	requestId: string;
-	title?: string;
-	focus: boolean;
-	occurredAt: number;
-}
-
-export type AcpTerminalOpenRequestHandler = (
-	event: AcpTerminalOpenRequestEvent,
-) => void;
-
 /** Best-effort request to open a provider-owned MR creation page in Desktop. */
 export interface AcpMergeRequestOpenRequestEvent {
 	workspaceId: string;
@@ -226,7 +212,6 @@ export interface AcpSessionRuntime {
 	onDiscussionOpenRequested?(
 		handler: AcpDiscussionOpenRequestHandler,
 	): () => void;
-	onTerminalOpenRequested?(handler: AcpTerminalOpenRequestHandler): () => void;
 	onMergeRequestOpenRequested?(
 		handler: AcpMergeRequestOpenRequestHandler,
 	): () => void;

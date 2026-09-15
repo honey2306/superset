@@ -155,12 +155,7 @@ export function ProjectGroupSection({
 	};
 
 	return (
-		<div
-			className={cn(
-				"border-b border-line last:border-b-0",
-				isDragging && "opacity-30",
-			)}
-		>
+		<div className={cn("mb-5", isDragging && "opacity-30")}>
 			<ContextMenu>
 				<ContextMenuTrigger asChild>
 					<div
@@ -168,8 +163,9 @@ export function ProjectGroupSection({
 						data-dnd-source-id={sourceHandlerId ?? undefined}
 						data-dnd-target-id={targetHandlerId ?? undefined}
 						className={cn(
-							"flex items-center w-full pl-2 pr-2 py-2 text-[11px] font-medium uppercase tracking-wider",
-							"text-fg-mute hover:bg-hover/50 transition-colors",
+							"group/category sticky top-0 z-10 flex items-center gap-1 w-full h-7 pl-9 pr-[22px] bg-sidebar",
+							"text-[11px] font-semibold uppercase tracking-[0.05em]",
+							"text-fg hover:bg-hover/50 transition-colors",
 							projectGroupId !== null && "cursor-grab",
 							isDragging && "cursor-grabbing",
 							isProjectOver &&
@@ -185,11 +181,12 @@ export function ProjectGroupSection({
 									setRenameValue(name);
 									setIsRenaming(false);
 								}}
-								className="h-5 px-1 py-0 text-[11px] tracking-wider font-medium bg-transparent border-none outline-none flex-1 min-w-0 text-fg-mute"
+								className="h-5 px-1 py-0 text-[12px] font-semibold bg-transparent border-none outline-none flex-1 min-w-0 text-fg-mute"
 							/>
 						) : (
 							<button
 								type="button"
+								aria-expanded={!isCollapsed}
 								onClick={onToggleCollapsed}
 								onDoubleClick={() => {
 									if (projectGroupId) {
@@ -197,25 +194,29 @@ export function ProjectGroupSection({
 										setIsRenaming(true);
 									}
 								}}
-								className="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer"
+								className="flex items-center gap-1 flex-1 min-w-0 text-left cursor-pointer"
 							>
+								{/* 折叠箭头常驻在 guide 线正上方（中心 21px = left 15 + 半宽 6）：
+								    展开时组内竖线就像从箭头里长出来 */}
 								<HiChevronRight
 									className={cn(
-										"size-3 shrink-0 transition-transform duration-150",
+										"absolute left-[15px] size-3 text-fg-faint transition-transform duration-150",
 										!isCollapsed && "rotate-90",
 									)}
 								/>
-								<span className="truncate">{name}</span>
-								<span className="text-[10px] tabular-nums font-normal">
-									({projectCount})
+								<span className="shrink-0 max-w-[75%] truncate">{name}</span>
+								{/* 计数紧跟组名，而不是被推到行尾——它是名字的一部分 */}
+								<span className="font-mono text-[10px] text-fg-mute tabular-nums font-normal normal-case">
+									{projectCount}
 								</span>
+								<span className="flex-1" />
 							</button>
 						)}
 						{projectGroupId && !isRenaming && (
 							<button
 								type="button"
 								aria-label={t("workspace.projectGroupMenu")}
-								className="flex size-5 items-center justify-center rounded-ds-2 text-fg-faint transition-colors hover:bg-hover hover:text-fg"
+								className="opacity-0 group-hover/category:opacity-100 focus-visible:opacity-100 flex size-5 items-center justify-center rounded-ds-2 text-fg-faint transition-colors hover:bg-hover hover:text-fg"
 								onClick={(event) => {
 									event.stopPropagation();
 									const rect = event.currentTarget.getBoundingClientRect();
@@ -266,7 +267,7 @@ export function ProjectGroupSection({
 						animate={{ height: "auto", opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
 						transition={{ duration: 0.15, ease: "easeOut" }}
-						className="overflow-hidden pl-1"
+						className="relative overflow-hidden"
 					>
 						{children}
 					</motion.div>

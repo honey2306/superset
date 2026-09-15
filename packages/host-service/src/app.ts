@@ -228,9 +228,6 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		acpSessions.onDiscussionOpenRequested?.((event) => {
 			eventBus.broadcastAcpDiscussionOpenRequested(event);
 		});
-		acpSessions.onTerminalOpenRequested?.((event) => {
-			eventBus.broadcastAcpTerminalOpenRequested(event);
-		});
 		acpSessions.onMergeRequestOpenRequested?.((event) => {
 			eventBus.broadcastAcpMergeRequestOpenRequested(event);
 		});

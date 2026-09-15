@@ -271,15 +271,6 @@ export class EventBus {
 		this.broadcast({ type: "acp-discussion:open-requested", ...message });
 	}
 
-	broadcastAcpTerminalOpenRequested(
-		message: Omit<
-			Extract<ServerMessage, { type: "acp-terminal:open-requested" }>,
-			"type"
-		>,
-	): void {
-		this.broadcast({ type: "acp-terminal:open-requested", ...message });
-	}
-
 	broadcastAcpMergeRequestOpenRequested(
 		message: Omit<
 			Extract<

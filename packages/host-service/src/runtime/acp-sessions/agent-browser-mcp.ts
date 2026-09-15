@@ -7,6 +7,14 @@ import {
 } from "@superset/session-protocol";
 import type { AcpDaemonRequest, AcpDaemonResponse } from "./daemon";
 
+const toolDefinitions =
+	process.env.SUPERSET_AGENT_BROWSER_LIFECYCLE_ONLY === "1"
+		? AGENT_BROWSER_TOOL_DEFINITIONS.filter((tool) =>
+				["browser_tabs", "browser_keep_open", "browser_close"].includes(
+					tool.name,
+				),
+			)
+		: AGENT_BROWSER_TOOL_DEFINITIONS;
 const MCP_PROTOCOL_VERSION = "2024-11-05";
 const TOOL_CALL_TIMEOUT_MS = 120_000;
 const socketPath = requiredEnv("SUPERSET_ACP_DAEMON_SOCKET_PATH");
@@ -130,14 +138,14 @@ async function handle(request: JsonRpcRequest): Promise<void> {
 					capabilities: { tools: {} },
 					serverInfo: { name: "agent-browser", version: "1" },
 					instructions:
-						"Use these tools for every browser task. Use browser_get_state before index-based actions. Pages belong only to this ACP conversation and tab lifecycle is owned by Superset. Never fall back to an OS/system browser; if an embedded-browser tool fails, report that failure.",
+						"Use browser-use for browsing and these tools for page lifecycle. Temporary agent pages close automatically at turn end. Use browser_tabs list to obtain pageIds, then browser_keep_open only for user action, review, or an explicit request to keep pages. Retained pages survive later turns. Explain the handoff in your final response. Close retained pages by explicit pageIds only after the handoff is complete. User pages are never closed by these tools.",
 				});
 				return;
 			case "ping":
 				result(request.id, {});
 				return;
 			case "tools/list":
-				result(request.id, { tools: AGENT_BROWSER_TOOL_DEFINITIONS });
+				result(request.id, { tools: toolDefinitions });
 				return;
 			case "tools/call": {
 				const params = request.params as
@@ -145,9 +153,7 @@ async function handle(request: JsonRpcRequest): Promise<void> {
 					| undefined;
 				if (
 					typeof params?.name !== "string" ||
-					!AGENT_BROWSER_TOOL_DEFINITIONS.some(
-						(tool) => tool.name === params.name,
-					)
+					!toolDefinitions.some((tool) => tool.name === params.name)
 				) {
 					error(request.id, -32602, "Unknown Agent Browser tool");
 					return;

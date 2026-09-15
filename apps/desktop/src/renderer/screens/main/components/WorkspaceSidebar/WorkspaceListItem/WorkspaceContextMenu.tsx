@@ -2,6 +2,7 @@ import {
 	ContextMenu,
 	ContextMenuContent,
 	ContextMenuItem,
+	ContextMenuLabel,
 	ContextMenuSeparator,
 	ContextMenuShortcut,
 	ContextMenuSub,
@@ -9,7 +10,7 @@ import {
 	ContextMenuSubTrigger,
 	ContextMenuTrigger,
 } from "@superset/ui/context-menu";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import {
 	LuArrowRightLeft,
 	LuBellOff,
@@ -39,6 +40,9 @@ import { getPullRequestMenuActions } from "./pullRequestMenuActions";
 import { WorkspaceBranchActions } from "./WorkspaceBranchActions";
 
 interface WorkspaceContextMenuProps {
+	projectMenu?: ReactNode;
+	projectName?: string;
+	onProjectMenuCloseAutoFocus?: (event: Event) => void;
 	id: string;
 	projectId: string;
 	branch: string;
@@ -68,6 +72,9 @@ interface WorkspaceContextMenuProps {
 }
 
 export function WorkspaceContextMenu({
+	projectMenu,
+	projectName,
+	onProjectMenuCloseAutoFocus,
 	id,
 	projectId,
 	branch,
@@ -241,7 +248,7 @@ export function WorkspaceContextMenu({
 					/>
 					{t("workspace.moveSection")}
 				</ContextMenuSubTrigger>
-				<ContextMenuSubContent className="!bg-surface-sunk !text-fg">
+				<ContextMenuSubContent className="!bg-surface-sunk !text-fg font-sans text-[12px] leading-[1.55]">
 					<ContextMenuItem onSelect={handleCreateSectionFromSelection}>
 						<LuFolderPlus className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 						{t("workspace.newSection")}
@@ -288,37 +295,38 @@ export function WorkspaceContextMenu({
 			)}
 		</>
 	);
-	if (isBranchWorkspace) {
-		return (
-			<ContextMenu onOpenChange={handleMenuOpenChange}>
-				<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-				<ContextMenuContent
-					className="!bg-surface-sunk !text-fg"
-					onCloseAutoFocus={(event) => {
-						deleteDialogCoordinator.handleCloseAutoFocus(event);
-					}}
-				>
-					{commonContextMenuItems}
-				</ContextMenuContent>
-			</ContextMenu>
-		);
-	}
-
 	return (
 		<ContextMenu onOpenChange={handleMenuOpenChange}>
 			<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
 			<ContextMenuContent
-				className="!bg-surface-sunk !text-fg"
+				className="!bg-surface-sunk !text-fg font-sans text-[12px] leading-[1.55]"
 				onCloseAutoFocus={(event) => {
 					deleteDialogCoordinator.handleCloseAutoFocus(event);
+					onProjectMenuCloseAutoFocus?.(event);
 				}}
 			>
-				<ContextMenuItem onSelect={onRename}>
-					<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
-					{t("workspace.renameAction")}
-				</ContextMenuItem>
+				{!isBranchWorkspace && (
+					<ContextMenuItem onSelect={onRename}>
+						<LuPencil className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+						{t("workspace.renameWorkspace")}
+					</ContextMenuItem>
+				)}
 				<ContextMenuSeparator />
+				{projectMenu && (
+					<ContextMenuLabel className="normal-case tracking-normal text-[10px] font-normal text-fg-faint">
+						{t("workspace.menuWorkspace")} · {branch}
+					</ContextMenuLabel>
+				)}
 				{commonContextMenuItems}
+				{projectMenu && (
+					<>
+						<ContextMenuSeparator />
+						<ContextMenuLabel className="normal-case tracking-normal text-[10px] font-normal text-fg-faint">
+							{t("workspace.menuProject")} · {projectName}
+						</ContextMenuLabel>
+						{projectMenu}
+					</>
+				)}
 			</ContextMenuContent>
 		</ContextMenu>
 	);

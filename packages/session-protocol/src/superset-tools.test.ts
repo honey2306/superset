@@ -20,6 +20,49 @@ describe("Superset delegation protocol", () => {
 		).toBeUndefined();
 	});
 
+	test("permits explicit cross-project reads without widening memory writes", () => {
+		const request = (name: string, args: Record<string, unknown>) =>
+			supersetToolRequestSchema.safeParse({
+				sourceSessionId: "session-1",
+				name,
+				arguments: args,
+			});
+		expect(request("list_memory_projects", {}).success).toBe(true);
+		expect(
+			request("search_project_memories", { scope: "accessible" }).success,
+		).toBe(true);
+		expect(
+			request("search_project_memories", {
+				scope: "project",
+				projectId: "other",
+			}).success,
+		).toBe(true);
+		for (const scope of ["global", "all", "accessible"]) {
+			expect(
+				request("search_project_memories", { scope, projectId: "other" })
+					.success,
+			).toBe(false);
+		}
+		for (const name of [
+			"remember_project_memory",
+			"update_project_memory",
+			"delete_project_memory",
+		]) {
+			const args =
+				name === "remember_project_memory"
+					? { title: "Test", content: "Test" }
+					: {
+							memoryId: "m1",
+							...(name === "update_project_memory" ? { content: "Test" } : {}),
+						};
+			expect(request(name, { ...args, projectId: "other" }).success).toBe(
+				false,
+			);
+			expect(request(name, { ...args, scope: "external" }).success).toBe(false);
+		}
+		expect(formatProjectMemoryInstructions([])).toContain("read-only search");
+	});
+
 	test("advertises project memory recording and formats injected memory", () => {
 		const remember = SUPERSET_TOOL_DEFINITIONS.find(
 			(entry) => entry.name === "remember_project_memory",
@@ -33,7 +76,18 @@ describe("Superset delegation protocol", () => {
 		const remove = SUPERSET_TOOL_DEFINITIONS.find(
 			(entry) => entry.name === "delete_project_memory",
 		);
-		expect(remember?.description).toContain("durable, verified knowledge");
+		for (const tool of [remember, update, remove]) {
+			expect(tool?.description).toContain("only when the user explicitly");
+		}
+		expect(remember?.description).toContain("Never save autonomously");
+		expect(update?.description).toContain("Never update autonomously");
+		expect(remove?.description).toContain("Never delete autonomously");
+		expect(formatProjectMemoryInstructions([])).toContain(
+			"Never save or maintain memories autonomously",
+		);
+		expect(formatProjectMemoryInstructions([])).toContain(
+			"Reading and searching memories do not require an explicit user request",
+		);
 		expect(search?.description).toContain("expensive investigation");
 		expect(update?.description).toContain("memory by ID");
 		expect(remove?.description).toContain("delete");

@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { filterProjectMemories } from "./projectMemoryView";
+import {
+	filterProjectMemories,
+	getProjectsWithMemories,
+} from "./projectMemoryView";
 import type { ProjectMemoryRecord } from "./types";
 
 function memory(
@@ -56,5 +59,32 @@ describe("filterProjectMemories", () => {
 		expect(
 			filterProjectMemories(rows, "legacy", "disabled").map((item) => item.id),
 		).toEqual(["legacy"]);
+	});
+});
+
+describe("getProjectsWithMemories", () => {
+	test("keeps sidebar order and excludes empty projects and off-sidebar memories", () => {
+		const projects = [
+			{ id: "second" },
+			{ id: "empty" },
+			{ id: "first" },
+			{ id: "loading" },
+		];
+		const counts = new Map([
+			["first", 1],
+			["second", 2],
+			["empty", 0],
+			["removed", 3],
+		]);
+		expect(getProjectsWithMemories(projects, counts)).toEqual([
+			{ id: "second" },
+			{ id: "first" },
+		]);
+	});
+
+	test("removes a project after its last saved memory is deleted", () => {
+		expect(
+			getProjectsWithMemories([{ id: "project" }], new Map([["project", 0]])),
+		).toEqual([]);
 	});
 });

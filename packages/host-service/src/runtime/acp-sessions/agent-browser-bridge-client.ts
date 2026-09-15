@@ -1,8 +1,12 @@
 import { randomUUID } from "node:crypto";
 import net from "node:net";
-import type { AgentBrowserView } from "@superset/session-protocol";
+import type {
+	AgentBrowserHandoff,
+	AgentBrowserView,
+} from "@superset/session-protocol";
 
 interface BridgePage {
+	handoff?: AgentBrowserHandoff;
 	id: string;
 	index: number;
 	targetId: string;
@@ -127,8 +131,15 @@ export class AgentBrowserBridgeClient {
 		return this.call("capturePage", { sessionId, fullPage });
 	}
 
-	async closeAgentPages(sessionId: string): Promise<void> {
-		await this.call("closeAgentPages", { sessionId });
+	async closeAgentPages(sessionId: string, pageIds?: string[]): Promise<void> {
+		await this.call("closeAgentPages", { sessionId, pageIds });
+	}
+
+	keepOpen(
+		sessionId: string,
+		input: AgentBrowserHandoff & { pageIds: string[] },
+	): Promise<BridgeState> {
+		return this.call("keepOpen", { sessionId, ...input });
 	}
 
 	async closeSession(sessionId: string): Promise<void> {
@@ -150,6 +161,7 @@ export class AgentBrowserBridgeClient {
 				url: page.url,
 				...(page.title ? { title: page.title } : {}),
 				active: page.active,
+				...(page.handoff ? { handoff: page.handoff } : {}),
 			})),
 		};
 	}
