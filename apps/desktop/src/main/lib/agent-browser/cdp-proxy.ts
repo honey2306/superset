@@ -1,5 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
+import path from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
 import type { AgentBrowserManager } from "./browser-manager";
 
@@ -19,6 +21,31 @@ interface TargetConnection {
 export interface AgentBrowserCdpProxy {
 	baseUrl: string;
 	close: () => Promise<void>;
+}
+
+export interface AgentBrowserCdpProxyIdentity {
+	port: number;
+	token: string;
+}
+
+export function persistentAgentBrowserCdpProxyIdentity(
+	home: string,
+	port: number,
+): AgentBrowserCdpProxyIdentity {
+	if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+		throw new Error("Agent Browser CDP proxy port is invalid");
+	}
+	mkdirSync(home, { recursive: true });
+	const tokenPath = path.join(home, "agent-browser-cdp-proxy.token");
+	let token: string;
+	try {
+		token = readFileSync(tokenPath, "utf8").trim();
+		if (!/^[a-f0-9]{64}$/.test(token)) throw new Error("Invalid proxy token");
+	} catch {
+		token = randomBytes(32).toString("hex");
+		writeFileSync(tokenPath, token, { mode: 0o600 });
+	}
+	return { port, token };
 }
 
 function json(
@@ -84,8 +111,9 @@ export function targetInfoForPage(page: {
 export async function startAgentBrowserCdpProxy(input: {
 	manager: AgentBrowserManager;
 	upstreamUrl: string;
+	identity?: AgentBrowserCdpProxyIdentity;
 }): Promise<AgentBrowserCdpProxy> {
-	const token = randomBytes(32).toString("hex");
+	const token = input.identity?.token ?? randomBytes(32).toString("hex");
 	const server = createServer(async (request, response) => {
 		const url = new URL(request.url ?? "/", "http://127.0.0.1");
 		const sessionId = sessionFromPath(url.pathname, token);
@@ -391,7 +419,7 @@ export async function startAgentBrowserCdpProxy(input: {
 	);
 	await new Promise<void>((resolve, reject) => {
 		server.once("error", reject);
-		server.listen(0, "127.0.0.1", () => {
+		server.listen(input.identity?.port ?? 0, "127.0.0.1", () => {
 			server.off("error", reject);
 			resolve();
 		});

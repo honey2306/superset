@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { WebSocket, WebSocketServer } from "ws";
 import type { AgentBrowserManager } from "./browser-manager";
-import { startAgentBrowserCdpProxy } from "./cdp-proxy";
+import {
+	persistentAgentBrowserCdpProxyIdentity,
+	startAgentBrowserCdpProxy,
+} from "./cdp-proxy";
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -163,6 +169,17 @@ async function request(
 }
 
 describe("Agent Browser CDP proxy", () => {
+	test("reuses its endpoint identity across Desktop restarts", () => {
+		const home = mkdtempSync(path.join(os.tmpdir(), "agent-browser-proxy-"));
+		cleanups.push(async () => rmSync(home, { recursive: true, force: true }));
+
+		const first = persistentAgentBrowserCdpProxyIdentity(home, 50_123);
+		const second = persistentAgentBrowserCdpProxyIdentity(home, 50_123);
+
+		expect(second).toEqual(first);
+		expect(first.token).toMatch(/^[a-f0-9]{64}$/);
+	});
+
 	for (const mode of ["error", "close", "silent"] as const) {
 		test(`reports viewport initialization ${mode} as an attach failure`, async () => {
 			const { manager } = fakeManager();

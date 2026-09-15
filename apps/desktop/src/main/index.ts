@@ -21,7 +21,10 @@ import {
 } from "shared/constants";
 import { startAgentBrowserBridge } from "./lib/agent-browser/browser-bridge-server";
 import { getAgentBrowserManager } from "./lib/agent-browser/browser-manager";
-import { startAgentBrowserCdpProxy } from "./lib/agent-browser/cdp-proxy";
+import {
+	persistentAgentBrowserCdpProxyIdentity,
+	startAgentBrowserCdpProxy,
+} from "./lib/agent-browser/cdp-proxy";
 import { setupAgentHooks } from "./lib/agent-setup";
 import { SUPERSET_HOME_DIR } from "./lib/app-environment";
 import { initAppState } from "./lib/app-state";
@@ -40,17 +43,21 @@ import { MainWindow } from "./windows/main";
 
 console.log("[main] Local database ready:", !!localDb);
 const IS_DEV = process.env.NODE_ENV === "development";
-const stableAgentBrowserPort =
-	49_000 +
-	(Number.parseInt(
+const agentBrowserPortOffset =
+	Number.parseInt(
 		createHash("sha256").update(SUPERSET_HOME_DIR).digest("hex").slice(0, 8),
 		16,
-	) %
-		1_000);
+	) % 1_000;
+const stableAgentBrowserPort = 49_000 + agentBrowserPortOffset;
+const stableAgentBrowserProxyPort = 50_000 + agentBrowserPortOffset;
 const AGENT_BROWSER_CDP_PORT = Number(
 	process.env.SUPERSET_AGENT_BROWSER_CDP_PORT ??
 		process.env.RENDERER_REMOTE_DEBUG_PORT ??
 		stableAgentBrowserPort,
+);
+const AGENT_BROWSER_CDP_PROXY_PORT = Number(
+	process.env.SUPERSET_AGENT_BROWSER_CDP_PROXY_PORT ??
+		stableAgentBrowserProxyPort,
 );
 if (Number.isInteger(AGENT_BROWSER_CDP_PORT) && AGENT_BROWSER_CDP_PORT > 0) {
 	app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
@@ -390,6 +397,10 @@ if (!gotTheLock) {
 		const agentBrowserCdpProxy = await startAgentBrowserCdpProxy({
 			manager: agentBrowserManager,
 			upstreamUrl: `http://127.0.0.1:${AGENT_BROWSER_CDP_PORT}`,
+			identity: persistentAgentBrowserCdpProxyIdentity(
+				SUPERSET_HOME_DIR,
+				AGENT_BROWSER_CDP_PROXY_PORT,
+			),
 		});
 		closeAgentBrowserBridge = agentBrowserBridge.close;
 		closeAgentBrowserCdpProxy = agentBrowserCdpProxy.close;
