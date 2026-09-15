@@ -124,6 +124,7 @@ export interface AcpSessionChangedPayload {
 	sessionId: AcpSessionChangedMessage["sessionId"];
 	eventType: AcpSessionChangedMessage["eventType"];
 	status?: AcpSessionChangedMessage["status"];
+	lastMessageAt?: AcpSessionChangedMessage["lastMessageAt"];
 	occurredAt: AcpSessionChangedMessage["occurredAt"];
 }
 

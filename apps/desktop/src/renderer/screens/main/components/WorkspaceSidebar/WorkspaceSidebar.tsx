@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWorkspaceShortcuts } from "renderer/hooks/useWorkspaceShortcuts";
+import { useOpenAcpSessionIdsByWorkspace } from "renderer/lib/panes";
 import { useTranslation } from "renderer/providers/I18nProvider";
 import { useDashboardSidebarState } from "renderer/routes/_local/hooks/useDashboardSidebarState";
 import { useWorkspaceSidebarStore } from "renderer/stores";
 import { useWorkspaceSelectionStore } from "renderer/stores/workspace-selection";
 import { isLiveStatus, useSidebarWorkspaceActivity } from "./hooks";
-import type { LiveWorkspaceRowItem } from "./LiveWorkspacesSection";
-import { LiveWorkspacesSection } from "./LiveWorkspacesSection";
 import { MultiDragPreview } from "./MultiDragPreview";
 import { PortsList } from "./PortsList";
 import { ProjectGroupSection } from "./ProjectGroupSection";
@@ -33,7 +32,6 @@ export function WorkspaceSidebar({
 	const { groups, projectGroups, ungroupedProjects } = useWorkspaceShortcuts();
 	const { toggleProjectGroupCollapsed } = useDashboardSidebarState();
 	const [isUngroupedCollapsed, setIsUngroupedCollapsed] = useState(false);
-	const [isLiveCollapsed, setIsLiveCollapsed] = useState(false);
 	const viewMode = useWorkspaceSidebarStore((state) => state.viewMode);
 	// 收起成 rail 时没有空间铺时间线，退回项目图标列
 	const showTimeline = viewMode === "timeline" && !isCollapsed;
@@ -71,8 +69,7 @@ export function WorkspaceSidebar({
 		return indices;
 	}, [groups]);
 
-	/* 两个视图共用同一份 agent 活动聚合：项目视图用它挑「进行中」置顶组，
-	   时间线视图用它排序。queryKey 与逐行 hook 一致，缓存共享。 */
+	// 时间线视图使用 agent 活动聚合排序；queryKey 与逐行 hook 一致，缓存共享。
 	const sidebarWorkspaceEntries = useMemo(
 		() =>
 			groups.flatMap((group) => {
@@ -92,30 +89,21 @@ export function WorkspaceSidebar({
 			}),
 		[groups],
 	);
+	const timelineWorkspaceIds = useMemo(
+		() => (showTimeline ? sidebarWorkspaceEntries.map(({ id }) => id) : []),
+		[showTimeline, sidebarWorkspaceEntries],
+	);
+	const openAcpSessionIdsByWorkspace =
+		useOpenAcpSessionIdsByWorkspace(timelineWorkspaceIds);
 	const activityInputs = useMemo(
-		() => sidebarWorkspaceEntries.map(({ id }) => ({ id })),
-		[sidebarWorkspaceEntries],
+		() =>
+			timelineWorkspaceIds.map((id) => ({
+				id,
+				openAcpSessionIds: openAcpSessionIdsByWorkspace.get(id) ?? new Set(),
+			})),
+		[timelineWorkspaceIds, openAcpSessionIdsByWorkspace],
 	);
 	const workspaceActivity = useSidebarWorkspaceActivity(activityInputs);
-
-	const liveWorkspaceItems = useMemo(() => {
-		const items: LiveWorkspaceRowItem[] = [];
-		for (const entry of sidebarWorkspaceEntries) {
-			const status = workspaceActivity.get(entry.id)?.status ?? null;
-			if (!isLiveStatus(status) || !status) continue;
-			items.push({
-				workspaceId: entry.id,
-				projectId: entry.projectId,
-				label: entry.isSingleWorkspace
-					? entry.projectName
-					: entry.workspaceName,
-				projectLabel: entry.isSingleWorkspace ? null : entry.projectName,
-				branch: entry.branch,
-				status,
-			});
-		}
-		return items;
-	}, [sidebarWorkspaceEntries, workspaceActivity]);
 
 	const timelineItems = useMemo<TimelineItem[]>(
 		() =>
@@ -206,15 +194,6 @@ export function WorkspaceSidebar({
 					<TimelineView items={timelineItems} />
 				) : (
 					<>
-						{!isCollapsed && liveWorkspaceItems.length > 0 && (
-							<LiveWorkspacesSection
-								items={liveWorkspaceItems}
-								isCollapsed={isLiveCollapsed}
-								onToggleCollapsed={() =>
-									setIsLiveCollapsed((collapsed) => !collapsed)
-								}
-							/>
-						)}
 						{isCollapsed || projectGroups.length === 0 ? (
 							groups.map((group, index) =>
 								renderProjectSection(

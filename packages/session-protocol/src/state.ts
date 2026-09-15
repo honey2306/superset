@@ -183,6 +183,8 @@ export interface SessionScopedState {
 	/** Seq of the latest journaled envelope; subscribe cursor. */
 	lastSeq: number;
 	lastStopReason: StopReason | null;
+	/** Host timestamp of the latest user or agent message chunk. */
+	lastMessageAt?: number | null;
 	/** Host timestamp of the latest completed turn; unaffected by metadata updates. */
 	lastCompletedAt?: number | null;
 	lastError: string | null;

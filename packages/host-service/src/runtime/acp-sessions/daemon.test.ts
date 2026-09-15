@@ -6,6 +6,7 @@ import {
 	AcpDaemonClient,
 	acpDaemonBuildVersion,
 	acpDaemonSocketPath,
+	applyAcpDaemonRuntimeConfig,
 	isActiveDaemonSession,
 	type RequestOperation,
 } from "./daemon";
@@ -32,7 +33,54 @@ describe("isActiveDaemonSession", () => {
 	});
 });
 
+describe("applyAcpDaemonRuntimeConfig", () => {
+	test("refreshes the browser proxy URL from the current Desktop host", () => {
+		const env: NodeJS.ProcessEnv = {};
+		applyAcpDaemonRuntimeConfig(
+			{ agentBrowserCdpProxyUrl: "http://127.0.0.1:50123/token" },
+			env,
+		);
+		expect(env.SUPERSET_AGENT_BROWSER_CDP_PROXY_URL).toBe(
+			"http://127.0.0.1:50123/token",
+		);
+	});
+
+	test("rejects non-loopback browser proxy URLs", () => {
+		expect(() =>
+			applyAcpDaemonRuntimeConfig({
+				agentBrowserCdpProxyUrl: "https://example.com/token",
+			}),
+		).toThrow("must be a loopback endpoint");
+	});
+});
+
 describe("AcpDaemonClient reconnects", () => {
+	test("refreshes a reused daemon with the current browser proxy endpoint", async () => {
+		const client = new AcpDaemonClient({
+			organizationId: "org-1",
+			spawnIfMissing: false,
+			spawnEnv: {
+				SUPERSET_AGENT_BROWSER_CDP_PROXY_URL: "http://127.0.0.1:50123/token",
+			},
+		});
+		const internals = client as unknown as {
+			connect: () => Promise<void>;
+			sendRequest: (op: RequestOperation, params: unknown) => Promise<unknown>;
+		};
+		internals.connect = async () => {};
+		let sentParams: unknown;
+		internals.sendRequest = async (_op, params) => {
+			sentParams = params;
+			return { pid: 1, protocolVersion: 1 };
+		};
+
+		await client.hello();
+
+		expect(sentParams).toEqual({
+			agentBrowserCdpProxyUrl: "http://127.0.0.1:50123/token",
+		});
+	});
+
 	test("retries a read interrupted by daemon replacement", async () => {
 		const client = new AcpDaemonClient({
 			organizationId: "org-1",

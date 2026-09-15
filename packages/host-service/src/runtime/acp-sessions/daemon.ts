@@ -117,6 +117,31 @@ const RETRYABLE_AFTER_DISCONNECT: ReadonlySet<RequestOperation> = new Set([
 	"getAgentBrowserView",
 ]);
 
+export interface AcpDaemonHelloParams {
+	agentBrowserCdpProxyUrl?: string;
+}
+
+export function applyAcpDaemonRuntimeConfig(
+	input: unknown,
+	env: NodeJS.ProcessEnv = process.env,
+): void {
+	const value = (input as AcpDaemonHelloParams | null)?.agentBrowserCdpProxyUrl;
+	if (value === undefined) return;
+	if (typeof value !== "string") {
+		throw new Error("Agent Browser CDP proxy URL must be a string");
+	}
+	const url = new URL(value);
+	if (
+		url.protocol !== "http:" ||
+		url.hostname !== "127.0.0.1" ||
+		!url.port ||
+		url.pathname === "/"
+	) {
+		throw new Error("Agent Browser CDP proxy URL must be a loopback endpoint");
+	}
+	env.SUPERSET_AGENT_BROWSER_CDP_PROXY_URL = value;
+}
+
 export interface AcpDaemonHello {
 	pid: number;
 	protocolVersion: number;
@@ -157,6 +182,7 @@ export interface AcpDaemonSessionChangedEvent {
 	workspaceId: string;
 	eventType: "changed" | "deleted";
 	status?: SessionStatus;
+	lastMessageAt?: number | null;
 	occurredAt: number;
 }
 
@@ -313,7 +339,7 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 	}
 
 	async hello(): Promise<AcpDaemonHello> {
-		return this.request<AcpDaemonHello>("hello", {});
+		return this.request<AcpDaemonHello>("hello", this.helloParams());
 	}
 
 	async shutdown(input: { force?: boolean } = {}): Promise<void> {
@@ -643,10 +669,20 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		throw new Error(`ACP daemon did not listen at ${socketPath}`);
 	}
 
+	private helloParams(): AcpDaemonHelloParams {
+		const agentBrowserCdpProxyUrl =
+			this.options.spawnEnv?.SUPERSET_AGENT_BROWSER_CDP_PROXY_URL ??
+			process.env.SUPERSET_AGENT_BROWSER_CDP_PROXY_URL;
+		return agentBrowserCdpProxyUrl ? { agentBrowserCdpProxyUrl } : {};
+	}
+
 	private async verifyConnectedDaemon(
 		expectedBuild: string,
 	): Promise<"use" | "replace"> {
-		const hello = await this.sendRequest<AcpDaemonHello>("hello", {});
+		const hello = await this.sendRequest<AcpDaemonHello>(
+			"hello",
+			this.helloParams(),
+		);
 		this.connectedHello = hello;
 		if (hello.protocolVersion !== ACP_DAEMON_PROTOCOL_VERSION) {
 			if ((hello.pendingInteractionCount ?? 0) > 0) {

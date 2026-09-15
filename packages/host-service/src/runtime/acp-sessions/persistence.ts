@@ -45,7 +45,8 @@ export interface AcpSessionRecord {
 	cwd: string;
 	title: string | null;
 	lastStopReason: StopReason | null;
-	/** Lazily reconstructed from the durable journal; not a database column. */
+	/** Lazily reconstructed from the durable journal; not database columns. */
+	lastMessageAt?: number | null;
 	lastCompletedAt?: number | null;
 	createdAt: number;
 	updatedAt: number;

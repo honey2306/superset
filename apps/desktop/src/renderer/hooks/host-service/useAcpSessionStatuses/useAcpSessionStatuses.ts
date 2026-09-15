@@ -42,16 +42,26 @@ export function patchAcpSessionStatusCache(
 	const nextStatus = payload.status;
 
 	let found = false;
-	let statusChanged = false;
+	let itemChanged = false;
 	const items = page.items.map((item) => {
 		if (item.sessionId !== payload.sessionId) return item;
 		found = true;
-		if (item.status === nextStatus) return item;
-		statusChanged = true;
-		return { ...item, status: nextStatus };
+		const statusChanged = item.status !== nextStatus;
+		const messageTimeChanged =
+			payload.lastMessageAt !== undefined &&
+			item.lastMessageAt !== payload.lastMessageAt;
+		if (!statusChanged && !messageTimeChanged) return item;
+		itemChanged = true;
+		return {
+			...item,
+			status: nextStatus,
+			...(payload.lastMessageAt !== undefined
+				? { lastMessageAt: payload.lastMessageAt }
+				: {}),
+		};
 	});
 
-	return found && statusChanged ? { ...page, items } : page;
+	return found && itemChanged ? { ...page, items } : page;
 }
 
 /**

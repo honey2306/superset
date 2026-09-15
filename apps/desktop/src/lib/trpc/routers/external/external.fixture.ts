@@ -1,18 +1,12 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+	electronOpenPathMock as openPath,
+	electronShowItemInFolderMock as showItemInFolder,
+} from "../../../../../test-setup";
 
-const openPath = mock((_filePath: string) => Promise.resolve(""));
-const showItemInFolder = mock((_filePath: string) => {});
-mock.module("electron", () => ({
-	clipboard: { writeText: () => {} },
-	shell: {
-		openExternal: () => Promise.resolve(),
-		openPath,
-		showItemInFolder,
-	},
-}));
 const { createExternalRouter } = await import("./index");
 const caller = createExternalRouter().createCaller({});
 let testRoot = "";
@@ -47,7 +41,13 @@ describe("external.openInApp", () => {
 				settled = true;
 			});
 
-		await new Promise((resolve) => setTimeout(resolve, 0));
+		for (
+			let attempt = 0;
+			attempt < 50 && openPath.mock.calls.length === 0;
+			attempt++
+		) {
+			await new Promise((resolve) => setTimeout(resolve, 1));
+		}
 		expect(settled).toBe(false);
 		expect(openPath).toHaveBeenCalledWith(directoryPath);
 		expect(showItemInFolder).not.toHaveBeenCalled();

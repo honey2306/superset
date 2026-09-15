@@ -2797,6 +2797,7 @@ export class AcpSessionManager {
 					cwd,
 					lastSeq: 0,
 					lastStopReason: resume?.lastStopReason ?? null,
+					lastMessageAt: resume ? this.persistedLastMessageAt(resume) : null,
 					lastCompletedAt: resume?.lastCompletedAt ?? null,
 					lastError: null,
 					createdAt: resume?.createdAt ?? now,
@@ -3018,6 +3019,7 @@ export class AcpSessionManager {
 			cwd: runtime.state.cwd,
 			title: runtime.state.title,
 			lastStopReason: runtime.state.lastStopReason,
+			lastMessageAt: runtime.state.lastMessageAt,
 			lastCompletedAt: runtime.state.lastCompletedAt,
 			createdAt: runtime.state.createdAt,
 			updatedAt: runtime.state.updatedAt,
@@ -3053,6 +3055,7 @@ export class AcpSessionManager {
 			workspaceId: record.workspaceId,
 			eventType: "changed",
 			status: "offline",
+			lastMessageAt: record.lastMessageAt,
 			occurredAt: Date.now(),
 		});
 	}
@@ -3578,6 +3581,13 @@ export class AcpSessionManager {
 			}
 		}
 		const envelope = runtime.journal.append(runtime.state.sessionId, frame);
+		if (
+			frame.kind === "update" &&
+			(frame.update.sessionUpdate === "user_message_chunk" ||
+				frame.update.sessionUpdate === "agent_message_chunk")
+		) {
+			runtime.state.lastMessageAt = envelope.ts;
+		}
 		try {
 			this.persistence?.appendEnvelope(envelope);
 		} catch (error) {
@@ -3716,6 +3726,7 @@ export class AcpSessionManager {
 			workspaceId: runtime.state.workspaceId,
 			eventType: "changed",
 			status: runtime.state.status,
+			lastMessageAt: runtime.state.lastMessageAt,
 			occurredAt: Date.now(),
 		});
 		this.scheduleIdleHibernate(runtime);
@@ -3802,6 +3813,7 @@ export class AcpSessionManager {
 				cwd: runtime.state.cwd,
 				title: runtime.state.title,
 				lastStopReason: runtime.state.lastStopReason,
+				lastMessageAt: runtime.state.lastMessageAt,
 				lastCompletedAt: runtime.state.lastCompletedAt,
 				createdAt: runtime.state.createdAt,
 				updatedAt: runtime.state.updatedAt,
@@ -3809,6 +3821,32 @@ export class AcpSessionManager {
 		} catch (error) {
 			console.warn("[acp-sessions] failed to persist session row", error);
 		}
+	}
+
+	private persistedLastMessageAt(record: AcpSessionRecord): number | null {
+		if (record.lastMessageAt !== undefined) return record.lastMessageAt;
+		let latest: number | null = null;
+		try {
+			for (const envelope of this.persistence?.loadJournal(
+				record.sessionId,
+				record.epoch,
+			) ?? []) {
+				if (
+					envelope.frame.kind === "update" &&
+					(envelope.frame.update.sessionUpdate === "user_message_chunk" ||
+						envelope.frame.update.sessionUpdate === "agent_message_chunk")
+				) {
+					latest = Math.max(latest ?? 0, envelope.ts);
+				}
+			}
+		} catch (error) {
+			console.warn(
+				`[acp-sessions] failed to derive message time for ${record.sessionId}`,
+				error,
+			);
+		}
+		record.lastMessageAt = latest;
+		return latest;
 	}
 
 	private persistedLastCompletedAt(record: AcpSessionRecord): number | null {
@@ -3889,6 +3927,7 @@ export class AcpSessionManager {
 			cwd: record.cwd,
 			lastSeq: 0,
 			lastStopReason: record.lastStopReason,
+			lastMessageAt: this.persistedLastMessageAt(record),
 			lastCompletedAt: this.persistedLastCompletedAt(record),
 			lastError: null,
 			createdAt: record.createdAt,

@@ -52,16 +52,35 @@ describe("patchAcpSessionStatusCache", () => {
 			enabled: true,
 		};
 
-		const patched = patchAcpSessionStatusCache(page, changed());
+		const patched = patchAcpSessionStatusCache(
+			page,
+			changed({ lastMessageAt: 42 }),
+		);
 
 		expect(patched).not.toBe(page);
 		expect(patched?.items[0]).toMatchObject({
 			sessionId: "session-1",
 			status: "running",
+			lastMessageAt: 42,
 			title: "session-1",
 		});
 		expect(patched?.items[1]).toBe(page.items[1]);
 		expect(patched?.nextCursor).toBeNull();
+	});
+
+	test("patches message time even when the status is unchanged", () => {
+		const page: SessionsPage = {
+			items: [session("session-1", "running")],
+			nextCursor: null,
+			enabled: true,
+		};
+
+		const patched = patchAcpSessionStatusCache(
+			page,
+			changed({ lastMessageAt: 42 }),
+		);
+
+		expect(patched?.items[0]?.lastMessageAt).toBe(42);
 	});
 
 	test("leaves missing rows and deletion events for the authoritative refetch", () => {

@@ -110,6 +110,12 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 
 	test("create → prompt → poll → getMessages round trip over real tRPC", async () => {
 		const sessionId = "router-roundtrip";
+		const changedEvents: Array<{ lastMessageAt?: number | null }> = [];
+		const offSessionChanged = manager.onSessionChanged((event) => {
+			if (event.sessionId === sessionId && event.eventType === "changed") {
+				changedEvents.push(event);
+			}
+		});
 		const created = await host.trpc.acpSessions.create.mutate({
 			sessionId,
 			workspaceId: WORKSPACE_ID,
@@ -142,6 +148,7 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 			state = await host.trpc.acpSessions.get.query({ sessionId });
 		}
 		expect(state.lastError).toBeNull();
+		expect(typeof state.lastMessageAt).toBe("number");
 		expect(typeof state.lastCompletedAt).toBe("number");
 
 		const page = await host.trpc.acpSessions.getMessages.query({
@@ -150,6 +157,25 @@ describe("acp-sessions router: manager injected (gate open)", () => {
 		});
 		const timeline = foldEnvelopes(emptyTimeline(), page.items);
 		expect(agentText(timeline)).toContain("hello over trpc");
+		const latestMessageAt = Math.max(
+			...page.items
+				.filter(
+					(item) =>
+						item.frame.kind === "update" &&
+						(item.frame.update.sessionUpdate === "user_message_chunk" ||
+							item.frame.update.sessionUpdate === "agent_message_chunk"),
+				)
+				.map((item) => item.ts),
+		);
+		expect(state.lastMessageAt).toBe(latestMessageAt);
+		expect(
+			(await host.trpc.acpSessions.list.query({ workspaceId: WORKSPACE_ID }))
+				.items[0]?.lastMessageAt,
+		).toBe(latestMessageAt);
+		expect(
+			changedEvents.some((event) => event.lastMessageAt === latestMessageAt),
+		).toBe(true);
+		offSessionChanged();
 
 		const completedAt = state.lastCompletedAt;
 		await host.trpc.acpSessions.prompt.mutate({

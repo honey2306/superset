@@ -5,7 +5,7 @@ export interface BranchTag {
 	color: string;
 }
 
-/* 每个分支自己的颜色。避开品牌粉（全站保留给当前项）与危险红（有故障语义）， */
+/* 每个分支自己的颜色。避开品牌粉（全站保留给当前项）与危险红（有故障语义）。 */
 const BRANCH_PALETTE = [
 	"var(--success)",
 	"var(--info)",
@@ -22,7 +22,7 @@ function hashBranchName(branch: string): number {
 	return hash;
 }
 
-/** 前缀信息量低却很占宽度，剥掉只留核心名；颜色仍由完整名决定，避免剥完撞名 */
+/** 前缀信息量低却很占宽度，剥掉只留核心名 */
 function stripBranchPrefix(branch: string): string {
 	const slashIndex = branch.indexOf("/");
 	if (slashIndex <= 0) return branch;

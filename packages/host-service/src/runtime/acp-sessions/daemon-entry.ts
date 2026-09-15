@@ -68,6 +68,7 @@ import {
 	type AcpDaemonSessionChangedEvent,
 	type AcpDaemonSessionOpenRequestedEvent,
 	acpDaemonSocketPath,
+	applyAcpDaemonRuntimeConfig,
 } from "./daemon";
 import { resolveKDevMergeRequestPage } from "./kdev-merge-request";
 import {
@@ -528,6 +529,9 @@ async function main(): Promise<void> {
 				workspaceId: event.workspaceId,
 				eventType: event.eventType,
 				...(event.status !== undefined ? { status: event.status } : {}),
+				...(event.lastMessageAt !== undefined
+					? { lastMessageAt: event.lastMessageAt }
+					: {}),
 				occurredAt: event.occurredAt,
 			});
 		});
@@ -772,6 +776,7 @@ async function dispatch(
 		let shutdownAfterResponse = false;
 		switch (request.op) {
 			case "hello":
+				applyAcpDaemonRuntimeConfig(request.params);
 				result = {
 					pid: process.pid,
 					protocolVersion: ACP_DAEMON_PROTOCOL_VERSION,

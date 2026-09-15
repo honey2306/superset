@@ -20,7 +20,6 @@ export function BranchTag({ branch, className }: BranchTagProps) {
 				"font-mono text-[10px] leading-[1.45] tracking-[var(--ls-mono)]",
 				className,
 			)}
-			// 每个分支一个稳定颜色：底色是同色的一层淡 tint，文字取原色
 			style={{
 				backgroundColor: `color-mix(in oklch, ${color} 14%, transparent)`,
 				color,

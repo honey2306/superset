@@ -1,4 +1,7 @@
-import type { SessionsPage } from "@superset/session-protocol";
+import type {
+	SessionScopedState,
+	SessionsPage,
+} from "@superset/session-protocol";
 import { getEventBus } from "@superset/workspace-client";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
@@ -6,6 +9,7 @@ import {
 	deriveAcpSessionStatus,
 	getHighestAcpSessionStatus,
 } from "renderer/hooks/host-service/useAcpSessionStatuses/deriveAcpSessionStatus";
+import { patchAcpSessionStatusCache } from "renderer/hooks/host-service/useAcpSessionStatuses/useAcpSessionStatuses";
 import type { TerminalAgentBinding } from "renderer/hooks/host-service/useTerminalAgentBindings/useTerminalAgentBindings";
 import { getHighestTerminalAgentStatus } from "renderer/hooks/host-service/useTerminalAgentStatuses/deriveTerminalAgentStatus";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
@@ -18,8 +22,7 @@ import {
 	getHighestPriorityStatus,
 } from "shared/tabs-types";
 
-/** 置顶「进行中」组关心的状态：agent 正在跑或需要人介入。
- * `review`（产出待审）不置顶——它属于「已完成待看」，留在原位置用绿点表达。 */
+/** 时间线视图中视为活跃的状态：agent 正在跑或需要人介入。 */
 const LIVE_STATUSES = new Set<ActivePaneStatus>([
 	"working",
 	"permission",
@@ -41,10 +44,10 @@ export function isLiveStatus(status: ActivePaneStatus | null): boolean {
 /**
  * 聚合侧栏全部 workspace 的 agent 活动（terminal + ACP）：状态 + 最后活动时间。
  * queryKey 与 WorkspaceListItem 内的逐 workspace hook 完全一致——共享缓存，
- * 不产生重复请求。项目视图用它挑出「进行中」置顶组，时间线视图用它排序。
+ * 不产生重复请求。时间线视图用它排序。
  */
 export function useSidebarWorkspaceActivity(
-	workspaces: Array<{ id: string }>,
+	workspaces: Array<{ id: string; openAcpSessionIds?: ReadonlySet<string> }>,
 ): Map<string, WorkspaceActivity> {
 	const { activeHostUrl: hostUrl } = useLocalHostService();
 	const queryClient = useQueryClient();
@@ -116,69 +119,76 @@ export function useSidebarWorkspaceActivity(
 	useEffect(() => {
 		if (!hostUrl || !workspaceIdsKey) return;
 		const bus = getEventBus(hostUrl, () => getHostServiceWsToken(hostUrl));
-		const offs = workspaceIdsKey
-			.split(",")
-			.flatMap((workspaceId) => [
-				bus.on("agent:lifecycle", workspaceId, () =>
-					invalidateWorkspace(workspaceId),
-				),
-				bus.on("terminal:lifecycle", workspaceId, () =>
-					invalidateWorkspace(workspaceId),
-				),
-				bus.on("acp-session:changed", workspaceId, () =>
-					invalidateWorkspace(workspaceId),
-				),
-			]);
+		const offs = workspaceIdsKey.split(",").flatMap((workspaceId) => [
+			bus.on("agent:lifecycle", workspaceId, () =>
+				invalidateWorkspace(workspaceId),
+			),
+			bus.on("terminal:lifecycle", workspaceId, () =>
+				invalidateWorkspace(workspaceId),
+			),
+			bus.on("acp-session:changed", workspaceId, (_id, payload) => {
+				queryClient.setQueryData<SessionsPage>(
+					["acp-sessions", hostUrl, workspaceId],
+					(current) => patchAcpSessionStatusCache(current, payload),
+				);
+				invalidateWorkspace(workspaceId);
+			}),
+		]);
 		const release = bus.retain();
 		return () => {
 			for (const off of offs) off();
 			release();
 		};
-	}, [hostUrl, workspaceIdsKey, invalidateWorkspace]);
+	}, [hostUrl, workspaceIdsKey, invalidateWorkspace, queryClient]);
 
-	return useMemo(() => {
-		const activity = new Map<string, WorkspaceActivity>();
-		if (!hostUrl) return activity;
-		const workspaceIds = workspaceIdsKey ? workspaceIdsKey.split(",") : [];
-		for (const [index, workspaceId] of workspaceIds.entries()) {
-			const terminalData = terminalQueries[index]?.data;
-			const acpData = acpQueries[index]?.data;
+	// Do not memoize from the useQueries result arrays: TanStack may preserve
+	// their identity while updating result data, which would leave the timeline stale.
+	const activity = new Map<string, WorkspaceActivity>();
+	if (!hostUrl) return activity;
+	const workspaceIds = workspaceIdsKey ? workspaceIdsKey.split(",") : [];
+	const workspaceInputsById = new Map(
+		workspaces.map((workspace) => [workspace.id, workspace]),
+	);
+	for (const [index, workspaceId] of workspaceIds.entries()) {
+		const terminalData = terminalQueries[index]?.data;
+		const acpData = acpQueries[index]?.data;
 
-			const terminalStatus = terminalData
-				? getHighestTerminalAgentStatus(
-						new Map(terminalData.map((b) => [b.terminalId, b])),
-						terminalSeenAt,
-					)
-				: null;
-			const acpStatus = acpData
-				? getHighestAcpSessionStatus(
-						deriveAcpNotificationStatuses(acpData, acpSessionSeenAt),
-					)
-				: null;
+		const terminalStatus = terminalData
+			? getHighestTerminalAgentStatus(
+					new Map(terminalData.map((b) => [b.terminalId, b])),
+					terminalSeenAt,
+				)
+			: null;
+		const acpStatus = acpData
+			? getHighestAcpSessionStatus(
+					deriveAcpNotificationStatuses(acpData, acpSessionSeenAt),
+					workspaceInputsById.get(workspaceId)?.openAcpSessionIds ?? new Set(),
+				)
+			: null;
 
-			activity.set(workspaceId, {
-				status: getHighestPriorityStatus([
-					terminalStatus ?? undefined,
-					acpStatus ?? undefined,
-				]),
-				lastActivityAt: latestActivityAt(terminalData, acpData),
-			});
-		}
-		return activity;
-	}, [
-		hostUrl,
-		workspaceIdsKey,
-		terminalQueries,
-		acpQueries,
-		terminalSeenAt,
-		acpSessionSeenAt,
-	]);
+		activity.set(workspaceId, {
+			status: getHighestPriorityStatus([
+				terminalStatus ?? undefined,
+				acpStatus ?? undefined,
+			]),
+			lastActivityAt: latestActivityAt(terminalData, acpData),
+		});
+	}
+	return activity;
 }
 
-/** terminal 事件与 ACP 完成时间里最近的那个 */
-function latestActivityAt(
-	terminalData: TerminalAgentBinding[] | undefined,
-	acpData: SessionsPage | undefined,
+/** terminal 事件与 ACP 最新消息时间里最近的那个。旧 host 回退到 turn 完成时间。 */
+export function latestActivityAt(
+	terminalData:
+		| ReadonlyArray<Pick<TerminalAgentBinding, "lastEventAt">>
+		| undefined,
+	acpData:
+		| {
+				items: ReadonlyArray<
+					Pick<SessionScopedState, "lastMessageAt" | "lastCompletedAt">
+				>;
+		  }
+		| undefined,
 ): number | null {
 	let latest: number | null = null;
 	for (const binding of terminalData ?? []) {
@@ -187,9 +197,9 @@ function latestActivityAt(
 		}
 	}
 	for (const item of acpData?.items ?? []) {
-		const completedAt = item.lastCompletedAt ?? null;
-		if (completedAt !== null && (latest === null || completedAt > latest)) {
-			latest = completedAt;
+		const messageAt = item.lastMessageAt ?? item.lastCompletedAt ?? null;
+		if (messageAt !== null && (latest === null || messageAt > latest)) {
+			latest = messageAt;
 		}
 	}
 	return latest;

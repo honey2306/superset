@@ -45,6 +45,10 @@ export type {
 	PaneNavigationResult,
 	PanesPaneData,
 } from "./types";
+export {
+	getOpenAcpSessionIds,
+	useOpenAcpSessionIdsByWorkspace,
+} from "./useOpenAcpSessionIdsByWorkspace";
 export { usePanesWorkspaceState } from "./usePanesWorkspaceState";
 export {
 	createWorkspaceRunSingleFlight,

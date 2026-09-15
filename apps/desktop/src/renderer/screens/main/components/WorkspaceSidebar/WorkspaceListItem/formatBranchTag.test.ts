@@ -38,7 +38,6 @@ describe("formatBranchTag", () => {
 	});
 
 	it("colours by the full name, so stripped duplicates stay distinguishable", () => {
-		// 两者剥完前缀都是 `kro-suite`，颜色必须仍由完整名决定
 		const feature = formatBranchTag("feat/kro-suite");
 		const fix = formatBranchTag("fix/kro-suite");
 		expect(feature.label).toBe(fix.label);

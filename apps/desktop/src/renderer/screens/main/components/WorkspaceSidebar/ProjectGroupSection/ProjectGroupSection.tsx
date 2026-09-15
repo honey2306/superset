@@ -155,7 +155,7 @@ export function ProjectGroupSection({
 	};
 
 	return (
-		<div className={cn("mb-5", isDragging && "opacity-30")}>
+		<div className={cn("mb-3", isDragging && "opacity-30")}>
 			<ContextMenu>
 				<ContextMenuTrigger asChild>
 					<div

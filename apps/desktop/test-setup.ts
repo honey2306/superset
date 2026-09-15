@@ -82,6 +82,11 @@ beforeEach(() => {
 // Electron Module Mock (the actual electron package)
 // =============================================================================
 
+export const electronOpenPathMock = mock((_filePath: string) =>
+	Promise.resolve(""),
+);
+export const electronShowItemInFolderMock = mock((_filePath: string) => {});
+
 mock.module("electron", () => ({
 	app: {
 		getPath: mock(() => testTmpDir),
@@ -112,7 +117,8 @@ mock.module("electron", () => ({
 	},
 	shell: {
 		openExternal: mock(() => Promise.resolve()),
-		openPath: mock(() => Promise.resolve("")),
+		openPath: electronOpenPathMock,
+		showItemInFolder: electronShowItemInFolderMock,
 	},
 	clipboard: {
 		writeText: mock(),

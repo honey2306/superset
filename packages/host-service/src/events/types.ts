@@ -147,6 +147,8 @@ export interface AcpSessionChangedMessage {
 	eventType: "changed" | "deleted";
 	/** Absent for `deleted`. */
 	status?: SessionStatus;
+	/** Latest message timestamp at this transition; absent for older hosts. */
+	lastMessageAt?: number | null;
 	occurredAt: number;
 }
 

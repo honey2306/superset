@@ -219,6 +219,9 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 				sessionId: event.sessionId,
 				eventType: event.eventType,
 				...(event.status !== undefined ? { status: event.status } : {}),
+				...(event.lastMessageAt !== undefined
+					? { lastMessageAt: event.lastMessageAt }
+					: {}),
 				occurredAt: event.occurredAt,
 			});
 		});

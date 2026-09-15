@@ -30,6 +30,8 @@ export interface AcpSessionChangeEvent {
 	eventType: "changed" | "deleted";
 	/** Absent for `deleted`. */
 	status?: SessionStatus;
+	/** Latest message timestamp at this transition; absent for older daemons. */
+	lastMessageAt?: number | null;
 	occurredAt: number;
 }
 
