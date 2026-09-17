@@ -115,9 +115,9 @@ export function CommandPalette({
 	return (
 		<DialogPrimitive.Root open={open} onOpenChange={handleOpenChange} modal>
 			<DialogPrimitive.Portal>
-				<DialogPrimitive.Overlay className="fixed inset-0 z-50" />
+				<DialogPrimitive.Overlay className="fixed inset-0 z-modal-scrim" />
 				<DialogPrimitive.Content
-					className="fixed left-[50%] z-50 w-full max-w-[672px] translate-x-[-50%] overflow-hidden rounded-ds-5 border shadow-lg"
+					className="fixed left-[50%] z-modal w-full max-w-[672px] translate-x-[-50%] overflow-hidden rounded-ds-5 border shadow-lg"
 					style={{ top: `calc(50% - ${MAX_DIALOG_HEIGHT / 2}px)` }}
 				>
 					<DialogPrimitive.Title className="sr-only">

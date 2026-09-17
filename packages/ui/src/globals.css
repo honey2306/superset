@@ -39,6 +39,20 @@
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
+
+	/* DS z-index ladder (designs/superset-design-system/tokens/z-index.css).
+	 * Tailwind v4 z-* utilities read the --z-index-* namespace, so `z-overlay`
+	 * requires `--z-index-overlay` here — without these tokens the named z
+	 * classes on portal surfaces silently generate no CSS. */
+	--z-index-base: 0;
+	--z-index-rail: 10;
+	--z-index-dropdown: 20;
+	--z-index-sticky-overlay: 30;
+	--z-index-overlay: 40;
+	--z-index-modal-scrim: 50;
+	--z-index-modal: 60;
+	--z-index-toast: 70;
+	--z-index-tooltip: 80;
 }
 
 :root {
