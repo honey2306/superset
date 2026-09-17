@@ -3,6 +3,7 @@ import type { SessionUpdateEnvelope } from "@superset/session-protocol";
 import { encodeTranscriptCursor } from "@superset/session-protocol";
 import {
 	buildTranscriptPage,
+	modelHistoryBeforeTurnFromLegacyCursor,
 	transcriptTurnFromCompactRecord,
 } from "./transcript";
 
@@ -89,6 +90,33 @@ test("defaults to the latest eight turns and pages one older turn at a time", ()
 	expect(older.nextCursor).toBe(encodeTranscriptCursor(2));
 });
 
+test("stops adding older turns at the byte budget but always serves the newest turn", () => {
+	const entries = Array.from({ length: 8 }, (_, index) =>
+		envelope(
+			index + 1,
+			index % 2 === 0 ? "user_message_chunk" : "agent_message_chunk",
+		),
+	);
+	const singleTurnBytes = Buffer.byteLength(
+		JSON.stringify(buildTranscriptPage(entries, { limit: 1 }).turns[0]),
+	);
+
+	// Budget for roughly two turns: the page shrinks but stays pageable.
+	const bounded = buildTranscriptPage(entries, {
+		maxBytes: singleTurnBytes * 2,
+	});
+	expect(bounded.totalTurns).toBe(4);
+	expect(bounded.turns.map(({ turnNumber }) => turnNumber)).toEqual([3, 4]);
+	expect(bounded.nextCursor).toBe(encodeTranscriptCursor(3));
+	// The rail index still covers every turn.
+	expect(bounded.index).toHaveLength(4);
+
+	// A budget below a single turn still serves exactly the newest turn.
+	const minimal = buildTranscriptPage(entries, { maxBytes: 1 });
+	expect(minimal.turns.map(({ turnNumber }) => turnNumber)).toEqual([4]);
+	expect(minimal.nextCursor).toBe(encodeTranscriptCursor(4));
+});
+
 test("rehydrates only compact messages and tool summaries", () => {
 	const turn = transcriptTurnFromCompactRecord(
 		{
@@ -131,4 +159,51 @@ test("rehydrates only compact messages and tool summaries", () => {
 		kind: "update",
 		update: { toolCallId: "compact:1:tool-1" },
 	});
+});
+
+test("maps legacy seq cursors onto whole turns without losing unread items", () => {
+	// 合成序列：压缩 turn 1（-2..-1）+ 原生 turn 2（1..2）+ turn 3（5..10）。
+	const turns = [
+		{
+			turnNumber: 1,
+			startSeq: -2,
+			endSeq: -1,
+			userPreview: "",
+			agentPreview: null,
+			isComplete: true,
+			items: [],
+		},
+		{
+			turnNumber: 2,
+			startSeq: 1,
+			endSeq: 2,
+			userPreview: "",
+			agentPreview: null,
+			isComplete: true,
+			items: [],
+		},
+		{
+			turnNumber: 3,
+			startSeq: 5,
+			endSeq: 10,
+			userPreview: "",
+			agentPreview: null,
+			isComplete: true,
+			items: [],
+		},
+	];
+
+	// 游标 s2：上一页已交付 seq 2，turn 2 内 seq 1 仍未读 —— 必须整turn重发。
+	expect(modelHistoryBeforeTurnFromLegacyCursor(turns, 2)).toBe(3);
+	// 游标 s1：turn 2 内没有更低项，从 turn 1 恢复。
+	expect(modelHistoryBeforeTurnFromLegacyCursor(turns, 1)).toBe(2);
+	// 游标落在 turn 3 中间：整turn重发，宁重复不丢失。
+	expect(modelHistoryBeforeTurnFromLegacyCursor(turns, 8)).toBe(4);
+	// 游标落在 turn 2 与 turn 3 之间的非消息帧上：turn 2 全部内容仍未读，
+	// 与包含式重发一样不丢数据。
+	expect(modelHistoryBeforeTurnFromLegacyCursor(turns, 4)).toBe(3);
+	// 游标高于所有序列：从最新开始整页。
+	expect(modelHistoryBeforeTurnFromLegacyCursor(turns, 99)).toBe(4);
+	// 空历史：遇号到空页而不是抛错。
+	expect(modelHistoryBeforeTurnFromLegacyCursor([], 5)).toBe(1);
 });

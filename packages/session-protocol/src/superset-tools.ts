@@ -54,7 +54,10 @@ const getSessionMessagesArgsSchema = z
 		sessionId: sessionIdSchema,
 		cursor: z
 			.string()
-			.regex(/^s[1-9][0-9]*$/, "expected an s<sequence> messages cursor")
+			.regex(
+				/^(s[1-9][0-9]*|t[1-9][0-9]*)$/,
+				"expected an s<seq> or t<turn> messages cursor",
+			)
 			.refine(
 				(cursor) => Number.isSafeInteger(Number(cursor.slice(1))),
 				"expected a safe-integer messages cursor",
@@ -262,16 +265,17 @@ const globalMcpServerNameSchema = z
 	.min(1)
 	.max(64)
 	.regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
-const globalMcpStdioServerArgsSchema = z
+const globalMcpServerArgsSchema = z
 	.object({
-		type: z.literal("stdio").default("stdio"),
+		type: z.enum(["stdio", "http", "sse"]).default("stdio"),
 		name: globalMcpServerNameSchema,
 		command: z
 			.string()
 			.trim()
 			.min(1)
 			.max(2_000)
-			.refine((value) => !value.includes("\0")),
+			.refine((value) => !value.includes("\0"))
+			.optional(),
 		args: z
 			.array(
 				z
@@ -280,7 +284,7 @@ const globalMcpStdioServerArgsSchema = z
 					.refine((value) => !value.includes("\0")),
 			)
 			.max(100)
-			.default([]),
+			.optional(),
 		env: z
 			.record(
 				z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
@@ -289,20 +293,14 @@ const globalMcpStdioServerArgsSchema = z
 					.max(100_000)
 					.refine((value) => !value.includes("\0")),
 			)
-			.default({}),
-		enabled: z.boolean().default(true),
-	})
-	.strict();
-const globalMcpRemoteServerArgsSchema = z
-	.object({
-		type: z.enum(["http", "sse"]),
-		name: globalMcpServerNameSchema,
+			.optional(),
 		url: z
 			.url()
 			.max(10_000)
 			.refine(
 				(value) => value.startsWith("https://") || value.startsWith("http://"),
-			),
+			)
+			.optional(),
 		headers: z
 			.record(
 				z
@@ -315,14 +313,66 @@ const globalMcpRemoteServerArgsSchema = z
 					.max(100_000)
 					.refine((value) => !/[\r\n\0]/.test(value)),
 			)
-			.default({}),
+			.optional(),
 		enabled: z.boolean().default(true),
 	})
-	.strict();
-const globalMcpServerArgsSchema = z.union([
-	globalMcpStdioServerArgsSchema,
-	globalMcpRemoteServerArgsSchema,
-]);
+	.strict()
+	.superRefine((server, context) => {
+		if (server.type === "stdio") {
+			if (server.command === undefined) {
+				context.addIssue({
+					code: "custom",
+					path: ["command"],
+					message: "command is required when type is stdio.",
+				});
+			}
+			for (const field of ["url", "headers"] as const) {
+				if (server[field] !== undefined) {
+					context.addIssue({
+						code: "custom",
+						path: [field],
+						message: `${field} is only supported for HTTP and SSE servers.`,
+					});
+				}
+			}
+			return;
+		}
+		if (server.url === undefined) {
+			context.addIssue({
+				code: "custom",
+				path: ["url"],
+				message: `url is required when type is ${server.type}.`,
+			});
+		}
+		for (const field of ["command", "args", "env"] as const) {
+			if (server[field] !== undefined) {
+				context.addIssue({
+					code: "custom",
+					path: [field],
+					message: `${field} is only supported for stdio servers.`,
+				});
+			}
+		}
+	})
+	.transform((server) => {
+		if (server.type === "stdio") {
+			return {
+				type: server.type,
+				name: server.name,
+				command: server.command as string,
+				args: server.args ?? [],
+				env: server.env ?? {},
+				enabled: server.enabled,
+			};
+		}
+		return {
+			type: server.type,
+			name: server.name,
+			url: server.url as string,
+			headers: server.headers ?? {},
+			enabled: server.enabled,
+		};
+	});
 const removeGlobalMcpServerArgsSchema = z
 	.object({ name: z.string().trim().min(1).max(64) })
 	.strict();
@@ -831,14 +881,14 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "get_session_messages",
 		description:
-			"Read persisted user, agent, and thought messages for an ACP session in the current workspace. Large content is truncated and raw tool payloads are omitted. Results are newest-first; pass nextCursor as cursor to fetch older messages.",
+			"Read persisted user, agent, and thought messages for an ACP session in the current workspace. History is served newest-first grouped by conversation turns; limit caps turns per page. Large content is truncated and raw tool payloads are omitted. Pass nextCursor as cursor to fetch older turns. Legacy s<seq> cursors from older builds are still accepted.",
 		inputSchema: {
 			type: "object",
 			properties: {
 				sessionId: { type: "string", minLength: 1, maxLength: 256 },
 				cursor: {
 					type: "string",
-					pattern: "^s[1-9][0-9]*$",
+					pattern: "^(s[1-9][0-9]*|t[1-9][0-9]*)$",
 				},
 				limit: { type: "integer", minimum: 1, maximum: 200, default: 50 },
 			},
@@ -1130,44 +1180,50 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 			"Add or update one app-global stdio, HTTP, or SSE MCP server by name. The configuration applies to every Agent on its next new or resumed session. Never store credentials unless the user explicitly asks; prefer environment-variable references for stdio servers.",
 		inputSchema: {
 			type: "object",
-			oneOf: [
-				{
-					properties: {
-						type: { type: "string", const: "stdio", default: "stdio" },
-						name: { type: "string", minLength: 1, maxLength: 64 },
-						command: { type: "string", minLength: 1, maxLength: 2_000 },
-						args: {
-							type: "array",
-							items: { type: "string", maxLength: 10_000 },
-							maxItems: 100,
-							default: [],
-						},
-						env: {
-							type: "object",
-							additionalProperties: { type: "string", maxLength: 100_000 },
-							default: {},
-						},
-						enabled: { type: "boolean", default: true },
-					},
-					required: ["name", "command"],
-					additionalProperties: false,
+			properties: {
+				type: {
+					type: "string",
+					enum: ["stdio", "http", "sse"],
+					default: "stdio",
 				},
-				{
-					properties: {
-						type: { type: "string", enum: ["http", "sse"] },
-						name: { type: "string", minLength: 1, maxLength: 64 },
-						url: { type: "string", format: "uri", maxLength: 10_000 },
-						headers: {
-							type: "object",
-							additionalProperties: { type: "string", maxLength: 100_000 },
-							default: {},
-						},
-						enabled: { type: "boolean", default: true },
-					},
-					required: ["type", "name", "url"],
-					additionalProperties: false,
+				name: {
+					type: "string",
+					minLength: 1,
+					maxLength: 64,
+					pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*$",
 				},
-			],
+				command: {
+					type: "string",
+					minLength: 1,
+					maxLength: 2_000,
+					description: "Required when type is stdio.",
+				},
+				args: {
+					type: "array",
+					items: { type: "string", maxLength: 10_000 },
+					maxItems: 100,
+					default: [],
+				},
+				env: {
+					type: "object",
+					additionalProperties: { type: "string", maxLength: 100_000 },
+					default: {},
+				},
+				url: {
+					type: "string",
+					format: "uri",
+					maxLength: 10_000,
+					description: "Required when type is http or sse.",
+				},
+				headers: {
+					type: "object",
+					additionalProperties: { type: "string", maxLength: 100_000 },
+					default: {},
+				},
+				enabled: { type: "boolean", default: true },
+			},
+			required: ["name"],
+			additionalProperties: false,
 		},
 	},
 	{

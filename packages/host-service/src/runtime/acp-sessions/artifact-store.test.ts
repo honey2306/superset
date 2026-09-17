@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { AcpArtifactStore } from "./artifact-store";
+import { AcpArtifactStore, MAX_INLINE_PROMPT_IMAGE_BYTES } from "./artifact-store";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -70,5 +70,39 @@ describe("AcpArtifactStore", () => {
 		expect(reused.locator.path).toBe(reference.locator.path);
 		restarted.removeSession("one");
 		expect(existsSync(reference.locator.path)).toBe(false);
+	});
+
+	test("bounds prompt blocks only above the prompt budget and preserves identity otherwise", () => {
+		const { store } = fixture();
+		const typical = {
+			type: "image",
+			data: Buffer.alloc(2 * 1024 * 1024, 1).toString("base64"),
+			mimeType: "image/png",
+		};
+		expect(store.boundPromptBlock("s", typical)).toBe(typical);
+		const text = { type: "text", text: "hello" };
+		expect(store.boundPromptBlock("s", text)).toBe(text);
+
+		const oversized = {
+			type: "image",
+			data: Buffer.alloc(MAX_INLINE_PROMPT_IMAGE_BYTES, 2).toString("base64"),
+			mimeType: "image/png",
+		};
+		const preview = store.previewBoundPromptBlock("s", oversized) as {
+			type: string;
+			locator: { path: string };
+		};
+		expect(preview.type).toBe("acp-artifact");
+		expect(existsSync(preview.locator.path)).toBe(false);
+		const stored = store.boundPromptBlock("s", oversized) as {
+			type: string;
+			byteSize: number;
+			locator: { path: string };
+		};
+		expect(stored.locator.path).toBe(preview.locator.path);
+		expect(stored.byteSize).toBe(MAX_INLINE_PROMPT_IMAGE_BYTES);
+		expect(readFileSync(stored.locator.path)).toEqual(
+			Buffer.from(oversized.data, "base64"),
+		);
 	});
 });

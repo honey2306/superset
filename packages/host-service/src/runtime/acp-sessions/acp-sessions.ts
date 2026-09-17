@@ -52,7 +52,9 @@ import type {
 import {
 	composeSupersetModelFacingInstructions,
 	customResponse,
+	decodeMessagesCursor,
 	encodeMessagesCursor,
+	encodeTranscriptCursor,
 	groupTranscriptTurns,
 	SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
@@ -85,6 +87,7 @@ import type {
 } from "./runtime";
 import {
 	buildTranscriptPageFromTurns,
+	modelHistoryBeforeTurnFromLegacyCursor,
 	transcriptTurnFromCompactRecord,
 } from "./transcript";
 import { compactTranscriptTurns, type TurnCompletion } from "./turn-compaction";
@@ -1039,9 +1042,49 @@ export class AcpSessionManager {
 		targetTurn?: number;
 		limit?: number;
 	}): TranscriptPage {
-		const runtime = this.runtimes.get(input.sessionId);
-		const compactRecords = this.loadCompactTurns(input.sessionId);
-		const cached = this.transcriptCache.get(input.sessionId);
+		return buildTranscriptPageFromTurns(
+			this.loadTranscriptTurns(input.sessionId),
+			input,
+		);
+	}
+
+	/**
+	 * Model-facing history page for the bundled Superset MCP tools. Serves the
+	 * same merged turn view as getTranscript — compact turn rows plus the raw
+	 * journal — so history that turn compaction removed from the raw journal
+	 * stays readable, and a page always contains whole turns instead of a raw
+	 * envelope window that can filter down to an empty-but-cursor page. Legacy
+	 * `s<seq>` cursors from older builds are mapped onto turn numbers.
+	 */
+	getModelHistory(input: {
+		sessionId: string;
+		cursor?: string;
+		limit?: number;
+	}): { turns: TranscriptTurn[]; nextCursor: string | null } {
+		const turns = this.loadTranscriptTurns(input.sessionId);
+		let cursor = input.cursor;
+		if (cursor?.startsWith("s")) {
+			const beforeSeq = decodeMessagesCursor(cursor);
+			if (beforeSeq === null) {
+				throw new Error(`Invalid messages cursor: ${cursor}`);
+			}
+			// The mapped boundary is always ≥ 1: even an empty turn list degrades to
+			// a valid (empty) first page instead of throwing on cursor encoding.
+			cursor = encodeTranscriptCursor(
+				modelHistoryBeforeTurnFromLegacyCursor(turns, beforeSeq),
+			);
+		}
+		const page = buildTranscriptPageFromTurns(turns, {
+			...(cursor ? { cursor } : {}),
+			...(input.limit !== undefined ? { limit: input.limit } : {}),
+		});
+		return { turns: page.turns, nextCursor: page.nextCursor };
+	}
+
+	private loadTranscriptTurns(sessionId: string): TranscriptTurn[] {
+		const runtime = this.runtimes.get(sessionId);
+		const compactRecords = this.loadCompactTurns(sessionId);
+		const cached = this.transcriptCache.get(sessionId);
 		let entries: SessionUpdateEnvelope[];
 		let epoch: string;
 		if (runtime) {
@@ -1051,17 +1094,17 @@ export class AcpSessionManager {
 				cached.latestSeq === runtime.journal.latestSeq &&
 				cached.compactTurnCount === compactRecords.length
 			) {
-				return buildTranscriptPageFromTurns(cached.turns, input);
+				return cached.turns;
 			}
 			entries =
-				this.persistence?.loadJournal(input.sessionId, epoch) ??
+				this.persistence?.loadJournal(sessionId, epoch) ??
 				runtime.journal.snapshot();
 		} else {
-			const record = this.offline.get(input.sessionId);
+			const record = this.offline.get(sessionId);
 			if (!record) {
 				if (compactRecords.length === 0) {
 					throw new AcpSessionNotFoundError(
-						`Unknown ACP session: ${input.sessionId}`,
+						`Unknown ACP session: ${sessionId}`,
 					);
 				}
 				epoch = compactRecords.at(-1)?.epoch ?? "compact";
@@ -1072,11 +1115,11 @@ export class AcpSessionManager {
 					cached?.epoch === epoch &&
 					cached.compactTurnCount === compactRecords.length
 				) {
-					return buildTranscriptPageFromTurns(cached.turns, input);
+					return cached.turns;
 				}
 				entries =
-					this.persistence?.loadJournal(input.sessionId, epoch) ??
-					this.offlineJournal(input.sessionId).snapshot();
+					this.persistence?.loadJournal(sessionId, epoch) ??
+					this.offlineJournal(sessionId).snapshot();
 			}
 		}
 		const latestSeq = entries.at(-1)?.seq ?? 0;
@@ -1085,7 +1128,7 @@ export class AcpSessionManager {
 			cached.latestSeq === latestSeq &&
 			cached.compactTurnCount === compactRecords.length
 		) {
-			return buildTranscriptPageFromTurns(cached.turns, input);
+			return cached.turns;
 		}
 		// Every journal epoch starts at seq 1, while the renderer merges transcript
 		// envelopes by seq alone. Place compact history in one contiguous negative
@@ -1111,13 +1154,13 @@ export class AcpSessionManager {
 			turnNumber: compactTurns.length + index + 1,
 		}));
 		const turns = [...compactTurns, ...rawTurns];
-		this.transcriptCache.set(input.sessionId, {
+		this.transcriptCache.set(sessionId, {
 			epoch,
 			latestSeq,
 			compactTurnCount: compactRecords.length,
 			turns,
 		});
-		return buildTranscriptPageFromTurns(turns, input);
+		return turns;
 	}
 
 	private loadCompactTurns(sessionId: string): AcpSessionTurnRecord[] {
@@ -3577,6 +3620,26 @@ export class AcpSessionManager {
 								)
 							: update.rawOutput,
 					},
+				};
+			}
+		}
+		if (
+			frame.kind === "update" &&
+			frame.update.sessionUpdate === "user_message_chunk" &&
+			this.artifactStore
+		) {
+			// An oversized pasted image would otherwise become a journal envelope
+			// that can never cross the daemon's socket frame limit, permanently
+			// wedging history loads for this session.
+			const update = frame.update;
+			const bounded = this.artifactStore.boundPromptBlock(
+				runtime.state.sessionId,
+				update.content,
+			);
+			if (bounded !== update.content) {
+				frame = {
+					...frame,
+					update: { ...update, content: bounded as ContentBlock },
 				};
 			}
 		}

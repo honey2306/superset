@@ -11,6 +11,14 @@ import path from "node:path";
 
 export const MAX_INLINE_IMAGE_BYTES = 128 * 1024;
 
+/**
+ * User prompt images stay inline (the renderer displays them from journal
+ * frames), but a single journal envelope must never approach the daemon's
+ * 16 MiB socket frame limit or the 8 MiB message-page budget. Typical
+ * screenshots are well under this; only pathological pastes are externalized.
+ */
+export const MAX_INLINE_PROMPT_IMAGE_BYTES = 6 * 1024 * 1024;
+
 export interface AcpArtifactReference {
 	type: "acp-artifact";
 	artifactId: string;
@@ -67,6 +75,24 @@ export class AcpArtifactStore {
 				this.previewBoundRawOutput(sessionId, item),
 			]),
 		);
+	}
+
+	/**
+	 * Bounds a single prompt content block: an inline image above the prompt
+	 * budget becomes an artifact reference; everything else is returned as-is
+	 * (same object identity, so callers can cheaply detect a rewrite).
+	 */
+	boundPromptBlock(sessionId: string, block: unknown): unknown {
+		const image = oversizedPromptImage(block);
+		if (!image) return block;
+		return this.storeBase64(sessionId, image.data, image.mimeType);
+	}
+
+	/** Returns the same reference as boundPromptBlock without writing files. */
+	previewBoundPromptBlock(sessionId: string, block: unknown): unknown {
+		const image = oversizedPromptImage(block);
+		if (!image) return block;
+		return this.referenceForBase64(sessionId, image.data, image.mimeType);
 	}
 
 	get rootPath(): string {
@@ -155,4 +181,20 @@ export class AcpArtifactStore {
 		const id = createHash("sha256").update(sessionId).digest("hex");
 		return path.join(this.rootDirectory, id);
 	}
+}
+
+function oversizedPromptImage(
+	block: unknown,
+): { data: string; mimeType: string } | null {
+	if (!block || typeof block !== "object") return null;
+	const record = block as Record<string, unknown>;
+	if (
+		record.type !== "image" ||
+		typeof record.data !== "string" ||
+		typeof record.mimeType !== "string" ||
+		record.data.length <= MAX_INLINE_PROMPT_IMAGE_BYTES
+	) {
+		return null;
+	}
+	return { data: record.data, mimeType: record.mimeType };
 }

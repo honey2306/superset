@@ -28,6 +28,23 @@ function fixture() {
 			frame_json TEXT NOT NULL,
 			PRIMARY KEY (session_id, epoch, seq)
 		);
+		CREATE TABLE acp_session_turns (
+			session_id TEXT NOT NULL,
+			turn_number INTEGER NOT NULL,
+			epoch TEXT NOT NULL,
+			start_seq INTEGER NOT NULL,
+			end_seq INTEGER NOT NULL,
+			user_message_json TEXT NOT NULL,
+			assistant_message_json TEXT,
+			status TEXT NOT NULL,
+			started_at INTEGER NOT NULL,
+			completed_at INTEGER NOT NULL,
+			duration_ms INTEGER NOT NULL,
+			message_count INTEGER NOT NULL,
+			tool_call_count INTEGER NOT NULL,
+			tool_summaries_json TEXT NOT NULL DEFAULT '[]',
+			PRIMARY KEY (session_id, turn_number)
+		);
 	`);
 	const root = mkdtempSync(path.join(os.tmpdir(), "acp-compaction-"));
 	roots.push(root);
@@ -46,6 +63,38 @@ function updateFrame(rawOutput: unknown): string {
 		kind: "update",
 		update: { sessionUpdate: "tool_call_update", rawOutput },
 	});
+}
+
+function userMessageFrame(content: unknown): string {
+	return JSON.stringify({
+		kind: "update",
+		update: { sessionUpdate: "user_message_chunk", content },
+	});
+}
+
+function insertTurn(
+	input: ReturnType<typeof fixture>,
+	{
+		sessionId = "session-1",
+		turnNumber,
+		userMessageJson,
+		assistantMessageJson = null,
+	}: {
+		sessionId?: string;
+		turnNumber: number;
+		userMessageJson: string;
+		assistantMessageJson?: string | null;
+	},
+): void {
+	input.sqlite
+		.prepare(
+			`INSERT INTO acp_session_turns (
+				session_id, turn_number, epoch, start_seq, end_seq,
+				user_message_json, assistant_message_json, status,
+				started_at, completed_at, duration_ms, message_count, tool_call_count
+			) VALUES (?, ?, 'epoch-1', 1, 2, ?, ?, 'completed', 0, 1, 1, 1, 0)`,
+		)
+		.run(sessionId, turnNumber, userMessageJson, assistantMessageJson);
 }
 
 function insert(
@@ -158,7 +207,7 @@ describe("AcpHistoricalJournalCompactor", () => {
 			existsSync(
 				path.join(
 					input.store.rootPath,
-					"historical-journal-compaction-v1.json",
+					"historical-journal-compaction-v2.json",
 				),
 			),
 		).toBe(false);
@@ -174,7 +223,7 @@ describe("AcpHistoricalJournalCompactor", () => {
 			existsSync(
 				path.join(
 					input.store.rootPath,
-					"historical-journal-compaction-v1.json",
+					"historical-journal-compaction-v2.json",
 				),
 			),
 		).toBe(false);
@@ -212,6 +261,78 @@ describe("AcpHistoricalJournalCompactor", () => {
 		expect(stats.rowsUpdated).toBe(0);
 		expect(rows(input)[0]?.frame_json).toBe(frameJson);
 		expect(rows(input)[1]?.frame_json).toBe("{not valid JSON");
+		input.sqlite.close();
+	});
+
+	test("externalizes an oversized prompt image but keeps typical screenshots inline", () => {
+		const input = fixture();
+		const oversized = Buffer.alloc(15 * 1024 * 1024, 9).toString("base64");
+		const typical = Buffer.alloc(1024 * 1024, 3).toString("base64");
+		insert(input, {
+			seq: 1,
+			frameJson: userMessageFrame({
+				type: "image",
+				data: oversized,
+				mimeType: "image/png",
+			}),
+		});
+		const typicalFrame = userMessageFrame({
+			type: "image",
+			data: typical,
+			mimeType: "image/png",
+		});
+		insert(input, { seq: 2, frameJson: typicalFrame });
+		insert(input, { seq: 3, frameJson: userMessageFrame({ type: "text", text: "hi" }) });
+
+		const stats = input.compactor(input.store).compact();
+		expect(stats.rowsUpdated).toBe(1);
+		const journal = rows(input);
+		const rewritten = JSON.parse(journal[0]?.frame_json ?? "{}") as {
+			update: { content: { type: string; byteSize: number } };
+		};
+		expect(rewritten.update.content.type).toBe("acp-artifact");
+		expect(rewritten.update.content.byteSize).toBe(15 * 1024 * 1024);
+		expect(journal[1]?.frame_json).toBe(typicalFrame);
+		input.sqlite.close();
+	});
+
+	test("rewrites oversized prompt images retained in compacted turn records", () => {
+		const input = fixture();
+		const oversized = Buffer.alloc(10 * 1024 * 1024, 2).toString("base64");
+		const smallTurnJson = JSON.stringify([{ type: "text", text: "small" }]);
+		insertTurn(input, {
+			turnNumber: 1,
+			userMessageJson: JSON.stringify([
+				{ type: "text", text: "look" },
+				{ type: "image", data: oversized, mimeType: "image/png" },
+			]),
+			assistantMessageJson: JSON.stringify([{ type: "text", text: "ok" }]),
+		});
+		insertTurn(input, { turnNumber: 2, userMessageJson: smallTurnJson });
+
+		const stats = input.compactor(input.store).compact();
+		expect(stats.rowsUpdated).toBe(1);
+		const turnRows = input.sqlite
+			.query(
+				"SELECT user_message_json, assistant_message_json FROM acp_session_turns ORDER BY turn_number",
+			)
+			.all() as Array<{
+			user_message_json: string;
+			assistant_message_json: string | null;
+		}>;
+		const blocks = JSON.parse(turnRows[0]?.user_message_json ?? "[]") as Array<{
+			type: string;
+		}>;
+		expect(blocks.map((block) => block.type)).toEqual(["text", "acp-artifact"]);
+		expect(turnRows[0]?.assistant_message_json).toBe(
+			JSON.stringify([{ type: "text", text: "ok" }]),
+		);
+		expect(turnRows[1]?.user_message_json).toBe(smallTurnJson);
+		// Dry-run stats over already-compacted data report nothing to update.
+		const rerun = input
+			.compactor(input.store)
+			.compact({ dryRun: true });
+		expect(rerun.rowsUpdated).toBe(0);
 		input.sqlite.close();
 	});
 });

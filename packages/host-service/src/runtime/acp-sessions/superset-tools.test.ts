@@ -85,10 +85,51 @@ function fixture() {
 			},
 		},
 	}));
-	const getMessages = mock((): unknown => ({
-		items: [{ seq: 12, frame: { kind: "agent_message_chunk", text: "done" } }],
-		nextCursor: "s8",
-	}));
+	const getModelHistory = mock(
+		(_input: {
+			sessionId: string;
+			cursor?: string;
+			limit?: number;
+		}): unknown => ({
+			turns: [
+				{
+				turnNumber: 1,
+				items: [
+					{
+						seq: 11,
+						epoch: "epoch-1",
+						sessionId: "sibling",
+						ts: 1,
+						frame: {
+							kind: "update" as const,
+							update: {
+								sessionUpdate: "user_message_chunk" as const,
+								content: {
+									type: "text" as const,
+									text: "please summarize",
+								},
+								},
+							},
+						},
+						{
+							seq: 12,
+							epoch: "epoch-1",
+							sessionId: "sibling",
+							ts: 2,
+							frame: {
+								kind: "update" as const,
+								update: {
+									sessionUpdate: "agent_message_chunk" as const,
+									content: { type: "text" as const, text: "done" },
+								},
+								},
+							},
+						],
+					},
+				],
+				nextCursor: "s8",
+			}),
+	);
 	const responses = new Map<string, string>();
 	const getTranscript = mock(
 		({ sessionId }: { sessionId: string }): unknown => ({
@@ -182,7 +223,7 @@ function fixture() {
 		}),
 		create,
 		getRole: (sessionId: string) => roles.get(sessionId) ?? "root-coordinator",
-		getMessages,
+		getModelHistory,
 		getTranscript,
 		prompt,
 		close: mock(async ({ sessionId }: { sessionId: string }) => {
@@ -198,7 +239,7 @@ function fixture() {
 	return {
 		manager,
 		create,
-		getMessages,
+		getModelHistory,
 		getTranscript,
 		prompt,
 		enqueuePrompt,
@@ -619,88 +660,99 @@ describe("SupersetToolController", () => {
 		).rejects.toThrow("Unrecognized keys");
 	});
 
-	test("reads a workspace session's persisted messages with cursor pagination", async () => {
-		const { manager, getMessages } = fixture();
+	test("reads a workspace session's persisted history with cursor pagination", async () => {
+		const { manager, getModelHistory } = fixture();
 		const controller = new SupersetToolController({ manager });
 
 		const result = await controller.execute({
 			sourceSessionId: "source",
 			name: "get_session_messages",
-			arguments: { sessionId: "sibling", cursor: "s13", limit: 25 },
+			arguments: { sessionId: "sibling", cursor: "t2", limit: 25 },
 		});
 
-		expect(getMessages).toHaveBeenCalledWith({
+		expect(getModelHistory).toHaveBeenCalledWith({
 			sessionId: "sibling",
-			beforeSeq: 13,
+			cursor: "t2",
 			limit: 25,
 		});
-		expect(result).toEqual({
-			items: [
-				{ seq: 12, frame: { kind: "agent_message_chunk", text: "done" } },
-			],
-			nextCursor: "s8",
+		// Items stay newest-first: the turn's agent chunk precedes its user chunk.
+		const items = result.items as Array<{ seq: number }>;
+		expect(items.map((item) => item.seq)).toEqual([12, 11]);
+		expect(result).toEqual({ items, nextCursor: "s8" });
+
+		// Legacy s<seq> cursors from older builds are forwarded verbatim so the
+		// manager can map them onto turn numbers.
+		await controller.execute({
+			sourceSessionId: "source",
+			name: "get_session_messages",
+			arguments: { sessionId: "sibling", cursor: "s13" },
+		});
+		expect(getModelHistory).toHaveBeenLastCalledWith({
+			sessionId: "sibling",
+			cursor: "s13",
+			limit: 50,
 		});
 	});
 
 	test("bounds and sanitizes model-facing history pages", async () => {
-		const { manager, getMessages } = fixture();
+		const { manager, getModelHistory } = fixture();
 		const controller = new SupersetToolController({ manager });
 		const screenshot = "A".repeat(2 * 1024 * 1024);
 		const nestedToolResult = JSON.stringify({
 			items: [
 				{
-					seq: 7,
 					frame: {
-						kind: "update",
 						update: {
-							sessionUpdate: "agent_message_chunk",
-							content: {
-								type: "image",
-								data: screenshot,
-								mimeType: "image/png",
-							},
+							content: { type: "image", data: screenshot, mimeType: "image/png" },
 						},
 					},
 				},
 			],
 			nextCursor: "s1",
 		});
-		getMessages.mockReturnValue({
-			items: [
-				{
-					seq: 11,
-					epoch: "epoch-1",
-					sessionId: "sibling",
-					ts: 1,
-					frame: {
-						kind: "update",
-						update: {
-							sessionUpdate: "tool_call_update",
-							toolCallId: "screenshot-tool",
-							title: "raw screenshot payload",
-							status: "completed",
-							rawOutput: screenshot,
-						},
-					},
+		const toolFrame = {
+			kind: "update",
+			update: {
+				sessionUpdate: "tool_call_update",
+				toolCallId: "screenshot-tool",
+				title: "raw screenshot payload",
+				status: "completed",
+				rawOutput: screenshot,
+			},
+		};
+		const agentFrame = {
+			kind: "update",
+			update: {
+				sessionUpdate: "agent_message_chunk",
+				content: {
+					type: "text",
+					text: `Useful context before nested result: ${nestedToolResult}`,
 				},
+			},
+		};
+		getModelHistory.mockReturnValue({
+			turns: [
 				{
-					seq: 12,
-					epoch: "epoch-1",
-					sessionId: "sibling",
-					ts: 1,
-					frame: {
-						kind: "update",
-						update: {
-							sessionUpdate: "agent_message_chunk",
-							content: {
-								type: "text",
-								text: `Useful context before nested result: ${nestedToolResult}`,
+						turnNumber: 1,
+						items: [
+							{
+								seq: 11,
+								epoch: "epoch-1",
+								sessionId: "sibling",
+								ts: 1,
+								frame: toolFrame,
 							},
-						},
+							{
+								seq: 12,
+								epoch: "epoch-1",
+								sessionId: "sibling",
+								ts: 1,
+								frame: agentFrame,
+							},
+						],
 					},
-				},
-			],
-			nextCursor: "s8",
+				],
+				nextCursor: "s8",
 		});
 
 		const result = await controller.execute({
@@ -719,26 +771,32 @@ describe("SupersetToolController", () => {
 	});
 
 	test("keeps the total model history page within budget and advances its cursor", async () => {
-		const { manager, getMessages } = fixture();
+		const { manager, getModelHistory } = fixture();
 		const controller = new SupersetToolController({ manager });
-		getMessages.mockReturnValue({
-			items: Array.from({ length: 40 }, (_, index) => ({
-				seq: index + 1,
-				epoch: "epoch-1",
-				sessionId: "sibling",
-				ts: index + 1,
-				frame: {
-					kind: "update",
-					update: {
-						sessionUpdate: "agent_message_chunk",
-						content: {
-							type: "text",
-							text: `${index}: ${"word ".repeat(30_000)}`,
-						},
-					},
+		const heavyFrame = (index: number) => ({
+			kind: "update",
+			update: {
+				sessionUpdate: "agent_message_chunk",
+				content: {
+					type: "text",
+					text: `${index}: ${"word ".repeat(30_000)}`,
 				},
+			},
+		});
+		getModelHistory.mockReturnValue({
+			turns: Array.from({ length: 40 }, (_, index) => ({
+				turnNumber: index + 1,
+				items: [
+					{
+						seq: index + 1,
+						epoch: "epoch-1",
+						sessionId: "sibling",
+						ts: index + 1,
+						frame: heavyFrame(index),
+					},
+				],
 			})),
-			nextCursor: "s1",
+			nextCursor: "t1",
 		});
 
 		const result = await controller.execute({
@@ -752,12 +810,101 @@ describe("SupersetToolController", () => {
 		expect(Buffer.byteLength(serialized)).toBeLessThanOrEqual(512 * 1024);
 		expect(items.length).toBeGreaterThan(0);
 		expect(items.length).toBeLessThan(40);
-		expect(result.nextCursor).toMatch(/^s[1-9][0-9]*$/);
-		expect(result.nextCursor).not.toBe("s1");
+		// The cursor resumes from the whole turn the byte-budget cut landed in.
+		expect(result.nextCursor).toMatch(/^t[1-9][0-9]*$/);
+		expect(result.nextCursor).not.toBe("t1");
+	});
+
+	test("serves compact-turn history the raw journal no longer carries", async () => {
+		const { manager, getModelHistory } = fixture();
+		const controller = new SupersetToolController({ manager });
+		// A compact turn's items: the tool_call frame is filtered out while user
+		// and assistant content from the turn store stays visible to the model.
+		const userFrame = (text: string) => ({
+			kind: "update",
+			update: {
+				sessionUpdate: "user_message_chunk",
+				content: { type: "text", text },
+			},
+		});
+		const agentFrame = (text: string) => ({
+			kind: "update",
+			update: {
+				sessionUpdate: "agent_message_chunk",
+				content: { type: "text", text },
+			},
+		});
+		const toolFrame = {
+			kind: "update",
+			update: {
+				sessionUpdate: "tool_call",
+				toolCallId: "compact:1:tool-1",
+				title: "run tests",
+				status: "completed",
+				locations: [],
+			},
+		};
+		getModelHistory.mockReturnValue({
+			turns: [
+				{
+						turnNumber: 1,
+						items: [
+							{
+								seq: -3,
+								epoch: "compact",
+								sessionId: "sibling",
+								ts: 1,
+								frame: userFrame("please summarize"),
+							},
+							{
+								seq: -2,
+								epoch: "compact",
+								sessionId: "sibling",
+								ts: 2,
+								frame: toolFrame,
+							},
+							{
+								seq: -1,
+								epoch: "compact",
+								sessionId: "sibling",
+								ts: 3,
+								frame: agentFrame("summary ready"),
+							},
+							],
+						},
+					],
+				nextCursor: null,
+		});
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "get_session_messages",
+			arguments: { sessionId: "sibling" },
+		});
+
+		const texts = (
+			result.items as Array<{ frame: { update: { content: { text: string } } } }>
+		).map((item) => item.frame.update.content.text);
+		expect(texts).toEqual(["summary ready", "please summarize"]);
+		expect(result).toEqual({ items: result.items, nextCursor: null });
+	});
+
+	test("returns an empty history page with a null cursor when nothing remains", async () => {
+		const { manager, getModelHistory } = fixture();
+		const controller = new SupersetToolController({ manager });
+		getModelHistory.mockReturnValue({ turns: [], nextCursor: null });
+
+		const result = await controller.execute({
+			sourceSessionId: "source",
+			name: "get_session_messages",
+			arguments: { sessionId: "sibling" },
+		});
+
+		expect(result).toEqual({ items: [], nextCursor: null });
 	});
 
 	test("rejects cross-workspace persisted message reads", async () => {
-		const { manager, getMessages } = fixture();
+		const { manager, getModelHistory } = fixture();
 		const controller = new SupersetToolController({ manager });
 
 		await expect(
@@ -767,7 +914,7 @@ describe("SupersetToolController", () => {
 				arguments: { sessionId: "foreign" },
 			}),
 		).rejects.toThrow("unavailable in the current workspace");
-		expect(getMessages).not.toHaveBeenCalled();
+		expect(getModelHistory).not.toHaveBeenCalled();
 	});
 
 	test("creates, prompts, and requests opening a continuation session", async () => {

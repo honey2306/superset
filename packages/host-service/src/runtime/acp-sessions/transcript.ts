@@ -13,7 +13,18 @@ export interface TranscriptPageOptions {
 	cursor?: string;
 	targetTurn?: number;
 	limit?: number;
+	/** Test seam; production callers use the default transport-safe budget. */
+	maxBytes?: number;
 }
+
+/**
+ * Upper bound for one transcript page's turn payload. Transcript pages travel
+ * as a single newline-delimited JSON frame over the daemon socket (16 MiB
+ * hard limit), so a fixed turn count alone cannot bound the response: eight
+ * screenshot-heavy turns can exceed the transport limit and make the session
+ * impossible to open. Matches the getMessages page budget.
+ */
+const MAX_TRANSCRIPT_PAGE_BYTES = 8 * 1024 * 1024;
 
 /**
  * Rehydrate the protocol view of a compact turn without recreating the raw
@@ -134,6 +145,27 @@ function compactMessageEnvelopes(
 }
 
 /**
+ * Map a legacy `s<seq>` messages cursor — issued by builds that paged the raw
+ * journal before message-only projection — onto transcript turn numbering.
+ * The old cursor means "items strictly below seq are still unread", so every
+ * turn whose first frame is below the seq must be re-served; the turn the seq
+ * lands inside is included whole: a few already-delivered chunks may repeat,
+ * but none are lost. Uniform formula: turns starting below + 1. A seq in the
+ * pre-turn bootstrap region (state/usage frames the old build paged through)
+ * or above every seq degrades to the same count.
+ */
+export function modelHistoryBeforeTurnFromLegacyCursor(
+	turns: readonly TranscriptTurn[],
+	seq: number,
+): number {
+	let below = 0;
+	for (const turn of turns) {
+		if (turn.startSeq < seq) below += 1;
+	}
+	return below + 1;
+}
+
+/**
  * Builds a semantic page from the journal snapshot. The index is intentionally
  * cheap (turn boundaries and previews only) and is returned with every page so
  * a renderer can show the complete rail before it fetches every turn.
@@ -175,7 +207,19 @@ export function buildTranscriptPageFromTurns(
 	}
 	const endExclusive = Math.min(totalTurns + 1, beforeTurn ?? totalTurns + 1);
 	const endIndex = Math.max(0, endExclusive - 1);
-	const startIndex = Math.max(0, endIndex - limit);
+	let startIndex = Math.max(0, endIndex - limit);
+	// The newest selected turn is always served so progress is possible; older
+	// turns are included only while the page stays under the byte budget.
+	const maxBytes = options.maxBytes ?? MAX_TRANSCRIPT_PAGE_BYTES;
+	let bytes = 0;
+	let boundedStart = endIndex;
+	for (let index = endIndex - 1; index >= startIndex; index -= 1) {
+		const turnBytes = Buffer.byteLength(JSON.stringify(turns[index]));
+		if (boundedStart < endIndex && bytes + turnBytes > maxBytes) break;
+		bytes += turnBytes;
+		boundedStart = index;
+	}
+	startIndex = boundedStart;
 	const selected = turns.slice(startIndex, endIndex);
 	return {
 		turns: selected,

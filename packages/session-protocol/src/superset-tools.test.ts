@@ -20,6 +20,62 @@ describe("Superset delegation protocol", () => {
 		).toBeUndefined();
 	});
 
+	test("exposes a Tokenverse-compatible global MCP upsert schema", () => {
+		const tool = SUPERSET_TOOL_DEFINITIONS.find(
+			(entry) => entry.name === "upsert_global_mcp_server",
+		);
+		expect(tool?.inputSchema).toMatchObject({
+			type: "object",
+			required: ["name"],
+			properties: {
+				type: { enum: ["stdio", "http", "sse"] },
+				name: { type: "string" },
+				command: { type: "string" },
+				url: { type: "string" },
+			},
+		});
+		for (const combinator of ["oneOf", "anyOf", "allOf"]) {
+			expect(tool?.inputSchema).not.toHaveProperty(combinator);
+		}
+	});
+
+	test("validates global MCP upserts by transport type", () => {
+		const parse = (arguments_: Record<string, unknown>) =>
+			supersetToolRequestSchema.safeParse({
+				sourceSessionId: "session-1",
+				name: "upsert_global_mcp_server",
+				arguments: arguments_,
+			});
+
+		expect(parse({ name: "stdio", command: "npx" }).success).toBe(true);
+		expect(
+			parse({ type: "http", name: "http", url: "https://mcp.example.com" })
+				.success,
+		).toBe(true);
+		expect(
+			parse({ type: "sse", name: "sse", url: "https://mcp.example.com/sse" })
+				.success,
+		).toBe(true);
+		expect(parse({ name: "missing-command" }).success).toBe(false);
+		expect(parse({ type: "http", name: "missing-url" }).success).toBe(false);
+		expect(parse({ type: "sse", name: "missing-url" }).success).toBe(false);
+		expect(
+			parse({
+				name: "mixed-stdio",
+				command: "npx",
+				url: "https://mcp.example.com",
+			}).success,
+		).toBe(false);
+		expect(
+			parse({
+				type: "http",
+				name: "mixed-http",
+				url: "https://mcp.example.com",
+				command: "npx",
+			}).success,
+		).toBe(false);
+	});
+
 	test("permits explicit cross-project reads without widening memory writes", () => {
 		const request = (name: string, args: Record<string, unknown>) =>
 			supersetToolRequestSchema.safeParse({
@@ -456,5 +512,38 @@ describe("Superset delegation protocol", () => {
 			name: "continue_in_new_session",
 			arguments: { reason: "parallel_task" },
 		});
+	});
+
+	test("accepts both turn cursors and legacy seq cursors for session history", () => {
+		// 新版 t<turn> 游标与旧版 s<seq> 游标都必须能过校验：旧游标只存在于
+		// 升级前代理的上下文里，拒收会让分页中断。
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "source",
+				name: "get_session_messages",
+				arguments: { sessionId: "sibling", cursor: "t24", limit: 50 },
+			}),
+		).toMatchObject({ arguments: { cursor: "t24" } });
+		expect(
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "source",
+				name: "get_session_messages",
+				arguments: { sessionId: "sibling", cursor: "s228" },
+			}),
+		).toMatchObject({ arguments: { cursor: "s228" } });
+		expect(() =>
+			supersetToolRequestSchema.parse({
+				sourceSessionId: "source",
+				name: "get_session_messages",
+				arguments: { sessionId: "sibling", cursor: "x1" },
+			}),
+		).toThrow();
+
+		const tool = SUPERSET_TOOL_DEFINITIONS.find(
+			(entry) => entry.name === "get_session_messages",
+		);
+		expect((tool?.inputSchema as { properties: { cursor?: { pattern?: string } } }).properties?.cursor?.pattern).toBe(
+			"^(s[1-9][0-9]*|t[1-9][0-9]*)$",
+		);
 	});
 });

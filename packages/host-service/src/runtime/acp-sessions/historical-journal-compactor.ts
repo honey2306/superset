@@ -10,10 +10,10 @@ import {
 import path from "node:path";
 import { and, asc, eq } from "drizzle-orm";
 import type { HostDb } from "../../db";
-import { acpSessionJournal } from "../../db/schema";
+import { acpSessionJournal, acpSessionTurns } from "../../db/schema";
 import type { AcpArtifactReference, AcpArtifactStore } from "./artifact-store";
 
-const COMPACTION_VERSION = 1;
+const COMPACTION_VERSION = 2;
 const MARKER_FILE = `historical-journal-compaction-v${COMPACTION_VERSION}.json`;
 
 export interface AcpHistoricalJournalCompactionStats {
@@ -46,8 +46,12 @@ const emptyStats = (): AcpHistoricalJournalCompactionStats => ({
 });
 
 /**
- * Rewrites only legacy oversized images in update.rawOutput. New journal
- * entries are already normalized by AcpSessionManager before they are stored.
+ * Rewrites legacy oversized images the live path now normalizes before
+ * storage: tool-result images in update.rawOutput and pasted prompt images in
+ * user_message_chunk frames, in both the journal and the compacted turn
+ * records. A journal envelope or transcript turn holding a multi-megabyte
+ * inline image can exceed the daemon's socket frame limit, making the session
+ * impossible to open until its history is rewritten here.
  */
 export class AcpHistoricalJournalCompactor {
 	constructor(
@@ -123,9 +127,101 @@ export class AcpHistoricalJournalCompactor {
 			});
 		}
 
+		this.compactTurnRecords(stats, artifactIds, options);
 		stats.uniqueArtifacts = artifactIds.size;
 		if (!options.dryRun) this.writeCompletionMarker(stats);
 		return stats;
+	}
+
+	/**
+	 * Turn compaction copies user blocks verbatim into acp_session_turns, so a
+	 * legacy oversized prompt image survives there even after its journal rows
+	 * were deleted. Transcript pages are built from these records.
+	 */
+	private compactTurnRecords(
+		stats: AcpHistoricalJournalCompactionStats,
+		artifactIds: Set<string>,
+		options: CompactHistoricalJournalOptions,
+	): void {
+		const rows = this.db
+			.select({
+				sessionId: acpSessionTurns.sessionId,
+				turnNumber: acpSessionTurns.turnNumber,
+				userMessageJson: acpSessionTurns.userMessageJson,
+				assistantMessageJson: acpSessionTurns.assistantMessageJson,
+			})
+			.from(acpSessionTurns)
+			.orderBy(asc(acpSessionTurns.sessionId), asc(acpSessionTurns.turnNumber))
+			.all();
+		const updates: Array<{
+			sessionId: string;
+			turnNumber: number;
+			userMessageJson: string;
+			assistantMessageJson: string | null;
+		}> = [];
+		const touchedSessions = new Set<string>();
+
+		for (const row of rows) {
+			stats.rowsScanned += 1;
+			stats.bytesBefore +=
+				Buffer.byteLength(row.userMessageJson) +
+				Buffer.byteLength(row.assistantMessageJson ?? "");
+			const userMessageJson = compactBlocksJson(
+				row.userMessageJson,
+				row.sessionId,
+				this.artifactStore,
+				options.dryRun ?? false,
+				artifactIds,
+			);
+			const assistantMessageJson =
+				row.assistantMessageJson === null
+					? null
+					: compactBlocksJson(
+							row.assistantMessageJson,
+							row.sessionId,
+							this.artifactStore,
+							options.dryRun ?? false,
+							artifactIds,
+						);
+			stats.bytesAfter +=
+				Buffer.byteLength(userMessageJson) +
+				Buffer.byteLength(assistantMessageJson ?? "");
+			if (
+				userMessageJson === row.userMessageJson &&
+				assistantMessageJson === row.assistantMessageJson
+			) {
+				continue;
+			}
+			updates.push({
+				sessionId: row.sessionId,
+				turnNumber: row.turnNumber,
+				userMessageJson,
+				assistantMessageJson,
+			});
+			if (!touchedSessions.has(row.sessionId)) {
+				touchedSessions.add(row.sessionId);
+				stats.sessionsUpdated += 1;
+			}
+		}
+
+		stats.rowsUpdated += updates.length;
+		if (options.dryRun || updates.length === 0) return;
+		this.db.transaction((tx) => {
+			for (const update of updates) {
+				tx.update(acpSessionTurns)
+					.set({
+						userMessageJson: update.userMessageJson,
+						assistantMessageJson: update.assistantMessageJson,
+					})
+					.where(
+						and(
+							eq(acpSessionTurns.sessionId, update.sessionId),
+							eq(acpSessionTurns.turnNumber, update.turnNumber),
+						),
+					)
+					.run();
+			}
+		});
 	}
 
 	private hasCompletionMarker(): boolean {
@@ -192,21 +288,64 @@ function compactFrame(
 		frame.kind !== "update" ||
 		!update ||
 		typeof update !== "object" ||
-		Array.isArray(update) ||
-		!("rawOutput" in update) ||
-		update.rawOutput === undefined
+		Array.isArray(update)
 	) {
 		return { frameJson, artifactIds: new Set() };
 	}
-	const rawOutput = dryRun
-		? artifactStore.previewBoundRawOutput(sessionId, update.rawOutput)
-		: artifactStore.boundRawOutput(sessionId, update.rawOutput);
-	const artifactIds = collectArtifactIds(rawOutput);
-	if (JSON.stringify(rawOutput) === JSON.stringify(update.rawOutput)) {
-		return { frameJson, artifactIds };
+	const updateRecord = update as Record<string, unknown>;
+	const artifactIds = new Set<string>();
+	let nextUpdate = updateRecord;
+	if ("rawOutput" in updateRecord && updateRecord.rawOutput !== undefined) {
+		const rawOutput = dryRun
+			? artifactStore.previewBoundRawOutput(sessionId, updateRecord.rawOutput)
+			: artifactStore.boundRawOutput(sessionId, updateRecord.rawOutput);
+		for (const id of collectArtifactIds(rawOutput)) artifactIds.add(id);
+		if (JSON.stringify(rawOutput) !== JSON.stringify(updateRecord.rawOutput)) {
+			nextUpdate = { ...nextUpdate, rawOutput };
+		}
 	}
-	const compactedFrame = { ...frame, update: { ...update, rawOutput } };
+	if (
+		updateRecord.sessionUpdate === "user_message_chunk" &&
+		updateRecord.content !== undefined
+	) {
+		const content = dryRun
+			? artifactStore.previewBoundPromptBlock(sessionId, updateRecord.content)
+			: artifactStore.boundPromptBlock(sessionId, updateRecord.content);
+		for (const id of collectArtifactIds(content)) artifactIds.add(id);
+		if (content !== updateRecord.content) {
+			nextUpdate = { ...nextUpdate, content };
+		}
+	}
+	if (nextUpdate === updateRecord) return { frameJson, artifactIds };
+	const compactedFrame = { ...frame, update: nextUpdate };
 	return { frameJson: JSON.stringify(compactedFrame), artifactIds };
+}
+
+/** Bounds every oversized prompt image inside a JSON array of content blocks. */
+function compactBlocksJson(
+	blocksJson: string,
+	sessionId: string,
+	artifactStore: AcpArtifactStore,
+	dryRun: boolean,
+	artifactIds: Set<string>,
+): string {
+	let blocks: unknown;
+	try {
+		blocks = JSON.parse(blocksJson);
+	} catch {
+		return blocksJson;
+	}
+	if (!Array.isArray(blocks)) return blocksJson;
+	let changed = false;
+	const nextBlocks = blocks.map((block) => {
+		const bounded = dryRun
+			? artifactStore.previewBoundPromptBlock(sessionId, block)
+			: artifactStore.boundPromptBlock(sessionId, block);
+		if (bounded !== block) changed = true;
+		for (const id of collectArtifactIds(bounded)) artifactIds.add(id);
+		return bounded;
+	});
+	return changed ? JSON.stringify(nextBlocks) : blocksJson;
 }
 
 function collectArtifactIds(value: unknown): Set<string> {

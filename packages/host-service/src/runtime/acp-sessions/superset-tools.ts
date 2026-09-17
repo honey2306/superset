@@ -1,14 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type {
 	HarnessKind,
-	MessagesPage,
 	SessionScopedState,
+	SessionUpdateEnvelope,
 } from "@superset/session-protocol";
 import {
 	type DelegationContextSnapshot,
 	type DelegationResult,
-	decodeMessagesCursor,
-	encodeMessagesCursor,
+	encodeTranscriptCursor,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DISCUSSION_PARTICIPANT_ROLE,
 	SUPERSET_ROOT_COORDINATOR_ROLE,
@@ -393,45 +392,64 @@ function projectHistoryEnvelope(envelope: unknown): unknown {
  * Project durable ACP history into a bounded, text-oriented model payload.
  * Tool calls are deliberately omitted: their raw output is the common source
  * of screenshots and MCP JSON being recursively re-inserted into history.
- * Cursors are moved to the oldest returned seq whenever older page items had
- * to be dropped for the byte budget, so callers never retry the same page.
+ * Input is the manager's turn-merged history page (compact turn rows plus the
+ * raw journal), so compaction can no longer hide messages; items are emitted
+ * newest-first, whole turns at a time. When the byte budget forces older items
+ * out, the cursor resumes from the whole turn the cut landed in — a few
+ * already-returned items may repeat, but none are silently lost — so callers
+ * never retry the same page.
  */
-export function projectModelHistoryPage(page: MessagesPage): {
+export function projectModelHistoryPage(page: {
+	turns: Array<{ turnNumber: number; items: SessionUpdateEnvelope[] }>;
+	nextCursor: string | null;
+}): {
 	items: unknown[];
 	nextCursor: string | null;
 } {
-	const projected = page.items
-		.filter((item) => isModelHistoryMessageFrame(item.frame))
-		.map((item) => projectHistoryEnvelope(item));
-	if (projected.length === 0) {
+	// Flatten newest-first: the manager page's turns run oldest→newest and each
+	// turn's items are chronological, so walking turns and their message frames
+	// backwards keeps the whole list in descending time order.
+	const flattened: Array<{ turnNumber: number; item: unknown }> = [];
+	for (const turn of [...page.turns].reverse()) {
+		const messages = turn.items.filter((item) =>
+			isModelHistoryMessageFrame(item.frame),
+		);
+		for (let index = messages.length - 1; index >= 0; index -= 1) {
+			flattened.push({
+				turnNumber: turn.turnNumber,
+				item: projectHistoryEnvelope(messages[index]),
+			});
+		}
+	}
+	if (flattened.length === 0) {
 		return { items: [], nextCursor: page.nextCursor };
 	}
 
 	const selected: unknown[] = [];
-	let droppedOlderItems = false;
-	for (let index = projected.length - 1; index >= 0; index -= 1) {
-		const candidate = [projected[index], ...selected];
+	let resumeTurn: number | null = null;
+	for (const entry of flattened) {
+		const candidate = [...selected, entry.item];
 		const candidatePage = { items: candidate, nextCursor: page.nextCursor };
 		if (
 			selected.length === 0 ||
 			serializedBytes(candidatePage) <= MAX_MODEL_HISTORY_RESULT_BYTES
 		) {
-			selected.splice(0, selected.length, ...candidate);
+			selected.push(entry.item);
 			continue;
 		}
-		droppedOlderItems = true;
+		// Everything from here on is older than the budget. Resume from the
+		// whole turn the cut landed in so no message is silently dropped.
+		resumeTurn = entry.turnNumber;
 		break;
 	}
-
-	if (!droppedOlderItems) {
+	if (resumeTurn === null) {
 		return { items: selected, nextCursor: page.nextCursor };
 	}
-	const oldestReturned = selected[0];
-	const seq = isRecord(oldestReturned) ? oldestReturned.seq : undefined;
-	if (typeof seq === "number" && Number.isSafeInteger(seq) && seq >= 1) {
-		return { items: selected, nextCursor: encodeMessagesCursor(seq) };
-	}
-	return { items: selected, nextCursor: page.nextCursor };
+	return {
+		items: selected,
+		// Turn 1 is the oldest possible turn — there is nothing older to page into.
+		nextCursor: resumeTurn > 1 ? encodeTranscriptCursor(resumeTurn) : null,
+	};
 }
 
 function projectSession(state: SessionScopedState) {
@@ -770,15 +788,11 @@ export class SupersetToolController {
 					source,
 					request.arguments.sessionId,
 				);
-				const beforeSeq = request.arguments.cursor
-					? decodeMessagesCursor(request.arguments.cursor)
-					: undefined;
-				if (beforeSeq === null) {
-					throw new Error("Invalid messages cursor");
-				}
-				const page = await this.manager.getMessages({
+				const page = this.manager.getModelHistory({
 					sessionId: target.sessionId,
-					beforeSeq,
+					...(request.arguments.cursor
+						? { cursor: request.arguments.cursor }
+						: {}),
 					limit: request.arguments.limit,
 				});
 				return projectModelHistoryPage(page);

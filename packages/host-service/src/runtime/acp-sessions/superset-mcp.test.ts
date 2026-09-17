@@ -145,6 +145,21 @@ describe("Superset MCP process", () => {
 			expect(
 				tools.some((tool) => tool.name === "report_delegation_result"),
 			).toBe(false);
+			const globalMcpUpsertSchema = tools.find(
+				(tool) => tool.name === "upsert_global_mcp_server",
+			)?.inputSchema;
+			expect(globalMcpUpsertSchema).toMatchObject({
+				type: "object",
+				required: ["name"],
+				properties: {
+					type: { enum: ["stdio", "http", "sse"] },
+					command: { type: "string" },
+					url: { type: "string" },
+				},
+			});
+			for (const combinator of ["oneOf", "anyOf", "allOf"]) {
+				expect(globalMcpUpsertSchema).not.toHaveProperty(combinator);
+			}
 			expect(tools.some((tool) => tool.name === "update_plan")).toBe(true);
 			expect(
 				tools.find((tool) => tool.name === "update_plan")?.inputSchema,

@@ -41,6 +41,27 @@ export function AcpContentBlock({
 		return <AcpImagePreview src={src} />;
 	}
 
+	if ((block as unknown as { type?: string }).type === "acp-artifact") {
+		// The host externalized an oversized image to keep this session's journal
+		// frames within the daemon transport limit. The bytes live on the host's
+		// filesystem and are not reachable by the renderer.
+		const artifact = block as unknown as {
+			mimeType?: string;
+			byteSize?: number;
+		};
+		const size =
+			typeof artifact.byteSize === "number"
+				? ` (${(artifact.byteSize / (1024 * 1024)).toFixed(1)} MB)`
+				: "";
+		return (
+			<div className="acp-unknown">
+				<span>
+					Image{size} — too large to display inline; stored on the host
+				</span>
+			</div>
+		);
+	}
+
 	if (block.type === "audio") {
 		return (
 			<div className="acp-unknown">
