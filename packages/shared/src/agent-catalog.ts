@@ -30,6 +30,17 @@ export const ACP_AGENT_HARNESS_BY_AGENT_ID = {
 
 export type AcpSupportedAgentId = keyof typeof ACP_AGENT_HARNESS_BY_AGENT_ID;
 
+export type AcpHarness =
+	(typeof ACP_AGENT_HARNESS_BY_AGENT_ID)[AcpSupportedAgentId];
+/** The existing ACP catalog is authoritative for conversation AND Task entry. */
+export const ACP_HARNESSES = Object.values(ACP_AGENT_HARNESS_BY_AGENT_ID);
+export function isAcpHarness(value: unknown): value is AcpHarness {
+	return (
+		typeof value === "string" &&
+		(ACP_HARNESSES as readonly string[]).includes(value)
+	);
+}
+
 /**
  * Agents Superset can identify via lifecycle hooks but cannot launch —
  * they run in an external app whose hooks land on a Superset terminal.
@@ -91,4 +102,19 @@ export function isBuiltinAgentId(id: string): id is BuiltinAgentId {
 
 export function isCustomAgentId(id: string): id is `custom:${string}` {
 	return id.startsWith("custom:");
+}
+
+/** UI labels come from the same definitions used by normal Agent launch. */
+export const ACP_AGENT_OPTIONS = Object.entries(
+	ACP_AGENT_HARNESS_BY_AGENT_ID,
+).map(([id, harness]) => ({
+	id: id as AcpSupportedAgentId,
+	harness,
+	label: BUILTIN_AGENT_LABELS[id as AcpSupportedAgentId],
+}));
+export function getAcpAgentLabel(harness: string): string {
+	return (
+		ACP_AGENT_OPTIONS.find((agent) => agent.harness === harness)?.label ??
+		harness
+	);
 }

@@ -1,0 +1,221 @@
+/* Scoped desktop Task views. Use the existing theme tokens, not another palette. */
+.task-hub {
+	container: task-hub / inline-size;
+	color: var(--fg);
+	overflow: hidden;
+}
+.task-hub__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	flex-shrink: 0;
+	padding: 20px 24px 16px;
+}
+.task-hub__toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 0 24px 16px;
+	border-bottom: 1px solid var(--line);
+	flex-shrink: 0;
+}
+.task-hub__filters {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+.task-hub__filter {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	border-radius: 6px;
+	color: var(--fg-mute);
+	font-size: 12px;
+	white-space: nowrap;
+	transition:
+		background 0.12s,
+		color 0.12s;
+}
+.task-hub__filter:hover {
+	background: var(--ds-surface);
+	color: var(--fg);
+}
+.task-hub__filter[aria-pressed="true"] {
+	background: var(--accent-tint);
+	color: var(--accent-solid);
+}
+.task-hub__filter-count {
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+	opacity: 0.75;
+}
+.task-hub__body {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	overflow: hidden;
+}
+.task-hub__list {
+	width: 296px;
+	flex-shrink: 0;
+	border-right: 1px solid var(--line);
+	background: var(--ds-surface);
+	overflow: auto;
+	padding: 10px;
+}
+.task-hub__row {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 14px 12px;
+	border: 1px solid transparent;
+	border-radius: 9px;
+	margin-bottom: 6px;
+	transition:
+		background 0.12s,
+		border-color 0.12s;
+}
+.task-hub__row:hover {
+	background: var(--background);
+}
+.task-hub__row[aria-current="true"] {
+	background: var(--background);
+	border-color: var(--line-strong);
+	box-shadow: inset 3px 0 var(--accent-solid);
+}
+.task-hub__detail {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	overflow: hidden;
+}
+.task-hub__back {
+	display: none;
+}
+.task-hub__empty {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 18px;
+	padding: 40px 24px;
+	text-align: center;
+	min-width: 0;
+	overflow: auto;
+}
+.task-hub__empty-icon {
+	width: 64px;
+	height: 64px;
+	display: grid;
+	place-items: center;
+	border: 1px solid var(--line);
+	background: var(--ds-surface);
+	border-radius: 18px;
+	color: var(--accent-solid);
+	box-shadow: 0 6px 24px #00000008;
+}
+.task-hub__steps {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: var(--fg-mute);
+	font-size: 11px;
+	margin-top: 4px;
+}
+.task-hub__footer {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 9px 24px;
+	border-top: 1px solid var(--line);
+	color: var(--fg-faint);
+	font-size: 11px;
+}
+.task-detail__header {
+	padding: 20px 24px 0;
+	border-bottom: 1px solid var(--line);
+	flex-shrink: 0;
+}
+.task-detail__tabs {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	margin-top: 16px;
+}
+.task-detail__tab {
+	padding: 10px 0;
+	font-size: 12px;
+	border-bottom: 2px solid transparent;
+	color: var(--fg-mute);
+}
+.task-detail__tab[aria-selected="true"] {
+	color: var(--fg);
+	border-bottom-color: var(--accent-solid);
+}
+.task-detail__content {
+	min-height: 0;
+	flex: 1;
+	overflow: auto;
+	padding: 24px;
+}
+.task-detail__section {
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	padding: 16px;
+	background: var(--background);
+}
+.task-detail__section h3 {
+	font-size: 12px;
+	font-weight: 600;
+	margin-bottom: 10px;
+}
+.task-detail__section + .task-detail__section {
+	margin-top: 16px;
+}
+@container task-hub (max-width: 760px) {
+	.task-hub__header {
+		padding: 16px;
+		flex-wrap: wrap;
+	}
+	.task-hub__toolbar {
+		padding: 0 16px 12px;
+	}
+	.task-hub__toolbar input {
+		width: 100%;
+	}
+	.task-hub__list {
+		width: 100%;
+		border-right: 0;
+	}
+	.task-hub__detail {
+		display: none;
+	}
+	.task-hub__body[data-detail-open="true"] .task-hub__list {
+		display: none;
+	}
+	.task-hub__body[data-detail-open="true"] .task-hub__detail {
+		display: flex;
+	}
+	.task-hub__back {
+		display: flex;
+	}
+	.task-hub__steps {
+		flex-wrap: wrap;
+		justify-content: center;
+	}
+	.task-detail__header {
+		padding: 16px 16px 0;
+	}
+	.task-detail__content {
+		padding: 16px;
+	}
+}

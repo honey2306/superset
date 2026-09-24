@@ -1,20 +1,12 @@
-import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline";
 import {
-	peekabooBridgeArguments,
-	resolvePeekabooBridgeSocket,
-} from "./peekaboo-bridge";
-import { resolvePeekabooExecutable } from "./peekaboo-executable";
-import {
-	closePeekabooChild,
-	jsonRpcError,
-	rewriteComputerUseRequest,
-	rewritePeekabooResponse,
-} from "./peekaboo-mcp-proxy";
-import { createNativeStateReader } from "./peekaboo-native-state";
-import { PeekabooToolExecutor } from "./peekaboo-tool-executor";
-import type { McpToolResult } from "./stdio-mcp-client";
+	ComputerRuntimeBridgeClient,
+	type ComputerRuntimePermissionState,
+	type ComputerRuntimeTool,
+	type ComputerRuntimeToolResult,
+} from "./computer-runtime-bridge-client";
+
+type JsonRecord = Record<string, unknown>;
 
 interface JsonRpcMessage {
 	jsonrpc: "2.0";
@@ -25,81 +17,285 @@ interface JsonRpcMessage {
 	error?: unknown;
 }
 
-const executable = resolvePeekabooExecutable();
-if (!executable) {
-	process.stderr.write(
-		"Superset Computer Use requires a pinned Peekaboo binary. Set SUPERSET_PEEKABOO_PATH or install peekaboo on PATH.\n",
-	);
-	process.exit(1);
+interface PublicToolMapping {
+	publicName: string;
+	providerName: string;
 }
 
-const child = spawn(
-	executable,
-	peekabooBridgeArguments(resolvePeekabooBridgeSocket()),
-	{
-		stdio: ["pipe", "pipe", "pipe"],
-		env: {
-			...process.env,
-			// Filter before Peekaboo initializes its MCP context. Output-side
-			// filtering is too late because `browser` opens a browser session while
-			// the upstream server is being constructed.
-			PEEKABOO_DISABLE_TOOLS: "agent,analyze,browser",
-		},
-	},
-);
-const pendingMethods = new Map<string | number, string>();
-const internalCalls = new Map<string, (response: JsonRpcMessage) => void>();
+const PROTOCOL_VERSION = "2025-06-18";
+const PUBLIC_TOOL_PREFIX = "computer_";
+const SOURCE_SESSION_ID = process.env.SUPERSET_ACP_SOURCE_SESSION_ID;
+const bridge = new ComputerRuntimeBridgeClient();
 const activeCalls = new Map<string | number, AbortController>();
-const internalIdPrefix = `superset-${randomUUID()}-`;
-let toolQueue = Promise.resolve();
-const executor = new PeekabooToolExecutor(
-	(name, args, signal) => {
-		return new Promise<McpToolResult>((resolve, reject) => {
-			const id = `${internalIdPrefix}${randomUUID()}`;
-			const cleanup = () => {
-				clearTimeout(timeout);
-				internalCalls.delete(id);
-				signal?.removeEventListener("abort", cancel);
-			};
-			const cancel = () => {
-				cleanup();
-				if (!child.stdin.destroyed)
-					child.stdin.write(
-						`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: id } })}\n`,
-					);
-				reject(
-					new Error(
-						"Computer Use call cancelled; an in-flight action may have taken effect. Observe before retrying.",
-					),
-				);
-			};
-			const timeout = setTimeout(cancel, 120_000);
-			if (signal?.aborted) {
-				cancel();
-				return;
-			}
-			signal?.addEventListener("abort", cancel, { once: true });
-			internalCalls.set(id, (response) => {
-				cleanup();
-				if (response.error !== undefined)
-					reject(new Error(JSON.stringify(response.error)));
-				else if (response.result && typeof response.result === "object")
-					resolve(response.result as McpToolResult);
-				else reject(new Error("Invalid Peekaboo tool result"));
-			});
-			child.stdin.write(
-				`${JSON.stringify({ jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args } })}\n`,
-			);
-		});
-	},
-	createNativeStateReader(executable, resolvePeekabooBridgeSocket()),
-);
-let stderr = "";
 
-child.stderr.setEncoding("utf8");
-child.stderr.on("data", (chunk: string) => {
-	stderr = `${stderr}${chunk}`.slice(-8_000);
-});
+const TOOL_MAPPINGS: PublicToolMapping[] = [
+	{ publicName: "apps", providerName: "list_apps" },
+	{ publicName: "windows", providerName: "list_windows" },
+	{ publicName: "see", providerName: "get_window_state" },
+	{ publicName: "inspect_ui", providerName: "get_accessibility_tree" },
+	{ publicName: "capture", providerName: "get_desktop_state" },
+	{ publicName: "verify_state", providerName: "verify_state" },
+	{ publicName: "launch_app", providerName: "launch_app" },
+	{ publicName: "kill_app", providerName: "kill_app" },
+	{ publicName: "focus_window", providerName: "bring_to_front" },
+	{ publicName: "set_window_frame", providerName: "set_window_frame" },
+	{ publicName: "menu", providerName: "invoke_menu" },
+	{ publicName: "click", providerName: "click" },
+	{ publicName: "double_click", providerName: "double_click" },
+	{ publicName: "right_click", providerName: "right_click" },
+	{ publicName: "drag", providerName: "drag" },
+	{ publicName: "type", providerName: "type_text" },
+	{ publicName: "press", providerName: "press_key" },
+	{ publicName: "hotkey", providerName: "hotkey" },
+	{ publicName: "set_value", providerName: "set_value" },
+	{ publicName: "scroll", providerName: "scroll" },
+	{ publicName: "clipboard_read", providerName: "clipboard_read" },
+	{ publicName: "clipboard_write", providerName: "clipboard_write" },
+	{ publicName: "screen_size", providerName: "get_screen_size" },
+	{ publicName: "cursor", providerName: "get_cursor_position" },
+	{ publicName: "move", providerName: "move_cursor" },
+	{ publicName: "zoom", providerName: "zoom" },
+	{ publicName: "window", providerName: "superset_window" },
+	{ publicName: "space", providerName: "superset_space" },
+	{ publicName: "dock", providerName: "superset_dock" },
+	{ publicName: "app", providerName: "superset_app" },
+	{ publicName: "paste", providerName: "superset_paste" },
+	{ publicName: "dialog", providerName: "superset_dialog" },
+	{ publicName: "action", providerName: "superset_action" },
+];
+
+const PUBLIC_TO_PROVIDER = new Map(
+	TOOL_MAPPINGS.map(({ publicName, providerName }) => [
+		`${PUBLIC_TOOL_PREFIX}${publicName}`,
+		providerName,
+	]),
+);
+
+function record(value: unknown): JsonRecord | null {
+	return value !== null && typeof value === "object" && !Array.isArray(value)
+		? (value as JsonRecord)
+		: null;
+}
+
+function rpcError(
+	id: string | number | null,
+	code: number,
+	message: string,
+): JsonRpcMessage {
+	return {
+		jsonrpc: "2.0",
+		id,
+		error: { code, message },
+	};
+}
+
+function send(message: JsonRpcMessage): void {
+	process.stdout.write(`${JSON.stringify(message)}\n`);
+}
+
+function cloneSchema(schema: JsonRecord): JsonRecord {
+	return JSON.parse(JSON.stringify(schema)) as JsonRecord;
+}
+
+function sanitizeInputSchema(schema: JsonRecord): JsonRecord {
+	const next = cloneSchema(schema);
+	const properties = record(next.properties);
+	if (properties) {
+		delete properties.session;
+	}
+	if (Array.isArray(next.required)) {
+		next.required = next.required.filter((name) => name !== "session");
+	}
+	return next;
+}
+
+function publicTool(tool: ComputerRuntimeTool, publicName: string): JsonRecord {
+	return {
+		name: `${PUBLIC_TOOL_PREFIX}${publicName}`,
+		...(tool.description
+			? {
+					description: `${tool.description}\n\nExecuted by Superset Computer Runtime. The provider is an implementation detail; preserve snapshot/element tokens exactly and verify consequential state changes.`,
+				}
+			: {
+					description:
+						"Executed by Superset Computer Runtime. Preserve observation handles exactly and verify consequential state changes.",
+				}),
+		inputSchema: sanitizeInputSchema(tool.inputSchema),
+		...(tool.outputSchema
+			? { outputSchema: cloneSchema(tool.outputSchema) }
+			: {}),
+		...(tool.annotations ? { annotations: tool.annotations } : {}),
+	};
+}
+
+function permissionTool(): JsonRecord {
+	return {
+		name: "computer_permissions",
+		description:
+			"Inspect desktop automation permissions owned by Superset. On macOS, set prompt=true only when the user has asked to enable Computer Use or a previous call reports missing Accessibility or Screen Recording permission.",
+		inputSchema: {
+			type: "object",
+			additionalProperties: false,
+			properties: {
+				prompt: {
+					type: "boolean",
+					description:
+						"Request missing host permissions. Default false for a read-only status check.",
+				},
+			},
+		},
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
+	};
+}
+
+async function listPublicTools(signal?: AbortSignal): Promise<JsonRecord[]> {
+	const catalog = await bridge.tools(signal);
+	const byName = new Map(catalog.tools.map((tool) => [tool.name, tool]));
+	const tools = TOOL_MAPPINGS.flatMap(({ publicName, providerName }) => {
+		const tool = byName.get(providerName);
+		return tool ? [publicTool(tool, publicName)] : [];
+	});
+	return [...tools, permissionTool()];
+}
+
+function structuredContent(
+	result: ComputerRuntimeToolResult,
+): JsonRecord | undefined {
+	if (!result.structuredJson) return undefined;
+	try {
+		const value = JSON.parse(result.structuredJson) as unknown;
+		return record(value) ?? { value };
+	} catch {
+		return { raw: result.structuredJson };
+	}
+}
+
+function toMcpToolResult(
+	generation: number,
+	result: ComputerRuntimeToolResult,
+): JsonRecord {
+	const content: JsonRecord[] = [];
+	if (result.text) content.push({ type: "text", text: result.text });
+	for (const image of result.images) {
+		content.push({
+			type: "image",
+			data: image.dataBase64,
+			mimeType: image.mimeType,
+		});
+	}
+	if (content.length === 0 && result.isError) {
+		content.push({
+			type: "text",
+			text: result.errorCode
+				? `Computer Use failed: ${result.errorCode}`
+				: "Computer Use failed.",
+		});
+	}
+	const structured = structuredContent(result);
+	return {
+		content,
+		...(structured ? { structuredContent: structured } : {}),
+		isError: result.isError,
+		_meta: {
+			supersetComputer: {
+				generation,
+				provider: "desktop-runtime",
+				degraded: result.degraded,
+				...(result.errorCode ? { errorCode: result.errorCode } : {}),
+				...(result.action ? { action: result.action } : {}),
+				...(result.verification ? { verification: result.verification } : {}),
+			},
+		},
+	};
+}
+
+function permissionResult(state: ComputerRuntimePermissionState): JsonRecord {
+	return {
+		content: [
+			{
+				type: "text",
+				text: state.ready
+					? "Superset Computer Use permissions are ready."
+					: "Superset Computer Use is missing required host permissions. Enable the reported permission in system settings, then retry the observation. A relaunch may be required after Screen Recording changes.",
+			},
+		],
+		structuredContent: { ...state },
+		isError: false,
+	};
+}
+
+async function handleToolCall(
+	id: string | number,
+	params: JsonRecord,
+): Promise<void> {
+	const name = params.name;
+	if (typeof name !== "string") {
+		send(rpcError(id, -32602, "Computer Use tool name is required"));
+		return;
+	}
+	const args = record(params.arguments) ?? {};
+	const controller = new AbortController();
+	activeCalls.set(id, controller);
+	try {
+		if (name === "computer_permissions") {
+			const state = await bridge.permissions(
+				args.prompt === true,
+				controller.signal,
+			);
+			send({
+				jsonrpc: "2.0",
+				id,
+				result: permissionResult(state),
+			});
+			return;
+		}
+
+		const providerName = PUBLIC_TO_PROVIDER.get(name);
+		if (!providerName) {
+			send(rpcError(id, -32602, `Computer Use tool is not allowed: ${name}`));
+			return;
+		}
+		if (!SOURCE_SESSION_ID) {
+			send(
+				rpcError(id, -32603, "Computer Use session identity is unavailable"),
+			);
+			return;
+		}
+
+		const execution = await bridge.callTool(
+			SOURCE_SESSION_ID,
+			providerName,
+			args,
+			controller.signal,
+		);
+		send({
+			jsonrpc: "2.0",
+			id,
+			result: toMcpToolResult(execution.generation, execution.result),
+		});
+	} catch (error) {
+		send({
+			jsonrpc: "2.0",
+			id,
+			result: {
+				content: [
+					{
+						type: "text",
+						text: error instanceof Error ? error.message : String(error),
+					},
+				],
+				isError: true,
+			},
+		});
+	} finally {
+		activeCalls.delete(id);
+	}
+}
 
 createInterface({
 	input: process.stdin,
@@ -110,124 +306,78 @@ createInterface({
 	try {
 		message = JSON.parse(line) as JsonRpcMessage;
 	} catch {
-		process.stdout.write(
-			`${JSON.stringify(jsonRpcError(null, "Parse error"))}\n`,
-		);
+		send(rpcError(null, -32700, "Parse error"));
 		return;
 	}
-	if (typeof message.method !== "string") return;
+
+	if (message.method === "notifications/initialized") return;
 	if (message.method === "notifications/cancelled") {
-		const requestId = (
-			message.params as { requestId?: string | number } | undefined
-		)?.requestId;
-		if (requestId !== undefined && activeCalls.has(requestId)) {
+		const requestId = record(message.params)?.requestId;
+		if (
+			(typeof requestId === "string" || typeof requestId === "number") &&
+			activeCalls.has(requestId)
+		) {
 			activeCalls.get(requestId)?.abort();
-			return;
 		}
+		return;
 	}
-	try {
-		const rewritten = rewriteComputerUseRequest({
+	if (message.id === undefined || message.id === null) return;
+
+	const id = message.id;
+	if (message.method === "initialize") {
+		const requested = record(message.params)?.protocolVersion;
+		send({
 			jsonrpc: "2.0",
-			...(message.id !== undefined && message.id !== null
-				? { id: message.id }
-				: {}),
-			method: message.method,
-			...(message.params !== undefined ? { params: message.params } : {}),
+			id,
+			result: {
+				protocolVersion:
+					typeof requested === "string" ? requested : PROTOCOL_VERSION,
+				capabilities: { tools: {} },
+				serverInfo: { name: "superset-computer-runtime", version: "1" },
+				instructions:
+					"Superset owns the desktop Computer Use runtime and coordinates the physical desktop across agents. Observe before element-based actions, preserve snapshot/element handles exactly, prefer semantic accessibility actions when available, and verify consequential changes. Website tasks belong in Superset Agent Browser rather than desktop Computer Use.",
+			},
 		});
-		if (
-			message.method === "tools/call" &&
-			message.id !== undefined &&
-			message.id !== null
-		) {
-			const id = message.id;
-			const params = rewritten.request.params as {
-				name: string;
-				arguments?: Record<string, unknown>;
-			};
-			const controller = new AbortController();
-			activeCalls.set(id, controller);
-			toolQueue = toolQueue.then(async () => {
-				try {
-					controller.signal.throwIfAborted();
-					const result = await executor.call(
-						params.name,
-						params.arguments ?? {},
-						controller.signal,
-					);
-					process.stdout.write(
-						`${JSON.stringify({ jsonrpc: "2.0", id, result })}\n`,
-					);
-				} catch (error) {
-					process.stdout.write(
-						`${JSON.stringify(jsonRpcError(id, error instanceof Error ? error.message : String(error)))}\n`,
-					);
-				} finally {
-					activeCalls.delete(id);
-				}
-			});
+		return;
+	}
+	if (message.method === "tools/list") {
+		const controller = new AbortController();
+		activeCalls.set(id, controller);
+		void listPublicTools(controller.signal)
+			.then((tools) => {
+				send({
+					jsonrpc: "2.0",
+					id,
+					result: { tools },
+				});
+			})
+			.catch((error) => {
+				send(
+					rpcError(
+						id,
+						-32603,
+						error instanceof Error ? error.message : String(error),
+					),
+				);
+			})
+			.finally(() => activeCalls.delete(id));
+		return;
+	}
+	if (message.method === "tools/call") {
+		const params = record(message.params);
+		if (!params) {
+			send(rpcError(id, -32602, "Invalid tools/call params"));
 			return;
 		}
-		if (
-			message.id !== undefined &&
-			message.id !== null &&
-			rewritten.upstreamMethod
-		) {
-			pendingMethods.set(message.id, rewritten.upstreamMethod);
-		}
-		child.stdin.write(`${JSON.stringify(rewritten.request)}\n`);
-	} catch (error) {
-		if (message.id === undefined || message.id === null) return;
-		process.stdout.write(
-			`${JSON.stringify(
-				jsonRpcError(
-					message.id,
-					error instanceof Error ? error.message : String(error),
-				),
-			)}\n`,
-		);
+		void handleToolCall(id, params);
+		return;
 	}
-});
 
-createInterface({
-	input: child.stdout,
-	crlfDelay: Number.POSITIVE_INFINITY,
-}).on("line", (line) => {
-	if (!line) return;
-	try {
-		const response = JSON.parse(line) as JsonRpcMessage;
-		const id = response.id;
-		// Late responses to timed-out/cancelled internal requests must not leak
-		// into the parent MCP stream as unsolicited tool results.
-		if (typeof id === "string" && id.startsWith(internalIdPrefix)) {
-			internalCalls.get(id)?.(response);
-			return;
-		}
-		const method =
-			id !== undefined && id !== null ? pendingMethods.get(id) : undefined;
-		if (id !== undefined && id !== null) pendingMethods.delete(id);
-		process.stdout.write(
-			`${JSON.stringify(rewritePeekabooResponse(response, method))}\n`,
-		);
-	} catch {
-		// Peekaboo MCP should only emit JSON-RPC on stdout. Ignore an invalid line
-		// rather than corrupting the parent ACP transport.
-	}
-});
-
-child.once("error", (error) => {
-	for (const controller of activeCalls.values()) controller.abort();
-	process.stderr.write(`Peekaboo MCP failed to start: ${error.message}\n`);
-	process.exitCode = 1;
-});
-child.once("exit", (code) => {
-	for (const controller of activeCalls.values()) controller.abort();
-	if (code && stderr.trim()) process.stderr.write(`${stderr.trim()}\n`);
-	process.exitCode = code ?? 0;
+	send(rpcError(id, -32601, `Method not found: ${message.method ?? ""}`));
 });
 
 const close = () => {
 	for (const controller of activeCalls.values()) controller.abort();
-	closePeekabooChild(child);
 };
 process.once("SIGTERM", close);
 process.once("SIGINT", close);

@@ -282,7 +282,10 @@ describe("AcpHistoricalJournalCompactor", () => {
 			mimeType: "image/png",
 		});
 		insert(input, { seq: 2, frameJson: typicalFrame });
-		insert(input, { seq: 3, frameJson: userMessageFrame({ type: "text", text: "hi" }) });
+		insert(input, {
+			seq: 3,
+			frameJson: userMessageFrame({ type: "text", text: "hi" }),
+		});
 
 		const stats = input.compactor(input.store).compact();
 		expect(stats.rowsUpdated).toBe(1);
@@ -329,9 +332,7 @@ describe("AcpHistoricalJournalCompactor", () => {
 		);
 		expect(turnRows[1]?.user_message_json).toBe(smallTurnJson);
 		// Dry-run stats over already-compacted data report nothing to update.
-		const rerun = input
-			.compactor(input.store)
-			.compact({ dryRun: true });
+		const rerun = input.compactor(input.store).compact({ dryRun: true });
 		expect(rerun.rowsUpdated).toBe(0);
 		input.sqlite.close();
 	});

@@ -66,6 +66,7 @@ import {
 	SUPERSET_ROOT_COORDINATOR_ROLE,
 	selectedOptionIds,
 } from "@superset/session-protocol";
+import { isAcpHarness } from "@superset/shared/agent-catalog";
 import type { AcpArtifactStore } from "./artifact-store";
 import { prepareSharedMcpServers } from "./browser-use-mcp";
 import {
@@ -619,6 +620,9 @@ interface TranscriptCacheEntry {
 }
 
 export interface AcpSessionManagerOptions {
+	taskOwner?: (sessionId: string) => { id: string; status: string } | undefined;
+	onTaskEdit?: (sessionId: string, value: unknown) => void;
+	isTaskDelivery?: (sessionId: string) => boolean;
 	/** Release turn-owned resources before admitting queued follow-ups. */
 	onTurnEnd?: (sessionId: string) => Promise<void>;
 	/**
@@ -737,6 +741,8 @@ export interface AcpSessionManagerOptions {
 export class AcpSessionManager {
 	private readonly resolveWorkspaceCwd: AcpSessionManagerOptions["resolveWorkspaceCwd"];
 	private readonly journalCapacity: number;
+	private readonly onTaskEdit: AcpSessionManagerOptions["onTaskEdit"];
+	private readonly isTaskDelivery: AcpSessionManagerOptions["isTaskDelivery"];
 	private readonly onTurnEnd: AcpSessionManagerOptions["onTurnEnd"];
 	private readonly adapterEntry: string | undefined;
 	private readonly codexAdapterEntry: string | undefined;
@@ -785,8 +791,12 @@ export class AcpSessionManager {
 	 */
 	private readonly sessionChangeListeners = new Set<AcpSessionChangeHandler>();
 
+	private readonly taskOwner: AcpSessionManagerOptions["taskOwner"];
 	constructor(options: AcpSessionManagerOptions) {
+		this.taskOwner = options.taskOwner;
 		this.onTurnEnd = options.onTurnEnd;
+		this.onTaskEdit = options.onTaskEdit;
+		this.isTaskDelivery = options.isTaskDelivery;
 		this.resolveWorkspaceCwd = options.resolveWorkspaceCwd;
 		const journalCapacity = options.journalCapacity ?? 5_000;
 		if (!Number.isInteger(journalCapacity) || journalCapacity < 1) {
@@ -919,6 +929,69 @@ export class AcpSessionManager {
 		const record = this.offline.get(sessionId);
 		if (record) return this.offlineState(record);
 		throw new AcpSessionNotFoundError(`Unknown ACP session: ${sessionId}`);
+	}
+
+	async setTaskMode(input: {
+		sessionId: string;
+		mode: "inspect" | "claim" | "release";
+		runId?: string;
+	}): Promise<SessionScopedState> {
+		await this.ensureLive(input.sessionId);
+		const runtime = this.requireLive(input.sessionId);
+		if (
+			runtime.role !== SUPERSET_ROOT_COORDINATOR_ROLE &&
+			runtime.role !== "task-executor"
+		)
+			throw new Error("Only a normal root conversation can become a Task");
+		if (
+			runtime.activePromptCount > 0 ||
+			runtime.pendingResolvers.size > 0 ||
+			runtime.openToolCalls.size > 0 ||
+			runtime.state.queuedPrompts.length > 0 ||
+			runtime.pendingSendNow ||
+			runtime.turnCleanup
+		)
+			throw new Error(
+				"Wait for the current conversation turn and pending work to finish before changing Task mode",
+			);
+		if (!isAcpHarness(runtime.state.harness))
+			throw new Error(
+				"This conversation does not use a registered ACP runtime",
+			);
+		if (input.mode !== "inspect") {
+			const owner = this.taskOwner?.(input.sessionId);
+			if (!owner || owner.id !== input.runId)
+				throw new Error(
+					"Task ownership changed while switching conversation mode",
+				);
+			if (
+				input.mode === "release" &&
+				!["succeeded", "failed", "cancelled"].includes(owner.status)
+			)
+				throw new Error(
+					"Stop or finish the Task before returning to ordinary chat",
+				);
+			runtime.role =
+				input.mode === "claim"
+					? "task-executor"
+					: SUPERSET_ROOT_COORDINATOR_ROLE;
+			this.persistState(runtime);
+		}
+		return this.snapshotState(runtime);
+	}
+	private assertTaskCommand(sessionId: string, commandId?: string) {
+		const owner = this.taskOwner?.(sessionId);
+		if (!owner) return;
+		if (
+			!commandId ||
+			!(
+				commandId.startsWith(`${owner.id}:`) ||
+				commandId.startsWith("task-guidance:")
+			)
+		)
+			throw new Error(
+				"This conversation is controlled by a Task; use its message/control API",
+			);
 	}
 
 	/** Return the persisted coordinator/executor role for host-owned callers. */
@@ -1308,10 +1381,12 @@ export class AcpSessionManager {
 		sessionId: string;
 		commandId?: string;
 		prompt: ContentBlock[];
+		displayPrompt?: ContentBlock[];
 	}): {
 		accepted: true;
 		turn: Promise<{ stopReason: StopReason }>;
 	} {
+		this.assertTaskCommand(input.sessionId, input.commandId);
 		if (!input.commandId) return this.promptInternal(input, false);
 		const runtime = this.requireLive(input.sessionId);
 		const enqueuedAt = Date.now();
@@ -1355,6 +1430,7 @@ export class AcpSessionManager {
 			sessionId: string;
 			commandId?: string;
 			prompt: ContentBlock[];
+			displayPrompt?: ContentBlock[];
 		},
 		commandAlreadyReserved: boolean,
 	): {
@@ -1382,7 +1458,7 @@ export class AcpSessionManager {
 		// agent's output in seq order.
 		let promptStartSeq = 0;
 		const startedAt = Date.now();
-		for (const block of input.prompt) {
+		for (const block of input.displayPrompt ?? input.prompt) {
 			const envelope = this.journalFrame(runtime, {
 				kind: "update",
 				update: { sessionUpdate: "user_message_chunk", content: block },
@@ -1401,7 +1477,8 @@ export class AcpSessionManager {
 		if (promptStartSeq > 0) {
 			runtime.activeTurns.set(promptStartSeq, { startedAt });
 		}
-		this.maybeStartTitleGeneration(runtime, input.prompt);
+		if (runtime.role !== "task-executor")
+			this.maybeStartTitleGeneration(runtime, input.prompt);
 		// A fresh turn starts with a clean terminal-state slate. A rejected turn
 		// must not inherit the previous successful turn's stop reason.
 		runtime.state.lastError = null;
@@ -1514,7 +1591,9 @@ export class AcpSessionManager {
 		sessionId: string;
 		commandId?: string;
 		prompt: ContentBlock[];
+		displayPrompt?: ContentBlock[];
 	}): EnqueuePromptResult {
+		this.assertTaskCommand(input.sessionId, input.commandId);
 		const runtime = this.requireLive(input.sessionId);
 		const queued: QueuedPrompt = {
 			queueId: input.commandId ?? randomUUID(),
@@ -1555,7 +1634,9 @@ export class AcpSessionManager {
 		sessionId: string;
 		commandId?: string;
 		prompt: ContentBlock[];
+		displayPrompt?: ContentBlock[];
 	}): Promise<PromptAccepted> {
+		this.assertTaskCommand(input.sessionId, input.commandId);
 		const runtime = this.requireLive(input.sessionId);
 		if (!runtime.state.canSteer) {
 			throw new Error("This agent does not support non-interrupting guidance");
@@ -1587,7 +1668,7 @@ export class AcpSessionManager {
 		} else {
 			await delivery;
 		}
-		for (const block of input.prompt) {
+		for (const block of input.displayPrompt ?? input.prompt) {
 			this.journalFrame(runtime, {
 				kind: "update",
 				update: { sessionUpdate: "user_message_chunk", content: block },
@@ -1608,7 +1689,9 @@ export class AcpSessionManager {
 		sessionId: string;
 		commandId?: string;
 		prompt: ContentBlock[];
+		displayPrompt?: ContentBlock[];
 	}): Promise<PromptAccepted> {
+		this.assertTaskCommand(input.sessionId, input.commandId);
 		const runtime = this.requireLive(input.sessionId);
 		if (
 			input.commandId &&
@@ -1810,6 +1893,7 @@ export class AcpSessionManager {
 		sessionId: string;
 		queueId: string;
 		prompt: ContentBlock[];
+		displayPrompt?: ContentBlock[];
 	}): void {
 		const runtime = this.requireLive(input.sessionId);
 		const entry = runtime.state.queuedPrompts.find(
@@ -2494,6 +2578,9 @@ export class AcpSessionManager {
 			delete env.SUPERSET_PI_ACP_APPEND_SYSTEM_PROMPT;
 		}
 		env.SUPERSET_ACP_SESSION_ROLE = role;
+		if (role === "task-executor" && this.isTaskDelivery?.(sessionId))
+			env.SUPERSET_TASK_DELIVERY = "1";
+		else delete env.SUPERSET_TASK_DELIVERY;
 		if (harness === "claude-agent-acp" && !this.adapterEntry) {
 			assertExternalClaudeCliAvailable(env);
 		}
@@ -3245,6 +3332,18 @@ export class AcpSessionManager {
 		runtime: AcpSessionRuntime,
 		notification: SessionNotification,
 	): void {
+		const edit = notification.update._meta?.["sh.superset/taskEdit"];
+		if (
+			runtime.role === "task-executor" &&
+			runtime.state.harness === "pi-acp" &&
+			edit
+		) {
+			try {
+				this.onTaskEdit?.(runtime.state.sessionId, edit);
+			} catch (error) {
+				console.error("[tasks] Could not persist file provenance", error);
+			}
+		}
 		if (runtime.closed || runtime.closing) return;
 		if (notification.sessionId !== runtime.acpSessionId) return;
 		const update = notification.update;

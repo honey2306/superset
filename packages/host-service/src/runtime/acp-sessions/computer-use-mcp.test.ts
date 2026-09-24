@@ -1,152 +1,362 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { StdioMcpClient } from "./stdio-mcp-client";
 
-// Exercise the shipped entry point, including its internal RPC IDs and cancellation.
+interface RecordedCall {
+	sessionId: string;
+	name: string;
+	arguments: Record<string, unknown>;
+}
+
 async function fixture() {
-	const root = await mkdtemp(path.join(tmpdir(), "superset-computer-mcp-"));
-	const executable = path.join(root, "peekaboo");
-	const log = path.join(root, "calls.jsonl");
-	const bridge = path.join(root, "bridge.sock");
-	await writeFile(bridge, "fixture");
-	await writeFile(
-		executable,
-		`#!${process.execPath}
-import { createInterface } from 'node:readline';
-import { appendFileSync } from 'node:fs';
-const receipt = { pid: 42, window_id: 100, process_start_identity_decimal: '123456789' };
-if (process.argv.includes('see')) {
- process.stdout.write(JSON.stringify({ success: true, target_receipt: receipt, data: { application_name: 'TextEdit', snapshot_id: 'native', ui_elements: [{ id: 'elem_0', ax_role: 'AXWindow', bounds: { x: 0, y: 0, width: 600, height: 400 } }, { id: 'elem_2', ax_role: 'AXTextArea', identifier: 'editor', value: 'hello' }] } }));
- process.exit(0);
-}
-for await (const line of createInterface({ input: process.stdin })) {
- const m = JSON.parse(line);
- if (!m.method || m.id === undefined) continue;
- const answer = (result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n');
- if (m.method === 'initialize') answer({ protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'fixture', version: '1' } });
- else if (m.method === 'tools/list') answer({ tools: [{ name: 'press', inputSchema: { type: 'object' } }] });
- else if (m.method === 'tools/call') {
-  const { name, arguments: args } = m.params;
-  appendFileSync(${JSON.stringify(log)}, JSON.stringify({ name, args }) + '\\n');
-  if (name === 'inspect_ui') answer({ isError: false, _meta: { target_receipt: receipt }, content: [{ type: 'text', text: 'UI Text Inspection\\nSnapshot ID: exact\\n  elem_0 - "Document" - at (0, 0) size 600x400' }] });
-  else if (name === 'press') answer({ isError: true, _meta: { state: 'dispatched_unverified', mutation_dispatched: true, effect: 'unverifiable' }, content: [{ type: 'text', text: 'Unconfirmed' }] });
-  else if (name === 'sleep') setTimeout(() => answer({ content: [{ type: 'text', text: 'late' }] }), 100);
-  else answer({ isError: false, content: [{ type: 'text', text: 'ok' }] });
- }
-}
-`,
-		{ mode: 0o700 },
-	);
+	const root = await mkdtemp(path.join(tmpdir(), "superset-computer-runtime-"));
+	const socketPath =
+		process.platform === "win32"
+			? `\\\\.\\pipe\\superset-computer-test-${randomUUID()}`
+			: path.join(root, "computer.sock");
+	const token = "computer-runtime-test-token";
+	const calls: RecordedCall[] = [];
+	let cancelledConnections = 0;
+
+	const tools = [
+		{
+			name: "list_apps",
+			description: "List native applications.",
+			inputSchema: {
+				type: "object",
+				additionalProperties: false,
+				properties: {
+					session: { type: "string" },
+				},
+			},
+		},
+		{
+			name: "get_window_state",
+			description: "Observe one exact window.",
+			inputSchema: {
+				type: "object",
+				additionalProperties: false,
+				properties: {
+					session: { type: "string" },
+					pid: { type: "integer" },
+					window_id: { type: "integer" },
+				},
+				required: ["session", "pid", "window_id"],
+			},
+		},
+		{
+			name: "verify_state",
+			description: "Verify desktop state.",
+			inputSchema: {
+				type: "object",
+				properties: {
+					session: { type: "string" },
+					pid: { type: "integer" },
+				},
+			},
+		},
+		{
+			name: "press_key",
+			description: "Press a key.",
+			inputSchema: {
+				type: "object",
+				properties: {
+					session: { type: "string" },
+					key: { type: "string" },
+				},
+				required: ["session", "key"],
+			},
+		},
+		...[
+			"superset_window",
+			"superset_space",
+			"superset_dock",
+			"superset_app",
+			"superset_paste",
+			"superset_dialog",
+			"superset_action",
+		].map((name) => ({
+			name,
+			description: "Superset high-level Computer Runtime tool.",
+			inputSchema: {
+				type: "object",
+				additionalProperties: false,
+				properties: { action: { type: "string" } },
+			},
+		})),
+		{
+			name: "browser_navigate",
+			description: "Provider browser tool that Superset must hide.",
+			inputSchema: { type: "object", properties: {} },
+		},
+	];
+
+	const server = net.createServer((socket) => {
+		socket.setEncoding("utf8");
+		let buffer = "";
+		let replied = false;
+		socket.on("data", (chunk: string) => {
+			buffer += chunk;
+			const newline = buffer.indexOf("\n");
+			if (newline < 0) return;
+			const request = JSON.parse(buffer.slice(0, newline)) as {
+				id: string;
+				token: string;
+				method: string;
+				params?: Record<string, unknown>;
+			};
+			if (request.token !== token) {
+				socket.write(
+					`${JSON.stringify({
+						id: request.id,
+						ok: false,
+						error: "bad token",
+					})}\n`,
+				);
+				return;
+			}
+			const reply = (result: unknown) => {
+				if (socket.destroyed) return;
+				replied = true;
+				socket.write(
+					`${JSON.stringify({ id: request.id, ok: true, result })}\n`,
+				);
+			};
+			if (request.method === "tools") {
+				reply({
+					capability_version: "1",
+					schema_version: "1",
+					tools,
+				});
+				return;
+			}
+			if (request.method === "permissions") {
+				reply({
+					platform: process.platform,
+					accessibility: true,
+					screenRecording: true,
+					ready: true,
+					prompted: request.params?.prompt === true,
+					relaunchRequired: false,
+				});
+				return;
+			}
+			if (request.method === "endTurn") {
+				reply({
+					ownerSessionId: null,
+					generation: 4,
+					waiting: 0,
+					activeCalls: 0,
+				});
+				return;
+			}
+			if (request.method !== "callTool") {
+				socket.write(
+					`${JSON.stringify({
+						id: request.id,
+						ok: false,
+						error: "unknown method",
+					})}\n`,
+				);
+				return;
+			}
+
+			const args =
+				request.params?.arguments &&
+				typeof request.params.arguments === "object" &&
+				!Array.isArray(request.params.arguments)
+					? (request.params.arguments as Record<string, unknown>)
+					: {};
+			calls.push({
+				sessionId: String(request.params?.sessionId),
+				name: String(request.params?.name),
+				arguments: args,
+			});
+			const result = {
+				generation: 7,
+				result: {
+					text: "ok",
+					images:
+						request.params?.name === "get_window_state"
+							? [{ mimeType: "image/png", dataBase64: "ZmFrZQ==" }]
+							: [],
+					structuredJson: JSON.stringify({
+						effect: "confirmed",
+						provider: request.params?.name,
+					}),
+					isError: false,
+					degraded: false,
+					rawJson: "{}",
+				},
+			};
+			if (args.key === "WAIT") {
+				setTimeout(() => reply(result), 500);
+				return;
+			}
+			reply(result);
+		});
+		socket.once("close", () => {
+			if (!replied) cancelledConnections += 1;
+		});
+	});
+	await new Promise<void>((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(socketPath, () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+
 	const client = new StdioMcpClient({
 		name: "computer-use-probe",
 		command: process.execPath,
 		args: [path.join(import.meta.dir, "computer-use-mcp.ts")],
 		env: [
-			{ name: "SUPERSET_PEEKABOO_PATH", value: executable },
-			{ name: "SUPERSET_PEEKABOO_BRIDGE_SOCKET", value: bridge },
+			{ name: "SUPERSET_ACP_SOURCE_SESSION_ID", value: "session-42" },
+			{ name: "SUPERSET_COMPUTER_RUNTIME_BRIDGE_SOCKET", value: socketPath },
+			{ name: "SUPERSET_COMPUTER_RUNTIME_BRIDGE_TOKEN", value: token },
 		],
 	});
 	await client.initialize();
+
 	return {
 		client,
-		log,
+		calls,
+		cancelledConnections: () => cancelledConnections,
 		async close() {
 			await client.close();
+			await new Promise<void>((resolve) => server.close(() => resolve()));
 			await rm(root, { recursive: true, force: true });
 		},
 	};
 }
 
 describe("Computer Use MCP process", () => {
-	test("verifies through the structured CLI reader in the real MCP entry point", async () => {
+	test("exposes Superset-owned tool names and hides provider browser/session details", async () => {
 		const f = await fixture();
 		try {
-			const result = await f.client.callTool("computer_verify_state", {
-				pid: 42,
-				window_id: 100,
-				predicates: [
-					{
-						kind: "element_value",
-						selector: { identifier: "editor" },
-						expected_value: "hello",
-					},
-				],
+			const tools = await f.client.listTools();
+			expect(tools.map((tool) => tool.name)).toEqual([
+				"computer_apps",
+				"computer_see",
+				"computer_verify_state",
+				"computer_press",
+				"computer_window",
+				"computer_space",
+				"computer_dock",
+				"computer_app",
+				"computer_paste",
+				"computer_dialog",
+				"computer_action",
+				"computer_permissions",
+			]);
+			const press = tools.find((tool) => tool.name === "computer_press");
+			expect(press?.inputSchema).toMatchObject({
+				properties: { key: { type: "string" } },
+				required: ["key"],
+			});
+			expect(JSON.stringify(press?.inputSchema)).not.toContain('"session"');
+			expect(tools.some((tool) => tool.name.includes("browser"))).toBe(false);
+			expect(tools.some((tool) => tool.name.startsWith("superset_"))).toBe(
+				false,
+			);
+		} finally {
+			await f.close();
+		}
+	});
+
+	test("routes calls through the Superset bridge with session identity outside provider args", async () => {
+		const f = await fixture();
+		try {
+			const result = await f.client.callTool("computer_press", {
+				key: "ENTER",
 			});
 			expect(result.isError).toBe(false);
-			expect(result._meta).toMatchObject({
-				status: "satisfied",
-				verifier: "superset-targeted-ax",
+			expect(result.structuredContent).toEqual({
+				effect: "confirmed",
+				provider: "press_key",
 			});
+			expect(result._meta).toMatchObject({
+				supersetComputer: {
+					generation: 7,
+					provider: "desktop-runtime",
+					degraded: false,
+				},
+			});
+			expect(f.calls).toEqual([
+				{
+					sessionId: "session-42",
+					name: "press_key",
+					arguments: { key: "ENTER" },
+				},
+			]);
 		} finally {
 			await f.close();
 		}
 	});
-	test("routes preflight and readback internally and retains parent tool results", async () => {
+
+	test("forwards screenshots without exposing provider-specific tool names", async () => {
 		const f = await fixture();
 		try {
-			expect((await f.client.listTools()).map((t) => t.name)).toEqual([
-				"computer_press",
-			]);
-			const result = await f.client.callTool("computer_press", {
-				app: "TextEdit",
-				keys: ["cmd+s"],
-				foreground: true,
+			const result = await f.client.callTool("computer_see", {
+				pid: 42,
+				window_id: 7,
 			});
-			expect(JSON.stringify(result.content)).toContain("Do not repeat");
-			expect(result.isError).toBe(true);
-			const calls = (await readFile(f.log, "utf8"))
-				.trim()
-				.split("\n")
-				.map((line) => JSON.parse(line));
-			expect(calls.map((c) => c.name)).toEqual([
-				"inspect_ui",
-				"app",
-				"inspect_ui",
-				"press",
-				"inspect_ui",
+			expect(result.content).toEqual([
+				{ type: "text", text: "ok" },
+				{ type: "image", data: "ZmFrZQ==", mimeType: "image/png" },
 			]);
-			expect(calls[3].args.window_id).toBe(100);
-			expect(calls[3].args.foreground).toBe(false);
+			expect(f.calls[0]).toMatchObject({
+				name: "get_window_state",
+				arguments: { pid: 42, window_id: 7 },
+			});
 		} finally {
 			await f.close();
 		}
 	});
-	test("cancels an in-flight call without blocking the next tool call", async () => {
+
+	test("cancels the bridge request and leaves the next call usable", async () => {
 		const f = await fixture();
 		try {
 			const controller = new AbortController();
 			const pending = f.client.callTool(
-				"computer_sleep",
-				{},
+				"computer_press",
+				{ key: "WAIT" },
 				controller.signal,
 			);
-			const cancelled = pending.then(
-				() => "unexpected success",
-				(error: Error) => error.message,
-			);
-			// Wait until the tool actually reached the fake upstream, then cancel it.
-			for (let i = 0; i < 50; i++) {
-				if ((await readFile(f.log, "utf8").catch(() => "")).includes('"sleep"'))
-					break;
+			for (let index = 0; index < 50 && f.calls.length === 0; index += 1) {
 				await new Promise((resolve) => setTimeout(resolve, 2));
 			}
 			controller.abort();
-			expect(await cancelled).toContain("cancelled");
-			const result = await f.client.callTool("computer_permissions", {});
-			expect(result.isError).toBe(false);
+			await expect(pending).rejects.toThrow(/abort|cancel/i);
+			for (
+				let index = 0;
+				index < 50 && f.cancelledConnections() === 0;
+				index += 1
+			) {
+				await new Promise((resolve) => setTimeout(resolve, 2));
+			}
+			expect(f.cancelledConnections()).toBeGreaterThanOrEqual(1);
+
+			const permissions = await f.client.callTool("computer_permissions", {});
+			expect(permissions.isError).toBe(false);
+			expect(permissions.structuredContent).toMatchObject({ ready: true });
 		} finally {
 			await f.close();
 		}
 	});
-	test("rejects excluded tools before upstream dispatch", async () => {
+
+	test("rejects provider browser tools before bridge dispatch", async () => {
 		const f = await fixture();
 		try {
-			await expect(f.client.callTool("computer_browser", {})).rejects.toThrow(
-				"not allowed",
-			);
-			expect(await readFile(f.log, "utf8").catch(() => "")).toBe("");
+			await expect(
+				f.client.callTool("computer_browser_navigate", {}),
+			).rejects.toThrow("not allowed");
+			expect(f.calls).toEqual([]);
 		} finally {
 			await f.close();
 		}

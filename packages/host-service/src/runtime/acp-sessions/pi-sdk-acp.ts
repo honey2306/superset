@@ -60,6 +60,8 @@ import {
 	type WorkingIndicatorOptions,
 } from "@earendil-works/pi-coding-agent";
 import { SUPERSET_DELEGATION_META_KEY } from "@superset/session-protocol";
+import { PiTaskEditTracker } from "../../tasks/delivery/file-observation";
+import { piAdditionalSkillPaths } from "./pi-skill-resources";
 import {
 	isMcpServerProcess,
 	type McpClient,
@@ -88,6 +90,7 @@ type SessionRuntime = {
 	eventQueue: Promise<void>;
 	promptActive: boolean;
 	cancelRequested: boolean;
+	lastAssistantError?: string;
 	assistantMessageId?: string;
 	lastUsage?: UsageSnapshot;
 };
@@ -961,6 +964,7 @@ export class PiSdkAcpAgent implements Agent {
 			throw RequestError.invalidParams("Session prompt is already active");
 		runtime.promptActive = true;
 		runtime.cancelRequested = false;
+		runtime.lastAssistantError = undefined;
 		runtime.assistantMessageId = undefined;
 		const text = promptText(params.prompt);
 		const images = promptImages(params.prompt);
@@ -979,7 +983,12 @@ export class PiSdkAcpAgent implements Agent {
 				expandPromptTemplates: true,
 				source: "rpc",
 			});
+			// Pi 0.84.2 resolves prompt only after agent_settled (including its
+			// own retries/compaction). Drain forwarded events before ACP completion.
 			await runtime.eventQueue;
+			if (!runtime.cancelRequested && runtime.lastAssistantError) {
+				throw new Error(runtime.lastAssistantError);
+			}
 			const stats = runtime.session.getSessionStats();
 			runtime.lastUsage = usageFromStats(stats) ?? runtime.lastUsage;
 			return {
@@ -1150,6 +1159,7 @@ export class PiSdkAcpAgent implements Agent {
 		const agentDir = getAgentDir();
 		const settingsManager = SettingsManager.create(options.cwd, agentDir);
 		const resourceLoader = new DefaultResourceLoader({
+			additionalSkillPaths: piAdditionalSkillPaths(),
 			cwd: options.cwd,
 			agentDir,
 			settingsManager,
@@ -1194,9 +1204,15 @@ export class PiSdkAcpAgent implements Agent {
 			promptActive: false,
 			cancelRequested: false,
 		};
+		const taskEdits =
+			process.env.SUPERSET_TASK_DELIVERY === "1"
+				? new PiTaskEditTracker(options.cwd)
+				: null;
 		runtime.unsubscribe = session.subscribe((event) => {
+			const edit = taskEdits?.capture(event);
+			const captured = edit ? { ...event, taskEdit: edit } : event;
 			runtime.eventQueue = runtime.eventQueue
-				.then(() => this.handleEvent(runtime, event))
+				.then(() => this.handleEvent(runtime, captured))
 				.catch((error) => {
 					console.error("[pi-sdk-acp] event mapping failed", error);
 				});
@@ -1434,6 +1450,9 @@ export class PiSdkAcpAgent implements Agent {
 					toolCallId,
 					status: eventRecord.isError === true ? "failed" : "completed",
 					rawOutput: eventRecord.result,
+					...(eventRecord.taskEdit
+						? { _meta: { "sh.superset/taskEdit": eventRecord.taskEdit } }
+						: {}),
 					...(text
 						? {
 								content: [{ type: "content", content: { type: "text", text } }],
@@ -1444,6 +1463,14 @@ export class PiSdkAcpAgent implements Agent {
 			return;
 		}
 		if (eventRecord.type === "message_end") {
+			const message = asRecord(eventRecord.message);
+			if (message?.role === "assistant") {
+				runtime.lastAssistantError =
+					message.stopReason === "error"
+						? stringValue(message.errorMessage) ||
+							"Pi provider returned an error"
+						: undefined;
+			}
 			runtime.lastUsage =
 				usageFromMessage(eventRecord.message) ?? runtime.lastUsage;
 			return;

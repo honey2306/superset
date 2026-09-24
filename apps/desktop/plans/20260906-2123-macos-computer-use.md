@@ -1,5 +1,7 @@
 # macOS Computer Use for ACP Agents
 
+> **Superseded (2026-09-21).** This document records the original Peekaboo-based implementation and is retained only as historical context. The active long-term architecture is documented in `apps/desktop/docs/COMPUTER_RUNTIME.md`: Electron-owned Cua Embedded + Superset Computer Runtime + in-process macOS native supplement. The current runtime does not launch or require `Peekaboo.app` or the Peekaboo CLI.
+
 ## Goal
 
 Give each local ACP conversation an explicit macOS desktop-control tool surface. The Agent should inspect the frontmost application through the Accessibility tree, use a screenshot when semantic data is insufficient, and then click, type, press keys, scroll, or focus an application. Browser work remains on Agent Browser/CDP; Computer Use is only for native desktop applications and whole-screen workflows.

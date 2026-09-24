@@ -9,6 +9,22 @@ import type {
 	AgentDefinitionId,
 	AgentIdentityId,
 } from "@superset/shared/agent-catalog";
+import type {
+	DeliveryOperationStatus,
+	EffectiveTaskStrategy,
+	GitDeliveryPlan,
+	SelectedTaskCheck,
+	TaskCandidate,
+	TaskCheckStatus,
+	TaskContract,
+	TaskDesiredState,
+	TaskImage,
+	TaskMetrics,
+	TaskPhase,
+	TaskProfile,
+	TaskProfileSnapshot,
+	TaskStatus,
+} from "@superset/shared/tasks";
 import type { BranchPrefixMode } from "@superset/shared/workspace-launch";
 import { sql } from "drizzle-orm";
 import {
@@ -774,4 +790,254 @@ export const phoneSessions = sqliteTable(
 		revokedAt: integer("revoked_at"),
 	},
 	(table) => [uniqueIndex("phone_sessions_token_hash_idx").on(table.tokenHash)],
+);
+
+/** Managed work, separate from GitHub issues, reminders and scheduled dispatches. */
+export const tasks = sqliteTable(
+	"tasks",
+	{
+		id: text().primaryKey(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => projects.id, { onDelete: "restrict" }),
+		workspaceId: text("workspace_id")
+			.notNull()
+			.references(() => workspaces.id, { onDelete: "restrict" }),
+		title: text().notNull(),
+		contract: text("contract_json", { mode: "json" })
+			.$type<TaskContract>()
+			.notNull(),
+		requestHash: text("request_hash").notNull(),
+		currentRunId: text("current_run_id"),
+		createdAt: integer("created_at").notNull(),
+		updatedAt: integer("updated_at").notNull(),
+	},
+	(table) => [
+		index("tasks_project_created_idx").on(table.projectId, table.createdAt),
+	],
+);
+
+export const taskRuns = sqliteTable(
+	"task_runs",
+	{
+		id: text().primaryKey(),
+		taskId: text("task_id")
+			.notNull()
+			.references(() => tasks.id, { onDelete: "cascade" }),
+		contract: text("contract_json", { mode: "json" })
+			.$type<TaskContract>()
+			.notNull(),
+		sessionId: text("session_id").notNull(),
+		fromConversation: integer("from_conversation", { mode: "boolean" })
+			.notNull()
+			.default(false),
+		sessionReleasedAt: integer("session_released_at"),
+		initialAttachments: text("initial_attachments_json", {
+			mode: "json",
+		}).$type<TaskImage[]>(),
+		continuationCount: integer("continuation_count").notNull().default(0),
+		reportRecoveryCount: integer("report_recovery_count").notNull().default(0),
+		coverageRecoveryCount: integer("coverage_recovery_count")
+			.notNull()
+			.default(0),
+		lastProgressKey: text("last_progress_key"),
+		stalledContinuationCount: integer("stalled_continuation_count")
+			.notNull()
+			.default(0),
+		cwd: text().notNull(),
+		// Non-null while this run may still be writing, even during recovery.
+		leasePath: text("lease_path"),
+		status: text().$type<TaskStatus>().notNull().default("queued"),
+		phase: text().$type<TaskPhase>().notNull().default("preparing"),
+		desiredState: text("desired_state")
+			.$type<TaskDesiredState>()
+			.notNull()
+			.default("running"),
+		stopOutcome: text("stop_outcome").$type<
+			"paused" | "cancelled" | "failed"
+		>(),
+		revision: integer().notNull().default(0),
+		acceptanceMode: text("acceptance_mode").$type<
+			"project" | "review" | "checks"
+		>(),
+		profile: text("profile_json", {
+			mode: "json",
+		}).$type<TaskProfileSnapshot>(),
+		effectiveStrategy:
+			text("effective_strategy").$type<EffectiveTaskStrategy>(),
+		policyReason: text("policy_reason"),
+		baselineChanges: text("baseline_changes_json", { mode: "json" }).$type<
+			Record<string, string>
+		>(),
+		selectedChecks: text("selected_checks_json", { mode: "json" }).$type<
+			SelectedTaskCheck[]
+		>(),
+		lastFailureKey: text("last_failure_key"),
+		noProgressCount: integer("no_progress_count").notNull().default(0),
+		metrics: text("metrics_json", { mode: "json" }).$type<TaskMetrics>(),
+		phaseStartedAt: integer("phase_started_at"),
+		iteration: integer().notNull().default(0),
+		repairCount: integer("repair_count").notNull().default(0),
+		candidateFingerprint: text("candidate_fingerprint"),
+		commandId: text("command_id").notNull(),
+		dispatchedAt: integer("dispatched_at"),
+		beforeSeq: integer("before_seq").notNull().default(0),
+		beforeEpoch: text("before_epoch"),
+		acceptedRevision: integer("accepted_revision"),
+		deliveryRevoked: integer("delivery_revoked", { mode: "boolean" })
+			.notNull()
+			.default(false),
+		deadlineAt: integer("deadline_at"),
+		candidate: text("candidate_json", { mode: "json" }).$type<TaskCandidate>(),
+		instruction: text(),
+		reason: text(),
+		baselineRef: text("baseline_ref"),
+		baselineFingerprint: text("baseline_fingerprint"),
+		verifiedFingerprint: text("verified_fingerprint"),
+		completionSource: text("completion_source").$type<"checks" | "user">(),
+		createdAt: integer("created_at").notNull(),
+		updatedAt: integer("updated_at").notNull(),
+		endedAt: integer("ended_at"),
+	},
+	(table) => [
+		index("task_runs_task_idx").on(table.taskId, table.createdAt),
+		index("task_runs_session_history_idx").on(table.sessionId, table.createdAt),
+		uniqueIndex("task_runs_session_owner_idx")
+			.on(table.sessionId)
+			.where(sql`session_released_at IS NULL`),
+		index("task_runs_status_idx").on(table.status),
+		uniqueIndex("task_runs_lease_idx")
+			.on(table.leasePath)
+			.where(sql`lease_path IS NOT NULL`),
+	],
+);
+
+export const taskChecks = sqliteTable(
+	"task_checks",
+	{
+		id: text().primaryKey(),
+		runId: text("run_id")
+			.notNull()
+			.references(() => taskRuns.id, { onDelete: "cascade" }),
+		iteration: integer().notNull(),
+		revision: integer().notNull().default(0),
+		checkKey: text("check_key"),
+		selectionReason: text("selection_reason"),
+		checkIndex: integer("check_index").notNull(),
+		name: text().notNull(),
+		command: text().notNull(),
+		cwd: text().notNull(),
+		status: text().$type<TaskCheckStatus>().notNull(),
+		pid: integer(),
+		exitCode: integer("exit_code"),
+		output: text().notNull().default(""),
+		fingerprint: text(),
+		startedAt: integer("started_at").notNull(),
+		endedAt: integer("ended_at"),
+	},
+	(table) => [index("task_checks_run_idx").on(table.runId, table.iteration)],
+);
+
+export const taskEvents = sqliteTable(
+	"task_events",
+	{
+		id: integer().primaryKey({ autoIncrement: true }),
+		runId: text("run_id")
+			.notNull()
+			.references(() => taskRuns.id, { onDelete: "cascade" }),
+		kind: text().notNull(),
+		message: text().notNull(),
+		createdAt: integer("created_at").notNull(),
+	},
+	(table) => [index("task_events_run_idx").on(table.runId, table.id)],
+);
+
+export const taskProfiles = sqliteTable("task_profiles", {
+	projectId: text("project_id")
+		.primaryKey()
+		.references(() => projects.id, { onDelete: "cascade" }),
+	revision: integer().notNull(),
+	config: text("config_json", { mode: "json" }).$type<TaskProfile>().notNull(),
+	updatedAt: integer("updated_at").notNull(),
+});
+
+/** Durable, revisioned user intent. A lost steering acknowledgement is NOT replayed. */
+export const taskGuidance = sqliteTable(
+	"task_guidance",
+	{
+		id: text().primaryKey(),
+		runId: text("run_id")
+			.notNull()
+			.references(() => taskRuns.id, { onDelete: "cascade" }),
+		revision: integer().notNull(),
+		kind: text().$type<"guidance" | "constraint">().notNull(),
+		text: text().notNull(),
+		attachments: text("attachments_json", { mode: "json" }).$type<
+			TaskImage[]
+		>(),
+		status: text()
+			.$type<"pending" | "sending" | "delivered" | "unknown" | "cancelled">()
+			.notNull(),
+		requestHash: text("request_hash").notNull(),
+		deliveryMode: text("delivery_mode").$type<
+			"native" | "queued" | "bundled"
+		>(),
+		createdAt: integer("created_at").notNull(),
+		deliveredAt: integer("delivered_at"),
+	},
+	(table) => [
+		uniqueIndex("task_guidance_revision_idx").on(table.runId, table.revision),
+	],
+);
+
+/** Adapter-observed file mutations, not model-authored changed-file claims. */
+export const taskFileEdits = sqliteTable(
+	"task_file_edits",
+	{
+		id: integer().primaryKey({ autoIncrement: true }),
+		runId: text("run_id")
+			.notNull()
+			.references(() => taskRuns.id, { onDelete: "cascade" }),
+		toolCallId: text("tool_call_id").notNull(),
+		path: text().notNull(),
+		before: text("before_hash"),
+		after: text("after_hash"),
+		reliable: integer({ mode: "boolean" }).notNull(),
+		createdAt: integer("created_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("task_file_edits_call_idx").on(table.runId, table.toolCallId),
+		index("task_file_edits_run_idx").on(table.runId, table.id),
+	],
+);
+
+/** One durable intent for each Git side effect; lost replies are reconciled. */
+export const taskOperations = sqliteTable(
+	"task_operations",
+	{
+		id: text().primaryKey(),
+		runId: text("run_id")
+			.notNull()
+			.references(() => taskRuns.id, { onDelete: "restrict" }),
+		revision: integer().notNull(),
+		kind: text().$type<"commit" | "push">().notNull(),
+		status: text().$type<DeliveryOperationStatus>().notNull(),
+		plan: text("plan_json", { mode: "json" })
+			.$type<GitDeliveryPlan>()
+			.notNull(),
+		commitOid: text("commit_oid"),
+		pid: integer(),
+		exitCode: integer("exit_code"),
+		leaseKey: text("lease_key"),
+		error: text(),
+		output: text().notNull().default(""),
+		createdAt: integer("created_at").notNull(),
+		updatedAt: integer("updated_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("task_operations_run_kind_idx").on(table.runId, table.kind),
+		uniqueIndex("task_operations_lease_idx")
+			.on(table.leaseKey)
+			.where(sql`lease_key IS NOT NULL`),
+	],
 );

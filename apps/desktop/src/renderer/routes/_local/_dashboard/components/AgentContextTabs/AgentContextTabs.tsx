@@ -1,5 +1,6 @@
 import { Tabs, TabsList, TabsTrigger } from "@superset/ui/tabs";
 import { Link, useLocation } from "@tanstack/react-router";
+import { LuSparkles } from "react-icons/lu";
 import { useTranslation } from "renderer/providers/I18nProvider";
 
 export type AgentContextSection = "memories" | "mcp" | "skills";
@@ -32,7 +33,10 @@ export function AgentContextTabs() {
 						<Link to="/mcp">{t("agentContext.mcp")}</Link>
 					</TabsTrigger>
 					<TabsTrigger value="skills" asChild>
-						<Link to="/skills">{t("agentContext.skills")}</Link>
+						<Link to="/skills" aria-label={t("skillsUi.title")}>
+							<LuSparkles className="mr-1.5 size-3.5" />
+							{t("skillsUi.title")}
+						</Link>
 					</TabsTrigger>
 				</TabsList>
 			</Tabs>

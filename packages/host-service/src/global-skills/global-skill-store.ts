@@ -1,3 +1,7 @@
+import { globalSkillsDir } from "./paths";
+
+export { globalSkillsDir } from "./paths";
+
 import { randomUUID } from "node:crypto";
 import {
 	existsSync,
@@ -8,7 +12,6 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { z } from "zod";
 
@@ -59,7 +62,7 @@ interface ParsedSkillDocument {
 	instructions: string;
 }
 
-function parseSkillDocument(
+export function parseSkillDocument(
 	content: string,
 	filePath: string,
 ): ParsedSkillDocument {
@@ -108,7 +111,7 @@ function replaceFrontmatterField(
 	value: string,
 ): string[] {
 	const nextLines = [...lines];
-	const fieldPattern = new RegExp(`^${fieldName}:\\s*(.*)$`);
+	const fieldPattern = new RegExp(`^${fieldName}:s*(.*)$`);
 	const startIndex = nextLines.findIndex((line) => fieldPattern.test(line));
 	const replacement = `${fieldName}: ${yamlScalar(value)}`;
 	if (startIndex < 0) return [replacement, ...nextLines];
@@ -124,14 +127,6 @@ function replaceFrontmatterField(
 	}
 	nextLines.splice(startIndex, endIndex - startIndex, replacement);
 	return nextLines;
-}
-
-export function globalSkillsDir(
-	environment: NodeJS.ProcessEnv = process.env,
-): string {
-	const explicit = environment.SUPERSET_GLOBAL_SKILLS_DIR?.trim();
-	if (explicit) return explicit;
-	return path.join(homedir(), ".agents", "skills");
 }
 
 function skillFilePath(name: string, skillsDir = globalSkillsDir()): string {
@@ -151,6 +146,29 @@ export function parseGlobalSkill(
 		}),
 		filePath,
 	};
+}
+
+/** One serializer for the legacy global editor and the scoped skill library.
+ * Unknown frontmatter is retained. Invocation is a discovery preference, not a
+ * permission to run tools or a promise that the model has loaded this skill. */
+export function renderSkillDocument(
+	input: GlobalSkillInput,
+	existing?: string,
+	invocation?: "auto" | "manual",
+): string {
+	const skill = globalSkillInputSchema.parse(input);
+	let lines = existing
+		? parseSkillDocument(existing, "SKILL.md").frontmatterLines
+		: [];
+	lines = replaceFrontmatterField(lines, "name", skill.name);
+	lines = replaceFrontmatterField(lines, "description", skill.description);
+	if (invocation !== undefined) {
+		lines = lines.filter(
+			(line) => !line.startsWith("disable-model-invocation:"),
+		);
+		lines.push(`disable-model-invocation: ${invocation === "manual"}`);
+	}
+	return `---\n${lines.join("\n")}\n---\n\n${skill.instructions.trim()}\n`;
 }
 
 export function readGlobalSkills(skillsDir = globalSkillsDir()): GlobalSkill[] {
@@ -188,43 +206,36 @@ export function upsertGlobalSkill(
 	) {
 		throw new Error(`A global skill named '${skill.name}' already exists.`);
 	}
-	mkdirSync(targetDir, { recursive: true, mode: 0o700 });
+	const renamed = Boolean(
+		options.previousName && options.previousName !== skill.name,
+	);
+	const previousDir = options.previousName
+		? path.dirname(skillFilePath(options.previousName, skillsDir))
+		: targetDir;
+	if (renamed && !existsSync(previousDir))
+		throw new Error("The skill to rename no longer exists");
 	const temporaryPath = `${targetFile}.${randomUUID()}.tmp`;
 	const existingPath = options.previousName
 		? skillFilePath(options.previousName, skillsDir)
 		: targetFile;
-	let frontmatterLines = [
-		`name: ${yamlScalar(skill.name)}`,
-		`description: ${yamlScalar(skill.description)}`,
-	];
-	if (existsSync(existingPath)) {
-		frontmatterLines = parseSkillDocument(
-			readFileSync(existingPath, "utf8"),
-			existingPath,
-		).frontmatterLines;
-		frontmatterLines = replaceFrontmatterField(
-			frontmatterLines,
-			"name",
-			skill.name,
-		);
-		frontmatterLines = replaceFrontmatterField(
-			frontmatterLines,
-			"description",
-			skill.description,
-		);
-	}
-	const content = `---\n${frontmatterLines.join("\n")}\n---\n\n${skill.instructions.trim()}\n`;
+	const existingContent = existsSync(existingPath)
+		? readFileSync(existingPath, "utf8")
+		: undefined;
+	const content = renderSkillDocument(skill, existingContent);
+	if (renamed) renameSync(previousDir, targetDir);
+	else mkdirSync(targetDir, { recursive: true, mode: 0o700 });
 	try {
 		writeFileSync(temporaryPath, content, { encoding: "utf8", mode: 0o600 });
 		renameSync(temporaryPath, targetFile);
+	} catch (error) {
+		if (renamed) renameSync(targetDir, previousDir);
+		throw error;
 	} finally {
 		rmSync(temporaryPath, { force: true });
-	}
-	if (options.previousName && options.previousName !== skill.name) {
-		rmSync(path.dirname(skillFilePath(options.previousName, skillsDir)), {
-			recursive: true,
-			force: true,
-		});
+		if (renamed)
+			rmSync(path.join(previousDir, path.basename(temporaryPath)), {
+				force: true,
+			});
 	}
 	return { ...skill, filePath: targetFile };
 }

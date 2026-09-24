@@ -171,4 +171,74 @@ describe("AcpStatusBar", () => {
 			dirtyCount: 0,
 		});
 	});
+	test("conversation mode is a footer control alongside metadata, not a second editor", () => {
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
+		render(
+			createElement(
+				QueryClientProvider,
+				{ client: queryClient },
+				createElement(AcpStatusBar, {
+					state,
+					hostUrl: "",
+					usage: { used: 25, size: 100 },
+					currentMode: null,
+					configOptions: [],
+					controls: createElement(
+						"button",
+						{ type: "button", "data-testid": "mode-control" },
+						"Chat / Task",
+					),
+				}),
+			),
+		);
+		const control = screen.getByTestId("mode-control");
+		expect(control.closest(".acp-status-bar")).toBeTruthy();
+		expect(control.closest(".acp-status-bar__group--controls")).toBeTruthy();
+		expect(document.querySelectorAll(".acp-status-bar")).toHaveLength(1);
+		expect(screen.getByText("25%")).toBeTruthy();
+		expect(document.querySelector("[contenteditable]")).toBeNull();
+		queryClient.clear();
+	});
+
+	test("read-only running Task footer keeps identity and controls visible without model switching", () => {
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
+		render(
+			createElement(
+				QueryClientProvider,
+				{ client: queryClient },
+				createElement(AcpStatusBar, {
+					state: { ...state, status: "running" },
+					hostUrl: "",
+					usage: null,
+					currentMode: null,
+					configOptions: [
+						{
+							id: "model",
+							name: "Model",
+							category: "model",
+							type: "select",
+							currentValue: "task-model",
+							options: [{ value: "task-model", name: "Task model" }],
+						},
+					],
+					controls: createElement(
+						"button",
+						{ type: "button", disabled: true },
+						"Task",
+					),
+				}),
+			),
+		);
+		expect(screen.getByText("Task model")).toBeTruthy();
+		expect(screen.getByText("Task").closest(".acp-status-bar")).toBeTruthy();
+		expect(screen.queryByRole("button", { name: /Change model/ })).toBeNull();
+		expect(
+			document.querySelectorAll(".acp-status-bar__seg--model"),
+		).toHaveLength(1);
+		queryClient.clear();
+	});
 });

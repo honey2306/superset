@@ -9,12 +9,14 @@ import type { WorkspaceFilesystemManager } from "./runtime/filesystem";
 import type { GitCredentialProvider, GitFactory } from "./runtime/git";
 import type { PhoneAuthService } from "./runtime/phone";
 import type { PullRequestRuntimeManager } from "./runtime/pull-requests";
+import type { TaskRunner } from "./tasks/task-runner";
 import type { TerminalAgentStore } from "./terminal-agents";
 import type { ExecGh } from "./trpc/router/workspace-creation/utils/exec-gh";
 import type { WorkspaceCatalog } from "./workspace-catalog";
 import type { WorkspaceProvisioning } from "./workspace-provisioning";
 
 export interface HostServiceRuntime {
+	tasks?: TaskRunner;
 	acpSessions: AcpSessionRuntime;
 	/**
 	 * Capability switch for the ACP session runtime. Desktop hosts enable it via

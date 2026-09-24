@@ -8,7 +8,10 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { AcpArtifactStore, MAX_INLINE_PROMPT_IMAGE_BYTES } from "./artifact-store";
+import {
+	AcpArtifactStore,
+	MAX_INLINE_PROMPT_IMAGE_BYTES,
+} from "./artifact-store";
 
 const roots: string[] = [];
 afterEach(() => {

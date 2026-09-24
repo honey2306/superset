@@ -8,6 +8,7 @@ import {
 	type DelegationContextSnapshot,
 	type DelegationResult,
 	encodeTranscriptCursor,
+	isTaskRestrictedTool,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DISCUSSION_PARTICIPANT_ROLE,
 	SUPERSET_ROOT_COORDINATOR_ROLE,
@@ -19,6 +20,7 @@ import {
 import type { GlobalMcpServer, GlobalMcpServerInput } from "../../global-mcp";
 import type { GlobalSkill, GlobalSkillInput } from "../../global-skills";
 import type { UpdateProjectMemoryInput } from "../../project-memories";
+import type { TaskStore } from "../../tasks/task-store";
 import type { DelegationProfileTarget } from "../../trpc/router/settings/delegated-execution-target";
 import type { AcpSessionManager } from "./acp-sessions";
 import { DiscussionCoordinator } from "./discussion-coordinator";
@@ -122,6 +124,7 @@ export type GlobalMcpServerSummary =
 	  });
 
 export interface SupersetToolControllerOptions {
+	tasks?: Pick<TaskStore, "context" | "reportCandidate" | "bySession">;
 	manager: AcpSessionManager;
 	onOpenRequested?: (event: AcpSessionOpenRequest) => void;
 	onDiscussionOpenRequested?: (event: DiscussionOpenRequest) => void;
@@ -177,6 +180,7 @@ export interface SupersetToolControllerOptions {
 	upsertGlobalMcpServer?: (input: GlobalMcpServerInput) => GlobalMcpServer;
 	removeGlobalMcpServer?: (name: string) => boolean;
 	listGlobalSkills?: () => GlobalSkill[];
+	getGlobalSkill?: (name: string) => GlobalSkill;
 	upsertGlobalSkill?: (
 		input: GlobalSkillInput,
 		options?: { previousName?: string },
@@ -578,6 +582,7 @@ export class SupersetToolController {
 	private readonly listGlobalMcpServers: SupersetToolControllerOptions["listGlobalMcpServers"];
 	private readonly upsertGlobalMcpServer: SupersetToolControllerOptions["upsertGlobalMcpServer"];
 	private readonly removeGlobalMcpServer: SupersetToolControllerOptions["removeGlobalMcpServer"];
+	private readonly getGlobalSkill: SupersetToolControllerOptions["getGlobalSkill"];
 	private readonly listGlobalSkills: SupersetToolControllerOptions["listGlobalSkills"];
 	private readonly upsertGlobalSkill: SupersetToolControllerOptions["upsertGlobalSkill"];
 	private readonly removeGlobalSkill: SupersetToolControllerOptions["removeGlobalSkill"];
@@ -588,7 +593,10 @@ export class SupersetToolController {
 	private readonly delegationRunByChildSessionId = new Map<string, string>();
 	private readonly delegationWaiters = new Map<string, Set<DelegationWaiter>>();
 
+	private readonly tasks: SupersetToolControllerOptions["tasks"];
+
 	constructor(options: SupersetToolControllerOptions) {
+		this.tasks = options.tasks;
 		this.manager = options.manager;
 		this.onOpenRequested = options.onOpenRequested;
 		this.onDiscussionOpenRequested = options.onDiscussionOpenRequested;
@@ -609,6 +617,7 @@ export class SupersetToolController {
 		this.upsertGlobalMcpServer = options.upsertGlobalMcpServer;
 		this.removeGlobalMcpServer = options.removeGlobalMcpServer;
 		this.listGlobalSkills = options.listGlobalSkills;
+		this.getGlobalSkill = options.getGlobalSkill;
 		this.upsertGlobalSkill = options.upsertGlobalSkill;
 		this.removeGlobalSkill = options.removeGlobalSkill;
 		this.resolveTargetWorkspace = options.resolveTargetWorkspace;
@@ -640,6 +649,22 @@ export class SupersetToolController {
 	): Promise<Record<string, unknown>> {
 		const request = supersetToolRequestSchema.parse(input);
 		const source = this.manager.get(request.sourceSessionId);
+		if (
+			this.manager.getRole?.(request.sourceSessionId) === "task-executor" &&
+			isTaskRestrictedTool(request.name)
+		) {
+			throw new Error(
+				"Managed tasks currently use a single controlled session; this orchestration tool is not enabled",
+			);
+		}
+		if (
+			(request.name === "send_message" || request.name === "steer_session") &&
+			this.tasks?.bySession(request.arguments.sessionId)
+		) {
+			throw new Error(
+				"Use the Task controls to send instructions to a managed task",
+			);
+		}
 		const isDelegatedExecutor =
 			this.manager.getRole?.(request.sourceSessionId) ===
 			SUPERSET_DELEGATED_EXECUTOR_ROLE;
@@ -655,6 +680,7 @@ export class SupersetToolController {
 				request.name === "upsert_global_mcp_server" ||
 				request.name === "remove_global_mcp_server" ||
 				request.name === "list_global_skills" ||
+				request.name === "get_global_skill" ||
 				request.name === "upsert_global_skill" ||
 				request.name === "remove_global_skill")
 		) {
@@ -672,6 +698,19 @@ export class SupersetToolController {
 		}
 
 		switch (request.name) {
+			case "get_task": {
+				if (!this.tasks)
+					throw new Error("Task runtime is unavailable in this daemon");
+				return this.tasks.context(request.sourceSessionId);
+			}
+			case "report_task_result": {
+				if (!this.tasks)
+					throw new Error("Task runtime is unavailable in this daemon");
+				return this.tasks.reportCandidate(
+					request.sourceSessionId,
+					request.arguments,
+				);
+			}
 			case "get_context": {
 				const siblings = this.manager.list({
 					workspaceId: source.workspaceId,
@@ -947,7 +986,22 @@ export class SupersetToolController {
 				if (!this.listGlobalSkills) {
 					throw new Error("Global Skill configuration is unavailable");
 				}
-				return { skills: this.listGlobalSkills() };
+				return {
+					skills: this.listGlobalSkills().map(
+						({ name, description, filePath }) => ({
+							name,
+							description,
+							filePath,
+						}),
+					),
+				};
+			}
+			case "get_global_skill": {
+				if (!this.getGlobalSkill)
+					throw new Error(
+						"Single-skill retrieval is unavailable; use the relevant skill file with the read tool",
+					);
+				return { skill: this.getGlobalSkill(request.arguments.name) };
 			}
 			case "upsert_global_skill": {
 				if (!this.upsertGlobalSkill) {

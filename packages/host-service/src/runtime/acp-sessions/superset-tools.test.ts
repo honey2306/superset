@@ -93,21 +93,21 @@ function fixture() {
 		}): unknown => ({
 			turns: [
 				{
-				turnNumber: 1,
-				items: [
-					{
-						seq: 11,
-						epoch: "epoch-1",
-						sessionId: "sibling",
-						ts: 1,
-						frame: {
-							kind: "update" as const,
-							update: {
-								sessionUpdate: "user_message_chunk" as const,
-								content: {
-									type: "text" as const,
-									text: "please summarize",
-								},
+					turnNumber: 1,
+					items: [
+						{
+							seq: 11,
+							epoch: "epoch-1",
+							sessionId: "sibling",
+							ts: 1,
+							frame: {
+								kind: "update" as const,
+								update: {
+									sessionUpdate: "user_message_chunk" as const,
+									content: {
+										type: "text" as const,
+										text: "please summarize",
+									},
 								},
 							},
 						},
@@ -122,13 +122,13 @@ function fixture() {
 									sessionUpdate: "agent_message_chunk" as const,
 									content: { type: "text" as const, text: "done" },
 								},
-								},
 							},
-						],
-					},
-				],
-				nextCursor: "s8",
-			}),
+						},
+					],
+				},
+			],
+			nextCursor: "s8",
+		}),
 	);
 	const responses = new Map<string, string>();
 	const getTranscript = mock(
@@ -703,7 +703,11 @@ describe("SupersetToolController", () => {
 				{
 					frame: {
 						update: {
-							content: { type: "image", data: screenshot, mimeType: "image/png" },
+							content: {
+								type: "image",
+								data: screenshot,
+								mimeType: "image/png",
+							},
 						},
 					},
 				},
@@ -733,26 +737,26 @@ describe("SupersetToolController", () => {
 		getModelHistory.mockReturnValue({
 			turns: [
 				{
-						turnNumber: 1,
-						items: [
-							{
-								seq: 11,
-								epoch: "epoch-1",
-								sessionId: "sibling",
-								ts: 1,
-								frame: toolFrame,
-							},
-							{
-								seq: 12,
-								epoch: "epoch-1",
-								sessionId: "sibling",
-								ts: 1,
-								frame: agentFrame,
-							},
-						],
-					},
-				],
-				nextCursor: "s8",
+					turnNumber: 1,
+					items: [
+						{
+							seq: 11,
+							epoch: "epoch-1",
+							sessionId: "sibling",
+							ts: 1,
+							frame: toolFrame,
+						},
+						{
+							seq: 12,
+							epoch: "epoch-1",
+							sessionId: "sibling",
+							ts: 1,
+							frame: agentFrame,
+						},
+					],
+				},
+			],
+			nextCursor: "s8",
 		});
 
 		const result = await controller.execute({
@@ -847,33 +851,33 @@ describe("SupersetToolController", () => {
 		getModelHistory.mockReturnValue({
 			turns: [
 				{
-						turnNumber: 1,
-						items: [
-							{
-								seq: -3,
-								epoch: "compact",
-								sessionId: "sibling",
-								ts: 1,
-								frame: userFrame("please summarize"),
-							},
-							{
-								seq: -2,
-								epoch: "compact",
-								sessionId: "sibling",
-								ts: 2,
-								frame: toolFrame,
-							},
-							{
-								seq: -1,
-								epoch: "compact",
-								sessionId: "sibling",
-								ts: 3,
-								frame: agentFrame("summary ready"),
-							},
-							],
+					turnNumber: 1,
+					items: [
+						{
+							seq: -3,
+							epoch: "compact",
+							sessionId: "sibling",
+							ts: 1,
+							frame: userFrame("please summarize"),
+						},
+						{
+							seq: -2,
+							epoch: "compact",
+							sessionId: "sibling",
+							ts: 2,
+							frame: toolFrame,
+						},
+						{
+							seq: -1,
+							epoch: "compact",
+							sessionId: "sibling",
+							ts: 3,
+							frame: agentFrame("summary ready"),
 						},
 					],
-				nextCursor: null,
+				},
+			],
+			nextCursor: null,
 		});
 
 		const result = await controller.execute({
@@ -883,7 +887,9 @@ describe("SupersetToolController", () => {
 		});
 
 		const texts = (
-			result.items as Array<{ frame: { update: { content: { text: string } } } }>
+			result.items as Array<{
+				frame: { update: { content: { text: string } } };
+			}>
 		).map((item) => item.frame.update.content.text);
 		expect(texts).toEqual(["summary ready", "please summarize"]);
 		expect(result).toEqual({ items: result.items, nextCursor: null });
@@ -2062,6 +2068,7 @@ describe("SupersetToolController", () => {
 		const controller = new SupersetToolController({
 			manager,
 			listGlobalSkills,
+			getGlobalSkill: () => skill,
 			upsertGlobalSkill,
 			removeGlobalSkill,
 		});
@@ -2072,7 +2079,22 @@ describe("SupersetToolController", () => {
 				name: "list_global_skills",
 				arguments: {},
 			}),
-		).toEqual({ skills: [skill] });
+		).toEqual({
+			skills: [
+				{
+					name: skill.name,
+					description: skill.description,
+					filePath: skill.filePath,
+				},
+			],
+		});
+		expect(
+			await controller.execute({
+				sourceSessionId: "source",
+				name: "get_global_skill",
+				arguments: { name: "review-pr" },
+			}),
+		).toEqual({ skill });
 		expect(
 			await controller.execute({
 				sourceSessionId: "source",

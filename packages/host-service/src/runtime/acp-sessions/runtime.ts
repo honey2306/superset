@@ -89,6 +89,11 @@ export type AcpMergeRequestOpenRequestHandler = (
  * switching ownership across the process boundary is transparent.
  */
 export interface AcpSessionRuntime {
+	setTaskMode?(input: {
+		sessionId: string;
+		mode: "inspect" | "claim" | "release";
+		runId?: string;
+	}): Promise<SessionScopedState>;
 	/**
 	 * Discover the config options exposed by a fresh ACP session without
 	 * sending a prompt. This is optional so older in-process test/runtime
@@ -140,6 +145,8 @@ export interface AcpSessionRuntime {
 		sessionId: string;
 		commandId?: string;
 		prompt: ContentBlock[];
+		/** Only the Host can provide a concise UI projection; actual Agent input is unchanged. */
+		displayPrompt?: ContentBlock[];
 	}): MaybePromise<{ accepted: true }>;
 	respondToPermission(input: {
 		sessionId: string;

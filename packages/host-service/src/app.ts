@@ -21,7 +21,7 @@ import type { ModelProviderRuntimeResolver } from "./providers/model-providers";
 import { registerStaticAppRoute } from "./routes/static-app";
 import {
 	AcpDaemonClient,
-	type AcpSessionManager,
+	type AcpSessionRuntime,
 	registerAcpSessionStreamRoute,
 } from "./runtime/acp-sessions";
 import { WorkspaceFilesystemManager } from "./runtime/filesystem";
@@ -31,6 +31,9 @@ import { LocalAutomationScheduler } from "./runtime/local-automations";
 import { runMainWorkspaceSweep } from "./runtime/main-workspace-sweep";
 import { PhoneAuthService } from "./runtime/phone";
 import { PullRequestRuntimeManager } from "./runtime/pull-requests";
+import { SessionTaskDriver } from "./tasks/execution-driver";
+import { createTaskRunner } from "./tasks/task-composition";
+import { TaskStore } from "./tasks/task-store";
 import { registerWorkspaceTerminalRoute } from "./terminal/terminal";
 import { registerTransientTerminalRoute } from "./terminal/transient-terminal";
 import {
@@ -86,7 +89,7 @@ export interface CreateAppOptions {
 	github?: () => Promise<Octokit>;
 	execGh?: ExecGh;
 	providerAuthService?: ProviderAuthService;
-	acpSessions?: AcpSessionManager;
+	acpSessions?: AcpSessionRuntime;
 }
 
 export interface CreateAppResult {
@@ -328,7 +331,12 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 			},
 		});
 
+	const taskRunner = createTaskRunner({
+		store: new TaskStore(db),
+		driver: new SessionTaskDriver(acpSessions),
+	});
 	runtime = {
+		tasks: taskRunner,
 		acpSessions,
 		acpSessionsEnabled,
 		auth: providerAuthService,
@@ -350,6 +358,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 		runtime,
 	}));
 	localAutomationScheduler.start();
+	if (acpSessionsEnabled) taskRunner.start();
 
 	// Resume sweep: any operation left `queued`/`running` from a previous
 	// process is resumed from its durable request when possible; malformed
@@ -459,6 +468,11 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 
 	const ownsDb = options.db === undefined;
 	const dispose = async (): Promise<void> => {
+		try {
+			await taskRunner.dispose();
+		} catch (error) {
+			console.warn("[host-service] Task shutdown failed", error);
+		}
 		// Each step is best-effort and isolated: a throw in one cleanup must
 		// not skip the others, otherwise a flaky `.stop()` could leak the
 		// open SQLite handle for the rest of the process lifetime.

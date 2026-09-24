@@ -30,7 +30,7 @@ import { SUPERSET_HOME_DIR } from "./lib/app-environment";
 import { initAppState } from "./lib/app-state";
 import { requestAppleEventsAccess } from "./lib/apple-events-permission";
 import { setupAutoUpdater } from "./lib/auto-updater";
-import { ensurePeekabooCompanion } from "./lib/computer-use/peekaboo-companion";
+import { startComputerRuntimeBridge } from "./lib/computer-use/computer-runtime-bridge-server";
 import { resolveDevWorkspaceName } from "./lib/dev-workspace-name";
 import { setWorkspaceDockIcon } from "./lib/dock-icon";
 import { getHostServiceCoordinator } from "./lib/host-service-coordinator";
@@ -169,6 +169,7 @@ let skipQuitConfirmation = false;
 let forceFullCleanup = false;
 let closeAgentBrowserBridge: (() => Promise<void>) | null = null;
 let closeAgentBrowserCdpProxy: (() => Promise<void>) | null = null;
+let closeComputerRuntimeBridge: (() => Promise<void>) | null = null;
 
 export function setSkipQuitConfirmation(): void {
 	skipQuitConfirmation = true;
@@ -235,6 +236,8 @@ app.on("before-quit", async (event) => {
 		closeAgentBrowserCdpProxy = null;
 		await closeAgentBrowserBridge?.();
 		closeAgentBrowserBridge = null;
+		await closeComputerRuntimeBridge?.();
+		closeComputerRuntimeBridge = null;
 		disposeTray();
 	} catch (error) {
 		console.error("[main] Cleanup during quit failed:", error);
@@ -263,6 +266,9 @@ if (process.env.NODE_ENV === "development") {
 		console.log(`[main] Received ${signal}, quitting...`);
 		void Promise.allSettled([
 			getHostServiceCoordinator().stop(),
+			closeAgentBrowserCdpProxy?.(),
+			closeAgentBrowserBridge?.(),
+			closeComputerRuntimeBridge?.(),
 			stopNetworkLogger(),
 		]).finally(() => app.exit(0));
 	};
@@ -411,16 +417,18 @@ if (!gotTheLock) {
 		process.env.SUPERSET_AGENT_BROWSER_CDP_PROXY_URL =
 			agentBrowserCdpProxy.baseUrl;
 
-		const peekaboo = await ensurePeekabooCompanion();
-		if (peekaboo.available) {
-			console.log(
-				`[computer-use] Peekaboo GUI Bridge ready${peekaboo.launched ? " after launch" : ""}: ${peekaboo.bridgeSocket}`,
-			);
-		} else {
-			console.warn(
-				`[computer-use] disabled: ${peekaboo.reason ?? "Peekaboo unavailable"}`,
-			);
-		}
+		// The physical desktop runtime belongs to Electron main so macOS TCC
+		// attributes Accessibility and Screen Recording to Superset itself. The
+		// detached host/ACP processes only receive this authenticated bridge.
+		const computerRuntimeBridge = await startComputerRuntimeBridge();
+		closeComputerRuntimeBridge = computerRuntimeBridge.close;
+		process.env.SUPERSET_COMPUTER_RUNTIME_BRIDGE_SOCKET =
+			computerRuntimeBridge.socketPath;
+		process.env.SUPERSET_COMPUTER_RUNTIME_BRIDGE_TOKEN =
+			computerRuntimeBridge.token;
+		console.log(
+			`[computer-use] Superset Computer Runtime ready: ${computerRuntimeBridge.socketPath}`,
+		);
 
 		// Must happen before renderer restore runs. The embedded host is a single
 		// local runtime and starts without cloud credentials.

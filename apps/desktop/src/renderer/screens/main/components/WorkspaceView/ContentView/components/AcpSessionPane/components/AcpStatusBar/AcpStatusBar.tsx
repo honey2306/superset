@@ -17,6 +17,7 @@ import {
 } from "@superset/ui/dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
 import { Brain, ChevronDown, GitBranch } from "lucide-react";
+import type { ReactNode } from "react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import {
 	cleanThinkingLabel,
@@ -28,6 +29,8 @@ import { CtxDonut } from "./CtxDonut";
 import { StatusOptionItem } from "./StatusOptionItem";
 
 interface AcpStatusBarProps {
+	/** Optional conversation controls live beside session metadata, outside the editor. */
+	controls?: ReactNode;
 	state: SessionScopedState;
 	hostUrl: string;
 	usage: UsageUpdate | null;
@@ -58,6 +61,7 @@ export function getAcpGitStatusSummary(
 }
 
 export function AcpStatusBar({
+	controls,
 	state,
 	hostUrl,
 	usage,
@@ -136,6 +140,11 @@ export function AcpStatusBar({
 
 	return (
 		<output className="acp-status-bar" aria-label="Agent session details">
+			{controls && (
+				<span className="acp-status-bar__group acp-status-bar__group--controls">
+					{controls}
+				</span>
+			)}
 			{/* Group 1: model + thinking */}
 			{hasIdentity && (
 				<span className="acp-status-bar__group acp-status-bar__group--identity">

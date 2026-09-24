@@ -1,3 +1,4 @@
+import "./task-conversation.css";
 import type {
 	RequestPermissionOutcome,
 	RespondToPermissionResult,
@@ -16,10 +17,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createDesktopAcpSessionClient } from "renderer/lib/acp-session-client";
 import { openFileInPanes } from "renderer/lib/panes";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { useTranslation } from "renderer/providers/I18nProvider";
 import { useProjectDefaultApp } from "renderer/routes/_local/hooks/useProjectDefaultApp";
 import { useCatalogWorkspace } from "renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors";
 import { normalizeWorkspaceFilePath } from "renderer/screens/main/components/WorkspaceView/ContentView/components/AcpSessionPane/utils/file-paths";
 import { useNotificationStore } from "renderer/stores/notifications";
+import { ConversationTaskCard } from "./components/ConversationTaskCard";
+import { ConversationTaskMode } from "./components/ConversationTaskMode";
+import { useConversationTask } from "./hooks/useConversationTask";
 import "./acp-pane.css";
 import { AcpComposer } from "./components/AcpComposer";
 import { AcpEmptyState } from "./components/AcpEmptyState";
@@ -188,6 +193,7 @@ export function AcpSessionPane({
 	onRetryLaunch,
 	onSessionMetadataChange,
 }: AcpSessionPaneProps) {
+	const { t } = useTranslation();
 	const { workspace } = useCatalogWorkspace(workspaceId);
 	const { app: defaultOpenInApp } = useProjectDefaultApp(workspace?.projectId);
 	// Stabilize the client across renders — a fresh client per render means a
@@ -213,27 +219,33 @@ export function AcpSessionPane({
 		enabled: shouldEnableAcpSession({ isVisible, isConnectionEnabled }),
 	});
 
+	const task = useConversationTask({
+		hostUrl,
+		sessionId,
+		state: session.state,
+		visible: isVisible,
+	});
 	const promptWithActivity = useCallback(
 		async (blocks: Parameters<typeof session.actions.prompt>[0]) => {
-			await session.actions.prompt(blocks);
+			await task.routeMessage(blocks, session.actions.prompt);
 			recordActivity();
 		},
-		[recordActivity, session.actions],
+		[recordActivity, session.actions, task.routeMessage],
 	);
 	const enqueueWithActivity = useCallback(
 		async (blocks: Parameters<typeof session.actions.enqueue>[0]) => {
-			await session.actions.enqueue(blocks);
+			await task.routeMessage(blocks, session.actions.enqueue);
 			recordActivity();
 		},
-		[recordActivity, session.actions],
+		[recordActivity, session.actions, task.routeMessage],
 	);
 
 	const steerWithActivity = useCallback(
 		async (blocks: Parameters<typeof session.actions.steer>[0]) => {
-			await session.actions.steer(blocks);
+			await task.routeMessage(blocks, session.actions.steer);
 			recordActivity();
 		},
-		[recordActivity, session.actions],
+		[recordActivity, session.actions, task.routeMessage],
 	);
 
 	const permissions = useAcpPermissions(session);
@@ -353,17 +365,12 @@ export function AcpSessionPane({
 	const handleCancel = useCallback(() => {
 		setMutationError(null);
 		setIsCancelling(true);
-		void session.actions
-			.cancel()
-			.catch((err) => {
-				setMutationError(
-					err instanceof Error
-						? `Cancel failed: ${err.message}`
-						: "Cancel failed",
-				);
-			})
+		void (task.owned ? task.control("cancel") : session.actions.cancel())
+			.catch((err) =>
+				setMutationError(err instanceof Error ? err.message : String(err)),
+			)
 			.finally(() => setIsCancelling(false));
-	}, [session.actions]);
+	}, [session.actions, task.owned, task.control]);
 
 	const timelineRef = useRef<AcpTimelineHandle>(null);
 	const hasUserMessage = session.timeline.items.some(
@@ -553,6 +560,7 @@ export function AcpSessionPane({
 				</div>
 			)}
 
+			<ConversationTaskCard task={task} />
 			<AcpTimeline
 				ref={timelineRef}
 				className="acp-pane__body"
@@ -585,10 +593,10 @@ export function AcpSessionPane({
 				totalTurns={session.totalTurns}
 				loadedTurnNumbers={session.loadedTurnNumbers}
 				onLoadTurn={session.loadTurn}
-				canReviewPlan={canReviewPlanForMode(
-					currentMode,
-					permissions.pending.length,
-				)}
+				canReviewPlan={
+					!task.owned &&
+					canReviewPlanForMode(currentMode, permissions.pending.length)
+				}
 				isReviewingPlan={isUpdatingSession}
 				onApprovePlan={handleApprovePlan}
 				onRequestPlanChanges={handleRequestPlanChanges}
@@ -656,13 +664,24 @@ export function AcpSessionPane({
 				<AcpComposer
 					sessionId={sessionId}
 					status={composerStatus}
-					isLoading={session.isLoading}
+					isLoading={session.isLoading || task.busy || task.blocked}
+					placeholderOverride={
+						task.active
+							? t(
+									task.active.status === "paused"
+										? "taskChat.resumeHint"
+										: "taskChat.guideHint",
+								)
+							: task.taskMode
+								? t("taskChat.taskHint")
+								: undefined
+					}
 					isCancelling={isCancelling}
 					workspaceId={workspaceId}
 					cwd={cwd}
 					commands={session.timeline.meta.availableCommands}
-					configOptions={state?.configOptions ?? []}
-					queuedPrompts={state?.queuedPrompts ?? []}
+					configOptions={task.owned ? [] : (state?.configOptions ?? [])}
+					queuedPrompts={task.owned ? [] : (state?.queuedPrompts ?? [])}
 					searchFiles={(query) =>
 						client.searchFiles?.({ workspaceId, cwd, query }) ??
 						Promise.resolve([])
@@ -684,19 +703,26 @@ export function AcpSessionPane({
 
 			{state && (
 				<AcpStatusBar
+					controls={<ConversationTaskMode task={task} />}
 					state={state}
 					hostUrl={hostUrl}
 					usage={session.timeline.meta.usage}
 					currentMode={session.timeline.meta.currentMode}
 					configOptions={session.timeline.meta.configOptions}
 					isSubmitting={isUpdatingSession}
-					onSetMode={(modeId) =>
-						handleSessionUpdate(() => session.actions.setMode(modeId))
+					onSetMode={
+						task.owned
+							? undefined
+							: (modeId) =>
+									handleSessionUpdate(() => session.actions.setMode(modeId))
 					}
-					onSetConfigOption={(optionId, value) =>
-						handleSessionUpdate(() =>
-							session.actions.setConfigOption(optionId, value),
-						)
+					onSetConfigOption={
+						task.owned
+							? undefined
+							: (optionId, value) =>
+									handleSessionUpdate(() =>
+										session.actions.setConfigOption(optionId, value),
+									)
 					}
 				/>
 			)}

@@ -1,0 +1,207 @@
+/* Task controls inherit the same ACP theme and density as the conversation. */
+.acp-pane .acp-task-card {
+	flex-shrink: 0;
+	border-bottom: 1px solid var(--line);
+	background: var(--ds-surface);
+	padding: 10px 16px;
+	min-width: 0;
+}
+.acp-pane .acp-task-card__bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+.acp-pane .acp-task-card__toggle {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	text-align: left;
+}
+.acp-pane .acp-task-card__icon {
+	width: 15px;
+	height: 15px;
+	flex-shrink: 0;
+	color: var(--accent-solid);
+}
+.acp-pane .acp-task-card__title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 12px;
+	font-weight: 550;
+}
+.acp-pane .acp-task-card__chevron {
+	width: 12px;
+	height: 12px;
+	flex-shrink: 0;
+	color: var(--fg-faint);
+	transition: transform 0.15s;
+}
+.acp-pane .acp-task-card__chevron[data-open="true"] {
+	transform: rotate(180deg);
+}
+.acp-pane .acp-task-card__actions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+.acp-pane .acp-task-card__action {
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 5px;
+	color: var(--fg-mute);
+}
+.acp-pane .acp-task-card__action:hover {
+	background: var(--background);
+	color: var(--fg);
+}
+.acp-pane .acp-task-card__action svg {
+	width: 13px;
+	height: 13px;
+}
+.acp-pane .acp-task-card__primary {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-height: 26px;
+	padding: 3px 8px;
+	font-size: 11px;
+	border-radius: 5px;
+	color: var(--accent-solid);
+	background: var(--accent-tint);
+}
+.acp-pane .acp-task-card__primary svg {
+	width: 12px;
+	height: 12px;
+}
+.acp-pane .acp-task-card__subline {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 4px 0 0 23px;
+	color: var(--fg-faint);
+	font-size: 10px;
+}
+.acp-pane .acp-task-card__subline-spacer {
+	flex: 1;
+}
+.acp-pane .acp-task-card__subline a {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--fg-mute);
+}
+.acp-pane .acp-task-card__subline a svg {
+	width: 10px;
+	height: 10px;
+}
+.acp-pane .acp-task-card__notice {
+	margin-top: 6px;
+	color: var(--warning);
+	font-size: 11px;
+	line-height: 1.6;
+	max-height: 3.2em;
+	overflow: auto;
+}
+.acp-pane .acp-task-card__details {
+	margin-top: 10px;
+	padding-top: 12px;
+	border-top: 1px solid var(--line);
+	max-height: min(300px, 35vh);
+	overflow: auto;
+}
+.acp-pane .acp-task-card__details > * + * {
+	margin-top: 10px;
+}
+.acp-pane .acp-task-card__criterion {
+	padding-left: 10px;
+	border-left: 2px solid var(--line-strong);
+}
+.acp-pane .acp-task-card__error {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 11px;
+	color: var(--danger);
+}
+/* Mode and guidance are compact footer controls, never editor content. */
+.acp-pane .acp-status-bar__group--controls {
+	padding-right: 8px;
+}
+.acp-pane .acp-task-mode {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	gap: 4px;
+	font-family: var(--acp-font-sans);
+}
+.acp-pane .acp-task-mode__trigger,
+.acp-pane .acp-task-mode__guidance {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 1px 6px;
+	min-height: 20px;
+	white-space: nowrap;
+	border-radius: 5px;
+	font-size: 11px;
+	line-height: 18px;
+	color: var(--fg-mute);
+	transition: background 0.12s;
+}
+.acp-pane .acp-task-mode__trigger:hover,
+.acp-pane .acp-task-mode__guidance:hover {
+	background: var(--ds-surface-elev);
+}
+.acp-pane .acp-task-mode__trigger[data-active="true"] {
+	background: var(--accent-tint);
+	color: var(--accent-solid);
+}
+.acp-pane .acp-task-mode svg {
+	width: 12px;
+	height: 12px;
+	flex-shrink: 0;
+}
+.acp-pane .acp-task-mode__chevron {
+	opacity: 0.6;
+}
+.acp-pane .acp-task-mode__label {
+	max-width: 112px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.acp-pane .acp-task-mode button:disabled,
+.acp-pane .acp-task-card button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+.acp-pane .acp-task-card button:focus-visible,
+.acp-pane .acp-task-mode button:focus-visible {
+	outline: 2px solid var(--accent-solid);
+	outline-offset: 2px;
+}
+@container acp-pane (max-width: 520px) {
+	.acp-pane .acp-task-card__bar {
+		flex-wrap: wrap;
+	}
+	.acp-pane .acp-task-card__toggle {
+		flex-basis: calc(100% - 110px);
+	}
+	.acp-pane .acp-task-card__actions {
+		margin-left: auto;
+	}
+	.acp-pane .acp-task-mode__label {
+		max-width: 72px;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.acp-pane .acp-task-card__chevron {
+		transition: none;
+	}
+}

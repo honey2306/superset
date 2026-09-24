@@ -43,15 +43,47 @@ import { protectedProcedure, router } from "../../index";
  * `list` stays ungated and answers `enabled: false` so clients can feature-
  * detect from the call they already make, without an extra request or error.
  */
-const gatedProcedure = protectedProcedure.use(({ ctx, next }) => {
-	if (!ctx.runtime.acpSessionsEnabled) {
-		throw new TRPCError({
-			code: "PRECONDITION_FAILED",
-			message: "ACP sessions are disabled on this host",
-		});
-	}
-	return next();
-});
+const gatedProcedure = protectedProcedure.use(
+	async ({ ctx, next, path, getRawInput }) => {
+		if (!ctx.runtime.acpSessionsEnabled) {
+			throw new TRPCError({
+				code: "PRECONDITION_FAILED",
+				message: "ACP sessions are disabled on this host",
+			});
+		}
+		const operation = path.split(".").at(-1);
+		const guarded = [
+			"create",
+			"prompt",
+			"enqueuePrompt",
+			"sendNow",
+			"steerPrompt",
+			"removeQueuedPrompt",
+			"reorderQueue",
+			"editQueuedPrompt",
+			"clearQueue",
+			"setMode",
+			"setConfigOption",
+		];
+		if (operation && guarded.includes(operation) && ctx.runtime.tasks) {
+			const input = await getRawInput();
+			if (
+				input &&
+				typeof input === "object" &&
+				"sessionId" in input &&
+				typeof input.sessionId === "string" &&
+				ctx.runtime.tasks.store.bySession(input.sessionId)
+			) {
+				throw new TRPCError({
+					code: "CONFLICT",
+					message:
+						"This session belongs to a managed Task. Use its Task controls instead.",
+				});
+			}
+		}
+		return next();
+	},
+);
 
 function rethrowMapped(error: unknown): never {
 	if (error instanceof AcpSessionNotFoundError) {
@@ -312,6 +344,11 @@ export const acpSessionsRouter = router({
 		}),
 
 	cancel: gatedProcedure.input(cancelInput).mutation(async ({ ctx, input }) => {
+		const managed = ctx.runtime.tasks?.store.bySession(input.sessionId);
+		if (managed) {
+			ctx.runtime.tasks?.requestStop(managed.id, "cancelled");
+			return;
+		}
 		try {
 			await ctx.runtime.acpSessions.ensureLive(input.sessionId);
 			await ctx.runtime.acpSessions.cancel(input);
@@ -324,6 +361,8 @@ export const acpSessionsRouter = router({
 		.input(closeSessionInput)
 		.mutation(async ({ ctx, input }) => {
 			try {
+				// Closing a task view detaches it; task lifetime is not tab lifetime.
+				if (ctx.runtime.tasks?.store.bySession(input.sessionId)) return;
 				await ctx.runtime.acpSessions.close(input);
 			} catch (error) {
 				rethrowMapped(error);

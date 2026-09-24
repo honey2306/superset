@@ -113,9 +113,9 @@ export default defineConfig({
 					"agent-browser-mcp": resolve(
 						"../../packages/host-service/src/runtime/acp-sessions/agent-browser-mcp.ts",
 					),
-					// Session-scoped macOS Computer Use MCP proxy. It preserves Peekaboo's
-					// deterministic native tool schemas under a computer_ namespace while
-					// excluding Peekaboo's agent loop, model analyze, and browser bridge.
+					// Session-scoped Computer Use MCP. It exposes Superset's stable
+					// computer_* contract and proxies execution to the Electron-owned
+					// Computer Runtime so native permissions remain attached to Superset.
 					"computer-use-mcp": resolve(
 						"../../packages/host-service/src/runtime/acp-sessions/computer-use-mcp.ts",
 					),

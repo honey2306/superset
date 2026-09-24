@@ -1,134 +1,142 @@
+import type { SkillDraft } from "@superset/shared/skills";
 import { Button } from "@superset/ui/button";
 import { Input } from "@superset/ui/input";
+import { Label } from "@superset/ui/label";
 import { Textarea } from "@superset/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@superset/ui/toggle-group";
-import { useState } from "react";
-import { LuCheck, LuSparkles } from "react-icons/lu";
-import { MarkdownRenderer } from "renderer/components/MarkdownRenderer";
-
-export interface GlobalSkillEditorValue {
+import { useId, useState } from "react";
+import { useTranslation } from "renderer/providers/I18nProvider";
+import { SkillPreview } from "./components/SkillPreview/SkillPreview";
+export interface GlobalSkillEditorValue extends SkillDraft {
 	originalName?: string;
-	name: string;
-	description: string;
-	instructions: string;
+	revision: string | null;
 }
-
-type EditorMode = "edit" | "preview";
-
 export function GlobalSkillEditor({
 	value,
 	isSaving,
+	isDirty,
 	onChange,
 	onSave,
 }: {
 	value: GlobalSkillEditorValue;
 	isSaving: boolean;
+	isDirty: boolean;
 	onChange(value: GlobalSkillEditorValue): void;
 	onSave(): void;
 }) {
-	const [mode, setMode] = useState<EditorMode>("edit");
-	const canSave =
-		value.name.trim().length > 0 &&
-		value.description.trim().length > 0 &&
-		value.instructions.trim().length > 0;
-
+	const { t } = useTranslation();
+	const id = useId();
+	const [preview, setPreview] = useState(false);
 	return (
-		<div className="mx-auto flex min-h-full w-full max-w-[820px] flex-col px-8 pb-10 pt-14">
-			<div className="mb-5 flex items-center gap-2 font-mono text-[9px] font-medium tracking-[0.12em] text-fg-faint">
-				<span className="flex size-5 items-center justify-center rounded-ds-3 bg-accent-tint text-accent">
-					<LuSparkles className="size-3" />
-				</span>
-				GLOBAL SKILL
-			</div>
-
-			<Input
-				aria-label="Skill name"
-				variant="ghost"
-				value={value.name}
-				placeholder="untitled-skill"
-				className="h-auto border-0 pb-0 font-mono text-[36px] font-semibold leading-tight tracking-[-0.05em] focus-visible:border-0"
-				onChange={(event) => onChange({ ...value, name: event.target.value })}
-			/>
-			<Textarea
-				aria-label="Skill description"
-				value={value.description}
-				placeholder="描述这个 Skill 应该在什么时候使用"
-				rows={1}
-				className="mt-3 min-h-7 resize-none border-0 bg-transparent px-0 py-0 text-sm leading-7 text-fg-mute shadow-none focus-visible:border-0 focus-visible:ring-0"
-				onChange={(event) =>
-					onChange({ ...value, description: event.target.value })
-				}
-			/>
-			<div className="mt-4 flex items-center gap-2 text-[10px] text-fg-faint">
-				<span>在任务匹配时自动加载</span>
-				<span className="h-2.5 w-px bg-line" />
-				<span>新会话生效</span>
-			</div>
-
-			<div className="mt-10 flex items-center gap-3">
-				<span className="font-mono text-[9px] font-medium tracking-[0.12em] text-fg-faint">
-					INSTRUCTIONS
-				</span>
-				<span className="h-px flex-1 bg-line" />
-				<ToggleGroup
-					type="single"
-					value={mode}
-					onValueChange={(nextMode) => {
-						if (nextMode === "edit" || nextMode === "preview") {
-							setMode(nextMode);
+		<form
+			onSubmit={(event) => {
+				event.preventDefault();
+				onSave();
+			}}
+			className="space-y-5"
+		>
+			<fieldset disabled={isSaving} className="space-y-4">
+				<div className="space-y-2">
+					<Label htmlFor={`${id}-name`}>{t("skillsUi.name")}</Label>
+					<Input
+						id={`${id}-name`}
+						aria-label={t("skillsUi.name")}
+						value={value.name}
+						required
+						maxLength={64}
+						pattern="[a-z0-9][a-z0-9-]*"
+						onChange={(event) =>
+							onChange({ ...value, name: event.target.value })
 						}
-					}}
-					size="sm"
-					className="h-6 rounded-ds-3 bg-hover/50 p-0.5"
-				>
-					<ToggleGroupItem
-						value="edit"
-						className="h-5 px-2 text-[10px] text-fg-mute data-[state=on]:bg-background data-[state=on]:text-fg data-[state=on]:shadow-sm"
-					>
-						编辑
-					</ToggleGroupItem>
-					<ToggleGroupItem
-						value="preview"
-						className="h-5 px-2 text-[10px] text-fg-mute data-[state=on]:bg-background data-[state=on]:text-fg data-[state=on]:shadow-sm"
-					>
-						预览
-					</ToggleGroupItem>
-				</ToggleGroup>
-			</div>
-
-			{mode === "edit" ? (
-				<Textarea
-					aria-label="Skill instructions"
-					value={value.instructions}
-					placeholder="# 工作流\n\n描述 Agent 应遵循的步骤和约束。"
-					className="mt-5 min-h-[420px] resize-none border-0 bg-transparent px-0 py-0 font-mono text-[13px] leading-7 text-fg shadow-none focus-visible:border-0 focus-visible:ring-0"
-					onChange={(event) =>
-						onChange({ ...value, instructions: event.target.value })
-					}
-				/>
-			) : (
-				<MarkdownRenderer
-					content={value.instructions}
-					style="default"
-					className="mt-5 min-h-[420px] overflow-visible [&>article]:max-w-none [&>article]:px-0 [&>article]:py-0"
-				/>
-			)}
-
-			<div className="mt-auto flex items-center justify-between gap-4 border-t border-line pt-4 text-[10px] text-fg-faint">
-				<span className="flex items-center gap-2">
-					<span className="size-1.5 rounded-full bg-success" />
-					可被新会话发现
-				</span>
+						className="font-mono"
+					/>
+				</div>
+				<div className="space-y-2">
+					<Label htmlFor={`${id}-description`}>
+						{t("skillsUi.description")}
+					</Label>
+					<Textarea
+						id={`${id}-description`}
+						aria-label={t("skillsUi.description")}
+						value={value.description}
+						required
+						maxLength={1024}
+						placeholder={t("skillsUi.descriptionPlaceholder")}
+						onChange={(event) =>
+							onChange({ ...value, description: event.target.value })
+						}
+					/>
+				</div>
+				<label className="flex items-start gap-2 text-sm">
+					<input
+						type="checkbox"
+						checked={value.invocation === "manual"}
+						onChange={(event) =>
+							onChange({
+								...value,
+								invocation: event.target.checked ? "manual" : "auto",
+							})
+						}
+						className="mt-1"
+					/>
+					{t("skillsUi.manual")}
+				</label>
+				<div className="flex items-center justify-between">
+					<Label htmlFor={`${id}-body`}>{t("skillsUi.instructions")}</Label>
+					<div className="flex gap-1">
+						<Button
+							type="button"
+							size="sm"
+							variant={preview ? "ghost" : "secondary"}
+							onClick={() => setPreview(false)}
+						>
+							{t("skillsUi.edit")}
+						</Button>
+						<Button
+							type="button"
+							size="sm"
+							variant={preview ? "secondary" : "ghost"}
+							onClick={() => setPreview(true)}
+						>
+							{t("skillsUi.preview")}
+						</Button>
+					</div>
+				</div>
+				{preview ? (
+					<div className="min-h-64 rounded-lg border p-4">
+						<SkillPreview content={value.instructions} />
+					</div>
+				) : (
+					<Textarea
+						id={`${id}-body`}
+						aria-label={t("skillsUi.instructions")}
+						value={value.instructions}
+						required
+						maxLength={100000}
+						placeholder={t("skillsUi.instructionsPlaceholder")}
+						onChange={(event) =>
+							onChange({ ...value, instructions: event.target.value })
+						}
+						className="min-h-72 font-mono text-sm"
+					/>
+				)}
+			</fieldset>
+			<div className="flex items-center justify-between gap-3 border-t pt-4">
+				<p className="text-xs text-muted-foreground">
+					{t(isDirty ? "skillsUi.unsaved" : "skillsUi.saved")}
+				</p>
 				<Button
-					variant="primary"
-					size="sm"
-					disabled={!canSave || isSaving}
-					onClick={onSave}
+					type="submit"
+					disabled={
+						isSaving ||
+						!isDirty ||
+						!value.name.trim() ||
+						!value.description.trim() ||
+						!value.instructions.trim()
+					}
 				>
-					<LuCheck className="size-3" />
-					{isSaving ? "保存中…" : "保存"}
+					{t(isSaving ? "skillsUi.saving" : "skillsUi.save")}
 				</Button>
 			</div>
-		</div>
+		</form>
 	);
 }

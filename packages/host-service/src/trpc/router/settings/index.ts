@@ -6,9 +6,11 @@ import { delegatedExecutionRouter } from "./delegated-execution";
 import { globalMcpRouter } from "./global-mcp";
 import { globalSkillsRouter } from "./global-skills";
 import { memoryAccessRouter } from "./memory-access";
+import { skillsRouter } from "./skills";
 import { worktreeLocationRouter } from "./worktree-location";
 
 export const settingsRouter = router({
+	skills: skillsRouter,
 	agentConfigs: agentConfigsRouter,
 	branchPrefix: branchPrefixRouter,
 	delegatedExecution: delegatedExecutionRouter,

@@ -8,6 +8,7 @@ import {
 	LuClock3,
 	LuFolderTree,
 	LuHistory,
+	LuListChecks,
 	LuListTodo,
 	LuWorkflow,
 } from "react-icons/lu";
@@ -46,6 +47,7 @@ export function WorkspaceSidebarHeader({
 	const [isTemporaryWorkspacePending, setIsTemporaryWorkspacePending] =
 		useState(false);
 	const isAutomationsOpen = !!matchRoute({ to: "/automations", fuzzy: true });
+	const isAgentTasksOpen = !!matchRoute({ to: "/agent-tasks", fuzzy: true });
 	const isTodosOpen = !!matchRoute({ to: "/todos", fuzzy: true });
 	const isAgentContextOpen =
 		!!matchRoute({ to: "/memories", fuzzy: true }) ||
@@ -133,6 +135,19 @@ export function WorkspaceSidebarHeader({
 				<Tooltip delayDuration={300}>
 					<TooltipTrigger asChild>
 						<button
+							type="button"
+							className={itemClassName(isAgentTasksOpen)}
+							onClick={() => void navigate({ to: "/agent-tasks", search: {} })}
+							aria-label={t("agentTasks.title")}
+						>
+							<LuListChecks className="size-4" strokeWidth={STROKE_WIDTH} />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent side="right">{t("agentTasks.title")}</TooltipContent>
+				</Tooltip>
+				<Tooltip delayDuration={300}>
+					<TooltipTrigger asChild>
+						<button
 							className={itemClassName(isAutomationsOpen)}
 							onClick={handleAutomationsClick}
 							type="button"
@@ -192,6 +207,20 @@ export function WorkspaceSidebarHeader({
 
 	return (
 		<div className="flex shrink-0 gap-1 px-[14px] pt-4 pb-[18px]">
+			<Tooltip delayDuration={300}>
+				<TooltipTrigger asChild>
+					<button
+						type="button"
+						className={itemClassName(isAgentTasksOpen)}
+						onClick={() => void navigate({ to: "/agent-tasks", search: {} })}
+						aria-label={t("agentTasks.title")}
+					>
+						<LuListChecks className="size-4" strokeWidth={STROKE_WIDTH} />
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="right">{t("agentTasks.title")}</TooltipContent>
+			</Tooltip>
+
 			<Tooltip delayDuration={300}>
 				<TooltipTrigger asChild>
 					<button

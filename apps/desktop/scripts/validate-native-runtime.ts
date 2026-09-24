@@ -357,6 +357,13 @@ function getPlatformAstGrepCandidates(): string[] {
 	return [];
 }
 
+function getPlatformCuaSuffix(): string | null {
+	if (process.platform === "darwin") return `darwin-${process.arch}`;
+	if (process.platform === "linux") return `linux-${process.arch}-gnu`;
+	if (process.platform === "win32") return `win32-${process.arch}-msvc`;
+	return null;
+}
+
 function validateNativeModulesPrepared(): void {
 	const nodeModulesDir = join(projectRoot, "node_modules");
 	assertExists(
@@ -395,6 +402,46 @@ function validateNativeModulesPrepared(): void {
 					`Path: ${modulePath}`,
 					"Run `bun run copy:native-modules` and ensure Bun store symlinks are replaced with real files.",
 				].join("\n"),
+			);
+		}
+	}
+
+	const cuaSuffix = getPlatformCuaSuffix();
+	if (cuaSuffix) {
+		const cuaPackage = `@trycua/cua-driver-${cuaSuffix}`;
+		const ubjsPackage = `@ubjs/node-${cuaSuffix}`;
+		for (const packageName of [cuaPackage, ubjsPackage]) {
+			assertExists(
+				join(nodeModulesDir, packageName, "package.json"),
+				"Required platform-specific Computer Runtime package is missing.",
+			);
+		}
+		if (process.platform === "darwin") {
+			for (const artifact of [
+				join(nodeModulesDir, cuaPackage, "libcua_driver_sdk.dylib"),
+				join(nodeModulesDir, cuaPackage, "cua_driver_node_runtime.node"),
+				join(
+					nodeModulesDir,
+					ubjsPackage,
+					`uniffi-runtime-napi.${cuaSuffix}.node`,
+				),
+				join(
+					nodeModulesDir,
+					"@superset/macos-computer-provider/build/Release/macos_computer_provider.node",
+				),
+			]) {
+				assertExists(
+					artifact,
+					"Required native Computer Runtime binary is missing.",
+				);
+			}
+		}
+		console.log(
+			`[validate:native-runtime] OK: Cua Computer Runtime platform packages present (${cuaPackage}, ${ubjsPackage})`,
+		);
+		if (process.platform === "darwin") {
+			console.log(
+				"[validate:native-runtime] OK: Superset macOS Computer Provider binary present",
 			);
 		}
 	}

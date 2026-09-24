@@ -76,6 +76,7 @@ const MAX_LINE_BYTES = 16 * 1024 * 1024;
 export type RequestOperation =
 	| "hello"
 	| "create"
+	| "setTaskMode"
 	| "discoverModels"
 	| "get"
 	| "list"
@@ -143,6 +144,7 @@ export function applyAcpDaemonRuntimeConfig(
 }
 
 export interface AcpDaemonHello {
+	managedTaskVersion?: number;
 	pid: number;
 	protocolVersion: number;
 	buildVersion?: string;
@@ -358,9 +360,28 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 		}
 	}
 
+	async setTaskMode(
+		input: Parameters<NonNullable<AcpSessionRuntime["setTaskMode"]>>[0],
+	) {
+		await this.connect();
+		await this.ensureCompatibleDaemon();
+		if ((this.connectedHello?.managedTaskVersion ?? 0) < 5)
+			throw new Error(
+				"Conversation Task mode requires the updated daemon. Finish active sessions before its normal upgrade; no live work was stopped.",
+			);
+		return this.sendRequest<SessionScopedState>("setTaskMode", input);
+	}
 	async create(input: Parameters<AcpSessionRuntime["create"]>[0]) {
 		await this.connect();
 		await this.ensureCompatibleDaemon();
+		if (
+			input.role === "task-executor" &&
+			(this.connectedHello?.managedTaskVersion ?? 0) < 5
+		) {
+			throw new Error(
+				"Managed tasks require the updated ACP daemon. Finish or stop its existing sessions, then retry; live sessions were not interrupted.",
+			);
+		}
 		return this.sendRequest<SessionScopedState>("create", input);
 	}
 

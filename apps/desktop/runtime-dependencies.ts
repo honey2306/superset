@@ -9,6 +9,8 @@ type ExternalizedRuntimeModule = {
 	materialize: string[];
 	packagedCopies: PackagedNodeModuleCopy[];
 	specifier: string;
+	/** ESM-only packages can be bundled while still materializing native assets. */
+	externalize?: boolean;
 };
 
 const targetPlatform = process.env.TARGET_PLATFORM ?? process.platform;
@@ -20,6 +22,12 @@ const targetGlibcSuffix =
 	targetPlatform === "linux" ? `linux-${targetArch}-glibc` : targetSuffix;
 const targetMsvcSuffix =
 	targetPlatform === "win32" ? `win32-${targetArch}-msvc` : targetSuffix;
+const targetCuaSuffix =
+	targetPlatform === "linux"
+		? `linux-${targetArch}-gnu`
+		: targetPlatform === "win32"
+			? `win32-${targetArch}-msvc`
+			: targetSuffix;
 
 function copyWholeModule(moduleName: string): PackagedNodeModuleCopy {
 	return {
@@ -73,6 +81,41 @@ const externalizedRuntimeModules: ExternalizedRuntimeModule[] = [
 		materialize: ["native-keymap"],
 		packagedCopies: [copyWholeModule("native-keymap")],
 		asarUnpackGlobs: ["**/node_modules/native-keymap/**/*"],
+	},
+	{
+		specifier: "@trycua/cua-driver",
+		// Cua's public package is ESM-only. Electron main is emitted as CJS, so
+		// bundle its JS/UniFFI glue and keep only the native platform packages on disk.
+		externalize: false,
+		materialize: ["@trycua/cua-driver", "@ubjs/core", "@ubjs/node"],
+		packagedCopies: [
+			copyModuleSubtree("@trycua", [
+				"cua-driver/**/*",
+				`cua-driver-${targetCuaSuffix}/**/*`,
+			]),
+			copyModuleSubtree("@ubjs", [
+				"core/**/*",
+				"node/**/*",
+				`node-${targetCuaSuffix}/**/*`,
+			]),
+		],
+		asarUnpackGlobs: [
+			"**/node_modules/@trycua/cua-driver*/**/*",
+			"**/node_modules/@ubjs/**/*",
+		],
+	},
+	{
+		specifier: "@superset/macos-computer-provider",
+		materialize: ["@superset/macos-computer-provider"],
+		packagedCopies: [
+			copyModuleSubtree("@superset/macos-computer-provider", [
+				"index.js",
+				"index.d.ts",
+				"package.json",
+				"build/Release/macos_computer_provider.node",
+			]),
+		],
+		asarUnpackGlobs: ["**/node_modules/@superset/macos-computer-provider/**/*"],
 	},
 	{
 		specifier: "@superset/macos-process-metrics",
@@ -167,7 +210,9 @@ const packagedSupportModules = [
 ];
 
 export const mainExternalizedDependencies = [
-	...externalizedRuntimeModules.map((module) => module.specifier),
+	...externalizedRuntimeModules
+		.filter((module) => module.externalize !== false)
+		.map((module) => module.specifier),
 	"pg-native",
 	// mastracode is bundled into the host-service entry. Its transitive native
 	// packages remain externalized individually through their runtime imports.

@@ -76,6 +76,16 @@ export const workspaceCleanupRouter = router({
 	inspect: protectedProcedure
 		.input(z.object({ workspaceId: z.string() }))
 		.query(async ({ ctx, input, signal }): Promise<InspectResult> => {
+			const taskReason = ctx.runtime?.tasks?.store.removalReason({
+				workspaceId: input.workspaceId,
+			});
+			if (taskReason)
+				return {
+					canDelete: false,
+					reason: taskReason,
+					hasChanges: false,
+					hasUnpushedCommits: false,
+				};
 			const main = await isMainWorkspace(ctx, input.workspaceId);
 			if (main.isMain) {
 				return {
@@ -258,11 +268,23 @@ export async function destroyWorkspace(
 			cause: { kind: "DELETE_IN_PROGRESS" } satisfies DeleteInProgressCause,
 		});
 	}
+	let releaseTaskReservation: (() => void) | undefined;
+	try {
+		releaseTaskReservation = ctx.runtime?.tasks?.store.reserveRemoval({
+			workspaceId: input.workspaceId,
+		});
+	} catch (error) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
 	destroysInFlight.add(input.workspaceId);
 	try {
 		return await runDestroy(ctx, input);
 	} finally {
 		destroysInFlight.delete(input.workspaceId);
+		releaseTaskReservation?.();
 	}
 }
 

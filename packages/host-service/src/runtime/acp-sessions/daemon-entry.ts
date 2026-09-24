@@ -34,6 +34,8 @@ import {
 	listMemoryProjects,
 	searchProjectMemories,
 } from "../../project-memories/search-project-memories";
+import { SkillLibrary } from "../../skills/skill-library";
+import { TaskStore } from "../../tasks/task-store";
 import {
 	readDelegationProfiles,
 	resolveDelegatedExecutionTarget,
@@ -56,6 +58,7 @@ import { generateAcpSessionTitle } from "./acp-title-generation";
 import { agentBrowserMcpServer } from "./agent-browser-local-mcp";
 import { AgentBrowserRuntime } from "./agent-browser-runtime";
 import { AcpArtifactStore } from "./artifact-store";
+import { ComputerRuntimeBridgeClient } from "./computer-runtime-bridge-client";
 import { computerUseMcpServer } from "./computer-use-local-mcp";
 import {
 	ACP_DAEMON_BUILD_VERSION,
@@ -75,7 +78,6 @@ import {
 	browserUseMcpServerFromEnvironment,
 	embeddedBrowserUseMcpServer,
 } from "./local-mcp";
-import { resolvePeekabooExecutable } from "./peekaboo-executable";
 import { SqliteAcpSessionPersistence } from "./persistence";
 import { supersetMcpServer } from "./superset-local-mcp";
 import { SupersetToolController } from "./superset-tools";
@@ -114,10 +116,8 @@ async function main(): Promise<void> {
 		path.join(path.dirname(dbPath), "acp-artifacts"),
 	);
 	const agentBrowserEnabled = process.env.SUPERSET_AGENT_BROWSER === "1";
-	const computerUseEnabled =
-		agentBrowserEnabled &&
-		process.platform === "darwin" &&
-		resolvePeekabooExecutable() !== null;
+	const computerRuntimeBridge = new ComputerRuntimeBridgeClient();
+	const computerUseEnabled = computerRuntimeBridge.isAvailable();
 	const agentBrowserRuntime = new AgentBrowserRuntime({
 		enabled: agentBrowserEnabled,
 	});
@@ -127,8 +127,20 @@ async function main(): Promise<void> {
 			`[acp-daemon] historical journal compaction: ${compaction.rowsUpdated}/${compaction.rowsScanned} rows, ${compaction.bytesBefore} -> ${compaction.bytesAfter} bytes, ${compaction.uniqueArtifacts} unique artifacts`,
 		);
 	}
+	const taskStore = new TaskStore(db);
 	const manager = new AcpSessionManager({
-		onTurnEnd: (sessionId) => agentBrowserRuntime.endTurn(sessionId),
+		taskOwner: (id) => taskStore.bySession(id),
+		onTaskEdit: (id, value) => taskStore.recordEdit(id, value),
+		isTaskDelivery: (id) => {
+			const mode = taskStore.bySession(id)?.contract.delivery?.mode;
+			return mode !== undefined && mode !== "none";
+		},
+		onTurnEnd: async (sessionId) => {
+			await agentBrowserRuntime.endTurn(sessionId);
+			if (computerUseEnabled) {
+				await computerRuntimeBridge.endTurn(sessionId);
+			}
+		},
 		resolveWorkspaceCwd: (workspaceId) => {
 			const workspace = db.query.workspaces
 				.findFirst({ where: eq(workspaces.id, workspaceId) })
@@ -158,7 +170,13 @@ async function main(): Promise<void> {
 					})
 				: null;
 			const computerUseMcp = computerUseEnabled
-				? computerUseMcpServer({ sessionId })
+				? computerUseMcpServer({
+						sessionId,
+						bridgeSocketPath: requiredEnv(
+							"SUPERSET_COMPUTER_RUNTIME_BRIDGE_SOCKET",
+						),
+						bridgeToken: requiredEnv("SUPERSET_COMPUTER_RUNTIME_BRIDGE_TOKEN"),
+					})
 				: null;
 			return [
 				supersetMcpServer({ sessionId, daemonSocketPath: socketPath, role }),
@@ -186,13 +204,13 @@ async function main(): Promise<void> {
 				: undefined;
 			const computerUseInstructions = computerUseEnabled
 				? [
-						"## macOS Computer Use",
-						"When the user asks you to inspect or operate a native macOS application, use the computer-use tools. Call computer_see for visual state or computer_inspect_ui for an Accessibility-only tree before element-based actions, and preserve Peekaboo element/snapshot identifiers exactly.",
-						"The computer-use surface wraps all deterministic Peekaboo native capabilities, including app/window/menu/dialog/Dock/Space management, capture, clipboard, drag, semantic actions, and state verification. Peekaboo's autonomous agent loop and AI analyze tool are intentionally excluded because the current Superset Agent owns planning and reasoning.",
-						"Computer Use actions execute immediately and visibly. Do not use them for websites; website tasks belong in the Embedded Agent Browser. If macOS reports missing Accessibility, Automation, or Screen Recording access, tell the user which permission to enable instead of using shell automation as a workaround.",
+						"## Computer Use",
+						"When the user asks you to inspect or operate a native desktop application, use the computer_* tools. Start with computer_apps/computer_windows, then use computer_see for the exact target window or computer_inspect_ui for Accessibility-only inspection. Preserve snapshot IDs and opaque element tokens exactly; stale handles fail closed.",
+						"Prefer semantic Accessibility actions over coordinates when the target exposes them. Treat action delivery and action effect as different facts: when a result is unverified, inspect again or use computer_verify_state before claiming success. Superset coordinates the physical desktop across agents, so do not try to bypass a busy desktop with shell automation.",
+						"Computer Use actions may execute immediately and visibly. Website tasks belong in the Embedded Agent Browser rather than desktop Computer Use. If permissions are missing, use computer_permissions and tell the user which host permission Superset needs; do not fall back to AppleScript, shell mouse automation, or another desktop automation app.",
 					].join("\n\n")
 				: undefined;
-			if (role !== SUPERSET_ROOT_COORDINATOR_ROLE) {
+			if (role !== SUPERSET_ROOT_COORDINATOR_ROLE && role !== "task-executor") {
 				return composeSupersetModelFacingInstructions([
 					embeddedBrowserInstructions,
 					computerUseInstructions,
@@ -200,11 +218,11 @@ async function main(): Promise<void> {
 			}
 			const profiles = resolveDelegationProfileTargets(db);
 			const summaries = profiles.map(toDelegationProfileSummary);
-			const delegationInstructions = summaries.some(
-				(profile) => profile.enabled && profile.valid,
-			)
-				? formatSupersetDelegationInstructions(summaries)
-				: undefined;
+			const delegationInstructions =
+				role === SUPERSET_ROOT_COORDINATOR_ROLE &&
+				summaries.some((profile) => profile.enabled && profile.valid)
+					? formatSupersetDelegationInstructions(summaries)
+					: undefined;
 			const projectId = resolveProjectIdForWorkspace(db, workspaceId);
 			const projectMemories = projectId
 				? listProjectMemories(db, {
@@ -254,6 +272,7 @@ async function main(): Promise<void> {
 		) => void
 	>();
 	const toolController = new SupersetToolController({
+		tasks: taskStore,
 		manager,
 		delegationRuns: persistence,
 		discussionRuns: persistence,
@@ -269,6 +288,8 @@ async function main(): Promise<void> {
 		upsertGlobalMcpServer: (input) => upsertGlobalMcpServer(input),
 		removeGlobalMcpServer: (name) => removeGlobalMcpServer(name),
 		listGlobalSkills: () => readGlobalSkills(),
+		getGlobalSkill: (name) =>
+			new SkillLibrary(db).get({ kind: "global" }, name),
 		upsertGlobalSkill: (input, options) => upsertGlobalSkill(input, options),
 		removeGlobalSkill: (name) => removeGlobalSkill(name),
 		resolveDelegatedExecution: () => {
@@ -780,11 +801,17 @@ async function dispatch(
 				result = {
 					pid: process.pid,
 					protocolVersion: ACP_DAEMON_PROTOCOL_VERSION,
+					managedTaskVersion: 5,
 					buildVersion:
 						process.env.SUPERSET_ACP_DAEMON_BUILD_VERSION ??
 						ACP_DAEMON_BUILD_VERSION,
 					pendingInteractionCount: manager.pendingInteractionCount(),
 				};
+				break;
+			case "setTaskMode":
+				result = await manager.setTaskMode(
+					request.params as Parameters<AcpSessionManager["setTaskMode"]>[0],
+				);
 				break;
 			case "create":
 				result = await manager.create(

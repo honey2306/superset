@@ -111,6 +111,24 @@ function copyModuleIfSymlink(
 	return true;
 }
 
+function refreshWorkspaceModule(
+	nodeModulesDir: string,
+	moduleName: string,
+	workspacePath: string,
+): void {
+	if (!existsSync(workspacePath)) {
+		console.error(
+			`  [ERROR] Workspace source for ${moduleName} is missing: ${workspacePath}`,
+		);
+		process.exit(1);
+	}
+	const modulePath = join(nodeModulesDir, moduleName);
+	console.log(`  ${moduleName}: refreshing from workspace source`);
+	rmSync(modulePath, { recursive: true, force: true });
+	mkdirSync(dirname(modulePath), { recursive: true });
+	cpSync(workspacePath, modulePath, { recursive: true });
+}
+
 function readInstalledModuleVersion(modulePath: string): string | null {
 	const packageJsonPath = join(modulePath, "package.json");
 	if (!existsSync(packageJsonPath)) return null;
@@ -514,6 +532,67 @@ function copyDuckdbPlatformPackages(nodeModulesDir: string): void {
 	);
 }
 
+function targetCuaPlatformSuffix(): string {
+	if (TARGET_PLATFORM === "linux") return `linux-${TARGET_ARCH}-gnu`;
+	if (TARGET_PLATFORM === "win32") return `win32-${TARGET_ARCH}-msvc`;
+	return `${TARGET_PLATFORM}-${TARGET_ARCH}`;
+}
+
+function copyOptionalPlatformDependency(
+	nodeModulesDir: string,
+	parentModuleName: string,
+	targetModuleName: string,
+): void {
+	const parentPath = join(nodeModulesDir, parentModuleName);
+	const packageJsonPath = join(parentPath, "package.json");
+	if (!existsSync(packageJsonPath)) {
+		console.error(
+			`  [ERROR] ${parentModuleName} is missing while preparing ${targetModuleName}`,
+		);
+		process.exit(1);
+	}
+	type ParentPackageJson = {
+		optionalDependencies?: Record<string, string>;
+	};
+	const packageJson = JSON.parse(
+		readFileSync(packageJsonPath, "utf8"),
+	) as ParentPackageJson;
+	const version = packageJson.optionalDependencies?.[targetModuleName];
+	if (!version) {
+		console.error(
+			`  [ERROR] ${parentModuleName} has no optional dependency ${targetModuleName}`,
+		);
+		process.exit(1);
+	}
+	const destPath = join(nodeModulesDir, targetModuleName);
+	if (existsSync(destPath)) {
+		copyModuleIfSymlink(nodeModulesDir, targetModuleName, true);
+		return;
+	}
+	copyExactModuleVersion(
+		nodeModulesDir,
+		targetModuleName,
+		version,
+		destPath,
+		true,
+	);
+}
+
+function copyCuaRuntimePlatformPackages(nodeModulesDir: string): void {
+	const suffix = targetCuaPlatformSuffix();
+	console.log("\nPreparing Cua Driver platform packages...");
+	copyOptionalPlatformDependency(
+		nodeModulesDir,
+		"@trycua/cua-driver",
+		`@trycua/cua-driver-${suffix}`,
+	);
+	copyOptionalPlatformDependency(
+		nodeModulesDir,
+		"@ubjs/node",
+		`@ubjs/node-${suffix}`,
+	);
+}
+
 function copyTokenizersPlatformPackage(nodeModulesDir: string): void {
 	const tokenizersPath = join(nodeModulesDir, "@anush008", "tokenizers");
 	const packageJsonPath = join(tokenizersPath, "package.json");
@@ -551,9 +630,26 @@ function prepareNativeModules() {
 	const nodeModulesDir = join(dirname(import.meta.dirname), "node_modules");
 
 	console.log("\nMaterializing packaged runtime modules...");
+	// Workspace native modules become real directories after the first
+	// materialization. Refresh this package explicitly on every run so native
+	// source edits cannot leave electron-builder packaging a stale .node binary.
+	refreshWorkspaceModule(
+		nodeModulesDir,
+		"@superset/macos-computer-provider",
+		join(
+			import.meta.dirname,
+			"..",
+			"..",
+			"..",
+			"packages",
+			"macos-computer-provider",
+		),
+	);
 	for (const moduleName of requiredMaterializedNodeModules) {
 		copyModuleIfSymlink(nodeModulesDir, moduleName, true);
 	}
+
+	copyCuaRuntimePlatformPackages(nodeModulesDir);
 
 	console.log("\nPreparing ast-grep platform package...");
 	copyAstGrepPlatformPackages(nodeModulesDir);

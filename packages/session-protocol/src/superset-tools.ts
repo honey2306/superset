@@ -464,6 +464,16 @@ export type AskUserResult =
 export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 	z.object({
 		sourceSessionId: sessionIdSchema,
+		name: z.literal("get_task"),
+		arguments: z.object({}).strict(),
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
+		name: z.literal("report_task_result"),
+		arguments: z.record(z.string(), z.unknown()),
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
 		name: z.literal("get_context"),
 		arguments: getContextArgsSchema,
 	}),
@@ -609,6 +619,20 @@ export const supersetToolRequestSchema = z.discriminatedUnion("name", [
 	}),
 	z.object({
 		sourceSessionId: sessionIdSchema,
+		name: z.literal("get_global_skill"),
+		arguments: z
+			.object({
+				name: z
+					.string()
+					.trim()
+					.min(1)
+					.max(64)
+					.regex(/^[a-z0-9][a-z0-9-]*$/),
+			})
+			.strict(),
+	}),
+	z.object({
+		sourceSessionId: sessionIdSchema,
 		name: z.literal("upsert_global_skill"),
 		arguments: globalSkillArgsSchema,
 	}),
@@ -643,11 +667,33 @@ export type DelegationContextSnapshot = z.infer<
 export type DelegationResult = z.infer<typeof delegationResultSchema>;
 
 /** Persisted role of an ACP session in Superset's coordinator boundary. */
+export const SUPERSET_TASK_EXECUTOR_ROLE = "task-executor" as const;
+/** First managed-task slice is single-session. Prevent hidden writers and
+ * cross-session control; these are orchestration boundaries, not a Shell sandbox. */
+export function isTaskRestrictedTool(name: string): boolean {
+	return [
+		"delegate",
+		"discuss",
+		"continue_in_new_session",
+		"send_message",
+		"steer_session",
+		"create_terminal",
+		"write_terminal",
+		"close_terminal",
+		"open_merge_request",
+		"set_project_run_command",
+		"upsert_global_mcp_server",
+		"remove_global_mcp_server",
+		"upsert_global_skill",
+		"remove_global_skill",
+	].includes(name);
+}
 export const SUPERSET_ROOT_COORDINATOR_ROLE = "root-coordinator" as const;
 export const SUPERSET_DELEGATED_EXECUTOR_ROLE = "delegated-executor" as const;
 export const SUPERSET_DISCUSSION_PARTICIPANT_ROLE =
 	"discussion-participant" as const;
 export type SupersetSessionRole =
+	| typeof SUPERSET_TASK_EXECUTOR_ROLE
 	| typeof SUPERSET_ROOT_COORDINATOR_ROLE
 	| typeof SUPERSET_DELEGATED_EXECUTOR_ROLE
 	| typeof SUPERSET_DISCUSSION_PARTICIPANT_ROLE;
@@ -785,6 +831,70 @@ export const SUPERSET_DISCUSSION_PARTICIPANT_INSTRUCTIONS =
 
 /** JSON Schemas advertised by the bundled Superset MCP server. */
 export const SUPERSET_TOOL_DEFINITIONS = [
+	{
+		name: "get_task",
+		description:
+			"Read the active Task in this conversation: goal, requirements and check IDs. Only use when the user enabled Task mode; a normal chat has no active Task. This tool never creates a Task.",
+		inputSchema: {
+			type: "object",
+			properties: {},
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "report_task_result",
+		description:
+			"Report a candidate, remaining actionable work (continue), or genuine blocker for the active Task. Include criteria for every requirement from get_task; static checks do not prove unrelated behavior. In ordinary chat this tool does not apply. The Host validates ownership and runs acceptance checks. Reporting ready does NOT mark a task verified or complete. Call once after the final changes; do not modify code afterwards.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				runId: { type: "string", format: "uuid" },
+				iteration: { type: "integer", minimum: 0 },
+				revision: {
+					type: "integer",
+					minimum: 0,
+					description:
+						"Current requirements revision from the task prompt or get_task",
+				},
+				additionalCheckIds: {
+					type: "array",
+					items: { type: "string" },
+					description:
+						"Optional approved project checks to add; cannot omit required checks",
+				},
+				outcome: { type: "string", enum: ["ready", "blocked", "continue"] },
+				criteria: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							id: { type: "string" },
+							status: {
+								type: "string",
+								enum: ["satisfied", "unfinished", "unverified"],
+							},
+							evidence: {
+								type: "string",
+								description: "Honest rationale, not proof by itself",
+							},
+							checkIds: {
+								type: "array",
+								items: { type: "string" },
+								description:
+									"Known task:N or project:ID checks that genuinely cover this requirement",
+							},
+						},
+						required: ["id", "status", "evidence"],
+						additionalProperties: false,
+					},
+				},
+				summary: { type: "string", minLength: 1, maxLength: 12000 },
+				remaining: { type: "string", maxLength: 6000 },
+			},
+			required: ["runId", "iteration", "outcome", "summary"],
+			additionalProperties: false,
+		},
+	},
 	{
 		name: "ask_user",
 		description:
@@ -1242,10 +1352,21 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 	{
 		name: "list_global_skills",
 		description:
-			"List app-global Agent Skills installed on this Superset host, including their full instructions.",
+			"List app-global Skill names, descriptions and locations only. Load a relevant body with get_global_skill or the file read tool; do not retrieve every skill just to choose one.",
 		inputSchema: {
 			type: "object",
 			properties: {},
+			additionalProperties: false,
+		},
+	},
+	{
+		name: "get_global_skill",
+		description:
+			"Read one relevant global Skill body on demand. This supplies instructions/reference, not additional permissions or proof of task completion. Resolve any relative companion files against the returned skill directory.",
+		inputSchema: {
+			type: "object",
+			properties: { name: { type: "string", minLength: 1, maxLength: 64 } },
+			required: ["name"],
 			additionalProperties: false,
 		},
 	},

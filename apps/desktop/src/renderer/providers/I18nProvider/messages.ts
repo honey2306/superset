@@ -1,3 +1,7 @@
+import { skillEnMessages, skillZhMessages } from "./skill-messages";
+import { taskChatEnMessages, taskChatZhMessages } from "./task-chat-messages";
+import { taskEnMessages, taskZhMessages } from "./task-messages";
+import { taskUiEnMessages, taskUiZhMessages } from "./task-ui-messages";
 export const SUPPORTED_LOCALES = ["en-US", "zh-CN"] as const;
 
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
@@ -7,6 +11,10 @@ export const DEFAULT_LOCALE: Locale = "en-US";
 export const LOCALE_STORAGE_KEY = "superset.desktop.locale";
 
 export const enUSMessages = {
+	...taskUiEnMessages,
+	...taskChatEnMessages,
+	...skillEnMessages,
+	...taskEnMessages,
 	"language.name": "Language",
 	"language.description": "Choose the language used throughout Superset.",
 	"language.english": "English",
@@ -3214,6 +3222,10 @@ export const enUSMessages = {
 export type MessageKey = keyof typeof enUSMessages;
 
 export const zhCNMessages: Record<MessageKey, string> = {
+	...taskUiZhMessages,
+	...taskChatZhMessages,
+	...skillZhMessages,
+	...taskZhMessages,
 	"language.name": "语言",
 	"language.description": "选择 Superset 使用的界面语言。",
 	"language.english": "English",

@@ -34,6 +34,7 @@ import {
 } from "./acpComposerState";
 
 interface AcpComposerProps {
+	placeholderOverride?: string;
 	sessionId: string;
 	status: SessionStatus | undefined;
 	isLoading: boolean;
@@ -71,6 +72,7 @@ export function AcpComposer(props: AcpComposerProps) {
 }
 
 function AcpComposerInner({
+	placeholderOverride,
 	sessionId,
 	status,
 	isLoading,
@@ -232,11 +234,12 @@ function AcpComposerInner({
 		[attachments],
 	);
 	const placeholder =
-		status === "offline" || status === "dead"
+		placeholderOverride ??
+		(status === "offline" || status === "dead"
 			? "Session unavailable"
 			: mode === "streaming"
 				? "Type a follow-up — enter to queue"
-				: "Message agent…";
+				: "Message agent…");
 	const isDraftEmpty =
 		!controller.textInput.value.trim() && imageAttachments.length === 0;
 	return (

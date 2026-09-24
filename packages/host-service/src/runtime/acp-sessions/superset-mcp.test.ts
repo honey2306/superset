@@ -21,7 +21,11 @@ async function listen(server: net.Server, socketPath: string): Promise<void> {
 async function runMcp(
 	socketPath: string,
 	requests: unknown[],
-	role?: "root-coordinator" | "delegated-executor" | "discussion-participant",
+	role?:
+		| "root-coordinator"
+		| "delegated-executor"
+		| "discussion-participant"
+		| "task-executor",
 ) {
 	const child = Bun.spawn({
 		cmd: [process.execPath, scriptPath],
@@ -458,5 +462,33 @@ describe("Superset MCP process", () => {
 		} finally {
 			server.close();
 		}
+	});
+	test("managed task tools are visible only on task sessions and do not probe delegation", async () => {
+		// No daemon socket is listening: tool discovery must not depend on the
+		// coordinator's delegation settings or cause a second execution.
+		const responses = await runMcp(
+			path.join(tempDir, "not-needed.sock"),
+			[
+				{ jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
+				{ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
+			],
+			"task-executor",
+		);
+		const result = responses.find((row) => row.id === 2)?.result as {
+			tools: Array<{ name: string }>;
+		};
+		const names = result.tools.map((tool) => tool.name);
+		expect(names).toContain("get_task");
+		expect(names).toContain("report_task_result");
+		expect(names).toContain("ask_user");
+		for (const name of [
+			"delegate",
+			"discuss",
+			"continue_in_new_session",
+			"create_terminal",
+			"write_terminal",
+			"open_merge_request",
+		])
+			expect(names).not.toContain(name);
 	});
 });

@@ -3,6 +3,7 @@ import net from "node:net";
 import { createInterface } from "node:readline";
 import {
 	formatSupersetDelegationInstructions,
+	isTaskRestrictedTool,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DELEGATION_INSTRUCTIONS,
 	SUPERSET_TOOL_DEFINITIONS,
@@ -223,15 +224,22 @@ async function delegatedExecutionAvailability(): Promise<DelegationAvailability>
 	}
 }
 
+const isTaskExecutor =
+	process.env.SUPERSET_ACP_SESSION_ROLE === "task-executor";
+
 function visibleToolDefinitions(includeDelegate: boolean) {
 	if (isDiscussionParticipant) return [];
 	return SUPERSET_TOOL_DEFINITIONS.filter((tool) => {
+		if (tool.name === "get_task" || tool.name === "report_task_result")
+			return !isDelegatedExecutor;
+		if (isTaskExecutor && isTaskRestrictedTool(tool.name)) return false;
 		if (
 			isDelegatedExecutor &&
 			(tool.name === "list_global_mcp_servers" ||
 				tool.name === "upsert_global_mcp_server" ||
 				tool.name === "remove_global_mcp_server" ||
 				tool.name === "list_global_skills" ||
+				tool.name === "get_global_skill" ||
 				tool.name === "upsert_global_skill" ||
 				tool.name === "remove_global_skill")
 		) {
@@ -264,7 +272,9 @@ async function handle(request: JsonRpcRequest): Promise<void> {
 		switch (request.method) {
 			case "initialize":
 				{
-					const availability = await delegatedExecutionAvailability();
+					const availability = isTaskExecutor
+						? { available: false }
+						: await delegatedExecutionAvailability();
 					result(request.id, {
 						protocolVersion: MCP_PROTOCOL_VERSION,
 						// Dynamic profile changes apply to newly initialized MCP clients;

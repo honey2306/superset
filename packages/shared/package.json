@@ -143,6 +143,14 @@
 		"./rrule": {
 			"types": "./src/rrule.ts",
 			"default": "./src/rrule.ts"
+		},
+		"./tasks": {
+			"types": "./src/tasks/contracts.ts",
+			"default": "./src/tasks/contracts.ts"
+		},
+		"./skills": {
+			"types": "./src/skills/contracts.ts",
+			"default": "./src/skills/contracts.ts"
 		}
 	},
 	"scripts": {

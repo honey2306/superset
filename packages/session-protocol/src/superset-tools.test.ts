@@ -542,8 +542,9 @@ describe("Superset delegation protocol", () => {
 		const tool = SUPERSET_TOOL_DEFINITIONS.find(
 			(entry) => entry.name === "get_session_messages",
 		);
-		expect((tool?.inputSchema as { properties: { cursor?: { pattern?: string } } }).properties?.cursor?.pattern).toBe(
-			"^(s[1-9][0-9]*|t[1-9][0-9]*)$",
-		);
+		expect(
+			(tool?.inputSchema as { properties: { cursor?: { pattern?: string } } })
+				.properties?.cursor?.pattern,
+		).toBe("^(s[1-9][0-9]*|t[1-9][0-9]*)$");
 	});
 });

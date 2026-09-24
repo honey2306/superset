@@ -332,45 +332,59 @@ export const projectRouter = router({
 				.findFirst({ where: eq(projects.id, input.projectId) })
 				.sync();
 			if (!localProject) return { success: true, repoPath: null };
-
-			const localWorkspaces = ctx.db
-				.select()
-				.from(workspaces)
-				.where(eq(workspaces.projectId, input.projectId))
-				.all();
-
-			for (const ws of localWorkspaces) {
-				if (ws.worktreePath === localProject.repoPath) continue;
-				try {
-					const git = await ctx.git(localProject.repoPath);
-					await git.raw(["worktree", "remove", ws.worktreePath]);
-				} catch (err) {
-					console.warn("[project.remove] failed to remove worktree", {
-						projectId: input.projectId,
-						worktreePath: ws.worktreePath,
-						err,
-					});
-				}
-			}
-
+			let releaseTaskReservation: (() => void) | undefined;
 			try {
-				// Route both cascade deletes and the project delete through
-				// the Catalog so the journal reflects one atomic clear.
-				for (const ws of localWorkspaces) {
-					deleteLocalWorkspace(
-						{ db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog },
-						ws.id,
-					);
-				}
-				ctx.catalog.deleteProject(input.projectId);
-				emitProjectChanged(ctx.eventBus, "deleted", input.projectId);
-			} catch (err) {
+				releaseTaskReservation = ctx.runtime?.tasks?.store.reserveRemoval({
+					projectId: input.projectId,
+				});
+			} catch (error) {
 				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: `Failed to delete project locally: ${err instanceof Error ? err.message : String(err)}`,
+					code: "BAD_REQUEST",
+					message: error instanceof Error ? error.message : String(error),
 				});
 			}
+			try {
+				const localWorkspaces = ctx.db
+					.select()
+					.from(workspaces)
+					.where(eq(workspaces.projectId, input.projectId))
+					.all();
 
-			return { success: true, repoPath: localProject.repoPath };
+				for (const ws of localWorkspaces) {
+					if (ws.worktreePath === localProject.repoPath) continue;
+					try {
+						const git = await ctx.git(localProject.repoPath);
+						await git.raw(["worktree", "remove", ws.worktreePath]);
+					} catch (err) {
+						console.warn("[project.remove] failed to remove worktree", {
+							projectId: input.projectId,
+							worktreePath: ws.worktreePath,
+							err,
+						});
+					}
+				}
+
+				try {
+					// Route both cascade deletes and the project delete through
+					// the Catalog so the journal reflects one atomic clear.
+					for (const ws of localWorkspaces) {
+						deleteLocalWorkspace(
+							{ db: ctx.db, eventBus: ctx.eventBus, catalog: ctx.catalog },
+							ws.id,
+						);
+					}
+					ctx.catalog.deleteProject(input.projectId);
+					emitProjectChanged(ctx.eventBus, "deleted", input.projectId);
+				} catch (err) {
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: `Failed to delete project locally: ${err instanceof Error ? err.message : String(err)}`,
+					});
+				}
+
+				return { success: true, repoPath: localProject.repoPath };
+			} finally {
+				releaseTaskReservation?.();
+			}
 		}),
 });

@@ -6,6 +6,8 @@ describe("computerUseMcpServer", () => {
 		expect(
 			computerUseMcpServer({
 				sessionId: "session-42",
+				bridgeSocketPath: "/tmp/superset-computer.sock",
+				bridgeToken: "secret-token",
 				execPath: "/Applications/Superset.app/Contents/MacOS/Superset",
 				scriptPath: "/opt/computer-use-mcp.js",
 			}),
@@ -18,6 +20,14 @@ describe("computerUseMcpServer", () => {
 				{
 					name: "SUPERSET_ACP_SOURCE_SESSION_ID",
 					value: "session-42",
+				},
+				{
+					name: "SUPERSET_COMPUTER_RUNTIME_BRIDGE_SOCKET",
+					value: "/tmp/superset-computer.sock",
+				},
+				{
+					name: "SUPERSET_COMPUTER_RUNTIME_BRIDGE_TOKEN",
+					value: "secret-token",
 				},
 			],
 		});

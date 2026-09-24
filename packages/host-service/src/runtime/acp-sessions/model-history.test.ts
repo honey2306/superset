@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
-import { drizzle } from "drizzle-orm/bun-sqlite";
 import type { SessionUpdateEnvelope } from "@superset/session-protocol";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 import type { HostDb } from "../../db";
 import * as schema from "../../db/schema";
 import { AcpSessionManager } from "./acp-sessions";

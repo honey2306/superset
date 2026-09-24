@@ -545,4 +545,56 @@ lines.on("line", (line) => {
 		}
 		expect(promptFailure(new Error("provider failed")).code).toBe(-32603);
 	});
+	test("a terminal native SDK error message cannot become ACP end_turn", async () => {
+		const { agent, installRuntime } = testAgent();
+		const internal = agent as unknown as {
+			sessions: Map<string, unknown>;
+			handleEvent(runtime: unknown, event: unknown): Promise<void>;
+		};
+		installRuntime(async () => {
+			await internal.handleEvent(internal.sessions.get("session-1"), {
+				type: "message_end",
+				message: {
+					role: "assistant",
+					stopReason: "error",
+					errorMessage: "Final provider failure",
+				},
+			});
+		});
+		await expect(
+			agent.prompt({
+				sessionId: "session-1",
+				prompt: [{ type: "text", text: "work" }],
+			}),
+		).rejects.toThrow("Final provider failure");
+	});
+	test("a successful native retry clears a transient error before ACP completion", async () => {
+		const { agent, installRuntime } = testAgent();
+		const internal = agent as unknown as {
+			sessions: Map<string, unknown>;
+			handleEvent(runtime: unknown, event: unknown): Promise<void>;
+		};
+		installRuntime(async () => {
+			await internal.handleEvent(internal.sessions.get("session-1"), {
+				type: "message_end",
+				message: {
+					role: "assistant",
+					stopReason: "error",
+					errorMessage: "temporary",
+				},
+			});
+			await internal.handleEvent(internal.sessions.get("session-1"), {
+				type: "message_end",
+				message: { role: "assistant", stopReason: "stop" },
+			});
+		});
+		expect(
+			(
+				await agent.prompt({
+					sessionId: "session-1",
+					prompt: [{ type: "text", text: "work" }],
+				})
+			).stopReason,
+		).toBe("end_turn");
+	});
 });

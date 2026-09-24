@@ -195,3 +195,49 @@ describe("acpDaemonSocketPath", () => {
 		).toBe("/tmp/explicit.sock");
 	});
 });
+
+describe("managed task daemon capability", () => {
+	test("does not submit managed work to a legacy daemon but preserves ordinary sessions", async () => {
+		const client = new AcpDaemonClient({
+			organizationId: "test",
+			spawnIfMissing: false,
+		});
+		const internal = client as unknown as {
+			connect(): Promise<void>;
+			ensureCompatibleDaemon(): Promise<void>;
+			connectedHello: { managedTaskVersion?: number };
+			sendRequest(op: RequestOperation, params: unknown): Promise<unknown>;
+		};
+		internal.connect = async () => {};
+		internal.ensureCompatibleDaemon = async () => {};
+		internal.connectedHello = {};
+		let creates = 0;
+		internal.sendRequest = async () => {
+			creates++;
+			return { sessionId: "created" };
+		};
+		await expect(
+			client.create({
+				sessionId: "task",
+				workspaceId: "ws",
+				harness: "pi-acp",
+				role: "task-executor",
+			}),
+		).rejects.toThrow("updated ACP daemon");
+		expect(creates).toBe(0);
+		await client.create({
+			sessionId: "ordinary",
+			workspaceId: "ws",
+			harness: "pi-acp",
+		});
+		expect(creates).toBe(1);
+		internal.connectedHello = { managedTaskVersion: 5 };
+		await client.create({
+			sessionId: "task",
+			workspaceId: "ws",
+			harness: "pi-acp",
+			role: "task-executor",
+		});
+		expect(creates).toBe(2);
+	});
+});
