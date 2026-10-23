@@ -3,10 +3,10 @@ import {
 	type BranchPrefixMode,
 } from "@superset/shared/workspace-launch";
 import { z } from "zod";
+import { resolveGitInfo } from "../../../application/workspaces/utils/branch-prefix";
 import { hostSettings } from "../../../db/schema";
 import { createUserSimpleGit } from "../../../runtime/git/simple-git";
 import { protectedProcedure, router } from "../../index";
-import { resolveGitInfo } from "../workspace-creation/utils/branch-prefix";
 
 /**
  * Host-wide branch-prefix default. Projects without their own override fall

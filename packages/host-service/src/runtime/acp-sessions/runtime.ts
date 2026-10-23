@@ -140,6 +140,7 @@ export interface AcpSessionRuntime {
 		workspaceId: string;
 		limit?: number;
 	}): MaybePromise<DiscussionRun[]>;
+	getDiscussion?(input: { runId: string }): MaybePromise<DiscussionRun | null>;
 	stopDiscussion?(input: { runId: string }): MaybePromise<DiscussionRun>;
 	prompt(input: {
 		sessionId: string;

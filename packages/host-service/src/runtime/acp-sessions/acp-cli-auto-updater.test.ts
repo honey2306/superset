@@ -104,7 +104,7 @@ describe("AcpCliAutoUpdater", () => {
 			{ command: "claude", args: ["update"] },
 			{ command: "codex", args: ["update"] },
 			{ command: "pi", args: ["update", "self"] },
-			{ command: "mfcli", args: ["update"] },
+			{ command: "mf", args: ["update"] },
 		]);
 		updater.dispose();
 	});

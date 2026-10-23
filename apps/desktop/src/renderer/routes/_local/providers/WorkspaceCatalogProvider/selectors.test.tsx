@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import type { WorkspaceCatalogSnapshot } from "@superset/host-service/workspace-catalog";
+import type { WorkspaceCatalogSnapshot } from "@superset/host-contract/catalog";
 import type { ReactNode } from "react";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 

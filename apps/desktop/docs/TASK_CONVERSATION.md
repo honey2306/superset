@@ -41,7 +41,7 @@ continues to support its existing explicit Git delivery selection.
 ### Current adoption boundaries
 
 Conversation adoption uses the same `ACP_AGENT_HARNESS_BY_AGENT_ID` catalog as
-ordinary ACP launch: Claude, Codex, Pi, MyFlicker and DeepSeek currently registered.
+ordinary ACP launch: Claude, Codex, Pi and MyFlicker currently registered.
 Only root sessions may be adopted, not delegated or discussion participants. Wait for the current native turn, pending permissions,
 queued input and managed child work to finish before changing ownership. It never
 interrupts an active conversation simply to create a Task. Claim/release occurs at

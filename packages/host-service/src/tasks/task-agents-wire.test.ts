@@ -29,7 +29,6 @@ describe("registered ACP runtimes adopt and release Task mode over stdio", () =>
 				piAdapterEntry: adapter,
 				adapterExecPath: process.execPath,
 				myflickerAdapterCommand: executable,
-				deepseekAdapterCommand: executable,
 				adapterEnv: {
 					HOME: cwd,
 					FAKE_ACP_MCP_REQUEST_LOG: join(cwd, "mcp-setup.jsonl"),

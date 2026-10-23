@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 import {
-	deepseekIcon,
 	getPresetIcon,
 	hasBuiltInPresetIcon,
 	myflickerIcon,
@@ -15,16 +14,11 @@ describe("built-in preset icons", () => {
 		expect(hasBuiltInPresetIcon(presetId)).toBe(true);
 	}
 
-	it("registers DeepSeek for both themes", () => {
-		expectIconForBothThemes("deepseek", deepseekIcon);
-	});
-
 	it("registers MyFlicker for both themes", () => {
 		expectIconForBothThemes("myflicker", myflickerIcon);
 	});
 
 	it("normalizes built-in ids like other preset icons", () => {
 		expect(getPresetIcon("  MyFlicker  ", false)).toBe(myflickerIcon);
-		expect(getPresetIcon("DeepSeek", true)).toBe(deepseekIcon);
 	});
 });

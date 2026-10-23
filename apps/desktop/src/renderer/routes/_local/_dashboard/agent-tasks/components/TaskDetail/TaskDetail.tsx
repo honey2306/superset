@@ -101,7 +101,7 @@ export function TaskDetail({
 			if (kind === "accept")
 				return client.tasks.accept.mutate({ runId: run.id });
 			if (kind === "pause") return client.tasks.pause.mutate({ runId: run.id });
-			return client.tasks.cancel.mutate({ runId: run.id });
+			return client.runs.cancel.mutate({ kind: "task", id: run.id });
 		},
 		onSuccess: async (_, kind) => {
 			if (kind === "remove") {

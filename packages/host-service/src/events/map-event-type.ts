@@ -12,13 +12,9 @@
  *   binding only. NOT working state: SessionStart fires on agent boot when
  *   the agent is still idle waiting for input.
  */
-export type AgentLifecycleEventType =
-	| "Start"
-	| "Stop"
-	| "PermissionRequest"
-	| "Failed"
-	| "Attached"
-	| "Detached";
+import type { AgentLifecycleEventType } from "@superset/host-contract/events";
+
+export type { AgentLifecycleEventType } from "@superset/host-contract/events";
 
 export function mapEventType(
 	eventType: string | undefined,

@@ -131,7 +131,8 @@ export class DiscussionCoordinator {
 	}
 
 	get(runId: string): DiscussionRun | null {
-		const run = this.runs.get(runId);
+		const run =
+			this.runs.get(runId) ?? this.persistence?.getDiscussionRun(runId);
 		return run ? cloneRun(run) : null;
 	}
 
@@ -236,7 +237,8 @@ export class DiscussionCoordinator {
 	}
 
 	async stop(runId: string): Promise<DiscussionRun> {
-		const run = this.runs.get(runId);
+		const run =
+			this.runs.get(runId) ?? this.persistence?.getDiscussionRun(runId);
 		if (!run) throw new Error(`Discussion run not found: ${runId}`);
 		if (run.status !== "running") return cloneRun(run);
 		run.status = "cancelled";

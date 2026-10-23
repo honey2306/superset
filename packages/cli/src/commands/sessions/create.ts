@@ -16,7 +16,6 @@ const HARNESSES = [
 	"codex-app-server",
 	"pi-acp",
 	"myflicker-acp",
-	"deepseek-acp",
 ] as const;
 
 type Harness = (typeof HARNESSES)[number];
@@ -27,7 +26,6 @@ const HARNESS_ALIASES: Record<string, Harness> = {
 	codex: "codex-app-server",
 	pi: "pi-acp",
 	myflicker: "myflicker-acp",
-	deepseek: "deepseek-acp",
 };
 
 function resolveHarness(raw: string | undefined): Harness | undefined {

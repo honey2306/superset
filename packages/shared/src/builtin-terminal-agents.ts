@@ -12,20 +12,12 @@ interface BuiltinTerminalAgentManifest
 		"source" | "kind" | "enabled" | "taskPromptTemplate"
 	> {
 	description: string;
-	/**
-	 * Whether this built-in should be offered by user-facing agent preset
-	 * pickers and bundled preset catalogs. The complete builtin catalog still
-	 * retains entries with this disabled so their launch identity and ACP
-	 * support remain available to existing configurations.
-	 */
-	includeInAgentPresets?: boolean;
 	includeInDefaultTerminalPresets?: boolean;
 }
 
 export interface BuiltinTerminalAgentDefinition
 	extends TerminalAgentDefinition {
 	description: string;
-	includeInAgentPresets?: boolean;
 	includeInDefaultTerminalPresets?: boolean;
 }
 
@@ -60,7 +52,6 @@ function createBuiltinTerminalAgent<
 			taskPromptTemplate: DEFAULT_TERMINAL_TASK_PROMPT_TEMPLATE,
 		}),
 		description: manifest.description,
-		includeInAgentPresets: manifest.includeInAgentPresets,
 		includeInDefaultTerminalPresets: manifest.includeInDefaultTerminalPresets,
 	};
 }
@@ -138,18 +129,9 @@ export const BUILTIN_TERMINAL_AGENTS = [
 		label: "MyFlicker",
 		description:
 			"MyFlicker's coding agent with native Agent Client Protocol support.",
-		command: "mfcli",
-		nonInteractiveCommand: "mfcli --approval-mode plan -q",
+		command: "mf",
+		nonInteractiveCommand: "mf --approval-mode plan -q",
 		includeInDefaultTerminalPresets: true,
-	}),
-	createBuiltinTerminalAgent({
-		id: "deepseek",
-		label: "DeepSeek",
-		description:
-			"DeepSeek Harness's coding agent with native Agent Client Protocol support.",
-		command: "dsh-acp-demo",
-		nonInteractiveCommand: "dsh-acp-demo",
-		includeInAgentPresets: false,
 	}),
 	createBuiltinTerminalAgent({
 		id: "copilot",
@@ -221,16 +203,7 @@ export const BUILTIN_TERMINAL_AGENT_TYPES = mapAgentIds(
 	BUILTIN_TERMINAL_AGENTS,
 );
 
-/**
- * The built-in terminal agents currently offered by user-facing preset
- * pickers. Keep this projection separate from `BUILTIN_TERMINAL_AGENTS`:
- * hidden entries still need to be addressable by their stable id for ACP,
- * existing persisted configurations, and a future re-enable.
- */
-export const USER_VISIBLE_BUILTIN_TERMINAL_AGENTS =
-	BUILTIN_TERMINAL_AGENTS.filter(
-		(agent) => agent.includeInAgentPresets !== false,
-	);
+export const USER_VISIBLE_BUILTIN_TERMINAL_AGENTS = BUILTIN_TERMINAL_AGENTS;
 
 export const BUILTIN_TERMINAL_AGENT_LABELS = createAgentRecord(
 	BUILTIN_TERMINAL_AGENTS,

@@ -6,11 +6,11 @@ import { join, resolve } from "node:path";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { ensureMainWorkspaceStrict } from "../src/application/projects/utils/ensure-main-workspace";
 import type { HostDb } from "../src/db";
 import * as schema from "../src/db/schema";
 import { projects, workspaces } from "../src/db/schema";
 import type { EventBus } from "../src/events";
-import { ensureMainWorkspaceStrict } from "../src/trpc/router/project/utils/ensure-main-workspace";
 import { WorkspaceCatalog } from "../src/workspace-catalog";
 import { insertLocalWorkspace } from "../src/workspaces/local-workspace-store";
 

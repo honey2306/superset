@@ -7,7 +7,7 @@
  *
  * See: plans/done/20260724-v1-v2-terminal-fusion.md (Milestone 1)
  */
-import type { AppRouter } from "@superset/host-service";
+import type { AppRouter } from "@superset/host-contract";
 import type { TRPCClient } from "@trpc/client";
 import { getHostServiceWsToken } from "renderer/lib/host-service-auth";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";

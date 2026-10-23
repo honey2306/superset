@@ -1,4 +1,6 @@
 import { eq } from "drizzle-orm";
+import { runAgentInWorkspace } from "../application/agents/agent-launch";
+import { resolveInitialCommand } from "../application/workspaces/shared/setup-terminal";
 import type { HostDb } from "../db";
 import { projects, workspaces } from "../db/schema";
 import type { EventBus } from "../events";
@@ -6,8 +8,6 @@ import {
 	createTerminalSessionInternal,
 	waitForTerminalCommandCompletion,
 } from "../terminal/terminal";
-import { runAgentInWorkspace } from "../trpc/router/agents";
-import { resolveInitialCommand } from "../trpc/router/workspace-creation/shared/setup-terminal";
 import type { HostServiceContext } from "../types";
 import type { InitialLaunchResult, InitialSessionIntent } from "./types";
 

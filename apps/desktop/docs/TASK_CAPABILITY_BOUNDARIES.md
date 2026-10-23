@@ -161,7 +161,7 @@ Task 的主要交互回到已接入 ACP Agent 的正常聊天：同一输入框�
 ## 11. ACP Agent 示例不应变成任务产品边界（2026-09-19）
 
 Task 已改为复用现有 ACP_AGENT_HARNESS_BY_AGENT_ID，而非维护 Pi/mfcli 两项白名单。
-当前目录中的 Claude、Codex、Pi、MyFlicker、DeepSeek 使用相同的任务准入、状态、验收和聊天 UI；
+当前目录中的 Claude、Codex、Pi、MyFlicker 使用相同的任务准入、状态、验收和聊天 UI；
 登录、模型、工具和是否支持实时指导仍由实际执行引擎决定。无法提供完成依据就报告缺口，不伪造功能对称。
 自动 Git 交付所需 Pi 原生修改归属保持独立限制，不因为放开普通执行就放开不可靠的发布。
 

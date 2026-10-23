@@ -1,5 +1,5 @@
 import type { Octokit } from "@octokit/rest";
-import type { ExecGh } from "../../../../trpc/router/workspace-creation/utils/exec-gh";
+import type { ExecGh } from "../../../../application/workspaces/utils/exec-gh";
 import type {
 	GitHubCheckContextNode,
 	GitHubPullRequestHeadRef,

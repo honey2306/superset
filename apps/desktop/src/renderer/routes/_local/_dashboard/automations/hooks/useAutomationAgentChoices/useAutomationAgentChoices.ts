@@ -1,4 +1,4 @@
-import type { HostAgentConfig } from "@superset/host-service/settings";
+import type { HostAgentConfig } from "@superset/host-contract/settings";
 import type { TerminalPreset } from "@superset/shared/desktop-types";
 import { getPresetById } from "@superset/shared/host-agent-presets";
 import { useMemo } from "react";

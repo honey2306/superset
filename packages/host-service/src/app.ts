@@ -6,6 +6,10 @@ import { ProviderAuthService } from "@superset/chat/server/desktop";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import {
+	execGh as defaultExecGh,
+	type ExecGh,
+} from "./application/workspaces/utils/exec-gh";
 import { createDb, type HostDb } from "./db";
 import { EventBus, GitWatcher, registerEventBusRoute } from "./events";
 import {
@@ -41,10 +45,6 @@ import {
 	TerminalAgentStore,
 } from "./terminal-agents";
 import { appRouter } from "./trpc/router";
-import {
-	execGh as defaultExecGh,
-	type ExecGh,
-} from "./trpc/router/workspace-creation/utils/exec-gh";
 import type { HostServiceRuntime } from "./types";
 import {
 	runCatalogIdentityBackfill,

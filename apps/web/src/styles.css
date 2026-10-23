@@ -1106,10 +1106,6 @@ body {
 	--agent-accent: #bd93f9;
 }
 
-.mobile-agent-option[data-agent="deepseek"] {
-	--agent-accent: #8be9fd;
-}
-
 .mobile-agent-option:active {
 	transform: scale(0.988);
 }

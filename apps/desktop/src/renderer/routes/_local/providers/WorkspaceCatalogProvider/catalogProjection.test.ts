@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { WorkspaceCatalogSnapshot } from "@superset/host-service/workspace-catalog";
+import type { WorkspaceCatalogSnapshot } from "@superset/host-contract/catalog";
 import {
 	applyChanges,
 	emptyProjection,

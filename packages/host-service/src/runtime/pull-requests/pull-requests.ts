@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { Octokit } from "@octokit/rest";
 import { parseGitHubRemote } from "@superset/shared/github-remote";
 import { and, eq, inArray } from "drizzle-orm";
+import type { ExecGh } from "../../application/workspaces/utils/exec-gh";
 import type { HostDb } from "../../db";
 import { projects, pullRequests, workspaces } from "../../db/schema";
 import type { EventBus } from "../../events/event-bus";
 import type { GitWatcher } from "../../events/git-watcher";
-import type { ExecGh } from "../../trpc/router/workspace-creation/utils/exec-gh";
 import type { WorkspaceCatalog } from "../../workspace-catalog";
 import { type GitFactory, resolveDefaultBranchName } from "../git";
 import {

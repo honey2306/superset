@@ -3,6 +3,7 @@ import type {
 	RequestPermissionOutcome,
 	SessionUpdate,
 } from "./acp";
+import type { ConversationEvent } from "./conversation";
 import type { PendingPermission, SessionScopedState } from "./state";
 
 /** A phone-originated command which must survive a host process restart. */
@@ -37,7 +38,12 @@ export interface RemoteCommandFrame {
 
 export type SessionUpdateFrame =
 	/** An ACP session/update notification, verbatim. */
-	| { kind: "update"; update: SessionUpdate; commandId?: string }
+	| {
+			kind: "update";
+			update: SessionUpdate;
+			event?: ConversationEvent;
+			commandId?: string;
+	  }
 	| RemoteCommandFrame
 	| { kind: "permission_requested"; pending: PendingPermission }
 	| {

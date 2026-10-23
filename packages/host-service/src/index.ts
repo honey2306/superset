@@ -1,5 +1,9 @@
 export { type CreateAppOptions, type CreateAppResult, createApp } from "./app";
 export type {
+	DeleteInProgressCause,
+	TeardownFailureCause,
+} from "./application/error-types";
+export type {
 	AutoMateRunRequest,
 	RelayDependencies,
 	RelayFetch,
@@ -36,9 +40,5 @@ export { AcpDaemonClient } from "./runtime/acp-sessions";
 export type { GitCredentialProvider, GitFactory } from "./runtime/git";
 export { installProcessSafetyNet } from "./safety";
 export { startTerminalReaper } from "./terminal/reaper";
-export type {
-	DeleteInProgressCause,
-	TeardownFailureCause,
-} from "./trpc/error-types";
 export type { AppRouter } from "./trpc/router";
 export type { HostServiceContext } from "./types";

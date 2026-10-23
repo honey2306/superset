@@ -190,3 +190,35 @@ describe("DiscussionCoordinator", () => {
 		expect(state("participant").status).toBe("idle");
 	});
 });
+
+test("completed discussions remain addressable and stop is harmless after coordinator restart", async () => {
+	const persisted = {
+		id: "past",
+		workspaceId: "workspace-1",
+		sourceSessionId: "source",
+		topic: "Done",
+		status: "completed" as const,
+		currentRound: 1,
+		maxRounds: 1,
+		participants: [],
+		rounds: [],
+		finalPositions: [],
+		failureMessage: null,
+		createdAt: 1,
+		updatedAt: 2,
+		completedAt: 2,
+	};
+	const coordinator = new DiscussionCoordinator({
+		manager: {} as AcpSessionManager,
+		persistence: {
+			listActiveDiscussionRuns: () => [],
+			listDiscussionRuns: () => [persisted],
+			getDiscussionRun: (id) => (id === "past" ? persisted : null),
+			upsertDiscussionRun: () => {
+				throw new Error("Terminal history must not change");
+			},
+		},
+	});
+	expect(coordinator.get("past")).toEqual(persisted);
+	expect(await coordinator.stop("past")).toEqual(persisted);
+});

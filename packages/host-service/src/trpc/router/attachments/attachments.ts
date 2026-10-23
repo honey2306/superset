@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import mimeTypes from "mime-types";
 import { z } from "zod";
-import { protectedProcedure, router } from "../../index";
-import { MAX_ATTACHMENT_BYTES } from "./constants";
 import {
 	type AttachmentMetadata,
 	deleteAttachment,
 	writeAttachment,
-} from "./storage";
+} from "../../../application/attachments/storage";
+import { protectedProcedure, router } from "../../index";
+import { MAX_ATTACHMENT_BYTES } from "./constants";
 
 const uploadInputSchema = z.object({
 	data: z.object({

@@ -16,6 +16,7 @@ import { phoneRouter } from "./phone";
 import { portsRouter } from "./ports";
 import { projectRouter } from "./project";
 import { pullRequestsRouter } from "./pull-requests";
+import { runsRouter } from "./runs/runs";
 import { settingsRouter } from "./settings";
 import { tasksRouter } from "./tasks/tasks";
 import { terminalRouter } from "./terminal";
@@ -29,6 +30,7 @@ import { workspaceProvisioningRouter } from "./workspace-provisioning";
 import { workspacesRouter } from "./workspaces";
 
 export const appRouter = router({
+	runs: runsRouter,
 	tasks: tasksRouter,
 	acpSessions: acpSessionsRouter,
 	agents: agentsRouter,

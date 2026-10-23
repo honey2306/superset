@@ -1,7 +1,7 @@
 import type {
 	ProjectSnapshotShape,
 	WorkspaceSnapshotShape,
-} from "@superset/host-service/workspace-catalog";
+} from "@superset/host-contract/catalog";
 import { getEventBus } from "@superset/workspace-client";
 import {
 	createContext,

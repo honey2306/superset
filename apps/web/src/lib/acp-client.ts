@@ -1,3 +1,4 @@
+import { createAcpSessionsApi, sessionStreamUrl } from "@superset/host-client";
 import type {
 	AcpSessionsApi,
 	ContentBlock,
@@ -101,6 +102,7 @@ export function createPhoneAcpClient(sessionId?: string): PhoneAcpClient {
 		) as Promise<T>;
 	};
 	const api: AcpSessionsApi = {
+		...createAcpSessionsApi(getTrpc),
 		get: (input) => {
 			// Initial load and every foreground snapshot are retry opportunities.
 			// Do not await the outbox: a poison/application error must not hide the
@@ -108,21 +110,10 @@ export function createPhoneAcpClient(sessionId?: string): PhoneAcpClient {
 			void outboxFor(input.sessionId).drain(invokePending);
 			return trpc().get.query(input);
 		},
-		getMessages: (input) => trpc().getMessages.query(input),
-		getTranscript: (input) => trpc().getTranscript.query(input),
 		prompt: (input) => sendCommand<PromptAccepted>("prompt", input),
-		respondToPermission: (input) => trpc().respondToPermission.mutate(input),
-		cancel: (input) => trpc().cancel.mutate(input),
-		close: (input) => trpc().close.mutate(input),
-		setMode: (input) => trpc().setMode.mutate(input),
-		setConfigOption: (input) => trpc().setConfigOption.mutate(input),
 		enqueuePrompt: (input) =>
 			sendCommand<EnqueuePromptResult>("enqueuePrompt", input),
 		sendNow: (input) => sendCommand<PromptAccepted>("sendNow", input),
-		removeQueuedPrompt: (input) => trpc().removeQueuedPrompt.mutate(input),
-		reorderQueue: (input) => trpc().reorderQueue.mutate(input),
-		editQueuedPrompt: (input) => trpc().editQueuedPrompt.mutate(input),
-		clearQueue: (input) => trpc().clearQueue.mutate(input),
 	};
 	if (sessionId) {
 		// Drain only this session's durable commands. The outbox's scoped lock
@@ -133,16 +124,10 @@ export function createPhoneAcpClient(sessionId?: string): PhoneAcpClient {
 		api,
 		create: (input) => trpc().create.mutate(input),
 		list: (input) => trpc().list.query(input),
-		streamUrl: (sessionId) => () => {
-			const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-			const host = window.location.host;
-			const encoded = encodeURIComponent(sessionId);
-			const token = getStoredToken();
-			const suffix = token
-				? `?${new URLSearchParams({ token }).toString()}`
-				: "";
-			return `${proto}//${host}/acp-sessions/${encoded}/stream${suffix}`;
-		},
+		streamUrl: (sessionId) => () =>
+			sessionStreamUrl(window.location.origin, sessionId, {
+				token: getStoredToken(),
+			}),
 		createWebSocket: (url) => getPhoneTransport().createWebSocket(url),
 	};
 }

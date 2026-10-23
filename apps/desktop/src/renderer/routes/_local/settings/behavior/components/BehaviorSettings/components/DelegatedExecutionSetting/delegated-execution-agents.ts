@@ -1,4 +1,4 @@
-import type { HostAgentConfig } from "@superset/host-service/settings";
+import type { HostAgentConfig } from "@superset/host-contract/settings";
 import { getPresetById } from "@superset/shared/host-agent-presets";
 import type { AgentSelectAgent } from "renderer/components/AgentSelect";
 

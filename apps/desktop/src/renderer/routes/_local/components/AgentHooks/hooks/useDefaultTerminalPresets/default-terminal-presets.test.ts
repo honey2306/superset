@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { HostAgentConfig } from "@superset/host-service/settings";
+import type { HostAgentConfig } from "@superset/host-contract/settings";
 import type { TerminalPresetRow } from "renderer/routes/_local/providers/LocalProductStateProvider/dashboardSidebarLocal/schema";
 import { createDefaultTerminalPresetRows } from "./default-terminal-presets";
 
@@ -82,7 +82,7 @@ describe("createDefaultTerminalPresetRows", () => {
 					id: "myflicker-config",
 					presetId: "myflicker",
 					label: "MyFlicker",
-					command: "mfcli",
+					command: "mf",
 					order: 6,
 				}),
 				createAgent({ presetId: "amp", order: 7 }),
@@ -122,7 +122,7 @@ describe("createDefaultTerminalPresetRows", () => {
 		expect(rows[3]?.commands).toEqual(["copilot --allow-tool=write"]);
 		expect(rows[4]?.commands).toEqual(["kimi"]);
 		expect(rows[5]?.commands).toEqual(["grok --always-approve"]);
-		expect(rows[6]?.commands).toEqual(["mfcli"]);
+		expect(rows[6]?.commands).toEqual(["mf"]);
 	});
 
 	it("includes structured agent env in seeded preset command snapshots", () => {

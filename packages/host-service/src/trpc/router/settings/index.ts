@@ -21,10 +21,10 @@ export const settingsRouter = router({
 	acpPresetLaunch: acpPresetLaunchRouter,
 });
 
+export type { HostWorktreeLocationSettings } from "../../../application/workspaces/worktree-location";
 export type { HostAgentConfig } from "./agent-configs";
 export type {
 	DelegatedExecutionSettings,
 	DelegationProfile,
 	DelegationProfilesState,
 } from "./delegated-execution";
-export type { HostWorktreeLocationSettings } from "./worktree-location";

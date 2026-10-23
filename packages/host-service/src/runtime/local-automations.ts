@@ -2,6 +2,10 @@ import { createHash } from "node:crypto";
 import { parseRrule } from "@superset/shared/rrule";
 import { and, asc, desc, eq, lte } from "drizzle-orm";
 import {
+	type AgentRunInput,
+	runAgentInWorkspace,
+} from "../application/agents/agent-launch";
+import {
 	localAutomationPromptVersions,
 	localAutomationRuns,
 	localAutomations,
@@ -9,10 +13,6 @@ import {
 	projects,
 	workspaces,
 } from "../db/schema";
-import {
-	type AgentRunInput,
-	runAgentInWorkspace,
-} from "../trpc/router/agents/agents";
 import type { HostServiceContext } from "../types";
 
 export type LocalTaskContext = Pick<
@@ -219,7 +219,7 @@ export async function dispatchLocalAutomation(
 	}
 	try {
 		const result = await runAgentInWorkspace(
-			ctx as HostServiceContext,
+			ctx,
 			automatedAgentRunInput(workspaceId, automation.agent, automation.prompt),
 		);
 		ctx.db
@@ -289,7 +289,7 @@ export async function dispatchLocalTodo(
 		);
 	try {
 		const result = await runAgentInWorkspace(
-			ctx as HostServiceContext,
+			ctx,
 			automatedAgentRunInput(workspaceId, todo.agent, todo.prompt),
 		);
 		ctx.db

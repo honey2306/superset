@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { AppRouter } from "@superset/host-service";
+import type { AppRouter } from "@superset/host-contract";
 import type { TRPCClient } from "@trpc/client";
 import {
 	createHostServiceTerminalAdapter,

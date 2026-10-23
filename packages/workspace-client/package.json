@@ -18,7 +18,8 @@
 		"typecheck": "tsc --noEmit --emitDeclarationOnly false"
 	},
 	"dependencies": {
-		"@superset/host-service": "workspace:*",
+		"@superset/host-client": "workspace:*",
+		"@superset/host-contract": "workspace:*",
 		"@superset/shared": "workspace:*",
 		"@superset/workspace-fs": "workspace:*",
 		"@tanstack/react-query": "5.101.1",

@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HostServiceContext } from "../../../types";
-import { attachmentsRouter } from "./attachments";
-import { MAX_ATTACHMENT_BYTES } from "./constants";
 import {
 	getAttachmentDir,
 	getAttachmentFilePath,
 	getAttachmentsRoot,
-} from "./storage";
+} from "../../../application/attachments/storage";
+import type { HostServiceContext } from "../../../types";
+import { attachmentsRouter } from "./attachments";
+import { MAX_ATTACHMENT_BYTES } from "./constants";
 
 let tempBase: string;
 

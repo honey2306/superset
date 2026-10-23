@@ -1,6 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import type { HostServiceContext } from "../types";
 import {
 	type DeleteInProgressCause,
 	isDeleteInProgressCause,
@@ -8,7 +7,9 @@ import {
 	isTeardownFailureCause,
 	type ProjectNotSetupCause,
 	type TeardownFailureCause,
-} from "./error-types";
+} from "../application/error-types";
+import { HostOperationError } from "../application/errors";
+import type { HostServiceContext } from "../types";
 
 export interface RouterMeta {
 	/**
@@ -65,7 +66,18 @@ const t = initTRPC
 	});
 
 export const router = t.router;
-export const publicProcedure = t.procedure;
+export const publicProcedure = t.procedure.use(async ({ next }) => {
+	const result = await next();
+	if (!result.ok && result.error.cause instanceof HostOperationError) {
+		const error = result.error.cause;
+		throw new TRPCError({
+			code: error.code,
+			message: error.message,
+			cause: error.cause,
+		});
+	}
+	return result;
+});
 
 /**
  * Procedure paths a paired phone bearer is allowed to reach. Anything not
@@ -101,7 +113,7 @@ export function isPhoneAllowedPath(path: string): boolean {
 	return PHONE_ALLOWED_PREFIXES.some((p) => path.startsWith(p));
 }
 
-export const protectedProcedure = t.procedure.use(
+export const protectedProcedure = publicProcedure.use(
 	async ({ ctx, path, next }) => {
 		if (!ctx.isAuthenticated) {
 			throw new TRPCError({
@@ -123,7 +135,7 @@ export const protectedProcedure = t.procedure.use(
  * Procedure gated to callers holding the desktop PSK. Phone-session bearers
  * are rejected with FORBIDDEN; unauthenticated callers get UNAUTHORIZED.
  */
-export const pskOnlyProcedure = t.procedure.use(async ({ ctx, next }) => {
+export const pskOnlyProcedure = publicProcedure.use(async ({ ctx, next }) => {
 	if (!ctx.isAuthenticated) {
 		throw new TRPCError({
 			code: "UNAUTHORIZED",
@@ -180,6 +192,5 @@ export const queryProcedure = protectedProcedure.use(timeoutMiddleware);
 export type {
 	ProjectNotSetupCause,
 	TeardownFailureCause,
-} from "./error-types";
-// INTERIM cross-runtime types via dist-types — see docs/interim-router-types.md
+} from "../application/error-types";
 export type { AppRouter } from "./router";

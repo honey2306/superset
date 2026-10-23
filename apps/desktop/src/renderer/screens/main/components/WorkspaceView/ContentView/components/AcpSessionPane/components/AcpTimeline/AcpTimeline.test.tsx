@@ -1281,7 +1281,81 @@ describe("AcpTimeline scrolling", () => {
 		}
 	});
 
-	test("shows the latest user message after a settled hidden tab is shown", () => {
+	test("keeps a revisited settled conversation at the bottom", () => {
+		const frames: FrameRequestCallback[] = [];
+		const originalRequest = window.requestAnimationFrame;
+		const originalCancel = window.cancelAnimationFrame;
+		window.requestAnimationFrame = (callback) => {
+			frames.push(callback);
+			return frames.length;
+		};
+		window.cancelAnimationFrame = () => {};
+		try {
+			const props = {
+				timeline: {
+					...timeline(0),
+					items: [userMessage(1), message(2, "final response")],
+					lastSeq: 2,
+				},
+				onRespond: async () => {},
+				status: "idle" as const,
+			};
+			const result = render(
+				createElement(AcpTimeline, { ...props, isFocused: true }),
+			);
+			const body = result.container.querySelector(
+				".acp-pane__scroll",
+			) as HTMLDivElement;
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1300 });
+			const user = body.querySelector(
+				".acp-msg[data-role='user']",
+			) as HTMLElement;
+			Object.defineProperty(body, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({ top: 100 }),
+			});
+			Object.defineProperty(user, "getBoundingClientRect", {
+				configurable: true,
+				value: () => ({
+					top: 180 - body.scrollTop,
+					bottom: 240 - body.scrollTop,
+				}),
+			});
+			const flush = () =>
+				act(() => {
+					for (let i = 0; i < 25; i++) {
+						const frame = frames.shift();
+						if (!frame) break;
+						frame(0);
+					}
+				});
+			flush();
+			act(() => {
+				body.scrollTop = 1200;
+				fireEvent.wheel(body);
+				fireEvent.scroll(body);
+			});
+			result.rerender(
+				createElement(AcpTimeline, { ...props, isFocused: false }),
+			);
+			setScrollMetrics(body, { clientHeight: 0, scrollHeight: 0 });
+			setScrollMetrics(body, { clientHeight: 100, scrollHeight: 1300 });
+			result.rerender(
+				createElement(AcpTimeline, { ...props, isFocused: true }),
+			);
+			// Chromium may emit a scroll while showing the old virtual window,
+			// before the scheduled restoration has run.
+			body.scrollTop = 0;
+			fireEvent.scroll(body);
+			flush();
+			expect(body.scrollTop).toBe(1200);
+		} finally {
+			window.requestAnimationFrame = originalRequest;
+			window.cancelAnimationFrame = originalCancel;
+		}
+	});
+
+	test("shows the latest user message when a settled hidden conversation is first shown", () => {
 		const onRespond = async () => {};
 		const processTool = tool(2, "completed");
 		const initialTimeline = {
@@ -1321,7 +1395,7 @@ describe("AcpTimeline scrolling", () => {
 				createElement(AcpTimeline, {
 					timeline: initialTimeline,
 					onRespond,
-					isFocused: true,
+					isFocused: false,
 					status: "running",
 				}),
 			);
@@ -1486,7 +1560,7 @@ describe("AcpTimeline scrolling", () => {
 				status: "idle" as const,
 			};
 			const result = render(
-				createElement(AcpTimeline, { ...props, isFocused: true }),
+				createElement(AcpTimeline, { ...props, isFocused: false }),
 			);
 			const body = result.container.querySelector(
 				".acp-pane__scroll",

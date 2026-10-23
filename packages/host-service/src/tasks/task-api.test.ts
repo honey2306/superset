@@ -191,3 +191,25 @@ describe("managed task API boundaries", () => {
 		expect(f.run().phase).toBe("preparing");
 	});
 });
+
+test("unified Run routes preserve authentication, workspace scope and Task cancellation", async () => {
+	const f = await fixture();
+	const ref = { kind: "task" as const, id: f.runId };
+	await expect(caller(f, true, "psk", false).api.runs.get(ref)).rejects.toThrow(
+		"authentication",
+	);
+	await expect(caller(f, true, "phone").api.runs.cancel(ref)).rejects.toThrow(
+		"paired phone",
+	);
+	const { api, cancel } = caller(f, false);
+	expect((await api.runs.list({ workspaceId: f.workspaceId }))[0]?.key).toBe(
+		`task:${f.runId}`,
+	);
+	expect(await api.runs.list({ workspaceId: "other" })).toEqual([]);
+	await api.runs.cancel(ref);
+	expect(f.run().desiredState).toBe("cancelled");
+	expect(cancel).toHaveBeenCalledTimes(0);
+	await expect(
+		api.runs.get({ kind: "task", id: "missing" }),
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});

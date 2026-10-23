@@ -47,8 +47,8 @@ function toHostAgentPreset(
 }
 
 /**
- * Terminal agent presets offered to users, derived from the visible subset
- * of `BUILTIN_TERMINAL_AGENTS`. Used as the seed list when a host's agent
+ * Terminal agent presets offered to users, derived from
+ * `BUILTIN_TERMINAL_AGENTS`. Used as the seed list when a host's agent
  * table is empty and as the install catalog the desktop picker renders.
  *
  * Launch resolution:

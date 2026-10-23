@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-	acpPresetLaunchRouter,
-	useAcpForAgentPresets,
-} from "./acp-preset-launch";
+import { useAcpForAgentPresets } from "../../../application/agents/launch-preference";
+import { acpPresetLaunchRouter } from "./acp-preset-launch";
 
 describe("acpPresetLaunchRouter", () => {
 	test("updates the process-local setting used by unattended dispatch", async () => {

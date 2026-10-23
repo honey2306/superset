@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { HostAgentConfig } from "@superset/host-service/settings";
+import type { HostAgentConfig } from "@superset/host-contract/settings";
 import type { TerminalPreset } from "@superset/shared/desktop-types";
 import { toAutomationAgentChoices } from "./useAutomationAgentChoices";
 

@@ -337,3 +337,33 @@ describe("AcpHistoricalJournalCompactor", () => {
 		input.sqlite.close();
 	});
 });
+
+test("rewriting a raw frame also invalidates its derived semantic payload", () => {
+	const input = fixture();
+	const rawOutput = {
+		type: "image",
+		data: Buffer.alloc(256 * 1024, 7).toString("base64"),
+		mimeType: "image/png",
+	};
+	insert(input, {
+		seq: 1,
+		frameJson: JSON.stringify({
+			kind: "update",
+			update: { sessionUpdate: "tool_call_update", toolCallId: "t", rawOutput },
+			event: {
+				version: 1,
+				kind: "tool",
+				patch: { toolCallId: "t", rawOutput },
+				parentId: null,
+				terminals: [],
+			},
+		}),
+	});
+	input.compactor(input.store).compact();
+	const row = rows(input)[0];
+	if (!row) throw new Error("Missing compacted row");
+	const frame = JSON.parse(row.frame_json);
+	expect(frame.event).toBeUndefined();
+	expect(row.frame_json).not.toContain(rawOutput.data);
+	input.sqlite.close();
+});

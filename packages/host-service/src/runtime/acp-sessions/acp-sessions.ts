@@ -56,6 +56,8 @@ import {
 	encodeMessagesCursor,
 	encodeTranscriptCursor,
 	groupTranscriptTurns,
+	normalizeAcpUpdate,
+	normalizePermission,
 	SUPERSET_DELEGATED_EXECUTOR_INSTRUCTIONS,
 	SUPERSET_DELEGATED_EXECUTOR_ROLE,
 	SUPERSET_DELEGATION_META_KEY,
@@ -292,8 +294,6 @@ export function resolveAdapterProcess(
 		| "codexAdapterEntry"
 		| "piAdapterEntry"
 		| "myflickerAdapterCommand"
-		| "deepseekAdapterCommand"
-		| "deepseekAdapterConfig"
 	> = {},
 	execPath = process.execPath,
 ): AdapterProcessSpec {
@@ -312,21 +312,9 @@ export function resolveAdapterProcess(
 			};
 		case "myflicker-acp":
 			return {
-				command: options.myflickerAdapterCommand ?? "mfcli",
-				// mfcli 0.3.14 has no ACP modes; its documented full-access mode
-				// is a CLI flag and must precede the `acp` subcommand.
+				command: options.myflickerAdapterCommand ?? "mf",
+				// MyFlicker 2.0's full-access flag precedes the `acp` subcommand.
 				args: ["--approval-mode", "yolo", "acp"],
-				usesElectronNode: false,
-			};
-		case "deepseek-acp":
-			return {
-				command: options.deepseekAdapterCommand ?? "dsh-acp-demo",
-				// `dsh-acp-demo` boots the DeepSeek Harness ACP server from a
-				// cordis.yml; without a config it falls back to `./cordis.yml`
-				// relative to the session cwd.
-				args: options.deepseekAdapterConfig
-					? ["--config", options.deepseekAdapterConfig]
-					: [],
 				usesElectronNode: false,
 			};
 		case "claude-agent-acp":
@@ -648,10 +636,6 @@ export interface AcpSessionManagerOptions {
 	adapterEnv?: Record<string, string | undefined>;
 	/** Executable override for MyFlicker's native ACP server. */
 	myflickerAdapterCommand?: string;
-	/** Executable override for the DeepSeek Harness ACP server (`dsh-acp-demo`). */
-	deepseekAdapterCommand?: string;
-	/** Path to the cordis.yml the DeepSeek Harness ACP server boots from. */
-	deepseekAdapterConfig?: string;
 	/**
 	 * Local MCP servers supplied to every ACP session setup. These are sent on
 	 * both `session/new` and `session/load`, so resumed sessions keep the same
@@ -750,8 +734,6 @@ export class AcpSessionManager {
 	private readonly adapterExecPath: string | undefined;
 	private readonly adapterEnv: Record<string, string | undefined>;
 	private readonly myflickerAdapterCommand: string | undefined;
-	private readonly deepseekAdapterCommand: string | undefined;
-	private readonly deepseekAdapterConfig: string | undefined;
 	private readonly mcpServers: McpServer[];
 	private readonly resolveMcpServers:
 		| AcpSessionManagerOptions["resolveMcpServers"]
@@ -811,8 +793,6 @@ export class AcpSessionManager {
 		this.adapterExecPath = options.adapterExecPath;
 		this.adapterEnv = options.adapterEnv ?? {};
 		this.myflickerAdapterCommand = options.myflickerAdapterCommand;
-		this.deepseekAdapterCommand = options.deepseekAdapterCommand;
-		this.deepseekAdapterConfig = options.deepseekAdapterConfig;
 		this.mcpServers = options.mcpServers ?? [];
 		this.resolveMcpServers = options.resolveMcpServers;
 		this.mcpServerFactory = options.mcpServerFactory;
@@ -2561,8 +2541,6 @@ export class AcpSessionManager {
 				codexAdapterEntry: this.codexAdapterEntry,
 				piAdapterEntry: this.piAdapterEntry,
 				myflickerAdapterCommand: this.myflickerAdapterCommand,
-				deepseekAdapterCommand: this.deepseekAdapterCommand,
-				deepseekAdapterConfig: this.deepseekAdapterConfig,
 			},
 			this.adapterExecPath,
 		);
@@ -2588,15 +2566,7 @@ export class AcpSessionManager {
 			assertExternalCliAvailable(
 				adapterProcess.command,
 				"MyFlicker",
-				"Install MyFlicker CLI (`mfcli`) and ensure `mfcli` is on PATH, or set SUPERSET_MFCLI_ACP_COMMAND to its executable path.",
-				env,
-			);
-		}
-		if (harness === "deepseek-acp") {
-			assertExternalCliAvailable(
-				adapterProcess.command,
-				"DeepSeek Harness",
-				"Install DeepSeek Harness and ensure `dsh-acp-demo` is on PATH, or set SUPERSET_DSH_ACP_COMMAND to its executable path.",
+				"Install MyFlicker 2.0 (`mf`) and ensure `mf` is on PATH, or set SUPERSET_MFCLI_ACP_COMMAND to its executable path.",
 				env,
 			);
 		}
@@ -2918,7 +2888,7 @@ export class AcpSessionManager {
 					configOptions,
 					availableCommands: null,
 					pendingPermissions: [],
-					canSteer: harness !== "deepseek-acp",
+					canSteer: true,
 					queuedPrompts: restoredQueuedCommands.queued.map((command) => ({
 						queueId: command.queueId,
 						prompt: [...command.prompt],
@@ -3742,6 +3712,22 @@ export class AcpSessionManager {
 				};
 			}
 		}
+		if (frame.kind === "update")
+			frame = {
+				...frame,
+				event: normalizeAcpUpdate(frame.update, runtime.state.harness),
+			};
+		if (frame.kind === "permission_requested")
+			frame = { ...frame, pending: normalizePermission(frame.pending) };
+		if (frame.kind === "state")
+			frame = {
+				...frame,
+				state: {
+					...frame.state,
+					pendingPermissions:
+						frame.state.pendingPermissions.map(normalizePermission),
+				},
+			};
 		const envelope = runtime.journal.append(runtime.state.sessionId, frame);
 		if (
 			frame.kind === "update" &&

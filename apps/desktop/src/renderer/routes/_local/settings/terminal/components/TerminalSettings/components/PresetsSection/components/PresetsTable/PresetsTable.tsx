@@ -1,4 +1,4 @@
-import type { HostAgentConfig } from "@superset/host-service/settings";
+import type { HostAgentConfig } from "@superset/host-contract/settings";
 import type { TerminalPreset } from "@superset/shared/desktop-types";
 import { cn } from "@superset/ui/utils";
 import type { RefObject } from "react";

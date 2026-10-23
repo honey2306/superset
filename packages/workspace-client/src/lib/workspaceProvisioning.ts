@@ -15,7 +15,7 @@ import type {
 	ProvisionWorkspaceRequest,
 	WorkspaceOperation,
 	WorkspaceOperationState,
-} from "@superset/host-service/workspace-provisioning";
+} from "@superset/host-contract/provisioning";
 
 export type {
 	InitialLaunchResult,
@@ -23,7 +23,7 @@ export type {
 	ProvisionWorkspaceRequest,
 	WorkspaceOperation,
 	WorkspaceOperationState,
-} from "@superset/host-service/workspace-provisioning";
+} from "@superset/host-contract/provisioning";
 
 export interface ProvisioningAdapter {
 	begin(

@@ -1,4 +1,4 @@
-import type { HostAgentConfig } from "@superset/host-service/settings";
+import type { HostAgentConfig } from "@superset/host-contract/settings";
 import { normalizeExecutionMode } from "@superset/shared/desktop-types";
 import { Badge } from "@superset/ui/badge";
 import { cn } from "@superset/ui/utils";

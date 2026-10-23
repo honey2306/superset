@@ -110,7 +110,7 @@ describe("grok agent registration", () => {
 });
 
 describe("ACP agent preset registration", () => {
-	it("ships MyFlicker while keeping hidden DeepSeek out of defaults", () => {
+	it("ships MyFlicker without DeepSeek", () => {
 		expect(DEFAULT_TERMINAL_PRESET_AGENT_TYPES).toContain("myflicker");
 		expect(DEFAULT_TERMINAL_PRESET_AGENT_TYPES).not.toContain("deepseek");
 	});

@@ -2,11 +2,10 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { basename, resolve as resolvePath } from "node:path";
 import { parseGitHubRemote } from "@superset/shared/github-remote";
-import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { projects } from "../../db/schema";
-import { ensureMainWorkspaceStrict } from "../../trpc/router/project/utils/ensure-main-workspace";
-import { persistLocalProject } from "../../trpc/router/project/utils/persist-project";
+import { HostOperationError } from "../../application/errors";
+import { ensureMainWorkspaceStrict } from "../../application/projects/utils/ensure-main-workspace";
+import { persistLocalProject } from "../../application/projects/utils/persist-project";
 import {
 	cloneRepoInto,
 	cloneTemplateInto,
@@ -17,7 +16,8 @@ import {
 	resolveLocalRepo,
 	resolveMatchingSlug,
 	tryRevParseGitRoot,
-} from "../../trpc/router/project/utils/resolve-repo";
+} from "../../application/projects/utils/resolve-repo";
+import { projects } from "../../db/schema";
 import type { RunnerArtifact } from "../workspace-provisioning";
 import {
 	runCatalogCommitStep,
@@ -163,7 +163,7 @@ export const setupExistingHandler: SourceHandler = async (context) => {
 		async () => {
 			if (project.mode.kind === "clone") {
 				if (!project.origin.repoUrl) {
-					throw new TRPCError({
+					throw new HostOperationError({
 						code: "BAD_REQUEST",
 						message: "Project has no linked repository and cannot be cloned",
 					});
@@ -202,7 +202,7 @@ export const setupExistingHandler: SourceHandler = async (context) => {
 		.where(eq(projects.repoPath, prepared.repoPath))
 		.get();
 	if (existingOwner && existingOwner.id !== project.projectId) {
-		throw new TRPCError({
+		throw new HostOperationError({
 			code: "CONFLICT",
 			message:
 				"Repository is already set up as another project on this device.",
@@ -260,7 +260,7 @@ async function commitProject(
 		.where(eq(projects.repoPath, args.prepared.repoPath))
 		.get();
 	if (existingByPath && existingByPath.id !== args.projectId) {
-		throw new TRPCError({
+		throw new HostOperationError({
 			code: "CONFLICT",
 			message:
 				"Repository is already set up as another project on this device.",
@@ -307,7 +307,7 @@ function directoryNameForEmpty(name: string): string {
 		.replace(/[^a-zA-Z0-9._-]+/g, "-")
 		.replace(/^-+|-+$/g, "");
 	if (!slug) {
-		throw new TRPCError({
+		throw new HostOperationError({
 			code: "BAD_REQUEST",
 			message: "Project name must produce a non-empty directory name",
 		});

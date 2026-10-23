@@ -72,7 +72,7 @@ Most commands accept a workspace by id prefix, name, or the current directory.
 
 Create options
   --workspace <id|name>     Target workspace (defaults to the current directory)
-  --agent <name>            claude, codex, pi, myflicker, deepseek
+  --agent <name>            claude, codex, pi, myflicker
   --model <id>              Preferred model id
 
 Send options

@@ -8,6 +8,12 @@ import {
 	SUPERSET_ROOT_COORDINATOR_ROLE,
 } from "@superset/session-protocol";
 import { eq } from "drizzle-orm";
+import {
+	readDelegationProfiles,
+	resolveDelegatedExecutionTarget,
+	resolveDelegationProfileTargets,
+	toDelegationProfileSummary,
+} from "../../application/agents/delegated-execution-target";
 import { createDb } from "../../db";
 import { projects, workspaces } from "../../db/schema";
 import {
@@ -36,12 +42,6 @@ import {
 } from "../../project-memories/search-project-memories";
 import { SkillLibrary } from "../../skills/skill-library";
 import { TaskStore } from "../../tasks/task-store";
-import {
-	readDelegationProfiles,
-	resolveDelegatedExecutionTarget,
-	resolveDelegationProfileTargets,
-	toDelegationProfileSummary,
-} from "../../trpc/router/settings/delegated-execution-target";
 import { canonicalizeHostPath } from "../../workspace-catalog";
 import {
 	assertProjectConfigIsEditable,
@@ -100,10 +100,7 @@ async function main(): Promise<void> {
 	const mfcliCommand =
 		process.env.SUPERSET_MFCLI_ACP_COMMAND ??
 		process.env.SUPERSET_MFCLI_TITLE_COMMAND ??
-		"mfcli";
-	const deepseekCommand =
-		process.env.SUPERSET_DSH_ACP_COMMAND ?? "dsh-acp-demo";
-	const deepseekConfig = process.env.SUPERSET_DSH_ACP_CONFIG;
+		"mf";
 	const cliAutoUpdater = new AcpCliAutoUpdater({
 		commands: acpCliUpdateCommands({
 			claude: claudeCommand,
@@ -154,8 +151,6 @@ async function main(): Promise<void> {
 		codexAdapterEntry: process.env.SUPERSET_CODEX_ACP_ADAPTER_ENTRY,
 		piAdapterEntry: process.env.SUPERSET_PI_ACP_ADAPTER_ENTRY,
 		myflickerAdapterCommand: mfcliCommand,
-		deepseekAdapterCommand: deepseekCommand,
-		deepseekAdapterConfig: deepseekConfig,
 		mcpServers: agentBrowserEnabled
 			? []
 			: [browserUseMcpServerFromEnvironment()].filter(
@@ -846,6 +841,11 @@ async function dispatch(
 			case "getTranscript":
 				result = manager.getTranscript(
 					request.params as Parameters<AcpSessionManager["getTranscript"]>[0],
+				);
+				break;
+			case "getDiscussion":
+				result = toolController.getDiscussion(
+					(request.params as { runId: string }).runId,
 				);
 				break;
 			case "listDiscussions": {

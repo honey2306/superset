@@ -34,7 +34,7 @@ export function acpCliUpdateCommands(
 		{ name: "Pi", command: "pi", args: ["update", "self"] },
 		{
 			name: "MyFlicker",
-			command: commands.mfcli ?? "mfcli",
+			command: commands.mfcli ?? "mf",
 			args: ["update"],
 		},
 	];

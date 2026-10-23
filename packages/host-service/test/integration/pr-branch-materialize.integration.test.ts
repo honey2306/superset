@@ -13,7 +13,7 @@ import {
 	deleteMaterializedPrBranchIfSafe,
 	getSyntheticPrFetchRef,
 	materializePrBranch,
-} from "../../src/trpc/router/workspace-creation/utils/pr-branch-materialize";
+} from "../../src/application/workspaces/utils/pr-branch-materialize";
 import { createGitFixture, type GitFixture } from "../helpers/git-fixture";
 
 interface BareRemoteFixture {

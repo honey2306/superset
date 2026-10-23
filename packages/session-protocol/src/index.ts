@@ -3,6 +3,12 @@
 export type * from "./acp";
 export * from "./agent-browser";
 export * from "./api";
+export {
+	approvalPlan,
+	normalizeAcpUpdate,
+	normalizePermission,
+} from "./compat/acp-conversation";
+export type * from "./conversation";
 export * from "./discussion";
 export type * from "./envelope";
 export * from "./fold";

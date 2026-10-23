@@ -12,8 +12,14 @@ import { dependencies, resources, version } from "./package.json";
 import { mainExternalizedDependencies } from "./runtime-dependencies";
 import { copyResourcesPlugin, defineEnv, devPath } from "./vite/helpers";
 
+// Packaged apps use the default workspace even when this checkout's .env is
+// configured for an isolated development workspace.
+const packagedWorkspaceName = process.env.SUPERSET_PACKAGED_WORKSPACE_NAME;
 // override: true ensures .env values take precedence over inherited env vars
 config({ path: resolve(__dirname, "../../.env"), override: true, quiet: true });
+if (packagedWorkspaceName) {
+	process.env.SUPERSET_WORKSPACE_NAME = packagedWorkspaceName;
+}
 
 const DEV_SERVER_PORT = Number(process.env.DESKTOP_VITE_PORT);
 const moduleRequire = createRequire(import.meta.url);
@@ -150,6 +156,10 @@ export default defineConfig({
 		},
 		resolve: {
 			alias: {
+				// UniFFI's dlopen needs the real file path outside Electron's ASAR.
+				"@ubjs/node/typescript/dist/resolve-lib.js": resolve(
+					"src/main/lib/computer-use/resolve-native-library.ts",
+				),
 				"@agentclientprotocol/claude-agent-acp/dist/acp-agent.js":
 					claudeAcpAgentEntry,
 				"@anthropic-ai/claude-agent-sdk": claudeAgentSdkEntry,

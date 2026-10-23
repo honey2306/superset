@@ -8,6 +8,8 @@ import type {
 	StopReason,
 	ToolCallUpdate,
 } from "./acp";
+import { permissionInteraction } from "./compat/acp-conversation";
+import type { PermissionInteraction } from "./conversation";
 
 /** Runtime that owns the native session. The public ACP envelope remains
  * stable across native ACP agents and host-side protocol bridges. */
@@ -15,8 +17,7 @@ export type HarnessKind =
 	| "claude-agent-acp"
 	| "codex-app-server"
 	| "pi-acp"
-	| "myflicker-acp"
-	| "deepseek-acp";
+	| "myflicker-acp";
 
 export type SessionStatus =
 	| "starting"
@@ -33,6 +34,7 @@ export type SessionStatus =
 	| "dead";
 
 export interface PendingPermission {
+	interaction?: PermissionInteraction;
 	/** JSON-RPC request id from the adapter — the resolution key. */
 	requestId: string;
 	/** ACP type, verbatim from the session/request_permission request. */
@@ -62,18 +64,10 @@ export interface PendingPermission {
  * persisted requests that predate that field.
  */
 export function isAskUserPermission(
-	permission: Pick<PendingPermission, "isElicitation">,
+	permission: Pick<PendingPermission, "isElicitation" | "interaction">,
 	sourceToolCall: ToolCallUpdate | undefined,
 ): boolean {
-	if (permission.isElicitation === true) return true;
-	const meta = sourceToolCall?._meta;
-	if (!meta || typeof meta !== "object") return false;
-	const claudeCode = (meta as { claudeCode?: unknown }).claudeCode;
-	return (
-		typeof claudeCode === "object" &&
-		claudeCode !== null &&
-		(claudeCode as { toolName?: unknown }).toolName === "AskUserQuestion"
-	);
+	return permissionInteraction(permission, sourceToolCall).kind === "question";
 }
 
 /**

@@ -6,10 +6,20 @@ import type {
 	RequestPermissionOutcome,
 	SessionConfigOption,
 	SessionModeState,
-	SessionUpdate,
 	ToolCall,
 	UsageUpdate,
 } from "../acp";
+import {
+	normalizeAcpUpdate,
+	normalizePermission,
+} from "../compat/acp-conversation";
+import { parentToolCallId } from "../compat/acp-metadata";
+import type {
+	ConversationEvent,
+	PermissionInteraction,
+	TerminalStreamPatch,
+	ToolCallPatch,
+} from "../conversation";
 import type { SessionUpdateEnvelope } from "../envelope";
 import type { SessionScopedState } from "../state";
 import {
@@ -46,6 +56,7 @@ export interface MessageItem {
 }
 
 export interface PermissionView {
+	interaction?: PermissionInteraction;
 	requestId: string;
 	options: PermissionOption[];
 	requestedAt: number;
@@ -60,6 +71,7 @@ export interface PermissionView {
 }
 
 export interface ToolCallItem {
+	parentId?: string | null;
 	kind: "tool_call";
 	/** The ACP toolCallId. */
 	id: string;
@@ -191,12 +203,20 @@ export function foldEnvelope(
 	const { frame } = envelope;
 	switch (frame.kind) {
 		case "update":
-			foldUpdate(next, frame.update, envelope.seq, envelope.ts);
+			foldConversationEvent(
+				next,
+				frame.event?.version === 1
+					? frame.event
+					: normalizeAcpUpdate(frame.update, next.state?.harness),
+				envelope.seq,
+				envelope.ts,
+			);
 			break;
 		case "permission_requested": {
-			const { pending } = frame;
+			const pending = normalizePermission(frame.pending);
 			const view: PermissionView = {
 				requestId: pending.requestId,
+				interaction: pending.interaction,
 				options: pending.options,
 				requestedAt: pending.requestedAt,
 				multiSelect: pending.multiSelect,
@@ -227,6 +247,7 @@ export function foldEnvelope(
 					{
 						kind: "tool_call",
 						id: pending.toolCall.toolCallId,
+						parentId: parentToolCallId(pending.toolCall),
 						call,
 						semantics: canonicalizeToolCallSemantics(call, []),
 						permissions: [view],
@@ -294,108 +315,76 @@ function projectToolSemantics(items: TimelineItem[]): TimelineItem[] {
 	return changed ? projected : items;
 }
 
-function foldUpdate(
+function foldConversationEvent(
 	timeline: FoldedTimeline,
-	update: SessionUpdate,
+	event: ConversationEvent,
 	seq: number,
 	ts: number,
 ): void {
-	switch (update.sessionUpdate) {
-		case "user_message_chunk":
-			appendChunk(timeline, "user", update.content, seq, ts);
-			break;
-		case "agent_message_chunk":
-			appendChunk(timeline, "agent", update.content, seq, ts);
-			break;
-		case "agent_thought_chunk":
-			appendChunk(timeline, "thought", update.content, seq, ts);
-			break;
-		case "tool_call":
-			upsertToolCall(timeline, update, seq, () =>
-				canonicalizeToolCall({ ...update }),
+	switch (event.kind) {
+		case "message":
+			appendChunk(
+				timeline,
+				event.role,
+				event.content,
+				seq,
+				ts,
+				event.merge === "snapshot-or-delta",
 			);
 			break;
-		case "tool_call_update":
-			upsertToolCall(timeline, update, seq, () =>
-				mergeToolCall({ toolCallId: update.toolCallId, title: "" }, update),
+		case "tool":
+			upsertToolCall(
+				timeline,
+				event.patch,
+				seq,
+				() =>
+					mergeToolCall(
+						{ toolCallId: event.patch.toolCallId, title: "" },
+						event.patch,
+					),
+				event.parentId,
+				event.terminals,
 			);
 			break;
 		case "plan": {
 			const existing = findOpenPlan(timeline.items);
-			if (existing) {
+			if (existing)
 				replaceItem(timeline.items, existing, {
 					...existing,
-					entries: update.entries,
+					entries: event.entries ?? existing.entries,
+					removed: event.removed,
 					endSeq: seq,
 				});
-			} else {
+			else if (event.entries && !event.removed)
 				timeline.items.push({
 					kind: "plan",
 					id: `plan:${seq}`,
-					entries: update.entries,
+					entries: event.entries,
 					removed: false,
 					startSeq: seq,
 					endSeq: seq,
 				});
-			}
 			break;
 		}
-		case "plan_update": {
-			const existing = findOpenPlan(timeline.items);
-			const entries = extractPlanEntries(update.plan);
-			if (existing) {
-				replaceItem(timeline.items, existing, {
-					...existing,
-					entries: entries ?? existing.entries,
-					endSeq: seq,
-				});
-			} else if (entries) {
-				timeline.items.push({
-					kind: "plan",
-					id: `plan:${seq}`,
-					entries,
-					removed: false,
-					startSeq: seq,
-					endSeq: seq,
-				});
-			}
+		case "title":
+			timeline.meta.title = event.title;
 			break;
-		}
-		case "plan_removed": {
-			const existing = findOpenPlan(timeline.items);
-			if (existing) {
-				replaceItem(timeline.items, existing, {
-					...existing,
-					removed: true,
-					endSeq: seq,
-				});
-			}
+		case "usage":
+			timeline.meta.usage = event.usage;
 			break;
-		}
-		case "session_info_update":
-			// Per ACP: absent = unchanged, explicit null = clear.
-			if (update.title !== undefined) {
-				timeline.meta.title = update.title;
-			}
-			break;
-		case "usage_update":
-			timeline.meta.usage = update;
-			break;
-		case "current_mode_update":
+		case "mode":
 			timeline.meta.currentMode = {
-				currentModeId: update.currentModeId,
+				currentModeId: event.modeId,
 				availableModes: timeline.meta.currentMode?.availableModes ?? [],
 			};
 			break;
-		case "config_option_update":
-			timeline.meta.configOptions = update.configOptions;
+		case "configuration":
+			timeline.meta.configOptions = event.options;
 			break;
-		case "available_commands_update":
-			timeline.meta.availableCommands = update.availableCommands;
+		case "commands":
+			timeline.meta.availableCommands = event.commands;
 			break;
-		default:
-			// Unknown/future variant: envelope carried it verbatim; nothing to
-			// render, but folding must never throw (Decision D14-e).
+		case "unrecognized":
 			break;
 	}
 }
@@ -406,6 +395,7 @@ function appendChunk(
 	content: ContentBlock,
 	seq: number,
 	ts: number,
+	cumulativeSnapshot: boolean,
 ): void {
 	const last = timeline.items[timeline.items.length - 1];
 	// User chunks merge only when seq-contiguous with the open bubble: the host
@@ -421,11 +411,6 @@ function appendChunk(
 		const blocks = [...last.blocks];
 		const previous = blocks[blocks.length - 1];
 		if (previous?.type === "text" && content.type === "text") {
-			const cumulativeSnapshot =
-				role === "agent" &&
-				(timeline.state?.harness === "myflicker-acp" ||
-					timeline.state?.harness === "codex-app-server" ||
-					timeline.state?.harness === "pi-acp");
 			if (cumulativeSnapshot) {
 				// MyFlicker, Codex app-server, and Pi can emit the final item snapshot
 				// after streaming its text. Treat exact repeats as no-ops and a strict
@@ -516,17 +501,6 @@ function markPromptFailed(
 }
 
 /** Fields a tool_call / tool_call_update / pending-permission frame can patch. */
-interface ToolCallPatch {
-	toolCallId: string;
-	title?: string | null;
-	kind?: ToolCall["kind"] | null;
-	status?: ToolCall["status"] | null;
-	content?: ToolCall["content"] | null;
-	locations?: ToolCall["locations"] | null;
-	rawInput?: unknown;
-	rawOutput?: unknown;
-	_meta?: ToolCall["_meta"];
-}
 
 /**
  * tool_call_update semantics per ACP: fields present (non-null) replace the
@@ -548,71 +522,6 @@ function mergeToolCall(
 		rawOutput: patch.rawOutput ?? base.rawOutput,
 		_meta: patch._meta ?? base._meta,
 	});
-}
-
-type TerminalStreamPatch = {
-	terminalId: string;
-	cwd?: string;
-	outputDelta?: string;
-	exitCode?: number;
-	signal?: string | null;
-};
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-	return typeof value === "object" && value !== null && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: null;
-}
-
-function nonEmptyString(value: unknown): string | null {
-	return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-/**
- * Pi 0.0.33 emits terminal state across three independently-shaped `_meta`
- * payloads. The update's toolCallId determines ownership; terminal_id is an
- * opaque adapter identifier and may legitimately differ from it.
- */
-function terminalStreamPatches(patch: ToolCallPatch): TerminalStreamPatch[] {
-	const meta = asRecord(patch._meta);
-	if (!meta) return [];
-	const info = asRecord(meta.terminal_info);
-	const output = asRecord(meta.terminal_output);
-	const exit = asRecord(meta.terminal_exit);
-	const result: TerminalStreamPatch[] = [];
-	if (info) {
-		const terminalId = nonEmptyString(info.terminal_id);
-		const cwd = nonEmptyString(info.cwd);
-		if (terminalId) result.push({ terminalId, ...(cwd ? { cwd } : {}) });
-	}
-	if (output) {
-		const terminalId = nonEmptyString(output.terminal_id);
-		const outputDelta = nonEmptyString(output.data);
-		// Pi's bashOutputDelta explicitly supplies deltas. Empty frames only
-		// signal activity, so they must not invent output.
-		if (terminalId) {
-			result.push({ terminalId, ...(outputDelta ? { outputDelta } : {}) });
-		}
-	}
-	if (exit) {
-		const terminalId = nonEmptyString(exit.terminal_id);
-		const exitCode =
-			typeof exit.exit_code === "number" && Number.isFinite(exit.exit_code)
-				? exit.exit_code
-				: undefined;
-		const signal =
-			typeof exit.signal === "string" || exit.signal === null
-				? exit.signal
-				: undefined;
-		if (terminalId) {
-			result.push({
-				terminalId,
-				...(exitCode !== undefined ? { exitCode } : {}),
-				...(signal !== undefined ? { signal } : {}),
-			});
-		}
-	}
-	return result;
 }
 
 function mergeTerminalStreams(
@@ -640,21 +549,6 @@ function mergeTerminalStreams(
 }
 
 /**
- * Resolve canonical parent linkage first, then legacy Claude metadata. The
- * reserved contract lets every adapter produce identical topology without
- * teaching renderers—or this fold—new provider-specific keys.
- */
-function parentToolCallId(source: { _meta?: unknown }): string | null {
-	const meta = asRecord(source._meta);
-	if (!meta) return null;
-	const semantic = asRecord(meta["sh.superset/toolSemantic"]);
-	const canonicalParent = nonEmptyString(semantic?.parentToolCallId);
-	if (canonicalParent) return canonicalParent;
-	const claudeCode = asRecord(meta.claudeCode);
-	return nonEmptyString(claudeCode?.parentToolUseId);
-}
-
-/**
  * Merge a tool frame into the tree. A tagged frame can arrive after untagged
  * ones already parked the item at top level (permission-synthesized
  * placeholder, tool_progress) — when its Task parent exists, the item is
@@ -665,11 +559,11 @@ function upsertToolCall(
 	patch: ToolCallPatch,
 	seq: number,
 	createCall: () => CanonicalToolCall,
+	parentId: string | null,
+	terminalPatches: TerminalStreamPatch[],
 ): void {
-	const terminalPatches = terminalStreamPatches(patch);
 	const mergeTerminals = (base: Record<string, TerminalStream> | undefined) =>
 		terminalPatches.reduce(mergeTerminalStreams, base);
-	const parentId = parentToolCallId(patch);
 	if (parentId && hasToolCall(timeline.items, parentId)) {
 		const strayIndex = timeline.items.findIndex(
 			(entry) => entry.kind === "tool_call" && entry.id === patch.toolCallId,
@@ -681,6 +575,7 @@ function upsertToolCall(
 				timeline.items,
 				{
 					...stray,
+					parentId,
 					call: mergeToolCall(stray.call, patch),
 					terminals: mergeTerminals(stray.terminals),
 					endSeq: seq,
@@ -697,6 +592,7 @@ function upsertToolCall(
 		seq,
 		(item) => ({
 			...item,
+			parentId: parentId ?? item.parentId,
 			call: mergeToolCall(item.call, patch),
 			terminals: mergeTerminals(item.terminals),
 			endSeq: seq,
@@ -709,6 +605,7 @@ function upsertToolCall(
 		{
 			kind: "tool_call",
 			id: patch.toolCallId,
+			parentId,
 			call,
 			semantics: canonicalizeToolCallSemantics(call, []),
 			...(terminalPatches.length > 0
@@ -736,7 +633,7 @@ function rehomeWaitingChildren(
 		if (
 			candidate?.kind !== "tool_call" ||
 			candidate.id === parentId ||
-			parentToolCallId(candidate.call) !== parentId
+			candidate.parentId !== parentId
 		) {
 			index += 1;
 			continue;
@@ -840,18 +737,6 @@ function findOpenPlan(items: TimelineItem[]): PlanItem | undefined {
 		if (item?.kind === "plan" && !item.removed) return item;
 	}
 	return undefined;
-}
-
-function extractPlanEntries(plan: unknown): PlanEntry[] | null {
-	if (
-		typeof plan === "object" &&
-		plan !== null &&
-		"entries" in plan &&
-		Array.isArray((plan as { entries: unknown }).entries)
-	) {
-		return (plan as { entries: PlanEntry[] }).entries;
-	}
-	return null;
 }
 
 function replaceItem(

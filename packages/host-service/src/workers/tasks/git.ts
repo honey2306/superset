@@ -3,6 +3,10 @@
 // host-service event loop. Credential env is resolved in-process (it needs
 // the credential provider) and crosses as plain data.
 
+import {
+	normalizeWorktreePath,
+	parseWorktreeList,
+} from "../../application/workspaces/shared/worktree-list.ts";
 import { createUserSimpleGit } from "../../runtime/git/simple-git.ts";
 import type { ChangedFile } from "../../trpc/router/git/types.ts";
 import type { BaseRefFetchTarget } from "../../trpc/router/git/utils/base-ref-freshness.ts";
@@ -13,10 +17,6 @@ import {
 import { getChangedFilesForDiff } from "../../trpc/router/git/utils/git-helpers.ts";
 import type { GitStatusSnapshotComputation } from "../../trpc/router/git/utils/git-status.ts";
 import { getGitStatusSnapshot } from "../../trpc/router/git/utils/git-status.ts";
-import {
-	normalizeWorktreePath,
-	parseWorktreeList,
-} from "../../trpc/router/workspace-creation/shared/worktree-list.ts";
 import { defineWorkerTask } from "../define-worker-task.ts";
 
 export interface GitTaskEnv {

@@ -17,7 +17,7 @@ desktop UI (PanesWorkspace → AcpSessionPane)
        Claude Code -> claude-agent-acp
        Codex       -> bundled codex app-server bridge
        Pi          -> bundled pi-acp bridge
-       MyFlicker   -> mfcli acp
+       MyFlicker   -> mf acp (2.0)
   -> each agent's native on-disk session store
 
 shared client code today
@@ -326,7 +326,7 @@ documented in [superset-acp-tools.md](./superset-acp-tools.md).
 
 The detached ACP daemon schedules the native self-updaters for the external
 Claude Code (`claude update`), Codex (`codex update`), Pi (`pi update self`), and
-MyFlicker (`mfcli update`) CLIs for 02:00 local time every day. One failed or
+MyFlicker 2.0 (`mf update`) CLIs for 02:00 local time every day. One failed or
 unavailable CLI does not prevent the others from updating. Claude Code and
 MyFlicker use the same resolved executables as ACP session launches, so
 version-manager and Homebrew/NVM paths remain consistent. When an external

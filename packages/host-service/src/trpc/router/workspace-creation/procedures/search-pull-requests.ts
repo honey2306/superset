@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { protectedProcedure } from "../../../index";
-import { normalizeGitHubQuery } from "../normalize-github-query";
-import { githubSearchInputSchema } from "../schemas";
 import {
 	type ResolvedGithubRepo,
 	resolveGithubRepo,
-} from "../shared/project-helpers";
-import type { ExecGh } from "../utils/exec-gh";
+} from "../../../../application/workspaces/shared/project-helpers";
+import type { ExecGh } from "../../../../application/workspaces/utils/exec-gh";
+import { protectedProcedure } from "../../../index";
+import { normalizeGitHubQuery } from "../normalize-github-query";
+import { githubSearchInputSchema } from "../schemas";
 
 interface PullRequestResult {
 	prNumber: number;

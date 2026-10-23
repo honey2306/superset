@@ -1,4 +1,4 @@
-import type { HostAgentConfig } from "@superset/host-service/settings";
+import type { HostAgentConfig } from "@superset/host-contract/settings";
 import { getPresetById } from "@superset/shared/host-agent-presets";
 import { getAgentCommandText } from "renderer/lib/agent-launch-command";
 import type { TerminalPresetRow } from "renderer/routes/_local/providers/LocalProductStateProvider/dashboardSidebarLocal/schema";

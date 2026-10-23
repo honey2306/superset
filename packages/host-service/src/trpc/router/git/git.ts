@@ -4,6 +4,9 @@ import { parseGitHubRemote } from "@superset/shared/github-remote";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { HostOperationError } from "../../../application/errors";
+import { gitConfigWrite } from "../../../application/git/config-write";
+import { resolveGithubRepo } from "../../../application/workspaces/shared/project-helpers";
 import { pullRequests, workspaces } from "../../../db/schema";
 import {
 	createGitEnvResolver,
@@ -20,7 +23,6 @@ import {
 } from "../../../workers/tasks/git";
 import { updateLocalWorkspace } from "../../../workspaces/local-workspace-store";
 import { protectedProcedure, queryProcedure, router } from "../../index";
-import { resolveGithubRepo } from "../workspace-creation/shared/project-helpers";
 import type {
 	ChangedFile,
 	CheckConclusionState,
@@ -34,7 +36,6 @@ import type {
 	PullRequestState,
 } from "./types";
 import { scheduleBaseRefFetch } from "./utils/base-ref-freshness";
-import { gitConfigWrite } from "./utils/config-write";
 import {
 	assertSafeGitPath,
 	assertValidCommitRef,
@@ -549,7 +550,8 @@ export const gitRouter = router({
 					});
 				}
 			} catch (error) {
-				if (error instanceof TRPCError) throw error;
+				if (error instanceof TRPCError || error instanceof HostOperationError)
+					throw error;
 				// ls-remote failed — probably no remote, safe to rename
 			}
 
@@ -1290,7 +1292,7 @@ export const gitRouter = router({
 				// Expected resolver failures (project not set up locally, no
 				// GitHub remote) degrade silently — the review tab just stays
 				// empty. Anything else is a real bug; propagate it.
-				if (err instanceof TRPCError) {
+				if (err instanceof TRPCError || err instanceof HostOperationError) {
 					return { reviewThreads: [], conversationComments: [] };
 				}
 				throw err;

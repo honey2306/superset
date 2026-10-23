@@ -65,6 +65,13 @@ describe("router input schemas", () => {
 				}).harness,
 			).toBe(harness);
 		}
+		expect(
+			createSessionInput.safeParse({
+				sessionId: "s1",
+				workspaceId: "w1",
+				harness: "deepseek-acp",
+			}).success,
+		).toBe(false);
 	});
 
 	test("promptInput requires at least one structurally valid content block", () => {

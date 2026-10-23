@@ -11,7 +11,7 @@ import { spawn } from "node:child_process";
 const GENERATE_TIMEOUT_MS = 30_000;
 
 /** Overridable so packaged/dev builds can point at a specific mfcli binary. */
-const MFCLI_COMMAND = process.env.SUPERSET_MFCLI_TITLE_COMMAND ?? "mfcli";
+const MFCLI_COMMAND = process.env.SUPERSET_MFCLI_TITLE_COMMAND ?? "mf";
 
 /**
  * Pinning a specific small model keeps the summarizer honest about the JSON

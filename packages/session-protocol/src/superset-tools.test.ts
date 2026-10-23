@@ -4,10 +4,15 @@ import {
 	formatProjectMemoryInstructions,
 	SUPERSET_PLAN_INSTRUCTIONS,
 	SUPERSET_TOOL_DEFINITIONS,
+	supersetAgentSchema,
 	supersetToolRequestSchema,
 } from "./superset-tools";
 
 describe("Superset delegation protocol", () => {
+	test("rejects DeepSeek as a delegated agent", () => {
+		expect(supersetAgentSchema.safeParse("deepseek").success).toBe(false);
+	});
+
 	test("composes model-facing plan and role instructions", () => {
 		expect(
 			composeSupersetModelFacingInstructions([

@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
-import { projects } from "../db/schema";
 import {
 	type EnsureMainWorkspaceContext,
 	ensureMainWorkspace,
-} from "../trpc/router/project/utils/ensure-main-workspace";
+} from "../application/projects/utils/ensure-main-workspace";
+import { projects } from "../db/schema";
 
 /**
  * Recovery path for projects set up before `type='main'` shipped.

@@ -681,6 +681,8 @@
 	flex: 1 1 auto;
 	min-height: 0;
 	overflow-y: auto;
+	/* The virtualizer and semantic reading anchor own height compensation. */
+	overflow-anchor: none;
 	scrollbar-width: thin;
 	display: flex;
 	flex-direction: column;

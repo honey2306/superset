@@ -1,4 +1,4 @@
-import type { AppRouter } from "@superset/host-service/trpc";
+import type { AppRouter } from "@superset/host-contract/router";
 import { createTRPCReact } from "@trpc/react-query";
 import { createContext } from "react";
 

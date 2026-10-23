@@ -1,11 +1,7 @@
+import { createHostLinks } from "@superset/host-client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-	createTRPCUntypedClient,
-	httpBatchStreamLink,
-	TRPCClientError,
-} from "@trpc/client";
+import { createTRPCUntypedClient, TRPCClientError } from "@trpc/client";
 import { createContext, type ReactNode, useContext } from "react";
-import superjson from "superjson";
 import { workspaceTrpc } from "../../workspace-trpc";
 
 const STALE_TIME_MS = 5_000;
@@ -81,13 +77,11 @@ export function getWorkspaceClients(
 	// createClient's recursive procedure proxy here makes React development's
 	// props-diff instrumentation invoke it during a host URL switch.
 	const trpcClient = createTRPCUntypedClient({
-		links: [
-			httpBatchStreamLink({
-				url: `${hostUrl}/trpc`,
-				transformer: superjson,
-				headers: headers ?? (() => ({})),
-			}),
-		],
+		links: createHostLinks({
+			endpoint: hostUrl,
+			headers: headers ?? (() => ({})),
+			transport: "batch-stream",
+		}),
 	});
 
 	const getWsToken = wsToken ?? (() => null);

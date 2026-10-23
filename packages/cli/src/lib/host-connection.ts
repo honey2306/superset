@@ -6,7 +6,15 @@
  * cloud identity, account, or organization involved — everything is local.
  */
 
-import type { AppRouter } from "@superset/host-service";
+import {
+	createAcpSessionsApi as createSharedAcpSessionsApi,
+	createHostClient as createSharedHostClient,
+	type HostClient,
+	sessionStreamUrl as sharedSessionStreamUrl,
+} from "@superset/host-client";
+
+export type { HostClient } from "@superset/host-client";
+
 import type { AcpSessionsApi } from "@superset/session-protocol";
 import {
 	type HostServiceManifest,
@@ -15,12 +23,8 @@ import {
 	LOCAL_HOST_SCOPE_ID,
 	readHostManifest,
 } from "@superset/shared/host-paths";
-import { createTRPCClient, httpLink } from "@trpc/client";
-import superjson from "superjson";
 import { unavailableError } from "./exit-codes";
 import { hostFetch } from "./request";
-
-export type HostClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 
 export interface HostConnection {
 	client: HostClient;
@@ -94,20 +98,13 @@ function normalizeEndpoint(endpoint: string): string {
 
 export function createHostClient(manifest: HostServiceManifest): HostClient {
 	const endpoint = normalizeEndpoint(manifest.endpoint);
-	return createTRPCClient<AppRouter>({
-		links: [
-			httpLink({
-				url: `${endpoint}/trpc`,
-				fetch: async (input, init) => {
-					const response = await hostFetch(input, init);
-					// httpLink only consumes JSON. Avoid coupling its stream types
-					// to Bun's different ReadableStream overloads.
-					return { ok: response.ok, json: () => response.json() };
-				},
-				transformer: superjson,
-				headers: () => ({ Authorization: `Bearer ${manifest.authToken}` }),
-			}),
-		],
+	return createSharedHostClient({
+		endpoint,
+		fetch: async (input, init) => {
+			const response = await hostFetch(input, init);
+			return { ok: response.ok, json: () => response.json() };
+		},
+		headers: () => ({ Authorization: `Bearer ${manifest.authToken}` }),
 	});
 }
 
@@ -148,25 +145,7 @@ export async function connectToHost(options?: {
 export function createAcpSessionsApi(
 	connection: HostConnection,
 ): AcpSessionsApi {
-	const acp = connection.client.acpSessions;
-	return {
-		get: (input) => acp.get.query(input),
-		getMessages: (input) => acp.getMessages.query(input),
-		getTranscript: (input) => acp.getTranscript.query(input),
-		prompt: (input) => acp.prompt.mutate(input),
-		respondToPermission: (input) => acp.respondToPermission.mutate(input),
-		cancel: (input) => acp.cancel.mutate(input),
-		close: (input) => acp.close.mutate(input),
-		setMode: (input) => acp.setMode.mutate(input),
-		setConfigOption: (input) => acp.setConfigOption.mutate(input),
-		enqueuePrompt: (input) => acp.enqueuePrompt.mutate(input),
-		sendNow: (input) => acp.sendNow.mutate(input),
-		steerPrompt: (input) => acp.steerPrompt.mutate(input),
-		removeQueuedPrompt: (input) => acp.removeQueuedPrompt.mutate(input),
-		reorderQueue: (input) => acp.reorderQueue.mutate(input),
-		editQueuedPrompt: (input) => acp.editQueuedPrompt.mutate(input),
-		clearQueue: (input) => acp.clearQueue.mutate(input),
-	};
+	return createSharedAcpSessionsApi(() => connection.client);
 }
 
 /** WebSocket URL for a session's live event stream. */
@@ -175,12 +154,8 @@ export function sessionStreamUrl(
 	sessionId: string,
 	options?: { since?: number; epoch?: string },
 ): string {
-	const base = connection.endpoint.replace(/^http/, "ws");
-	const url = new URL(`${base}/acp-sessions/${sessionId}/stream`);
-	url.searchParams.set("token", connection.manifest.authToken);
-	if (options?.since !== undefined) {
-		url.searchParams.set("since", String(options.since));
-	}
-	if (options?.epoch) url.searchParams.set("epoch", options.epoch);
-	return url.toString();
+	return sharedSessionStreamUrl(connection.endpoint, sessionId, {
+		...options,
+		token: connection.manifest.authToken,
+	});
 }

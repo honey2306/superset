@@ -20,7 +20,8 @@
 		"dev": "bun run src/index.ts"
 	},
 	"dependencies": {
-		"@superset/host-service": "workspace:*",
+		"@superset/host-client": "workspace:*",
+		"@superset/host-contract": "workspace:*",
 		"@superset/session-protocol": "workspace:*",
 		"@superset/shared": "workspace:*",
 		"@trpc/client": "11.16.0",

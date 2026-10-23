@@ -1,4 +1,4 @@
-import type { HostAgentConfig } from "@superset/host-service/settings";
+import type { HostAgentConfig } from "@superset/host-contract/settings";
 import { HOST_AGENT_PRESETS } from "@superset/shared/host-agent-presets";
 import { parseCommandString } from "./argv";
 

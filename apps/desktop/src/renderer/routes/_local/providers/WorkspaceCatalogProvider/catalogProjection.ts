@@ -15,7 +15,7 @@
 import type {
 	WorkspaceCatalogChange,
 	WorkspaceCatalogSnapshot,
-} from "@superset/host-service/workspace-catalog";
+} from "@superset/host-contract/catalog";
 
 export interface ProjectionState {
 	revision: number;

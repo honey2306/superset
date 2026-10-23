@@ -1,30 +1,24 @@
-import type { AppRouter } from "@superset/host-service";
-import { createTRPCClient, httpLink, TRPCClientError } from "@trpc/client";
-import superjson from "superjson";
+import { createHostClient, type HostClient } from "@superset/host-client";
+import { TRPCClientError } from "@trpc/client";
 import { clearStoredSession, getStoredToken } from "./auth-store";
 import { getPhoneTransport } from "./transport";
 
-let cached: ReturnType<typeof createTRPCClient<AppRouter>> | null = null;
+let cached: HostClient | null = null;
 
 /**
  * Same-origin tRPC client. Bearer token is pulled fresh from localStorage
  * on every request so a stale sign-in doesn't linger across pair/unpair.
  * `superjson` matches the host-service transformer.
  */
-export function getTrpc(): ReturnType<typeof createTRPCClient<AppRouter>> {
+export function getTrpc(): HostClient {
 	if (cached) return cached;
-	cached = createTRPCClient<AppRouter>({
-		links: [
-			httpLink({
-				url: "/trpc",
-				transformer: superjson,
-				headers: () => {
-					const token = getStoredToken();
-					return token ? { Authorization: `Bearer ${token}` } : {};
-				},
-				fetch: (input, init) => getPhoneTransport().fetch(input, init),
-			}),
-		],
+	cached = createHostClient({
+		endpoint: "",
+		headers: () => {
+			const token = getStoredToken();
+			return token ? { Authorization: `Bearer ${token}` } : {};
+		},
+		fetch: (input, init) => getPhoneTransport().fetch(input, init),
 	});
 	return cached;
 }

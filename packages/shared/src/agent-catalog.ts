@@ -25,7 +25,6 @@ export const ACP_AGENT_HARNESS_BY_AGENT_ID = {
 	codex: "codex-app-server",
 	pi: "pi-acp",
 	myflicker: "myflicker-acp",
-	deepseek: "deepseek-acp",
 } as const satisfies Partial<Record<BuiltinAgentId, string>>;
 
 export type AcpSupportedAgentId = keyof typeof ACP_AGENT_HARNESS_BY_AGENT_ID;
@@ -73,12 +72,7 @@ export const AGENT_IDENTITY_LABELS: Record<AgentIdentityId, string> = {
 export const BUILTIN_AGENT_DEFINITIONS: readonly AgentDefinition[] =
 	BUILTIN_TERMINAL_AGENTS;
 
-/**
- * Built-in definitions intended for user-facing Agent preset selectors.
- * `BUILTIN_AGENT_DEFINITIONS` remains the complete catalog so hidden agents
- * retain their stable identity and can continue to launch from persisted or
- * explicitly addressed configurations.
- */
+/** Built-in definitions intended for user-facing Agent preset selectors. */
 export const USER_VISIBLE_BUILTIN_AGENT_DEFINITIONS: readonly AgentDefinition[] =
 	USER_VISIBLE_BUILTIN_TERMINAL_AGENTS;
 

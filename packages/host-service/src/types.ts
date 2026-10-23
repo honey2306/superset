@@ -1,5 +1,6 @@
 import type { Octokit } from "@octokit/rest";
 import type { ProviderAuthService } from "@superset/chat/server/desktop";
+import type { ExecGh } from "./application/workspaces/utils/exec-gh";
 import type { HostDb } from "./db";
 import type { EventBus } from "./events";
 import type { NotificationHookSecurity } from "./notifications/notification-hook-security";
@@ -11,7 +12,6 @@ import type { PhoneAuthService } from "./runtime/phone";
 import type { PullRequestRuntimeManager } from "./runtime/pull-requests";
 import type { TaskRunner } from "./tasks/task-runner";
 import type { TerminalAgentStore } from "./terminal-agents";
-import type { ExecGh } from "./trpc/router/workspace-creation/utils/exec-gh";
 import type { WorkspaceCatalog } from "./workspace-catalog";
 import type { WorkspaceProvisioning } from "./workspace-provisioning";
 

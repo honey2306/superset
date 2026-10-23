@@ -17,11 +17,11 @@ import {
 	type SupersetToolRequest,
 	supersetToolRequestSchema,
 } from "@superset/session-protocol";
+import type { DelegationProfileTarget } from "../../application/agents/delegated-execution-target";
 import type { GlobalMcpServer, GlobalMcpServerInput } from "../../global-mcp";
 import type { GlobalSkill, GlobalSkillInput } from "../../global-skills";
 import type { UpdateProjectMemoryInput } from "../../project-memories";
 import type { TaskStore } from "../../tasks/task-store";
-import type { DelegationProfileTarget } from "../../trpc/router/settings/delegated-execution-target";
 import type { AcpSessionManager } from "./acp-sessions";
 import { DiscussionCoordinator } from "./discussion-coordinator";
 import type {
@@ -203,7 +203,6 @@ const AGENT_TO_HARNESS = {
 	codex: "codex-app-server",
 	pi: "pi-acp",
 	myflicker: "myflicker-acp",
-	deepseek: "deepseek-acp",
 } as const satisfies Record<SupersetAgent, HarnessKind>;
 
 /**
@@ -1207,6 +1206,10 @@ export class SupersetToolController {
 		for (const waiter of waiters) {
 			waiter.resolve(delegationWaitResult(run));
 		}
+	}
+
+	getDiscussion(runId: string) {
+		return this.discussionCoordinator.get(runId);
 	}
 
 	listDiscussions(workspaceId: string, limit = 20) {

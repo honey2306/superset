@@ -97,7 +97,6 @@ const HARNESS_ALIASES: Record<string, string> = {
 	codex: "codex-app-server",
 	pi: "pi-acp",
 	myflicker: "myflicker-acp",
-	deepseek: "deepseek-acp",
 };
 
 const slashCommands = [

@@ -5,7 +5,6 @@ export const supersetAgentSchema = z.enum([
 	"codex",
 	"pi",
 	"myflicker",
-	"deepseek",
 ]);
 
 const sessionIdSchema = z.string().min(1).max(256);
@@ -1050,7 +1049,7 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 						properties: {
 							agent: {
 								type: "string",
-								enum: ["claude", "codex", "pi", "myflicker", "deepseek"],
+								enum: ["claude", "codex", "pi", "myflicker"],
 							},
 							model: { type: "string", minLength: 1, maxLength: 256 },
 							label: { type: "string", minLength: 1, maxLength: 100 },
@@ -1083,7 +1082,7 @@ export const SUPERSET_TOOL_DEFINITIONS = [
 				projectPath: { type: "string", minLength: 1, maxLength: 2_000 },
 				agent: {
 					type: "string",
-					enum: ["claude", "codex", "pi", "myflicker", "deepseek"],
+					enum: ["claude", "codex", "pi", "myflicker"],
 				},
 				focus: { type: "boolean", default: true },
 				idempotencyKey: { type: "string", minLength: 1, maxLength: 128 },

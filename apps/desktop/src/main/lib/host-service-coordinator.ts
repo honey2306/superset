@@ -804,7 +804,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		// existing configured values as fallbacks.
 		const [claudePath, mfcliPath] = await Promise.all([
 			resolveCliPath("claude", childEnv, childEnv.CLAUDE_CODE_EXECUTABLE),
-			resolveCliPath("mfcli", childEnv, childEnv.SUPERSET_MFCLI_TITLE_COMMAND),
+			resolveCliPath("mf", childEnv, childEnv.SUPERSET_MFCLI_TITLE_COMMAND),
 		]);
 		if (claudePath) childEnv.CLAUDE_CODE_EXECUTABLE = claudePath;
 		if (mfcliPath) childEnv.SUPERSET_MFCLI_TITLE_COMMAND = mfcliPath;

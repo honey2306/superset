@@ -1,4 +1,5 @@
 import {
+	approvalPlan as getApprovalPlan,
 	isAskUserPermission,
 	makeCustomResponseOutcome,
 	makeSelectedOutcome,
@@ -47,12 +48,6 @@ export function getPermissionRequestLabel(pending: PendingPermission): string {
 		: `Permission requested: ${tool}`;
 }
 
-function record(value: unknown): Record<string, unknown> | null {
-	return typeof value === "object" && value !== null && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: null;
-}
-
 export function mergePermissionToolCall(
 	permissionToolCall: ToolCallUpdate,
 	sourceToolCall?: ToolCallUpdate,
@@ -67,15 +62,7 @@ export function mergePermissionToolCall(
 	};
 }
 
-export function getApprovalPlan(toolCall: ToolCallUpdate): string | null {
-	const input = record(toolCall.rawInput);
-	const plan = input?.plan;
-	if (!input || typeof plan !== "string" || !plan.trim()) return null;
-	const claudeCode = record(record(toolCall._meta)?.claudeCode);
-	return claudeCode?.toolName === "ExitPlanMode" || "planFilePath" in input
-		? plan
-		: null;
-}
+export { approvalPlan as getApprovalPlan } from "@superset/session-protocol";
 
 function permissionDetail(toolCall: ToolCallUpdate): string | null {
 	const input = toolCall.rawInput;

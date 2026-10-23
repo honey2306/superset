@@ -1,8 +1,4 @@
 import { eq } from "drizzle-orm";
-import { workspaces } from "../../../../db/schema";
-import { resolveDefaultBranchName } from "../../../../runtime/git/refs";
-import { protectedProcedure } from "../../../index";
-import { searchBranchesInputSchema } from "../schemas";
 import {
 	decodeCursor,
 	encodeNextCursor,
@@ -10,9 +6,13 @@ import {
 	listWorktreeBranches,
 	markRefetchRemote,
 	shouldRefetchRemote,
-} from "../shared/branch-search";
-import { findLocalProject } from "../shared/local-project";
-import type { BranchRow } from "../shared/types";
+} from "../../../../application/workspaces/shared/branch-search";
+import { findLocalProject } from "../../../../application/workspaces/shared/local-project";
+import type { BranchRow } from "../../../../application/workspaces/shared/types";
+import { workspaces } from "../../../../db/schema";
+import { resolveDefaultBranchName } from "../../../../runtime/git/refs";
+import { protectedProcedure } from "../../../index";
+import { searchBranchesInputSchema } from "../schemas";
 
 type BranchAccum = {
 	name: string;

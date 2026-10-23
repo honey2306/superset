@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { PromptTransport } from "@superset/shared/agent-prompt-launch";
+
 import {
 	getDefaultSeedPresets,
 	getPresetById,
@@ -17,19 +17,9 @@ const promptTransportSchema = z.enum(["argv", "stdin"]);
 const argvSchema = z.array(z.string());
 const envSchema = z.record(z.string(), z.string());
 
-export interface HostAgentConfig {
-	id: string;
-	presetId: string;
-	/** Built-in icon key to render, or null to fall back to `presetId`. */
-	iconId: string | null;
-	label: string;
-	command: string;
-	args: string[];
-	promptTransport: PromptTransport;
-	promptArgs: string[];
-	env: Record<string, string>;
-	order: number;
-}
+export type { HostAgentConfig } from "@superset/host-contract/settings";
+
+import type { HostAgentConfig } from "@superset/host-contract/settings";
 
 interface HostAgentConfigRow {
 	id: string;
@@ -86,7 +76,7 @@ function toOutput(row: HostAgentConfigRow): HostAgentConfig {
 		label: row.label,
 		command: row.command,
 		args: parseArgv(row.argsJson),
-		promptTransport: row.promptTransport as PromptTransport,
+		promptTransport: row.promptTransport as HostAgentConfig["promptTransport"],
 		promptArgs: parseArgv(row.promptArgsJson),
 		env: parseEnv(row.envJson),
 		order: row.displayOrder,

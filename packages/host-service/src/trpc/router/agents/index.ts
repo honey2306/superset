@@ -1,7 +1,1 @@
-export {
-	type AgentPermissionMode,
-	type AgentRunInput,
-	type AgentRunResult,
-	agentsRouter,
-	runAgentInWorkspace,
-} from "./agents";
+export { agentsRouter } from "./agents";

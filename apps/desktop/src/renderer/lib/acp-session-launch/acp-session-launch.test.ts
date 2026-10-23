@@ -182,7 +182,6 @@ describe("launchAcpSession", () => {
 	test.each([
 		["pi", "pi-acp"],
 		["myflicker", "myflicker-acp"],
-		["deepseek", "deepseek-acp"],
 	] as const)("maps %s to its ACP harness", async (agentDefinitionId, harness) => {
 		const client = makeClient();
 		const openPane = mock((_input: unknown) => {});

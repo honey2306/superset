@@ -1,34 +1,34 @@
 import { getAgentModelSupport } from "@superset/shared/agent-models";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import type { HostDb } from "../../../db";
-import { hostSettings } from "../../../db/schema";
-import type { HostServiceContext } from "../../../types";
-import { protectedProcedure, router } from "../../index";
-import { getAcpHarnessForPreset } from "../agents/agents";
-import {
-	type DelegatedExecutionModel,
-	getCachedDynamicDelegatedExecutionModels,
-	parseAcpModelOptions,
-} from "./delegated-execution-models";
+import { getAcpHarnessForPreset } from "../../../application/agents/agent-launch";
 import {
 	readDelegatedExecutionSettings,
 	readDelegationProfiles,
 	resolveDelegatedExecutionConfig,
 	serializeDelegationProfiles,
-} from "./delegated-execution-target";
+} from "../../../application/agents/delegated-execution-target";
+import type { HostDb } from "../../../db";
+import { hostSettings } from "../../../db/schema";
+import type { HostServiceContext } from "../../../types";
+import { protectedProcedure, router } from "../../index";
+import {
+	type DelegatedExecutionModel,
+	getCachedDynamicDelegatedExecutionModels,
+	parseAcpModelOptions,
+} from "./delegated-execution-models";
 
 export type {
 	DelegatedExecutionSettings,
 	DelegationProfile,
 	DelegationProfilesState,
-} from "./delegated-execution-target";
+} from "../../../application/agents/delegated-execution-target";
 export {
 	readDelegatedExecutionSettings,
 	readDelegationProfiles,
 	resolveDelegatedExecutionTarget,
 	resolveDelegationProfileTargets,
-} from "./delegated-execution-target";
+} from "../../../application/agents/delegated-execution-target";
 
 const settingsInputSchema = z.object({
 	enabled: z.boolean(),

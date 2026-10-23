@@ -56,8 +56,8 @@ export async function getDynamicDelegatedExecutionModels(
 			return parsePiModelList(await runCommand("pi", ["--list-models"]));
 		case "myflicker": {
 			const [providers, models] = await Promise.all([
-				runCommand("mfcli", ["call", "providers.list"]),
-				runCommand("mfcli", ["call", "models.list"]),
+				runCommand("mf", ["call", "providers.list"]),
+				runCommand("mf", ["call", "models.list"]),
 			]);
 			return parseMyFlickerModelList(providers, models);
 		}

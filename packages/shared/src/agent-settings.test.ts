@@ -13,7 +13,7 @@ import {
 } from "./agent-settings";
 
 describe("resolveAgentConfigs", () => {
-	test("does not expose hidden DeepSeek in user-facing agent configs", () => {
+	test("does not expose DeepSeek in user-facing agent configs", () => {
 		const configs = resolveAgentConfigs({});
 
 		expect(configs.map((config) => config.id)).not.toContain("deepseek");

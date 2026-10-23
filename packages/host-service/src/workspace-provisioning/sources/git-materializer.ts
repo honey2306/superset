@@ -1,40 +1,40 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { generateFriendlyBranchName } from "@superset/shared/workspace-launch";
-import { TRPCError } from "@trpc/server";
+import { HostOperationError } from "../../application/errors";
+import { ensureMainWorkspaceStrict } from "../../application/projects/utils/ensure-main-workspace";
+import { adoptExistingWorktree } from "../../application/workspaces/shared/adopt-existing-worktree";
+import {
+	findWorktreeAtPath,
+	getWorktreeBranchAtPath,
+	listWorktreeBranches,
+} from "../../application/workspaces/shared/branch-search";
+import { enablePushAutoSetupRemote } from "../../application/workspaces/shared/git-config";
+import { requireLocalProject } from "../../application/workspaces/shared/local-project";
+import {
+	addWorktreeWithSparseCheckout,
+	parseSparseCheckoutPaths,
+} from "../../application/workspaces/shared/sparse-checkout";
+import type { GitClient } from "../../application/workspaces/shared/types";
+import { safeResolveWorktreePath } from "../../application/workspaces/shared/worktree-paths";
+import { generateBranchNameFromPrompt } from "../../application/workspaces/utils/ai-branch-name";
+import { resolveProjectBranchPrefix } from "../../application/workspaces/utils/branch-prefix";
+import {
+	type MaterializePrBranchResult,
+	materializePrBranch,
+	normalizePrBranchTracking,
+	PrBranchConflictError,
+} from "../../application/workspaces/utils/pr-branch-materialize";
+import { derivePrLocalBranchName } from "../../application/workspaces/utils/pr-branch-name";
+import { resolveStartPoint } from "../../application/workspaces/utils/resolve-start-point";
+import { deduplicateBranchName } from "../../application/workspaces/utils/sanitize-branch";
+import { getHostWorktreeBaseDir } from "../../application/workspaces/worktree-location";
 import {
 	asRemoteRef,
 	type ResolvedRef,
 	resolveRef,
 	resolveUpstream,
 } from "../../runtime/git";
-import { ensureMainWorkspaceStrict } from "../../trpc/router/project/utils/ensure-main-workspace";
-import { getHostWorktreeBaseDir } from "../../trpc/router/settings/worktree-location";
-import { adoptExistingWorktree } from "../../trpc/router/workspace-creation/shared/adopt-existing-worktree";
-import {
-	findWorktreeAtPath,
-	getWorktreeBranchAtPath,
-	listWorktreeBranches,
-} from "../../trpc/router/workspace-creation/shared/branch-search";
-import { enablePushAutoSetupRemote } from "../../trpc/router/workspace-creation/shared/git-config";
-import { requireLocalProject } from "../../trpc/router/workspace-creation/shared/local-project";
-import {
-	addWorktreeWithSparseCheckout,
-	parseSparseCheckoutPaths,
-} from "../../trpc/router/workspace-creation/shared/sparse-checkout";
-import type { GitClient } from "../../trpc/router/workspace-creation/shared/types";
-import { safeResolveWorktreePath } from "../../trpc/router/workspace-creation/shared/worktree-paths";
-import { generateBranchNameFromPrompt } from "../../trpc/router/workspace-creation/utils/ai-branch-name";
-import { resolveProjectBranchPrefix } from "../../trpc/router/workspace-creation/utils/branch-prefix";
-import {
-	type MaterializePrBranchResult,
-	materializePrBranch,
-	normalizePrBranchTracking,
-	PrBranchConflictError,
-} from "../../trpc/router/workspace-creation/utils/pr-branch-materialize";
-import { derivePrLocalBranchName } from "../../trpc/router/workspace-creation/utils/pr-branch-name";
-import { resolveStartPoint } from "../../trpc/router/workspace-creation/utils/resolve-start-point";
-import { deduplicateBranchName } from "../../trpc/router/workspace-creation/utils/sanitize-branch";
 import type { HostServiceContext } from "../../types";
 import type { RunnerArtifact } from "../workspace-provisioning";
 import {
@@ -289,13 +289,13 @@ async function materializeAdoptedWorktree(
 		async () => {
 			const branch = await getWorktreeBranchAtPath(args.git, args.path);
 			if (!branch) {
-				throw new TRPCError({
+				throw new HostOperationError({
 					code: "NOT_FOUND",
 					message: `No branch-checked git worktree registered at "${args.path}"`,
 				});
 			}
 			if (args.expectedBranch && args.expectedBranch !== branch) {
-				throw new TRPCError({
+				throw new HostOperationError({
 					code: "CONFLICT",
 					message: `Worktree at "${args.path}" is on ${branch}, not ${args.expectedBranch}`,
 				});
@@ -398,7 +398,7 @@ async function materializePullRequest(
 							});
 				return { branch, materialized };
 			} catch (err) {
-				throw new TRPCError({
+				throw new HostOperationError({
 					code:
 						err instanceof PrBranchConflictError
 							? "CONFLICT"
@@ -593,7 +593,7 @@ async function planBranchSource(
 					: null) ?? generateFriendlyBranchName());
 	const resolved = await resolveRef(git, requestedBranch);
 	if (resolved?.kind === "tag") {
-		throw new TRPCError({
+		throw new HostOperationError({
 			code: "BAD_REQUEST",
 			message: `"${requestedBranch}" is a tag, not a branch — cannot check out into a workspace`,
 		});

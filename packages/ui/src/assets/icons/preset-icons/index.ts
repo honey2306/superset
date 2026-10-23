@@ -5,9 +5,6 @@ import codexWhiteIcon from "./codex-white.svg";
 import copilotIcon from "./copilot.svg";
 import copilotWhiteIcon from "./copilot-white.svg";
 import cursorAgentIcon from "./cursor.svg";
-// DeepSeek whale glyph from the official site favicon:
-// https://www.deepseek.com/favicon.ico (retrieved 2026-08-18).
-import deepseekIcon from "./deepseek.png";
 import droidIcon from "./droid.svg";
 import droidWhiteIcon from "./droid-white.svg";
 import geminiIcon from "./gemini.svg";
@@ -39,7 +36,6 @@ export const PRESET_ICONS: Record<string, PresetIconSet> = {
 	claude: { light: claudeIcon, dark: claudeIcon },
 	codex: { light: codexIcon, dark: codexWhiteIcon },
 	copilot: { light: copilotIcon, dark: copilotWhiteIcon },
-	deepseek: { light: deepseekIcon, dark: deepseekIcon },
 	gemini: { light: geminiIcon, dark: geminiIcon },
 	grok: { light: grokIcon, dark: grokWhiteIcon },
 	kimi: { light: kimiIcon, dark: kimiWhiteIcon },
@@ -110,7 +106,6 @@ export {
 	copilotIcon,
 	copilotWhiteIcon,
 	cursorAgentIcon,
-	deepseekIcon,
 	droidIcon,
 	droidWhiteIcon,
 	geminiIcon,

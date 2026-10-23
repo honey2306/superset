@@ -508,7 +508,6 @@ createRoot(document.getElementById('root')!).render(<App/>);
 				"codex-app-server",
 				"pi-acp",
 				"myflicker-acp",
-				"deepseek-acp",
 			].every((h) => listedAgents.includes(h))
 		)
 			throw new Error("Task selector omitted a registered ACP agent");

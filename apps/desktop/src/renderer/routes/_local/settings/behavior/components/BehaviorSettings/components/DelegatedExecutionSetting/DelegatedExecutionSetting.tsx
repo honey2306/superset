@@ -1,4 +1,4 @@
-import type { DelegationProfile } from "@superset/host-service/settings";
+import type { DelegationProfile } from "@superset/host-contract/settings";
 import { Button } from "@superset/ui/button";
 import { Input } from "@superset/ui/input";
 import { Label } from "@superset/ui/label";

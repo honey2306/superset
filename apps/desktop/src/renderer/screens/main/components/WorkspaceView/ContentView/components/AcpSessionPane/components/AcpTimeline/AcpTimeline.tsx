@@ -430,6 +430,7 @@ export const AcpTimeline = memo(
 		const hasInitiallyScrolledRef = useRef(false);
 		const isInitialFocusRef = useRef(true);
 		const wasFocusedRef = useRef(false);
+		const hasBeenFocusedRef = useRef(false);
 		const statusRef = useRef<SessionStatus | undefined>(status);
 		statusRef.current = status;
 		const isFocusedRef = useRef(isFocused);
@@ -903,6 +904,10 @@ export const AcpTimeline = memo(
 			overscan: 3,
 			scrollMargin: turnListRef.current?.offsetTop ?? 0,
 		});
+		// Preserve the semantic reading anchor after React commits the new layout.
+		// A virtualizer adjustment happens before that commit; its scroll event can
+		// capture stale message geometry and make us compensate the same resize twice.
+		virtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => false;
 		const virtualTurns = virtualizer.getVirtualItems();
 		const latestLoadedTurnId = Array.from(turnNumberById.keys()).at(-1) ?? null;
 		const latestLoadedTurnNumber = latestLoadedTurnId
@@ -920,11 +925,13 @@ export const AcpTimeline = memo(
 		timelineItemCountRef.current = timeline.items.length;
 		useEffect(() => {
 			const becameFocused = isFocused && !wasFocusedRef.current;
+			const isReturningFocus = hasBeenFocusedRef.current;
 			const isInitialFocus = isInitialFocusRef.current;
 			const focusStatus = statusRef.current;
 			isInitialFocusRef.current = false;
 			wasFocusedRef.current = isFocused;
 			if (!becameFocused) return;
+			hasBeenFocusedRef.current = true;
 			if (
 				isInitialFocus &&
 				isActiveSessionStatus(focusStatus) &&
@@ -1136,7 +1143,9 @@ export const AcpTimeline = memo(
 				const shouldRestoreReading =
 					savedReadingPosition !== null && !autoFollowRef.current;
 				const shouldFollowBottom =
-					isActiveSessionStatus(focusStatus) && !shouldRestoreReading;
+					!shouldRestoreReading &&
+					(isActiveSessionStatus(focusStatus) ||
+						(isReturningFocus && autoFollowRef.current));
 				el.scrollTop = shouldRestoreReading
 					? (savedReadingPosition?.scrollTop ?? 0)
 					: el.scrollHeight;
@@ -1173,6 +1182,10 @@ export const AcpTimeline = memo(
 				}
 			};
 
+			// Showing a kept-alive pane can emit a native scroll before the first
+			// restore frame. Guard that gap too, or handleScroll cancels the restore
+			// and treats the temporary virtual window as the reader's new position.
+			isRestoringFocusRef.current = isReturningFocus;
 			focusScrollFrameRef.current =
 				window.requestAnimationFrame(restoreFocusPosition);
 			return () => {

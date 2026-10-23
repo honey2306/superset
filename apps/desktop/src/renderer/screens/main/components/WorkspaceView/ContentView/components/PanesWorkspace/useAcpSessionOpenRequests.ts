@@ -12,10 +12,9 @@ const AGENT_BY_HARNESS = {
 	"codex-app-server": "codex",
 	"pi-acp": "pi",
 	"myflicker-acp": "myflicker",
-	"deepseek-acp": "deepseek",
 } as const satisfies Record<
 	HarnessKind,
-	"claude" | "codex" | "pi" | "myflicker" | "deepseek"
+	"claude" | "codex" | "pi" | "myflicker"
 >;
 
 export interface AcpSessionOpenRequestIdentity {

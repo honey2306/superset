@@ -317,7 +317,13 @@ function compactFrame(
 		}
 	}
 	if (nextUpdate === updateRecord) return { frameJson, artifactIds };
-	const compactedFrame = { ...frame, update: nextUpdate };
+	// A rewritten raw payload invalidates its derived semantic event. Replay
+	// through the legacy adapter instead of retaining oversized/stale content.
+	const compactedFrame: Record<string, unknown> = {
+		...frame,
+		update: nextUpdate,
+	};
+	delete compactedFrame.event;
 	return { frameJson: JSON.stringify(compactedFrame), artifactIds };
 }
 

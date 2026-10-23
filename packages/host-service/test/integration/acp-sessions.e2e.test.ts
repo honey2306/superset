@@ -546,7 +546,20 @@ describe("acp-sessions e2e (fake adapter)", () => {
 		unsubscribe();
 
 		expect(received).toContainEqual(envelope);
-		expect(envelope.frame).toEqual({
+		expect(envelope.frame).toMatchObject({
+			event: {
+				version: 1,
+				kind: "plan",
+				removed: false,
+				entries: [
+					{
+						content: "Inspect the implementation",
+						status: "in_progress",
+						priority: "medium",
+					},
+					{ content: "Run the checks", status: "pending", priority: "medium" },
+				],
+			},
 			kind: "update",
 			update: {
 				sessionUpdate: "plan",

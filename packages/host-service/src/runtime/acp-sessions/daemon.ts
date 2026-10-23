@@ -83,6 +83,7 @@ export type RequestOperation =
 	| "ensureLive"
 	| "getMessages"
 	| "getTranscript"
+	| "getDiscussion"
 	| "listDiscussions"
 	| "stopDiscussion"
 	| "prompt"
@@ -114,6 +115,7 @@ const RETRYABLE_AFTER_DISCONNECT: ReadonlySet<RequestOperation> = new Set([
 	"ensureLive",
 	"getMessages",
 	"getTranscript",
+	"getDiscussion",
 	"listDiscussions",
 	"getAgentBrowserView",
 ]);
@@ -420,6 +422,12 @@ export class AcpDaemonClient implements AcpSessionRuntime {
 			"listDiscussions",
 			input,
 		);
+	}
+
+	async getDiscussion(input: { runId: string }) {
+		return this.request<
+			import("@superset/session-protocol").DiscussionRun | null
+		>("getDiscussion", input);
 	}
 
 	async stopDiscussion(input: { runId: string }) {

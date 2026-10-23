@@ -2,7 +2,7 @@ import type {
 	AgentLifecycleEventType,
 	ClientMessage,
 	ServerMessage,
-} from "@superset/host-service/events";
+} from "@superset/host-contract/events";
 import type { AgentIdentity } from "@superset/shared/agent-identity";
 import type { FsWatchEvent } from "@superset/workspace-fs/host";
 import { createDirectSocket, type DirectSocket } from "./directSocket";

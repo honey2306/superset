@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { TRPCError } from "@trpc/server";
 import { and, eq, isNull, lt } from "drizzle-orm";
+import { HostOperationError } from "../../application/errors";
 import type { HostDb } from "../../db";
 import { phonePairingCodes, phoneSessions } from "../../db/schema";
 
@@ -183,7 +183,7 @@ export class PhoneAuthService {
 		const code = normalizePairingCode(input.code);
 		const redeemNonce = input.redeemNonce;
 		if (redeemNonce !== undefined && !isValidRedeemNonce(redeemNonce)) {
-			throw new TRPCError({
+			throw new HostOperationError({
 				code: "BAD_REQUEST",
 				message: `redeemNonce must be ${REDEEM_NONCE_MIN_LENGTH}-${REDEEM_NONCE_MAX_LENGTH} URL-safe characters.`,
 			});
@@ -200,7 +200,7 @@ export class PhoneAuthService {
 			// Constant-time-ish response — real DB row misses take a few ms and
 			// expired rows return near-instantly. Pad both to blunt code guessing.
 			await delay(INVALID_REDEEM_DELAY_MS);
-			throw new TRPCError({
+			throw new HostOperationError({
 				code: "NOT_FOUND",
 				message: "Pairing code is invalid or has expired.",
 			});
@@ -211,7 +211,7 @@ export class PhoneAuthService {
 				: null;
 			if (idempotent) return idempotent;
 			await delay(INVALID_REDEEM_DELAY_MS);
-			throw new TRPCError({
+			throw new HostOperationError({
 				code: "NOT_FOUND",
 				message: "Pairing code is invalid or has expired.",
 			});
@@ -221,7 +221,7 @@ export class PhoneAuthService {
 			// recovered after the short code TTL. Only an unredeemed expired code
 			// is rejected for its pairing-code expiry.
 			await delay(INVALID_REDEEM_DELAY_MS);
-			throw new TRPCError({
+			throw new HostOperationError({
 				code: "NOT_FOUND",
 				message: "Pairing code is invalid or has expired.",
 			});
@@ -296,7 +296,7 @@ export class PhoneAuthService {
 					.run();
 			}
 			await delay(INVALID_REDEEM_DELAY_MS);
-			throw new TRPCError({
+			throw new HostOperationError({
 				code: "NOT_FOUND",
 				message: "Pairing code is invalid or has expired.",
 			});
@@ -311,7 +311,7 @@ export class PhoneAuthService {
 				now,
 			);
 			if (idempotent) return idempotent;
-			throw new TRPCError({
+			throw new HostOperationError({
 				code: "INTERNAL_SERVER_ERROR",
 				message: "Unable to create the phone session.",
 			});
@@ -430,7 +430,7 @@ export class PhoneAuthService {
 			return;
 		}
 		if (entry.count >= REDEEM_RATE_LIMIT_PER_MIN) {
-			throw new TRPCError({
+			throw new HostOperationError({
 				code: "TOO_MANY_REQUESTS",
 				message: "Too many pairing attempts. Try again in a minute.",
 			});

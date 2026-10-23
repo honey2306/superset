@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { resolveGithubRepo } from "../../../../application/workspaces/shared/project-helpers";
+import { execGh } from "../../../../application/workspaces/utils/exec-gh";
 import { protectedProcedure } from "../../../index";
-import { resolveGithubRepo } from "../../workspace-creation/shared/project-helpers";
-import { execGh } from "../../workspace-creation/utils/exec-gh";
 
 const getContentInputSchema = z.object({
 	projectId: z.string(),

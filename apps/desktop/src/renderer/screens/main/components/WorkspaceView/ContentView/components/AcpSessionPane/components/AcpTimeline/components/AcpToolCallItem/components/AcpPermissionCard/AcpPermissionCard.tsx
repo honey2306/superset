@@ -5,6 +5,7 @@ import type {
 	ToolCallUpdate,
 } from "@superset/session-protocol";
 import {
+	approvalPlan,
 	customResponse,
 	makeCustomResponseOutcome,
 	makeSelectedOutcome,
@@ -74,26 +75,13 @@ function stringArray(value: unknown): string[] | null {
 		: null;
 }
 
-function record(value: unknown): Record<string, unknown> | null {
+function _record(value: unknown): Record<string, unknown> | null {
 	return typeof value === "object" && value !== null && !Array.isArray(value)
 		? (value as Record<string, unknown>)
 		: null;
 }
 
-export function approvalPlan(
-	toolCall: ToolCallUpdate | undefined,
-): string | null {
-	if (!toolCall) return null;
-	const input = record(toolCall.rawInput);
-	const plan = input?.plan;
-	if (typeof plan !== "string" || !plan.trim()) return null;
-
-	const claudeCode = record(record(toolCall._meta)?.claudeCode);
-	const isExitPlanMode =
-		claudeCode?.toolName === "ExitPlanMode" ||
-		(input !== null && "planFilePath" in input);
-	return isExitPlanMode ? plan : null;
-}
+export { approvalPlan } from "@superset/session-protocol";
 
 export function approvalDetail(
 	toolCall: ToolCallUpdate | undefined,

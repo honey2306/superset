@@ -183,7 +183,7 @@ export function DiscussionView({
 			onStop={() => {
 				if (!hostUrl) return;
 				void getHostServiceClientByUrl(hostUrl)
-					.acpSessions.stopDiscussionRun.mutate({ runId: selected.id })
+					.runs.cancel.mutate({ kind: "discussion", id: selected.id })
 					.then(() => query.refetch());
 			}}
 		/>

@@ -319,13 +319,13 @@ describe("local task routers", () => {
 			dueAt: new Date("2030-01-01T10:00:00Z"),
 			timezone: "UTC",
 			projectId: projectId,
-			agent: "codex",
+			agent: "not-configured",
 			prompt: "Run locally",
 		});
 		const automation = await caller.automation.create({
 			name: "Project-only automation",
 			prompt: "Run locally",
-			agent: "codex",
+			agent: "not-configured",
 			projectId: projectId,
 			rrule: "FREQ=DAILY",
 			timezone: "UTC",
@@ -360,7 +360,7 @@ describe("local task routers", () => {
 					.where(eq(localAutomations.id, automation.id))
 					.get() as typeof localAutomations.$inferSelect,
 			),
-		).rejects.toThrow("Workspace worktree no longer exists");
+		).rejects.toThrow("No host agent config matching 'not-configured'");
 		await expect(
 			dispatchLocalTodo(
 				{ db: opened.db } as never,
@@ -370,7 +370,7 @@ describe("local task routers", () => {
 					.where(eq(schema.localTodos.id, todo.id))
 					.get() as typeof schema.localTodos.$inferSelect,
 			),
-		).rejects.toThrow("Workspace worktree no longer exists");
+		).rejects.toThrow("No host agent config matching 'not-configured'");
 		expect(
 			opened.db
 				.select({ workspaceId: localAutomations.workspaceId })

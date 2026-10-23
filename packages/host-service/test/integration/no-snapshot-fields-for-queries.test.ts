@@ -19,8 +19,8 @@ const ALLOWLIST = new Set([
 	// Schema and setup pipeline — declares the columns and writes them.
 	"db/schema.ts",
 	"trpc/router/project/handlers.ts",
-	"trpc/router/project/project.ts",
-	"trpc/router/project/utils/persist-project.ts",
+	"application/projects/project.ts",
+	"application/projects/utils/persist-project.ts",
 
 	// Snapshot consumer: shapes project rows for renderer display
 	// (avatar/GitHub link), never for query routing.
@@ -28,7 +28,7 @@ const ALLOWLIST = new Set([
 	"workspace-catalog/workspace-catalog.ts",
 
 	// Resolver itself: mentions field names in JSDoc, no member reads.
-	"trpc/router/workspace-creation/shared/project-helpers.ts",
+	"application/workspaces/shared/project-helpers.ts",
 
 	// TODO: PR-runtime poller still keys repo identity off cached
 	// `project.repoOwner`/`repoName`. Migration needs cache invalidation

@@ -13,7 +13,8 @@
 		"verify:build-output": "bun scripts/verify-build-output.mjs"
 	},
 	"dependencies": {
-		"@superset/host-service": "workspace:*",
+		"@superset/host-client": "workspace:*",
+		"@superset/host-contract": "workspace:*",
 		"@superset/session-protocol": "workspace:*",
 		"@superset/shared": "workspace:*",
 		"@tanstack/react-query": "5.101.1",
