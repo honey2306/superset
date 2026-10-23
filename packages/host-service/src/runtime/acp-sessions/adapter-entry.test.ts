@@ -74,7 +74,7 @@ describe("resolveBundledAcpEntry", () => {
 test("starts MyFlicker 2.0 through mf by default", () => {
 	expect(resolveAdapterProcess("myflicker-acp", {})).toEqual({
 		command: "mf",
-		args: ["--approval-mode", "yolo", "acp"],
+		args: ["--backend", "myflicker", "--approval-mode", "yolo", "acp"],
 		usesElectronNode: false,
 	});
 });

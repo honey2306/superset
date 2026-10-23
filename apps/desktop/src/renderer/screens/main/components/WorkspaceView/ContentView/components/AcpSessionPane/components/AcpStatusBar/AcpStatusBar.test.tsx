@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
 import type { SessionScopedState } from "@superset/session-protocol";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
@@ -45,6 +45,97 @@ const state: SessionScopedState = {
 };
 
 describe("AcpStatusBar", () => {
+	test("offers MyFlicker runtimes in the bottom status bar before the first message", async () => {
+		const onSetConfigOption = mock(async () => {});
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
+		render(
+			createElement(
+				QueryClientProvider,
+				{ client: queryClient },
+				createElement(AcpStatusBar, {
+					state: {
+						...state,
+						harness: "myflicker-acp",
+						lastMessageAt: null,
+						configOptions: [
+							{
+								id: "superset.myflicker.runtime",
+								name: "Runtime",
+								type: "select",
+								currentValue: "myflicker",
+								options: [
+									{ value: "myflicker", name: "MyFlicker" },
+									{ value: "codex", name: "Codex" },
+									{ value: "claude", name: "Claude" },
+								],
+							},
+						],
+					},
+					hostUrl: "",
+					usage: null,
+					currentMode: null,
+					configOptions: null,
+					onSetConfigOption,
+				}),
+			),
+		);
+		const button = screen.getByRole("button", {
+			name: "Change runtime, current MyFlicker",
+		});
+		expect(button.closest(".acp-status-bar")).not.toBeNull();
+		expect(button.hasAttribute("disabled")).toBe(false);
+		const { fireEvent, waitFor } = await import("@testing-library/react/pure");
+		fireEvent.keyDown(button, { key: "ArrowDown", code: "ArrowDown" });
+		await waitFor(() =>
+			expect(screen.getByRole("menuitem", { name: "Codex" })).toBeTruthy(),
+		);
+		fireEvent.click(screen.getByRole("menuitem", { name: "Codex" }));
+		expect(onSetConfigOption).toHaveBeenCalledWith(
+			"superset.myflicker.runtime",
+			"codex",
+		);
+	});
+
+	test("keeps the chosen runtime visible but locked after the first message", () => {
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
+		render(
+			createElement(
+				QueryClientProvider,
+				{ client: queryClient },
+				createElement(AcpStatusBar, {
+					state: {
+						...state,
+						harness: "myflicker-acp",
+						lastMessageAt: 1,
+						configOptions: [
+							{
+								id: "superset.myflicker.runtime",
+								name: "Runtime",
+								type: "select",
+								currentValue: "codex",
+								options: [{ value: "codex", name: "Codex" }],
+							},
+						],
+					},
+					hostUrl: "",
+					usage: null,
+					currentMode: null,
+					configOptions: null,
+					onSetConfigOption: async () => {},
+				}),
+			),
+		);
+		const button = screen.getByRole("button", {
+			name: "Change runtime, current Codex",
+		});
+		expect(button.hasAttribute("disabled")).toBe(true);
+		expect(button.getAttribute("title")).toContain("new conversation");
+	});
+
 	test("summarizes host-service branch status for the ACP workspace", () => {
 		expect(
 			getAcpGitStatusSummary({

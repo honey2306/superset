@@ -76,6 +76,13 @@ import {
 	replayRemoteCommands,
 	SessionJournal,
 } from "./journal";
+import {
+	isMyFlickerBackend,
+	MYFLICKER_RUNTIME_CONFIG_ID,
+	type MyFlickerBackend,
+	myFlickerRuntimeFromJournal,
+	withMyFlickerRuntime,
+} from "./myflicker-runtime";
 import type {
 	AcpSessionPersistence,
 	AcpSessionRecord,
@@ -294,7 +301,7 @@ export function resolveAdapterProcess(
 		| "codexAdapterEntry"
 		| "piAdapterEntry"
 		| "myflickerAdapterCommand"
-	> = {},
+	> & { myflickerBackend?: MyFlickerBackend | null } = {},
 	execPath = process.execPath,
 ): AdapterProcessSpec {
 	switch (harness) {
@@ -313,8 +320,17 @@ export function resolveAdapterProcess(
 		case "myflicker-acp":
 			return {
 				command: options.myflickerAdapterCommand ?? "mf",
-				// MyFlicker 2.0's full-access flag precedes the `acp` subcommand.
-				args: ["--approval-mode", "yolo", "acp"],
+				// mf 2.0 otherwise inherits the global backend, whose ACP model
+				// handlers may be unavailable. Keep explicit legacy mfcli overrides.
+				args: [
+					...(path.basename(options.myflickerAdapterCommand ?? "mf") ===
+						"mfcli" || options.myflickerBackend === null
+						? []
+						: ["--backend", options.myflickerBackend ?? "myflicker"]),
+					"--approval-mode",
+					"yolo",
+					"acp",
+				],
 				usesElectronNode: false,
 			};
 		case "claude-agent-acp":
@@ -528,6 +544,7 @@ interface AcpSessionRuntime {
 	state: SessionScopedState;
 	/** Persisted Superset coordinator/executor boundary for this session. */
 	role: SupersetSessionRole;
+	myflickerBackend?: MyFlickerBackend;
 	/** The adapter's ACP session id — host-internal, never leaves this file. */
 	acpSessionId: string;
 	child: ChildProcess;
@@ -2208,6 +2225,13 @@ export class AcpSessionManager {
 		value: string | boolean;
 	}): Promise<void> {
 		const runtime = this.requireLive(input.sessionId);
+		if (input.configId === MYFLICKER_RUNTIME_CONFIG_ID) {
+			if (!runtime.myflickerBackend || !isMyFlickerBackend(input.value)) {
+				throw new Error("Invalid MyFlicker 2.0 runtime");
+			}
+			await this.switchEmptyMyFlickerRuntime(runtime, input.value);
+			return;
+		}
 		const response = await runtime.connection.agent.request(
 			"session/set_config_option",
 			typeof input.value === "boolean"
@@ -2225,8 +2249,158 @@ export class AcpSessionManager {
 		);
 		// The refreshed catalog rides the response — the adapter emits no
 		// config_option_update notification for client-initiated changes.
-		runtime.state.configOptions = response.configOptions;
+		runtime.state.configOptions = runtime.myflickerBackend
+			? withMyFlickerRuntime(response.configOptions, runtime.myflickerBackend)
+			: response.configOptions;
 		this.emitState(runtime);
+	}
+
+	/** Runtime changes are safe only before a native conversation has any turns. */
+	private async switchEmptyMyFlickerRuntime(
+		runtime: AcpSessionRuntime,
+		backend: MyFlickerBackend,
+	): Promise<void> {
+		if (runtime.myflickerBackend === backend) return;
+		if (
+			!this.persistence ||
+			this.taskOwner?.(runtime.state.sessionId) ||
+			runtime.state.status !== "idle" ||
+			runtime.activePromptCount !== 0 ||
+			runtime.state.lastMessageAt !== null ||
+			runtime.state.lastStopReason !== null ||
+			runtime.state.queuedPrompts.length > 0 ||
+			runtime.pendingSendNow !== null ||
+			runtime.pendingResolvers.size > 0 ||
+			runtime.openToolCalls.size > 0 ||
+			runtime.titleGenerationInFlight
+		) {
+			throw new Error(
+				"Choose a runtime before sending the first message; start a new conversation to change it later.",
+			);
+		}
+		const previousBackend = runtime.myflickerBackend;
+		if (!previousBackend)
+			throw new Error("This session has no MyFlicker runtime");
+		const record: AcpSessionRecord = {
+			sessionId: runtime.state.sessionId,
+			workspaceId: runtime.state.workspaceId,
+			acpSessionId: runtime.acpSessionId,
+			epoch: runtime.state.epoch,
+			role: runtime.role,
+			harness: runtime.state.harness,
+			cwd: runtime.state.cwd,
+			title: runtime.state.title,
+			lastStopReason: runtime.state.lastStopReason,
+			lastMessageAt: runtime.state.lastMessageAt,
+			lastCompletedAt: runtime.state.lastCompletedAt,
+			createdAt: runtime.state.createdAt,
+			updatedAt: Date.now(),
+		};
+		// Commit recovery information before releasing the old process. Never use
+		// native backend handoff: switching an unconsumed handoff can corrupt it.
+		this.persistence.upsert(record);
+		runtime.state.status = "starting";
+		this.emitState(runtime);
+		this.clearIdleHibernate(runtime);
+		runtime.closed = true;
+		this.runtimes.delete(record.sessionId);
+		this.offline.set(record.sessionId, record);
+		const reconnect = async (selectedBackend: MyFlickerBackend) => {
+			const replacement = await this.createRuntime(
+				record.sessionId,
+				record.workspaceId,
+				record,
+				record.harness,
+				true,
+				undefined,
+				false,
+				record.role,
+				record.cwd,
+				false,
+				{ backend: selectedBackend, subscribers: runtime.subscribers },
+			);
+			this.offline.delete(record.sessionId);
+			return replacement;
+		};
+		const promise = (async () => {
+			const exited = new Promise<void>((resolve) => {
+				if (
+					runtime.child.exitCode !== null ||
+					runtime.child.signalCode !== null
+				)
+					resolve();
+				else runtime.child.once("exit", () => resolve());
+			});
+			runtime.connection.close();
+			runtime.child.kill();
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			try {
+				await Promise.race([
+					exited,
+					new Promise<never>((_, reject) => {
+						timer = setTimeout(
+							() =>
+								reject(new Error("Previous MyFlicker runtime did not stop")),
+							5_000,
+						);
+					}),
+				]);
+			} finally {
+				clearTimeout(timer);
+			}
+			try {
+				return await reconnect(backend);
+			} catch (error) {
+				try {
+					await reconnect(previousBackend);
+				} catch (rollbackError) {
+					// Restore a truthful dead snapshot so the existing stream cannot
+					// remain stuck on Starting. History and native records stay intact.
+					runtime.journal = new SessionJournal({
+						epoch: record.epoch,
+						capacity: this.journalCapacity,
+						entries:
+							this.persistence?.loadJournal(record.sessionId, record.epoch) ??
+							[],
+					});
+					runtime.closed = false;
+					runtime.dead = true;
+					runtime.state.status = "dead";
+					runtime.state.lastError =
+						"Runtime switch and reconnect failed; reopen this empty conversation.";
+					this.runtimes.set(record.sessionId, runtime);
+					this.offline.delete(record.sessionId);
+					this.emitState(runtime);
+					throw new AggregateError(
+						[error, rollbackError],
+						runtime.state.lastError,
+					);
+				}
+				throw error;
+			}
+		})();
+		this.creations.set(record.sessionId, {
+			workspaceId: record.workspaceId,
+			promise,
+		});
+		try {
+			await promise;
+		} catch (error) {
+			if (!this.runtimes.has(record.sessionId)) {
+				runtime.child.kill("SIGKILL");
+				runtime.closed = false;
+				runtime.dead = true;
+				runtime.state.status = "dead";
+				runtime.state.lastError =
+					error instanceof Error ? error.message : "Runtime switch failed";
+				this.runtimes.set(record.sessionId, runtime);
+				this.offline.delete(record.sessionId);
+				this.emitState(runtime);
+			}
+			throw error;
+		} finally {
+			this.creations.delete(record.sessionId);
+		}
 	}
 
 	/**
@@ -2442,6 +2616,10 @@ export class AcpSessionManager {
 		role: SupersetSessionRole = resume?.role ?? SUPERSET_ROOT_COORDINATOR_ROLE,
 		cwdOverride?: string,
 		discovery = false,
+		replacement?: {
+			backend: MyFlickerBackend;
+			subscribers: AcpSessionRuntime["subscribers"];
+		},
 	): Promise<AcpSessionRuntime> {
 		let epoch = resume?.epoch ?? randomUUID();
 		let durableEntries: SessionUpdateEnvelope[] = [];
@@ -2476,6 +2654,13 @@ export class AcpSessionManager {
 				sendNow: replayed.sendNow,
 			};
 		}
+		const myflickerBackend =
+			harness === "myflicker-acp" &&
+			path.basename(this.myflickerAdapterCommand ?? "mf") !== "mfcli"
+				? (replacement?.backend ??
+					myFlickerRuntimeFromJournal(durableEntries) ??
+					(resume ? undefined : "myflicker"))
+				: undefined;
 		const cwd = cwdOverride ?? (await this.resolveWorkspaceCwd(workspaceId));
 		assertWorkspaceCwd(cwd, workspaceId);
 		const configuredMcpServers = prepareSharedMcpServers(
@@ -2541,6 +2726,9 @@ export class AcpSessionManager {
 				codexAdapterEntry: this.codexAdapterEntry,
 				piAdapterEntry: this.piAdapterEntry,
 				myflickerAdapterCommand: this.myflickerAdapterCommand,
+				// Older records never persisted a backend. Let their native session
+				// retain its selection rather than silently converting existing work.
+				myflickerBackend: myflickerBackend ?? (resume ? null : undefined),
 			},
 			this.adapterExecPath,
 		);
@@ -2885,7 +3073,9 @@ export class AcpSessionManager {
 					status: "idle",
 					title: resume?.title ?? null,
 					currentMode: modes,
-					configOptions,
+					configOptions: myflickerBackend
+						? withMyFlickerRuntime(configOptions, myflickerBackend)
+						: configOptions,
 					availableCommands: null,
 					pendingPermissions: [],
 					canSteer: true,
@@ -2904,6 +3094,7 @@ export class AcpSessionManager {
 					updatedAt: now,
 				},
 				role,
+				myflickerBackend,
 				acpSessionId,
 				child,
 				connection,
@@ -2913,7 +3104,7 @@ export class AcpSessionManager {
 					entries: durableEntries,
 				}),
 				activeTurns: new Map(),
-				subscribers: new Set(),
+				subscribers: replacement?.subscribers ?? new Set(),
 				pendingResolvers: new Map(),
 				openToolCalls: new Set(),
 				askUserToolCalls: new Set(),
@@ -3035,6 +3226,7 @@ export class AcpSessionManager {
 					role,
 					cwdOverride,
 					discovery,
+					replacement,
 				);
 			}
 			const startupSpawnError = spawnError as Error | null;
@@ -3355,7 +3547,9 @@ export class AcpSessionManager {
 				}
 				break;
 			case "config_option_update":
-				runtime.state.configOptions = update.configOptions;
+				runtime.state.configOptions = runtime.myflickerBackend
+					? withMyFlickerRuntime(update.configOptions, runtime.myflickerBackend)
+					: update.configOptions;
 				this.emitState(runtime);
 				break;
 			case "available_commands_update":

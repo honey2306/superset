@@ -10,6 +10,9 @@ import {
 	USER_VISIBLE_BUILTIN_TERMINAL_AGENTS,
 } from "./builtin-terminal-agents";
 
+/** Host-owned ACP control for mf 2.0's per-conversation backend. */
+export const MYFLICKER_RUNTIME_CONFIG_ID = "superset.myflicker.runtime";
+
 export const BUILTIN_AGENT_IDS = BUILTIN_TERMINAL_AGENT_TYPES;
 
 export type BuiltinAgentId = (typeof BUILTIN_AGENT_IDS)[number];

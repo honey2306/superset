@@ -17,7 +17,7 @@ desktop UI (PanesWorkspace → AcpSessionPane)
        Claude Code -> claude-agent-acp
        Codex       -> bundled codex app-server bridge
        Pi          -> bundled pi-acp bridge
-       MyFlicker   -> mf acp (2.0)
+       MyFlicker   -> mf --backend myflicker --approval-mode yolo acp (2.0)
   -> each agent's native on-disk session store
 
 shared client code today
@@ -34,6 +34,20 @@ Every desktop build enables the runtime via `SUPERSET_ACP_SESSIONS=1`. The
 desktop renders the ACP session UI when `acpSessions.list` returns
 `enabled: true`. The user-facing preset setting controls whether supported
 agent presets launch through ACP; it does not enable or disable the runtime.
+
+**MyFlicker 2.0 runtime**: the default is explicitly `myflicker`, not the
+CLI's global backend preference. In mf 2.0.25, Codex/Claude backends omit ACP
+model controls and reject model changes with `config.set` missing. The bottom
+status bar offers MyFlicker/Codex/Claude before the first message. Switching an
+empty conversation replaces its native adapter/session, preserves the Superset
+id, journal and live subscription, and rolls back a failed launch. The selection
+survives daemon restart through the existing journal; no schema migration is
+needed. Runtime changes are blocked once messages exist or a Task owns the
+session: native handoff before its first turn can fail with
+`handoff-not-consumed`. Start a new conversation to choose another runtime.
+Older conversations without saved runtime metadata keep their native backend
+instead of being silently converted; open a new conversation to use the new
+selector. Explicit legacy `mfcli` executable overrides retain their old launch arguments.
 
 **Detach and close semantics**: renderer teardown, workspace switching, and a
 temporary pane-view detach only release the UI subscription. They do not stop

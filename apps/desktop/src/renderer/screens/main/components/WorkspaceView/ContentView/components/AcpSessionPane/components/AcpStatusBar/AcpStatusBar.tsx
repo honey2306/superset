@@ -5,6 +5,7 @@ import type {
 	SessionScopedState,
 	UsageUpdate,
 } from "@superset/session-protocol";
+import { MYFLICKER_RUNTIME_CONFIG_ID } from "@superset/shared/agent-catalog";
 import {
 	getProviderLogoUrl,
 	MODEL_PROVIDERS,
@@ -26,6 +27,7 @@ import {
 	normalizeAcpIdentity,
 } from "./acpIdentity";
 import { CtxDonut } from "./CtxDonut";
+import { RuntimeSelector } from "./RuntimeSelector";
 import { StatusOptionItem } from "./StatusOptionItem";
 
 interface AcpStatusBarProps {
@@ -76,6 +78,10 @@ export function AcpStatusBar({
 	const resolvedMode = currentMode ?? state.currentMode;
 	const resolvedConfigOptions = configOptions ?? state.configOptions;
 	const identity = normalizeAcpIdentity(resolvedMode, resolvedConfigOptions);
+	const runtimeOption = state.configOptions.find(
+		(option) =>
+			option.id === MYFLICKER_RUNTIME_CONFIG_ID && option.type === "select",
+	);
 	const modelOption = identity.model?.control ?? null;
 	const modelLabel = identity.model?.label ?? null;
 	// Grouped straight from the adapter's config data: ACP grouped options
@@ -143,6 +149,21 @@ export function AcpStatusBar({
 			{controls && (
 				<span className="acp-status-bar__group acp-status-bar__group--controls">
 					{controls}
+				</span>
+			)}
+			{runtimeOption?.type === "select" && (
+				<span className="acp-status-bar__group">
+					<RuntimeSelector
+						option={runtimeOption}
+						disabled={
+							isSubmitting ||
+							state.status !== "idle" ||
+							state.lastMessageAt != null ||
+							state.lastStopReason !== null ||
+							state.queuedPrompts.length > 0
+						}
+						onChange={onSetConfigOption}
+					/>
 				</span>
 			)}
 			{/* Group 1: model + thinking */}
