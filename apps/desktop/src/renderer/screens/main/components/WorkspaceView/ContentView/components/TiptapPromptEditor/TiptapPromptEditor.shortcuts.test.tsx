@@ -1,14 +1,8 @@
 import { afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
 import type { ComponentProps, FormEvent } from "react";
 import { createRef } from "react";
+import { I18nProvider } from "renderer/providers/I18nProvider";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
-
-// The editor only needs translated labels to render its menus. Keeping this
-// local avoids loading the renderer's full i18n runtime in the ProseMirror
-// harness.
-mock.module("renderer/providers/I18nProvider", () => ({
-	useTranslation: () => ({ t: (key: string) => key }),
-}));
 
 let PromptInputProvider: typeof import("@superset/ui/ai-elements/prompt-input").PromptInputProvider;
 let TiptapPromptEditor: typeof import("./TiptapPromptEditor").TiptapPromptEditor;
@@ -42,32 +36,34 @@ function renderEditor(overrides: Partial<EditorProps> = {}, initialInput = "") {
 		event.preventDefault(),
 	);
 	render(
-		<PromptInputProvider initialInput={initialInput}>
-			<form onSubmit={onSubmit}>
-				<TiptapPromptEditor
-					ref={ref}
-					cwd="/repo"
-					searchFiles={async () => [
-						{
-							id: "/repo/src/demo.ts",
-							name: "demo.ts",
-							relativePath: "src/demo.ts",
-						},
-					]}
-					slashCommands={[
-						{
-							name: "review",
-							aliases: [],
-							description: "Review the change",
-							argumentHint: "",
-							kind: "custom",
-						},
-					]}
-					onPasteFiles={onPasteFiles}
-					{...overrides}
-				/>
-			</form>
-		</PromptInputProvider>,
+		<I18nProvider>
+			<PromptInputProvider initialInput={initialInput}>
+				<form onSubmit={onSubmit}>
+					<TiptapPromptEditor
+						ref={ref}
+						cwd="/repo"
+						searchFiles={async () => [
+							{
+								id: "/repo/src/demo.ts",
+								name: "demo.ts",
+								relativePath: "src/demo.ts",
+							},
+						]}
+						slashCommands={[
+							{
+								name: "review",
+								aliases: [],
+								description: "Review the change",
+								argumentHint: "",
+								kind: "custom",
+							},
+						]}
+						onPasteFiles={onPasteFiles}
+						{...overrides}
+					/>
+				</form>
+			</PromptInputProvider>
+		</I18nProvider>,
 	);
 	const input = document.querySelector<HTMLElement>("[contenteditable='true']");
 	if (!input) throw new Error("Tiptap editor was not rendered");
@@ -132,6 +128,37 @@ describe("TiptapPromptEditor shortcuts after an image paste", () => {
 	});
 });
 
+describe("TiptapPromptEditor editable state", () => {
+	test("restores focus after a transient disabled state", async () => {
+		const editorNode = (disabled: boolean) => (
+			<I18nProvider>
+				<PromptInputProvider>
+					<TiptapPromptEditor
+						cwd="/repo"
+						searchFiles={async () => []}
+						slashCommands={[]}
+						disabled={disabled}
+					/>
+				</PromptInputProvider>
+			</I18nProvider>
+		);
+		const view = render(editorNode(false));
+		const input = document.querySelector<HTMLElement>(
+			"[contenteditable='true']",
+		);
+		if (!input) throw new Error("Tiptap editor was not rendered");
+		input.focus();
+
+		view.rerender(editorNode(true));
+		await waitFor(() =>
+			expect(input.getAttribute("contenteditable")).toBe("false"),
+		);
+
+		view.rerender(editorNode(false));
+		await waitFor(() => expect(document.activeElement).toBe(input));
+	});
+});
+
 describe("TiptapPromptEditor deletion", () => {
 	test("allows the final character to be deleted", async () => {
 		const { input, ref } = renderEditor({}, "x");
@@ -145,16 +172,18 @@ describe("TiptapPromptEditor deletion", () => {
 
 	test("updates the empty-editor placeholder when the prop changes", async () => {
 		const editorNode = (placeholder: string) => (
-			<PromptInputProvider>
-				<form>
-					<TiptapPromptEditor
-						cwd="/repo"
-						searchFiles={async () => []}
-						slashCommands={[]}
-						placeholder={placeholder}
-					/>
-				</form>
-			</PromptInputProvider>
+			<I18nProvider>
+				<PromptInputProvider>
+					<form>
+						<TiptapPromptEditor
+							cwd="/repo"
+							searchFiles={async () => []}
+							slashCommands={[]}
+							placeholder={placeholder}
+						/>
+					</form>
+				</PromptInputProvider>
+			</I18nProvider>
 		);
 		const view = render(editorNode("Session unavailable"));
 		const input = document.querySelector<HTMLElement>(

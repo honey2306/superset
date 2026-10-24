@@ -4,7 +4,6 @@ import {
 	type RefCallback,
 	useCallback,
 	useEffect,
-	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -147,16 +146,19 @@ export function AcpComposerQueue({
 		[onRemove, onSteer],
 	);
 
-	const summary = useMemo(() => `${queued.length} pending`, [queued.length]);
-
 	return (
-		<section className="acp-pane__composer-queue" aria-label="Pending messages">
+		<section className="acp-pane__composer-queue" aria-label="Queued messages">
 			<header className="acp-pane__composer-queue-hd">
 				<span className="acp-pane__composer-queue-title">
-					Pending
-					<span className="acp-pane__composer-queue-count">{summary}</span>
+					<span className="acp-pane__composer-queue-dot" aria-hidden />
+					Queued
+					<span className="acp-pane__composer-queue-count">
+						{queued.length}
+					</span>
 				</span>
-				<span className="acp-pane__composer-queue-hint">Drag to reorder</span>
+				{queued.length > 1 && (
+					<span className="acp-pane__composer-queue-hint">Drag to reorder</span>
+				)}
 			</header>
 			<ol className="acp-pane__composer-queue-list">
 				{queued.map((entry, index) => {
@@ -166,8 +168,10 @@ export function AcpComposerQueue({
 						<li
 							key={entry.queueId}
 							className={`acp-pane__composer-queue-chip${
-								dragOverId === entry.queueId ? " is-drop-target" : ""
-							}${isEditing ? " is-editing" : ""}`}
+								index === 0 ? " is-next" : ""
+							}${dragOverId === entry.queueId ? " is-drop-target" : ""}${
+								isEditing ? " is-editing" : ""
+							}`}
 							draggable={!isEditing}
 							onDragStart={onDragStart(entry.queueId)}
 							onDragOver={onDragOver(entry.queueId)}

@@ -136,6 +136,70 @@ describe("AcpStatusBar", () => {
 		expect(button.getAttribute("title")).toContain("new conversation");
 	});
 
+	test("SDK models remain selectable after messages even when the Runtime is locked", async () => {
+		const onSetConfigOption = mock(async () => {});
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false } },
+		});
+		render(
+			createElement(
+				QueryClientProvider,
+				{ client: queryClient },
+				createElement(AcpStatusBar, {
+					state: {
+						...state,
+						harness: "myflicker-acp",
+						lastMessageAt: 1,
+						configOptions: [
+							{
+								id: "superset.myflicker.runtime",
+								name: "Runtime",
+								type: "select",
+								currentValue: "codex",
+								options: [{ value: "codex", name: "Codex" }],
+							},
+							{
+								id: "superset.myflicker.model",
+								name: "Model",
+								category: "model",
+								type: "select",
+								currentValue: "custom/a",
+								options: [
+									{ value: "custom/a", name: "Model A" },
+									{ value: "custom/b", name: "Model B" },
+								],
+							},
+						],
+					},
+					hostUrl: "",
+					usage: null,
+					currentMode: null,
+					configOptions: null,
+					onSetConfigOption,
+				}),
+			),
+		);
+		expect(
+			screen
+				.getByRole("button", { name: "Change runtime, current Codex" })
+				.hasAttribute("disabled"),
+		).toBe(true);
+		const button = screen.getByRole("button", {
+			name: "Change model, current Model A",
+		});
+		expect(button.hasAttribute("disabled")).toBe(false);
+		const { fireEvent, waitFor } = await import("@testing-library/react/pure");
+		fireEvent.keyDown(button, { key: "ArrowDown", code: "ArrowDown" });
+		await waitFor(() =>
+			expect(screen.getByRole("menuitem", { name: "Model B" })).toBeTruthy(),
+		);
+		fireEvent.click(screen.getByRole("menuitem", { name: "Model B" }));
+		expect(onSetConfigOption).toHaveBeenCalledWith(
+			"superset.myflicker.model",
+			"custom/b",
+		);
+	});
+
 	test("summarizes host-service branch status for the ACP workspace", () => {
 		expect(
 			getAcpGitStatusSummary({

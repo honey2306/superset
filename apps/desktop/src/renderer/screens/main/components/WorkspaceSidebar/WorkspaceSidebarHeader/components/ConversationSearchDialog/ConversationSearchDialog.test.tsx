@@ -8,6 +8,7 @@ import {
 	test,
 } from "bun:test";
 import type { SessionScopedState } from "@superset/session-protocol";
+import { I18nProvider } from "renderer/providers/I18nProvider";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 
 const onOpenChange = mock((_open: boolean) => undefined);
@@ -39,16 +40,10 @@ const session: SessionScopedState = {
 	updatedAt: 2,
 };
 
-mock.module("renderer/providers/I18nProvider", () => ({
-	useTranslation: () => ({
-		locale: "en-US",
-		t: (key: string) => key,
-	}),
-}));
-
 mock.module(
 	"renderer/routes/_local/providers/LocalHostServiceProvider",
 	() => ({
+		useLocalHostService: () => ({ activeHostUrl: "http://localhost:1234" }),
 		useMaybeLocalHostService: () => ({
 			activeHostUrl: "http://localhost:1234",
 		}),
@@ -58,6 +53,7 @@ mock.module(
 mock.module(
 	"renderer/routes/_local/providers/WorkspaceCatalogProvider/selectors",
 	() => ({
+		useCatalogWorkspace: () => ({ workspace: null, isReady: true }),
 		useCatalogWorkspaces: () => ({
 			workspaces: [{ id: "workspace-1", name: "Workspace one" }],
 		}),
@@ -118,7 +114,11 @@ describe("ConversationSearchDialog", () => {
 	afterEach(() => cleanup());
 
 	test("excludes empty conversations from search results", async () => {
-		render(<ConversationSearchDialog open onOpenChange={onOpenChange} />);
+		render(
+			<I18nProvider>
+				<ConversationSearchDialog open onOpenChange={onOpenChange} />
+			</I18nProvider>,
+		);
 		await screen.findByText("Previous conversation");
 
 		expect(listSessions).toHaveBeenCalledWith({
@@ -129,7 +129,11 @@ describe("ConversationSearchDialog", () => {
 	});
 
 	test("keeps the dialog open until the selected conversation navigation completes", async () => {
-		render(<ConversationSearchDialog open onOpenChange={onOpenChange} />);
+		render(
+			<I18nProvider>
+				<ConversationSearchDialog open onOpenChange={onOpenChange} />
+			</I18nProvider>,
+		);
 
 		const result = await screen.findByText("Previous conversation");
 		fireEvent.click(result);
@@ -142,7 +146,11 @@ describe("ConversationSearchDialog", () => {
 	});
 
 	test("uses active-theme semantic colors for the portalled surface", async () => {
-		render(<ConversationSearchDialog open onOpenChange={onOpenChange} />);
+		render(
+			<I18nProvider>
+				<ConversationSearchDialog open onOpenChange={onOpenChange} />
+			</I18nProvider>,
+		);
 		await screen.findByText("Previous conversation");
 
 		const dialog = document.querySelector<HTMLElement>(

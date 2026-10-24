@@ -1,18 +1,10 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
+import { I18nProvider } from "renderer/providers/I18nProvider";
 import type { ChangeCategory, ChangedFile } from "shared/changes-types";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 
 let renderHook: typeof import("@testing-library/react/pure").renderHook;
 let useOrderedSections: typeof import("./useOrderedSections").useOrderedSections;
-
-// `useOrderedSections` only pulls `t` from `useTranslation` (the tests assert on
-// section counts, not translated labels), so stub the i18n hook and run the
-// real React renderer via `renderHook`. We deliberately do NOT mock `react`
-// globally here — that used to leak a fake `react` into the rest of the test
-// process and break react-dnd's real context in PanesPresetBarItem.
-mock.module("renderer/providers/I18nProvider", () => ({
-	useTranslation: () => ({ t: (key: string) => key }),
-}));
 
 const emptyFile = (): ChangedFile => ({
 	path: "src/example.ts",
@@ -70,7 +62,9 @@ beforeEach(async () => {
 
 describe("useOrderedSections", () => {
 	test("only returns current working tree sections", () => {
-		const { result } = renderHook(() => useOrderedSections(emptyArgs));
+		const { result } = renderHook(() => useOrderedSections(emptyArgs), {
+			wrapper: I18nProvider,
+		});
 
 		expect(result.current.map((section) => section.id)).toEqual([
 			"staged",
@@ -79,12 +73,14 @@ describe("useOrderedSections", () => {
 	});
 
 	test("keeps staged and unstaged counts", () => {
-		const { result } = renderHook(() =>
-			useOrderedSections({
-				...emptyArgs,
-				stagedFiles: [emptyFile(), emptyFile()],
-				unstagedFiles: [emptyFile(), emptyFile(), emptyFile()],
-			}),
+		const { result } = renderHook(
+			() =>
+				useOrderedSections({
+					...emptyArgs,
+					stagedFiles: [emptyFile(), emptyFile()],
+					unstagedFiles: [emptyFile(), emptyFile(), emptyFile()],
+				}),
+			{ wrapper: I18nProvider },
 		);
 
 		expect(

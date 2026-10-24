@@ -77,6 +77,16 @@ import {
 	SessionJournal,
 } from "./journal";
 import {
+	MYFLICKER_MODEL_CONFIG_ID,
+	MYFLICKER_SDK_DEFAULT_MODEL,
+	type MyFlickerModelCompatibility,
+	type MyFlickerModelContext,
+	MyFlickerModelSelectionError,
+	MyFlickerModels,
+	myFlickerModelOption,
+	withMyFlickerModel,
+} from "./myflicker-models";
+import {
 	isMyFlickerBackend,
 	MYFLICKER_RUNTIME_CONFIG_ID,
 	type MyFlickerBackend,
@@ -545,6 +555,8 @@ interface AcpSessionRuntime {
 	/** Persisted Superset coordinator/executor boundary for this session. */
 	role: SupersetSessionRole;
 	myflickerBackend?: MyFlickerBackend;
+	myflickerModelOption?: SessionConfigOption;
+	myflickerModelContext?: MyFlickerModelContext;
 	/** The adapter's ACP session id — host-internal, never leaves this file. */
 	acpSessionId: string;
 	child: ChildProcess;
@@ -653,6 +665,8 @@ export interface AcpSessionManagerOptions {
 	adapterEnv?: Record<string, string | undefined>;
 	/** Executable override for MyFlicker's native ACP server. */
 	myflickerAdapterCommand?: string;
+	/** Native mf model discovery/selection port; tests can supply an isolated implementation. */
+	myflickerModelCompatibility?: MyFlickerModelCompatibility;
 	/**
 	 * Local MCP servers supplied to every ACP session setup. These are sent on
 	 * both `session/new` and `session/load`, so resumed sessions keep the same
@@ -751,6 +765,7 @@ export class AcpSessionManager {
 	private readonly adapterExecPath: string | undefined;
 	private readonly adapterEnv: Record<string, string | undefined>;
 	private readonly myflickerAdapterCommand: string | undefined;
+	private readonly myflickerModels: MyFlickerModelCompatibility;
 	private readonly mcpServers: McpServer[];
 	private readonly resolveMcpServers:
 		| AcpSessionManagerOptions["resolveMcpServers"]
@@ -810,6 +825,8 @@ export class AcpSessionManager {
 		this.adapterExecPath = options.adapterExecPath;
 		this.adapterEnv = options.adapterEnv ?? {};
 		this.myflickerAdapterCommand = options.myflickerAdapterCommand;
+		this.myflickerModels =
+			options.myflickerModelCompatibility ?? new MyFlickerModels();
 		this.mcpServers = options.mcpServers ?? [];
 		this.resolveMcpServers = options.resolveMcpServers;
 		this.mcpServerFactory = options.mcpServerFactory;
@@ -2225,11 +2242,32 @@ export class AcpSessionManager {
 		value: string | boolean;
 	}): Promise<void> {
 		const runtime = this.requireLive(input.sessionId);
+		if (input.configId === MYFLICKER_MODEL_CONFIG_ID) {
+			const option = runtime.myflickerModelOption;
+			if (
+				!runtime.myflickerBackend ||
+				!option ||
+				option.type !== "select" ||
+				typeof input.value !== "string" ||
+				!option.options.some((o) => "value" in o && o.value === input.value)
+			) {
+				throw new Error("Invalid MyFlicker SDK model");
+			}
+			if (option.currentValue === input.value) return;
+			if (input.value === MYFLICKER_SDK_DEFAULT_MODEL)
+				throw new Error("Choose an explicit SDK model");
+			await this.replaceMyFlickerSelection(
+				runtime,
+				runtime.myflickerBackend,
+				input.value,
+			);
+			return;
+		}
 		if (input.configId === MYFLICKER_RUNTIME_CONFIG_ID) {
 			if (!runtime.myflickerBackend || !isMyFlickerBackend(input.value)) {
 				throw new Error("Invalid MyFlicker 2.0 runtime");
 			}
-			await this.switchEmptyMyFlickerRuntime(runtime, input.value);
+			await this.replaceMyFlickerSelection(runtime, input.value);
 			return;
 		}
 		const response = await runtime.connection.agent.request(
@@ -2250,24 +2288,32 @@ export class AcpSessionManager {
 		// The refreshed catalog rides the response — the adapter emits no
 		// config_option_update notification for client-initiated changes.
 		runtime.state.configOptions = runtime.myflickerBackend
-			? withMyFlickerRuntime(response.configOptions, runtime.myflickerBackend)
+			? withMyFlickerRuntime(
+					withMyFlickerModel(
+						response.configOptions,
+						runtime.myflickerModelOption,
+					),
+					runtime.myflickerBackend,
+				)
 			: response.configOptions;
 		this.emitState(runtime);
 	}
 
-	/** Runtime changes are safe only before a native conversation has any turns. */
-	private async switchEmptyMyFlickerRuntime(
+	/** Runtime changes require an empty chat; model changes reconnect the SAME native session. */
+	private async replaceMyFlickerSelection(
 		runtime: AcpSessionRuntime,
 		backend: MyFlickerBackend,
+		modelId?: string,
 	): Promise<void> {
-		if (runtime.myflickerBackend === backend) return;
+		if (!modelId && runtime.myflickerBackend === backend) return;
 		if (
 			!this.persistence ||
 			this.taskOwner?.(runtime.state.sessionId) ||
 			runtime.state.status !== "idle" ||
 			runtime.activePromptCount !== 0 ||
-			runtime.state.lastMessageAt !== null ||
-			runtime.state.lastStopReason !== null ||
+			(!modelId &&
+				(runtime.state.lastMessageAt !== null ||
+					runtime.state.lastStopReason !== null)) ||
 			runtime.state.queuedPrompts.length > 0 ||
 			runtime.pendingSendNow !== null ||
 			runtime.pendingResolvers.size > 0 ||
@@ -2275,7 +2321,9 @@ export class AcpSessionManager {
 			runtime.titleGenerationInFlight
 		) {
 			throw new Error(
-				"Choose a runtime before sending the first message; start a new conversation to change it later.",
+				modelId
+					? "Wait for this ordinary conversation to be idle before changing its SDK model."
+					: "Choose a runtime before sending the first message; start a new conversation to change it later.",
 			);
 		}
 		const previousBackend = runtime.myflickerBackend;
@@ -2305,19 +2353,39 @@ export class AcpSessionManager {
 		runtime.closed = true;
 		this.runtimes.delete(record.sessionId);
 		this.offline.set(record.sessionId, record);
+		let modelApplied = false;
+		let modelUncertain = false;
+		const previousModel = runtime.myflickerModelOption?.currentValue;
 		const reconnect = async (selectedBackend: MyFlickerBackend) => {
 			const replacement = await this.createRuntime(
 				record.sessionId,
 				record.workspaceId,
 				record,
 				record.harness,
-				true,
+				!modelId,
 				undefined,
 				false,
 				record.role,
 				record.cwd,
 				false,
-				{ backend: selectedBackend, subscribers: runtime.subscribers },
+				{
+					backend: selectedBackend,
+					subscribers: runtime.subscribers,
+					...(modelId
+						? {
+								modelId: modelUncertain
+									? undefined
+									: modelApplied
+										? modelId
+										: typeof previousModel === "string" &&
+												previousModel !== MYFLICKER_SDK_DEFAULT_MODEL
+											? previousModel
+											: undefined,
+								mode: runtime.state.configOptions.find((o) => o.id === "mode")
+									?.currentValue,
+							}
+						: {}),
+				},
 			);
 			this.offline.delete(record.sessionId);
 			return replacement;
@@ -2349,10 +2417,22 @@ export class AcpSessionManager {
 				clearTimeout(timer);
 			}
 			try {
+				if (modelId) {
+					if (!runtime.myflickerModelContext)
+						throw new Error("SDK model context unavailable");
+					await this.myflickerModels.select({
+						...runtime.myflickerModelContext,
+						sessionId: record.acpSessionId,
+						modelId,
+					});
+					modelApplied = true;
+				}
 				return await reconnect(backend);
 			} catch (error) {
+				modelUncertain = error instanceof MyFlickerModelSelectionError;
 				try {
-					await reconnect(previousBackend);
+					const recovered = await reconnect(previousBackend);
+					if (modelApplied && !modelUncertain) return recovered;
 				} catch (rollbackError) {
 					// Restore a truthful dead snapshot so the existing stream cannot
 					// remain stuck on Starting. History and native records stay intact.
@@ -2366,8 +2446,31 @@ export class AcpSessionManager {
 					runtime.closed = false;
 					runtime.dead = true;
 					runtime.state.status = "dead";
-					runtime.state.lastError =
-						"Runtime switch and reconnect failed; reopen this empty conversation.";
+					runtime.state.lastError = modelId
+						? "SDK model change could not be confirmed; reconnect this conversation before retrying."
+						: "Runtime switch and reconnect failed; reopen this empty conversation.";
+					if (modelId && runtime.myflickerModelOption?.type === "select") {
+						runtime.myflickerModelOption = {
+							...runtime.myflickerModelOption,
+							currentValue: MYFLICKER_SDK_DEFAULT_MODEL,
+							options: [
+								{
+									value: MYFLICKER_SDK_DEFAULT_MODEL,
+									name: "SDK default (not reported)",
+								},
+								...runtime.myflickerModelOption.options
+									.flatMap((o) => ("options" in o ? o.options : [o]))
+									.filter((o) => o.value !== MYFLICKER_SDK_DEFAULT_MODEL),
+							],
+						};
+						runtime.state.configOptions = withMyFlickerRuntime(
+							withMyFlickerModel(
+								runtime.state.configOptions,
+								runtime.myflickerModelOption,
+							),
+							previousBackend,
+						);
+					}
 					this.runtimes.set(record.sessionId, runtime);
 					this.offline.delete(record.sessionId);
 					this.emitState(runtime);
@@ -2619,6 +2722,8 @@ export class AcpSessionManager {
 		replacement?: {
 			backend: MyFlickerBackend;
 			subscribers: AcpSessionRuntime["subscribers"];
+			modelId?: string;
+			mode?: string | boolean;
 		},
 	): Promise<AcpSessionRuntime> {
 		let epoch = resume?.epoch ?? randomUUID();
@@ -2983,6 +3088,61 @@ export class AcpSessionManager {
 				configOptions = session.configOptions ?? [];
 			}
 
+			if (typeof replacement?.mode === "string") {
+				const previousMode = replacement.mode;
+				const mode = configOptions.find(
+					(o) => o.id === "mode" && o.type === "select",
+				);
+				if (mode && mode.currentValue !== previousMode) {
+					const response = await requestDuringStartup(
+						"restore SDK mode",
+						connection.agent.request("session/set_config_option", {
+							sessionId: acpSessionId,
+							configId: "mode",
+							value: previousMode,
+						}),
+					);
+					configOptions = response.configOptions;
+				}
+			}
+			let myflickerModelContext: MyFlickerModelContext | undefined;
+			let sdkModelOption: SessionConfigOption | undefined;
+			if (
+				(myflickerBackend === "codex" || myflickerBackend === "claude") &&
+				!configOptions.some((o) => o.id === "model" || o.category === "model")
+			) {
+				myflickerModelContext = {
+					command: adapterProcess.command,
+					cwd,
+					env,
+					backend: myflickerBackend,
+				};
+				const catalog = await this.myflickerModels.list(myflickerModelContext);
+				let savedModel = replacement?.modelId;
+				if (!replacement) {
+					for (let i = durableEntries.length - 1; i >= 0; i--) {
+						const frame = durableEntries[i]?.frame;
+						if (frame?.kind !== "state") continue;
+						const options = frame.state.configOptions;
+						if (
+							options.find((o) => o.id === MYFLICKER_RUNTIME_CONFIG_ID)
+								?.currentValue !== myflickerBackend
+						)
+							break;
+						const value = options.find(
+							(o) => o.id === MYFLICKER_MODEL_CONFIG_ID,
+						)?.currentValue;
+						if (
+							typeof value === "string" &&
+							value !== MYFLICKER_SDK_DEFAULT_MODEL
+						)
+							savedModel = value;
+						break;
+					}
+				}
+				sdkModelOption = myFlickerModelOption(catalog, savedModel);
+			}
+
 			// Apply the client-preferred model on fresh sessions only — a
 			// resumed session keeps whatever model it persisted.
 			if (model && !resume) {
@@ -3074,7 +3234,10 @@ export class AcpSessionManager {
 					title: resume?.title ?? null,
 					currentMode: modes,
 					configOptions: myflickerBackend
-						? withMyFlickerRuntime(configOptions, myflickerBackend)
+						? withMyFlickerRuntime(
+								withMyFlickerModel(configOptions, sdkModelOption),
+								myflickerBackend,
+							)
 						: configOptions,
 					availableCommands: null,
 					pendingPermissions: [],
@@ -3095,6 +3258,8 @@ export class AcpSessionManager {
 				},
 				role,
 				myflickerBackend,
+				myflickerModelOption: sdkModelOption,
+				myflickerModelContext,
 				acpSessionId,
 				child,
 				connection,
@@ -3548,7 +3713,13 @@ export class AcpSessionManager {
 				break;
 			case "config_option_update":
 				runtime.state.configOptions = runtime.myflickerBackend
-					? withMyFlickerRuntime(update.configOptions, runtime.myflickerBackend)
+					? withMyFlickerRuntime(
+							withMyFlickerModel(
+								update.configOptions,
+								runtime.myflickerModelOption,
+							),
+							runtime.myflickerBackend,
+						)
 					: update.configOptions;
 				this.emitState(runtime);
 				break;

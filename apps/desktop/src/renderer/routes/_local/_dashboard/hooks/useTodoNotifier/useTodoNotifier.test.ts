@@ -3,9 +3,6 @@ import { describe, expect, mock, test } from "bun:test";
 mock.module("renderer/lib/trpc-client", () => ({
 	electronTrpcClient: { notifications: { showNative: { mutate: mock() } } },
 }));
-mock.module("renderer/providers/I18nProvider", () => ({
-	useTranslation: () => ({ t: (key: string) => key }),
-}));
 mock.module(import.meta.resolve("../useLocalAutomationData"), () => ({
 	useLocalTodos: () => ({ data: [] }),
 }));

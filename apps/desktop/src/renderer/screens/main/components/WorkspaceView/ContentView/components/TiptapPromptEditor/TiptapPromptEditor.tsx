@@ -133,6 +133,7 @@ export const TiptapPromptEditor = forwardRef<
 
 	// IME composition guard (prevents submit while CJK input is pending)
 	const isComposingRef = useRef(false);
+	const restoreFocusAfterEditableRef = useRef(false);
 
 	// Track editor focus to show/hide the keyboard shortcut hint
 	const [isFocused, setIsFocused] = useState(false);
@@ -639,7 +640,19 @@ export const TiptapPromptEditor = forwardRef<
 	});
 
 	useEffect(() => {
-		editor?.setEditable(!disabled);
+		if (!editor) return;
+		if (disabled) {
+			restoreFocusAfterEditableRef.current = editor.view.dom.contains(
+				document.activeElement,
+			);
+			editor.setEditable(false);
+			return;
+		}
+		editor.setEditable(true);
+		if (restoreFocusAfterEditableRef.current) {
+			restoreFocusAfterEditableRef.current = false;
+			editor.commands.focus("end");
+		}
 	}, [disabled, editor]);
 
 	// Tiptap's placeholder decoration is calculated when the editor view updates;

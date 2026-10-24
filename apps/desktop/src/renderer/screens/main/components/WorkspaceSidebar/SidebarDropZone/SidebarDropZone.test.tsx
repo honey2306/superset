@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
+import { I18nProvider } from "renderer/providers/I18nProvider";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 
 const navigateMock = mock(() => {});
@@ -6,9 +7,6 @@ const startAtPathMock = mock(async (_path: string) => null);
 
 mock.module("@tanstack/react-router", () => ({
 	useNavigate: () => navigateMock,
-}));
-mock.module("renderer/providers/I18nProvider", () => ({
-	useTranslation: () => ({ t: (key: string) => key }),
 }));
 mock.module(
 	"renderer/routes/_local/_dashboard/components/AddRepositoryModals/hooks/useFolderFirstImport",
@@ -55,9 +53,11 @@ function dispatchDragEvent(
 describe("SidebarDropZone", () => {
 	test("does not consume react-dnd dragover events", () => {
 		const result = render(
-			<SidebarDropZone>
-				<div data-testid="child" />
-			</SidebarDropZone>,
+			<I18nProvider>
+				<SidebarDropZone>
+					<div data-testid="child" />
+				</SidebarDropZone>
+			</I18nProvider>,
 		);
 		const event = dispatchDragEvent(result.getByTestId("child"), "dragover", [
 			"application/x-react-dnd",
@@ -68,9 +68,11 @@ describe("SidebarDropZone", () => {
 
 	test("does not consume react-dnd drop events", () => {
 		const result = render(
-			<SidebarDropZone>
-				<div data-testid="child" />
-			</SidebarDropZone>,
+			<I18nProvider>
+				<SidebarDropZone>
+					<div data-testid="child" />
+				</SidebarDropZone>
+			</I18nProvider>,
 		);
 		const event = dispatchDragEvent(result.getByTestId("child"), "drop", [
 			"application/x-react-dnd",

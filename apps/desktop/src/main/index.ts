@@ -1,13 +1,16 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import type { AppRouter } from "@superset/host-service";
 import { settings } from "@superset/local-db";
+import { createTRPCClient, httpLink } from "@trpc/client";
 import {
 	app,
 	BrowserWindow,
 	dialog,
 	Notification,
 	net,
+	powerSaveBlocker,
 	protocol,
 	session,
 } from "electron";
@@ -19,6 +22,7 @@ import {
 	PLATFORM,
 	PROTOCOL_SCHEME,
 } from "shared/constants";
+import superjson from "superjson";
 import { startAgentBrowserBridge } from "./lib/agent-browser/browser-bridge-server";
 import { getAgentBrowserManager } from "./lib/agent-browser/browser-manager";
 import {
@@ -36,6 +40,10 @@ import { setWorkspaceDockIcon } from "./lib/dock-icon";
 import { getHostServiceCoordinator } from "./lib/host-service-coordinator";
 import { localDb } from "./lib/local-db";
 import { requestLocalNetworkAccess } from "./lib/local-network-permission";
+import {
+	createPowerSaveBlockerManager,
+	hasRunningWork,
+} from "./lib/power-save-blocker";
 import { ensureProjectIconsDir, getProjectIconPath } from "./lib/project-icons";
 import { disposeTray, initTray } from "./lib/tray";
 import { startNetworkLogger, stopNetworkLogger } from "./network-logger";
@@ -170,6 +178,72 @@ let forceFullCleanup = false;
 let closeAgentBrowserBridge: (() => Promise<void>) | null = null;
 let closeAgentBrowserCdpProxy: (() => Promise<void>) | null = null;
 let closeComputerRuntimeBridge: (() => Promise<void>) | null = null;
+const powerSaveBlockerManager = createPowerSaveBlockerManager(powerSaveBlocker);
+let powerSavePoll: ReturnType<typeof setInterval> | null = null;
+let powerSaveGeneration = 0;
+
+function stopPowerSaveMonitoring(): void {
+	powerSaveGeneration += 1;
+	if (powerSavePoll !== null) clearInterval(powerSavePoll);
+	powerSavePoll = null;
+	powerSaveBlockerManager.stop();
+}
+
+function startPowerSaveMonitoring(): void {
+	stopPowerSaveMonitoring();
+	const generation = powerSaveGeneration;
+	let polling = false;
+	const poll = async () => {
+		if (polling) return;
+		polling = true;
+		try {
+			const connection = getHostServiceCoordinator().getConnection();
+			if (!connection) {
+				powerSaveBlockerManager.setActive(false);
+				return;
+			}
+			const client = createTRPCClient<AppRouter>({
+				links: [
+					httpLink({
+						url: `http://127.0.0.1:${connection.port}/trpc`,
+						transformer: superjson,
+						headers: { Authorization: `Bearer ${connection.secret}` },
+					}),
+				],
+			});
+			const agents = await client.terminalAgents.list.query();
+			let cursor: string | undefined;
+			let active = hasRunningWork(
+				[],
+				agents.map((agent) => agent.lastEventType),
+			);
+			while (!active) {
+				const page = await client.acpSessions.list.query({
+					limit: 100,
+					cursor,
+				});
+				active = hasRunningWork(
+					page.items.map((item) => item.status),
+					[],
+				);
+				if (!page.nextCursor) break;
+				cursor = page.nextCursor;
+			}
+			if (generation === powerSaveGeneration) {
+				powerSaveBlockerManager.setActive(active);
+			}
+		} catch {
+			if (generation === powerSaveGeneration) {
+				powerSaveBlockerManager.setActive(false);
+			}
+		} finally {
+			polling = false;
+		}
+	};
+	void poll();
+	powerSavePoll = setInterval(() => void poll(), 2_000);
+	powerSavePoll.unref();
+}
 
 export function setSkipQuitConfirmation(): void {
 	skipQuitConfirmation = true;
@@ -227,6 +301,7 @@ app.on("before-quit", async (event) => {
 	}
 
 	isQuitting = true;
+	stopPowerSaveMonitoring();
 	try {
 		if (forceFullCleanup) {
 			await getHostServiceCoordinator().shutdownPtyDaemon();
@@ -264,6 +339,7 @@ if (process.env.NODE_ENV === "development") {
 		if (signalHandled) return;
 		signalHandled = true;
 		console.log(`[main] Received ${signal}, quitting...`);
+		stopPowerSaveMonitoring();
 		void Promise.allSettled([
 			getHostServiceCoordinator().stop(),
 			closeAgentBrowserCdpProxy?.(),
@@ -433,6 +509,7 @@ if (!gotTheLock) {
 		// Must happen before renderer restore runs. The embedded host is a single
 		// local runtime and starts without cloud credentials.
 		const localHostConfig = getHostServiceSpawnConfig();
+		startPowerSaveMonitoring();
 		void getHostServiceCoordinator()
 			.start(localHostConfig)
 			.catch((error) => {

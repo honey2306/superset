@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { I18nProvider } from "renderer/providers/I18nProvider";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 
 let renderHook: typeof import("@testing-library/react/pure").renderHook;
@@ -32,6 +33,7 @@ const requestGitInitMock = mock(async () => false);
 
 mock.module("renderer/lib/electron-trpc", () => ({
 	electronTrpc: {
+		createClient: () => ({}),
 		window: {
 			selectDirectory: {
 				useMutation: () => ({ mutateAsync: selectDirectoryMock }),
@@ -57,13 +59,10 @@ mock.module("renderer/react-query/projects", () => ({
 	useFinalizeProjectSetup: () => finalizeSetupMock,
 }));
 
-mock.module("renderer/providers/I18nProvider", () => ({
-	useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 mock.module(
 	"renderer/routes/_local/providers/LocalHostServiceProvider",
 	() => ({
+		useMaybeLocalHostService: () => null,
 		useLocalHostService: () => ({
 			activeHostUrl: hostUrl,
 			waitForHostReady: async () => hostUrl,
@@ -103,7 +102,9 @@ describe("useFolderFirstImport", () => {
 		requestGitInitMock.mockResolvedValue(true);
 		const onError = mock(() => undefined);
 
-		const { result } = renderHook(() => useFolderFirstImport({ onError }));
+		const { result } = renderHook(() => useFolderFirstImport({ onError }), {
+			wrapper: I18nProvider,
+		});
 		const ret = await result.current.start();
 
 		expect(requestGitInitMock).toHaveBeenCalledWith(repoPath);
@@ -142,7 +143,9 @@ describe("useFolderFirstImport", () => {
 		requestGitInitMock.mockResolvedValue(false);
 		const onError = mock(() => undefined);
 
-		const { result } = renderHook(() => useFolderFirstImport({ onError }));
+		const { result } = renderHook(() => useFolderFirstImport({ onError }), {
+			wrapper: I18nProvider,
+		});
 		const ret = await result.current.start();
 
 		expect(ret).toBeNull();

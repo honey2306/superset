@@ -8,8 +8,18 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { SessionUpdateEnvelope } from "@superset/session-protocol";
+import {
+	emptyTimeline,
+	foldEnvelopes,
+	type SessionUpdateEnvelope,
+} from "@superset/session-protocol";
 import { AcpSessionManager } from "./acp-sessions";
+import {
+	MYFLICKER_MODEL_CONFIG_ID,
+	MYFLICKER_SDK_DEFAULT_MODEL,
+	type MyFlickerModelCompatibility,
+	MyFlickerModelSelectionError,
+} from "./myflicker-models";
 import { MYFLICKER_RUNTIME_CONFIG_ID } from "./myflicker-runtime";
 import type { AcpSessionPersistence, AcpSessionRecord } from "./persistence";
 
@@ -21,7 +31,7 @@ afterEach(async () => {
 		rmSync(directory, { recursive: true, force: true });
 });
 
-function fixture(taskOwned = false) {
+function fixture(taskOwned = false, models?: MyFlickerModelCompatibility) {
 	const directory = mkdtempSync(path.join(tmpdir(), "mf-runtime-"));
 	directories.push(directory);
 	const command = path.join(directory, "mf");
@@ -33,7 +43,7 @@ function fixture(taskOwned = false) {
 	);
 	writeFileSync(
 		command,
-		`#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\nif [ -f '${fail}' ] && { [ "$2" = claude ] || [ "$(cat '${fail}')" = all ]; }; then exit 1; fi\nexec '${process.execPath}' '${adapter}'\n`,
+		`#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\nif [ -f '${fail}' ] && { [ "$2" = claude ] || [ "$(cat '${fail}')" = all ]; }; then exit 1; fi\n${models ? 'if [ "$2" = codex ] || [ "$2" = claude ]; then export FAKE_ACP_NO_MODEL_OPTION=1; fi\n' : ""}exec '${process.execPath}' '${adapter}'\n`,
 	);
 	chmodSync(command, 0o755);
 	const records = new Map<string, AcpSessionRecord>();
@@ -62,6 +72,7 @@ function fixture(taskOwned = false) {
 		const manager = new AcpSessionManager({
 			resolveWorkspaceCwd: () => directory,
 			myflickerAdapterCommand: command,
+			myflickerModelCompatibility: models,
 			persistence,
 			idleHibernateMs: null,
 			startupTimeoutMs: 2_000,
@@ -236,4 +247,189 @@ test("never changes runtime once a conversation has messages", async () => {
 	).rejects.toThrow("before sending the first message");
 	expect(readFileSync(f.log, "utf8")).toBe(initial);
 	expect(backend(manager)).toBe("myflicker");
+});
+
+function sdkFixture(rejectSelection: boolean | "unknown" = false) {
+	const selections: Array<{ sessionId: string; modelId: string }> = [];
+	const models: MyFlickerModelCompatibility = {
+		list: async () => [
+			{ id: "fixture/model-a", name: "Model A" },
+			{ id: "fixture/model-b", name: "Model B" },
+		],
+		select: async (input) => {
+			if (rejectSelection === "unknown")
+				throw new MyFlickerModelSelectionError("Outcome unknown");
+			if (rejectSelection) throw new Error("SDK model unavailable");
+			selections.push({ sessionId: input.sessionId, modelId: input.modelId });
+		},
+	};
+	return { ...fixture(false, models), selections };
+}
+const sdkModel = (manager: AcpSessionManager, id = "mf-test") =>
+	manager.get(id).configOptions.find((o) => o.id === MYFLICKER_MODEL_CONFIG_ID);
+function timeline(manager: AcpSessionManager) {
+	return foldEnvelopes(
+		emptyTimeline(),
+		manager.getMessages({ sessionId: "mf-test" }).items,
+	);
+}
+async function chooseCodex(manager: AcpSessionManager, id = "mf-test") {
+	await manager.setConfigOption({
+		sessionId: id,
+		configId: MYFLICKER_RUNTIME_CONFIG_ID,
+		value: "codex",
+	});
+}
+
+test("SDK runtimes without native model controls expose compatible models and reconnect the SAME conversation", async () => {
+	const f = sdkFixture();
+	const manager = f.newManager();
+	await create(manager);
+	await chooseCodex(manager);
+	expect(sdkModel(manager)?.currentValue).toBe(MYFLICKER_SDK_DEFAULT_MODEL);
+	const native = f.records.get("mf-test")?.acpSessionId;
+	await manager.prompt({
+		sessionId: "mf-test",
+		prompt: [{ type: "text", text: "say context preserved" }],
+	}).turn;
+	const transcript = timeline(manager);
+	const frames: SessionUpdateEnvelope[] = [];
+	const unsubscribe = manager.subscribe({
+		sessionId: "mf-test",
+		onEnvelope: (e) => frames.push(e),
+	});
+	await manager.setConfigOption({
+		sessionId: "mf-test",
+		configId: MYFLICKER_MODEL_CONFIG_ID,
+		value: "fixture/model-b",
+	});
+	expect(f.selections).toEqual([
+		{ sessionId: native ?? "", modelId: "fixture/model-b" },
+	]);
+	expect(f.records.get("mf-test")?.acpSessionId).toBe(native);
+	expect(sdkModel(manager)?.currentValue).toBe("fixture/model-b");
+	expect(timeline(manager).items).toEqual(transcript.items);
+	for (let i = 1; i < frames.length; i++)
+		expect(frames[i]?.seq).toBe((frames[i - 1]?.seq ?? 0) + 1);
+	await manager.setConfigOption({
+		sessionId: "mf-test",
+		configId: "thinking",
+		value: "high",
+	});
+	expect(sdkModel(manager)?.currentValue).toBe("fixture/model-b");
+	unsubscribe();
+	await manager.dispose();
+	const restored = f.newManager();
+	await restored.ensureLive("mf-test");
+	expect(sdkModel(restored)?.currentValue).toBe("fixture/model-b");
+	expect(f.selections).toHaveLength(1);
+	expect(f.records.get("mf-test")?.acpSessionId).toBe(native);
+});
+
+test("an SDK rejection is not reported as a successful model change and leaves history intact", async () => {
+	const f = sdkFixture(true);
+	const manager = f.newManager();
+	await create(manager);
+	await chooseCodex(manager);
+	await manager.prompt({
+		sessionId: "mf-test",
+		prompt: [{ type: "text", text: "say keep history" }],
+	}).turn;
+	const native = f.records.get("mf-test")?.acpSessionId;
+	const items = timeline(manager).items;
+	await expect(
+		manager.setConfigOption({
+			sessionId: "mf-test",
+			configId: MYFLICKER_MODEL_CONFIG_ID,
+			value: "fixture/model-b",
+		}),
+	).rejects.toThrow("SDK model unavailable");
+	expect(sdkModel(manager)?.currentValue).toBe(MYFLICKER_SDK_DEFAULT_MODEL);
+	expect(manager.get("mf-test").status).toBe("idle");
+	expect(timeline(manager).items).toEqual(items);
+	expect(f.records.get("mf-test")?.acpSessionId).toBe(native);
+});
+
+test("an uncertain native selection reconnects without falsely attributing a model or success", async () => {
+	const f = sdkFixture("unknown");
+	const manager = f.newManager();
+	await create(manager);
+	await chooseCodex(manager);
+	await manager.prompt({
+		sessionId: "mf-test",
+		prompt: [{ type: "text", text: "say preserved" }],
+	}).turn;
+	const items = timeline(manager).items;
+	const native = f.records.get("mf-test")?.acpSessionId;
+	await expect(
+		manager.setConfigOption({
+			sessionId: "mf-test",
+			configId: MYFLICKER_MODEL_CONFIG_ID,
+			value: "fixture/model-b",
+		}),
+	).rejects.toThrow("Outcome unknown");
+	expect(manager.get("mf-test").status).toBe("idle");
+	expect(sdkModel(manager)?.currentValue).toBe(MYFLICKER_SDK_DEFAULT_MODEL);
+	await manager.ensureLive("mf-test");
+	expect(manager.get("mf-test").status).toBe("idle");
+	expect(timeline(manager).items).toEqual(items);
+	expect(f.records.get("mf-test")?.acpSessionId).toBe(native);
+	expect(sdkModel(manager)?.currentValue).toBe(MYFLICKER_SDK_DEFAULT_MODEL);
+});
+
+test("SDK model changes are session isolated and blocked during an active turn", async () => {
+	const f = sdkFixture();
+	const manager = f.newManager();
+	await create(manager);
+	await chooseCodex(manager);
+	await manager.create({
+		sessionId: "other",
+		workspaceId: "workspace",
+		harness: "myflicker-acp",
+	});
+	await chooseCodex(manager, "other");
+	await manager.setConfigOption({
+		sessionId: "other",
+		configId: MYFLICKER_MODEL_CONFIG_ID,
+		value: "fixture/model-a",
+	});
+	expect(sdkModel(manager)?.currentValue).toBe(MYFLICKER_SDK_DEFAULT_MODEL);
+	expect(sdkModel(manager, "other")?.currentValue).toBe("fixture/model-a");
+	let toolStarted: (() => void) | undefined;
+	const observed = new Promise<void>((resolve) => {
+		toolStarted = resolve;
+	});
+	const unsubscribe = manager.subscribe({
+		sessionId: "mf-test",
+		onEnvelope: (envelope) => {
+			if (
+				envelope.frame.kind === "update" &&
+				envelope.frame.update.sessionUpdate === "tool_call"
+			)
+				toolStarted?.();
+		},
+	});
+	const { turn } = manager.prompt({
+		sessionId: "mf-test",
+		prompt: [{ type: "text", text: "hang" }],
+	});
+	await expect(
+		manager.setConfigOption({
+			sessionId: "mf-test",
+			configId: MYFLICKER_MODEL_CONFIG_ID,
+			value: "fixture/model-b",
+		}),
+	).rejects.toThrow("idle");
+	expect(f.selections).toHaveLength(1);
+	await observed;
+	unsubscribe();
+	await manager.cancel({ sessionId: "mf-test" });
+	await turn;
+	await expect(
+		manager.setConfigOption({
+			sessionId: "mf-test",
+			configId: MYFLICKER_MODEL_CONFIG_ID,
+			value: "not-in-catalog",
+		}),
+	).rejects.toThrow("Invalid");
 });

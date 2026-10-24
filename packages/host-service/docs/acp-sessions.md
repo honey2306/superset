@@ -37,7 +37,21 @@ agent presets launch through ACP; it does not enable or disable the runtime.
 
 **MyFlicker 2.0 runtime**: the default is explicitly `myflicker`, not the
 CLI's global backend preference. In mf 2.0.25, Codex/Claude backends omit ACP
-model controls and reject model changes with `config.set` missing. The bottom
+model controls and reject model changes with `config.set` missing. Host supplies
+an authenticated registry model picker for these backends, using actual protocol
+metadata rather than guessing from model names. While idle, selection releases
+the ACP owner, initializes the **same native session** through `sdk-server` with
+a session-only model override, persists `session.setModel`, then reloads ACP.
+Both steps matter: ACP `--model` alone can lose to a saved Codex binding; SDK init
+alone does not persist Claude's model for its next ACP load. Global defaults
+remain untouched, transcript replay is suppressed against the existing journal,
+and subscribers keep a continuous sequence. The selected model survives restart.
+Until an explicit choice, the picker says `SDK default (not reported)` rather
+than falsely attributing the CLI's global model to an existing native session.
+An uncertain selection returns an error and reconnects with an explicitly
+unreported model, never a false selection/success. Failed reconnects retain a
+truthful dead snapshot and the original transcript. Newer mf versions that supply native ACP model controls
+keep precedence over this compatibility path. The bottom
 status bar offers MyFlicker/Codex/Claude before the first message. Switching an
 empty conversation replaces its native adapter/session, preserves the Superset
 id, journal and live subscription, and rolls back a failed launch. The selection

@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
 import { createElement } from "react";
+import { I18nProvider } from "renderer/providers/I18nProvider";
 import { ensureHappyDom } from "test-utils/happy-dom-env";
 import type { OpenAIUsageBadge as OpenAIUsageBadgeComponent } from "./OpenAIUsageBadge";
 
@@ -13,13 +14,6 @@ mock.module("renderer/lib/host-service-trpc", () => ({
 			},
 		},
 	},
-}));
-
-mock.module("renderer/providers/I18nProvider", () => ({
-	useTranslation: () => ({
-		t: (key: string, values?: Record<string, unknown>) =>
-			values ? `${key}(${JSON.stringify(values)})` : key,
-	}),
 }));
 
 let OpenAIUsageBadge: typeof OpenAIUsageBadgeComponent;
@@ -41,7 +35,9 @@ afterEach(() => {
 describe("OpenAIUsageBadge", () => {
 	test("renders nothing while data is loading", () => {
 		useCodexUsageQuery.mockReturnValue({ data: undefined });
-		const { container } = render(createElement(OpenAIUsageBadge));
+		const { container } = render(
+			createElement(I18nProvider, null, createElement(OpenAIUsageBadge)),
+		);
 		expect(container.firstChild).toBeNull();
 	});
 
@@ -49,7 +45,9 @@ describe("OpenAIUsageBadge", () => {
 		useCodexUsageQuery.mockReturnValue({
 			data: { available: false, reason: "no-rollouts" },
 		});
-		const { container } = render(createElement(OpenAIUsageBadge));
+		const { container } = render(
+			createElement(I18nProvider, null, createElement(OpenAIUsageBadge)),
+		);
 		expect(container.firstChild).toBeNull();
 	});
 
@@ -70,7 +68,7 @@ describe("OpenAIUsageBadge", () => {
 				sourceFile: "/tmp/x.jsonl",
 			},
 		});
-		render(createElement(OpenAIUsageBadge));
+		render(createElement(I18nProvider, null, createElement(OpenAIUsageBadge)));
 		expect(screen.getByText("57%")).toBeTruthy();
 	});
 
@@ -91,7 +89,9 @@ describe("OpenAIUsageBadge", () => {
 				sourceFile: "/tmp/x.jsonl",
 			},
 		});
-		const { container } = render(createElement(OpenAIUsageBadge));
+		const { container } = render(
+			createElement(I18nProvider, null, createElement(OpenAIUsageBadge)),
+		);
 		const badge = container.querySelector("[data-level]");
 		expect(badge?.getAttribute("data-level")).toBe("crit");
 	});
